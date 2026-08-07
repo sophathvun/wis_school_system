@@ -1,0 +1,6 @@
+@font-face {
+    font-family: 'Noto Sans Khmer';
+    font-style: normal;
+    font-weight: normal;
+    src: url('{{ storage_path('app/public/fonts/NotoSansKhmer-Regular.ttf') }}') format('truetype');
+}
