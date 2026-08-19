@@ -23,4 +23,5 @@ class EnrollmentWorkflowAction extends Model
     public function toGrade() { return $this->belongsTo(Grade::class, 'to_grade_id'); }
     public function toClass() { return $this->belongsTo(SchoolClass::class, 'to_class_id'); }
     public function toSession() { return $this->belongsTo(Session::class, 'to_session_id'); }
+    public function changedBy() { return $this->belongsTo(User::class, 'changed_by'); }
 }

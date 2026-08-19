@@ -19,6 +19,8 @@ use App\Models\Country;
 use App\Models\Occupation;
 use App\Models\StudentEnrollmentHistory;
 use App\Models\Family;
+use App\Models\AcademicTrack;
+use App\Models\EnrollmentWorkflowAction;
 
 class StudentEnrollmentController
 {
@@ -28,19 +30,43 @@ class StudentEnrollmentController
         return view('student-enrollment');
     }
 
+    public function listOptions()
+    {
+        return response()->json($this->enrollmentListOptions());
+    }
+
     public function options()
     {
+        $listOptions = $this->enrollmentListOptions();
+
         return response()->json([
-            'academicYears' => AcademicYear::where('status', 1)->latest('id')->get(['id', 'academic_year', 'period_type', 'parent_academic_year_id', 'start_date', 'end_date']),
-            'grades' => Grade::where('status', 1)->orderByRaw('CAST(grade_order AS UNSIGNED)')->get(['id', 'grade']),
+            'academicYears' => AcademicYear::whereIn('lifecycle_status', ['started', 'pending'])
+                ->latest('id')
+                ->get(['id', 'academic_year', 'period_type', 'parent_academic_year_id', 'lifecycle_status', 'start_date', 'end_date']),
+            'allAcademicYears' => $listOptions['allAcademicYears'],
+            'grades' => Grade::where('status', 1)->orderByRaw('CAST(grade_order AS UNSIGNED)')->get(['id', 'grade', 'grade_short_name', 'grade_order']),
             'classes' => SchoolClass::where('status', 1)->orderByRaw('CAST(class_order AS UNSIGNED)')->get(['id', 'class_name', 'grade_id']),
+            'enrollmentGradeClasses' => StudentEnrollment::query()
+                ->join('tb_grade', 'tb_grade.id', '=', 'tb_student_enrollment.grade_id')
+                ->join('tb_class', 'tb_class.id', '=', 'tb_student_enrollment.class_id')
+                ->select('tb_student_enrollment.grade_id', 'tb_student_enrollment.class_id', 'tb_grade.grade', 'tb_grade.grade_order', 'tb_class.class_name', 'tb_class.class_order')
+                ->distinct()
+                ->orderByRaw('CAST(tb_grade.grade_order AS UNSIGNED)')
+                ->orderByRaw('CAST(tb_class.class_order AS UNSIGNED)')
+                ->orderBy('tb_class.class_name')
+                ->get(),
+            'academicTracks' => AcademicTrack::where('status', 1)->orderBy('stream_type')->orderBy('language')->get(['id', 'grade_id', 'name_en', 'name_kh', 'code', 'stream_type', 'language']),
             'campuses' => SchoolInfo::orderBy('campus_name_en')->get(['id', 'campus_name_en', 'campus_name_kh', 'status']),
             'sessions' => Session::where('status', 1)->orderByRaw('CAST(session_order AS UNSIGNED)')->get(['id', 'session_name', 'session_short_name']),
+            'enrollmentStudents' => Student::whereHas('enrollments')
+                ->orderByRaw("COALESCE(NULLIF(full_name_en, ''), full_name_kh) asc")
+                ->get(['id', 'student_id', 'full_name_en', 'full_name_kh']),
+            'enrollmentFilterRows' => $listOptions['enrollmentFilterRows'],
             'families' => Student::query()
                 ->whereNotNull('family_number')
                 ->where('family_number', '!=', '')
                 ->select('family_number')
-                ->selectRaw('MIN(first_name_en) as first_name_en, MIN(last_name_en) as last_name_en')
+                ->selectRaw('MIN(full_name_en) as full_name_en')
                 ->groupBy('family_number')
                 ->orderBy('family_number')
                 ->get(),
@@ -50,8 +76,8 @@ class StudentEnrollmentController
                 ->mapWithKeys(fn ($family) => [$family->family_number => [
                     'members' => $family->members->map(fn ($member) => [
                         'relationship_type' => $member->relationship_type,
-                        'name_en' => $member->full_name_en ?: ($member->name_en ?: trim(($member->first_name_en ?? '').' '.($member->last_name_en ?? ''))),
-                        'name_kh' => $member->full_name_kh ?: ($member->name_kh ?: trim(($member->first_name_kh ?? '').' '.($member->last_name_kh ?? ''))),
+                        'name_en' => $member->full_name_en,
+                        'name_kh' => $member->full_name_kh,
                         'phone' => $member->phone,
                         'workplace' => $member->workplace,
                         'occupation_id' => $member->occupation_id,
@@ -67,17 +93,50 @@ class StudentEnrollmentController
     public function fetchData(Request $request)
     {
         $search = $request->query('search');
-        $query = StudentEnrollment::with(['student.birthCountry', 'student.birthProvince', 'student.birthDistrict', 'student.birthCommune', 'student.birthVillage', 'student.nationalityCountry', 'student.addressCountry', 'student.addressProvince', 'student.addressDistrict', 'student.addressCommune', 'student.addressVillage', 'campus', 'academicYear', 'grade', 'schoolClass', 'schoolGroup', 'session'])
+        $sortBy = (string) $request->query('sortBy', 'id');
+        $sortDir = $request->query('sortDir') === 'asc' ? 'asc' : 'desc';
+        $gradeClass = (string) $request->query('grade_class', '');
+        [$filterGradeId, $filterClassId] = array_pad(explode(':', $gradeClass, 2), 2, null);
+        $query = StudentEnrollment::query()
+            ->select('tb_student_enrollment.*')
+            ->addSelect([
+                'was_transferred_from_other_campus' => EnrollmentWorkflowAction::query()
+                    ->selectRaw('1')
+                    ->whereColumn('target_enrollment_id', 'tb_student_enrollment.id')
+                    ->whereIn('action_type', ['transfer', 'class_transfer', 'selected_transfer'])
+                    ->whereColumn('from_campus_id', '!=', 'to_campus_id')
+                    ->limit(1),
+                'transfer_from_campus_name' => EnrollmentWorkflowAction::query()
+                    ->join('tb_school_info as transfer_from_campus', 'transfer_from_campus.id', '=', 'tb_student_enrollment_workflow.from_campus_id')
+                    ->select('transfer_from_campus.campus_name_en')
+                    ->whereColumn('target_enrollment_id', 'tb_student_enrollment.id')
+                    ->whereIn('action_type', ['transfer', 'class_transfer', 'selected_transfer'])
+                    ->whereColumn('from_campus_id', '!=', 'to_campus_id')
+                    ->latest('tb_student_enrollment_workflow.id')
+                    ->limit(1),
+            ])
+            ->leftJoin('tb_student', 'tb_student.id', '=', 'tb_student_enrollment.student_id')
+            ->leftJoin('tb_academic_year', 'tb_academic_year.id', '=', 'tb_student_enrollment.academic_year_id')
+            ->leftJoin('tb_school_info', 'tb_school_info.id', '=', 'tb_student_enrollment.campus_id')
+            ->leftJoin('tb_grade', 'tb_grade.id', '=', 'tb_student_enrollment.grade_id')
+            ->leftJoin('tb_class', 'tb_class.id', '=', 'tb_student_enrollment.class_id')
+            ->leftJoin('tb_academic_track', 'tb_academic_track.id', '=', 'tb_student_enrollment.academic_track_id')
+            ->leftJoin('tb_session', 'tb_session.id', '=', 'tb_student_enrollment.session_id')
+            ->with(['student.birthCountry', 'student.birthProvince', 'student.birthDistrict', 'student.birthCommune', 'student.birthVillage', 'student.nationalityCountry', 'student.addressCountry', 'student.addressProvince', 'student.addressDistrict', 'student.addressCommune', 'student.addressVillage', 'student.families.members', 'campus', 'academicYear', 'grade', 'schoolClass', 'academicTrack', 'schoolGroup', 'session'])
+            ->when($request->filled('academic_year_id'), fn ($q) => $q->where('tb_student_enrollment.academic_year_id', $request->integer('academic_year_id')))
+            ->when($request->filled('campus_id'), fn ($q) => $q->where('tb_student_enrollment.campus_id', $request->integer('campus_id')))
+            ->when($filterGradeId && $filterClassId, fn ($q) => $q->where('tb_student_enrollment.grade_id', (int) $filterGradeId)->where('tb_student_enrollment.class_id', (int) $filterClassId))
+            ->when($request->filled('group_id'), fn ($q) => $q->where('tb_student_enrollment.session_id', $request->integer('group_id')))
+            ->when($request->filled('student_id'), fn ($q) => $q->where('tb_student_enrollment.student_id', $request->integer('student_id')))
+            ->when($request->filled('enrollment_status'), fn ($q) => $q->where('tb_student_enrollment.enrollment_status', $request->string('enrollment_status')->toString()))
             ->when($search, function ($q, $term) {
                 $q->where(function ($query) use ($term) {
                     $query->whereHas('student', function ($studentQuery) use ($term) {
                         $studentQuery->where('student_no', 'like', "%{$term}%")
                             ->orWhere('student_id', 'like', "%{$term}%")
                             ->orWhere('family_number', 'like', "%{$term}%")
-                            ->orWhere('first_name_en', 'like', "%{$term}%")
-                            ->orWhere('last_name_en', 'like', "%{$term}%")
-                            ->orWhere('first_name_kh', 'like', "%{$term}%")
-                            ->orWhere('last_name_kh', 'like', "%{$term}%");
+                            ->orWhere('full_name_en', 'like', "%{$term}%")
+                            ->orWhere('full_name_kh', 'like', "%{$term}%");
                     })->orWhereHas('campus', function ($campusQuery) use ($term) {
                         $campusQuery->where('campus_name_en', 'like', "%{$term}%")
                             ->orWhere('campus_name_kh', 'like', "%{$term}%");
@@ -85,14 +144,78 @@ class StudentEnrollmentController
                 });
             });
 
-        return response()->json($query->latest('id')->paginate($request->query('perPage', 10)));
+        match ($sortBy) {
+            'student_id' => $query->orderBy('tb_student.student_id', $sortDir),
+            'student_name' => $query->orderByRaw("LOWER(COALESCE(NULLIF(tb_student.full_name_en, ''), tb_student.full_name_kh)) {$sortDir}"),
+            'student_type' => $query->orderBy('tb_student_enrollment.student_type', $sortDir),
+            'academic_year' => $query->orderBy('tb_academic_year.academic_year', $sortDir),
+            'campus' => $query->orderBy('tb_school_info.campus_name_en', $sortDir),
+            'grade' => $query->orderByRaw("CAST(tb_grade.grade_order AS UNSIGNED) {$sortDir}")->orderByRaw("CAST(tb_class.class_order AS UNSIGNED) {$sortDir}")->orderBy('tb_class.class_name', $sortDir),
+            'academic_track' => $query->orderBy('tb_academic_track.name_en', $sortDir),
+            'group' => $query->orderByRaw("CAST(tb_session.session_order AS UNSIGNED) {$sortDir}")->orderBy('tb_session.session_short_name', $sortDir),
+            'status' => $query->orderBy('tb_student_enrollment.enrollment_status', $sortDir),
+            default => $query->orderByDesc('tb_student_enrollment.id'),
+        };
+
+        return response()->json($query->paginate($request->query('perPage', 10)));
+    }
+
+    public function studentAcademicYears(Student $student)
+    {
+        return response()->json([
+            'student' => $student->only(['id', 'student_id', 'full_name_en', 'full_name_kh']),
+            'enrollments' => StudentEnrollment::query()
+                ->select('tb_student_enrollment.*')
+                ->leftJoin('tb_academic_year', 'tb_academic_year.id', '=', 'tb_student_enrollment.academic_year_id')
+                ->with(['academicYear', 'campus', 'grade', 'schoolClass', 'academicTrack', 'session'])
+                ->where('tb_student_enrollment.student_id', $student->id)
+                ->orderByDesc('tb_academic_year.academic_year')
+                ->orderByDesc('tb_student_enrollment.id')
+                ->get(),
+        ]);
+    }
+
+    public function siblings(Student $student)
+    {
+        if (!filled($student->family_number)) {
+            return response()->json(['siblings' => []]);
+        }
+
+        $siblings = Student::query()
+            ->where('family_number', $student->family_number)
+            ->where('id', '!=', $student->id)
+            ->with(['enrollments' => function ($query) {
+                $query->with(['academicYear', 'campus', 'grade', 'schoolClass', 'session'])
+                    ->orderByDesc('academic_year_id')
+                    ->orderByDesc('id');
+            }])
+            ->orderBy('full_name_en')
+            ->get(['id', 'student_no', 'student_id', 'photo_path', 'full_name_en', 'full_name_kh', 'status'])
+            ->map(function (Student $sibling) {
+                $currentEnrollment = $sibling->enrollments->first(fn ($enrollment) => $enrollment->enrollment_status === 'active')
+                    ?? $sibling->enrollments->first();
+
+                return [
+                    'id' => $sibling->id,
+                    'student_no' => $sibling->student_no,
+                    'student_id' => $sibling->student_id,
+                    'photo_path' => $sibling->photo_path,
+                    'full_name_en' => $sibling->full_name_en,
+                    'full_name_kh' => $sibling->full_name_kh,
+                    'status' => $sibling->status,
+                    'current_enrollment' => $currentEnrollment,
+                ];
+            })
+            ->values();
+
+        return response()->json(['siblings' => $siblings]);
     }
 
     public function history(StudentEnrollment $enrollment)
     {
         return response()->json([
-            'student' => $enrollment->student()->first(['id', 'student_no', 'student_id', 'first_name_en', 'last_name_en']),
-            'history' => $enrollment->history()->with(['campus', 'academicYear', 'grade', 'schoolClass', 'session', 'changedBy:id,name'])->orderByDesc('updated_at')->orderByDesc('id')->get(),
+            'student' => $enrollment->student()->first(['id', 'student_no', 'student_id', 'full_name_en', 'full_name_kh']),
+            'history' => $enrollment->history()->with(['campus', 'academicYear', 'grade', 'schoolClass', 'academicTrack', 'session', 'changedBy:id,name'])->orderByDesc('updated_at')->orderByDesc('id')->get(),
         ]);
     }
 
@@ -135,12 +258,13 @@ class StudentEnrollmentController
             'tested_by' => ['nullable', 'string', 'max:150'],
             'remarks' => ['nullable', 'string', 'max:5000'],
             'campus_id' => ['required', 'exists:tb_school_info,id'],
-            'academic_year_id' => ['required', 'exists:tb_academic_year,id'],
+            'academic_year_id' => ['required', Rule::exists('tb_academic_year', 'id')->whereIn('lifecycle_status', ['started', 'pending'])],
             'grade_id' => ['required', 'exists:tb_grade,id'],
             'class_id' => ['required', 'exists:tb_class,id'],
+            'academic_track_id' => ['nullable', 'exists:tb_academic_track,id'],
             'session_id' => ['required', 'exists:tb_session,id'],
             'status' => ['required', 'boolean'],
-            'enrollment_status' => ['nullable', Rule::in(['active', 'completed', 'withdrawn', 'transferred', 'graduated', 'cancelled'])],
+            'enrollment_status' => ['nullable', Rule::in(['active', 'pending', 'completed', 'withdrawn', 'transferred', 'graduated', 'cancelled'])],
             'enrolled_on' => ['nullable', 'date'],
             'ended_on' => ['nullable', 'date', 'after_or_equal:enrolled_on'],
             'exit_reason' => ['nullable', 'string', 'max:255'],
@@ -171,6 +295,21 @@ class StudentEnrollmentController
             'guardian_phone' => ['nullable', 'string', 'max:50'],
         ]);
 
+        $grade = Grade::find($validated['grade_id']);
+        $isGrade12 = $this->isGrade12($grade);
+        if ($isGrade12 && empty($validated['academic_track_id'])) {
+            throw ValidationException::withMessages(['academic_track_id' => 'Academic Track is required for Grade 12 students.']);
+        }
+        if ($isGrade12 && !empty($validated['academic_track_id'])) {
+            $track = AcademicTrack::find($validated['academic_track_id']);
+            if (!$track || ((int) $track->status !== 1) || ($track->grade_id && (int) $track->grade_id !== (int) $validated['grade_id'])) {
+                throw ValidationException::withMessages(['academic_track_id' => 'Please select a valid active Academic Track for the selected Grade 12 class.']);
+            }
+        }
+        if (!$isGrade12) {
+            $validated['academic_track_id'] = null;
+        }
+
         $enrollment = DB::transaction(function () use ($validated, $id, $request) {
             $student = $request->input('student_record_id') ? Student::findOrFail($request->input('student_record_id')) : new Student();
             if ($student->exists) {
@@ -193,10 +332,6 @@ class StudentEnrollmentController
             }
 
             $student->fill(collect($validated)->only(['student_no', 'student_id', 'family_number', 'full_name_en', 'full_name_kh', 'gender', 'gender_kh', 'date_of_birth', 'nationality_country_id', 'home_phone', 'email', 'birth_country_id', 'birth_province_id', 'birth_district_id', 'birth_commune_id', 'birth_village_id', 'address_country_id', 'address_province_id', 'address_district_id', 'address_commune_id', 'address_village_id', 'address_house_no_en', 'address_house_no_kh', 'address_street_en', 'address_street_kh', 'current_address_en', 'current_address_kh', 'previous_school', 'experienced_english', 'test_result', 'tested_by', 'remarks'])->all());
-            $student->first_name_en = $validated['full_name_en'];
-            $student->last_name_en = '';
-            $student->first_name_kh = $validated['full_name_kh'] ?? null;
-            $student->last_name_kh = null;
             if ($request->hasFile('photo')) {
                 if ($student->photo_path) {
                     Storage::disk('public')->delete($student->photo_path);
@@ -240,11 +375,24 @@ class StudentEnrollmentController
 
             $enrollment = $id ? StudentEnrollment::findOrFail($id) : new StudentEnrollment();
             $wasExisting = $enrollment->exists;
-            $oldAssignment = $wasExisting ? $enrollment->only(['campus_id', 'academic_year_id', 'grade_id', 'class_id', 'session_id']) : [];
-            $enrollment->fill(collect($validated)->only(['campus_id', 'academic_year_id', 'grade_id', 'class_id', 'session_id', 'status'])->all());
+            $oldAssignment = $wasExisting ? $enrollment->only(['campus_id', 'academic_year_id', 'grade_id', 'class_id', 'academic_track_id', 'session_id']) : [];
+            $enrollment->fill(collect($validated)->only(['campus_id', 'academic_year_id', 'grade_id', 'class_id', 'academic_track_id', 'session_id', 'status'])->all());
             $enrollment->group_id = null;
             $enrollment->student_id = $student->id;
-            $enrollment->enrollment_status = $validated['enrollment_status'] ?? ($wasExisting ? ($enrollment->enrollment_status ?: 'active') : 'active');
+            $academicYear = AcademicYear::findOrFail($validated['academic_year_id']);
+            $existingStatus = $wasExisting ? $enrollment->enrollment_status : null;
+            $requestedStatus = $validated['enrollment_status'] ?? null;
+            $terminalStatuses = ['withdrawn', 'transferred', 'graduated', 'cancelled'];
+            $enrollment->enrollment_status = in_array($requestedStatus, $terminalStatuses, true)
+                ? $requestedStatus
+                : (in_array($existingStatus, $terminalStatuses, true) && !$requestedStatus
+                    ? $existingStatus
+                    : match ($academicYear->lifecycle_status) {
+                        'started' => 'active',
+                        'pending' => 'pending',
+                        'finished' => 'completed',
+                        default => $requestedStatus ?: ($existingStatus ?: 'pending'),
+                    });
             $enrollment->student_type = StudentEnrollment::where('student_id', $student->id)
                 ->when($id, fn ($query) => $query->where('id', '!=', $id))
                 ->where('academic_year_id', '!=', $validated['academic_year_id'])
@@ -255,7 +403,7 @@ class StudentEnrollmentController
             $enrollment->notes = $validated['enrollment_notes'] ?? null;
             $enrollment->save();
 
-            $newAssignment = $enrollment->only(['campus_id', 'academic_year_id', 'grade_id', 'class_id', 'session_id']);
+            $newAssignment = $enrollment->only(['campus_id', 'academic_year_id', 'grade_id', 'class_id', 'academic_track_id', 'session_id']);
             $action = !$wasExisting ? 'enrolled' : ($oldAssignment !== $newAssignment ? 'assignment_changed' : 'updated');
             StudentEnrollmentHistory::create([
                 'enrollment_id' => $enrollment->id,
@@ -270,7 +418,7 @@ class StudentEnrollmentController
                 'changed_by' => auth()->id(),
             ]);
 
-            return $enrollment->load(['student', 'campus', 'academicYear', 'grade', 'schoolClass', 'schoolGroup', 'session']);
+            return $enrollment->load(['student', 'campus', 'academicYear', 'grade', 'schoolClass', 'academicTrack', 'schoolGroup', 'session']);
         });
 
         return response()->json(['status' => 'success', 'message' => $id ? 'Student enrollment updated successfully.' : 'Student enrollment created successfully.', 'data' => $enrollment], $id ? 200 : 201);
@@ -288,6 +436,68 @@ class StudentEnrollmentController
         }
 
         return str_pad((string) $next, 8, '0', STR_PAD_LEFT);
+    }
+
+    private function enrollmentListOptions(): array
+    {
+        return [
+            'allAcademicYears' => AcademicYear::orderByDesc('academic_year')
+                ->get(['id', 'academic_year', 'period_type', 'parent_academic_year_id', 'lifecycle_status', 'start_date', 'end_date']),
+            'enrollmentFilterRows' => StudentEnrollment::query()
+                ->join('tb_student', 'tb_student.id', '=', 'tb_student_enrollment.student_id')
+                ->join('tb_academic_year', 'tb_academic_year.id', '=', 'tb_student_enrollment.academic_year_id')
+                ->join('tb_school_info', 'tb_school_info.id', '=', 'tb_student_enrollment.campus_id')
+                ->join('tb_grade', 'tb_grade.id', '=', 'tb_student_enrollment.grade_id')
+                ->join('tb_class', 'tb_class.id', '=', 'tb_student_enrollment.class_id')
+                ->leftJoin('tb_session', 'tb_session.id', '=', 'tb_student_enrollment.session_id')
+                ->select([
+                    'tb_student_enrollment.academic_year_id',
+                    'tb_student_enrollment.campus_id',
+                    'tb_student_enrollment.grade_id',
+                    'tb_student_enrollment.class_id',
+                    'tb_student_enrollment.session_id as group_id',
+                    'tb_student_enrollment.enrollment_status',
+                    'tb_student_enrollment.student_id as student_record_id',
+                    'tb_academic_year.academic_year',
+                    'tb_school_info.campus_name_en',
+                    'tb_grade.grade',
+                    'tb_grade.grade_order',
+                    'tb_class.class_name',
+                    'tb_class.class_order',
+                    'tb_session.session_short_name',
+                    'tb_student.student_id as student_code',
+                    'tb_student.full_name_en',
+                    'tb_student.full_name_kh',
+                ])
+                ->distinct()
+                ->orderByDesc('tb_academic_year.academic_year')
+                ->orderBy('tb_school_info.campus_name_en')
+                ->orderByRaw('CAST(tb_grade.grade_order AS UNSIGNED)')
+                ->orderByRaw('CAST(tb_class.class_order AS UNSIGNED)')
+                ->orderByRaw("COALESCE(NULLIF(tb_student.full_name_en, ''), tb_student.full_name_kh, tb_student.student_id)")
+                ->get(),
+        ];
+    }
+
+    private function isGrade12(?Grade $grade): bool
+    {
+        if (!$grade) {
+            return false;
+        }
+
+        $values = [
+            (string) $grade->grade,
+            (string) $grade->grade_short_name,
+            (string) $grade->grade_order,
+        ];
+
+        foreach ($values as $value) {
+            if (preg_match('/(^|[^0-9])12([^0-9]|$)/', $value)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public function delete($id)

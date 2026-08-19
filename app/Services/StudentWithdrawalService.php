@@ -16,12 +16,9 @@ class StudentWithdrawalService
                 throw ValidationException::withMessages(['enrollment_id' => 'This student is no longer active and cannot be withdrawn.']);
             }
 
-            $enrollment->update([
-                'enrollment_status' => 'withdrawn',
-                'ended_on' => $data['withdrawal_date'],
-                'exit_reason' => $data['reason'],
-                'notes' => $data['notes'] ?? null,
-            ]);
+            if (StudentEnrollmentHistory::where('enrollment_id', $enrollment->id)->where('action_type', 'withdrawal')->whereIn('withdrawal_status', ['pending', 'principal_approved'])->exists()) {
+                throw ValidationException::withMessages(['enrollment_id' => 'A withdrawal request is already waiting for approval for this student.']);
+            }
 
             StudentEnrollmentHistory::create([
                 'enrollment_id' => $enrollment->id,
@@ -32,7 +29,8 @@ class StudentWithdrawalService
                 'grade_id' => $enrollment->grade_id,
                 'class_id' => $enrollment->class_id,
                 'session_id' => $enrollment->session_id,
-                'enrollment_status' => 'withdrawn',
+                'withdrawal_status' => 'pending',
+                'enrollment_status' => 'active',
                 'student_type' => $enrollment->student_type,
                 'effective_on' => $data['withdrawal_date'],
                 'reason' => $data['reason'],
@@ -43,6 +41,9 @@ class StudentWithdrawalService
                 'new_school' => $data['new_school'] ?? null,
                 'new_school_address' => $data['new_school_address'] ?? null,
                 'dropout_type' => $data['dropout_type'] ?? null,
+                'requested_by_type' => $data['requested_by_type'] ?? null,
+                'requested_by_name' => $data['requested_by_name'] ?? null,
+                'requested_by_phone' => $data['requested_by_phone'] ?? null,
                 'additional_comments' => $data['additional_comments'] ?? null,
                 'notes' => $data['notes'] ?? null,
                 'changed_by' => auth()->id(),

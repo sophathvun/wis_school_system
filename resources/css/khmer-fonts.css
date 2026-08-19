@@ -1,6 +1,89 @@
 @font-face {
-    font-family: 'Noto Sans Khmer';
+    font-family: 'Khmer OS Siemreap';
+    src: url('/fonts/khmer/KhmerOSsiemreap.ttf') format('truetype'),
+        local('Khmer OS Siemreap'),
+        local('KhmerOSsiemreap');
+    font-weight: 400;
     font-style: normal;
-    font-weight: normal;
-    src: url('{{ storage_path('app/public/fonts/NotoSansKhmer-Regular.ttf') }}') format('truetype');
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Khmer OS Muol Light';
+    src: url('/fonts/khmer/KhmerOSmuollight.ttf') format('truetype'),
+        local('Khmer OS Muol Light'),
+        local('KhmerOSmuollight');
+    font-weight: 300;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Khmer OS Battambang';
+    src: url('/fonts/khmer/KhmerOSbattambang.ttf') format('truetype'),
+        local('Khmer OS Battambang'),
+        local('KhmerOSbattambang');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Noto Sans Khmer';
+    src: url('/fonts/khmer/NotoSansKhmer-Regular.woff2') format('woff2'),
+        local('Noto Sans Khmer'),
+        local('NotoSansKhmer'),
+        local('Noto Sans Khmer Regular');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+:root {
+    --khmer-font-siemreap: 'Khmer OS Siemreap', 'Noto Sans Khmer', sans-serif;
+    --khmer-font-muol: 'Khmer OS Muol Light', 'Noto Sans Khmer', sans-serif;
+    --khmer-font-battambang: 'Khmer OS Battambang', 'Noto Sans Khmer', sans-serif;
+}
+
+body,
+input,
+textarea,
+select,
+button,
+.navbar,
+.page-title,
+.card-title,
+.form-label,
+.form-control,
+.form-select,
+.form-check-label,
+.form-text,
+.form-hint,
+.text-khmer,
+.modal-title,
+.dropdown-item,
+.pagination,
+.badge,
+.alert,
+.card,
+.list-group-item,
+.nav-link,
+.btn,
+.table,
+.table th,
+.table td,
+.table thead th,
+.table tbody td,
+.table-responsive .table,
+.table-responsive .table th,
+.table-responsive .table td {
+    font-family: var(--khmer-font-siemreap);
+}
+
+.khmer-font-muol {
+    font-family: var(--khmer-font-muol);
+}
+
+.khmer-font-battambang {
+    font-family: var(--khmer-font-battambang);
 }

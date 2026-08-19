@@ -136,6 +136,7 @@
   request()->routeIs('school-info.*') ||
   request()->routeIs('locations.*') ||
   request()->routeIs('occupations.*') ||
+  request()->routeIs('academic-tracks.*') ||
   request()->routeIs('branding-settings.*') ||
   request()->routeIs('database-backups.*') ||
   request()->routeIs('withdrawal-reasons.*') ||
@@ -157,6 +158,7 @@
   request()->routeIs('school-info.*') ||
   request()->routeIs('locations.*') ||
   request()->routeIs('occupations.*') ||
+  request()->routeIs('academic-tracks.*') ||
   request()->routeIs('branding-settings.*') ||
   request()->routeIs('database-backups.*') ||
   request()->routeIs('withdrawal-reasons.*') ||
@@ -193,6 +195,10 @@
                   href="{{ route('occupations.index') }}">
                   <i class="ti ti-briefcase me-2"></i> Occupations
                 </a>@endif
+                @if($canView('academic-tracks.view'))<a class="dropdown-item {{ request()->routeIs('academic-tracks.*') ? 'active' : '' }}"
+                  href="{{ route('academic-tracks.index') }}">
+                  <i class="ti ti-route-alt-left me-2"></i> Academic Tracks
+                </a>@endif
                 @if($canView('withdrawal-reasons.view'))<a class="dropdown-item {{ request()->routeIs('withdrawal-reasons.*') ? 'active' : '' }}"
                   href="{{ route('withdrawal-reasons.index') }}">
                   <i class="ti ti-clipboard-list me-2"></i> Withdrawal Reasons
@@ -220,11 +226,11 @@
         <li class="nav-item dropdown {{ 
                   request()->routeIs('searchStudent.*') ||
   request()->routeIs('studentEnrollment.*') ||
+  request()->routeIs('summer-school.*') ||
   request()->routeIs('families.*') ||
   request()->routeIs('studentPromotion.*') ||
   request()->routeIs('studentTransfer.*') ||
   request()->routeIs('studentGraduation.*') ||
-  request()->routeIs('updateStudent.*') ||
   request()->routeIs('withdrawStudent.*') ||
   request()->routeIs('student-reentry.*') ||
   request()->routeIs('student-documents.*') ||
@@ -240,11 +246,11 @@
           <div class="dropdown-menu {{ 
                   request()->routeIs('searchStudent.*') ||
   request()->routeIs('studentEnrollment.*') ||
+  request()->routeIs('summer-school.*') ||
   request()->routeIs('families.*') ||
   request()->routeIs('studentPromotion.*') ||
   request()->routeIs('studentTransfer.*') ||
   request()->routeIs('studentGraduation.*') ||
-  request()->routeIs('updateStudent.*') ||
   request()->routeIs('withdrawStudent.*') ||
   request()->routeIs('student-reentry.*') ||
   request()->routeIs('student-documents.*') ||
@@ -259,6 +265,10 @@
                 @if($canView('students.enrollment.view'))<a class="dropdown-item {{ request()->routeIs('studentEnrollment.*') ? 'active' : '' }}"
                   href="{{ route('studentEnrollment.index') }}">
                   <i class="ti ti-user-plus me-2"></i> Student Enrollment
+                </a>@endif
+                @if($canView('students.enrollment.view'))<a class="dropdown-item {{ request()->routeIs('summer-school.*') ? 'active' : '' }}"
+                  href="{{ route('summer-school.index') }}">
+                  <i class="ti ti-sun me-2"></i> Summer School
                 </a>@endif
                 @if($canView('families.view'))<a class="dropdown-item {{ request()->routeIs('families.*') ? 'active' : '' }}"
                   href="{{ route('families.index') }}">
@@ -275,10 +285,6 @@
                 @if($canView('students.graduation.view'))<a class="dropdown-item {{ request()->routeIs('studentGraduation.*') ? 'active' : '' }}"
                   href="{{ route('studentGraduation.index') }}">
                   <i class="ti ti-certificate me-2"></i> Student Graduation
-                </a>@endif
-                @if($canView('students.view'))<a class="dropdown-item {{ request()->routeIs('updateStudent.*') ? 'active' : '' }}"
-                  href="{{ route('updateStudent.index') }}">
-                  <i class="ti ti-edit me-2"></i> Update Student
                 </a>@endif
                 @if($canView('students.view'))<a class="dropdown-item {{ request()->routeIs('withdrawStudent.*') ? 'active' : '' }}"
                   href="{{ route('withdrawStudent.index') }}">

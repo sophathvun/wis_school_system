@@ -11,7 +11,7 @@ class FamilyMemberController
 {
     public function index(Family $family)
     {
-        return response()->json(['data' => $family->members()->orderByRaw("FIELD(relationship_type, 'mother', 'father', 'guardian')")->orderBy('first_name_en')->get()]);
+        return response()->json(['data' => $family->members()->orderByRaw("FIELD(relationship_type, 'mother', 'father', 'guardian')")->orderBy('full_name_en')->get()]);
     }
 
     public function save(Request $request, Family $family)
@@ -35,12 +35,6 @@ class FamilyMemberController
         $member->fill(collect($validated)->except(['full_name_en', 'full_name_kh'])->all());
         $member->full_name_en = $validated['full_name_en'];
         $member->full_name_kh = $validated['full_name_kh'] ?? null;
-        $member->first_name_en = $validated['full_name_en'];
-        $member->last_name_en = '';
-        $member->first_name_kh = $validated['full_name_kh'] ?? null;
-        $member->last_name_kh = null;
-        $member->name_en = $validated['full_name_en'];
-        $member->name_kh = $validated['full_name_kh'] ?? null;
         $member->save();
 
         return response()->json(['status' => 'success', 'message' => $id ? 'Family member updated successfully.' : 'Family member created successfully.', 'data' => $member], $id ? 200 : 201);

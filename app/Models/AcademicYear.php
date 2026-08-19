@@ -19,6 +19,7 @@ class AcademicYear extends Model
         'end_date',
         'description',
         'status',
+        'lifecycle_status',
     ];
 
     protected $appends = ['ay_code'];
@@ -47,5 +48,25 @@ class AcademicYear extends Model
     public function isSummer(): bool
     {
         return $this->period_type === 'summer';
+    }
+
+    public function isCurrent(): bool
+    {
+        return $this->lifecycle_status === 'started';
+    }
+
+    public function isPlanning(): bool
+    {
+        return $this->lifecycle_status === 'pending';
+    }
+
+    public function scopeRegular($query)
+    {
+        return $query->where('period_type', 'regular');
+    }
+
+    public function scopeOperational($query)
+    {
+        return $query->whereIn('lifecycle_status', ['pending', 'started']);
     }
 }

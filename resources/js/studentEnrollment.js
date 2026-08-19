@@ -7,9 +7,28 @@ const csrf = document.querySelector('meta[name="csrf-token"]')?.content;
 const form = document.getElementById("enrollmentForm");
 const modal = new bootstrap.Modal(document.getElementById("enrollmentModal"));
 const historyModal = new bootstrap.Modal(document.getElementById("enrollmentHistoryModal"));
+const studentProfileModalElement = document.getElementById("studentProfileModal");
+const studentProfileModal = studentProfileModalElement ? new bootstrap.Modal(studentProfileModalElement) : null;
+const studentProfileContent = document.getElementById("studentProfileContent");
+const studentProfilePrint = document.getElementById("studentProfilePrint");
+const studentProfilePdf = document.getElementById("studentProfilePdf");
+let currentStudentProfile = null;
 const table = document.getElementById("enrollmentsTable");
 const search = document.getElementById("enrollments-search");
 const perPage = document.getElementById("enrollments-per-page");
+const enrollmentFilterAcademicYear = document.getElementById("enrollments-filter-academic-year");
+const enrollmentFilterCampus = document.getElementById("enrollments-filter-campus");
+const enrollmentFilterGradeClass = document.getElementById("enrollments-filter-grade-class");
+const enrollmentFilterGroup = document.getElementById("enrollments-filter-group");
+const enrollmentFilterStudent = document.getElementById("enrollments-filter-student");
+const enrollmentFilterStatus = document.getElementById("enrollments-filter-status");
+let enrollmentSortBy = "id";
+let enrollmentSortDir = "desc";
+const expandedEnrollmentIds = new Set();
+const expandedEnrollmentRecords = new Map();
+let currentEnrollmentPage = 1;
+let enrollmentFilterRows = [];
+let isRefreshingEnrollmentFilters = false;
 const submit = document.getElementById("enrollmentSubmit");
 const title = document.getElementById("enrollmentModalTitle");
 const studentPhotoInput = document.getElementById("student_photo");
@@ -44,20 +63,41 @@ document.addEventListener("click", (event) => {
         if (!parent?.contains(toggle)) menu.classList.add("d-none");
     });
 }, true);
-const familyPhoneInputs = ["mother", "father", "guardian"].map((type) => {
-    const visible = field(`${type}_phone_number`);
-    const hidden = field(`${type}_phone`);
-    return { visible, hidden, intl: visible ? intlTelInput(visible, { initialCountry: "kh", nationalMode: true, separateDialCode: true, loadUtils: () => import("intl-tel-input/utils") }) : null };
-});
+const familyPhoneInputTypes = ["mother", "father", "guardian"];
+let familyPhoneInputs = [];
 const homePhoneVisible = field("home_phone_number");
 const homePhoneHidden = field("home_phone");
-const homePhoneIntl = homePhoneVisible ? intlTelInput(homePhoneVisible, { initialCountry: "kh", nationalMode: true, separateDialCode: true, loadUtils: () => import("intl-tel-input/utils") }) : null;
-const phoneVisibleInputs = [...familyPhoneInputs.map(({ visible }) => visible), homePhoneVisible].filter(Boolean);
-phoneVisibleInputs.forEach((input) => input.addEventListener("input", () => { input.value = input.value.replace(/\s+/g, ""); }));
-const syncFamilyPhoneValues = () => familyPhoneInputs.forEach(({ visible, hidden, intl }) => {
-    if (hidden) hidden.value = intl?.getNumber() || visible?.value.trim() || "";
-});
-const syncHomePhoneValue = () => { if (homePhoneHidden) homePhoneHidden.value = homePhoneIntl?.getNumber() || homePhoneVisible?.value.trim() || ""; };
+let homePhoneIntl = null;
+let phoneVisibleInputs = [];
+let phoneInputsInitialized = false;
+const initPhoneInputs = () => {
+    if (phoneInputsInitialized) return;
+    phoneInputsInitialized = true;
+    familyPhoneInputs = familyPhoneInputTypes.map((type) => {
+        const visible = field(`${type}_phone_number`);
+        const hidden = field(`${type}_phone`);
+        return { visible, hidden, intl: visible ? intlTelInput(visible, { initialCountry: "kh", nationalMode: true, separateDialCode: true, loadUtils: () => import("intl-tel-input/utils") }) : null };
+    });
+    homePhoneIntl = homePhoneVisible ? intlTelInput(homePhoneVisible, { initialCountry: "kh", nationalMode: true, separateDialCode: true, loadUtils: () => import("intl-tel-input/utils") }) : null;
+    phoneVisibleInputs = [...familyPhoneInputs.map(({ visible }) => visible), homePhoneVisible].filter(Boolean);
+    phoneVisibleInputs.forEach((input) => {
+        input.addEventListener("input", () => {
+            input.value = input.value.replace(/\s+/g, "");
+            refreshPremiumFieldStates();
+        });
+        input.addEventListener("countrychange", refreshPremiumFieldStates);
+    });
+};
+const syncFamilyPhoneValues = () => {
+    initPhoneInputs();
+    familyPhoneInputs.forEach(({ visible, hidden, intl }) => {
+        if (hidden) hidden.value = intl?.getNumber() || visible?.value.trim() || "";
+    });
+};
+const syncHomePhoneValue = () => {
+    initPhoneInputs();
+    if (homePhoneHidden) homePhoneHidden.value = homePhoneIntl?.getNumber() || homePhoneVisible?.value.trim() || "";
+};
 const premiumFloatingWrappers = () => Array.from(document.querySelectorAll("#enrollmentModal .modal-body .row.g-3 > .col, #enrollmentModal .modal-body .row.g-3 > [class*='col-'], #enrollmentModal .family-member-row > [class*='col-']"))
     .filter((wrapper) => !wrapper.querySelector("input[type='file']") && !!wrapper.querySelector(".form-label") && !!wrapper.querySelector("input:not([type='file']):not([type='hidden']), textarea, select, .location-combobox, .phone-input-group, .date-picker, .input-icon"))
     .map((wrapper) => {
@@ -77,10 +117,18 @@ const premiumFieldValue = (wrapper) => {
     return false;
 };
 const normalizeEnrollmentControlBackgrounds = () => {
+    // Respect site theme instead of forcing white backgrounds (fix night/dark mode)
+    const prefersDark = (typeof window !== 'undefined') && (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    const hasThemeDarkClass = document.documentElement?.classList.contains('theme-dark') || document.body?.classList.contains('theme-dark') || document.documentElement?.classList.contains('dark') || document.body?.classList.contains('dark');
+    const isDark = prefersDark || hasThemeDarkClass;
+    // Use CSS variable when available so themes control actual color
+    const rootStyle = getComputedStyle(document.documentElement);
+    const surface = rootStyle.getPropertyValue('--tblr-bg-surface')?.trim() || (isDark ? '#111827' : '#ffffff');
     document.querySelectorAll("#enrollmentModal input.form-control, #enrollmentModal textarea.form-control, #enrollmentModal select.form-select, #enrollmentModal .location-combobox-toggle, #enrollmentModal .date-picker-trigger, #enrollmentModal .input-icon, #enrollmentModal .phone-input-group, #enrollmentModal .phone-input-group .iti").forEach((control) => {
-        control.style.setProperty("background-color", "#fff", "important");
-        if (control.matches("input.form-control, textarea.form-control")) {
-            control.style.setProperty("-webkit-box-shadow", "inset 0 0 0 1000px #fff", "important");
+        control.style.setProperty('background-color', surface, 'important');
+        if (control.matches('input.form-control, textarea.form-control')) {
+            // Match the visual fill used by many browsers for large input backgrounds
+            control.style.setProperty('-webkit-box-shadow', `inset 0 0 0 1000px ${surface}`, 'important');
         }
     });
     document.querySelectorAll("#enrollmentModal #date_of_birth_trigger, #enrollmentModal #enrolled_on_trigger").forEach((button) => {
@@ -113,7 +161,8 @@ const syncDatePickerVisualStates = () => {
             : "0 2px 7px rgba(31, 41, 55, .04)", "important");
     });
 };
-const refreshPremiumFieldStates = () => {
+let premiumFieldStateRefreshFrame = null;
+const runRefreshPremiumFieldStates = () => {
     normalizeEnrollmentControlBackgrounds();
     syncDatePickerVisualStates();
     premiumFloatingWrappers().forEach((wrapper) => {
@@ -124,11 +173,15 @@ const refreshPremiumFieldStates = () => {
         wrapper?.classList.toggle("has-value", Boolean(input.value?.trim()));
     });
 };
-phoneVisibleInputs.forEach((input) => {
-    input.addEventListener("input", refreshPremiumFieldStates);
-    input.addEventListener("countrychange", refreshPremiumFieldStates);
-});
+const refreshPremiumFieldStates = () => {
+    if (premiumFieldStateRefreshFrame !== null) return;
+    premiumFieldStateRefreshFrame = window.requestAnimationFrame(() => {
+        premiumFieldStateRefreshFrame = null;
+        runRefreshPremiumFieldStates();
+    });
+};
 document.getElementById("enrollmentModal")?.addEventListener("shown.bs.modal", () => {
+    initPhoneInputs();
     refreshPremiumFieldStates();
     window.setTimeout(refreshPremiumFieldStates, 50);
 });
@@ -163,10 +216,15 @@ let rows = [];
 let birthLocations = {};
 let addressLocations = {};
 let campusItems = [];
+let gradeItems = [];
+let academicTrackItems = [];
 let familyItems = [];
 let familyDetails = {};
 let nextStudentNo = "";
 let dobCursor = new Date();
+let enrollmentOptionsCache = null;
+let enrollmentListOptionsCache = null;
+let locationOptionsCache = null;
 
 const escapeHtml = (value = "") => String(value)
     .replace(/&/g, "&amp;")
@@ -177,14 +235,367 @@ const escapeHtml = (value = "") => String(value)
 const formatDateTime = (value) => value ? new Date(value).toLocaleString() : "-";
 const bilingualSelectedLabel = (kh = "", en = "") => [kh, en].filter(Boolean).join(" / ");
 const emptySelectedLabel = "";
+const enrollmentListStudentName = (student = {}, enrollmentId = null) => {
+    const khmer = student.full_name_kh || "";
+    const english = student.full_name_en || "";
+    const expanded = enrollmentId !== null && expandedEnrollmentIds.has(Number(enrollmentId));
+    const toggle = enrollmentId === null ? "" : `<button type="button" class="enrollment-expand-toggle ${expanded ? "is-expanded" : ""}" onclick="enrollmentsPage.toggleDetails(${enrollmentId})" aria-expanded="${expanded ? "true" : "false"}" title="${expanded ? "Hide enrollment history" : "Show all academic year enrollments"}"><i class="ti ti-chevron-down"></i><span class="visually-hidden">${expanded ? "Hide enrollment history" : "Show all academic year enrollments"}</span></button>`;
+    return `<div class="school-profile-khmer text-secondary" style="font-size:1rem;font-weight:400;">${escapeHtml(khmer || "-")}</div><div class="enrollment-student-name-en">${escapeHtml(english || "-")}${toggle}</div>`;
+};
+const enrollmentListGradeClass = (item = {}) => {
+    const grade = item.grade?.grade || "";
+    const className = item.school_class?.class_name || "";
+    const shortGrade = String(grade).replace(/^grade\s*/i, "").trim();
+    const shortClass = String(className).replace(/^grade\s*/i, "").trim();
+    const normalizedClass = shortClass && shortGrade && shortClass.toLowerCase().startsWith(shortGrade.toLowerCase())
+        ? shortClass
+        : `${shortGrade}${shortClass}`;
+    return normalizedClass ? escapeHtml(normalizedClass) : "-";
+};
+const plainGradeClassLabel = (grade = {}, schoolClass = {}) => {
+    const shortGrade = String(grade.grade || "").replace(/^grade\s*/i, "").trim();
+    const shortClass = String(schoolClass.class_name || "").replace(/^grade\s*/i, "").trim();
+    if (!shortGrade && !shortClass) return "";
+    return shortClass && shortGrade && shortClass.toLowerCase().startsWith(shortGrade.toLowerCase()) ? shortClass : `${shortGrade}${shortClass}`;
+};
+const enrollmentStudentLabel = (student = {}) => {
+    const english = student.full_name_en || "";
+    return [student.student_code || student.student_id, english].filter(Boolean).join(" - ");
+};
+const formatListDate = (value = "") => {
+    if (!value) return "-";
+    const date = new Date(`${String(value).slice(0, 10)}T00:00:00`);
+    if (Number.isNaN(date.getTime())) return escapeHtml(String(value).slice(0, 10));
+    return `${pad2(date.getDate())}-${pad2(date.getMonth() + 1)}-${date.getFullYear()}`;
+};
+const formatWithdrawalDate = (value = "") => {
+    if (!value) return "";
+    const date = new Date(`${String(value).slice(0, 10)}T00:00:00`);
+    if (Number.isNaN(date.getTime())) return escapeHtml(String(value).slice(0, 10));
+    return `${pad2(date.getDate())}-${date.toLocaleString("en-US", { month: "short" })}-${date.getFullYear()}`;
+};
+const detailChip = (label, value, extraClass = "") => `
+    <div class="col-md-3 col-sm-6">
+        <div class="detail-chip">
+            <div class="detail-label">${escapeHtml(label)}</div>
+            <div class="detail-value ${extraClass}">${value || "-"}</div>
+        </div>
+    </div>`;
+const studentProfileMarkup = (student = {}) => {
+    const photo = student.photo_path
+        ? `<button type="button" class="btn p-0 border-0 student-profile-photo-view-trigger student-photo-view-trigger" data-photo-url="/storage/${escapeHtml(student.photo_path)}" data-photo-title="${escapeHtml(student.full_name_en || student.student_id || "Student Photo")}" aria-label="View student photo"><img src="/storage/${escapeHtml(student.photo_path)}" alt="Student photo" style="width:120px;height:160px;object-fit:cover;border-radius:.75rem;border:1px solid var(--tblr-border-color);cursor:zoom-in;"></button>`
+        : `<div class="avatar avatar-xl" style="width:120px;height:160px;border-radius:.75rem;">${escapeHtml((student.full_name_en || student.student_no || "?").charAt(0).toUpperCase())}</div>`;
+    const profileRow = (label, value) => `<div class="d-flex align-items-start py-2"><div class="fw-semibold text-nowrap" style="flex:0 0 155px;">${label}</div><div class="fw-semibold text-center me-3" style="flex:0 0 12px;">:</div><div class="flex-fill">${value || "-"}</div></div>`;
+    const date = student.date_of_birth ? new Date(`${String(student.date_of_birth).slice(0, 10)}T00:00:00`) : null;
+    const profileDate = date && !Number.isNaN(date.getTime()) ? `${String(date.getDate()).padStart(2, "0")}-${date.toLocaleString("en-US", { month: "short" })}-${date.getFullYear()}` : "-";
+    const khmerDigits = "០១២៣៤៥៦៧៨៩";
+    const khmerNumber = (value) => String(Math.max(0, value)).split("").map((digit) => khmerDigits[Number(digit)] ?? digit).join("");
+    const khmerMonths = ["មករា", "កុម្ភៈ", "មីនា", "មេសា", "ឧសភា", "មិថុនា", "កក្កដា", "សីហា", "កញ្ញា", "តុលា", "វិច្ឆិកា", "ធ្នូ"];
+    const profileDateKhmer = date && !Number.isNaN(date.getTime()) ? `${khmerNumber(date.getDate())} ${khmerMonths[date.getMonth()]} ${khmerNumber(date.getFullYear())}` : "-";
+    let age = "-";
+    let ageEnglish = "-";
+    if (date && !Number.isNaN(date.getTime())) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        let years = today.getFullYear() - date.getFullYear();
+        let months = today.getMonth() - date.getMonth();
+        let days = today.getDate() - date.getDate();
+        if (days < 0) { months -= 1; days += new Date(today.getFullYear(), today.getMonth(), 0).getDate(); }
+        if (months < 0) { years -= 1; months += 12; }
+        age = `${khmerNumber(years)}ឆ្នាំ ${khmerNumber(months)}ខែ ${khmerNumber(days)}ថ្ងៃ`;
+        ageEnglish = `${years} years ${months} months ${days} days`;
+    }
+    const birthPlace = [student.birth_village?.village_name_kh, student.birth_commune?.commune_name_kh, student.birth_district?.district_name_kh, student.birth_province?.province_name_kh].filter(Boolean).map(escapeHtml).join(" &nbsp;&nbsp; ") || "-";
+    const birthPlaceEn = [student.birth_village?.village_name_en, student.birth_commune?.commune_name_en, student.birth_district?.district_name_en, student.birth_province?.province_name_en].filter(Boolean).map(escapeHtml).join(" &nbsp;&nbsp; ") || "-";
+    return `<div class="text-center mb-4">${photo}</div><div class="student-profile-section-header row g-3 align-items-center mb-4"><div class="col-md-6"><div class="h3 mb-0 khmer-font-muol d-flex align-items-center gap-2"><img src="/flags/cambodia.svg" alt="Cambodia flag" style="width:24px;height:16px;object-fit:cover;">ប្រវត្តិរូបសិស្ស</div></div><div class="col-md-6"><div class="h3 mb-0 d-flex align-items-center gap-2"><img src="/flags/uk.svg" alt="United Kingdom flag" style="width:24px;height:16px;object-fit:cover;">STUDENT PROFILE</div></div></div><div class="row g-4"><div class="col-md-6"><div class="school-profile-khmer">${profileRow("អត្តលេខសិស្ស", escapeHtml(student.student_id || "-"))}${profileRow("ឈ្មោះ", escapeHtml(student.full_name_kh || "-"))}${profileRow("ភេទ", escapeHtml(student.gender_kh || "-"))}${profileRow("ថ្ងៃ ខែ ឆ្នាំកំណើត", `${escapeHtml(profileDateKhmer)}<div>អាយុ: ${age}</div>`)}${profileRow("ទីកន្លែងកំណើត", birthPlace)}${profileRow("សញ្ជាតិ", escapeHtml(student.nationality_country?.nationality_name_kh || "-"))}${profileRow("លេខទូរសព្ទ", escapeHtml(student.home_phone || "-"))}${profileRow("អុីម៉ែល", escapeHtml(student.email || "-"))}${profileRow("អាសយដ្ឋានបច្ចុប្បន្ន", escapeHtml(student.current_address_kh || "-"))}</div></div><div class="col-md-6"><div>${profileRow("Student ID", escapeHtml(student.student_id || "-"))}${profileRow("Name", escapeHtml(student.full_name_en || "-"))}${profileRow("Gender", escapeHtml(student.gender || "-"))}${profileRow("Date of Birth", `${escapeHtml(profileDate)}<div>Age: ${escapeHtml(ageEnglish)}</div>`)}${profileRow("Place of Birth", birthPlaceEn)}${profileRow("Nationality", escapeHtml(student.nationality_country?.nationality_name_en || "-"))}${profileRow("Phone", escapeHtml(student.home_phone || "-"))}${profileRow("Email", escapeHtml(student.email || "-"))}${profileRow("Current Address", escapeHtml(student.current_address_en || "-"))}</div></div></div>`;
+};
+const studentFamilyMarkup = (student = {}) => {
+    const members = (student.families || []).flatMap((family) => family.members || []);
+    const parent = (type) => members.find((member) => member.relationship_type === type) || {};
+    const familyRow = (khmerLabel, englishLabel, khmerValue, englishValue) => `<div class="student-profile-paired-row"><div class="d-flex align-items-start py-2 school-profile-khmer"><div class="fw-semibold text-nowrap" style="flex:0 0 155px;">${khmerLabel}</div><div class="fw-semibold text-center me-3" style="flex:0 0 12px;">:</div><div class="flex-fill">${escapeHtml(khmerValue || "-")}</div></div><div class="d-flex align-items-start py-2"><div class="fw-semibold text-nowrap" style="flex:0 0 155px;">${englishLabel}</div><div class="fw-semibold text-center me-3" style="flex:0 0 12px;">:</div><div class="flex-fill">${escapeHtml(englishValue || "-")}</div></div></div>`;
+    const parentHeading = (khmer, english, extraClass = "") => `<div class="student-profile-paired-row student-family-parent-heading ${extraClass}"><div class="school-profile-khmer khmer-font-muol">${khmer}</div><div>${english}</div></div>`;
+    const mother = parent("mother");
+    const father = parent("father");
+    const parentRows = (khmer, english, member) => `${parentHeading(khmer, english)}${familyRow("ឈ្មោះម្តាយ", "Mother's Name", member.full_name_kh, member.full_name_en)}${familyRow("មុខរបរ", "Occupation", member.occupation_kh || member.occupation, member.occupation_en || member.occupation)}${familyRow("សញ្ជាតិ", "Nationality", member.nationality_kh, member.nationality_en)}${familyRow("លេខទូរសព្ទ", "Phone Number", member.phone, member.phone)}${familyRow("កន្លែងការងារ", "Workplace", member.workplace, member.workplace)}`;
+    const fatherRows = `${parentHeading("ឪពុក", "FATHER", "student-family-father-heading")}${familyRow("ឈ្មោះឪពុក", "Father's Name", father.full_name_kh, father.full_name_en)}${familyRow("មុខរបរ", "Occupation", father.occupation_kh || father.occupation, father.occupation_en || father.occupation)}${familyRow("សញ្ជាតិ", "Nationality", father.nationality_kh, father.nationality_en)}${familyRow("លេខទូរសព្ទ", "Phone Number", father.phone, father.phone)}${familyRow("កន្លែងការងារ", "Workplace", father.workplace, father.workplace)}`;
+    return `<div class="student-profile-section-card"><div class="student-profile-section-card-header"><div class="student-profile-section-header row g-3 align-items-center"><div class="col-md-6"><div class="h3 mb-0 khmer-font-muol d-flex align-items-center gap-2"><img src="/flags/cambodia.svg" alt="Cambodia flag" style="width:24px;height:16px;object-fit:cover;">ព័តមានអាណាព្យាបាល</div></div><div class="col-md-6"><div class="h3 mb-0 d-flex align-items-center gap-2"><img src="/flags/uk.svg" alt="United Kingdom flag" style="width:24px;height:16px;object-fit:cover;">PARENT INFORMATION</div></div></div></div><div class="student-profile-section-card-body"><div class="student-profile-paired-rows">${parentRows("ម្តាយ", "MOTHER", mother)}${fatherRows}</div></div></div>`;
+};
+const siblingStatusClass = (status = "") => {
+    const normalized = String(status || "").toLowerCase();
+    if (normalized === "active") return "success";
+    if (normalized === "pending") return "warning";
+    if (["completed", "graduated"].includes(normalized)) return "blue";
+    if (["withdrawn", "rejected"].includes(normalized)) return "danger";
+    return "secondary";
+};
+const siblingStatusLabel = (status = "") => String(status || "inactive")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+const renderSiblingCards = (siblings = []) => siblings.length ? siblings.map((sibling) => {
+    const enrollment = sibling.current_enrollment || {};
+    const status = enrollment.enrollment_status || (enrollment.status ? "active" : "inactive");
+    const photo = sibling.photo_path
+        ? `<img class="student-sibling-photo" src="/storage/${escapeHtml(sibling.photo_path)}" alt="Sibling photo">`
+        : `<div class="student-sibling-photo d-flex align-items-center justify-content-center"><i class="ti ti-user"></i></div>`;
+    const academicYear = enrollment.academic_year?.academic_year || "-";
+    const grade = enrollment.grade?.grade || "";
+    const className = enrollment.school_class?.class_name || "";
+    const enrollmentLabel = [academicYear, [grade, className].filter(Boolean).join(" ")].filter(Boolean).map(escapeHtml).join(" · ");
+    return `<div class="student-sibling-card">${photo}<div class="student-sibling-info"><div class="text-secondary small">Student ID: <strong>${escapeHtml(sibling.student_id || sibling.student_no || "-")}</strong></div><div class="student-sibling-name-kh school-profile-khmer">${escapeHtml(sibling.full_name_kh || "-")}</div><div class="student-sibling-name-en">${escapeHtml(sibling.full_name_en || "-")}</div><div class="small mt-1"><span class="text-secondary">Current Enrollment:</span> ${enrollmentLabel}</div><div class="mt-1"><span class="text-secondary small me-1">Status:</span><span class="badge bg-${siblingStatusClass(status)}-lt">${escapeHtml(siblingStatusLabel(status))}</span></div></div></div>`;
+}).join("") : `<div class="text-secondary">No siblings found.</div>`;
+const loadStudentSiblings = async (studentId, target) => {
+    if (!target || !studentId) return;
+    try {
+        const response = await fetch(`/student-enrollments/student/${studentId}/siblings`, { headers: { Accept: "application/json" } });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message || "Unable to load siblings.");
+        const siblings = result.siblings || [];
+        target.innerHTML = renderSiblingCards(siblings);
+        const count = target.closest(".student-siblings-section")?.querySelector("[data-sibling-count]");
+        if (count) count.textContent = siblings.length;
+    } catch (error) {
+        target.innerHTML = `<div class="text-danger small">${escapeHtml(error.message || "Unable to load siblings.")}</div>`;
+    }
+};
+const renderStudentEnrollmentRows = (enrollments = []) => enrollments.length ? enrollments.map((enrollment) => {
+    const status = enrollment.enrollment_status || "inactive";
+    const gradeClass = [enrollment.grade?.grade, enrollment.school_class?.class_name].filter(Boolean).join(" ") || "-";
+    return `<tr><td class="fw-semibold">${escapeHtml(enrollment.academic_year?.academic_year || "-")}</td><td>${escapeHtml(enrollment.campus?.campus_name_en || "-")}</td><td>${escapeHtml(gradeClass)}</td><td>${escapeHtml(enrollment.session?.session_short_name || "-")}</td><td>${escapeHtml(enrollment.academic_track?.name_en || enrollment.academic_track?.name_kh || "-")}</td><td><span class="badge bg-${siblingStatusClass(status)}-lt">${escapeHtml(siblingStatusLabel(status))}</span></td></tr>`;
+}).join("") : `<tr><td colspan="6" class="text-center text-secondary">No enrollment records found.</td></tr>`;
+const studentEnrollmentSectionMarkup = () => `<div class="student-profile-section-card"><div class="student-profile-section-card-header"><div class="h3 mb-0 d-flex align-items-center gap-2"><i class="ti ti-school"></i>ENROLLMENT</div></div><div class="student-profile-section-card-body"><div class="table-responsive"><table class="table table-vcenter student-profile-enrollment-table mb-0"><thead><tr><th>Academic Year</th><th>Campus</th><th>Grade / Class</th><th>Group</th><th>Track</th><th>Status</th></tr></thead><tbody><tr><td colspan="6" class="text-center text-secondary">Loading enrollment...</td></tr></tbody></table></div></div></div>`;
+const loadStudentEnrollmentSection = async (studentId, target) => {
+    if (!target || !studentId) return;
+    try {
+        const response = await fetch(`/student-enrollments/student/${studentId}/academic-years`, { headers: { Accept: "application/json" } });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message || "Unable to load enrollment.");
+        target.innerHTML = renderStudentEnrollmentRows(result.enrollments || []);
+    } catch (error) {
+        target.innerHTML = `<tr><td colspan="6" class="text-center text-danger small">${escapeHtml(error.message || "Unable to load enrollment.")}</td></tr>`;
+    }
+};
+const renderStudentDocumentRows = (documents = []) => documents.length ? documents.map((document) => `<tr><td>${escapeHtml(document.type?.name_en || document.document_type || "-")}<div class="small school-profile-khmer">${escapeHtml(document.type?.name_kh || "")}</div></td><td>${escapeHtml(document.title || "-")}</td><td>${escapeHtml(document.document_number || "-")}</td><td>${escapeHtml(document.original_filename || "-")}</td><td>${document.file_path ? `<a class="btn btn-sm btn-outline-primary" href="/student-documents/${document.id}/download" target="_blank"><i class="ti ti-download me-1"></i>Download</a>` : "-"}</td></tr>`).join("") : `<tr><td colspan="5" class="text-center text-secondary">No student documents found.</td></tr>`;
+const studentDocumentSectionMarkup = () => `<div class="student-profile-section-card"><div class="student-profile-section-card-header"><div class="h3 mb-0 d-flex align-items-center gap-2"><i class="ti ti-file-description"></i>STUDENT DOCUMENTS</div></div><div class="student-profile-section-card-body"><div class="table-responsive"><table class="table table-vcenter student-profile-enrollment-table mb-0"><thead><tr><th>Document Type</th><th>Title</th><th>Document Number</th><th>File</th><th>Action</th></tr></thead><tbody><tr><td colspan="5" class="text-center text-secondary">Loading documents...</td></tr></tbody></table></div></div></div>`;
+const loadStudentDocumentSection = async (studentId, target) => {
+    if (!target || !studentId) return;
+    try {
+        const response = await fetch(`/student-documents/fetch/${studentId}`, { headers: { Accept: "application/json" } });
+        const documents = await response.json();
+        if (!response.ok) throw new Error(documents.message || "Unable to load student documents.");
+        target.innerHTML = renderStudentDocumentRows(documents || []);
+    } catch (error) {
+        target.innerHTML = `<tr><td colspan="5" class="text-center text-danger small">${escapeHtml(error.message || "Unable to load student documents.")}</td></tr>`;
+    }
+};
+const showStudentProfile = (enrollmentId) => {
+    const item = rows.find((row) => Number(row.id) === Number(enrollmentId));
+    if (!item?.student || !studentProfileContent || !studentProfileModal) return;
+    currentStudentProfile = item.student;
+    studentProfileContent.innerHTML = studentProfileMarkup(item.student);
+    const profileSource = document.createElement("div");
+    profileSource.innerHTML = studentProfileContent.innerHTML;
+    const profileCard = document.createElement("div");
+    profileCard.className = "student-profile-section-card";
+    const profileHeader = profileSource.querySelector(".student-profile-section-header");
+    const profileDataGrid = profileSource.querySelector(":scope > .row.g-4");
+    const profileColumns = profileDataGrid?.querySelectorAll(":scope > .col-md-6") || [];
+    const khmerRows = profileColumns[0]?.querySelectorAll(":scope > .school-profile-khmer > .d-flex") || [];
+    const englishRows = profileColumns[1]?.querySelectorAll(":scope > div > .d-flex") || [];
+    if (profileDataGrid && khmerRows.length && englishRows.length) {
+        const pairedRows = document.createElement("div");
+        pairedRows.className = "student-profile-paired-rows";
+        Array.from(khmerRows).forEach((khmerRow, index) => {
+            const englishRow = englishRows[index];
+            if (!englishRow) return;
+            khmerRow.classList.add("school-profile-khmer");
+            const pairedRow = document.createElement("div");
+            pairedRow.className = "student-profile-paired-row";
+            pairedRow.append(khmerRow, englishRow);
+            pairedRows.append(pairedRow);
+        });
+        profileDataGrid.replaceWith(pairedRows);
+    }
+    const profileCardHeader = document.createElement("div");
+    profileCardHeader.className = "student-profile-section-card-header";
+    if (profileHeader) profileCardHeader.append(profileHeader);
+    const profileBody = document.createElement("div");
+    profileBody.className = "student-profile-section-card-body";
+    const profilePhoto = profileSource.querySelector(":scope > .text-center");
+    const photoSiblingsRow = document.createElement("div");
+    photoSiblingsRow.className = "student-photo-siblings-row";
+    const siblingSection = document.createElement("div");
+    siblingSection.className = "student-siblings-section";
+    siblingSection.innerHTML = `<div class="student-siblings-section-title"><span class="badge bg-blue-lt">Siblings: <span data-sibling-count>0</span></span></div><div class="student-sibling-list"><div class="text-secondary">Loading siblings...</div></div>`;
+    if (profilePhoto) {
+        profilePhoto.classList.remove("text-center");
+        profilePhoto.classList.add("text-start");
+        photoSiblingsRow.append(profilePhoto);
+    }
+    photoSiblingsRow.append(siblingSection);
+    profileBody.append(photoSiblingsRow);
+    Array.from(profileSource.children).forEach((child) => {
+        if (child !== profileHeader && child !== profilePhoto) profileBody.append(child);
+    });
+    profileCard.append(profileCardHeader, profileBody);
+    const familySource = document.createElement("div");
+    familySource.innerHTML = studentFamilyMarkup(item.student);
+    const familyCard = familySource.firstElementChild;
+    const enrollmentSource = document.createElement("div");
+    enrollmentSource.innerHTML = studentEnrollmentSectionMarkup();
+    const enrollmentCard = enrollmentSource.firstElementChild;
+    studentProfileContent.replaceChildren(profileCard);
+    if (familyCard) studentProfileContent.append(familyCard);
+    if (enrollmentCard) {
+        studentProfileContent.append(enrollmentCard);
+        loadStudentEnrollmentSection(item.student.id, enrollmentCard.querySelector("tbody"));
+    }
+    const documentSource = document.createElement("div");
+    documentSource.innerHTML = studentDocumentSectionMarkup();
+    const documentCard = documentSource.firstElementChild;
+    if (documentCard) {
+        studentProfileContent.append(documentCard);
+        loadStudentDocumentSection(item.student.id, documentCard.querySelector("tbody"));
+    }
+    loadStudentSiblings(item.student.id, siblingSection.querySelector(".student-sibling-list"));
+    studentProfileModal.show();
+};
+const openStudentProfileReport = () => {
+    if (!studentProfileContent?.innerHTML || !currentStudentProfile) return;
+    const reportWindow = window.open("", "student-profile-report", "width=900,height=700");
+    if (!reportWindow) return;
+    const studentName = currentStudentProfile.full_name_en || currentStudentProfile.student_id || "Student";
+    const reportLogo = document.getElementById('student-report-branding')?.dataset.reportLogo1 || '';
+    const reportSource = document.createElement("div");
+    reportSource.innerHTML = studentProfileContent.innerHTML;
+    reportSource.querySelectorAll(".student-photo-siblings-row").forEach((element) => element.remove());
+    reportWindow.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Student Profile Report - ${escapeHtml(studentName)}</title><style>
+        @page { size: A4 portrait; margin: 12mm; }
+        @font-face { font-family: 'Khmer OS Muol Light'; src: url('/fonts/khmer/KhmerOSmuollight.ttf') format('truetype'); font-weight: 300; }
+        @font-face { font-family: 'Khmer OS Siemreap'; src: url('/fonts/khmer/KhmerOSsiemreap.ttf') format('truetype'); font-weight: 400; }
+        * { box-sizing: border-box; }
+        body { margin: 0; color: #253858; font-family: Arial, sans-serif; font-size: 10pt; }
+        .khmer-font-muol { font-family: 'Khmer OS Muol Light', 'Khmer OS Siemreap', sans-serif !important; font-weight: 300; }
+        .school-profile-khmer { font-family: 'Khmer OS Siemreap', sans-serif !important; font-weight: 400; }
+        .report-header { display: grid; grid-template-columns: 92px 1fr 92px; align-items: center; min-height: 82px; margin-bottom: 16px; padding: 8px 12px; border-bottom: 2px solid #1e3a5f; }
+        .report-logo { width: 72px; height: 72px; display: flex; align-items: center; justify-content: flex-start; }
+        .report-logo img { max-width: 72px; max-height: 72px; object-fit: contain; }
+        h1 { margin: 0; text-align: center; color: #1e3a5f; line-height: 1.35; }
+        h1 .report-title-kh { display: block; font-family: 'Khmer OS Muol Light', 'Khmer OS Siemreap', sans-serif; font-size: 18pt; font-weight: 300; }
+        h1 .report-title-en { display: block; font-family: Arial, sans-serif; font-size: 13pt; font-weight: 600; letter-spacing: .04em; }
+        .student-profile-section-card { border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; margin-bottom: 14px; page-break-inside: avoid; }
+        .student-profile-section-card-header { padding: 10px 14px; border-bottom: 1px solid #cbd5e1; }
+        .student-profile-section-card-body { padding: 12px 14px; }
+        .student-profile-section-header { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .student-profile-section-header .h3, .student-profile-section-card-header > .h3 { margin: 0; font-size: 14pt; color: #1e3a5f; }
+        .student-profile-paired-rows { display: flex; flex-direction: column; }
+        .student-profile-paired-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 0; }
+        .student-profile-paired-row > .d-flex { display: flex; align-items: flex-start; min-width: 0; padding-top: 0 !important; padding-bottom: 0 !important; }
+        .student-profile-paired-row .text-nowrap { flex: 0 0 130px; }
+        .student-profile-paired-row .flex-fill { overflow-wrap: anywhere; }
+        .student-photo-siblings-row { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 14px; }
+        .student-photo-siblings-row > .student-siblings-section { flex: 1; }
+        .student-sibling-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+        .student-sibling-card { display: flex; gap: 8px; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; }
+        .student-sibling-photo { width: 42px; height: 54px; object-fit: cover; }
+        .student-sibling-info { min-width: 0; font-size: 8pt; }
+        .student-sibling-name-kh, .student-sibling-name-en { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .student-profile-enrollment-table { width: 100%; border-collapse: collapse; }
+        .student-profile-enrollment-table th, .student-profile-enrollment-table td { border-bottom: 1px solid #e2e8f0; padding: 6px; text-align: center; vertical-align: middle; }
+        .badge { display: inline-block; padding: 3px 6px; border-radius: 4px; }
+        .bg-success-lt { background: #dcfce7; color: #15803d; } .bg-warning-lt { background: #fef3c7; color: #b45309; } .bg-blue-lt { background: #dbeafe; color: #1d4ed8; } .bg-secondary-lt { background: #e2e8f0; color: #475569; }
+        .btn { display: inline-block; text-decoration: none; border: 0; background: transparent; color: #2563eb; }
+        .student-profile-photo-view-trigger { border: 0; background: transparent; }
+        .student-profile-photo-view-trigger img { width: 90px !important; height: 120px !important; }
+        .table-responsive { overflow: visible; }
+        @media print { .student-profile-section-card { break-inside: avoid; } }
+    </style></head><body><div class="report-header"><div class="report-logo">${reportLogo ? `<img src="${escapeHtml(reportLogo)}" alt="School logo">` : ''}</div><h1><span class="report-title-kh">ប្រវត្តិរូបសិស្ស</span><span class="report-title-en">STUDENT PROFILE</span></h1><div></div></div>${reportSource.innerHTML}</body></html>`);
+    reportWindow.document.close();
+    reportWindow.focus();
+    window.setTimeout(() => reportWindow.print(), 300);
+};
+studentProfilePrint?.addEventListener("click", openStudentProfileReport);
+studentProfilePdf?.addEventListener("click", openStudentProfileReport);
+const enrollmentExpandedMarkup = (item = {}) => {
+    const student = item.student || {};
+    const nameKh = student.full_name_kh || "";
+    const nameEn = student.full_name_en || "";
+    const addressKh = student.current_address_kh || "-";
+    const addressEn = student.current_address_en || "-";
+    return `
+        <tr class="enrollment-expanded-row">
+            <td colspan="11">
+                <div class="enrollment-expanded-card">
+                    <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-3">
+                        <div>
+                            <div class="text-secondary small">Extended Student Enrollment</div>
+                            <h4 class="mb-0">${escapeHtml(student.student_id || "-")} · ${escapeHtml(nameEn || nameKh || "-")}</h4>
+                        </div>
+                        <span class="badge bg-purple-lt">${escapeHtml(enrollmentListGradeClass(item))}</span>
+                    </div>
+                    <div class="row g-3">
+                        ${detailChip("Khmer Name", escapeHtml(nameKh || "-"), "school-profile-khmer")}
+                        ${detailChip("English Name", escapeHtml(nameEn || "-"))}
+                        ${detailChip("Date of Birth", formatListDate(student.date_of_birth))}
+                        ${detailChip("Gender", escapeHtml([student.gender_kh, student.gender].filter(Boolean).join(" / ") || "-"))}
+                        ${detailChip("Nationality", escapeHtml([student.nationality_country?.nationality_name_kh, student.nationality_country?.nationality_name_en].filter(Boolean).join(" / ") || "-"), "school-profile-khmer")}
+                        ${detailChip("Home Phone", escapeHtml(student.home_phone || "-"))}
+                        ${detailChip("Email", escapeHtml(student.email || "-"))}
+                        ${detailChip("Family No.", escapeHtml(student.family_number || "-"))}
+                        ${detailChip("Academic Year", escapeHtml(item.academic_year?.academic_year || "-"))}
+                        ${detailChip("Campus", escapeHtml(item.campus?.campus_name_en || "-"))}
+                        ${detailChip("Track", escapeHtml(item.academic_track?.name_en || "-"))}
+                        ${detailChip("Group", escapeHtml(item.session?.session_short_name || "-"))}
+                        ${detailChip("Enrolled On", formatListDate(item.enrolled_on))}
+                        ${detailChip("Enrollment Status", escapeHtml(item.enrollment_status || "-"))}
+                        ${detailChip("Previous School", escapeHtml(student.previous_school || "-"))}
+                        ${detailChip("Tested By", escapeHtml(student.tested_by || "-"))}
+                        ${detailChip("Address Khmer", escapeHtml(addressKh), "school-profile-khmer")}
+                        ${detailChip("Address English", escapeHtml(addressEn))}
+                    </div>
+                </div>
+            </td>
+        </tr>`;
+};
+const enrollmentAcademicYearsMarkup = (item = {}) => {
+    const student = item.student || {};
+        const nameEn = student.full_name_en || "";
+    const state = expandedEnrollmentRecords.get(Number(item.id));
+    const records = state?.data || [];
+    const content = state?.loading
+        ? `<div class="text-center text-secondary py-4"><span class="spinner-border spinner-border-sm me-2"></span>Loading all academic year enrollments...</div>`
+        : state?.error
+            ? `<div class="alert alert-danger mb-0">${escapeHtml(state.error)}</div>`
+            : `<div class="table-responsive"><table class="table table-vcenter mb-0"><thead><tr><th>Academic Year</th><th>Campus</th><th>Grade</th><th>Track</th><th>Group</th><th>Type</th><th>Status</th><th>Enrolled On</th><th>Ended On</th></tr></thead><tbody>${records.length ? records.map((record) => `<tr><td class="fw-bold">${escapeHtml(record.academic_year?.academic_year || "-")}</td><td>${escapeHtml(record.campus?.campus_name_en || "-")}</td><td>${enrollmentListGradeClass(record)}</td><td>${escapeHtml(record.academic_track?.name_en || "-")}</td><td>${escapeHtml(record.session?.session_short_name || "-")}</td><td><span class="badge bg-${record.student_type === "old" ? "blue" : "green"}-lt">${record.student_type === "old" ? "Old" : "New"}</span></td><td><span class="badge bg-${record.enrollment_status === "graduated" ? "blue" : record.enrollment_status === "pending" ? "warning" : record.enrollment_status === "active" ? "success" : "secondary"}-lt">${escapeHtml(record.enrollment_status || "-")}</span></td><td>${formatListDate(record.enrolled_on)}</td><td>${formatListDate(record.ended_on)}</td></tr>`).join("") : `<tr><td colspan="9" class="text-center text-secondary py-4">No academic year enrollment records found.</td></tr>`}</tbody></table></div>`;
+    return `
+        <tr class="enrollment-expanded-row">
+            <td colspan="11">
+                <div class="enrollment-expanded-card">
+                    <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-3">
+                        <div>
+                            <div class="text-secondary small">All Academic Year Enrollments · Descending Z-A</div>
+                            <h4 class="mb-0">${escapeHtml(student.student_id || "-")} · ${escapeHtml(nameEn || "-")}</h4>
+                        </div>
+                        <span class="badge bg-purple-lt">${records.length ? `${records.length} record${records.length === 1 ? "" : "s"}` : "Enrollment Years"}</span>
+                    </div>
+                    ${content}
+                </div>
+            </td>
+        </tr>`;
+};
 
 const studentPhotoMarkup = (student) => {
     if (student?.photo_path) {
         const url = `/storage/${escapeHtml(student.photo_path)}`;
-        const name = escapeHtml(student.full_name_en || [student.first_name_en, student.last_name_en].filter(Boolean).join(" ") || student.student_id || "Student Photo");
+        const name = escapeHtml(student.full_name_en || student.student_id || "Student Photo");
         return `<button type="button" class="btn p-0 border-0 student-photo-view-trigger" data-photo-url="${url}" data-photo-title="${name}" aria-label="View student photo"><img src="${url}" alt="${name}" style="width:44px;height:44px;object-fit:cover;border-radius:.5rem;border:1px solid var(--tblr-border-color);background:var(--tblr-bg-surface);"></button>`;
     }
-    return `<span class="avatar avatar-sm" style="border-radius:.5rem;">${escapeHtml((student?.first_name_en || student?.student_no || "?").charAt(0).toUpperCase())}</span>`;
+    return `<span class="avatar avatar-sm" style="border-radius:.5rem;">${escapeHtml((student?.full_name_en || student?.student_no || "?").charAt(0).toUpperCase())}</span>`;
+};
+const transferredCampusIcon = (item = {}) => {
+    if (!Number(item.was_transferred_from_other_campus || 0)) return "";
+    const sourceCampus = item.transfer_from_campus_name || "another campus";
+    const label = `Transfer from ${sourceCampus}`;
+    return `<i class="ti ti-transfer text-success ms-1" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}"></i>`;
 };
 const setStudentPhotoViewZoom = (value) => { const zoom = Number(value); if (studentPhotoViewZoom) studentPhotoViewZoom.value = String(zoom); if (studentPhotoViewImage) studentPhotoViewImage.style.transform = `scale(${zoom})`; };
 document.addEventListener("click", (event) => {
@@ -344,8 +755,8 @@ const populateSelectedFamily = () => {
         const nameEn = document.querySelector(`[name="${type}_name_en"]`);
         const nameKh = document.querySelector(`[name="${type}_name_kh"]`);
         const workplace = document.querySelector(`[name="${type}_workplace"]`);
-        if (nameEn) nameEn.value = member.name_en || [member.first_name_en, member.last_name_en].filter(Boolean).join(" ");
-        if (nameKh) nameKh.value = member.name_kh || [member.first_name_kh, member.last_name_kh].filter(Boolean).join(" ");
+        if (nameEn) nameEn.value = member.full_name_en || "";
+        if (nameKh) nameKh.value = member.full_name_kh || "";
         if (workplace) workplace.value = member.workplace || "";
 
         const occupation = field(`${type}_occupation_id`);
@@ -371,11 +782,45 @@ const setOptions = (id, list, label, empty) => {
     if (!select) return;
     select.innerHTML = `<option value="">${empty}</option>` + list.map((item) => `<option value="${item.id}">${escapeHtml(item[label] ?? "")}</option>`).join("");
 };
+const academicTrackLabel = (item) => [item.name_kh, item.name_en].filter(Boolean).join(" / ");
+const gradeLooksLike12 = (grade) => !!grade && [grade.grade, grade.grade_short_name, grade.grade_order].some((value) => /(^|[^0-9])12([^0-9]|$)/.test(String(value ?? "")));
+const selectedGradeIs12 = () => gradeLooksLike12(gradeItems.find((item) => String(item.id) === String(field("grade_id")?.value || "")));
+const renderAcademicTrackOptions = (selectedValue = "") => {
+    const select = field("academic_track_id");
+    if (!select) return;
+    const gradeId = field("grade_id")?.value || "";
+    const tracks = academicTrackItems.filter((item) => !item.grade_id || String(item.grade_id) === String(gradeId));
+    select.innerHTML = `<option value="">Select Academic Track</option>` + tracks.map((item) => `<option value="${item.id}">${escapeHtml(academicTrackLabel(item) || item.code || "")}</option>`).join("");
+    if (selectedValue && tracks.some((item) => String(item.id) === String(selectedValue))) select.value = selectedValue;
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+};
+const updateAcademicTrackVisibility = (selectedValue = "") => {
+    const wrapper = field("academic_track_field");
+    const select = field("academic_track_id");
+    if (!wrapper || !select) return;
+    const visible = selectedGradeIs12();
+    field("enrollmentInformationFields")?.classList.toggle("has-academic-track", visible);
+    wrapper.classList.toggle("d-none", !visible);
+    select.required = visible;
+    renderAcademicTrackOptions(selectedValue || select.value);
+    if (!visible) {
+        select.value = "";
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    refreshPremiumFieldStates();
+};
 const searchableEnrollmentSelects = [
+    ["enrollments-filter-academic-year", "Academic Year"],
+    ["enrollments-filter-campus", "Campus"],
+    ["enrollments-filter-grade-class", "Grade"],
+    ["enrollments-filter-group", "Group"],
+    ["enrollments-filter-student", "Student Name"],
+    ["enrollments-filter-status", "Status"],
     ["academic_year_id", "Academic Year"],
     ["existing_family_number", "Family"],
     ["grade_id", "Grade"],
     ["class_id", "Class"],
+    ["academic_track_id", "Academic Track"],
     ["session_id", "Group"],
     ["enrollment_status", "Enrollment Status"],
     ["enrollment-document-type", "Document Type"],
@@ -390,8 +835,10 @@ const setupSearchableEnrollmentSelect = (id, label) => {
     const searchInput = field(`${id}-search`);
     const results = field(`${id}-results`);
     const selected = field(`${id}-selected`);
-    const sync = () => { selected.textContent = select.value ? (select.selectedOptions?.[0]?.textContent || "") : emptySelectedLabel; };
-    const render = () => { const term = (searchInput.value || "").toLowerCase(); const options = Array.from(select.options).slice(1).filter((option) => !term || option.textContent.toLowerCase().includes(term)); results.innerHTML = options.length ? options.map((option) => `<button type="button" class="location-combobox-option" data-searchable-select-id="${id}" data-searchable-select-value="${option.value}">${escapeHtml(option.textContent)}</button>`).join("") : `<div class="text-secondary px-2 py-2">No options found</div>`; };
+    const isListFilter = id.startsWith("enrollments-filter-");
+    const emptyLabel = isListFilter ? `All ${label}` : emptySelectedLabel;
+    const sync = () => { selected.textContent = select.value ? (select.selectedOptions?.[0]?.textContent || "") : emptyLabel; };
+    const render = () => { const term = (searchInput.value || "").toLowerCase(); const options = Array.from(select.options).slice(1).filter((option) => !term || option.textContent.toLowerCase().includes(term)); const allOption = isListFilter ? `<button type="button" class="location-combobox-option" data-searchable-select-id="${id}" data-searchable-select-value="">${emptyLabel}</button>` : ""; results.innerHTML = allOption + (options.length ? options.map((option) => `<button type="button" class="location-combobox-option" data-searchable-select-id="${id}" data-searchable-select-value="${option.value}">${escapeHtml(option.textContent)}</button>`).join("") : `<div class="text-secondary px-2 py-2">No options found</div>`); };
     toggle.addEventListener("click", () => { document.querySelectorAll(".enrollment-search-menu").forEach((other) => { if (other !== menu) other.classList.add("d-none"); }); menu.classList.toggle("d-none"); if (!menu.classList.contains("d-none")) { searchInput.value = ""; render(); searchInput.focus(); } });
     searchInput.addEventListener("input", render);
     results.addEventListener("click", (event) => { const option = event.target.closest("[data-searchable-select-value]"); if (!option) return; select.value = option.dataset.searchableSelectValue; select.dispatchEvent(new Event("change", { bubbles: true })); sync(); menu.classList.add("d-none"); });
@@ -399,7 +846,12 @@ const setupSearchableEnrollmentSelect = (id, label) => {
 };
 searchableEnrollmentSelects.forEach(([id, label]) => setupSearchableEnrollmentSelect(id, label));
 document.addEventListener("click", (event) => { if (!event.target.closest(".enrollment-search-combobox")) document.querySelectorAll(".enrollment-search-menu").forEach((menu) => menu.classList.add("d-none")); });
-const refreshSearchableEnrollmentLabels = () => searchableEnrollmentSelects.forEach(([id]) => field(id)?.dispatchEvent(new Event("change")));
+const refreshSearchableEnrollmentLabels = () => {
+    const wasRefreshing = isRefreshingEnrollmentFilters;
+    isRefreshingEnrollmentFilters = true;
+    searchableEnrollmentSelects.forEach(([id]) => field(id)?.dispatchEvent(new Event("change")));
+    isRefreshingEnrollmentFilters = wasRefreshing;
+};
 const familyNationalityUi = (type) => ({
     select: field(`${type}_nationality_country_id`),
     toggle: field(`${type}-nationality-toggle`),
@@ -551,7 +1003,7 @@ const setupStudentBilingual = (type) => { const ui = studentBilingualUi(type); i
 setupStudentBilingual("gender");
 setupStudentBilingual("nationality");
 [
-    "first_name_en", "mother_name_en", "father_name_en", "guardian_name_en",
+    "full_name_en", "mother_name_en", "father_name_en", "guardian_name_en",
 ].forEach((id) => (field(id) || document.querySelector(`[name="${id}"]`))?.addEventListener("input", (event) => { event.target.value = event.target.value.toUpperCase(); }));
 
 const arrangeEnrollmentStudentInformation = () => {
@@ -560,7 +1012,7 @@ const arrangeEnrollmentStudentInformation = () => {
     if (!information || !contact) return;
     [
         "student_no", "student_id", "existing_family_number", "family_number",
-        "first_name_en", "first_name_kh", "gender", "nationality_country_id",
+        "full_name_en", "full_name_kh", "gender", "nationality_country_id",
         "date_of_birth", "date_of_birth_kh", "home_phone_number", "email",
         "remarks",
     ].forEach((id) => {
@@ -595,7 +1047,9 @@ const drawStudentPhotoCrop = () => {
     const canvas = studentPhotoCropCanvas;
     const context = studentPhotoCropContext;
     context.clearRect(0, 0, canvas.width, canvas.height);
-    context.fillStyle = "#fff";
+    const _root = getComputedStyle(document.documentElement);
+    const _surface = _root.getPropertyValue('--tblr-bg-surface')?.trim() || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? '#111827' : '#fff');
+    context.fillStyle = _surface;
     context.fillRect(0, 0, canvas.width, canvas.height);
     const image = studentPhotoCropImage;
     const baseScale = Math.max(canvas.width / image.width, canvas.height / image.height);
@@ -627,6 +1081,16 @@ const openStudentPhotoCrop = (file) => {
         image.src = reader.result;
     };
     reader.readAsDataURL(file);
+};
+const imageFileFromPasteEvent = (event, filename = "pasted-photo.png") => {
+    const clipboardFiles = Array.from(event.clipboardData?.files || []);
+    const directFile = clipboardFiles.find((entry) => entry.type.startsWith("image/"));
+    if (directFile) return new File([directFile], filename, { type: directFile.type || "image/png" });
+
+    const items = Array.from(event.clipboardData?.items || []);
+    const item = items.find((entry) => entry.kind === "file" && entry.type.startsWith("image/"));
+    const file = item?.getAsFile();
+    return file ? new File([file], filename, { type: file.type || "image/png" }) : null;
 };
 const setStudentPhotoFile = (blob) => {
     const file = new File([blob], "student-photo.jpg", { type: "image/jpeg" });
@@ -663,6 +1127,26 @@ studentPhotoDropzone?.addEventListener("drop", (event) => {
     studentPhotoDropzone.classList.remove("is-dragging");
     const file = event.dataTransfer.files?.[0];
     if (!file) return;
+    openStudentPhotoCrop(file);
+});
+studentPhotoDropzone?.addEventListener("paste", (event) => {
+    const file = imageFileFromPasteEvent(event, "pasted-student-photo.png");
+    if (!file) return;
+    event.preventDefault();
+    openStudentPhotoCrop(file);
+});
+document.getElementById("enrollmentModal")?.addEventListener("shown.bs.modal", () => {
+    window.setTimeout(() => studentPhotoDropzone?.focus({ preventScroll: true }), 50);
+});
+document.addEventListener("paste", (event) => {
+    const enrollmentModal = document.getElementById("enrollmentModal");
+    if (!enrollmentModal?.classList.contains("show")) return;
+    if (studentPhotoCropModalElement?.classList.contains("show")) return;
+    if (event.target?.closest?.("input:not([type='file']), textarea, [contenteditable='true'], #enrollmentDocumentDropzone")) return;
+
+    const file = imageFileFromPasteEvent(event, "pasted-student-photo.png");
+    if (!file) return;
+    event.preventDefault();
     openStudentPhotoCrop(file);
 });
 
@@ -905,8 +1389,8 @@ const refreshBirthSelects = () => {
 };
 
 const loadBirthLocations = async () => {
-    const response = await fetch("/locations/options");
-    birthLocations = await response.json();
+    const data = locationOptionsCache || (await loadLocationOptions());
+    birthLocations = data;
     refreshBirthSelects();
 };
 
@@ -952,9 +1436,16 @@ const filterAddressLocations = (type) => {
     for (let i = index + 2; i < addressFields.length; i += 1) setAddressOptions(addressFields[i], []);
     updateCurrentAddress();
 };
+const loadLocationOptions = async () => {
+    if (locationOptionsCache) return locationOptionsCache;
+    const response = await fetch("/locations/options");
+    locationOptionsCache = await response.json();
+    return locationOptionsCache;
+};
 const loadAddressLocations = async () => {
     setupAddressComboboxes();
-    addressLocations = await (await fetch("/locations/options")).json();
+    const data = locationOptionsCache || (await loadLocationOptions());
+    addressLocations = data;
     setAddressOptions("country", addressLocations.countries || []);
     addressFields.slice(1).forEach((type) => setAddressOptions(type, []));
 };
@@ -1023,11 +1514,60 @@ document.addEventListener("click", (event) => {
 });
 
 const loadOptions = async () => {
-    const options = await (await fetch("/student-enrollments/options")).json();
-    const documentOptions = await (await fetch("/student-documents/options")).json();
+    if (enrollmentOptionsCache) {
+        const { options, documentOptions } = enrollmentOptionsCache;
+        const documentType = field("enrollment-document-type");
+        if (documentType) documentType.innerHTML = `<option value="">Select Document Type</option>` + (documentOptions.types || []).map((item) => `<option value="${item.id}">${escapeHtml(item.name_kh || "")}${item.name_kh ? " / " : ""}${escapeHtml(item.name_en)}</option>`).join("");
+        nextStudentNo = options.nextStudentNo || "";
+        gradeItems = options.grades || [];
+        academicTrackItems = options.academicTracks || [];
+        familyItems = options.families || [];
+        familyDetails = options.familyDetails || {};
+        setFamilyReferenceOptions(options);
+        setOptions("academic_year_id", options.academicYears || [], "academic_year", "Select Academic Year");
+        const familySelect = field("existing_family_number");
+        if (familySelect) {
+            familySelect.innerHTML = `<option value="">No sibling / New family</option>` + familyItems.map((item) => {
+                const studentName = item.full_name_en || "";
+                const label = studentName ? `${item.family_number} - ${studentName}` : item.family_number;
+                return `<option value="${escapeHtml(item.family_number)}">${escapeHtml(label)}</option>`;
+            }).join("");
+        }
+        const campusSelect = field("campus_id");
+        if (campusSelect) {
+            campusItems = (options.campuses || []).map((item) => {
+                const khName = item.campus_name_kh ? `${item.campus_name_kh} - ` : "";
+                return { id: item.id, label: `${khName}${item.campus_name_en ?? ""}` };
+            });
+            campusSelect.innerHTML = `<option value="">Select Campus</option>` + campusItems.map((item) => `<option value="${item.id}">${escapeHtml(item.label)}</option>`).join("");
+            setCampusSelectedText();
+            renderCampusResults();
+        }
+        populateEnrollmentListFilters(options);
+        setOptions("grade_id", gradeItems, "grade", "Select Grade");
+        setOptions("class_id", options.classes || [], "class_name", "Select Class");
+        renderAcademicTrackOptions();
+        field("session_id").innerHTML = `<option value="">Select Group</option>` + (options.sessions || []).map((item) => `<option value="${item.id}">${escapeHtml(item.session_short_name)}</option>`).join("");
+        refreshSearchableEnrollmentLabels();
+        updateAcademicTrackVisibility();
+        const nationality = field("nationality_country_id");
+        if (nationality) { nationality.innerHTML = `<option value="">Select Nationality</option>` + (options.countries || []).map((item) => `<option value="${item.id}" data-en="${escapeHtml(item.nationality_name_en || item.country_name_en || "")}" data-kh="${escapeHtml(item.nationality_name_kh || item.country_name_kh || "")}" data-flag="${escapeHtml(item.flag_path || "")}">${escapeHtml(item.nationality_name_en || item.country_name_en || "")}</option>`).join(""); setStudentBilingualText("nationality"); }
+        refreshPremiumFieldStates();
+        return enrollmentOptionsCache;
+    }
+    const [optionsResponse, documentOptionsResponse] = await Promise.all([
+        fetch("/student-enrollments/options"),
+        fetch("/student-documents/options"),
+    ]);
+    const options = await optionsResponse.json();
+    const documentOptions = await documentOptionsResponse.json();
+    enrollmentOptionsCache = { options, documentOptions };
+    enrollmentListOptionsCache = { allAcademicYears: options.allAcademicYears || [], enrollmentFilterRows: options.enrollmentFilterRows || [] };
     const documentType = field("enrollment-document-type");
     if (documentType) documentType.innerHTML = `<option value="">Select Document Type</option>` + (documentOptions.types || []).map((item) => `<option value="${item.id}">${escapeHtml(item.name_kh || "")}${item.name_kh ? " / " : ""}${escapeHtml(item.name_en)}</option>`).join("");
     nextStudentNo = options.nextStudentNo || "";
+    gradeItems = options.grades || [];
+    academicTrackItems = options.academicTracks || [];
     familyItems = options.families || [];
     familyDetails = options.familyDetails || {};
     setFamilyReferenceOptions(options);
@@ -1035,7 +1575,7 @@ const loadOptions = async () => {
     const familySelect = field("existing_family_number");
     if (familySelect) {
         familySelect.innerHTML = `<option value="">No sibling / New family</option>` + familyItems.map((item) => {
-    const studentName = item.full_name_en || [item.first_name_en, item.last_name_en].filter(Boolean).join(" ");
+                const studentName = item.full_name_en || "";
             const label = studentName ? `${item.family_number} - ${studentName}` : item.family_number;
             return `<option value="${escapeHtml(item.family_number)}">${escapeHtml(label)}</option>`;
         }).join("");
@@ -1050,13 +1590,137 @@ const loadOptions = async () => {
         setCampusSelectedText();
         renderCampusResults();
     }
-    setOptions("grade_id", options.grades || [], "grade", "Select Grade");
+    populateEnrollmentListFilters(options);
+    setOptions("grade_id", gradeItems, "grade", "Select Grade");
     setOptions("class_id", options.classes || [], "class_name", "Select Class");
+    renderAcademicTrackOptions();
     field("session_id").innerHTML = `<option value="">Select Group</option>` + (options.sessions || []).map((item) => `<option value="${item.id}">${escapeHtml(item.session_short_name)}</option>`).join("");
     refreshSearchableEnrollmentLabels();
+    updateAcademicTrackVisibility();
     const nationality = field("nationality_country_id");
     if (nationality) { nationality.innerHTML = `<option value="">Select Nationality</option>` + (options.countries || []).map((item) => `<option value="${item.id}" data-en="${escapeHtml(item.nationality_name_en || item.country_name_en || "")}" data-kh="${escapeHtml(item.nationality_name_kh || item.country_name_kh || "")}" data-flag="${escapeHtml(item.flag_path || "")}">${escapeHtml(item.nationality_name_en || item.country_name_en || "")}</option>`).join(""); setStudentBilingualText("nationality"); }
     refreshPremiumFieldStates();
+    return enrollmentOptionsCache;
+};
+
+const uniqueBy = (items = [], keyGetter) => {
+    const map = new Map();
+    items.forEach((item) => {
+        const key = keyGetter(item);
+        if (key !== undefined && key !== null && key !== "" && !map.has(String(key))) map.set(String(key), item);
+    });
+    return Array.from(map.values());
+};
+const repopulateEnrollmentFilterSelect = (select, emptyLabel, items, valueGetter, labelGetter) => {
+    if (!select) return;
+    const selected = select.value;
+    const options = items
+        .map((item) => ({ value: String(valueGetter(item) ?? ""), label: String(labelGetter(item) ?? "") }))
+        .filter((item) => item.value && item.label);
+    select.innerHTML = `<option value="">${emptyLabel}</option>` + options.map((item) => `<option value="${escapeHtml(item.value)}">${escapeHtml(item.label)}</option>`).join("");
+    select.value = options.some((item) => item.value === selected) ? selected : "";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+};
+const enrollmentGradeClassValue = (item = {}) => `${item.grade_id}:${item.class_id}`;
+const selectedEnrollmentGradeClass = () => {
+    const [gradeId, classId] = String(enrollmentFilterGradeClass?.value || "").split(":");
+    return { gradeId, classId };
+};
+const enrollmentRowsForSelection = ({ academicYearId = "", campusId = "", gradeClass = "", groupId = "", studentId = "", status = "" } = {}) => {
+    const [gradeId, classId] = String(gradeClass || "").split(":");
+    return enrollmentFilterRows.filter((row) => {
+        if (academicYearId && String(row.academic_year_id) !== String(academicYearId)) return false;
+        if (campusId && String(row.campus_id) !== String(campusId)) return false;
+        if (gradeId && classId && (String(row.grade_id) !== String(gradeId) || String(row.class_id) !== String(classId))) return false;
+        if (groupId && String(row.group_id) !== String(groupId)) return false;
+        if (studentId && String(row.student_record_id) !== String(studentId)) return false;
+        if (status && String(row.enrollment_status) !== String(status)) return false;
+        return true;
+    });
+};
+const refreshEnrollmentFilterOptions = (changed = "") => {
+    isRefreshingEnrollmentFilters = true;
+    if (changed === "academic_year") {
+        if (enrollmentFilterCampus) enrollmentFilterCampus.value = "";
+        if (enrollmentFilterGradeClass) enrollmentFilterGradeClass.value = "";
+        if (enrollmentFilterGroup) enrollmentFilterGroup.value = "";
+        if (enrollmentFilterStudent) enrollmentFilterStudent.value = "";
+        if (enrollmentFilterStatus) enrollmentFilterStatus.value = "";
+    } else if (changed === "campus") {
+        if (enrollmentFilterGradeClass) enrollmentFilterGradeClass.value = "";
+        if (enrollmentFilterGroup) enrollmentFilterGroup.value = "";
+        if (enrollmentFilterStudent) enrollmentFilterStudent.value = "";
+        if (enrollmentFilterStatus) enrollmentFilterStatus.value = "";
+    } else if (changed === "grade") {
+        if (enrollmentFilterGroup) enrollmentFilterGroup.value = "";
+        if (enrollmentFilterStudent) enrollmentFilterStudent.value = "";
+        if (enrollmentFilterStatus) enrollmentFilterStatus.value = "";
+    } else if (changed === "group") {
+        if (enrollmentFilterStudent) enrollmentFilterStudent.value = "";
+        if (enrollmentFilterStatus) enrollmentFilterStatus.value = "";
+    } else if (changed === "student") {
+        if (enrollmentFilterStatus) enrollmentFilterStatus.value = "";
+    }
+
+    const academicYearId = enrollmentFilterAcademicYear?.value || "";
+    const academicYearOptions = [...(enrollmentListOptions?.allAcademicYears || enrollmentListOptions?.academicYears || [])]
+        .sort((a, b) => String(b.academic_year || "").localeCompare(String(a.academic_year || ""), undefined, { numeric: true, sensitivity: "base" }));
+    repopulateEnrollmentFilterSelect(enrollmentFilterAcademicYear, "Academic Year", academicYearOptions, (item) => item.id, (item) => item.academic_year);
+
+    const validAcademicYearId = enrollmentFilterAcademicYear?.value || "";
+    const campusRows = enrollmentRowsForSelection({ academicYearId: validAcademicYearId });
+    const campusOptions = uniqueBy(campusRows, (item) => item.campus_id)
+        .sort((a, b) => String(a.campus_name_en || "").localeCompare(String(b.campus_name_en || ""), undefined, { numeric: true, sensitivity: "base" }));
+    repopulateEnrollmentFilterSelect(enrollmentFilterCampus, "Campus", campusOptions, (item) => item.campus_id, (item) => item.campus_name_en);
+
+    const validCampusId = enrollmentFilterCampus?.value || "";
+    const gradeRows = enrollmentRowsForSelection({ academicYearId: validAcademicYearId, campusId: validCampusId });
+    const gradeOptions = uniqueBy(gradeRows, enrollmentGradeClassValue)
+        .map((item) => ({
+            ...item,
+            gradeClassLabel: plainGradeClassLabel({ grade: item.grade }, { class_name: item.class_name }),
+        }))
+        .sort((a, b) => String(a.gradeClassLabel || "").localeCompare(String(b.gradeClassLabel || ""), undefined, { numeric: true, sensitivity: "base" }));
+    repopulateEnrollmentFilterSelect(enrollmentFilterGradeClass, "Grade", gradeOptions, enrollmentGradeClassValue, (item) => item.gradeClassLabel);
+
+    const validGradeClass = enrollmentFilterGradeClass?.value || "";
+    const groupRows = enrollmentRowsForSelection({ academicYearId: validAcademicYearId, campusId: validCampusId, gradeClass: validGradeClass });
+    const groupOptions = uniqueBy(groupRows, (item) => item.group_id)
+        .filter((item) => item.group_id)
+        .sort((a, b) => String(a.session_short_name || "").localeCompare(String(b.session_short_name || ""), undefined, { numeric: true, sensitivity: "base" }));
+    repopulateEnrollmentFilterSelect(enrollmentFilterGroup, "Group", groupOptions, (item) => item.group_id, (item) => item.session_short_name);
+
+    const validGroupId = enrollmentFilterGroup?.value || "";
+    const studentRows = enrollmentRowsForSelection({ academicYearId: validAcademicYearId, campusId: validCampusId, gradeClass: validGradeClass, groupId: validGroupId });
+    const studentOptions = uniqueBy(studentRows, (item) => item.student_record_id)
+        .sort((a, b) => enrollmentStudentLabel(a).localeCompare(enrollmentStudentLabel(b), undefined, { numeric: true, sensitivity: "base" }));
+    repopulateEnrollmentFilterSelect(enrollmentFilterStudent, "Student Name", studentOptions, (item) => item.student_record_id, enrollmentStudentLabel);
+
+    const validStudentId = enrollmentFilterStudent?.value || "";
+    const statusRows = enrollmentRowsForSelection({ academicYearId: validAcademicYearId, campusId: validCampusId, gradeClass: validGradeClass, groupId: validGroupId, studentId: validStudentId });
+    const statusOptions = uniqueBy(statusRows, (item) => item.enrollment_status)
+        .filter((item) => item.enrollment_status)
+        .sort((a, b) => String(a.enrollment_status || "").localeCompare(String(b.enrollment_status || "")));
+    repopulateEnrollmentFilterSelect(enrollmentFilterStatus, "Status", statusOptions, (item) => item.enrollment_status, (item) => String(item.enrollment_status || "").replace(/\b\w/g, (letter) => letter.toUpperCase()));
+    isRefreshingEnrollmentFilters = false;
+};
+let enrollmentListOptions = {};
+const populateEnrollmentListFilters = (options = {}) => {
+    enrollmentListOptions = options;
+    enrollmentFilterRows = options.enrollmentFilterRows || [];
+    refreshEnrollmentFilterOptions();
+};
+
+const loadEnrollmentListOptions = async () => {
+    if (enrollmentListOptionsCache) {
+        populateEnrollmentListFilters(enrollmentListOptionsCache);
+        return enrollmentListOptionsCache;
+    }
+    const response = await fetch("/student-enrollments/list-options", { headers: { Accept: "application/json" } });
+    if (!response.ok) throw new Error("Unable to load enrollment list filters.");
+    enrollmentListOptionsCache = await response.json();
+    populateEnrollmentListFilters(enrollmentListOptionsCache);
+    return enrollmentListOptionsCache;
 };
 
 const openCreate = async () => {
@@ -1072,18 +1736,20 @@ const openCreate = async () => {
     title.textContent = "Create Student Enrollment";
     submit.textContent = "Create";
     field("status").value = "1";
+    updateAcademicTrackVisibility();
     syncDobDisplay();
     closeDobPicker();
     setCampusSelectedText();
     loadEnrollmentDocuments("");
-    await loadOptions();
+    modal.show();
+    refreshPremiumFieldStates();
+    const dataLoad = Promise.allSettled([loadOptions(), loadBirthLocations(), loadAddressLocations()]);
+    await dataLoad;
     field("student_no").value = nextStudentNo;
     field("existing_family_number").value = "";
     autoFamilyNumber();
-    await loadBirthLocations();
-    await loadAddressLocations();
     refreshPremiumFieldStates();
-    modal.show();
+    return dataLoad;
 };
 
 const openEdit = async (id) => {
@@ -1094,11 +1760,11 @@ const openEdit = async (id) => {
     field("student_record_id").value = row.student_id;
     loadEnrollmentDocuments(row.student_id);
     const student = row.student || {};
-    ["student_no", "student_id", "family_number", "first_name_en", "first_name_kh", "gender", "gender_kh", "date_of_birth", "nationality_country_id", "email", "address_country_id", "address_province_id", "address_district_id", "address_commune_id", "address_village_id", "address_house_no_en", "address_house_no_kh", "address_street_en", "address_street_kh", "current_address_en", "current_address_kh", "previous_school", "experienced_english", "test_result", "tested_by"].forEach((key) => {
+    ["student_no", "student_id", "family_number", "full_name_en", "full_name_kh", "gender", "gender_kh", "date_of_birth", "nationality_country_id", "email", "address_country_id", "address_province_id", "address_district_id", "address_commune_id", "address_village_id", "address_house_no_en", "address_house_no_kh", "address_street_en", "address_street_kh", "current_address_en", "current_address_kh", "previous_school", "experienced_english", "test_result", "tested_by"].forEach((key) => {
         field(key).value = student[key] ?? "";
     });
-    field("first_name_en").value = student.full_name_en ?? student.first_name_en ?? "";
-    field("first_name_kh").value = student.full_name_kh ?? student.first_name_kh ?? "";
+    field("full_name_en").value = student.full_name_en ?? "";
+    field("full_name_kh").value = student.full_name_kh ?? "";
     setStudentBilingualText("gender");
     setStudentBilingualText("nationality");
     field("home_phone_number").value = student.home_phone || "";
@@ -1110,6 +1776,7 @@ const openEdit = async (id) => {
     ["academic_year_id", "campus_id", "grade_id", "class_id", "session_id"].forEach((key) => {
         field(key).value = row[key] ?? "";
     });
+    updateAcademicTrackVisibility(row.academic_track_id ?? "");
     field("enrollment_status").value = row.enrollment_status || (row.status ? "active" : "cancelled");
     refreshSearchableEnrollmentLabels();
     setCampusSelectedText();
@@ -1187,11 +1854,20 @@ const resetEnrollmentDocumentFiles = () => {
     if (documentFileInput) documentFileInput.value = "";
     renderEnrollmentDocumentFiles();
 };
-documentDropzone?.addEventListener("click", (event) => { if (event.target !== documentFileInput) documentFileInput?.click(); });
+documentDropzone?.addEventListener("click", (event) => {
+    if (event.target === documentFileInput || event.target.closest("[data-document-file-remove]")) return;
+    documentFileInput?.click();
+});
 documentDropzone?.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") documentFileInput?.click(); });
 documentDropzone?.addEventListener("dragover", (event) => { event.preventDefault(); documentDropzone.classList.add("is-dragging"); });
 documentDropzone?.addEventListener("dragleave", () => documentDropzone.classList.remove("is-dragging"));
 documentDropzone?.addEventListener("drop", (event) => { event.preventDefault(); documentDropzone.classList.remove("is-dragging"); addEnrollmentDocumentFiles(event.dataTransfer?.files); });
+documentDropzone?.addEventListener("paste", (event) => {
+    const files = Array.from(event.clipboardData?.files || []);
+    if (!files.length) return;
+    event.preventDefault();
+    addEnrollmentDocumentFiles(files);
+});
 documentFileInput?.addEventListener("change", () => addEnrollmentDocumentFiles(documentFileInput.files));
 documentFileList?.addEventListener("click", (event) => {
     const remove = event.target.closest("[data-document-file-remove]");
@@ -1285,6 +1961,8 @@ form.addEventListener("submit", async (event) => {
         await loadEnrollmentDocuments(result.data?.student_id);
         modal.hide();
         showSuccess("Saved", result.message);
+        enrollmentListOptionsCache = null;
+        loadEnrollmentListOptions().catch(() => {});
         fetchRows();
     } catch (error) {
         alertError(error.message);
@@ -1303,6 +1981,8 @@ const remove = async (id) => {
     const result = await response.json();
     if (response.ok) {
         showSuccess("Deleted", result.message);
+        enrollmentListOptionsCache = null;
+        loadEnrollmentListOptions().catch(() => {});
         fetchRows();
     } else {
         showError("Error", result.message);
@@ -1311,13 +1991,13 @@ const remove = async (id) => {
 
 const showEnrollmentHistory = async (id, studentName) => {
     document.getElementById("enrollmentHistoryTitle").textContent = `Enrollment History - ${studentName}`;
-    enrollmentHistoryTable.innerHTML = `<tr><td colspan="10" class="text-center">Loading...</td></tr>`;
+    enrollmentHistoryTable.innerHTML = `<tr><td colspan="11" class="text-center">Loading...</td></tr>`;
     historyModal.show();
     const response = await fetch(`/student-enrollments/${id}/history`, { headers: { Accept: "application/json" } });
     const result = await response.json();
     const history = result.history || [];
     const changed = (item, index, key) => index < history.length - 1 && String(item[key] ?? "") !== String(history[index + 1][key] ?? "");
-    const latestAssignment = ["student_type", "academic_year_id", "campus_id", "grade_id", "class_id", "session_id", "enrollment_status"];
+    const latestAssignment = ["student_type", "academic_year_id", "campus_id", "grade_id", "class_id", "academic_track_id", "session_id", "enrollment_status"];
     const cell = (item, index, key, value) => `<td class="${index === 0 && latestAssignment.includes(key) ? "bg-green-lt fw-bold" : changed(item, index, key) ? "bg-yellow-lt" : ""}">${value}</td>`;
     enrollmentHistoryTable.innerHTML = history.length ? history.map((item, index) => `
         <tr>
@@ -1327,48 +2007,144 @@ const showEnrollmentHistory = async (id, studentName) => {
             ${cell(item, index, "campus_id", escapeHtml(item.campus?.campus_name_en || "-"))}
             ${cell(item, index, "grade_id", escapeHtml(item.grade?.grade || "-"))}
             ${cell(item, index, "class_id", escapeHtml(item.school_class?.class_name || "-"))}
+            ${cell(item, index, "academic_track_id", escapeHtml(item.academic_track?.name_en || "-"))}
             ${cell(item, index, "session_id", escapeHtml(item.session?.session_short_name || "-"))}
-            ${cell(item, index, "enrollment_status", escapeHtml(item.enrollment_status || "-"))}
+            ${cell(item, index, "enrollment_status", `<span class="badge bg-${item.enrollment_status === "graduated" ? "blue" : item.enrollment_status === "withdrawn" ? "danger" : item.enrollment_status === "pending" ? "warning" : item.enrollment_status === "active" ? "success" : "secondary"}-lt">${escapeHtml(item.enrollment_status || "-")}</span>`)}
             <td class="${index === 0 ? "bg-green-lt fw-bold" : ""}">${escapeHtml(formatDateTime(item.updated_at))}</td>
             <td>${escapeHtml(item.changed_by?.name || "System")}</td>
-        </tr>`).join("") : `<tr><td colspan="10" class="text-center">No enrollment history found.</td></tr>`;
+        </tr>`).join("") : `<tr><td colspan="11" class="text-center">No enrollment history found.</td></tr>`;
 };
 
 async function fetchRows(page = 1) {
-    const response = await fetch(`/student-enrollments/fetch?page=${page}&perPage=${perPage.value}&search=${encodeURIComponent(search.value)}`);
+    currentEnrollmentPage = page;
+    const query = new URLSearchParams({
+        page,
+        perPage: perPage.value,
+        search: search.value,
+        sortBy: enrollmentSortBy,
+        sortDir: enrollmentSortDir,
+        academic_year_id: enrollmentFilterAcademicYear?.value || "",
+        campus_id: enrollmentFilterCampus?.value || "",
+        grade_class: enrollmentFilterGradeClass?.value || "",
+        group_id: enrollmentFilterGroup?.value || "",
+        student_id: enrollmentFilterStudent?.value || "",
+        enrollment_status: enrollmentFilterStatus?.value || "",
+    });
+    const response = await fetch(`/student-enrollments/fetch?${query.toString()}`);
     const result = await response.json();
     rows = result.data || [];
     table.innerHTML = rows.length ? rows.map((item) => `
         <tr>
-            <td>${escapeHtml(item.student?.student_no ?? "")}</td>
             <td>${studentPhotoMarkup(item.student)}</td>
-            <td>${escapeHtml(item.student?.student_id ?? "-")}</td>
-            <td>${escapeHtml(item.student?.first_name_en ?? "")} ${escapeHtml(item.student?.last_name_en ?? "")}</td>
+            <td>${escapeHtml(item.student?.student_id ?? "-")} ${transferredCampusIcon(item)}</td>
+            <td>${enrollmentListStudentName(item.student, item.id)}</td>
             <td><span class="badge bg-${item.student_type === "old" ? "blue" : "green"}-lt">${item.student_type === "old" ? "Old" : "New"}</span></td>
             <td>${escapeHtml(item.academic_year?.academic_year ?? "-")}</td>
             <td>${escapeHtml(item.campus?.campus_name_en ?? "-")}</td>
-            <td>${escapeHtml(item.grade?.grade ?? "-")}</td>
-            <td>${escapeHtml(item.school_class?.class_name ?? "-")}</td>
+            <td>${enrollmentListGradeClass(item)}</td>
+            <td>${escapeHtml(item.academic_track?.name_en ?? "-")}</td>
             <td>${escapeHtml(item.session?.session_short_name ?? "-")}</td>
-            <td><span class="badge bg-${item.enrollment_status === "active" ? "success" : "secondary"}-lt">${escapeHtml(item.enrollment_status || (item.status ? "active" : "inactive"))}</span></td>
+            <td><span class="badge bg-${item.enrollment_status === "graduated" ? "blue" : item.enrollment_status === "withdrawn" ? "danger" : item.enrollment_status === "pending" ? "warning" : item.enrollment_status === "active" ? "success" : "secondary"}-lt">${escapeHtml(item.enrollment_status || (item.status ? "active" : "inactive"))}</span>${item.enrollment_status === "withdrawn" && item.ended_on ? `<div class="text-danger small mt-1">${formatWithdrawalDate(item.ended_on)}</div>` : ""}</td>
             <td>
-                <button class="btn btn-info btn-sm" onclick="enrollmentsPage.history(${item.id}, '${escapeHtml(`${item.student?.first_name_en ?? ""} ${item.student?.last_name_en ?? ""}`)}')">History</button>
+                <button class="btn btn-outline-primary btn-sm" onclick="enrollmentsPage.viewProfile(${item.id})" title="View student profile"><i class="ti ti-user me-1"></i>Profile</button>
+                <button class="btn btn-info btn-sm" onclick="enrollmentsPage.history(${item.id}, '${escapeHtml(item.student?.full_name_en ?? "")}')">History</button>
                 <button class="btn btn-primary btn-sm" onclick="enrollmentsPage.edit(${item.id})">Edit</button>
                 <button class="btn btn-danger btn-sm" onclick="enrollmentsPage.remove(${item.id})">Delete</button>
     </td>
-        </tr>`).join("") : `<tr><td colspan="12" class="text-center">No enrollments found.</td></tr>`;
+        </tr>${expandedEnrollmentIds.has(Number(item.id)) ? enrollmentAcademicYearsMarkup(item) : ""}`).join("") : `<tr><td colspan="11" class="text-center">No enrollments found.</td></tr>`;
     renderPagination(result, "enrollments-pagination-container", "enrollments-per-page", fetchRows);
     renderPageInfo(result);
+    updateEnrollmentSortIcons();
 }
 
 document.getElementById("newEnrollment").onclick = openCreate;
 perPage.onchange = () => fetchRows();
 search.onkeyup = () => fetchRows();
+enrollmentFilterAcademicYear?.addEventListener("change", () => {
+    if (isRefreshingEnrollmentFilters) return;
+    refreshEnrollmentFilterOptions("academic_year");
+    fetchRows(1);
+});
+enrollmentFilterCampus?.addEventListener("change", () => {
+    if (isRefreshingEnrollmentFilters) return;
+    refreshEnrollmentFilterOptions("campus");
+    fetchRows(1);
+});
+enrollmentFilterGradeClass?.addEventListener("change", () => {
+    if (isRefreshingEnrollmentFilters) return;
+    refreshEnrollmentFilterOptions("grade");
+    fetchRows(1);
+});
+enrollmentFilterGroup?.addEventListener("change", () => {
+    if (isRefreshingEnrollmentFilters) return;
+    refreshEnrollmentFilterOptions("group");
+    fetchRows(1);
+});
+enrollmentFilterStudent?.addEventListener("change", () => {
+    if (isRefreshingEnrollmentFilters) return;
+    refreshEnrollmentFilterOptions("student");
+    fetchRows(1);
+});
+enrollmentFilterStatus?.addEventListener("change", () => {
+    if (isRefreshingEnrollmentFilters) return;
+    fetchRows(1);
+});
+const updateEnrollmentSortIcons = () => {
+    document.querySelectorAll("[data-sort-icon]").forEach((icon) => {
+        icon.textContent = icon.dataset.sortIcon === enrollmentSortBy ? (enrollmentSortDir === "asc" ? "↑" : "↓") : "";
+    });
+    document.querySelectorAll("[data-sort]").forEach((button) => {
+        button.classList.toggle("text-primary", button.dataset.sort === enrollmentSortBy);
+    });
+};
+document.querySelectorAll("[data-sort]").forEach((button) => {
+    button.addEventListener("click", () => {
+        if (enrollmentSortBy === button.dataset.sort) {
+            enrollmentSortDir = enrollmentSortDir === "asc" ? "desc" : "asc";
+        } else {
+            enrollmentSortBy = button.dataset.sort;
+            enrollmentSortDir = "asc";
+        }
+        fetchRows(1);
+    });
+});
 field("student_id")?.addEventListener("input", autoFamilyNumber);
 field("existing_family_number")?.addEventListener("change", () => { autoFamilyNumber(); populateSelectedFamily(); });
+field("grade_id")?.addEventListener("change", () => updateAcademicTrackVisibility());
 field("date_of_birth")?.addEventListener("change", syncDobDisplay);
 field("date_of_birth_direct")?.addEventListener("change", (event) => setDobValue(event.target.value));
-loadOptions();
-loadBirthLocations();
+loadEnrollmentListOptions().catch(() => {});
 fetchRows();
-window.enrollmentsPage = { edit: openEdit, remove, history: showEnrollmentHistory };
+window.enrollmentsPage = {
+    edit: openEdit,
+    remove,
+    history: showEnrollmentHistory,
+    viewProfile: showStudentProfile,
+    toggleDetails: async (id) => {
+        const numericId = Number(id);
+        if (expandedEnrollmentIds.has(numericId)) {
+            expandedEnrollmentIds.delete(numericId);
+            fetchRows(currentEnrollmentPage);
+            return;
+        }
+        expandedEnrollmentIds.clear();
+        expandedEnrollmentIds.add(numericId);
+        const row = rows.find((item) => Number(item.id) === numericId);
+        if (!row?.student_id) {
+            expandedEnrollmentRecords.set(numericId, { error: "Unable to find this student enrollment record." });
+            fetchRows(currentEnrollmentPage);
+            return;
+        }
+        expandedEnrollmentRecords.set(numericId, { loading: true });
+        fetchRows(currentEnrollmentPage);
+        try {
+            const response = await fetch(`/student-enrollments/student/${row.student_id}/academic-years`, { headers: { Accept: "application/json" } });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message || "Unable to load academic year enrollments.");
+            expandedEnrollmentRecords.set(numericId, { data: result.enrollments || [] });
+        } catch (error) {
+            expandedEnrollmentRecords.set(numericId, { error: error.message || "Unable to load academic year enrollments." });
+        }
+        fetchRows(currentEnrollmentPage);
+    },
+};

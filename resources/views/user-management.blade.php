@@ -1,7 +1,7 @@
 @extends('layouts.app')
 @section('title', 'Users')
 @section('page-header')
-<div class="container-fluid"><div class="row g-2 align-items-center"><div class="col"><div class="page-pretitle">Administrator</div><h2 class="page-title">Users</h2></div><div class="col-auto ms-auto d-print-none"><button type="button" id="btnNewUser" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#userModal" onclick="event.preventDefault();const m=document.getElementById('userModal');if(window.bootstrap&&m){window.bootstrap.Modal.getOrCreateInstance(m).show();}"><i class="ti ti-plus icon"></i> New User</button></div></div></div>
+<div class="container-fluid"><div class="row g-2 align-items-center"><div class="col"><div class="page-pretitle">Administrator</div><h2 class="page-title">Users</h2></div><div class="col-auto ms-auto d-print-none"><a id="btnNewUser" class="btn btn-primary" href="{{ route('users.index', ['create' => 1]) }}"><i class="ti ti-plus icon"></i> New User</a></div></div></div>
 <style>
 #userModal .modal-content { max-height: calc(100vh - 2rem); }
 #userModal .modal-dialog { height: calc(100vh - 2rem); max-height: calc(100vh - 2rem); }
@@ -21,6 +21,43 @@
 [data-bs-theme="dark"] #userModal .text-secondary,[data-bs-theme="dark"] #userModal small{color:#94a3b8!important}
 [data-bs-theme="dark"] #userModal .border,[data-bs-theme="dark"] #userModal details{border-color:#475569!important}
 [data-bs-theme="dark"] #userModal .logo-dropzone{background:#1e293b!important;border-color:#475569!important;color:#f8fafc}
+#userModal .user-searchable-combobox{position:relative}
+#userModal .user-searchable-combobox .location-combobox-selected{display:block;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+#userModal .user-searchable-combobox .location-combobox-toggle{width:100%;height:52px;padding:1.25rem 2.75rem .35rem 1rem;border:1.5px solid #dfe3ea;border-radius:14px;background:var(--tblr-bg-forms,#fff);color:var(--tblr-body-color);text-align:left;font:inherit;position:relative}
+#userModal .user-searchable-combobox .location-combobox-toggle:focus{outline:0;border-color:#6b5bd6;box-shadow:0 0 0 3px rgba(107,91,214,.14)}
+#userModal .user-searchable-combobox .location-combobox-toggle>i{position:absolute;right:1rem;top:50%;transform:translateY(-50%);color:var(--tblr-secondary)}
+#userModal .user-searchable-combobox .location-combobox-menu{position:absolute;z-index:20;left:0;right:0;top:calc(100% + .35rem);padding:.65rem;background:var(--tblr-bg-surface,#fff);border:1px solid var(--tblr-border-color);border-radius:14px;box-shadow:0 12px 28px rgba(31,41,55,.16)}
+#userModal .user-searchable-combobox .location-combobox-menu .form-control{height:44px;border-radius:10px;padding: .55rem .75rem}
+#userModal .user-searchable-combobox .location-combobox-results{max-height:220px;overflow-y:auto;margin-top:.5rem}
+#userModal .user-searchable-combobox .location-combobox-option{display:block;width:100%;border:0;background:transparent;text-align:left;padding:.65rem .75rem;border-radius:9px;color:var(--tblr-body-color)}
+#userModal .user-searchable-combobox .location-combobox-option:hover,#userModal .user-searchable-combobox .location-combobox-option.is-selected{background:rgba(var(--tblr-primary-rgb),.12);color:var(--tblr-body-color)}
+#userModal .user-searchable-combobox .location-combobox-option.is-selected::after{content:'✓';float:right;color:var(--tblr-primary);font-weight:700}
+#userModal .user-searchable-combobox .location-combobox-option{display:flex;align-items:center;justify-content:flex-start;gap:.35rem}
+#userModal .user-searchable-combobox .location-combobox-option .form-check-input{flex:0 0 auto;margin-top:0;pointer-events:none}
+#userModal .user-searchable-combobox .location-combobox-option.is-selected::after{margin-left:auto}
+#userModal .user-searchable-combobox.is-multiple .location-combobox-option{display:flex!important;justify-content:flex-start!important;align-items:center!important;flex-direction:row!important;text-align:left!important}
+#userModal .user-searchable-combobox.is-multiple .location-combobox-option::after{content:none!important}
+#userModal .user-searchable-combobox.is-multiple .location-combobox-option span{margin:0!important;text-align:left}
+#userModal .user-searchable-combobox.is-multiple .user-multi-option-content{display:inline-flex!important;align-items:center!important;justify-content:flex-start!important;gap:.5rem!important;width:auto!important;max-width:100%;margin:0!important}
+#userModal .user-searchable-combobox.is-multiple .user-multi-option-label{display:inline-block!important;flex:0 1 auto!important;width:auto!important;margin:0!important;text-align:left!important;white-space:normal}
+#userModal .user-searchable-combobox.is-multiple .location-combobox-option .form-check-input{margin:0!important}
+#userModal .premium-form-field:has(> .phone-input-group)> .form-label{left:1rem!important}
+#userModal .premium-form-field:not(.has-value):not(:focus-within):has(> .phone-input-group)> .form-label{left:4.25rem!important}
+#userModal .premium-form-field:has(> .phone-input-group)> .phone-input-group .form-control{padding-left:6rem!important}
+#userModal .premium-form-field:has(> .phone-input-group)> .phone-input-group .iti{width:100%;position:relative}
+#userModal .premium-form-field:has(> .phone-input-group)> .phone-input-group .iti__country-container{width:4.65rem;box-sizing:border-box;padding:1.5px 0 1.5px .7rem;overflow:visible}
+#userModal .premium-form-field:has(> .phone-input-group)> .phone-input-group .iti__selected-country-primary{padding:0!important}
+#userModal .premium-form-field:has(> .phone-input-group)> .phone-input-group .iti__selected-country-flag{margin-right:.25rem}
+#userModal .premium-form-field:has(> .phone-input-group)> .phone-input-group .iti__arrow{margin-left:.25rem}
+#userModal .premium-form-field:has(> .phone-input-group)> .phone-input-group .iti__selected-dial-code{margin-left:.2rem;white-space:nowrap}
+#userModal [class*="col-"]:has(> .phone-input-group)> .form-label{left:1rem!important}
+#userModal [class*="col-"]:not(.has-value):not(:focus-within):has(> .phone-input-group)> .form-label{left:4.25rem!important}
+#userModal [class*="col-"]:has(> .phone-input-group)> .phone-input-group .form-control{padding-left:6rem!important}
+[data-bs-theme="dark"] #userModal .user-searchable-combobox .location-combobox-toggle{background:#1e293b!important;color:#f8fafc!important;border-color:#475569!important}
+[data-bs-theme="dark"] #userModal .user-searchable-combobox .location-combobox-menu{background:#1e293b!important;color:#f8fafc;border-color:#475569}
+[data-bs-theme="dark"] #userModal .user-searchable-combobox .location-combobox-menu .form-control{background:#0f172a!important;color:#f8fafc!important;border-color:#64748b!important}
+[data-bs-theme="dark"] #userModal .user-searchable-combobox .location-combobox-option{color:#f8fafc}
+[data-bs-theme="dark"] #userModal .user-searchable-combobox .location-combobox-option:hover,[data-bs-theme="dark"] #userModal .user-searchable-combobox .location-combobox-option.is-selected{background:#334155;color:#f8fafc}
 </style>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
@@ -83,6 +120,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const row = form?.querySelector('.row.g-3');
     const emailField = row?.querySelector('input[name="email"]')?.closest('.col-md-3');
     if (!row || !emailField || row.dataset.staffInformationReady) return;
+    if (row.querySelector('input[name="date_of_birth"]') || row.querySelector('select[name="position_id"]')) return;
     row.dataset.staffInformationReady = '1';
     const makeField = (label, name, type, value) => {
         const column = document.createElement('div');
@@ -281,7 +319,7 @@ document.addEventListener('DOMContentLoaded', () => {
 .user-date-picker .date-picker-direct{padding-right:3rem!important}
 .user-date-picker .date-picker-calendar-button{position:absolute;right:.35rem;top:50%;z-index:2;width:2.5rem;min-height:2.5rem;padding:0;border:0!important;background:transparent!important;box-shadow:none!important;transform:translateY(-50%)}
 .premium-password-field{position:relative}
-.premium-password-field .form-control{height:52px;min-height:52px;padding:1.25rem 3rem .35rem 1rem;border:1.5px solid #dfe3ea;border-radius:14px;background:#fff;box-shadow:0 2px 7px rgba(31,41,55,.04)}
+.premium-password-field .form-control{height:52px;min-height:52px;padding:1.25rem 3rem .35rem 1rem;border:1.5px solid #dfe3ea;border-radius:14px;background:var(--tblr-bg-surface,#fff);box-shadow:0 2px 7px rgba(31,41,55,.04)}
 .premium-password-toggle{position:absolute;top:50%;right:.75rem;transform:translateY(-50%);border:0;background:transparent;color:#8994a5;padding:.25rem}
 .profile-password-strength{margin-top:.65rem}.profile-password-strength-header{display:flex;justify-content:space-between;font-weight:600;font-size:.9rem}.profile-password-strength-value{color:#dc3545}.profile-password-strength-value.medium{color:#d97706}.profile-password-strength-value.strong{color:#198754}
 .profile-password-strength-bar{height:4px;background:#edf0f4;border-radius:99px;overflow:hidden;margin:.35rem 0 .7rem}.profile-password-strength-fill{display:block;height:100%;width:0;background:#dc3545;transition:width .2s ease,background .2s ease}.profile-password-strength-fill.medium{background:#d97706}.profile-password-strength-fill.strong{background:#198754}
@@ -299,6 +337,53 @@ document.addEventListener('DOMContentLoaded', () => {
 #staffPhotoDropzone #staffPhotoPreview{width:120px;height:120px;min-height:0;object-fit:cover;border-radius:.5rem;border:1px solid var(--tblr-border-color)}
 [data-bs-theme="dark"] .staff-photo-crop-stage{background:#0f172a}
 </style>
+<div class="modal modal-blur fade" id="userModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{{ $editUser ? 'Edit User' : 'Create User' }}</h5>
+                <a class="btn-close" href="{{ route('users.index') }}" aria-label="Close"></a>
+            </div>
+            <form method="POST" action="{{ route('users.save') }}" enctype="multipart/form-data">
+                @csrf
+                <input type="hidden" name="user_id" value="{{ $editUser?->id }}">
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label">Photo</label>
+                            <div class="student-photo-upload-row">
+                                <div class="logo-dropzone" id="staffPhotoDropzone" tabindex="0">
+                                    <i class="ti ti-cloud-upload logo-dropzone-icon"></i>
+                                    <div><strong>Drag and drop staff photo here</strong></div>
+                                    <div class="text-secondary">or click, paste, or upload a file</div>
+                                    <input type="file" class="d-none" name="photo" id="staff_photo" accept="image/jpeg,image/png,image/webp">
+                                </div>
+                                <div class="d-none staff-photo-preview-wrap" id="staffPhotoPreviewContainer"><img id="staffPhotoPreview" src="#" alt="Staff photo preview" class="student-photo-preview"></div>
+                            </div>
+                            <small class="form-hint">JPG, PNG, or WEBP. Maximum size: 2 MB.</small>
+                        </div>
+                        <div class="col-md-3"><label class="form-label">Staff Name</label><input class="form-control" name="name" value="{{ old('name', $editUser?->name) }}" required></div>
+                        <div class="col-md-3"><label class="form-label">Username</label><input class="form-control" name="username" value="{{ old('username', $editUser?->username) }}" required></div>
+                        <div class="col-md-3"><label class="form-label">Email</label><input class="form-control" type="email" name="email" value="{{ old('email', $editUser?->email) }}" required></div>
+                        <div class="col-md-3"><label class="form-label">Password</label><input class="form-control" type="password" name="password" minlength="8"><small class="text-secondary">Blank = 1234567890</small></div>
+                        <div class="col-md-3"><label class="form-label">Confirm Password</label><input class="form-control" type="password" name="password_confirmation" minlength="8"></div>
+                        <div class="col-md-3"><label class="form-label">Gender</label><select class="form-select" name="gender"><option value=""></option><option value="male" @selected(old('gender', $editUser?->gender)==='male')>Male</option><option value="female" @selected(old('gender', $editUser?->gender)==='female')>Female</option><option value="other" @selected(old('gender', $editUser?->gender)==='other')>Other</option></select></div>
+                        <div class="col-md-3"><label class="form-label">Date of Birth</label><input class="form-control" type="date" name="date_of_birth" value="{{ old('date_of_birth', $editUser?->date_of_birth?->format('Y-m-d')) }}"></div>
+                        <div class="col-md-3"><label class="form-label">Phone Number</label><div class="phone-input-group"><input class="form-control" type="tel" id="user_phone_number" placeholder=" " value="{{ old('phone', $editUser?->phone) }}"><input type="hidden" name="phone" id="user_phone" value="{{ old('phone', $editUser?->phone) }}"></div></div>
+                        <div class="col-md-3"><label class="form-label">Position</label><select class="form-select" name="position_id"><option value=""></option>@foreach($positions as $position)<option value="{{ $position->id }}" data-department-id="{{ $position->department_id }}" @selected(old('position_id', $editUser?->position_id)==$position->id)>{{ $position->name }}</option>@endforeach</select></div>
+                        <div class="col-md-3"><label class="form-label">Department</label><select class="form-select" name="department_id"><option value=""></option>@foreach($departments as $d)<option value="{{ $d->id }}" @selected(old('department_id', $editUser?->department_id)==$d->id)>{{ $d->name }}</option>@endforeach</select></div>
+                        <div class="col-md-3"><label class="form-label">Role</label><select class="form-select" name="role_id" required><option value=""></option>@foreach($roles as $r)<option value="{{ $r->id }}" @selected(old('role_id', $editUser?->roles->first()?->id)==$r->id)>{{ $r->name }}</option>@endforeach</select></div>
+                        <div class="col-md-4"><label class="form-label">Campus Assignments</label><select class="form-select" name="campuses[]" multiple size="4">@foreach($campuses as $c)<option value="{{ $c->id }}" @selected($editUser?->campuses->contains($c->id))>{{ $c->campus_name_en }}</option>@endforeach</select></div>
+                        <div class="col-md-4"><label class="form-label">Allowed Login Method</label><select class="form-select" name="login_identifier"><option value="username" @selected(old('login_identifier', $editUser?->login_identifier ?? 'username')==='username')>Username only</option><option value="email" @selected(old('login_identifier', $editUser?->login_identifier)==='email')>Email only</option><option value="both" @selected(old('login_identifier', $editUser?->login_identifier)==='both')>Username or Email</option></select></div>
+                        <div class="col-md-4"><label class="form-label">Account Status</label><select class="form-select" name="status"><option value="1" @selected(old('status', $editUser?->status ?? 1)==1)>Active</option><option value="0" @selected(old('status', $editUser?->status)==0)>Inactive</option></select><label class="form-check mt-2"><input class="form-check-input" type="checkbox" name="is_global" value="1" @checked(old('is_global', $editUser?->is_global))><span class="form-check-label">Central Office / global access</span></label></div>
+                    </div>
+                    <details class="mt-4"><summary>Staff-specific permissions</summary><div class="row g-2 mt-2">@foreach($permissions as $module => $items)<div class="col-md-3"><div class="text-uppercase small text-secondary">{{ $module }}</div>@foreach($items as $permission)<label class="form-check"><input class="form-check-input" type="checkbox" name="permission_ids[]" value="{{ $permission->id }}" @checked($editUser?->permissionOverrides->contains($permission->id))><span class="form-check-label">{{ $permission->name }}</span></label>@endforeach</div>@endforeach</div></details>
+                </div>
+                <div class="modal-footer"><a class="btn me-auto" href="{{ route('users.index') }}">Cancel</a><button class="btn btn-primary">{{ $editUser ? 'Update User' : 'Create User' }}</button></div>
+            </form>
+        </div>
+    </div>
+</div>
 <div class="modal modal-blur fade" id="staffPhotoCropModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
@@ -370,27 +455,35 @@ document.addEventListener('DOMContentLoaded', () => {
 @if(session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
 @if($errors->any())<div class="alert alert-danger">{{ $errors->first() }}</div>@endif
 <div class="card"><div class="card-header"><h3 class="card-title">User Lists</h3></div><form method="GET"><div class="card-body border-bottom py-3"><div class="row g-2 align-items-center justify-content-between"><div class="col-auto text-secondary">Show <div class="mx-2 d-inline-block"><select class="form-control form-control-sm" name="per_page" onchange="this.form.submit()"><option value="10" @selected(request('per_page', 10)==10)>10 / page</option><option value="25" @selected(request('per_page')==25)>25 / page</option><option value="50" @selected(request('per_page')==50)>50 / page</option><option value="100" @selected(request('per_page')==100)>100 / page</option></select></div> entries</div><div class="col-auto"><div class="input-icon"><span class="input-icon-addon"><i class="ti ti-search icon"></i></span><input type="text" name="search" value="{{ request('search') }}" class="form-control form-control-sm" placeholder="Search users"></div></div></div></div></form><div class="table-responsive table-vcenter text-nowrap"><table class="table card-table"><thead><tr><th>No.</th><th>Staff Name</th><th>Username</th><th>Email</th><th>Department</th><th>Role</th><th>Login</th><th>Status</th><th class="text-center">Actions</th></tr></thead><tbody>@forelse($users as $user)<tr><td>{{ $users->firstItem() + $loop->index }}</td><td>{{ $user->name }}</td><td>{{ $user->username }}</td><td>{{ $user->email }}</td><td>{{ $user->department?->name ?? '—' }}</td><td>{{ $user->roles->pluck('name')->join(', ') ?: '—' }}</td><td>{{ $user->login_identifier === 'both' ? 'Username / Email' : ucfirst($user->login_identifier) }}</td><td><span class="badge bg-{{ $user->status ? 'success' : 'secondary' }}">{{ $user->status ? 'Active' : 'Inactive' }}</span></td><td class="text-center"><a class="btn btn-sm btn-outline-primary" href="{{ route('users.index', ['edit' => $user->id]) }}"><i class="ti ti-edit"></i></a> <form class="d-inline" method="POST" action="{{ route('users.delete', $user) }}" onsubmit="return confirm('Delete this user?')">@csrf @method('DELETE')<button class="btn btn-sm btn-outline-danger"><i class="ti ti-trash"></i></button></form></td></tr>@empty<tr><td colspan="9" class="text-center text-secondary py-4">No users found.</td></tr>@endforelse</tbody></table></div><div class="card-footer"><div class="d-flex justify-content-center">@include('partials.user-pagination')</div></div></div>
-<div class="modal modal-blur fade" id="userModal" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">{{ $editUser ? 'Edit User' : 'Create User' }}</h5><a class="btn-close" href="{{ route('users.index') }}"></a></div><form method="POST" action="{{ route('users.save') }}" enctype="multipart/form-data">@csrf<input type="hidden" name="user_id" value="{{ $editUser?->id }}"><div class="modal-body"><div class="row g-3"><div class="col-12"><label class="form-label">Photo</label><div class="student-photo-upload-row"><div class="logo-dropzone" id="staffPhotoDropzone" tabindex="0"><i class="ti ti-cloud-upload logo-dropzone-icon"></i><div><strong>Drag and drop staff photo here</strong></div><div class="text-secondary">or click to upload a file</div><input type="file" class="d-none" name="photo" id="staff_photo" accept="image/jpeg,image/png,image/webp"></div><div class="d-none staff-photo-preview-wrap" id="staffPhotoPreviewContainer"><img id="staffPhotoPreview" src="#" alt="Staff photo preview" class="student-photo-preview"></div></div><small class="form-hint">JPG, PNG, or WEBP. Maximum size: 2 MB.</small></div><div class="col-md-3"><label class="form-label">Staff Name</label><input class="form-control" name="name" value="{{ old('name', $editUser?->name) }}" required></div><div class="col-md-3"><label class="form-label">Username</label><input class="form-control" name="username" value="{{ old('username', $editUser?->username) }}" required></div><div class="col-md-3"><label class="form-label">Email</label><input class="form-control" type="email" name="email" value="{{ old('email', $editUser?->email) }}" required></div><div class="col-md-3"><label class="form-label">Password</label><input class="form-control" type="password" name="password" minlength="8"><small class="text-secondary">Blank = 1234567890</small></div><div class="col-md-3"><label class="form-label">Confirm Password</label><input class="form-control" type="password" name="password_confirmation" minlength="8"></div><div class="col-md-3"><label class="form-label">Department</label><select class="form-select" name="department_id"><option value="">Select</option>@foreach($departments as $d)<option value="{{ $d->id }}" @selected(old('department_id', $editUser?->department_id)==$d->id)>{{ $d->name }}</option>@endforeach</select></div><div class="col-md-3"><label class="form-label">Role</label><select class="form-select" name="role_id" required><option value="">Select</option>@foreach($roles as $r)<option value="{{ $r->id }}" @selected(old('role_id', $editUser?->roles->first()?->id)==$r->id)>{{ $r->name }}</option>@endforeach</select></div><div class="col-md-4"><label class="form-label">Campus Assignments</label><select class="form-select" name="campuses[]" multiple size="4">@foreach($campuses as $c)<option value="{{ $c->id }}" @selected($editUser?->campuses->contains($c->id))>{{ $c->campus_name_en }}</option>@endforeach</select></div><div class="col-md-4"><label class="form-label">Allowed Login Method</label><select class="form-select" name="login_identifier"><option value="username" @selected(old('login_identifier', $editUser?->login_identifier ?? 'username')==='username')>Username only</option><option value="email" @selected(old('login_identifier', $editUser?->login_identifier)==='email')>Email only</option><option value="both" @selected(old('login_identifier', $editUser?->login_identifier)==='both')>Username or Email</option></select></div><div class="col-md-4"><label class="form-label">Account Status</label><select class="form-select" name="status"><option value="1" @selected(old('status', $editUser?->status ?? 1)==1)>Active</option><option value="0" @selected(old('status', $editUser?->status)==0)>Inactive</option></select><label class="form-check mt-2"><input class="form-check-input" type="checkbox" name="is_global" value="1" @checked(old('is_global', $editUser?->is_global))><span class="form-check-label">Central Office / global access</span></label></div></div><details class="mt-4"><summary>Staff-specific permissions</summary><div class="row g-2 mt-2">@foreach($permissions as $module => $items)<div class="col-md-3"><div class="text-uppercase small text-secondary">{{ $module }}</div>@foreach($items as $permission)<label class="form-check"><input class="form-check-input" type="checkbox" name="permission_ids[]" value="{{ $permission->id }}" @checked($editUser?->permissionOverrides->contains($permission->id))><span class="form-check-label">{{ $permission->name }}</span></label>@endforeach</div>@endforeach</div></details></div><div class="modal-footer"><a class="btn me-auto" href="{{ route('users.index') }}">Cancel</a><button class="btn btn-primary">{{ $editUser ? 'Update User' : 'Create User' }}</button></div></form></div></div></div>
 <script>
-function openUserModalSafely() {
+window.openUserModalSafely = function () {
     const modal = document.getElementById('userModal');
     if (!modal) return;
-    if (window.bootstrap?.Modal) {
-        window.bootstrap.Modal.getOrCreateInstance(modal).show();
-        return;
+    try {
+        if (window.bootstrap?.Modal) {
+            window.bootstrap.Modal.getOrCreateInstance(modal).show();
+            return;
+        }
+    } catch (error) {
+        console.warn('Bootstrap modal initialization failed; using fallback.', error);
     }
+    document.querySelector('.modal-backdrop.user-modal-backdrop')?.remove();
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop fade show user-modal-backdrop';
+    document.body.appendChild(backdrop);
     modal.classList.add('show');
     modal.style.display = 'block';
     modal.setAttribute('aria-hidden', 'false');
+    modal.removeAttribute('inert');
     document.body.classList.add('modal-open');
 }
-function openUserModal() { openUserModalSafely(); }
+window.openUserModal = () => window.openUserModalSafely();
 document.addEventListener('DOMContentLoaded', () => {
     const modal = document.getElementById('userModal');
     document.addEventListener('click', event => {
         if (event.target.closest('#btnNewUser')) openUserModalSafely();
     }, true);
-    @if($editUser)
+    @if($editUser || ($createUser ?? false))
         openUserModalSafely();
     @endif
 });

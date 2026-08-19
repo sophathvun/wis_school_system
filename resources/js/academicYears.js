@@ -19,6 +19,7 @@ const academicYearsTable = document.getElementById("academicYearsTable");
 let allAcademicYears = [];
 
 const periodTypeInput = document.getElementById("period_type");
+const lifecycleStatusInput = document.getElementById("lifecycle_status");
 const summerPeriodFields = document.getElementById("summerPeriodFields");
 const updateSummerFields = () => {
     const isSummer = periodTypeInput?.value === "summer";
@@ -51,6 +52,7 @@ const openCreateModal = () => {
     const ayId = document.getElementById("academic_year_id");
     if (ayId) ayId.value = "";
     if (periodTypeInput) periodTypeInput.value = "regular";
+    if (lifecycleStatusInput) lifecycleStatusInput.value = "pending";
     updateSummerFields();
     if (modalTitle) modalTitle.textContent = "Create Academic Year";
     if (submitBtn) submitBtn.textContent = "Create";
@@ -168,7 +170,7 @@ const openEditModal = (id) => {
     const academicYearInput = document.getElementById("academic_year");
     const ayCodeInput = document.getElementById("ay_code");
     const descriptionInput = document.getElementById("description");
-    const statusSelect = document.getElementById("status");
+    const lifecycleStatusSelect = document.getElementById("lifecycle_status");
     const startDateInput = document.getElementById("start_date");
     const endDateInput = document.getElementById("end_date");
 
@@ -178,9 +180,8 @@ const openEditModal = (id) => {
     if (ayCodeInput) ayCodeInput.value = academicYear.ay_code ?? "";
     if (descriptionInput)
         descriptionInput.value = academicYear.description ?? "";
-    if (statusSelect)
-        statusSelect.value =
-            academicYear.status != null ? String(academicYear.status) : "1";
+    if (lifecycleStatusSelect)
+        lifecycleStatusSelect.value = academicYear.lifecycle_status ?? (academicYear.status ? "pending" : "finished");
     if (periodTypeInput) periodTypeInput.value = academicYear.period_type ?? "regular";
     if (startDateInput) startDateInput.value = academicYear.start_date ?? "";
     if (endDateInput) endDateInput.value = academicYear.end_date ?? "";
@@ -189,6 +190,39 @@ const openEditModal = (id) => {
     if (modalTitle) modalTitle.textContent = "Edit Academic Year";
     if (submitBtn) submitBtn.textContent = "Update";
     if (bsModal) bsModal.show();
+};
+
+const setCurrentAcademicYear = async (id) => {
+    const year = allAcademicYears.find((item) => item.id === id);
+    const result = await showConfirm(
+        "Set Started Academic Year",
+        `Set ${year?.academic_year ?? "this academic year"} as started? The existing started ${year?.period_type === "summer" ? "Summer School" : "Regular Academic Year"} will be finished automatically.`,
+        "Set Started",
+        "Cancel",
+    );
+
+    if (!result.isConfirmed) return;
+
+    try {
+        const response = await fetch(`/academic-years/${id}/set-current`, {
+            method: "POST",
+            headers: {
+                Accept: "application/json",
+                "Content-Type": "application/json",
+                "X-CSRF-TOKEN": csrfToken,
+            },
+        });
+        const data = await response.json();
+
+        if (!response.ok || data.status !== "success") {
+            throw new Error(data.message || "Unable to set started academic year.");
+        }
+
+        showSuccess("Updated", data.message);
+        fetchAcademicYears();
+    } catch (error) {
+        showError("Error", error.message || "Unable to set started academic year.");
+    }
 };
 
 // --- Delete academic year --- //
@@ -254,8 +288,16 @@ const fetchAcademicYears = async (page = 1, perPage = null) => {
         const result = await response.json();
         allAcademicYears = result.data;
 
-        const isAactive = "<span class='badge bg-success-lt'>Active</span>";
-        const isInactive = "<span class='badge bg-danger-lt'>Inactive</span>";
+        const lifecycleBadge = (status) => {
+            const badges = {
+                draft: "<span class='badge bg-secondary-lt'>Draft</span>",
+                pending: "<span class='badge bg-blue-lt'>Pending</span>",
+                started: "<span class='badge bg-green-lt'>Started</span>",
+                finished: "<span class='badge bg-orange-lt'>Finished</span>",
+                archived: "<span class='badge bg-dark-lt'>Archived</span>",
+            };
+            return badges[status] || "<span class='badge bg-secondary-lt'>Draft</span>";
+        };
 
         const rowNumber = (result.current_page - 1) * perPageValue;
 
@@ -269,7 +311,10 @@ const fetchAcademicYears = async (page = 1, perPage = null) => {
                 <td>${year.start_date ?? ""}</td>
                 <td>${year.end_date ?? ""}</td>
                 <td>${year.description ?? ""}</td>
-                <td>${year.status ? isAactive : isInactive}</td>
+                <td>${lifecycleBadge(year.lifecycle_status)}</td>
+                <td class="text-center">
+                    ${year.lifecycle_status !== "started" ? `<button onclick="academicYears.setCurrentAcademicYear(${year.id})" class="btn btn-success btn-sm"><i class="ti ti-check icon"></i>Set Started</button>` : "<span class='badge bg-green-lt'>Started</span>"}
+                </td>
                 <td class="text-center">
                     <button onclick="academicYears.openEditModal(${year.id})" class="btn btn-primary btn-sm"><i class="ti ti-pencil icon"></i>Edit</button>
                     <button onclick="academicYears.deleteAcademicYear(${year.id})" class="btn btn-danger btn-sm"><i class="ti ti-trash icon"></i>Delete</button>                
@@ -311,6 +356,7 @@ window.academicYears = {
     openCreateModal,
     openEditModal,
     deleteAcademicYear,
+    setCurrentAcademicYear,
     fetchAcademicYears,
 };
 window.openCreateModal = openCreateModal;

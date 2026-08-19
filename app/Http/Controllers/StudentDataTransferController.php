@@ -79,12 +79,7 @@ class StudentDataTransferController
             foreach (['birth_commune_id', 'address_commune_id'] as $field) $values[$field] = $this->lookupId($values[$field] ?? null, 'tb_commune', ['commune_name_en', 'commune_name_kh']);
             foreach (['birth_village_id', 'address_village_id'] as $field) $values[$field] = $this->lookupId($values[$field] ?? null, 'tb_village', ['village_name_en', 'village_name_kh']);
             $values['full_name_en'] = trim((string) ($data['full_name_en'] ?? ''));
-            $values['first_name_en'] = $values['full_name_en'];
-            $values['last_name_en'] = '';
-            $values['last_name_en'] = '';
             $values['full_name_kh'] = ($data['full_name_kh'] ?? '') === '' ? null : $data['full_name_kh'];
-            $values['first_name_kh'] = $values['full_name_kh'];
-            $values['last_name_kh'] = null;
             $values['status'] = $this->boolean($data['status'] ?? '1');
             $student = Student::updateOrCreate(['student_id' => trim($data['student_id'])], $values);
             if (!$student->student_no) $student->update(['student_no' => 'S'.str_pad((string) $student->id, 6, '0', STR_PAD_LEFT)]);
@@ -108,10 +103,6 @@ class StudentDataTransferController
         $values = collect($data)->only(self::FAMILY_COLUMNS)->except(['family_number'])->map(fn ($value, $key) => in_array($key, ['is_primary_contact', 'has_pickup_authorization', 'has_portal_access', 'status']) ? $this->boolean($value) : ($value === '' ? null : $value))->all();
         $values['occupation_id'] = $this->lookupId($values['occupation_id'] ?? null, 'tb_occupation', ['occupation_name_en', 'occupation_name_kh']);
         $values['nationality_country_id'] = $this->lookupId($values['nationality_country_id'] ?? null, 'tb_country', ['country_name_en', 'country_name_kh', 'nationality_name_en', 'nationality_name_kh']);
-        $values['first_name_en'] = trim((string) ($data['full_name_en'] ?? ''));
-        $values['last_name_en'] = '';
-        $values['first_name_kh'] = ($data['full_name_kh'] ?? '') === '' ? null : $data['full_name_kh'];
-        $values['last_name_kh'] = null;
         $values['full_name_en'] = $data['full_name_en'] ?? null;
         $values['full_name_kh'] = $data['full_name_kh'] ?? null;
         $values['name_en'] = $data['full_name_en'] ?? null;
@@ -162,8 +153,8 @@ class StudentDataTransferController
     private function row($model, array $columns): array
     {
         return collect($columns)->mapWithKeys(fn ($column) => [$column => match ($column) {
-            'full_name_en' => $model->full_name_en ?: trim(($model->first_name_en ?? '').' '.($model->last_name_en ?? '')),
-            'full_name_kh' => $model->full_name_kh ?: trim(($model->first_name_kh ?? '').' '.($model->last_name_kh ?? '')),
+            'full_name_en' => $model->full_name_en,
+            'full_name_kh' => $model->full_name_kh,
             'name_en', 'name_kh' => $model->{$column} ?: trim(($model->{'first_name_'.substr($column, 5)} ?? '').' '.($model->{'last_name_'.substr($column, 5)} ?? '')),
             default => $model->{$column},
         }])->all();

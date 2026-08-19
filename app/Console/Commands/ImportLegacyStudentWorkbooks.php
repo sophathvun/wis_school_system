@@ -46,10 +46,8 @@ class ImportLegacyStudentWorkbooks extends Command
                 $student = Student::updateOrCreate(['student_id' => $studentId], [
                     'student_no' => $this->studentNo($row, $studentId),
                     'family_number' => $this->nullable($row['family_number'] ?? $row['family number'] ?? null),
-                    'first_name_en' => $this->nameValue($row['name in english'] ?? null, 50),
-                    'last_name_en' => '',
-                    'first_name_kh' => $this->nameValue($row['name in khmer'] ?? null, 50),
-                    'last_name_kh' => null,
+                    'full_name_en' => $this->nameValue($row['name in english'] ?? null, 160),
+                    'full_name_kh' => $this->nameValue($row['name in khmer'] ?? null, 160),
                     'gender' => $this->gender($row['sex'] ?? null),
                     'gender_kh' => $this->genderKh($row['sex'] ?? null),
                     'date_of_birth' => $this->dateValue($row['date of birth'] ?? null),
@@ -81,7 +79,7 @@ class ImportLegacyStudentWorkbooks extends Command
                     $name = $this->nullable($row[$fields['name_en']] ?? null);
                     if (!$name) continue;
                     FamilyMember::updateOrCreate(['family_id' => $family->id, 'relationship_type' => $relationship], [
-                        'first_name_en' => $this->nameValue($name, 80), 'last_name_en' => '', 'first_name_kh' => $this->nameValue($row[$fields['name_kh']] ?? null, 80), 'last_name_kh' => null,
+                        'full_name_en' => $this->nameValue($name, 160), 'full_name_kh' => $this->nameValue($row[$fields['name_kh']] ?? null, 160),
                         'name_en' => $this->nameValue($name, 160), 'name_kh' => $this->nameValue($row[$fields['name_kh']] ?? null, 160), 'phone' => $this->phone($row[$fields['phone']] ?? null),
                         'occupation_id' => $this->occupationId($row[$fields['occupation']] ?? null), 'nationality_country_id' => $this->countryId($row[$fields['nationality']] ?? null),
                         'workplace' => $this->nullable($row[$fields['workplace']] ?? null), 'status' => 1,

@@ -100,16 +100,19 @@
     const setupCountryFlagUpload = () => {
         const extra = document.getElementById('country-extra');
         if (!extra || document.getElementById('country-flag')) return;
-        extra.insertAdjacentHTML('beforeend', '<div class="col-6"><label class="form-label">Nationality (English)</label><input id="nationality-name-en" class="form-control"></div><div class="col-6"><label class="form-label">Nationality (Khmer)</label><input id="nationality-name-kh" class="form-control school-profile-khmer"></div><div class="col-12"><label class="form-label">Flag Image</label><div class="logo-dropzone" id="countryFlagDropzone" tabindex="0"><i class="ti ti-cloud-upload logo-dropzone-icon"></i><div><strong>Drag and drop flag image here</strong></div><div class="text-secondary">or click to upload a file</div><input type="file" class="d-none" id="country-flag" accept="image/jpeg,image/png,image/webp"><img id="country-flag-preview" class="d-none mt-2" style="max-width:90px;max-height:60px;object-fit:contain" alt="Flag preview"></div></div>');
+        extra.insertAdjacentHTML('beforeend', '<div class="col-6"><label class="form-label">Nationality (English)</label><input id="nationality-name-en" class="form-control"></div><div class="col-6"><label class="form-label">Nationality (Khmer)</label><input id="nationality-name-kh" class="form-control school-profile-khmer"></div><div class="col-12"><label class="form-label">Flag Image</label><div class="logo-dropzone" id="countryFlagDropzone" tabindex="0"><i class="ti ti-cloud-upload logo-dropzone-icon"></i><div><strong>Drag and drop flag image here</strong></div><div class="text-secondary">or click, paste, or upload a file</div><input type="file" class="d-none" id="country-flag" accept="image/jpeg,image/png,image/webp"><img id="country-flag-preview" class="d-none mt-2" style="max-width:90px;max-height:60px;object-fit:contain" alt="Flag preview"></div></div>');
         const dropzone = document.getElementById('countryFlagDropzone');
         const input = document.getElementById('country-flag');
         const preview = document.getElementById('country-flag-preview');
         const showPreview = (file) => { if (!file) return; preview.src = URL.createObjectURL(file); preview.classList.remove('d-none'); };
+        const pastedImage = (event) => { const direct = Array.from(event.clipboardData?.files || []).find(file => file.type.startsWith('image/')); if (direct) return new File([direct], 'pasted-flag.png', { type: direct.type || 'image/png' }); const item = Array.from(event.clipboardData?.items || []).find(entry => entry.kind === 'file' && entry.type.startsWith('image/')); const file = item?.getAsFile(); return file ? new File([file], 'pasted-flag.png', { type: file.type || 'image/png' }) : null; };
+        const assignFlag = (file) => { if (!file || !file.type.startsWith('image/')) return; const transfer = new DataTransfer(); transfer.items.add(file); input.files = transfer.files; showPreview(file); };
         input.addEventListener('change', () => showPreview(input.files?.[0]));
         dropzone.addEventListener('click', () => input.click());
         dropzone.addEventListener('dragover', (event) => { event.preventDefault(); dropzone.classList.add('is-dragging'); });
         dropzone.addEventListener('dragleave', () => dropzone.classList.remove('is-dragging'));
-        dropzone.addEventListener('drop', (event) => { event.preventDefault(); dropzone.classList.remove('is-dragging'); const file = event.dataTransfer.files?.[0]; if (!file) return; const transfer = new DataTransfer(); transfer.items.add(file); input.files = transfer.files; showPreview(file); });
+        dropzone.addEventListener('drop', (event) => { event.preventDefault(); dropzone.classList.remove('is-dragging'); assignFlag(event.dataTransfer.files?.[0]); });
+        dropzone.addEventListener('paste', (event) => { const file = pastedImage(event); if (!file) return; event.preventDefault(); assignFlag(file); });
     };
 
     window.addEventListener('load', () => {

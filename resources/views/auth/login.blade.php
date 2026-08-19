@@ -6,13 +6,20 @@
 @php($branding = \App\Models\BrandingSetting::current())
 <style>
     .auth-flip-page {
+        position: relative;
         min-height: 100vh;
         display: grid;
         place-items: center;
         padding: 2rem 1rem;
-        background: radial-gradient(circle at 12% 12%, rgba(65, 105, 190, .32), transparent 30rem), linear-gradient(135deg, #071a3d 0%, #0b2d62 55%, #061733 100%);
+        color: var(--tblr-body-color);
+        background: radial-gradient(circle at 12% 12%, rgba(65, 105, 190, .18), transparent 30rem), linear-gradient(135deg, #f7f9ff 0%, #eef3ff 55%, #e8efff 100%);
         perspective: 1600px;
     }
+    [data-bs-theme="dark"] .auth-flip-page {
+        background: radial-gradient(circle at 12% 12%, rgba(65, 105, 190, .28), transparent 30rem), linear-gradient(135deg, #071a3d 0%, #0b2d62 55%, #061733 100%);
+    }
+    .auth-theme-toggle { position: absolute; top: 1.25rem; right: 1.25rem; z-index: 3; display: inline-flex; align-items: center; gap: .4rem; border: 1px solid var(--tblr-border-color); border-radius: 999px; padding: .5rem .8rem; color: var(--tblr-body-color); background: var(--tblr-bg-surface, #fff); box-shadow: 0 4px 14px rgba(31, 41, 55, .08); }
+    .auth-theme-toggle:hover { color: var(--tblr-primary); border-color: var(--tblr-primary); }
     .auth-flip-card {
         position: relative;
         width: min(100%, 860px);
@@ -21,7 +28,8 @@
         grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
         overflow: hidden;
         border-radius: 24px;
-        background: #fff;
+        background: var(--tblr-bg-surface, var(--tblr-body-bg, #fff));
+        border: 1px solid var(--tblr-border-color-translucent, rgba(98, 105, 118, .16));
         box-shadow: 0 22px 60px rgba(30, 41, 59, .18);
     }
     .auth-panel {
@@ -31,20 +39,21 @@
         justify-content: center;
         padding: 2.5rem;
     }
-    .auth-form-panel { background: #fff; }
+    .auth-form-panel { background: var(--tblr-bg-surface, var(--tblr-body-bg, #fff)); }
     .auth-form-content { width: min(100%, 340px); }
     .auth-brand-logo { display: flex; justify-content: center; margin-bottom: 1rem; }
     .auth-brand-logo img { width: auto; height: 76px; max-width: min(220px, 75%); object-fit: contain; }
     .auth-form-content h1 { margin-bottom: .5rem; font-size: clamp(1.8rem, 3vw, 2.35rem); font-weight: 800; text-align: center; }
-    .auth-form-content > p { margin-bottom: 1.5rem; color: #667085; text-align: center; }
-    .auth-form-panel .form-control { min-height: 50px; border: 0; border-radius: 10px; background: #f0f2f5; }
+    .auth-form-content > p { margin-bottom: 1.5rem; color: var(--tblr-secondary-color); text-align: center; }
+    .auth-form-panel .form-label { color: var(--tblr-body-color); }
+    .auth-form-panel .form-control { min-height: 50px; border: 1px solid var(--tblr-border-color); border-radius: 10px; color: var(--tblr-body-color); background: var(--tblr-bg-forms, var(--tblr-bg-surface, #fff)); }
     .auth-input-wrap { position: relative; }
-    .auth-input-wrap > .ti { position: absolute; z-index: 1; top: 50%; left: 1rem; color: #98a2b3; font-size: 1.1rem; transform: translateY(-50%); pointer-events: none; }
+    .auth-input-wrap > .ti { position: absolute; z-index: 1; top: 50%; left: 1rem; color: var(--tblr-secondary-color); font-size: 1.1rem; transform: translateY(-50%); pointer-events: none; }
     .auth-input-wrap .form-control { padding-left: 2.8rem; }
-    .auth-input-wrap .auth-password-toggle { position: absolute; z-index: 2; top: 50%; right: .7rem; display: grid; width: 2rem; height: 2rem; padding: 0; place-items: center; border: 0; color: #98a2b3; background: transparent; transform: translateY(-50%); }
+    .auth-input-wrap .auth-password-toggle { position: absolute; z-index: 2; top: 50%; right: .7rem; display: grid; width: 2rem; height: 2rem; padding: 0; place-items: center; border: 0; color: var(--tblr-secondary-color); background: transparent; transform: translateY(-50%); }
     .auth-input-wrap .auth-password-toggle:hover { color: #ff4b2b; background: transparent; }
     .auth-input-wrap .auth-password { padding-right: 3rem; }
-    .auth-form-panel .form-control:focus { background: #fff; box-shadow: 0 0 0 3px rgba(255, 75, 43, .16); }
+    .auth-form-panel .form-control:focus { border-color: #ff4b2b; background: var(--tblr-bg-surface, #fff); box-shadow: 0 0 0 3px rgba(255, 75, 43, .16); }
     .auth-submit { width: 100%; margin-top: .5rem; padding: .8rem 1rem; border: 1px solid #ff4b2b; border-radius: 999px; color: #fff; background: #ff4b2b; font-weight: 700; letter-spacing: .04em; transition: transform .15s ease, box-shadow .15s ease; }
     .auth-submit:hover { color: #fff; box-shadow: 0 8px 18px rgba(255, 75, 43, .24); transform: translateY(-1px); }
     .auth-switch-panel { position: relative; overflow: hidden; color: #fff; background: linear-gradient(135deg, #fc4f4f, #ffcf00); }
@@ -56,14 +65,14 @@
     .auth-switch-content h2 { font-weight: 800; }
     .auth-switch-content p { margin: 1rem 0 1.75rem; color: rgba(255, 255, 255, .9); }
     .auth-switch-button { padding: .75rem 1.7rem; border: 1px solid rgba(255, 255, 255, .9); border-radius: 999px; color: #fff; background: transparent; font-weight: 700; }
-    .auth-switch-button:hover { color: #fc4f4f; background: #fff; }
+    .auth-switch-button:hover { color: #fc4f4f; background: var(--tblr-bg-surface, #fff); }
     .auth-flip-card.is-email .auth-form-panel { animation: auth-form-to-email .55s ease both; }
     .auth-flip-card.is-username .auth-form-panel { animation: auth-form-to-username .55s ease both; }
     @keyframes auth-form-to-email { 0% { transform: rotateY(0); opacity: 1; } 45% { transform: rotateY(88deg); opacity: .15; } 55% { transform: rotateY(-88deg); opacity: .15; } 100% { transform: rotateY(0); opacity: 1; } }
     @keyframes auth-form-to-username { 0% { transform: rotateY(0); opacity: 1; } 45% { transform: rotateY(-88deg); opacity: .15; } 55% { transform: rotateY(88deg); opacity: .15; } 100% { transform: rotateY(0); opacity: 1; } }
-    .auth-mode-note { min-height: 1.25rem; margin-top: .75rem; color: #667085; font-size: .82rem; text-align: center; }
+    .auth-mode-note { min-height: 1.25rem; margin-top: .75rem; color: var(--tblr-secondary-color); font-size: .82rem; text-align: center; }
     @media (max-width: 767.98px) {
-        .auth-flip-page { min-height: 100vh; padding: 1rem .5rem; }
+        .auth-flip-page { min-height: 100vh; padding: 4.5rem .5rem 1rem; }
         .auth-flip-card { display: block; min-height: 0; border-radius: 20px; }
         .auth-panel { padding: 2rem 1.25rem; }
         .auth-switch-panel { min-height: 210px; }
@@ -72,6 +81,7 @@
 </style>
 
 <div class="auth-flip-page">
+    <button class="auth-theme-toggle" type="button" id="authThemeToggle" aria-label="Switch theme" title="Switch theme"><i class="ti ti-moon" aria-hidden="true"></i><span>Night mode</span></button>
     <div class="auth-flip-card is-username" id="authFlipCard">
         <section class="auth-panel auth-form-panel">
             <div class="auth-form-content">
@@ -131,6 +141,13 @@
         const form = document.getElementById('authLoginForm');
         const password = document.getElementById('authPassword');
         const togglePassword = document.getElementById('togglePassword');
+        const themeToggle = document.getElementById('authThemeToggle');
+        const updateThemeToggle = () => {
+            const dark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+            themeToggle.innerHTML = `<i class="ti ti-${dark ? 'sun' : 'moon'}" aria-hidden="true"></i><span>${dark ? 'Light mode' : 'Night mode'}</span>`;
+            themeToggle.setAttribute('aria-label', dark ? 'Switch to light mode' : 'Switch to night mode');
+            themeToggle.title = dark ? 'Switch to light mode' : 'Switch to night mode';
+        };
         let mode = @json(old('login_by', 'username')) === 'email' ? 'email' : 'username';
         const render = () => {
             const email = mode === 'email';
@@ -153,7 +170,15 @@
             togglePassword.title = visible ? 'Show password' : 'Hide password';
             togglePassword.innerHTML = `<i class="ti ti-${visible ? 'eye' : 'eye-off'}"></i>`;
         });
+        themeToggle.addEventListener('click', () => {
+            const dark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+            const next = dark ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-bs-theme', next);
+            window.localStorage.setItem('tabler-theme', next);
+            updateThemeToggle();
+        });
         form.addEventListener('submit', () => { loginBy.value = mode; identifier.value = mode === 'email' ? emailInput.value : usernameInput.value; });
+        updateThemeToggle();
         render();
     })();
 </script>

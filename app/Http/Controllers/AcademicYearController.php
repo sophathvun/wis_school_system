@@ -3,12 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\AcademicYear;
+use App\Models\StudentEnrollment;
 use App\Models\SchoolInfo;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Support\SettingsQuery;
+use Illuminate\Support\Facades\DB;
 
 class AcademicYearController
 {
@@ -26,15 +28,20 @@ class AcademicYearController
         $academicYears = AcademicYear::query()
             ->when($search, function ($query) use ($search) {
                 $query->where('academic_year', 'like', "%{$search}%")
+                    ->orWhere('academic_year_code', 'like', "%{$search}%")
+                    ->orWhere('lifecycle_status', 'like', "%{$search}%")
                     ->orWhere('description', 'like', "%{$search}%");
-            })->paginate($perPage);
+            })
+            ->orderByDesc('academic_year')
+            ->orderByDesc('id')
+            ->paginate($perPage);
 
         return response()->json($academicYears);
     }
 
     public function exportPdf()
     {
-        $academicYears = AcademicYear::orderBy('academic_year')->get();
+        $academicYears = AcademicYear::orderByDesc('academic_year')->get();
         $school = SchoolInfo::latest('id')->first();
         $logoPath = $school?->logo_path
             ? storage_path('app/public/' . $school->logo_path)
@@ -81,7 +88,7 @@ class AcademicYearController
             'start_date' => ['nullable', 'date'],
             'end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
             'description' => ['nullable', 'string', 'max:100'],
-            'status' => ['required', 'boolean'],
+            'lifecycle_status' => ['required', Rule::in(['draft', 'pending', 'started', 'finished', 'archived'])],
         ]);
 
         if ($validated['period_type'] === 'summer') {
@@ -102,12 +109,34 @@ class AcademicYearController
             ? trim($validated['ay_code'])
             : null;
 
-        $academicYear = $academicYearId
-            ? AcademicYear::findOrFail($academicYearId)
-            : new AcademicYear();
+        $validated['status'] = in_array($validated['lifecycle_status'], ['draft', 'pending', 'started'], true) ? 1 : 0;
 
-        $academicYear->fill($validated);
-        $academicYear->save();
+        $academicYear = DB::transaction(function () use ($academicYearId, $validated) {
+            if ($validated['lifecycle_status'] === 'started') {
+                AcademicYear::where('period_type', $validated['period_type'])
+                    ->where('lifecycle_status', 'started')
+                    ->when($academicYearId, fn ($query) => $query->where('id', '!=', $academicYearId))
+                    ->get()
+                    ->each(function (AcademicYear $year) use ($validated) {
+                        $status = $this->displacedLifecycleStatus($year->academic_year, $validated['academic_year']);
+                        $year->update([
+                            'lifecycle_status' => $status,
+                            'status' => $status === 'pending' ? 1 : 0,
+                        ]);
+                        $this->syncEnrollmentStatuses($year);
+                    });
+            }
+
+            $academicYear = $academicYearId
+                ? AcademicYear::findOrFail($academicYearId)
+                : new AcademicYear();
+
+            $academicYear->fill($validated);
+            $academicYear->save();
+            $this->syncEnrollmentStatuses($academicYear);
+
+            return $academicYear;
+        });
 
         return response()->json([
             'status' => 'success',
@@ -135,6 +164,70 @@ class AcademicYearController
             'status' => 'success',
             'message' => 'Academic year deleted successfully.',
         ]);
+    }
+
+    public function setCurrent(AcademicYear $academicYear)
+    {
+        DB::transaction(function () use ($academicYear) {
+            AcademicYear::where('period_type', $academicYear->period_type)
+                ->where('lifecycle_status', 'started')
+                ->where('id', '!=', $academicYear->id)
+                ->get()
+                ->each(function (AcademicYear $year) use ($academicYear) {
+                    $status = $this->displacedLifecycleStatus($year->academic_year, $academicYear->academic_year);
+                    $year->update([
+                        'lifecycle_status' => $status,
+                        'status' => $status === 'pending' ? 1 : 0,
+                    ]);
+                    $this->syncEnrollmentStatuses($year);
+                });
+
+            $academicYear->update([
+                'lifecycle_status' => 'started',
+                'status' => 1,
+            ]);
+            $this->syncEnrollmentStatuses($academicYear);
+        });
+
+        return response()->json([
+            'status' => 'success',
+            'message' => $academicYear->period_type === 'summer'
+                ? 'Summer School set as started. Previous started Summer School was finished automatically.'
+                : 'Academic year set as started. Previous started regular year was finished automatically.',
+            'data' => $academicYear->fresh(),
+        ]);
+    }
+
+    private function displacedLifecycleStatus(string $displacedYear, string $newStartedYear): string
+    {
+        return $this->academicYearSortValue($displacedYear) > $this->academicYearSortValue($newStartedYear)
+            ? 'pending'
+            : 'finished';
+    }
+
+    private function academicYearSortValue(string $academicYear): int
+    {
+        preg_match_all('/\d{4}/', $academicYear, $matches);
+        $years = array_map('intval', $matches[0] ?? []);
+
+        return $years ? max($years) : 0;
+    }
+
+    private function syncEnrollmentStatuses(AcademicYear $academicYear): void
+    {
+        $enrollmentStatus = match ($academicYear->lifecycle_status) {
+            'started' => 'active',
+            'pending' => 'pending',
+            'finished' => 'completed',
+            default => null,
+        };
+
+        if ($enrollmentStatus) {
+            $query = StudentEnrollment::where('academic_year_id', $academicYear->id);
+
+            $query->whereIn('enrollment_status', ['active', 'pending', 'completed'])
+                ->update(['enrollment_status' => $enrollmentStatus]);
+        }
     }
 
 }

@@ -16,7 +16,9 @@ const init = () => {
     const draw = () => {
         if (!image) return;
         context.clearRect(0, 0, 400, 400);
-        context.fillStyle = "#fff";
+        const _root = getComputedStyle(document.documentElement);
+        const _surface = _root.getPropertyValue('--tblr-bg-surface')?.trim() || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? '#111827' : '#fff');
+        context.fillStyle = _surface;
         context.fillRect(0, 0, 400, 400);
         const size = Math.max(400 / image.width, 400 / image.height) * scale;
         context.save();
@@ -31,11 +33,35 @@ const init = () => {
         reader.onload = () => { const next = new Image(); next.onload = () => { image = next; scale = 1; rotation = 0; offsetX = 0; offsetY = 0; zoom.value = "1"; draw(); modal.show(); }; next.src = reader.result; };
         reader.readAsDataURL(file);
     };
+    const imageFileFromPasteEvent = event => {
+        const clipboardFiles = Array.from(event.clipboardData?.files || []);
+        const directFile = clipboardFiles.find(entry => entry.type.startsWith("image/"));
+        if (directFile) return new File([directFile], "pasted-profile-photo.png", { type: directFile.type || "image/png" });
+
+        const items = Array.from(event.clipboardData?.items || []);
+        const item = items.find(entry => entry.kind === "file" && entry.type.startsWith("image/"));
+        const file = item?.getAsFile();
+        return file ? new File([file], "pasted-profile-photo.png", { type: file.type || "image/png" }) : null;
+    };
     input.addEventListener("click", event => event.stopPropagation());
     input.addEventListener("change", () => { const file = input.files?.[0]; input.value = ""; open(file); });
     zone.addEventListener("drop", event => { event.preventDefault(); zone.classList.remove("is-dragging"); open(event.dataTransfer?.files?.[0]); });
     zone.addEventListener("dragover", event => { event.preventDefault(); zone.classList.add("is-dragging"); });
     zone.addEventListener("dragleave", () => zone.classList.remove("is-dragging"));
+    zone.addEventListener("paste", event => {
+        const file = imageFileFromPasteEvent(event);
+        if (!file) return;
+        event.preventDefault();
+        open(file);
+    });
+    document.addEventListener("paste", event => {
+        if (modalElement.classList.contains("show")) return;
+        if (event.target?.closest?.("input:not([type='file']), textarea, [contenteditable='true']")) return;
+        const file = imageFileFromPasteEvent(event);
+        if (!file) return;
+        event.preventDefault();
+        open(file);
+    });
     zoom.addEventListener("input", () => { scale = Number(zoom.value); draw(); });
     document.getElementById("profilePhotoZoomIn")?.addEventListener("click", () => { zoom.value = Math.min(3, Number(zoom.value) + .1).toFixed(2); zoom.dispatchEvent(new Event("input")); });
     document.getElementById("profilePhotoZoomOut")?.addEventListener("click", () => { zoom.value = Math.max(1, Number(zoom.value) - .1).toFixed(2); zoom.dispatchEvent(new Event("input")); });

@@ -23,8 +23,18 @@ class StudentSearchController
             ? SchoolInfo::query()
             : $user->accessibleCampuses();
 
+        $classIds = StudentEnrollment::query()
+            ->when($request->academic_year_id, fn ($query, $id) => $query->where('academic_year_id', $id))
+            ->when($request->campus_id, fn ($query, $id) => $query->where('campus_id', $id))
+            ->distinct()->pluck('class_id');
+
+        $campusIds = StudentEnrollment::query()
+            ->when($request->academic_year_id, fn ($query, $id) => $query->where('academic_year_id', $id))
+            ->distinct()->pluck('campus_id');
+
         $classes = SchoolClass::query()
             ->where('status', 1)
+            ->whereIn('id', $classIds)
             ->when($request->academic_year_id, fn ($query, $id) => $query->where('academic_year_id', $id))
             ->orderBy('class_order')
             ->orderBy('class_name')
@@ -32,14 +42,17 @@ class StudentSearchController
 
         $groups = SchoolGroup::query()
             ->where('status', 1)
+            ->whereIn('class_id', $classIds)
             ->when($request->class_id, fn ($query, $id) => $query->where('class_id', $id))
             ->orderBy('group_order')
             ->orderBy('group_name')
             ->get(['id', 'group_name', 'class_id']);
 
         return response()->json([
-            'academicYears' => AcademicYear::where('status', 1)->orderByDesc('academic_year')->get(['id', 'academic_year']),
-            'campuses' => $campuses->where('status', 1)->orderBy('campus_name_en')->get(['id', 'campus_name_en', 'campus_name_kh']),
+            'academicYears' => AcademicYear::orderByRaw("CASE lifecycle_status WHEN 'started' THEN 1 WHEN 'pending' THEN 2 WHEN 'draft' THEN 3 WHEN 'finished' THEN 4 ELSE 5 END")
+                ->orderByDesc('academic_year')
+                ->get(['id', 'academic_year', 'lifecycle_status']),
+            'campuses' => $campuses->where('status', 1)->whereIn('id', $campusIds)->orderBy('campus_name_en')->get(['id', 'campus_name_en', 'campus_name_kh']),
             'classes' => $classes,
             'groups' => $groups,
         ]);
@@ -60,10 +73,8 @@ class StudentSearchController
                 $q->whereHas('student', fn ($student) => $student
                     ->where('student_no', 'like', "%{$term}%")
                     ->orWhere('student_id', 'like', "%{$term}%")
-                    ->orWhere('first_name_en', 'like', "%{$term}%")
-                    ->orWhere('last_name_en', 'like', "%{$term}%")
-                    ->orWhere('first_name_kh', 'like', "%{$term}%")
-                    ->orWhere('last_name_kh', 'like', "%{$term}%"));
+                    ->orWhere('full_name_en', 'like', "%{$term}%")
+                    ->orWhere('full_name_kh', 'like', "%{$term}%"));
             })
             ->latest('id');
 

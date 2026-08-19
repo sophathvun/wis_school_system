@@ -9,6 +9,9 @@ var themeConfig = {
 var url = new URL(window.location);
 var form = document.getElementById("offcanvasSettings");
 var resetButton = document.getElementById("reset-changes");
+// The settings panel is not rendered on public pages such as login.
+// Tabler's theme bootstrap script already applies the saved theme there.
+if (!form || !resetButton) return;
 var checkItems = function () {
     for (var key in themeConfig) {
     var value = window.localStorage["tabler-" + key] || themeConfig[key];

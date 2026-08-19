@@ -81,12 +81,13 @@
                             <th>End Date</th>
                             <th>Description</th>
                             <th>Status</th>
+                            <th class="text-center">Started</th>
                             <th class="text-center">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="academicYearsTable">
                         <tr>
-                            <td colspan="9" class="text-center">Loading academic years...</td>
+                            <td colspan="10" class="text-center">Loading academic years...</td>
                         </tr>
                     </tbody>
                 </table>

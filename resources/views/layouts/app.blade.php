@@ -10,6 +10,13 @@
     @if($branding->favicon_path)<link rel="icon" href="{{ asset('storage/'.$branding->favicon_path) }}">@endif
     <title>@yield('title', 'School System')</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <style>
+        :root {
+            --khmer-font-siemreap: 'Khmer OS Siemreap', 'Noto Sans Khmer', sans-serif;
+            --khmer-font-muol: 'Khmer OS Muol Light', 'Noto Sans Khmer', sans-serif;
+            --khmer-font-battambang: 'Khmer OS Battambang', 'Noto Sans Khmer', sans-serif;
+        }
+    </style>
 </head>
 
 <body>
@@ -32,6 +39,7 @@
         </div>
     </div>
     @include('layouts.partials.setting')
+    @include('layouts.partials.chat-widget')
     @php
         $permissionUser = auth()->user();
         $permissionCodes = $permissionUser->isSuperAdmin() ? ['*'] : collect()
@@ -40,7 +48,7 @@
             ->merge($permissionUser->department?->permissions?->pluck('code') ?? [])
             ->unique()->values()->all();
     @endphp
-    <script>window.userPermissions = @json($permissionCodes);</script>
+    <script>window.userPermissions = @json($permissionCodes);window.currentUserId = @json($permissionUser->id);</script>
     @endif
     @if(!auth()->check())
         @yield('content')

@@ -3,7 +3,7 @@ const statusPermissions = {
     "academic-year": "academic-years.status", "education-level": "education-levels.status", "grade": "grades.status",
     "program": "programs.status", "class": "classes.status", "session": "sessions.status", "school-profile": "school-info.status",
     "student-enrollment": "students.enrollment.status", "family": "families.status", "user": "users.status", "department": "departments.status",
-    "role": "roles.status", "occupation": "occupations.status", "withdrawal-reason": "withdrawal-reasons.status",
+    "position": "positions.manage", "role": "roles.status", "occupation": "occupations.status", "academic-track": "academic-tracks.status", "withdrawal-reason": "withdrawal-reasons.status",
     "student-document-type": "student-document-types.status", "country": "locations.status", "province": "locations.status",
     "district": "locations.status", "commune": "locations.status", "village": "locations.status", "nationality": "locations.status",
 };
@@ -11,10 +11,11 @@ const statusPermissions = {
 window.statusToggleMarkup = (entity, id, active) => {
     const permission = statusPermissions[entity];
     if (permission && Array.isArray(window.userPermissions) && !window.userPermissions.includes('*') && !window.userPermissions.includes(permission)) return '';
+    const lockedCurrentUser = entity === "user" && String(id) === String(window.currentUserId || "") && active;
     return `
     <button type="button" class="status-toggle ${active ? "is-active" : ""}"
         data-status-toggle data-status-entity="${entity}" data-status-id="${id}" data-status="${active ? 1 : 0}"
-        aria-label="Set status ${active ? "inactive" : "active"}" aria-pressed="${active}">
+        aria-label="${lockedCurrentUser ? "You cannot deactivate your own account" : `Set status ${active ? "inactive" : "active"}`}" aria-pressed="${active}" ${lockedCurrentUser ? 'disabled title="You cannot deactivate your own account"' : ""}>
         <span class="status-toggle-label">${active ? "ON" : "OFF"}</span><span class="status-toggle-knob"></span>
     </button>`;
 };
@@ -61,6 +62,7 @@ const statusEntities = {
     studentEnrollmentsTable: "student-enrollment",
     familiesTable: "family",
     occupationsTable: "occupation",
+    academicTracksTable: "academic-track",
     nationalitiesTable: "nationality",
     educationLevelsTable: "education-level",
 };
@@ -73,7 +75,7 @@ const convertStatusBadges = () => {
         const id = match?.[1] || row?.querySelector("[data-reason]")?.dataset.reason && (() => { try { return JSON.parse(row.querySelector("[data-reason]").dataset.reason).id; } catch { return null; } })();
         if (!id) return null;
         const path = text.toLowerCase();
-        const entity = path.includes('department') ? 'department' : path.includes('role') ? 'role' : path.includes('occupation') ? 'occupation' : path.includes('nationalit') ? 'nationality' : path.includes('withdrawal-reasons') ? 'withdrawal-reason' : path.includes('student-document-types') ? 'student-document-type' : path.includes('/users') ? 'user' : null;
+        const entity = path.includes('department') ? 'department' : path.includes('position') ? 'position' : path.includes('role') ? 'role' : path.includes('occupation') ? 'occupation' : path.includes('nationalit') ? 'nationality' : path.includes('withdrawal-reasons') ? 'withdrawal-reason' : path.includes('student-document-types') ? 'student-document-type' : path.includes('/users') ? 'user' : null;
         return entity ? { entity, id } : null;
     };
     Object.entries(statusEntities).forEach(([tableId, entity]) => {

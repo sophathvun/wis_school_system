@@ -1,9 +1,21 @@
 import * as bootstrap from "bootstrap";
+import intlTelInput from "intl-tel-input";
+import "intl-tel-input/styles";
 
 const initStaffPhotoUploader = () => {
-if (!document.querySelector('#userModal input[name="date_of_birth"]') || !document.querySelector('#userModal select[name="position_id"]')) return;
 if (document.body.dataset.userFormEnhanced) return;
 document.body.dataset.userFormEnhanced = '1';
+const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char]));
+const userPhoneVisible = document.querySelector('#userModal #user_phone_number');
+const userPhoneHidden = document.querySelector('#userModal #user_phone');
+const userPhoneIntl = userPhoneVisible ? intlTelInput(userPhoneVisible, {
+    initialCountry: "kh",
+    nationalMode: true,
+    separateDialCode: true,
+    loadUtils: () => import("intl-tel-input/utils"),
+}) : null;
+if (userPhoneIntl && userPhoneHidden?.value) userPhoneIntl.setNumber(userPhoneHidden.value);
+userPhoneVisible?.addEventListener("input", () => { userPhoneVisible.value = userPhoneVisible.value.replace(/\s+/g, ""); });
 const staffPhotoInput = document.getElementById("staff_photo");
 const staffPhotoDropzone = document.getElementById("staffPhotoDropzone");
 const staffPhotoPreview = document.getElementById("staffPhotoPreview");
@@ -31,12 +43,17 @@ let staffReturnToUserModal = false;
 if (staffPhotoDropzone && staffPhotoPreviewContainer && !staffPhotoDropzone.contains(staffPhotoPreviewContainer)) {
     staffPhotoDropzone.appendChild(staffPhotoPreviewContainer);
 }
+staffUserModalElement?.addEventListener("shown.bs.modal", () => {
+    window.setTimeout(() => staffPhotoDropzone?.focus({ preventScroll: true }), 50);
+});
 
 const makeUserSearchableSelect = (select, multiple = false) => {
     if (!select || select.dataset.searchableReady) return;
+    multiple = multiple || select.multiple;
     select.dataset.searchableReady = "1";
     const wrapper = document.createElement("div");
-    wrapper.className = "location-combobox user-searchable-combobox";
+    wrapper.className = "location-combobox position-combobox user-searchable-combobox";
+    wrapper.classList.toggle("is-multiple", multiple);
     const toggle = document.createElement("button");
     toggle.type = "button";
     toggle.className = "location-combobox-toggle";
@@ -46,7 +63,8 @@ const makeUserSearchableSelect = (select, multiple = false) => {
     const search = document.createElement("input");
     search.type = "search";
     search.className = "form-control location-combobox-search";
-    search.placeholder = "Search";
+    const searchLabel = select.name === "department_id" ? "Department" : select.name === "role_id" ? "Role" : select.name === "campuses[]" ? "Campus" : "option";
+    search.placeholder = `Search ${searchLabel}`;
     const results = document.createElement("div");
     results.className = "location-combobox-results";
     menu.append(search, results);
@@ -66,11 +84,23 @@ const makeUserSearchableSelect = (select, multiple = false) => {
     const render = () => {
         const term = search.value.trim().toLowerCase();
         const options = [...select.options].filter(option => option.value && option.textContent.toLowerCase().includes(term));
-        results.innerHTML = options.length ? options.map(option => `<button type="button" class="location-combobox-option${option.selected ? " is-selected" : ""}" data-value="${option.value}">${option.textContent}</button>`).join("") : '<div class="text-secondary px-2 py-2">No options found</div>';
+        results.innerHTML = options.length ? options.map(option => {
+            const content = multiple
+                ? `<span class="user-multi-option-content"><input class="form-check-input" type="checkbox" tabindex="-1" aria-hidden="true" ${option.selected ? "checked" : ""}><span class="user-multi-option-label">${escapeHtml(option.textContent)}</span></span>`
+                : `<span>${escapeHtml(option.textContent)}</span>`;
+            return `<button type="button" class="location-combobox-option${option.selected ? " is-selected" : ""}" data-value="${escapeHtml(option.value)}">${content}</button>`;
+        }).join("") : '<div class="text-secondary px-2 py-2">No options found</div>';
+    };
+    const closeOtherComboboxes = () => {
+        document.querySelectorAll(".user-searchable-combobox").forEach(combo => {
+            if (combo === wrapper) return;
+            combo.classList.remove("is-open");
+            combo.querySelector(".location-combobox-menu")?.classList.add("d-none");
+        });
     };
     toggle.addEventListener("click", event => {
         event.stopPropagation();
-        document.querySelectorAll(".user-searchable-combobox.is-open").forEach(combo => { if (combo !== wrapper) combo.classList.remove("is-open"); });
+        closeOtherComboboxes();
         wrapper.classList.toggle("is-open");
         menu.classList.toggle("d-none", !wrapper.classList.contains("is-open"));
         if (wrapper.classList.contains("is-open")) { render(); search.focus(); }
@@ -167,7 +197,9 @@ const positionSelect = document.querySelector('#userModal select[name="position_
 const statusSelect = document.querySelector('#userModal select[name="status"]');
 const statusColumn = statusSelect?.closest('.col-md-4');
 const userIdInput = document.querySelector('#userModal input[name="user_id"]');
+const editingCurrentUser = userIdInput?.value && String(userIdInput.value) === String(window.currentUserId || "");
 if (statusSelect && !userIdInput?.value) statusSelect.value = '1';
+if (statusSelect && editingCurrentUser) statusSelect.value = '1';
 if (statusSelect && statusColumn) {
     const globalCheck = statusColumn.querySelector('label.form-check');
     const controls = document.createElement('div');
@@ -175,6 +207,8 @@ if (statusSelect && statusColumn) {
     const toggle = document.createElement('button');
     toggle.type = 'button';
     toggle.className = `status-toggle ${statusSelect.value === '1' ? 'is-active' : ''}`;
+    toggle.disabled = editingCurrentUser;
+    if (editingCurrentUser) toggle.title = 'You cannot deactivate your own account';
     toggle.innerHTML = `<span class="status-toggle-label">${statusSelect.value === '1' ? 'ON' : 'OFF'}</span><span class="status-toggle-knob"></span>`;
     toggle.addEventListener('click', () => {
         const active = statusSelect.value !== '1';
@@ -190,6 +224,9 @@ if (statusSelect && statusColumn) {
 }
 const userPassword = document.querySelector('#userModal input[name="password"]');
 const userPasswordConfirmation = document.querySelector('#userModal input[name="password_confirmation"]');
+document.querySelector('#userModal form')?.addEventListener('submit', () => {
+    if (userPhoneHidden) userPhoneHidden.value = userPhoneIntl?.getNumber() || userPhoneVisible?.value.trim() || '';
+});
 const addUserPasswordToggle = input => {
     if (!input || input.parentElement.classList.contains('premium-password-field')) return;
     const wrapper = document.createElement('div');
@@ -307,7 +344,9 @@ const drawStaffPhotoCrop = () => {
     const context = staffPhotoCropContext;
     const image = staffPhotoCropImage;
     context.clearRect(0, 0, canvas.width, canvas.height);
-    context.fillStyle = "#fff";
+    const _root = getComputedStyle(document.documentElement);
+    const _surface = _root.getPropertyValue('--tblr-bg-surface')?.trim() || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? '#111827' : '#fff');
+    context.fillStyle = _surface;
     context.fillRect(0, 0, canvas.width, canvas.height);
     const baseScale = Math.max(canvas.width / image.width, canvas.height / image.height);
     const scale = baseScale * staffPhotoCropScale;
@@ -350,6 +389,17 @@ const openStaffPhotoCrop = (file) => {
     reader.readAsDataURL(file);
 };
 
+const imageFileFromPasteEvent = (event, filename = "pasted-staff-photo.png") => {
+    const clipboardFiles = Array.from(event.clipboardData?.files || []);
+    const directFile = clipboardFiles.find((entry) => entry.type.startsWith("image/"));
+    if (directFile) return new File([directFile], filename, { type: directFile.type || "image/png" });
+
+    const items = Array.from(event.clipboardData?.items || []);
+    const item = items.find((entry) => entry.kind === "file" && entry.type.startsWith("image/"));
+    const file = item?.getAsFile();
+    return file ? new File([file], filename, { type: file.type || "image/png" }) : null;
+};
+
 staffPhotoCropModalElement?.addEventListener("hidden.bs.modal", () => {
     if (!staffReturnToUserModal) return;
     staffReturnToUserModal = false;
@@ -388,6 +438,22 @@ staffPhotoDropzone?.addEventListener("drop", (event) => {
     event.preventDefault();
     staffPhotoDropzone.classList.remove("is-dragging");
     openStaffPhotoCrop(event.dataTransfer?.files?.[0]);
+});
+staffPhotoDropzone?.addEventListener("paste", (event) => {
+    const file = imageFileFromPasteEvent(event);
+    if (!file) return;
+    event.preventDefault();
+    openStaffPhotoCrop(file);
+});
+document.addEventListener("paste", (event) => {
+    if (!staffUserModalElement?.classList.contains("show")) return;
+    if (staffPhotoCropModalElement?.classList.contains("show")) return;
+    if (event.target?.closest?.("input:not([type='file']), textarea, [contenteditable='true']")) return;
+
+    const file = imageFileFromPasteEvent(event);
+    if (!file) return;
+    event.preventDefault();
+    openStaffPhotoCrop(file);
 });
 
 staffPhotoZoom?.addEventListener("input", () => {

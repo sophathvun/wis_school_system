@@ -9,6 +9,7 @@ const fieldHasValue = (wrapper) => {
     return Boolean(input?.value?.trim());
 };
 
+let premiumFormRefreshFrame = null;
 const refreshPremiumForms = (root = document) => {
     root.querySelectorAll("form .form-label").forEach((label) => {
         const wrapper = label.parentElement;
@@ -18,14 +19,21 @@ const refreshPremiumForms = (root = document) => {
         wrapper.classList.toggle("has-value", fieldHasValue(wrapper));
     });
 };
+const schedulePremiumFormRefresh = (root = document) => {
+    if (premiumFormRefreshFrame !== null) return;
+    premiumFormRefreshFrame = window.requestAnimationFrame(() => {
+        premiumFormRefreshFrame = null;
+        refreshPremiumForms(root);
+    });
+};
 
 document.addEventListener("input", (event) => {
-    if (event.target.closest("form")) refreshPremiumForms(event.target.closest("form"));
+    if (event.target.closest("form")) schedulePremiumFormRefresh(event.target.closest("form"));
 });
 document.addEventListener("change", (event) => {
-    if (event.target.closest("form")) refreshPremiumForms(event.target.closest("form"));
+    if (event.target.closest("form")) schedulePremiumFormRefresh(event.target.closest("form"));
 });
-document.addEventListener("shown.bs.modal", (event) => refreshPremiumForms(event.target));
-document.addEventListener("DOMContentLoaded", () => refreshPremiumForms());
+document.addEventListener("shown.bs.modal", (event) => schedulePremiumFormRefresh(event.target));
+document.addEventListener("DOMContentLoaded", () => schedulePremiumFormRefresh());
 
-refreshPremiumForms();
+schedulePremiumFormRefresh();

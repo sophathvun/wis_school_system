@@ -9,7 +9,7 @@ class BrandingSetting extends Model
 {
     protected $table = 'tb_branding_setting';
 
-    protected $fillable = ['sidebar_logo_path', 'login_logo_path', 'favicon_path', 'footer_logo_path', 'footer_text'];
+    protected $fillable = ['sidebar_logo_path', 'login_logo_path', 'favicon_path', 'footer_logo_path', 'report_logo_1_path', 'report_logo_2_path', 'footer_text'];
 
     public static function current(): self
     {

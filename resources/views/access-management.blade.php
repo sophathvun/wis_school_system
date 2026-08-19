@@ -10,6 +10,7 @@
 [data-bs-theme="dark"] .card-tabs select option,[data-bs-theme="dark"] .card.mb-3 select option{background:#1e293b;color:#f8fafc}
 [data-bs-theme="dark"] .card-tabs .form-label,[data-bs-theme="dark"] .card.mb-3 .form-label{color:#f8fafc}
 [data-bs-theme="dark"] .card-tabs .card-header,[data-bs-theme="dark"] .card-tabs .card-footer,[data-bs-theme="dark"] .card-tabs .border-bottom{border-color:#334155!important}
+.permission-module-search{max-width:460px}.permission-module-search .form-control{min-height:42px}.permission-module-search .input-icon-addon{color:#64748b}
 </style>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
@@ -81,6 +82,25 @@ document.addEventListener('DOMContentLoaded', () => {
         button.querySelector('.user-permissions-toggle-label').textContent = hidden ? 'Show Permissions' : 'Hide Permissions';
         button.querySelector('i').className = hidden ? 'ti ti-chevron-down me-1' : 'ti ti-chevron-up me-1';
     }));
+
+    document.querySelectorAll('[data-permission-module-search]').forEach(search => {
+        const form = search.closest('[data-permission-form]');
+        if (!form) return;
+        const filter = () => {
+            const term = search.value.toLowerCase().trim();
+            form.querySelectorAll('[data-permission-group]').forEach(group => {
+                const groupMatches = !term || (group.dataset.permissionGroupLabel || '').includes(term);
+                let visibleModules = 0;
+                group.querySelectorAll('[data-permission-module]').forEach(module => {
+                    const matches = groupMatches || !term || (module.dataset.permissionModuleLabel || '').includes(term) || module.textContent.toLowerCase().includes(term);
+                    module.classList.toggle('d-none', !matches);
+                    if (matches) visibleModules++;
+                });
+                group.closest('.col-md-6')?.classList.toggle('d-none', Boolean(term) && !groupMatches && visibleModules === 0);
+            });
+        };
+        search.addEventListener('input', filter);
+    });
 
 });
     const usersTable = document.querySelector('#users-list-tab table');

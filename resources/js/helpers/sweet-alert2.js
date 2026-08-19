@@ -100,3 +100,6 @@ export const showConfirm = (
         reverseButtons: true,
     });
 };
+
+window.Swal = Swal;
+window.schoolShowConfirm = showConfirm;

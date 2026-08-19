@@ -192,6 +192,23 @@ const showLogoPreview = (file) => {
     logoPreview.style.cssText = "display:block;width:96px;height:96px;max-width:96px;max-height:96px;object-fit:contain;border:1px solid var(--tblr-border-color);border-radius:.5rem;background:var(--tblr-bg-surface);";
     logoPreviewContainer.classList.remove("d-none");
 };
+const imageFileFromPasteEvent = (event, filename = "pasted-logo.png") => {
+    const clipboardFiles = Array.from(event.clipboardData?.files || []);
+    const directFile = clipboardFiles.find((entry) => entry.type.startsWith("image/"));
+    if (directFile) return new File([directFile], filename, { type: directFile.type || "image/png" });
+
+    const items = Array.from(event.clipboardData?.items || []);
+    const item = items.find((entry) => entry.kind === "file" && entry.type.startsWith("image/"));
+    const file = item?.getAsFile();
+    return file ? new File([file], filename, { type: file.type || "image/png" }) : null;
+};
+const assignLogoFile = (file) => {
+    if (!file || !file.type.startsWith("image/")) return;
+    const transfer = new DataTransfer();
+    transfer.items.add(file);
+    if (logoInput) logoInput.files = transfer.files;
+    showLogoPreview(file);
+};
 logoDropzone?.addEventListener("click", () => logoInput?.click());
 logoDropzone?.addEventListener("keydown", (event) => {
     if (event.key === "Enter" || event.key === " ") logoInput?.click();
@@ -205,11 +222,24 @@ logoDropzone?.addEventListener("drop", (event) => {
     event.preventDefault();
     logoDropzone.classList.remove("is-dragging");
     const file = event.dataTransfer.files?.[0];
+    assignLogoFile(file);
+});
+logoDropzone?.addEventListener("paste", (event) => {
+    const file = imageFileFromPasteEvent(event);
     if (!file) return;
-    const transfer = new DataTransfer();
-    transfer.items.add(file);
-    if (logoInput) logoInput.files = transfer.files;
-    showLogoPreview(file);
+    event.preventDefault();
+    assignLogoFile(file);
+});
+modalElement?.addEventListener("shown.bs.modal", () => {
+    window.setTimeout(() => logoDropzone?.focus({ preventScroll: true }), 50);
+});
+document.addEventListener("paste", (event) => {
+    if (!modalElement?.classList.contains("show")) return;
+    if (event.target?.closest?.("input:not([type='file']), textarea, [contenteditable='true']")) return;
+    const file = imageFileFromPasteEvent(event);
+    if (!file) return;
+    event.preventDefault();
+    assignLogoFile(file);
 });
 const deleteSchoolProfile = async (id) => {
     if (!(await showConfirm("Delete School Profile", "Are you sure you want to delete this school profile?", "Delete", "Cancel")).isConfirmed) return;

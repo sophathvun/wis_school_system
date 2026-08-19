@@ -3,17 +3,17 @@
 <style>
 #roleModal .modal-dialog{max-width:480px}
 #roleModal .role-floating-field{position:relative;margin-bottom:1rem}
-#roleModal .role-floating-field>.form-label{position:absolute;z-index:2;top:.42rem;left:1rem;margin:0;padding:0 .4rem;background:#fff;color:#5b4bd1;font-size:.72rem;font-weight:700;line-height:1.1;pointer-events:none}
-#roleModal .role-floating-field>.form-control,#roleModal .role-floating-field>.form-select{height:52px;min-height:52px;padding-top:1.25rem;padding-bottom:.35rem;border:1.5px solid #dfe3ea;border-radius:14px;background:#fff;box-shadow:0 2px 7px rgba(31,41,55,.04);transition:border-color .18s ease,box-shadow .18s ease}
+#roleModal .role-floating-field>.form-label{position:absolute;z-index:2;top:.42rem;left:1rem;margin:0;padding:0 .4rem;background:var(--tblr-bg-surface,#fff);color:#5b4bd1;font-size:.72rem;font-weight:700;line-height:1.1;pointer-events:none}
+#roleModal .role-floating-field>.form-control,#roleModal .role-floating-field>.form-select{height:52px;min-height:52px;padding-top:1.25rem;padding-bottom:.35rem;border:1.5px solid #dfe3ea;border-radius:14px;background:var(--tblr-bg-surface,#fff);box-shadow:0 2px 7px rgba(31,41,55,.04);transition:border-color .18s ease,box-shadow .18s ease}
 #roleModal .role-floating-field>textarea.form-control{height:72px;min-height:72px}
 #roleModal .role-floating-field>.form-control:focus,#roleModal .role-floating-field>.form-select:focus{border-color:#6b5bd6;box-shadow:0 0 0 3px rgba(107,91,214,.14)}
 #roleModal .role-floating-field>.form-label{top:1rem;left:1rem;padding:0 .35rem;background:transparent;color:var(--tblr-secondary);font-size:.95rem;font-weight:400;transition:top .16s ease,left .16s ease,font-size .16s ease,color .16s ease,background-color .16s ease}
-#roleModal .role-floating-field.has-value>.form-label,#roleModal .role-floating-field:focus-within>.form-label{top:.42rem;left:1rem;padding:0 .45rem;background:#fff;color:#5b4bd1;font-size:.72rem;font-weight:700}
+#roleModal .role-floating-field.has-value>.form-label,#roleModal .role-floating-field:focus-within>.form-label{top:.42rem;left:1rem;padding:0 .45rem;background:var(--tblr-bg-surface,#fff);color:#5b4bd1;font-size:.72rem;font-weight:700}
 #roleModal .role-location-combobox{position:relative}
-#roleModal .role-location-combobox-toggle{width:100%;height:52px;padding:1.25rem 2.75rem .35rem 1rem;border:1.5px solid #dfe3ea;border-radius:14px;background:#fff;box-shadow:0 2px 7px rgba(31,41,55,.04);text-align:left;color:var(--tblr-body-color);font:inherit;position:relative}
+#roleModal .role-location-combobox-toggle{width:100%;height:52px;padding:1.25rem 2.75rem .35rem 1rem;border:1.5px solid #dfe3ea;border-radius:14px;background:var(--tblr-bg-surface,#fff);box-shadow:0 2px 7px rgba(31,41,55,.04);text-align:left;color:var(--tblr-body-color);font:inherit;position:relative}
 #roleModal .role-location-combobox-toggle:focus{outline:0;border-color:#6b5bd6;box-shadow:0 0 0 3px rgba(107,91,214,.14)}
 #roleModal .role-location-combobox-toggle>i{position:absolute;right:1rem;top:50%;transform:translateY(-50%);color:var(--tblr-secondary)}
-#roleModal .role-location-combobox-menu{position:absolute;z-index:20;left:0;right:0;top:calc(100% + .35rem);padding:.65rem;background:#fff;border:1px solid #dfe3ea;border-radius:14px;box-shadow:0 12px 28px rgba(31,41,55,.16)}
+#roleModal .role-location-combobox-menu{position:absolute;z-index:20;left:0;right:0;top:calc(100% + .35rem);padding:.65rem;background:var(--tblr-bg-surface,#fff);border:1px solid #dfe3ea;border-radius:14px;box-shadow:0 12px 28px rgba(31,41,55,.16)}
 #roleModal .role-location-combobox-menu .form-control{height:44px;border-radius:10px}
 #roleModal .role-location-combobox-results{max-height:220px;overflow-y:auto;margin-top:.5rem}
 #roleModal .role-location-combobox-option{display:block;width:100%;border:0;background:transparent;text-align:left;padding:.65rem .75rem;border-radius:9px;color:var(--tblr-body-color)}

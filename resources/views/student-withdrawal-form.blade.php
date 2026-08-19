@@ -3,96 +3,243 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Student Withdrawal Form</title>
+    <title>Drop-Out Form</title>
+    @php
+        $branding = \App\Models\BrandingSetting::current();
+        $student = $history->student;
+        $studentNameEn = trim($student?->full_name_en ?? '');
+        $studentNameKh = trim($student?->full_name_kh ?? '');
+        $studentName = $studentNameEn ?: ($studentNameKh ?: '................................................');
+        $studentId = $student?->student_id ?: ($student?->student_no ?: '........................');
+        $gender = strtolower((string) ($student?->gender ?? ''));
+        $genderLabel = str_starts_with($gender, 'm') ? 'Male' : (str_starts_with($gender, 'f') ? 'Female' : ($student?->gender ?: ''));
+        $grade = trim((string) ($history->grade?->grade ?? ''));
+        $class = trim((string) ($history->schoolClass?->class_name ?? ''));
+        $gradeShort = trim(preg_replace('/^grade\s*/i', '', $grade));
+        $classShort = trim(preg_replace('/^grade\s*/i', '', $class));
+        $gradeClass = $grade && $class
+            ? ($gradeShort.(stripos($classShort, $gradeShort) === 0 ? substr($classShort, strlen($gradeShort)) : $class))
+            : trim($grade.' '.$class);
+        $group = $history->session?->session_short_name ?: ($history->session?->session_name ?? $history->session?->name ?? '');
+        $campus = $history->campus?->campus_name_en ?? '';
+        $selectedReasons = $history->reasons ?? [];
+        $withdrawalDate = optional($history->effective_on)->format('d-M-Y');
+        $dropoutType = $history->dropout_type ?: 'official_leave';
+        $parent = $familyMembers->firstWhere('relationship_type', 'guardian')
+            ?: $familyMembers->firstWhere('relationship_type', 'father')
+            ?: $familyMembers->firstWhere('relationship_type', 'mother')
+            ?: $familyMembers->first();
+        $parentName = $history->requested_by_name ?: ($parent ? trim($parent->full_name_en ?? '') : '');
+        $parentPhone = $history->requested_by_phone ?: ($parent?->phone ?? '');
+        $logoPath = $branding->report_logo_1_path
+            ? asset('storage/'.$branding->report_logo_1_path)
+            : asset('storage/school_logo/student_profile_report_logo.png');
+        $line = fn ($value = '') => $value ? e($value) : '&nbsp;';
+        $checked = fn ($condition) => $condition ? 'checked' : '';
+        $reasonChecked = fn ($key) => in_array($key, $selectedReasons, true);
+    @endphp
     <style>
-        :root { font-family: Arial, sans-serif; color: #111; }
-        body { margin: 0; background: #f1f5f9; }
-        .toolbar { max-width: 210mm; margin: 18px auto 0; display: flex; justify-content: flex-end; gap: 8px; }
-        .toolbar button { border: 0; border-radius: 6px; padding: 9px 16px; background: #206bc4; color: white; cursor: pointer; }
-        .paper { box-sizing: border-box; width: 210mm; min-height: 297mm; margin: 12px auto 24px; padding: 16mm 15mm; background: white; box-shadow: 0 2px 12px #0002; }
-        .header { text-align: center; border-bottom: 2px solid #111; padding-bottom: 10px; margin-bottom: 14px; }
-        .header h1 { margin: 0 0 3px; font-size: 22px; }
-        .header h2 { margin: 0; font-size: 17px; font-weight: 600; }
-        .header p { margin: 7px 0 0; font-size: 13px; }
-        .title { text-align: center; margin: 12px 0; font-size: 20px; font-weight: 700; text-transform: uppercase; }
-        .title span { display: block; font-size: 16px; margin-top: 3px; }
-        .section { border: 1px solid #555; margin-top: 10px; }
-        .section-title { background: #eef2f7; border-bottom: 1px solid #555; padding: 6px 8px; font-weight: 700; }
-        .grid { display: grid; grid-template-columns: repeat(2, 1fr); }
-        .field { min-height: 29px; padding: 6px 8px; border-right: 1px solid #aaa; border-bottom: 1px solid #aaa; }
-        .field:nth-child(2n) { border-right: 0; }
-        .field strong { display: inline-block; min-width: 125px; }
-        .field small { display: block; color: #555; margin-top: 2px; }
-        .reasons { padding: 8px 12px; columns: 2; column-gap: 22px; }
-        .reason { break-inside: avoid; margin: 4px 0; }
-        .reason .box { display: inline-block; width: 13px; height: 13px; border: 1px solid #222; margin-right: 5px; vertical-align: -2px; }
-        .reason.selected .box { background: #111; box-shadow: inset 0 0 0 2px white; }
-        .bilingual { display: block; color: #555; font-size: 12px; margin-left: 22px; }
-        .value { padding: 8px 10px; min-height: 26px; white-space: pre-wrap; }
-        .signatures { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 35px; }
-        .signature { text-align: center; padding-top: 38px; border-top: 1px solid #333; }
-        .signature small { display: block; margin-top: 6px; }
-        @media print { @page { size: A4; margin: 0; } body { background: white; } .toolbar { display: none; } .paper { margin: 0; box-shadow: none; page-break-after: always; } }
+        @font-face { font-family: 'Khmer Muol'; src: url('{{ asset('fonts/khmer/KhmerOSmuollight.ttf') }}') format('truetype'); font-weight: 400; }
+        @font-face { font-family: 'Khmer Body'; src: url('{{ asset('fonts/khmer/KhmerOSsiemreap.ttf') }}') format('truetype'); font-weight: 400; }
+        @font-face { font-family: 'Khmer Battambang'; src: url('{{ asset('fonts/khmer/KhmerOSbattambang.ttf') }}') format('truetype'); font-weight: 700; }
+        :root {
+            --ink: #070707;
+            --blue: #1714a8;
+            --red: #d30a0a;
+            --muted: #d7d7d7;
+        }
+        * { box-sizing: border-box; }
+        body { margin: 0; background: #eef2f7; color: var(--ink); font-family: "Times New Roman", "Khmer Body", serif; }
+        .toolbar { width: 280mm; max-width: calc(100vw - 24px); margin: 12px auto; display: flex; justify-content: flex-end; gap: 8px; }
+        .toolbar button { border: 0; border-radius: 6px; padding: 9px 16px; background: #206bc4; color: #fff; cursor: pointer; font-family: Arial, sans-serif; }
+        .sheet {
+            width: 280mm;
+            height: 198mm;
+            margin: 0 auto 16px;
+            background: white;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, .16);
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            position: relative;
+            overflow: hidden;
+        }
+        .sheet::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 50%;
+            border-left: 1px dashed #111;
+        }
+        .copy { padding: 4mm 5mm 4mm; position: relative; min-width: 0; overflow: hidden; }
+        .copy-label { position: absolute; top: 5mm; right: 8mm; font: 10px Arial, sans-serif; color: #777; letter-spacing: .04em; text-transform: uppercase; }
+        .brand { display: grid; grid-template-columns: 14mm minmax(0, 1fr); align-items: center; column-gap: 1.5mm; min-height: 15mm; }
+        .brand-logo { width: 14mm; height: 14mm; object-fit: contain; justify-self: center; }
+        .brand > div { min-width: 0; width: 100%; }
+        .brand-kh, .brand-en { display: block; width: 100%; white-space: nowrap; }
+        .brand-kh { font-family: "Khmer Muol", "Khmer Body", serif; color: var(--blue); font-size: 16px; line-height: 1.05; margin-bottom: .6mm; font-weight: 400; }
+        .brand-en { color: var(--red); font-weight: 700; font-size: 7px; letter-spacing: .02em; }
+        .brand-tagline { font-family: "Brush Script MT", cursive; font-size: 10px; font-style: italic; margin-top: .5mm; }
+        .form-title { text-align: center; margin: -1mm 0 4mm; }
+        .form-title-kh { font-family: "Khmer Muol", "Khmer Body", serif; font-size: 16px; line-height: 1.15; font-weight: 400; }
+        .form-title-en { font-size: 17px; line-height: 1; }
+        .row { display: flex; align-items: baseline; gap: 2mm; margin: 1.25mm 0; font-size: 11.5px; line-height: 1.08; min-width: 0; }
+        .row.compact { gap: 1.4mm; flex-wrap: nowrap; }
+        .label { white-space: nowrap; font-size: 11.5px; }
+        .fill { flex: 1 1 0; min-width: 0; border-bottom: 1px dotted #111; min-height: 4.8mm; padding: 0 1mm .3mm; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .fill.short { flex: 0 1 14mm; }
+        .fill.medium { flex: 0 1 26mm; }
+        .checkbox { display: inline-flex; align-items: center; gap: .7mm; white-space: nowrap; }
+        .box { width: 3.5mm; height: 3.5mm; border: 1px solid #111; border-radius: .7mm; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; line-height: 1; flex: 0 0 auto; }
+        .box.checked::before { content: "✓"; font-family: Arial, sans-serif; font-weight: 700; }
+        .reason-heading-kh { font-family: "Khmer Battambang", "Khmer Body", serif; font-size: 12.5px; font-weight: 700; margin: 4mm 0 0; }
+        .reason-heading-en { font-weight: 700; font-size: 12px; margin-bottom: .8mm; }
+        .reasons { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 4mm; row-gap: .8mm; font-size: 9.4px; line-height: 1.05; }
+        .reason { display: grid; grid-template-columns: 6.2mm minmax(0, 1fr); align-items: start; break-inside: avoid; min-height: 5.7mm; }
+        .other-reason { align-items: center; }
+        .other-reason-text { display: flex; align-items: baseline; gap: .8mm; min-width: 0; white-space: nowrap; }
+        .other-reason-text .leader { flex: 1 1 auto; min-width: 0; }
+        .reason-kh { font-family: "Khmer Battambang", "Khmer Body", serif; font-size: 10.4px; }
+        .reason-en { display: block; font-size: 10.2px; }
+        .full-line { grid-column: 1 / -1; }
+        .optional-block { margin-top: 2.4mm; }
+        .optional-block .row { margin-bottom: .15mm; }
+        .kh-label { font-family: "Khmer Battambang", "Khmer Body", serif; font-size: 10.8px; }
+        .en-sub { font-size: 10.4px; line-height: 1; margin-top: -1.5mm; margin-bottom: .45mm; }
+        .date-section { margin-top: 2.8mm; }
+        .date-title { font-family: "Khmer Battambang", "Khmer Body", serif; font-size: 12.2px; font-weight: 700; }
+        .date-title span { font-family: "Times New Roman", serif; font-size: 11.8px; font-weight: 700; }
+        .date-row { display: grid; grid-template-columns: 4.2mm minmax(0, 1fr) 30mm; align-items: center; gap: 1.4mm; margin-top: 1.3mm; font-size: 10.3px; }
+        .date-dots { border-bottom: 1px dotted #111; text-align: center; min-height: 5mm; color: #111; }
+        .placeholder { color: var(--muted); font-size: 12px; letter-spacing: .03em; }
+        .comments { margin-top: 3mm; }
+        .comments-title { font-family: "Khmer Battambang", "Khmer Body", serif; font-size: 12.2px; font-weight: 700; }
+        .comments-title span { font-family: "Times New Roman", serif; font-size: 11.8px; font-weight: 700; }
+        .comment-line { border-bottom: 1px dotted #111; min-height: 5.8mm; padding-top: .8mm; font-size: 10px; overflow: hidden; }
+        .signatures { position: absolute; left: 5mm; right: 5mm; bottom: 4mm; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10mm; }
+        .signature-line { border-top: 1px solid #111; padding-top: 1mm; font-size: 11.5px; }
+        .signature-line .date { margin-top: 1.7mm; font-size: 11.5px; white-space: nowrap; }
+        .leader { border-bottom: 1px dotted #111; min-width: 18mm; display: inline-block; height: 4mm; vertical-align: baseline; text-align: center; }
+        @media print {
+            @page { size: A4 landscape; margin: 0; }
+            html, body { width: 297mm; height: 210mm; background: white; overflow: hidden; }
+            .toolbar { display: none; }
+            .sheet { margin: 6mm 8.5mm; box-shadow: none; width: 280mm; height: 198mm; page-break-after: avoid; }
+        }
     </style>
 </head>
 <body>
-    <div class="toolbar"><button type="button" onclick="window.print()">Print Form</button><button type="button" onclick="window.close()">Close</button></div>
-    <main class="paper">
-        <header class="header">
-            <h1>STUDENT INFORMATION SYSTEM</h1>
-            <h2>ប្រព័ន្ធព័ត៌មានសិស្ស</h2>
-            <p>{{ $history->campus?->campus_name_en ?? 'School Campus' }}</p>
-        </header>
-        <div class="title">Student Withdrawal / Drop-Out Form<span>បែបបទសិស្សឈប់រៀន / ផ្ទេរសាលា</span></div>
-        <section class="section">
-            <div class="section-title">Student Information / ព័ត៌មានសិស្ស</div>
-            <div class="grid">
-                <div class="field"><strong>Student Name</strong>{{ trim(($history->student?->first_name_en ?? '') . ' ' . ($history->student?->last_name_en ?? '')) }}<small>ឈ្មោះសិស្ស៖ {{ trim(($history->student?->first_name_kh ?? '') . ' ' . ($history->student?->last_name_kh ?? '')) }}</small></div>
-                <div class="field"><strong>Student ID</strong>{{ $history->student?->student_id ?: ($history->student?->student_no ?? '-') }}<small>លេខសម្គាល់សិស្ស</small></div>
-                <div class="field"><strong>Gender</strong>{{ $history->student?->gender ?? '-' }}<small>ភេទ៖ {{ $history->student?->gender_kh ?? '-' }}</small></div>
-                <div class="field"><strong>Grade / Class</strong>{{ $history->grade?->grade ?? '-' }} {{ $history->schoolClass?->class_name ?? '' }}<small>កម្រិត / ថ្នាក់</small></div>
-                <div class="field"><strong>Group</strong>{{ $history->session?->session_name ?? $history->session?->name ?? '-' }}<small>ក្រុម</small></div>
-                <div class="field"><strong>Academic Year</strong>{{ $history->academicYear?->academic_year ?? '-' }}<small>ឆ្នាំសិក្សា</small></div>
-            </div>
-        </section>
-        <section class="section">
-            <div class="section-title">Parent / Guardian Information / ព័ត៌មានមាតាបិតា ឬអាណាព្យាបាល</div>
-            <div class="grid">
-                @forelse($familyMembers as $member)
-                    <div class="field"><strong>{{ ucfirst($member->relationship_type) }}</strong>{{ $member->name_en ?: trim(($member->first_name_en ?? '') . ' ' . ($member->last_name_en ?? '')) }}<small>{{ $member->name_kh ?: trim(($member->first_name_kh ?? '') . ' ' . ($member->last_name_kh ?? '')) }} · {{ $member->phone ?? '-' }}</small></div>
-                @empty
-                    <div class="field" style="grid-column:1/-1"><strong>Name / Phone</strong>-</div>
-                @endforelse
-            </div>
-        </section>
-        <section class="section">
-            <div class="section-title">Reason(s) for Withdrawal / មូលហេតុនៃការឈប់រៀន</div>
-            <div class="reasons">
-                @foreach($reasons as $reason)
-                    <div class="reason {{ in_array($reason['key'], $history->reasons ?? [], true) ? 'selected' : '' }}"><span class="box"></span>{{ $reason['en'] }}<span class="bilingual">{{ $reason['kh'] }}</span></div>
-                @endforeach
-                @if($history->other_reason_en || $history->other_reason_kh)
-                    <div class="reason selected"><span class="box"></span>Other: {{ $history->other_reason_en }}<span class="bilingual">{{ $history->other_reason_kh }}</span></div>
-                @else
-                    <div class="reason"><span class="box"></span>Other / ផ្សេងទៀត</div>
-                @endif
-            </div>
-            <div class="field"><strong>Selected reasons</strong>{{ $history->reason }}<small>{{ $history->reason_kh }}</small></div>
-        </section>
-        <section class="section">
-            <div class="section-title">Withdrawal Details / ព័ត៌មានលម្អិត</div>
-            <div class="grid">
-                <div class="field"><strong>New School</strong>{{ $history->new_school ?: '-' }}<small>សាលាថ្មី</small></div>
-                <div class="field"><strong>School Address</strong>{{ $history->new_school_address ?: '-' }}<small>អាសយដ្ឋានសាលា</small></div>
-                <div class="field"><strong>Date</strong>{{ optional($history->effective_on)->format('d-m-Y') }}<small>កាលបរិច្ឆេទ</small></div>
-                <div class="field"><strong>Status</strong>{{ $history->dropout_type === 'dropped_out' ? 'Has dropped out' : 'Will officially leave' }}<small>ស្ថានភាព</small></div>
-            </div>
-            <div class="field"><strong>Additional Comments</strong>{{ $history->additional_comments ?: ($history->notes ?: '-') }}<small>មតិយោបល់បន្ថែម</small></div>
-        </section>
-        <div class="signatures">
-            <div class="signature">Parent / Guardian Signature<small>ហត្ថលេខាមាតាបិតា ឬអាណាព្យាបាល</small><small>Date: __________________</small></div>
-            <div class="signature">SP / VSP Signature<small>ហត្ថលេខា SP / VSP</small><small>Date: __________________</small></div>
-        </div>
+    <div class="toolbar">
+        <button type="button" onclick="window.print()">Print Form</button>
+        <button type="button" onclick="window.close()">Close</button>
+    </div>
+
+    <main class="sheet">
+        @foreach(['Parent Copy', 'School Copy'] as $copyLabel)
+            <section class="copy">
+                <div class="copy-label">{{ $copyLabel }}</div>
+                <header class="brand">
+                    <img class="brand-logo" src="{{ $logoPath }}" alt="Western International School">
+                    <div>
+                        <div class="brand-kh">វេស្ទើនអន្តរជាតិ</div>
+                        <div class="brand-en">WESTERN INTERNATIONAL SCHOOL</div>
+                        <div class="brand-tagline">Start your future today!</div>
+                    </div>
+                </header>
+
+                <div class="form-title">
+                    <div class="form-title-kh">ពាក្យសុំបោះបង់ការសិក្សា</div>
+                    <div class="form-title-en">Drop-Out Form</div>
+                </div>
+
+                <div class="row">
+                    <span class="label">Student Name:</span>
+                    <span class="fill">{!! $line($studentName) !!}</span>
+                    <span class="label">Student ID :</span>
+                    <span class="fill medium">{!! $line($studentId) !!}</span>
+                </div>
+                <div class="row compact">
+                    <span class="label">Gender :</span>
+                    <span class="fill short">{!! $line($genderLabel) !!}</span>
+                    <span class="label">Grade:</span>
+                    <span class="fill short">{!! $line($gradeClass) !!}</span>
+                    <span class="label">Group:</span>
+                    <span class="fill short">{!! $line($group) !!}</span>
+                    <span class="label">Campus :</span>
+                    <span class="fill short">{!! $line($campus) !!}</span>
+                </div>
+                <div class="row compact">
+                    <span class="label">Parent/Guardian Name:</span>
+                    <span class="fill">{!! $line($parentName) !!}</span>
+                    <span class="label">Phone Number:</span>
+                    <span class="fill medium">{!! $line($parentPhone) !!}</span>
+                </div>
+
+                <div class="reason-heading-kh">មូលហេតុដែលបណ្តាលឱ្យបោះបង់ការសិក្សា (អាចជ្រើសរើសបានច្រើនចំណុច)</div>
+                <div class="reason-heading-en">Reason for Dropping out of school (check all that apply)</div>
+                <div class="reasons">
+                    @foreach($reasons as $reason)
+                        <div class="reason">
+                            <span class="box {{ $reasonChecked($reason['key']) ? 'checked' : '' }}"></span>
+                            <span>
+                                <span class="reason-kh">{{ $reason['kh'] }}</span><span class="reason-en">{{ $reason['en'] }}</span>
+                            </span>
+                        </div>
+                    @endforeach
+                    <div class="reason full-line other-reason">
+                        <span class="box {{ $history->other_reason_en || $history->other_reason_kh ? 'checked' : '' }}"></span>
+                        <span class="other-reason-text"><span class="reason-kh">ផ្សេងៗ</span><span class="reason-en">/Other :</span> <span class="leader">{{ $history->other_reason_en ?: $history->other_reason_kh }}</span></span>
+                    </div>
+                </div>
+
+                <div class="optional-block">
+                    <div class="row">
+                        <span class="kh-label">ឈ្មោះសាលាដែលត្រូវផ្ទេរទៅ (ប្រសិនជាមាន) :</span>
+                        <span class="fill">{!! $line($history->new_school) !!}</span>
+                    </div>
+                    <div class="en-sub">Name of new school (Optional)</div>
+                    <div class="row">
+                        <span class="kh-label">អាសយដ្ឋានសាលាដែលត្រូវផ្ទេរទៅ (ប្រសិនជាមាន) :</span>
+                        <span class="fill">{!! $line($history->new_school_address) !!}</span>
+                    </div>
+                    <div class="en-sub">School Address (Optional)</div>
+                </div>
+
+                <div class="date-section">
+                    <div class="date-title">កាលបរិច្ឆេទបោះបង់ការសិក្សា / <span>Drop-Out Date:</span></div>
+                    @if($dropoutType !== 'dropped_out')
+                        <div class="date-row">
+                            <span class="box checked"></span>
+                            <span><span class="kh-label">នឹងបោះបង់ការសិក្សាចាប់ពីថ្ងៃទី ខែ ឆ្នាំ</span>/will officially leave the school on :</span>
+                            <span class="date-dots">{{ $withdrawalDate }}</span>
+                        </div>
+                    @else
+                        <div class="date-row">
+                            <span class="box checked"></span>
+                            <span><span class="kh-label">បានបោះបង់ការសិក្សាតាំងពីថ្ងៃទី ខែ ឆ្នាំ</span>/has dropped out of school since :</span>
+                            <span class="date-dots">{{ $withdrawalDate }}</span>
+                        </div>
+                    @endif
+                </div>
+
+                <div class="comments">
+                    <div class="comments-title">យោបល់បន្ថែម / <span>Additional Comments:</span></div>
+                    <div class="comment-line">{{ $history->additional_comments ?: $history->notes }}</div>
+                    <div class="comment-line"></div>
+                </div>
+
+                <div class="signatures">
+                    <div class="signature-line">
+                        Parent/Guardian Signature
+                        <div class="date">Date :<span class="leader"></span>/<span class="leader"></span>/<span class="leader"></span></div>
+                    </div>
+                    <div class="signature-line">
+                        <span class="box"></span> SP / <span class="box"></span>VSP’s Name &amp; Signature
+                        <div class="date">Date :<span class="leader"></span>/<span class="leader"></span>/<span class="leader"></span></div>
+                    </div>
+                </div>
+            </section>
+        @endforeach
     </main>
 </body>
 </html>

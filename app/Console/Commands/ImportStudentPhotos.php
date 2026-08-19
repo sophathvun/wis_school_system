@@ -34,7 +34,7 @@ class ImportStudentPhotos extends Command
                 $photoName = preg_replace('/_[0-9]{5,}\.[^.]+$/', '', $file->getFilename());
                 $photoName = preg_replace('/^[A-Z]?\d+_OR\s+/i', '', (string) $photoName);
                 $photoName = preg_replace('/\s+/u', ' ', trim((string) $photoName));
-                if ($photoName !== '') $student = Student::whereRaw('UPPER(first_name_en) = ?', [strtoupper($photoName)])->first();
+                if ($photoName !== '') $student = Student::whereRaw('UPPER(full_name_en) = ?', [strtoupper($photoName)])->first();
             }
             if (!$student) { $unmatched++; $unmatchedIds[] = $studentId; continue; }
             $storedId = (string) $student->student_id;

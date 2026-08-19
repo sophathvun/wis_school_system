@@ -13,7 +13,7 @@ class PermissionHierarchy
             'users' => 'Users', 'departments' => 'Departments', 'positions' => 'Positions', 'roles' => 'Roles', 'notifications' => 'Notifications', 'chat' => 'Chat',
             'academic-years' => 'Academic Years', 'grades' => 'Grades', 'classes' => 'Classes', 'sessions' => 'Sessions',
             'education-levels' => 'Education Levels', 'programs' => 'Programs', 'school-info' => 'School Information',
-            'locations' => 'Locations', 'occupations' => 'Occupations', 'withdrawal-reasons' => 'Withdrawal Reasons',
+            'locations' => 'Locations', 'occupations' => 'Occupations', 'academic-tracks' => 'Academic Tracks', 'withdrawal-reasons' => 'Withdrawal Reasons',
             'student-document-types' => 'Document Types', 'branding' => 'Branding', 'database-backups' => 'Database Backups',
             'students.search' => 'Search Students', 'students.enrollment' => 'Student Enrollment', 'families' => 'Family Management',
             'students.promotion' => 'Student Promotion / Transfer', 'students.graduation' => 'Student Graduation',
@@ -36,7 +36,7 @@ class PermissionHierarchy
             ],
             'settings' => [
                 'label' => 'Settings', 'permission' => 'settings.view',
-                'modules' => ['academic-years', 'grades', 'classes', 'sessions', 'education-levels', 'programs', 'school-info', 'locations', 'occupations', 'withdrawal-reasons', 'student-document-types', 'branding', 'database-backups'],
+                'modules' => ['academic-years', 'grades', 'classes', 'sessions', 'education-levels', 'programs', 'school-info', 'locations', 'occupations', 'academic-tracks', 'withdrawal-reasons', 'student-document-types', 'branding', 'database-backups'],
                 'actions' => ['settings.manage'],
             ],
             'students' => [

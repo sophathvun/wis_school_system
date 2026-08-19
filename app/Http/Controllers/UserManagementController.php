@@ -33,6 +33,7 @@ class UserManagementController
         return view('user-management', [
             'users' => $users,
             'editUser' => $request->integer('edit') ? User::with(['campuses', 'position', 'roles', 'permissionOverrides'])->find($request->integer('edit')) : null,
+            'createUser' => $request->boolean('create'),
             'departments' => Department::where('status', 1)->orderBy('name')->get(),
             'positions' => Position::with('department')->where('status', 1)->orderBy('name')->get(),
             'roles' => Role::where('status', 1)->orderBy('name')->get(),
@@ -61,6 +62,9 @@ class UserManagementController
             'status' => ['required', 'in:0,1'], 'login_identifier' => ['required', 'in:username,email,both'],
             'is_global' => ['nullable', 'boolean'], 'photo' => ['nullable', 'image', 'max:2048'],
         ]);
+        if ($userId && (int) $userId === (int) $request->user()->id && (string) $data['status'] === '0') {
+            return back()->withInput()->withErrors(['status' => 'You cannot deactivate your own account while you are logged in.']);
+        }
         // Unchecked checkboxes are omitted from the request; always persist the actual switch state.
         $data['is_global'] = $request->boolean('is_global');
         DB::transaction(function () use ($request, $data, $userId) {

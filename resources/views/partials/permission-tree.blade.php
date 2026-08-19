@@ -1,4 +1,6 @@
 @include('partials.full-access-toggle', ['fullAccess' => $fullAccess ?? false, 'fullAccessLocked' => $fullAccessLocked ?? false])
+@php($mainMenuIcons = ['administrator' => 'ti-shield-lock', 'communication' => 'ti-messages', 'settings' => 'ti-settings', 'students' => 'ti-user', 'dashboard' => 'ti-dashboard'])
+@php($submenuIcons = ['users' => 'ti-users', 'departments' => 'ti-building-community', 'positions' => 'ti-briefcase', 'roles' => 'ti-shield', 'notifications' => 'ti-bell', 'chat' => 'ti-message-circle', 'academic-years' => 'ti-calendar', 'grades' => 'ti-school', 'classes' => 'ti-door', 'sessions' => 'ti-clock', 'education-levels' => 'ti-school', 'programs' => 'ti-books', 'school-info' => 'ti-building-community', 'locations' => 'ti-map-pin', 'occupations' => 'ti-briefcase', 'academic-tracks' => 'ti-route', 'withdrawal-reasons' => 'ti-user-minus', 'student-document-types' => 'ti-file-description', 'branding' => 'ti-palette', 'database-backups' => 'ti-database', 'students.search' => 'ti-search', 'students.enrollment' => 'ti-user-plus', 'families' => 'ti-users-group', 'students.promotion' => 'ti-arrows-transfer-up', 'students.graduation' => 'ti-certificate', 'student-reentry' => 'ti-user-check', 'student-documents' => 'ti-files', 'student-data-transfer' => 'ti-file-import'])
 @php($permissionUser = $listedUser ?? $selectedUser ?? null)
 @if($permissionUser)
   <div class="mb-3">
@@ -15,6 +17,9 @@
     @endif
   </div>
 @endif
+<div class="permission-module-search mb-3">
+  <div class="input-icon"><span class="input-icon-addon"><i class="ti ti-search"></i></span><input type="search" class="form-control" data-permission-module-search placeholder="Search main modules or actions..."></div>
+</div>
 <div class="row g-3">
 @foreach($permissionHierarchy as $groupKey => $group)
   @php($main = $group['permission'])
@@ -22,9 +27,9 @@
     @php($mainId = $permissionPrefix.'-main-'.$groupKey)
     @php($mainOn = $assignedPermissions->contains('id', $main->id))
     <div class="col-md-6">
-      <div class="border rounded p-3" data-permission-group>
+      <div class="border rounded p-3" data-permission-group data-permission-group-label="{{ strtolower($group['label']) }}">
         <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2">
-          <span class="fw-bold fs-5">{{ strtoupper($group['label']) }}</span>
+          <span class="fw-bold fs-5 permission-main-menu"><i class="ti {{ $mainMenuIcons[$groupKey] ?? 'ti-menu-2' }} me-2"></i>{{ strtoupper($group['label']) }}</span>
           <button type="button" class="status-toggle {{ $mainOn ? 'is-active' : '' }}" data-permission-toggle data-permission-level="main" data-permission-id="{{ $mainId }}" data-status="{{ $mainOn ? 1 : 0 }}" aria-pressed="{{ $mainOn ? 'true' : 'false' }}">
             <span class="status-toggle-label">{{ $mainOn ? 'ON' : 'OFF' }}</span><span class="status-toggle-knob"></span>
           </button>
@@ -32,9 +37,9 @@
         @foreach($group['modules'] as $moduleKey => $module)
           @php($submenuId = $permissionPrefix.'-submenu-'.str_replace(['.', '-'], '_', $moduleKey))
           @php($submenuOn = $assignedPermissions->contains('id', $module['permission']->id))
-          <div class="permission-submenu" data-parent-permission="{{ $mainId }}">
+          <div class="permission-submenu" data-permission-module data-permission-module-label="{{ strtolower($module['label']) }}" data-parent-permission="{{ $mainId }}">
             <div class="d-flex justify-content-between align-items-center py-2">
-              <span>{{ $module['label'] }}</span>
+              <span class="permission-submenu-label"><i class="ti {{ $submenuIcons[$moduleKey] ?? 'ti-point' }} me-2"></i>{{ strtoupper($module['label']) }}</span>
               <button type="button" class="status-toggle {{ $submenuOn ? 'is-active' : '' }}" data-permission-toggle data-permission-level="submenu" data-permission-id="{{ $submenuId }}" data-parent-permission="{{ $mainId }}" data-status="{{ $submenuOn ? 1 : 0 }}" aria-pressed="{{ $submenuOn ? 'true' : 'false' }}">
                 <span class="status-toggle-label">{{ $submenuOn ? 'ON' : 'OFF' }}</span><span class="status-toggle-knob"></span>
               </button>
@@ -83,6 +88,9 @@
 [data-bs-theme="dark"] .form-label{color:var(--tblr-body-color)}
 [data-bs-theme="dark"] .permission-campus-label{background:transparent!important;color:#f8fafc!important}
 [data-bs-theme="dark"] .permission-full-access-bar{background:#1e293b!important;color:#f8fafc;border-color:#475569!important}
+.permission-main-menu{color:#123b72!important;font-size:1.35rem!important;line-height:1.25}
+.permission-submenu-label{color:#111827!important;font-weight:700;text-transform:uppercase}
+[data-bs-theme="dark"] .permission-submenu-label{color:#f8fafc!important}
 </style>
 <script>
 const initPermissionCampusPickers = () => {

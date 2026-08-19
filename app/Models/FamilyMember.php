@@ -22,7 +22,7 @@ class FamilyMember extends Model
 
     protected $table = 'tb_family_member';
 
-    protected $fillable = ['family_id', 'user_id', 'full_name_en', 'full_name_kh', 'first_name_en', 'last_name_en', 'first_name_kh', 'last_name_kh', 'name_en', 'name_kh', 'relationship_type', 'phone', 'email', 'occupation', 'occupation_en', 'occupation_kh', 'occupation_id', 'workplace', 'nationality_en', 'nationality_kh', 'nationality_country_id', 'nationality_id', 'is_primary_contact', 'has_pickup_authorization', 'has_portal_access', 'status'];
+    protected $fillable = ['family_id', 'user_id', 'full_name_en', 'full_name_kh', 'relationship_type', 'phone', 'email', 'occupation', 'occupation_en', 'occupation_kh', 'occupation_id', 'workplace', 'nationality_en', 'nationality_kh', 'nationality_country_id', 'nationality_id', 'is_primary_contact', 'has_pickup_authorization', 'has_portal_access', 'status'];
 
     protected function casts(): array
     {

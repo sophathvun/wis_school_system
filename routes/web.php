@@ -33,7 +33,9 @@ use App\Http\Controllers\WithdrawalReasonController;
 use App\Http\Controllers\StudentReentryController;
 use App\Http\Controllers\StudentDocumentController;
 use App\Http\Controllers\StudentDocumentTypeController;
+use App\Http\Controllers\SummerSchoolController;
 use App\Http\Controllers\DatabaseBackupController;
+use App\Http\Controllers\AcademicTrackController;
 
 Route::middleware('guest')->group(function () {
     Route::get('/setup/admin', [AuthController::class, 'setupForm'])->name('setup.admin');
@@ -64,11 +66,19 @@ Route::middleware('auth')->group(function () {
     Route::get('/communication/chat/conversations', [ChatController::class, 'conversations'])->name('chat.conversations');
     Route::get('/communication/chat/unread', [ChatController::class, 'unread'])->name('chat.unread');
     Route::post('/communication/chat', [ChatController::class, 'create'])->name('chat.create');
+    Route::get('/communication/chat/messages/{message}/download', [ChatController::class, 'download'])->name('chat.messages.download');
     Route::get('/communication/chat/{conversation}/messages', [ChatController::class, 'messages'])->name('chat.messages');
     Route::post('/communication/chat/{conversation}/messages', [ChatController::class, 'send'])->name('chat.messages.send');
+    Route::post('/communication/chat/{conversation}/voice', [ChatController::class, 'sendVoice'])->name('chat.voice.send');
+    Route::post('/communication/chat/{conversation}/call', [ChatController::class, 'callStart'])->name('chat.call.start');
+    Route::get('/communication/chat/calls/pending', [ChatController::class, 'pendingCalls'])->name('chat.calls.pending');
+    Route::get('/communication/chat/calls/{call}', [ChatController::class, 'callShow'])->name('chat.calls.show');
+    Route::get('/communication/chat/calls/{call}/signals', [ChatController::class, 'callSignals'])->name('chat.calls.signals');
+    Route::post('/communication/chat/calls/{call}/signals', [ChatController::class, 'callSignal'])->name('chat.calls.signals.store');
     Route::post('/communication/chat/heartbeat', [ChatController::class, 'heartbeat'])->name('chat.heartbeat');
     Route::get('/settings/notifications/send', [NotificationController::class, 'sendForm'])->name('notifications.send');
     Route::post('/settings/notifications/send', [NotificationController::class, 'send'])->name('notifications.send.save');
+    Route::post('/settings/notifications/upload-image', [NotificationController::class, 'uploadImage'])->name('notifications.upload-image');
     Route::get('/settings/notifications', [NotificationController::class, 'manage'])->name('notifications.manage');
     Route::post('/settings/notifications/{notification}', [NotificationController::class, 'update'])->name('notifications.update');
     Route::delete('/settings/notifications/{notification}', [NotificationController::class, 'delete'])->name('notifications.delete');
@@ -135,13 +145,23 @@ Route::middleware('auth')->group(function () {
 });
 
 Route::get('/students/enrollment', [StudentEnrollmentController::class, 'index'])->name('studentEnrollment.index');
+Route::get('/summer-school', [SummerSchoolController::class, 'index'])->name('summer-school.index');
+Route::get('/summer-school/options', [SummerSchoolController::class, 'options'])->name('summer-school.options');
+Route::get('/summer-school/location-options', [SummerSchoolController::class, 'locationOptions'])->name('summer-school.location-options');
+Route::get('/summer-school/fetch', [SummerSchoolController::class, 'fetch'])->name('summer-school.fetch');
+Route::post('/summer-school/save', [SummerSchoolController::class, 'save'])->name('summer-school.save');
+Route::post('/summer-school/{enrollment}/convert-to-western', [SummerSchoolController::class, 'convertToWestern'])->name('summer-school.convert-to-western');
+Route::get('/student-enrollments/list-options', [StudentEnrollmentController::class, 'listOptions'])->name('student-enrollments.list-options');
 Route::get('/student-enrollments/options', [StudentEnrollmentController::class, 'options'])->name('student-enrollments.options');
 Route::get('/student-enrollments/fetch', [StudentEnrollmentController::class, 'fetchData'])->name('student-enrollments.fetch');
+Route::get('/student-enrollments/student/{student}/academic-years', [StudentEnrollmentController::class, 'studentAcademicYears'])->name('student-enrollments.student-academic-years');
+Route::get('/student-enrollments/student/{student}/siblings', [StudentEnrollmentController::class, 'siblings'])->name('student-enrollments.siblings');
 Route::get('/student-enrollments/{enrollment}/history', [StudentEnrollmentController::class, 'history'])->name('student-enrollments.history');
 Route::post('/student-enrollments/save', [StudentEnrollmentController::class, 'save'])->name('student-enrollments.save');
 Route::delete('/student-enrollments/delete/{id}', [StudentEnrollmentController::class, 'delete'])->name('student-enrollments.delete');
 Route::get('/students/enrollment/workflows', fn () => redirect()->route('studentPromotion.index'))->name('student-enrollment-workflows.index');
 Route::get('/student-enrollment-workflows/options', [EnrollmentWorkflowController::class, 'options'])->name('student-enrollment-workflows.options');
+Route::get('/student-enrollment-workflows/enrollments', [EnrollmentWorkflowController::class, 'enrollmentOptions'])->name('student-enrollment-workflows.enrollments');
 Route::get('/student-enrollment-workflows/fetch', [EnrollmentWorkflowController::class, 'fetch'])->name('student-enrollment-workflows.fetch');
 Route::post('/student-enrollment-workflows/promote', [EnrollmentWorkflowController::class, 'promote'])->name('student-enrollment-workflows.promote');
 Route::post('/student-enrollment-workflows/transfer', [EnrollmentWorkflowController::class, 'transfer'])->name('student-enrollment-workflows.transfer');
@@ -160,6 +180,10 @@ Route::post('/families/{family}/members/save', [FamilyMemberController::class, '
 Route::delete('/families/{family}/members/{member}', [FamilyMemberController::class, 'delete'])->name('families.members.delete');
 
 Route::get('/settings/occupations', [OccupationController::class, 'index'])->name('occupations.index');
+Route::get('/settings/academic-tracks', [AcademicTrackController::class, 'index'])->name('academic-tracks.index');
+Route::get('/academic-tracks/fetch', [AcademicTrackController::class, 'fetchData'])->name('academic-tracks.fetch');
+Route::post('/academic-tracks/save', [AcademicTrackController::class, 'save'])->name('academic-tracks.save');
+Route::delete('/academic-tracks/{academicTrack}', [AcademicTrackController::class, 'delete'])->name('academic-tracks.delete');
 Route::get('/settings/withdrawal-reasons', [WithdrawalReasonController::class, 'index'])->middleware('auth')->name('withdrawal-reasons.index');
 Route::post('/settings/withdrawal-reasons', [WithdrawalReasonController::class, 'save'])->middleware('auth')->name('withdrawal-reasons.save');
 Route::delete('/settings/withdrawal-reasons/{withdrawalReason}', [WithdrawalReasonController::class, 'delete'])->middleware('auth')->name('withdrawal-reasons.delete');
@@ -200,8 +224,16 @@ Route::delete('/student-documents/{document}', [StudentDocumentController::class
 
 Route::get('/students/withdraw', [\App\Http\Controllers\StudentWithdrawalController::class, 'index'])->name('withdrawStudent.index');
 Route::get('/student-withdrawals/options', [\App\Http\Controllers\StudentWithdrawalController::class, 'options'])->name('student-withdrawals.options');
+Route::get('/student-withdrawals/history-options', [\App\Http\Controllers\StudentWithdrawalController::class, 'historyOptions'])->name('student-withdrawals.history-options');
 Route::get('/student-withdrawals/students', [\App\Http\Controllers\StudentWithdrawalController::class, 'students'])->name('student-withdrawals.students');
 Route::get('/student-withdrawals/fetch', [\App\Http\Controllers\StudentWithdrawalController::class, 'fetch'])->name('student-withdrawals.fetch');
+Route::get('/student-withdrawals/enrollments/{enrollment}/family', [\App\Http\Controllers\StudentWithdrawalController::class, 'enrollmentFamily'])->name('student-withdrawals.enrollment-family');
+Route::get('/student-withdrawals/{history}', [\App\Http\Controllers\StudentWithdrawalController::class, 'show'])->name('student-withdrawals.show');
+Route::patch('/student-withdrawals/{history}', [\App\Http\Controllers\StudentWithdrawalController::class, 'update'])->name('student-withdrawals.update');
+Route::post('/student-withdrawals/{history}/principal-approved', [\App\Http\Controllers\StudentWithdrawalController::class, 'markPrincipalApproved'])->name('student-withdrawals.principal-approved');
+Route::post('/student-withdrawals/{history}/approve', [\App\Http\Controllers\StudentWithdrawalController::class, 'approve'])->name('student-withdrawals.approve');
+Route::post('/student-withdrawals/{history}/reject', [\App\Http\Controllers\StudentWithdrawalController::class, 'reject'])->name('student-withdrawals.reject');
+Route::post('/student-withdrawals/{history}/cancel', [\App\Http\Controllers\StudentWithdrawalController::class, 'cancel'])->name('student-withdrawals.cancel');
 Route::get('/student-withdrawals/{history}/form', [\App\Http\Controllers\StudentWithdrawalController::class, 'form'])->name('student-withdrawals.form');
 Route::post('/student-withdrawals/withdraw', [\App\Http\Controllers\StudentWithdrawalController::class, 'withdraw'])->name('student-withdrawals.withdraw');
 Route::post('/student-withdrawals/withdraw-selected', [\App\Http\Controllers\StudentWithdrawalController::class, 'withdrawSelected'])->name('student-withdrawals.withdraw-selected');
@@ -219,6 +251,7 @@ Route::get('/academic-years', [AcademicYearController::class, 'index'])->name('a
 Route::get('/academic-years/fetch', [AcademicYearController::class, 'fetchData'])->name('academic-years.fetch');
 Route::get('/academic-years/pdf', [AcademicYearController::class, 'exportPdf'])->name('academic-years.pdf');
 Route::post('/academic-years/save', [AcademicYearController::class, 'save'])->name('academic-years.save');
+Route::post('/academic-years/{academicYear}/set-current', [AcademicYearController::class, 'setCurrent'])->name('academic-years.set-current');
 Route::delete('/academic-years/delete/{id}', [AcademicYearController::class, 'delete'])->name('academic-years.delete');
 
 // Settings placeholder routes

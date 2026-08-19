@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\EnrollmentWorkflowAction;
+use App\Models\AcademicYear;
+use App\Models\Grade;
 use App\Models\StudentEnrollment;
 use App\Models\StudentEnrollmentHistory;
 use Illuminate\Support\Facades\DB;
@@ -34,6 +36,7 @@ class EnrollmentWorkflowService
                     'effective_on' => $data['effective_on'],
                     'reason' => $data['reason'] ?? 'Class promotion',
                     'notes' => $data['notes'] ?? null,
+                    'action_type' => 'class_promotion',
                 ]);
             }
 
@@ -66,6 +69,7 @@ class EnrollmentWorkflowService
                     'effective_on' => $data['effective_on'],
                     'reason' => $data['reason'] ?? 'Selected student promotion',
                     'notes' => $data['notes'] ?? null,
+                    'action_type' => 'selected_promotion',
                 ]);
             }
 
@@ -98,6 +102,7 @@ class EnrollmentWorkflowService
                     'effective_on' => $data['effective_on'],
                     'reason' => $data['reason'] ?? 'Selected student transfer',
                     'notes' => $data['notes'] ?? null,
+                    'action_type' => 'selected_transfer',
                 ]);
             }
 
@@ -128,6 +133,7 @@ class EnrollmentWorkflowService
                     'effective_on' => $data['effective_on'],
                     'reason' => $data['reason'] ?? 'Class transfer',
                     'notes' => $data['notes'] ?? null,
+                    'action_type' => 'class_transfer',
                 ]);
             }
 
@@ -138,6 +144,8 @@ class EnrollmentWorkflowService
     public function promote(StudentEnrollment $source, array $data): StudentEnrollment
     {
         return DB::transaction(function () use ($source, $data) {
+            $this->assertNextGradePromotion($source, (int) $data['to_grade_id']);
+
             $duplicate = StudentEnrollment::where('student_id', $source->student_id)
                 ->where('academic_year_id', $data['to_academic_year_id'])
                 ->exists();
@@ -155,14 +163,42 @@ class EnrollmentWorkflowService
                 'group_id' => null,
                 'status' => 1,
                 'student_type' => 'old',
-                'enrollment_status' => 'active',
+                'enrollment_status' => AcademicYear::findOrFail($data['to_academic_year_id'])->lifecycle_status === 'started' ? 'active' : 'pending',
                 'enrolled_on' => $data['effective_on'],
             ]);
 
             $source->update(['status' => 1, 'enrollment_status' => 'completed', 'ended_on' => $data['effective_on'], 'exit_reason' => 'Promoted']);
-            $this->record($source, $target, 'promotion', $data);
+            $this->record($source, $target, $data['action_type'] ?? 'promotion', $data);
             return $target;
         });
+    }
+
+    private function assertNextGradePromotion(StudentEnrollment $source, int $targetGradeId): void
+    {
+        $grades = Grade::where('status', 1)
+            ->orderByRaw('CAST(grade_order AS UNSIGNED)')
+            ->get(['id', 'grade', 'grade_order'])
+            ->values();
+
+        $sourceIndex = $grades->search(fn ($grade) => (int) $grade->id === (int) $source->grade_id);
+        if ($sourceIndex === false) {
+            throw ValidationException::withMessages(['to_grade_id' => 'Unable to verify the current grade for this student.']);
+        }
+
+        $sourceGrade = $grades[$sourceIndex];
+        $nextGrade = $grades->get($sourceIndex + 1);
+
+        if (!$nextGrade) {
+            throw ValidationException::withMessages([
+                'to_grade_id' => "{$sourceGrade->grade} students should be processed from the Student Graduation page.",
+            ]);
+        }
+
+        if ((int) $nextGrade->id !== $targetGradeId) {
+            throw ValidationException::withMessages([
+                'to_grade_id' => "Students from {$sourceGrade->grade} can only be promoted to {$nextGrade->grade}. Lower grades are not allowed.",
+            ]);
+        }
     }
 
     public function transfer(StudentEnrollment $source, array $data): StudentEnrollment
@@ -174,9 +210,9 @@ class EnrollmentWorkflowService
                 'grade_id' => $data['to_grade_id'] ?? $source->grade_id,
                 'class_id' => $data['to_class_id'] ?? $source->class_id,
                 'session_id' => $data['to_session_id'] ?? null,
-                'enrollment_status' => 'transferred',
+                'enrollment_status' => 'active',
             ]);
-            $this->record($source, $source, 'transfer', $data, $before);
+            $this->record($source, $source, $data['action_type'] ?? 'transfer', $data, $before);
             return $source->fresh();
         });
     }

@@ -2,6 +2,7 @@
 @import "@tabler/core/dist/css/tabler-themes.css";
 @import "@tabler/icons-webfont/dist/tabler-icons.min.css";
 @import "@fontsource/noto-sans-khmer/400.css";
+@import "./khmer-fonts.css";
 
 /* Additional base palettes exposed in Settings > Theme base. */
 [data-bs-theme-base="blue-gray"] {
@@ -124,8 +125,20 @@
     padding-bottom: .35rem;
     border: 1.5px solid #dfe3ea;
     border-radius: 14px;
-    background: #fff;
-    box-shadow: 0 2px 7px rgba(31, 41, 55, .04);
+    background: var(--tblr-bg-surface, #fff);
+}
+
+/* Ensure base form controls respect theme surface color */
+.form-control,
+.form-select,
+.location-combobox-toggle,
+.date-picker-trigger,
+.input-icon,
+.phone-input-group {
+    background-color: var(--tblr-bg-surface, #fff) !important;
+    color: var(--tblr-body-color);
+    -webkit-box-shadow: inset 0 0 0 1000px var(--tblr-bg-surface, #fff);
+    box-shadow: 0 2px 7px rgba(31, 41, 55, .04) !important;
 }
 
 .premium-form-field.has-value > .form-label,
@@ -134,7 +147,7 @@
     left: 1rem;
     padding: 0 .45rem;
     color: #5b4bd1;
-    background: #fff;
+    background: var(--tblr-bg-surface, #fff);
     font-size: .72rem;
     font-weight: 700;
 }
@@ -152,7 +165,7 @@
 .premium-form-field:focus-within > .date-picker .form-control,
 .premium-form-field:focus-within > .location-combobox .location-combobox-toggle {
     border-color: #6b5bd6;
-    background: #fff;
+    background: var(--tblr-bg-surface, #fff);
     box-shadow: 0 0 0 3px rgba(107, 91, 214, .14);
 }
 
@@ -164,7 +177,7 @@
 
 .premium-form-field .location-combobox-toggle,
 .premium-form-field .date-picker-trigger {
-    background: #fff;
+    background: var(--tblr-bg-surface, #fff);
 }
 
 [data-bs-theme="dark"] .premium-form-field > .form-label,

@@ -6,6 +6,7 @@ use App\Models\UserNotification;
 use App\Models\User;
 use App\Models\Department;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 class NotificationController
 {
@@ -18,7 +19,7 @@ class NotificationController
     {
         $this->authorizeAdmin($request);
         return view('notification-send', [
-            'users' => User::with('department')->where('status', 1)->orderBy('name')->get(['id', 'name', 'username', 'email', 'department_id']),
+            'users' => User::with(['department', 'position'])->where('status', 1)->orderBy('name')->get(['id', 'name', 'username', 'email', 'department_id', 'position_id', 'photo_path', 'last_seen_at']),
             'departments' => Department::where('status', 1)->orderBy('name')->get(),
         ]);
     }
@@ -37,7 +38,8 @@ class NotificationController
     public function update(Request $request, UserNotification $notification)
     {
         $this->authorizeAdmin($request);
-        $data = $request->validate(['type' => ['required', 'string', 'max:80'], 'title' => ['required', 'string', 'max:160'], 'message' => ['required', 'string', 'max:2000'], 'action_url' => ['nullable', 'url', 'max:500']]);
+        $data = $request->validate(['type' => ['required', 'string', 'max:80'], 'title' => ['required', 'string', 'max:160'], 'message' => ['required', 'string', 'max:20000'], 'action_url' => ['nullable', 'url', 'max:500']]);
+        $data['message'] = $this->cleanNotificationHtml($data['message']);
         $notification->update($data);
         return back()->with('success', 'Notification updated successfully.');
     }
@@ -60,9 +62,10 @@ class NotificationController
             'send_to_all' => ['nullable', 'boolean'],
             'type' => ['required', 'string', 'max:80'],
             'title' => ['required', 'string', 'max:160'],
-            'message' => ['required', 'string', 'max:2000'],
+            'message' => ['required', 'string', 'max:20000'],
             'action_url' => ['nullable', 'url', 'max:500'],
         ]);
+        $data['message'] = $this->cleanNotificationHtml($data['message']);
         $recipientIds = $request->boolean('send_to_all')
             ? User::where('status', 1)->pluck('id')
             : User::where('status', 1)->where(function ($query) use ($data) {
@@ -77,6 +80,22 @@ class NotificationController
             'created_at' => $now, 'updated_at' => $now,
         ])->all());
         return redirect()->route('notifications.send')->with('success', 'Notification sent successfully.');
+    }
+
+    public function uploadImage(Request $request)
+    {
+        $this->authorizeAdmin($request);
+        $data = $request->validate([
+            'image' => ['required', 'image', 'mimes:jpg,jpeg,png,webp,gif', 'max:4096'],
+        ]);
+
+        $file = $data['image'];
+        $name = Str::uuid().'.'.$file->getClientOriginalExtension();
+        $path = $file->storeAs('notifications/images', $name, 'public');
+
+        return response()->json([
+            'url' => '/storage/'.$path,
+        ]);
     }
 
     public function index(Request $request)
@@ -96,5 +115,37 @@ class NotificationController
     {
         $request->user()->userNotifications()->whereNull('read_at')->update(['read_at' => now()]);
         return back()->with('success', 'All notifications marked as read.');
+    }
+
+    private function cleanNotificationHtml(string $html): string
+    {
+        $html = strip_tags($html, '<p><br><strong><b><em><i><u><ul><ol><li><a><img><h3><h4><blockquote><div><span><table><thead><tbody><tr><th><td>');
+        $html = preg_replace('/\s+on[a-z]+\s*=\s*("[^"]*"|\'[^\']*\'|[^\s>]+)/i', '', $html) ?? '';
+        $html = preg_replace('/(href|src)\s*=\s*([\'"])\s*javascript:[^\'"]*\2/i', '$1="#"', $html) ?? '';
+        $html = preg_replace_callback('/<a\b[^>]*>/i', function ($match) {
+            $tag = preg_replace('/\s+target\s*=\s*("[^"]*"|\'[^\']*\'|[^\s>]+)/i', '', $match[0]) ?? $match[0];
+            $tag = preg_replace('/\s+rel\s*=\s*("[^"]*"|\'[^\']*\'|[^\s>]+)/i', '', $tag) ?? $tag;
+
+            return rtrim($tag, '>').' target="_blank" rel="noopener noreferrer">';
+        }, $html) ?? '';
+        $html = preg_replace_callback('/<img\b[^>]*>/i', function ($match) {
+            $tag = $match[0];
+            preg_match('/\ssrc\s*=\s*([\'"])(.*?)\1/i', $tag, $src);
+            preg_match('/\salt\s*=\s*([\'"])(.*?)\1/i', $tag, $alt);
+            preg_match('/\sstyle\s*=\s*([\'"])(.*?)\1/i', $tag, $style);
+            $width = '';
+            if (!empty($style[2]) && preg_match('/width\s*:\s*([^;]+);?/i', $style[2], $widthMatch)) {
+                $widthValue = trim($widthMatch[1]);
+                $width = ' style="width:'.e($widthValue).'; height:auto;"';
+            }
+            if (empty($src[2])) {
+                return '';
+            }
+
+            return '<img src="'.e($src[2]).'" alt="'.e($alt[2] ?? 'Notification image').'"'.$width.'>';
+        }, $html) ?? '';
+        $html = preg_replace('/<img\b(?![^>]*\bsrc=)[^>]*>/i', '', $html) ?? '';
+
+        return trim($html);
     }
 }

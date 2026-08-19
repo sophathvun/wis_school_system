@@ -50,10 +50,17 @@
         <span class="invalid-feedback" data-error-for="description"></span>
     </div>
     <div class="col-12">
-        <label class="form-label">Status</label>
-        <select class="form-select" name="status" id="status">
-            <option value="1">Active</option>
-            <option value="0">Inactive</option>
+        <label class="form-label required">Academic Year Status</label>
+        <select class="form-select" name="lifecycle_status" id="lifecycle_status">
+            <option value="draft">Draft</option>
+            <option value="pending" selected>Pending</option>
+            <option value="started">Started</option>
+            <option value="finished">Finished</option>
+            <option value="archived">Archived</option>
         </select>
+        <div class="form-text">
+            Pending can be used for next-year promotion. Started is the active school year. Finished/Archived stay searchable for history.
+        </div>
+        <span class="invalid-feedback" data-error-for="lifecycle_status"></span>
     </div>
 </div>
