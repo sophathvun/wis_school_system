@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\PhoneNumber;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -29,6 +30,12 @@ class FamilyMember extends Model
         return ['is_primary_contact' => 'boolean', 'has_pickup_authorization' => 'boolean', 'has_portal_access' => 'boolean', 'status' => 'integer'];
     }
 
+    public function setPhoneAttribute($value): void
+    {
+        $this->attributes['phone'] = PhoneNumber::normalize($value);
+    }
+
     public function family(): BelongsTo { return $this->belongsTo(Family::class); }
+    public function students() { return $this->belongsToMany(Student::class, 'tb_student_family_member')->withPivot(['relationship_type', 'is_primary_contact'])->withTimestamps(); }
     public function user(): BelongsTo { return $this->belongsTo(User::class); }
 }

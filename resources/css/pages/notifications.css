@@ -1,0 +1,13 @@
+/* Extracted from resources/views/notifications.blade.php. Keep page-specific styles in this file. */
+
+.notification-message-content {
+    line-height: 1.6;
+}
+
+.notification-message-content img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 10px;
+    margin: 0.5rem 0;
+    box-shadow: 0 5px 18px rgba(31, 41, 55, 0.12);
+}

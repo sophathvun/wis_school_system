@@ -18,6 +18,7 @@ class SchoolInfo extends Model
         'campus_name_en',
         'campus_name_kh',
         'address',
+        'google_map_url',
         'phone',
         'description',
         'status',

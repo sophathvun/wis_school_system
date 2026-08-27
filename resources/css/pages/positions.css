@@ -1,0 +1,182 @@
+/* Extracted from resources/views/positions.blade.php. Keep page-specific styles in this file. */
+
+.table-sort-button {
+    padding: 0;
+    border: 0;
+    color: inherit;
+    font: inherit;
+    font-weight: 600;
+    background: transparent;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.table-sort-button:hover {
+    color: var(--tblr-primary);
+    text-decoration: none;
+}
+
+#positionModal .modal-dialog {
+    max-width: 420px;
+}
+
+#positionModal .position-field {
+    position: relative;
+    margin-bottom: 1rem;
+}
+
+#positionModal .position-field > .form-label {
+    position: absolute;
+    z-index: 2;
+    top: 1rem;
+    left: 1rem;
+    margin: 0;
+    padding: 0 0.35rem;
+    background: transparent;
+    color: var(--tblr-secondary);
+    font-size: 0.95rem;
+    font-weight: 400;
+    line-height: 1.1;
+    pointer-events: none;
+    transition:
+        top 0.16s ease,
+        font-size 0.16s ease,
+        color 0.16s ease,
+        background-color 0.16s ease;
+}
+
+#positionModal .position-field.has-value > .form-label,
+#positionModal .position-field:focus-within > .form-label {
+    top: 0.42rem;
+    padding: 0 0.45rem;
+    background: var(--tblr-bg-surface, #fff);
+    color: #5b4bd1;
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+
+#positionModal .position-field > .form-control,
+#positionModal .position-field > .form-select {
+    height: 52px;
+    min-height: 52px;
+    padding: 1.25rem 1rem 0.35rem;
+    border: 1.5px solid #dfe3ea;
+    border-radius: 14px;
+    background: var(--tblr-bg-forms, #fff);
+    color: var(--tblr-body-color);
+    box-shadow: 0 2px 7px rgba(31, 41, 55, 0.04);
+}
+
+#positionModal .position-combobox {
+    position: relative;
+}
+
+#positionModal .position-combobox-toggle {
+    width: 100%;
+    height: 52px;
+    padding: 1.25rem 2.75rem 0.35rem 1rem;
+    border: 1.5px solid #dfe3ea;
+    border-radius: 14px;
+    background: var(--tblr-bg-forms, #fff);
+    color: var(--tblr-body-color);
+    text-align: left;
+    font: inherit;
+    position: relative;
+}
+
+#positionModal .position-combobox-toggle:focus {
+    outline: 0;
+    border-color: #6b5bd6;
+    box-shadow: 0 0 0 3px rgba(107, 91, 214, 0.14);
+}
+
+#positionModal .position-combobox-toggle > i {
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--tblr-secondary);
+}
+
+#positionModal .position-combobox-menu {
+    position: absolute;
+    z-index: 20;
+    left: 0;
+    right: 0;
+    top: calc(100% + 0.35rem);
+    padding: 0.65rem;
+    background: var(--tblr-bg-surface, #fff);
+    border: 1px solid var(--tblr-border-color);
+    border-radius: 14px;
+    box-shadow: 0 12px 28px rgba(31, 41, 55, 0.16);
+}
+
+#positionModal .position-combobox-menu .form-control {
+    height: 44px;
+    border-radius: 10px;
+}
+
+#positionModal .position-combobox-results {
+    max-height: 220px;
+    overflow-y: auto;
+    margin-top: 0.5rem;
+}
+
+#positionModal .position-combobox-option {
+    display: block;
+    width: 100%;
+    border: 0;
+    background: transparent;
+    text-align: left;
+    padding: 0.65rem 0.75rem;
+    border-radius: 9px;
+    color: var(--tblr-body-color);
+}
+
+#positionModal .position-combobox-option:hover {
+    background: rgba(127, 127, 127, 0.12);
+}
+
+#positionModal .position-status-row {
+    display: flex;
+    justify-content: flex-end;
+    margin: 1rem 0;
+    min-height: 30px;
+}
+
+[data-bs-theme="dark"] #positionModal .position-field.has-value > .form-label,
+[data-bs-theme="dark"]
+    #positionModal
+    .position-field:focus-within
+    > .form-label {
+    background: #1e293b;
+    color: #a99cff;
+}
+
+[data-bs-theme="dark"] #positionModal .position-field > .form-control,
+[data-bs-theme="dark"] #positionModal .position-field > .form-select,
+[data-bs-theme="dark"] #positionModal .position-combobox-toggle {
+    background: #1e293b !important;
+    color: #f8fafc !important;
+    border-color: #475569 !important;
+}
+
+[data-bs-theme="dark"] #positionModal .position-combobox-menu {
+    background: #1e293b !important;
+    color: #f8fafc;
+    border-color: #475569;
+}
+
+[data-bs-theme="dark"] #positionModal .position-combobox-menu .form-control {
+    background: #0f172a !important;
+    color: #f8fafc !important;
+    border-color: #64748b !important;
+}
+
+[data-bs-theme="dark"] #positionModal .position-combobox-option {
+    color: #f8fafc;
+}
+
+[data-bs-theme="dark"] #positionModal .position-combobox-option:hover {
+    background: #334155;
+}

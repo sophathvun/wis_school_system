@@ -18,11 +18,14 @@ export const renderPagination = (res, selector, perPageSelector, fetchFun) => {
     } else if (res.current_page >= res.last_page - 2) {
         addPage(1);
         addEllipsis();
-        for (let page = res.last_page - 2; page <= res.last_page; page++) addPage(page);
+        for (let page = res.last_page - 2; page <= res.last_page; page++)
+            addPage(page);
     } else {
         addPage(1);
         addEllipsis();
-        [res.current_page - 1, res.current_page, res.current_page + 1].forEach(addPage);
+        [res.current_page - 1, res.current_page, res.current_page + 1].forEach(
+            addPage,
+        );
         addEllipsis();
         addPage(res.last_page);
     }
@@ -88,7 +91,9 @@ export const renderPagination = (res, selector, perPageSelector, fetchFun) => {
         });
     });
 
-    const pageSizeSelect = container.querySelector(".premium-pagination-controls select");
+    const pageSizeSelect = container.querySelector(
+        ".premium-pagination-controls select",
+    );
     pageSizeSelect?.addEventListener("change", (event) => {
         perPageInput.value = event.target.value;
         fetchFun(1, parseInt(event.target.value));
@@ -96,7 +101,10 @@ export const renderPagination = (res, selector, perPageSelector, fetchFun) => {
 
     const goToInput = container.querySelector(".premium-pagination-goto input");
     goToInput?.addEventListener("change", (event) => {
-        const page = Math.min(res.last_page, Math.max(1, parseInt(event.target.value) || 1));
+        const page = Math.min(
+            res.last_page,
+            Math.max(1, parseInt(event.target.value) || 1),
+        );
         event.target.value = page;
         if (page !== res.current_page) fetchFun(page, perPage);
     });

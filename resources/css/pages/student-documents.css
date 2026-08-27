@@ -1,0 +1,103 @@
+/* Extracted from resources/views/student-documents.blade.php. Keep page-specific styles in this file. */
+
+#studentDocumentModal .modal-dialog {
+    max-width: 700px;
+}
+
+#studentDocumentModal .modal-body {
+    max-height: calc(100vh - 190px);
+    overflow-y: auto;
+}
+
+#studentDocumentModal .premium-floating-field {
+    position: relative;
+}
+
+#studentDocumentModal .premium-floating-field > label {
+    font-weight: 600;
+}
+
+#studentDocumentModal .premium-document-dropzone {
+    border: 2px dashed #b7a8ff;
+    border-radius: 1rem;
+    padding: 1.4rem;
+    text-align: center;
+    background: rgba(111, 88, 224, 0.035);
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+#studentDocumentModal .premium-document-dropzone:hover,
+#studentDocumentModal .premium-document-dropzone.is-dragging {
+    border-color: #684ee8;
+    background: rgba(111, 88, 224, 0.1);
+}
+
+#studentDocumentModal .document-upload-icon {
+    width: 3.5rem;
+    height: 3.5rem;
+    display: grid;
+    place-items: center;
+    margin: 0 auto 0.75rem;
+    border-radius: 1rem;
+    background: #eee9ff;
+    color: #684ee8;
+    font-size: 2rem;
+}
+
+#studentDocumentModal .document-browse-link {
+    color: #684ee8;
+    font-weight: 700;
+}
+
+#studentDocumentModal .document-upload-hint {
+    font-size: 0.8rem;
+    color: var(--tblr-secondary);
+}
+
+#studentDocumentModal .premium-document-file-list {
+    display: grid;
+    gap: 0.55rem;
+    margin-top: 1rem;
+    text-align: left;
+}
+
+#studentDocumentModal .premium-document-file-item {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.7rem;
+    border: 1px solid var(--tblr-border-color);
+    border-radius: 0.75rem;
+    background: var(--tblr-bg-surface);
+}
+
+#studentDocumentModal .document-file-icon {
+    width: 2.2rem;
+    height: 2.2rem;
+    display: grid;
+    place-items: center;
+    border-radius: 0.6rem;
+    background: #eee9ff;
+    color: #684ee8;
+    font-size: 1.25rem;
+}
+
+#studentDocumentModal .document-file-name {
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+#studentDocumentModal .document-file-meta {
+    font-size: 0.75rem;
+    color: var(--tblr-secondary);
+}
+
+#studentDocumentModal .document-file-remove {
+    margin-left: auto;
+    border: 0;
+    background: transparent;
+    color: var(--tblr-secondary);
+}

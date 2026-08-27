@@ -23,7 +23,7 @@ class DatabaseBackupService
             throw new \RuntimeException('Database backups currently support MySQL and MariaDB only.');
         }
 
-        $filename = ($settings['database'] ?? 'school_system').'_'.now()->format('Ymd_His').'.sql';
+        $filename = ($settings['database'] ?? 'school_system').'_'.now('Asia/Phnom_Penh')->format('Ymd_His').'.sql';
         $path = $this->directory().'\\'.preg_replace('/[^A-Za-z0-9_.-]/', '_', $filename);
         $binary = env('DB_DUMP_BINARY') ?: $this->findBinary();
         $arguments = [
@@ -42,7 +42,7 @@ class DatabaseBackupService
             throw new \RuntimeException(trim($process->getErrorOutput()) ?: 'The database backup command failed.');
         }
 
-        return ['path' => 'backups/'.basename($path), 'filename' => basename($path), 'size' => filesize($path), 'created_at' => now()];
+        return ['path' => 'backups/'.basename($path), 'filename' => basename($path), 'size' => filesize($path), 'created_at' => now('Asia/Phnom_Penh')];
     }
 
     private function findBinary(): string

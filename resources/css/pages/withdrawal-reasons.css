@@ -1,0 +1,27 @@
+/* Extracted from resources/views/withdrawal-reasons.blade.php. Keep page-specific styles in this file. */
+
+.input-icon form .form-control {
+    padding-left: 2.25rem !important;
+}
+
+.input-icon form {
+    min-width: 280px;
+}
+
+.table-sort-button {
+    padding: 0;
+    border: 0;
+    color: inherit;
+    background: transparent;
+    font: inherit;
+    font-size: inherit;
+    font-weight: 400;
+    line-height: inherit;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.table-sort-button:hover {
+    color: var(--tblr-primary);
+    text-decoration: none;
+}

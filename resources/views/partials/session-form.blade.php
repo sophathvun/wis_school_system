@@ -3,12 +3,14 @@
     <input type="hidden" name="session_id" id="session_id">
     <div class="col-md-6">
         <label class="form-label required">Session Name</label>
-        <input type="text" class="form-control" name="session_name" id="session_name" placeholder="Enter session name" required>
+        <input type="text" class="form-control" name="session_name" id="session_name" placeholder="Enter session name"
+            required>
         <span class="invalid-feedback" data-error-for="session_name"></span>
     </div>
     <div class="col-md-6">
         <label class="form-label required">Group (Short Name)</label>
-        <input type="text" class="form-control" name="session_short_name" id="session_short_name" placeholder="For example: A, M, III, 1, 2" required>
+        <input type="text" class="form-control" name="session_short_name" id="session_short_name"
+            placeholder="For example: A, M, III, 1, 2" required>
         <span class="invalid-feedback" data-error-for="session_short_name"></span>
     </div>
     <div class="col-md-6">

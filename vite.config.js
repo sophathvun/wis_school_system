@@ -1,4 +1,5 @@
 import { defineConfig } from "vite";
+import { globSync } from "node:fs";
 import laravel from "laravel-vite-plugin";
 import { bunny } from "laravel-vite-plugin/fonts";
 import tailwindcss from "@tailwindcss/vite";
@@ -8,6 +9,7 @@ export default defineConfig({
         laravel({
             input: [
                 "resources/css/app.css",
+                ...globSync("resources/css/pages/*.css"),
                 "resources/js/app.js",
                 "resources/js/academicYears.js",
                 "resources/js/grade.js",
@@ -27,6 +29,7 @@ export default defineConfig({
                 "resources/js/brandingSettings.js",
                 "resources/js/userManagement.js",
                 "resources/js/profilePhoto.js",
+                "resources/js/khmer-calendar.js",
             ],
             refresh: true,
             fonts: [

@@ -2,6 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\BrandingSetting;
+use BaconQrCode\Renderer\Image\SvgImageBackEnd;
+use BaconQrCode\Renderer\ImageRenderer;
+use BaconQrCode\Renderer\RendererStyle\RendererStyle;
+use BaconQrCode\Writer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Password;
@@ -9,6 +14,7 @@ use Illuminate\Support\Facades\Hash;
 use App\Models\User;
 use App\Models\Role;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class AuthController
 {
@@ -100,7 +106,19 @@ class AuthController
             : back()->withErrors(['email' => __($status)]);
     }
 
-    public function profile() { return view('profile'); }
+    public function profile(Request $request)
+    {
+        $user = $request->user()->load(['department', 'position', 'campuses', 'roles']);
+        $this->ensurePublicCardToken($user);
+
+        return view('profile', [
+            'profileUser' => $user,
+            'branding' => BrandingSetting::current(),
+            'publicCardUrl' => route('staff-card.public', $user->public_card_token),
+            'publicCardQrUrl' => route('staff-card.qr', $user->public_card_token),
+            'publicCardVcardUrl' => route('staff-card.vcard', $user->public_card_token),
+        ]);
+    }
 
     public function status(Request $request) { return view('profile-status'); }
 
@@ -124,5 +142,149 @@ class AuthController
         if ($request->hasFile('photo')) $user->photo_path = $request->file('photo')->store('users', 'public');
         $user->save();
         return back()->with('success', 'Profile updated successfully.');
+    }
+
+    public function updateNameCard(Request $request)
+    {
+        $user = $request->user();
+        $this->ensurePublicCardToken($user);
+
+        $user->forceFill([
+            'public_card_enabled' => $request->has('public_card_enabled')
+                ? $request->boolean('public_card_enabled')
+                : (bool) $user->public_card_enabled,
+            'public_card_orientation' => $request->validate([
+                'public_card_orientation' => ['nullable', 'in:portrait,landscape'],
+                'public_card_background' => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            ])['public_card_orientation'] ?? ($user->public_card_orientation ?: 'landscape'),
+            'public_card_background' => $request->input('public_card_background', $user->public_card_background ?: '#206bc4'),
+        ])->save();
+
+        return redirect()->to(route('profile') . '#name-card')
+            ->with('success', 'Name card setting updated successfully.');
+    }
+
+    public function regenerateNameCard(Request $request)
+    {
+        $request->user()->forceFill([
+            'public_card_token' => $this->newPublicCardToken(),
+            'public_card_enabled' => true,
+            'public_card_scan_count' => 0,
+            'public_card_last_viewed_at' => null,
+        ])->save();
+
+        return back()->with('success', 'Name card QR code regenerated successfully.');
+    }
+
+    public function publicStaffCard(string $token)
+    {
+        $staff = $this->publicStaffByToken($token);
+
+        $staff->forceFill([
+            'public_card_scan_count' => ((int) $staff->public_card_scan_count) + 1,
+            'public_card_last_viewed_at' => now(),
+        ])->save();
+
+        return view('staff-card-public', [
+            'staff' => $staff,
+            'branding' => BrandingSetting::current(),
+            'publicCardUrl' => route('staff-card.public', $staff->public_card_token),
+            'publicCardVcardUrl' => route('staff-card.vcard', $staff->public_card_token),
+            'publicCardQrUrl' => route('staff-card.qr', $staff->public_card_token),
+        ]);
+    }
+
+    public function staffCardQr(string $token)
+    {
+        $staff = $this->publicStaffByToken($token);
+
+        return response($this->qrSvg(route('staff-card.public', $staff->public_card_token)), 200, [
+            'Content-Type' => 'image/svg+xml',
+            'Cache-Control' => 'public, max-age=86400',
+        ]);
+    }
+
+    public function staffCardVcard(string $token)
+    {
+        $staff = $this->publicStaffByToken($token);
+        $filename = Str::slug($staff->name ?: 'staff-contact') . '.vcf';
+
+        return response($this->staffVcard($staff), 200, [
+            'Content-Type' => 'text/vcard; charset=utf-8',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ]);
+    }
+
+    private function ensurePublicCardToken(User $user): void
+    {
+        if ($user->public_card_token) {
+            return;
+        }
+
+        $user->forceFill([
+            'public_card_token' => $this->newPublicCardToken(),
+            'public_card_enabled' => true,
+        ])->save();
+    }
+
+    private function newPublicCardToken(): string
+    {
+        do {
+            $token = Str::random(40);
+        } while (User::where('public_card_token', $token)->exists());
+
+        return $token;
+    }
+
+    private function publicStaffByToken(string $token): User
+    {
+        return User::with(['department', 'position', 'campuses'])
+            ->where('public_card_token', $token)
+            ->where('public_card_enabled', true)
+            ->where('status', 1)
+            ->firstOrFail();
+    }
+
+    private function qrSvg(string $value): string
+    {
+        $renderer = new ImageRenderer(
+            new RendererStyle(360),
+            new SvgImageBackEnd()
+        );
+
+        return (new Writer($renderer))->writeString($value);
+    }
+
+    private function staffVcard(User $staff): string
+    {
+        $campus = $staff->campuses->pluck('campus_name_en')->filter()->join(', ');
+        $organization = trim('Western International School' . ($campus ? ' - ' . $campus : ''));
+
+        $lines = [
+            'BEGIN:VCARD',
+            'VERSION:3.0',
+            'FN:' . $this->vcardValue($staff->name),
+            'ORG:' . $this->vcardValue($organization),
+            'TITLE:' . $this->vcardValue($staff->position?->name ?: $staff->department?->name),
+        ];
+
+        if ($staff->phone) {
+            $lines[] = 'TEL;TYPE=WORK,VOICE:' . $this->vcardValue($staff->phone);
+        }
+
+        if ($staff->email) {
+            $lines[] = 'EMAIL;TYPE=WORK:' . $this->vcardValue($staff->email);
+        }
+
+        $lines[] = 'URL:' . route('staff-card.public', $staff->public_card_token);
+        $lines[] = 'NOTE:' . $this->vcardValue(trim(($staff->department?->name ?: '') . ($campus ? ' | ' . $campus : '')));
+        $lines[] = 'END:VCARD';
+
+        return implode("\r\n", $lines) . "\r\n";
+    }
+
+    private function vcardValue(?string $value): string
+    {
+        return str_replace(["\\", "\n", "\r", ',', ';'], ['\\\\', '\\n', '', '\\,', '\\;'], trim((string) $value));
     }
 }

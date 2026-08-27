@@ -1,0 +1,94 @@
+.table-sort-button {
+    padding: 0;
+    border: 0;
+    color: inherit;
+    font: inherit;
+    font-weight: 600;
+    background: transparent;
+    cursor: pointer;
+}
+
+.table-sort-button:hover {
+    color: var(--tblr-primary);
+}
+
+.academic-year-combobox {
+    position: relative;
+    width: 220px;
+}
+
+.academic-year-type-column .academic-year-combobox {
+    width: 170px;
+}
+
+@media (max-width: 767px) {
+    .academic-year-combobox,
+    .academic-year-type-column .academic-year-combobox {
+        width: 100%;
+    }
+}
+
+.academic-year-combobox-toggle {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    height: 36px;
+    padding: 0.35rem 0.65rem;
+    border: 1px solid var(--tblr-border-color);
+    border-radius: 0.25rem;
+    color: var(--tblr-body-color);
+    background: var(--tblr-bg-forms);
+    text-align: left;
+}
+
+.academic-year-filter-row #academic-years-search,
+.academic-year-filter-row .input-icon {
+    height: 36px;
+}
+
+.academic-year-filter-row .input-icon .form-control {
+    height: 100%;
+}
+
+.academic-year-combobox-toggle:focus {
+    border-color: var(--tblr-primary);
+    outline: 0;
+    box-shadow: 0 0 0 0.15rem rgba(32, 107, 196, 0.15);
+}
+
+.academic-year-combobox-menu {
+    position: absolute;
+    top: calc(100% + 0.25rem);
+    right: 0;
+    left: 0;
+    z-index: 1050;
+    padding: 0.45rem;
+    border: 1px solid var(--tblr-border-color);
+    border-radius: 0.35rem;
+    background: var(--tblr-bg-surface);
+    box-shadow: 0 0.5rem 1rem rgba(27, 46, 76, 0.15);
+}
+
+.academic-year-combobox-results {
+    max-height: 220px;
+    margin-top: 0.4rem;
+    overflow-y: auto;
+}
+
+.academic-year-combobox-option {
+    display: block;
+    width: 100%;
+    padding: 0.4rem 0.55rem;
+    border: 0;
+    border-radius: 0.25rem;
+    color: var(--tblr-body-color);
+    background: transparent;
+    text-align: left;
+}
+
+.academic-year-combobox-option:hover,
+.academic-year-combobox-option.is-selected {
+    color: var(--tblr-primary);
+    background: var(--tblr-primary-lt);
+}

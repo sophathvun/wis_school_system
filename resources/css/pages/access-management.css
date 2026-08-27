@@ -1,0 +1,65 @@
+/* Extracted from resources/views/access-management.blade.php. Keep page-specific styles in this file. */
+
+.table-sort-button {
+    padding: 0;
+    border: 0;
+    color: inherit;
+    font: inherit;
+    font-weight: 600;
+    background: transparent;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.table-sort-button:hover {
+    color: var(--tblr-primary);
+    text-decoration: none;
+}
+
+[data-bs-theme="dark"] .card-tabs .nav-tabs .nav-link {
+    color: #94a3b8;
+}
+
+[data-bs-theme="dark"] .card-tabs .nav-tabs .nav-link.active {
+    background: #1e293b;
+    color: #f8fafc;
+    border-color: #475569;
+}
+
+[data-bs-theme="dark"] .card-tabs .form-control,
+[data-bs-theme="dark"] .card-tabs .form-select,
+[data-bs-theme="dark"] .card.mb-3 .form-control,
+[data-bs-theme="dark"] .card.mb-3 .form-select {
+    background: #1e293b !important;
+    color: #f8fafc !important;
+    border-color: #475569 !important;
+}
+
+[data-bs-theme="dark"] .card-tabs select option,
+[data-bs-theme="dark"] .card.mb-3 select option {
+    background: #1e293b;
+    color: #f8fafc;
+}
+
+[data-bs-theme="dark"] .card-tabs .form-label,
+[data-bs-theme="dark"] .card.mb-3 .form-label {
+    color: #f8fafc;
+}
+
+[data-bs-theme="dark"] .card-tabs .card-header,
+[data-bs-theme="dark"] .card-tabs .card-footer,
+[data-bs-theme="dark"] .card-tabs .border-bottom {
+    border-color: #334155 !important;
+}
+
+.permission-module-search {
+    max-width: 460px;
+}
+
+.permission-module-search .form-control {
+    min-height: 42px;
+}
+
+.permission-module-search .input-icon-addon {
+    color: #64748b;
+}

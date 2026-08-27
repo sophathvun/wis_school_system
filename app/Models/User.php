@@ -12,14 +12,18 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-    #[Fillable(['name', 'gender', 'date_of_birth', 'phone', 'position_id', 'username', 'email', 'password', 'status', 'preferred_locale', 'active_campus_id', 'department_id', 'photo_path', 'login_identifier', 'is_global', 'must_change_password', 'last_seen_at'])]
+    #[Fillable(['name', 'gender', 'date_of_birth', 'phone', 'position_id', 'username', 'email', 'password', 'status', 'preferred_locale', 'active_campus_id', 'department_id', 'photo_path', 'public_card_token', 'public_card_enabled', 'public_card_orientation', 'public_card_background', 'public_card_scan_count', 'public_card_last_viewed_at', 'login_identifier', 'is_global', 'must_change_password', 'last_seen_at'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 
-    protected $casts = ['date_of_birth' => 'date:Y-m-d'];
+    protected $casts = [
+        'date_of_birth' => 'date:Y-m-d',
+        'public_card_enabled' => 'boolean',
+        'public_card_last_viewed_at' => 'datetime',
+    ];
 
     public function department(): BelongsTo
     {
@@ -52,7 +56,7 @@ class User extends Authenticatable
     public function accessibleCampuses()
     {
         if ($this->isSuperAdmin() || $this->is_global || $this->roles()->where('is_global', true)->exists()) {
-            return SchoolInfo::query()->where('status', 1)->getQuery()->getModel()->newQuery()->where('status', 1);
+            return SchoolInfo::query()->where('status', 1);
         }
 
         return $this->campuses()->where('tb_school_info.status', 1);

@@ -28,4 +28,9 @@ class Permission extends Model
     {
         return $this->belongsToMany(Department::class, 'access_department_permissions');
     }
+
+    public function users(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'access_user_permission_overrides')->withPivot('allowed')->withTimestamps();
+    }
 }

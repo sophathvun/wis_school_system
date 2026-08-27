@@ -156,119 +156,396 @@
                 </div>
             </div>
             <div class="nav-item ms-3">
-                <a href="{{ route('chat.index') }}" class="nav-link px-0 position-relative" aria-label="Open chat" title="Chat" onclick="if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();">
+                <a href="{{ route('chat.index') }}" class="nav-link px-0 position-relative" aria-label="Open chat"
+                    title="Chat"
+                    onclick="if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();">
                     <i class="ti ti-messages icon"></i>
-                    <span id="chat-unread-badge" class="badge bg-red position-absolute top-0 start-100 translate-middle d-none">0</span>
+                    <span id="chat-unread-badge"
+                        class="badge bg-red position-absolute top-0 start-100 translate-middle d-none">0</span>
                 </a>
             </div>
             <div class="nav-item dropdown">
                 <a href="#" class="nav-link d-flex lh-1 p-0 px-2" data-bs-toggle="dropdown"
                     aria-label="Open user menu">
-                    <span class="avatar avatar-sm" @auth @if(auth()->user()->photo_path) style="background-image: url('{{ asset('storage/'.auth()->user()->photo_path) }}')" @endif @endauth> </span>
+                    <span class="avatar avatar-sm"
+                        @auth @if (auth()->user()->photo_path) style="background-image: url('{{ asset('storage/' . auth()->user()->photo_path) }}')" @endif @endauth>
+                    </span>
                     <div class="d-none d-xl-block ps-2">
-                        <div>@auth{{ auth()->user()->name }}@else Guest @endauth</div>
-                        <div class="mt-1 small text-secondary">@auth{{ auth()->user()->department?->name ?? 'Staff' }}@else Sign in @endauth</div>
+                        <div>@auth{{ auth()->user()->name }}
+                        @else
+                        Guest @endauth
                     </div>
-                </a>
-                <div class="dropdown-menu dropdown-menu-end dropdown-menu-arrow">
-                    @auth<a href="{{ route('profile.status') }}" class="dropdown-item">Status</a>@endauth
-                    @auth
+                    <div class="mt-1 small text-secondary">@auth{{ auth()->user()->department?->name ?? 'Staff' }}
                     @else
-                        <a href="{{ route('login') }}" class="dropdown-item">Sign in</a>
-                    @endauth
-                    @auth<a href="{{ route('feedback') }}" class="dropdown-item">Feedback</a>@endauth
-                    <div class="dropdown-divider"></div>
-                    @auth<a href="{{ route('profile') }}" class="dropdown-item">Settings</a>@endauth
-                    @auth<form method="POST" action="{{ route('logout') }}">@csrf<button class="dropdown-item" type="submit">Logout</button></form>@endauth
+                    Sign in @endauth
                 </div>
             </div>
+        </a>
+        <div class="dropdown-menu dropdown-menu-end dropdown-menu-arrow">
+            @auth<a href="{{ route('profile.status') }}" class="dropdown-item">Status</a>@endauth
+            @auth
+            @else
+                <a href="{{ route('login') }}" class="dropdown-item">Sign in</a>
+            @endauth
+            @auth<a href="{{ route('feedback') }}" class="dropdown-item">Feedback</a>@endauth
+            <div class="dropdown-divider"></div>
+            @auth<a href="{{ route('profile') }}" class="dropdown-item">Settings</a>@endauth
+            @auth<form method="POST" action="{{ route('logout') }}" onsubmit="try{sessionStorage.removeItem('dashboardHeroStartedAt')}catch(e){}">@csrf<button class="dropdown-item"
+                    type="submit">Logout</button></form>@endauth
         </div>
-        @auth
-        @php
-            $headerNotifications = auth()->user()->userNotifications()->latest()->limit(5)->get();
-            $headerUnreadNotifications = auth()->user()->userNotifications()->whereNull('read_at')->count();
-            $headerNotificationPayload = $headerNotifications->map(fn ($item) => [
-                'title' => $item->title,
-                'message' => \Illuminate\Support\Str::limit(strip_tags($item->message), 90),
-                'url' => $item->action_url ?: route('notifications.index'),
-                'read' => (bool) $item->read_at,
-                'time' => $item->created_at?->diffForHumans(),
-            ])->values();
-        @endphp
-        <script>
+    </div>
+</div>
+@auth
+    @php
+        $headerNotifications = auth()->user()->userNotifications()->latest()->limit(5)->get();
+        $headerUnreadNotifications = auth()->user()->userNotifications()->whereNull('read_at')->count();
+        $headerNotificationPayload = $headerNotifications
+            ->map(
+                fn($item) => [
+                    'title' => $item->title,
+                    'message' => \Illuminate\Support\Str::limit(strip_tags($item->message), 90),
+                    'url' => $item->action_url ?: route('notifications.index'),
+                    'read' => (bool) $item->read_at,
+                    'time' => $item->created_at?->diffForHumans(),
+                ],
+            )
+            ->values();
+    @endphp
+    <script>
         document.addEventListener('DOMContentLoaded', () => {
             const list = document.querySelector('.dropdown-menu-card .list-group');
             const badge = document.querySelector('[aria-label="Show notifications"] .badge');
             const items = @json($headerNotificationPayload);
-            if (badge) { badge.textContent = {{ $headerUnreadNotifications }} || ''; badge.classList.toggle('d-none', !{{ $headerUnreadNotifications }}); }
-            if (list) list.innerHTML = items.length ? items.map(item => '<div class="list-group-item"><div class="row align-items-center"><div class="col-auto"><span class="status-dot ' + (item.read ? '' : 'status-dot-animated bg-red') + ' d-block"></span></div><div class="col text-truncate"><a href="' + item.url + '" class="text-body d-block" target="_blank" rel="noopener noreferrer">' + item.title + '</a><div class="d-block text-secondary text-truncate mt-n1">' + (item.message || '') + '</div><small class="text-secondary">' + (item.time || '') + '</small></div></div></div>').join('') + '<div class="list-group-item text-center"><a href="{{ route('notifications.index') }}">View all notifications</a></div>' : '<div class="list-group-item text-center text-secondary py-4">No notifications.</div>';
+            if (badge) {
+                badge.textContent = {{ $headerUnreadNotifications }} || '';
+                badge.classList.toggle('d-none', !{{ $headerUnreadNotifications }});
+            }
+            if (list) list.innerHTML = items.length ? items.map(item =>
+                    '<div class="list-group-item"><div class="row align-items-center"><div class="col-auto"><span class="status-dot ' +
+                    (item.read ? '' : 'status-dot-animated bg-red') +
+                    ' d-block"></span></div><div class="col text-truncate"><a href="' + item.url +
+                    '" class="text-body d-block" target="_blank" rel="noopener noreferrer">' + item.title +
+                    '</a><div class="d-block text-secondary text-truncate mt-n1">' + (item.message || '') +
+                    '</div><small class="text-secondary">' + (item.time || '') + '</small></div></div></div>').join(
+                    '') +
+                '<div class="list-group-item text-center"><a href="{{ route('notifications.index') }}">View all notifications</a></div>' :
+                '<div class="list-group-item text-center text-secondary py-4">No notifications.</div>';
         });
-        </script>
-        <script>
+    </script>
+    <script>
         document.addEventListener('DOMContentLoaded', () => {
             const badge = document.getElementById('chat-unread-badge');
             let previousUnread = null;
             const refreshChatUnread = async () => {
                 try {
-                    const response = await fetch('{{ route('chat.unread') }}', { headers: { Accept: 'application/json' } });
+                    const response = await fetch('{{ route('chat.unread') }}', {
+                        headers: {
+                            Accept: 'application/json'
+                        }
+                    });
                     if (!response.ok) return;
                     const data = await response.json();
                     const unread = Number(data.unread || 0);
-                    if (badge) { badge.textContent = unread > 99 ? '99+' : unread; badge.classList.toggle('d-none', unread === 0); }
-                    if (previousUnread !== null && unread > previousUnread && 'Notification' in window && Notification.permission === 'granted') {
-                        new Notification('New chat message', { body: 'You have a new unread chat message.', tag: 'school-chat' });
+                    if (badge) {
+                        badge.textContent = unread > 99 ? '99+' : unread;
+                        badge.classList.toggle('d-none', unread === 0);
+                    }
+                    if (previousUnread !== null && unread > previousUnread && 'Notification' in window &&
+                        Notification.permission === 'granted') {
+                        new Notification('New chat message', {
+                            body: 'You have a new unread chat message.',
+                            tag: 'school-chat'
+                        });
                     }
                     previousUnread = unread;
-                } catch (error) { /* Chat badge remains unchanged if the user is offline. */ }
+                } catch (error) {
+                    /* Chat badge remains unchanged if the user is offline. */ }
             };
             refreshChatUnread();
             window.setInterval(refreshChatUnread, 5000);
         });
-        </script>
-        @endauth
-        <div class="collapse navbar-collapse" id="navbar-menu">
-            <!-- BEGIN NAVBAR MENU -->
-            @php
-                $nav = match (true) {
-                    request()->routeIs('dashboard') => ['parent' => null, 'label' => 'Dashboard', 'icon' => 'ti-dashboard', 'url' => route('dashboard')],
-                    request()->routeIs('studentGraduation.*') => ['parent' => 'Student', 'parentIcon' => 'ti-user', 'parentUrl' => route('studentEnrollment.index'), 'label' => 'Student Graduation', 'icon' => 'ti-certificate', 'url' => route('studentGraduation.index')],
-                    request()->routeIs('studentPromotion.*', 'student-enrollment-workflows.*') => ['parent' => 'Student', 'parentIcon' => 'ti-user', 'parentUrl' => route('studentEnrollment.index'), 'label' => 'Promotion / Transfer', 'icon' => 'ti-arrows-transfer-up', 'url' => route('studentPromotion.index')],
-                    request()->routeIs('studentEnrollment.*') => ['parent' => 'Student', 'parentIcon' => 'ti-user', 'parentUrl' => route('studentEnrollment.index'), 'label' => 'Student Enrollment', 'icon' => 'ti-user-plus', 'url' => route('studentEnrollment.index')],
-                    request()->routeIs('summer-school.*') => ['parent' => 'Student', 'parentIcon' => 'ti-user', 'parentUrl' => route('studentEnrollment.index'), 'label' => 'Summer School', 'icon' => 'ti-sun', 'url' => route('summer-school.index')],
-                    request()->routeIs('student-reentry.*') => ['parent' => 'Student', 'parentIcon' => 'ti-user', 'parentUrl' => route('studentEnrollment.index'), 'label' => 'Student Re-entry', 'icon' => 'ti-user-check', 'url' => route('student-reentry.index')],
-                    request()->routeIs('families.*') => ['parent' => 'Student', 'parentIcon' => 'ti-user', 'parentUrl' => route('studentEnrollment.index'), 'label' => 'Family Management', 'icon' => 'ti-users', 'url' => route('families.index')], 
-                    request()->routeIs('searchStudent.*') => ['parent' => 'Student', 'parentIcon' => 'ti-user', 'parentUrl' => route('studentEnrollment.index'), 'label' => 'Search Students', 'icon' => 'ti-search', 'url' => route('searchStudent.index')],
-                    request()->routeIs('transferStudent.*') => ['parent' => 'Student', 'parentIcon' => 'ti-user', 'parentUrl' => route('studentEnrollment.index'), 'label' => 'Transfer Student', 'icon' => 'ti-arrows-left-right', 'url' => route('transferStudent.index')],
-                    request()->routeIs('withdrawStudent.*') => ['parent' => 'Student', 'parentIcon' => 'ti-user', 'parentUrl' => route('studentEnrollment.index'), 'label' => 'Withdraw Student', 'icon' => 'ti-user-minus', 'url' => route('withdrawStudent.index')],
-                    request()->routeIs('student-data-transfer.*') => ['parent' => 'Student', 'parentIcon' => 'ti-user', 'parentUrl' => route('studentEnrollment.index'), 'label' => 'Import / Export Data', 'icon' => 'ti-file-import', 'url' => route('student-data-transfer.index')],
-                    request()->routeIs('academic-years.*') => ['parent' => 'Settings', 'parentIcon' => 'ti-settings', 'parentUrl' => route('schoolInfo.index'), 'label' => 'Academic Years', 'icon' => 'ti-calendar', 'url' => route('academic-years.index')],
-                    request()->routeIs('grades.*') => ['parent' => 'Settings', 'parentIcon' => 'ti-settings', 'parentUrl' => route('schoolInfo.index'), 'label' => 'Grades', 'icon' => 'ti-school', 'url' => route('grades.index')],
-                    request()->routeIs('classes.*') => ['parent' => 'Settings', 'parentIcon' => 'ti-settings', 'parentUrl' => route('schoolInfo.index'), 'label' => 'Classes', 'icon' => 'ti-door', 'url' => route('classes.index')],
-                    request()->routeIs('sessions.*') => ['parent' => 'Settings', 'parentIcon' => 'ti-settings', 'parentUrl' => route('schoolInfo.index'), 'label' => 'Sessions', 'icon' => 'ti-clock', 'url' => route('sessions.index')],
-                    request()->routeIs('education-levels.*') => ['parent' => 'Settings', 'parentIcon' => 'ti-settings', 'parentUrl' => route('schoolInfo.index'), 'label' => 'Education Levels', 'icon' => 'ti-school', 'url' => route('education-levels.index')],
-                    request()->routeIs('programs.*') => ['parent' => 'Settings', 'parentIcon' => 'ti-settings', 'parentUrl' => route('schoolInfo.index'), 'label' => 'Programs', 'icon' => 'ti-books', 'url' => route('programs.index')],
-                    request()->routeIs('terms.*') => ['parent' => 'Settings', 'parentIcon' => 'ti-settings', 'parentUrl' => route('schoolInfo.index'), 'label' => 'Terms / Quarters', 'icon' => 'ti-calendar-event', 'url' => route('terms.index')],
-                    request()->routeIs('schoolInfo.*') => ['parent' => 'Settings', 'parentIcon' => 'ti-settings', 'parentUrl' => route('schoolInfo.index'), 'label' => 'School Information', 'icon' => 'ti-building-community', 'url' => route('schoolInfo.index')],
-                    request()->routeIs('campuses.*') => ['parent' => 'Settings', 'parentIcon' => 'ti-settings', 'parentUrl' => route('schoolInfo.index'), 'label' => 'Campuses', 'icon' => 'ti-building', 'url' => route('campuses.index')],
-                    request()->routeIs('locations.*') => ['parent' => 'Settings', 'parentIcon' => 'ti-settings', 'parentUrl' => route('schoolInfo.index'), 'label' => 'Locations', 'icon' => 'ti-map-pin', 'url' => route('locations.index')],
-                    request()->routeIs('occupations.*') => ['parent' => 'Settings', 'parentIcon' => 'ti-settings', 'parentUrl' => route('schoolInfo.index'), 'label' => 'Occupations', 'icon' => 'ti-briefcase', 'url' => route('occupations.index')],
-                    request()->routeIs('academic-tracks.*') => ['parent' => 'Settings', 'parentIcon' => 'ti-settings', 'parentUrl' => route('schoolInfo.index'), 'label' => 'Academic Tracks', 'icon' => 'ti-route-alt-left', 'url' => route('academic-tracks.index')],
-                    request()->routeIs('branding-settings.*') => ['parent' => 'Settings', 'parentIcon' => 'ti-settings', 'parentUrl' => route('schoolInfo.index'), 'label' => 'Branding', 'icon' => 'ti-palette', 'url' => route('branding-settings.index')],
-                    request()->routeIs('access-management.*') => ['parent' => 'Settings', 'parentIcon' => 'ti-settings', 'parentUrl' => route('schoolInfo.index'), 'label' => 'Roles & Permissions', 'icon' => 'ti-shield-lock', 'url' => route('access-management.index')],
-                    request()->routeIs('nationalities.*') => ['parent' => 'Settings', 'parentIcon' => 'ti-settings', 'parentUrl' => route('schoolInfo.index'), 'label' => 'Nationalities', 'icon' => 'ti-flag', 'url' => route('nationalities.index')],
-                    request()->routeIs('groups.*') => ['parent' => 'Settings', 'parentIcon' => 'ti-settings', 'parentUrl' => route('schoolInfo.index'), 'label' => 'Groups', 'icon' => 'ti-users-group', 'url' => route('groups.index')],
-                    request()->routeIs('settings.*') => ['parent' => 'Settings', 'parentIcon' => 'ti-settings', 'parentUrl' => route('schoolInfo.index'), 'label' => 'Settings', 'icon' => 'ti-settings', 'url' => '#'],
-                    default => ['parent' => null, 'label' => trim($__env->yieldContent('title')) ?: 'Page', 'icon' => 'ti-dashboard', 'url' => '#'],
-                };
-            @endphp
-            <ul class="navbar-nav">
-                @if ($nav['parent'])
-                    <li class="nav-item"><a class="nav-link" href="{{ $nav['parentUrl'] }}"><span class="nav-link-icon d-md-none d-lg-inline-block"><i class="ti {{ $nav['parentIcon'] }} icon"></i></span><span class="nav-link-title">{{ $nav['parent'] }}</span></a></li>
-                    <li class="nav-item"><span class="nav-link text-secondary px-2">&gt;</span></li>
-                @endif
-                <li class="nav-item"><a class="nav-link" href="{{ $nav['url'] }}"><span class="nav-link-icon d-md-none d-lg-inline-block"><i class="ti {{ $nav['icon'] }} icon"></i></span><span class="nav-link-title">{{ $nav['label'] }}</span></a></li>
-            </ul>
-            <!-- END NAVBAR MENU -->
-        </div>
-    </div>
+    </script>
+@endauth
+<div class="collapse navbar-collapse" id="navbar-menu">
+    <!-- BEGIN NAVBAR MENU -->
+    @php
+        $nav = match (true) {
+            request()->routeIs('dashboard') => [
+                'parent' => null,
+                'label' => 'Dashboard',
+                'icon' => 'ti-dashboard',
+                'url' => route('dashboard'),
+            ],
+            request()->routeIs('studentGraduation.*') => [
+                'parent' => 'Student',
+                'parentIcon' => 'ti-user',
+                'parentUrl' => route('studentEnrollment.index'),
+                'label' => 'Student Graduation',
+                'icon' => 'ti-certificate',
+                'url' => route('studentGraduation.index'),
+            ],
+            request()->routeIs('studentPromotion.*', 'student-enrollment-workflows.*') => [
+                'parent' => 'Student',
+                'parentIcon' => 'ti-user',
+                'parentUrl' => route('studentEnrollment.index'),
+                'label' => 'Promotion / Transfer',
+                'icon' => 'ti-arrows-transfer-up',
+                'url' => route('studentPromotion.index'),
+            ],
+            request()->routeIs('studentEnrollment.*') => [
+                'parent' => 'Student',
+                'parentIcon' => 'ti-user',
+                'parentUrl' => route('studentEnrollment.index'),
+                'label' => 'Student Enrollment',
+                'icon' => 'ti-user-plus',
+                'url' => route('studentEnrollment.index'),
+            ],
+            request()->routeIs('summer-school.*') => [
+                'parent' => 'Student',
+                'parentIcon' => 'ti-user',
+                'parentUrl' => route('studentEnrollment.index'),
+                'label' => 'Summer School',
+                'icon' => 'ti-sun',
+                'url' => route('summer-school.index'),
+            ],
+            request()->routeIs('student-reentry.*') => [
+                'parent' => 'Student',
+                'parentIcon' => 'ti-user',
+                'parentUrl' => route('studentEnrollment.index'),
+                'label' => 'Student Re-entry',
+                'icon' => 'ti-user-check',
+                'url' => route('student-reentry.index'),
+            ],
+            request()->routeIs('families.*') => [
+                'parent' => 'Student',
+                'parentIcon' => 'ti-user',
+                'parentUrl' => route('studentEnrollment.index'),
+                'label' => 'Family Management',
+                'icon' => 'ti-users',
+                'url' => route('families.index'),
+            ],
+            request()->routeIs('searchStudent.*') => [
+                'parent' => 'Student',
+                'parentIcon' => 'ti-user',
+                'parentUrl' => route('studentEnrollment.index'),
+                'label' => 'Search Students',
+                'icon' => 'ti-search',
+                'url' => route('searchStudent.index'),
+            ],
+            request()->routeIs('transferStudent.*') => [
+                'parent' => 'Student',
+                'parentIcon' => 'ti-user',
+                'parentUrl' => route('studentEnrollment.index'),
+                'label' => 'Transfer Student',
+                'icon' => 'ti-arrows-left-right',
+                'url' => route('transferStudent.index'),
+            ],
+            request()->routeIs('withdrawStudent.*') => [
+                'parent' => 'Student',
+                'parentIcon' => 'ti-user',
+                'parentUrl' => route('studentEnrollment.index'),
+                'label' => 'Withdraw Student',
+                'icon' => 'ti-user-minus',
+                'url' => route('withdrawStudent.index'),
+            ],
+            request()->routeIs('student-data-transfer.*') => [
+                'parent' => 'Student',
+                'parentIcon' => 'ti-user',
+                'parentUrl' => route('studentEnrollment.index'),
+                'label' => 'Import / Export Data',
+                'icon' => 'ti-file-import',
+                'url' => route('student-data-transfer.index'),
+            ],
+            request()->routeIs('academic-years.*') => [
+                'parent' => 'Settings',
+                'parentIcon' => 'ti-settings',
+                'parentUrl' => route('schoolInfo.index'),
+                'label' => 'Academic Years',
+                'icon' => 'ti-calendar',
+                'url' => route('academic-years.index'),
+            ],
+            request()->routeIs('grades.*') => [
+                'parent' => 'Settings',
+                'parentIcon' => 'ti-settings',
+                'parentUrl' => route('schoolInfo.index'),
+                'label' => 'Grades',
+                'icon' => 'ti-school',
+                'url' => route('grades.index'),
+            ],
+            request()->routeIs('classes.*') => [
+                'parent' => 'Settings',
+                'parentIcon' => 'ti-settings',
+                'parentUrl' => route('schoolInfo.index'),
+                'label' => 'Classes',
+                'icon' => 'ti-door',
+                'url' => route('classes.index'),
+            ],
+            request()->routeIs('sessions.*') => [
+                'parent' => 'Settings',
+                'parentIcon' => 'ti-settings',
+                'parentUrl' => route('schoolInfo.index'),
+                'label' => 'Sessions',
+                'icon' => 'ti-clock',
+                'url' => route('sessions.index'),
+            ],
+            request()->routeIs('education-levels.*') => [
+                'parent' => 'Settings',
+                'parentIcon' => 'ti-settings',
+                'parentUrl' => route('schoolInfo.index'),
+                'label' => 'Education Levels',
+                'icon' => 'ti-school',
+                'url' => route('education-levels.index'),
+            ],
+            request()->routeIs('programs.*') => [
+                'parent' => 'Settings',
+                'parentIcon' => 'ti-settings',
+                'parentUrl' => route('schoolInfo.index'),
+                'label' => 'Programs',
+                'icon' => 'ti-books',
+                'url' => route('programs.index'),
+            ],
+            request()->routeIs('terms.*') => [
+                'parent' => 'Settings',
+                'parentIcon' => 'ti-settings',
+                'parentUrl' => route('schoolInfo.index'),
+                'label' => 'Terms / Quarters',
+                'icon' => 'ti-calendar-event',
+                'url' => route('terms.index'),
+            ],
+            request()->routeIs('schoolInfo.*') => [
+                'parent' => 'Settings',
+                'parentIcon' => 'ti-settings',
+                'parentUrl' => route('schoolInfo.index'),
+                'label' => 'School Information',
+                'icon' => 'ti-building-community',
+                'url' => route('schoolInfo.index'),
+            ],
+            request()->routeIs('campuses.*') => [
+                'parent' => 'Settings',
+                'parentIcon' => 'ti-settings',
+                'parentUrl' => route('schoolInfo.index'),
+                'label' => 'Campuses',
+                'icon' => 'ti-building',
+                'url' => route('campuses.index'),
+            ],
+            request()->routeIs('locations.*') => [
+                'parent' => 'Settings',
+                'parentIcon' => 'ti-settings',
+                'parentUrl' => route('schoolInfo.index'),
+                'label' => 'Locations',
+                'icon' => 'ti-map-pin',
+                'url' => route('locations.index'),
+            ],
+            request()->routeIs('occupations.*') => [
+                'parent' => 'Settings',
+                'parentIcon' => 'ti-settings',
+                'parentUrl' => route('schoolInfo.index'),
+                'label' => 'Occupations',
+                'icon' => 'ti-briefcase',
+                'url' => route('occupations.index'),
+            ],
+            request()->routeIs('academic-tracks.*') => [
+                'parent' => 'Settings',
+                'parentIcon' => 'ti-settings',
+                'parentUrl' => route('schoolInfo.index'),
+                'label' => 'Academic Tracks',
+                'icon' => 'ti-route-alt-left',
+                'url' => route('academic-tracks.index'),
+            ],
+            request()->routeIs('branding-settings.*') => [
+                'parent' => 'Administrator',
+                'parentIcon' => 'ti-user-shield',
+                'parentUrl' => route('access-management.index'),
+                'label' => 'Branding',
+                'icon' => 'ti-palette',
+                'url' => route('branding-settings.index'),
+            ],
+            request()->routeIs('database-backups.*') => [
+                'parent' => 'Administrator',
+                'parentIcon' => 'ti-user-shield',
+                'parentUrl' => route('access-management.index'),
+                'label' => 'Database Backups',
+                'icon' => 'ti-database-export',
+                'url' => route('database-backups.index'),
+            ],
+            request()->routeIs('dashboard-templates.*') => [
+                'parent' => 'Administrator',
+                'parentIcon' => 'ti-user-shield',
+                'parentUrl' => route('access-management.index'),
+                'label' => 'Dashboard Templates',
+                'icon' => 'ti-layout-dashboard',
+                'url' => route('dashboard-templates.index'),
+            ],
+            request()->routeIs('access-management.*') => [
+                'parent' => 'Administrator',
+                'parentIcon' => 'ti-user-shield',
+                'parentUrl' => route('access-management.index'),
+                'label' => 'Roles & Permissions',
+                'icon' => 'ti-shield-lock',
+                'url' => route('access-management.index'),
+            ],
+            request()->routeIs('notifications.send*') => [
+                'parent' => 'Communication',
+                'parentIcon' => 'ti-messages',
+                'parentUrl' => route('chat.index'),
+                'label' => 'Send Notifications',
+                'icon' => 'ti-bell',
+                'url' => route('notifications.send'),
+            ],
+            request()->routeIs('notifications.manage') || request()->routeIs('notifications.update') || request()->routeIs('notifications.delete') => [
+                'parent' => 'Communication',
+                'parentIcon' => 'ti-messages',
+                'parentUrl' => route('chat.index'),
+                'label' => 'Notification Management',
+                'icon' => 'ti-list',
+                'url' => route('notifications.manage'),
+            ],
+            request()->routeIs('nationalities.*') => [
+                'parent' => 'Settings',
+                'parentIcon' => 'ti-settings',
+                'parentUrl' => route('schoolInfo.index'),
+                'label' => 'Nationalities',
+                'icon' => 'ti-flag',
+                'url' => route('nationalities.index'),
+            ],
+            request()->routeIs('groups.*') => [
+                'parent' => 'Settings',
+                'parentIcon' => 'ti-settings',
+                'parentUrl' => route('schoolInfo.index'),
+                'label' => 'Groups',
+                'icon' => 'ti-users-group',
+                'url' => route('groups.index'),
+            ],
+            request()->routeIs('settings.*') => [
+                'parent' => 'Settings',
+                'parentIcon' => 'ti-settings',
+                'parentUrl' => route('schoolInfo.index'),
+                'label' => 'Settings',
+                'icon' => 'ti-settings',
+                'url' => '#',
+            ],
+            default => [
+                'parent' => null,
+                'label' => trim($__env->yieldContent('title')) ?: 'Page',
+                'icon' => 'ti-dashboard',
+                'url' => '#',
+            ],
+        };
+    @endphp
+    <ul class="navbar-nav">
+        @if ($nav['parent'])
+            <li class="nav-item"><a class="nav-link" href="{{ $nav['parentUrl'] }}"><span
+                        class="nav-link-icon d-md-none d-lg-inline-block"><i
+                            class="ti {{ $nav['parentIcon'] }} icon"></i></span><span
+                        class="nav-link-title">{{ $nav['parent'] }}</span></a></li>
+            <li class="nav-item"><span class="nav-link text-secondary px-2">&gt;</span></li>
+        @endif
+        <li class="nav-item"><a class="nav-link" href="{{ $nav['url'] }}"><span
+                    class="nav-link-icon d-md-none d-lg-inline-block"><i
+                        class="ti {{ $nav['icon'] }} icon"></i></span><span
+                    class="nav-link-title">{{ $nav['label'] }}</span></a></li>
+    </ul>
+    <!-- END NAVBAR MENU -->
+</div>
+</div>
 </header>

@@ -1,0 +1,311 @@
+/* Extracted from resources/views/student-withdrawal.blade.php. Keep page-specific styles in this file. */
+
+.withdrawal-filter-fields input[id="withdrawal-year-search"],
+.withdrawal-filter-fields input[id="withdrawal-campus-search"],
+.withdrawal-filter-fields input[id="withdrawal-grade-class-search"],
+.withdrawal-filter-fields > .col-md-6 > .input-icon,
+.student-withdrawal-field > #withdrawal-student-search,
+.student-withdrawal-field > .input-icon {
+    display: none !important;
+}
+
+.table-sort-btn {
+    border: 0;
+    background: transparent;
+    padding: 0;
+    color: inherit;
+    font: inherit;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+}
+
+.table-sort-btn:hover {
+    color: var(--tblr-primary);
+}
+
+.withdrawal-history-photo {
+    width: 52px;
+    height: 69px;
+    object-fit: cover;
+    border-radius: 15%;
+    display: block;
+}
+
+.withdrawal-history-photo-placeholder {
+    width: 52px;
+    height: 69px;
+    border-radius: 15%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.withdrawal-history-name {
+    min-width: 180px;
+}
+
+.withdrawal-history-track {
+    font-size: 0.78rem;
+}
+
+.withdrawal-history-phone {
+    font-size: 0.78rem;
+}
+
+.withdrawal-history-date {
+    white-space: nowrap;
+}
+
+#withdrawalModal .modal-dialog,
+#editWithdrawalModal .modal-dialog {
+    width: calc(100% - 2rem);
+    max-width: 1100px;
+}
+
+@media (min-width: 768px) {
+    #withdrawalForm .withdrawal-filter-fields > .col-md-6 {
+        width: 33.333333%;
+        flex: 0 0 auto;
+    }
+
+    #withdrawalForm .student-withdrawal-field {
+        width: 66.666667%;
+        flex: 0 0 auto;
+    }
+
+    #withdrawalForm .withdrawal-date-column {
+        width: 33.333333%;
+        flex: 0 0 auto;
+    }
+
+    #withdrawalForm
+        .withdrawal-reason-panel
+        > .row.g-2:first-of-type
+        > .col-md-6 {
+        width: 33.333333%;
+        flex: 0 0 auto;
+    }
+}
+
+#withdrawal-table td:nth-child(11) .bg-secondary-lt {
+    background-color: #fff3cd !important;
+    color: #b86b00 !important;
+}
+
+.workflow-status-button {
+    border: 0;
+    cursor: pointer;
+    font: inherit;
+}
+
+.workflow-status-button:hover {
+    filter: brightness(0.96);
+}
+
+#withdrawalModal .modal-content {
+    overflow: hidden;
+}
+
+#withdrawalModal .modal-body {
+    max-height: calc(100vh - 10rem);
+    overflow-y: auto;
+}
+
+#editWithdrawalModal .modal-body {
+    max-height: calc(100vh - 10rem);
+    overflow-y: auto;
+}
+
+.edit-student-summary {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.1rem;
+    border: 1px solid rgba(var(--tblr-primary-rgb), 0.18);
+    border-radius: 1rem;
+    background: var(--tblr-bg-surface-secondary);
+}
+
+.edit-student-summary-photo,
+.edit-student-summary-photo-placeholder {
+    width: 72px;
+    height: 96px;
+    flex: 0 0 72px;
+    object-fit: cover;
+    border-radius: 15%;
+}
+
+.edit-student-summary-photo-placeholder {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--tblr-secondary-lt);
+    color: var(--tblr-secondary);
+    font-size: 2rem;
+}
+
+.edit-student-summary-details {
+    min-width: 0;
+}
+
+.edit-student-summary-id {
+    color: var(--tblr-secondary);
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 0.1rem;
+}
+
+.edit-student-summary-details > .school-profile-khmer,
+.edit-student-summary-name {
+    font-size: 1.2rem !important;
+    line-height: 1.35;
+}
+
+.edit-student-summary-details > .school-profile-khmer {
+    font-weight: 500;
+}
+
+.edit-student-summary-name {
+    font-size: 1rem !important;
+    font-weight: 500;
+}
+
+.edit-student-summary-context {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.9rem;
+    margin-top: 0.35rem;
+    color: var(--tblr-secondary);
+    font-size: 0.9rem;
+}
+
+.edit-student-summary-context span {
+    white-space: nowrap;
+}
+
+@media (max-width: 575.98px) {
+    .edit-student-summary {
+        align-items: flex-start;
+    }
+
+    .edit-student-summary-context {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+.withdrawal-date-picker {
+    position: relative;
+    display: block;
+    width: 100%;
+    height: 52px;
+    min-height: 52px;
+    overflow: visible;
+    border: 1.5px solid #dfe3ea !important;
+    border-radius: 14px !important;
+    background: var(--tblr-bg-surface, #fff) !important;
+    box-shadow: 0 2px 7px rgba(31, 41, 55, 0.04) !important;
+}
+
+.withdrawal-date-picker:focus-within {
+    border-color: #6b5bd6 !important;
+    box-shadow: 0 0 0 3px rgba(107, 91, 214, 0.14) !important;
+}
+
+.withdrawal-date-picker .date-picker-input-row {
+    position: relative;
+    display: block;
+    width: 100%;
+    background: transparent !important;
+}
+
+.withdrawal-date-picker .date-picker-input-row .form-control {
+    width: 100%;
+    height: 52px !important;
+    min-height: 52px !important;
+    padding-top: 0.75rem !important;
+    padding-right: 3.25rem !important;
+    padding-bottom: 0.75rem !important;
+    border: 0 !important;
+    border-radius: 14px !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    text-align: left;
+}
+
+.withdrawal-date-picker .date-picker-calendar-button {
+    position: absolute !important;
+    z-index: 3;
+    top: 0.25rem !important;
+    right: 0.25rem !important;
+    width: 42px !important;
+    min-width: 42px !important;
+    height: 44px !important;
+    padding: 0 !important;
+    justify-content: center;
+    border: 0 !important;
+    border-radius: 10px;
+    background: var(--tblr-bg-surface, #fff) !important;
+    box-shadow: none !important;
+}
+
+.withdrawal-date-picker .date-picker-popup {
+    z-index: 2050;
+    left: auto;
+    right: 0;
+    width: 21rem;
+    max-width: min(21rem, calc(100vw - 2rem));
+}
+
+.requested-by-card {
+    border: 1px solid var(--tblr-border-color);
+    border-radius: 14px;
+    cursor: pointer;
+    display: block;
+    min-height: 160px;
+    padding: 22px 22px;
+    transition:
+        border-color 0.18s ease,
+        box-shadow 0.18s ease,
+        background-color 0.18s ease;
+}
+
+.requested-by-card:hover,
+.requested-by-card.selected {
+    background: rgba(var(--tblr-primary-rgb), 0.06);
+    border-color: var(--tblr-primary);
+    box-shadow: 0 10px 24px rgba(var(--tblr-primary-rgb), 0.12);
+}
+
+.requested-by-radio {
+    float: right;
+    margin-top: 2px;
+}
+
+.requested-by-title,
+.requested-by-name,
+.requested-by-phone {
+    display: block;
+}
+
+.requested-by-title {
+    color: var(--tblr-primary);
+    font-size: 1.32rem;
+    font-weight: 700;
+    margin-bottom: 12px;
+}
+
+.requested-by-name {
+    font-size: 1.68rem;
+    font-weight: 700;
+    line-height: 1.25;
+}
+
+.requested-by-phone {
+    color: var(--tblr-secondary);
+    font-size: 1.5rem;
+    font-weight: 600;
+    line-height: 1.25;
+    margin-top: 8px;
+}

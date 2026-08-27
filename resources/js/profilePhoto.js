@@ -7,71 +7,198 @@ const init = () => {
     const previewBox = document.getElementById("profilePhotoPreview");
     const modalElement = document.getElementById("profilePhotoCropModal");
     const canvas = document.getElementById("profilePhotoCropCanvas");
-    if (!input || !zone || !preview || !previewBox || !modalElement || !canvas || input.dataset.cropReady) return;
+    if (
+        !input ||
+        !zone ||
+        !preview ||
+        !previewBox ||
+        !modalElement ||
+        !canvas ||
+        input.dataset.cropReady
+    )
+        return;
     input.dataset.cropReady = "1";
     const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
     const context = canvas.getContext("2d");
     const zoom = document.getElementById("profilePhotoZoom");
-    let image = null, scale = 1, rotation = 0, offsetX = 0, offsetY = 0, dragging = false, start = null;
+    let image = null,
+        scale = 1,
+        rotation = 0,
+        offsetX = 0,
+        offsetY = 0,
+        dragging = false,
+        start = null;
     const draw = () => {
         if (!image) return;
         context.clearRect(0, 0, 400, 400);
         const _root = getComputedStyle(document.documentElement);
-        const _surface = _root.getPropertyValue('--tblr-bg-surface')?.trim() || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? '#111827' : '#fff');
+        const _surface =
+            _root.getPropertyValue("--tblr-bg-surface")?.trim() ||
+            (window.matchMedia &&
+            window.matchMedia("(prefers-color-scheme: dark)").matches
+                ? "#111827"
+                : "#fff");
         context.fillStyle = _surface;
         context.fillRect(0, 0, 400, 400);
         const size = Math.max(400 / image.width, 400 / image.height) * scale;
         context.save();
         context.translate(200 + offsetX, 200 + offsetY);
-        context.rotate(rotation * Math.PI / 180);
-        context.drawImage(image, -image.width * size / 2, -image.height * size / 2, image.width * size, image.height * size);
+        context.rotate((rotation * Math.PI) / 180);
+        context.drawImage(
+            image,
+            (-image.width * size) / 2,
+            (-image.height * size) / 2,
+            image.width * size,
+            image.height * size,
+        );
         context.restore();
     };
-    const open = file => {
+    const open = (file) => {
         if (!file || !(file.type || "").startsWith("image/")) return;
         const reader = new FileReader();
-        reader.onload = () => { const next = new Image(); next.onload = () => { image = next; scale = 1; rotation = 0; offsetX = 0; offsetY = 0; zoom.value = "1"; draw(); modal.show(); }; next.src = reader.result; };
+        reader.onload = () => {
+            const next = new Image();
+            next.onload = () => {
+                image = next;
+                scale = 1;
+                rotation = 0;
+                offsetX = 0;
+                offsetY = 0;
+                zoom.value = "1";
+                draw();
+                modal.show();
+            };
+            next.src = reader.result;
+        };
         reader.readAsDataURL(file);
     };
-    const imageFileFromPasteEvent = event => {
+    const imageFileFromPasteEvent = (event) => {
         const clipboardFiles = Array.from(event.clipboardData?.files || []);
-        const directFile = clipboardFiles.find(entry => entry.type.startsWith("image/"));
-        if (directFile) return new File([directFile], "pasted-profile-photo.png", { type: directFile.type || "image/png" });
+        const directFile = clipboardFiles.find((entry) =>
+            entry.type.startsWith("image/"),
+        );
+        if (directFile)
+            return new File([directFile], "pasted-profile-photo.png", {
+                type: directFile.type || "image/png",
+            });
 
         const items = Array.from(event.clipboardData?.items || []);
-        const item = items.find(entry => entry.kind === "file" && entry.type.startsWith("image/"));
+        const item = items.find(
+            (entry) => entry.kind === "file" && entry.type.startsWith("image/"),
+        );
         const file = item?.getAsFile();
-        return file ? new File([file], "pasted-profile-photo.png", { type: file.type || "image/png" }) : null;
+        return file
+            ? new File([file], "pasted-profile-photo.png", {
+                  type: file.type || "image/png",
+              })
+            : null;
     };
-    input.addEventListener("click", event => event.stopPropagation());
-    input.addEventListener("change", () => { const file = input.files?.[0]; input.value = ""; open(file); });
-    zone.addEventListener("drop", event => { event.preventDefault(); zone.classList.remove("is-dragging"); open(event.dataTransfer?.files?.[0]); });
-    zone.addEventListener("dragover", event => { event.preventDefault(); zone.classList.add("is-dragging"); });
-    zone.addEventListener("dragleave", () => zone.classList.remove("is-dragging"));
-    zone.addEventListener("paste", event => {
+    input.addEventListener("click", (event) => event.stopPropagation());
+    input.addEventListener("change", () => {
+        const file = input.files?.[0];
+        input.value = "";
+        open(file);
+    });
+    zone.addEventListener("drop", (event) => {
+        event.preventDefault();
+        zone.classList.remove("is-dragging");
+        open(event.dataTransfer?.files?.[0]);
+    });
+    zone.addEventListener("dragover", (event) => {
+        event.preventDefault();
+        zone.classList.add("is-dragging");
+    });
+    zone.addEventListener("dragleave", () =>
+        zone.classList.remove("is-dragging"),
+    );
+    zone.addEventListener("paste", (event) => {
         const file = imageFileFromPasteEvent(event);
         if (!file) return;
         event.preventDefault();
         open(file);
     });
-    document.addEventListener("paste", event => {
+    document.addEventListener("paste", (event) => {
         if (modalElement.classList.contains("show")) return;
-        if (event.target?.closest?.("input:not([type='file']), textarea, [contenteditable='true']")) return;
+        if (
+            event.target?.closest?.(
+                "input:not([type='file']), textarea, [contenteditable='true']",
+            )
+        )
+            return;
         const file = imageFileFromPasteEvent(event);
         if (!file) return;
         event.preventDefault();
         open(file);
     });
-    zoom.addEventListener("input", () => { scale = Number(zoom.value); draw(); });
-    document.getElementById("profilePhotoZoomIn")?.addEventListener("click", () => { zoom.value = Math.min(3, Number(zoom.value) + .1).toFixed(2); zoom.dispatchEvent(new Event("input")); });
-    document.getElementById("profilePhotoZoomOut")?.addEventListener("click", () => { zoom.value = Math.max(1, Number(zoom.value) - .1).toFixed(2); zoom.dispatchEvent(new Event("input")); });
-    document.getElementById("profilePhotoRotateLeft")?.addEventListener("click", () => { rotation -= 90; draw(); });
-    document.getElementById("profilePhotoRotateRight")?.addEventListener("click", () => { rotation += 90; draw(); });
-    canvas.addEventListener("pointerdown", event => { dragging = true; start = { x: event.clientX, y: event.clientY }; canvas.setPointerCapture(event.pointerId); });
-    canvas.addEventListener("pointermove", event => { if (!dragging || !start) return; const rect = canvas.getBoundingClientRect(); offsetX += (event.clientX - start.x) * 400 / rect.width; offsetY += (event.clientY - start.y) * 400 / rect.height; start = { x: event.clientX, y: event.clientY }; draw(); });
-    ["pointerup", "pointercancel"].forEach(type => canvas.addEventListener(type, () => { dragging = false; start = null; }));
-    document.getElementById("profilePhotoCropUpload")?.addEventListener("click", () => canvas.toBlob(blob => { if (!blob) return; const file = new File([blob], "profile-photo.jpg", { type: "image/jpeg" }); const transfer = new DataTransfer(); transfer.items.add(file); input.files = transfer.files; preview.src = URL.createObjectURL(file); previewBox.classList.remove("d-none"); modal.hide(); }, "image/jpeg", .9));
+    zoom.addEventListener("input", () => {
+        scale = Number(zoom.value);
+        draw();
+    });
+    document
+        .getElementById("profilePhotoZoomIn")
+        ?.addEventListener("click", () => {
+            zoom.value = Math.min(3, Number(zoom.value) + 0.1).toFixed(2);
+            zoom.dispatchEvent(new Event("input"));
+        });
+    document
+        .getElementById("profilePhotoZoomOut")
+        ?.addEventListener("click", () => {
+            zoom.value = Math.max(1, Number(zoom.value) - 0.1).toFixed(2);
+            zoom.dispatchEvent(new Event("input"));
+        });
+    document
+        .getElementById("profilePhotoRotateLeft")
+        ?.addEventListener("click", () => {
+            rotation -= 90;
+            draw();
+        });
+    document
+        .getElementById("profilePhotoRotateRight")
+        ?.addEventListener("click", () => {
+            rotation += 90;
+            draw();
+        });
+    canvas.addEventListener("pointerdown", (event) => {
+        dragging = true;
+        start = { x: event.clientX, y: event.clientY };
+        canvas.setPointerCapture(event.pointerId);
+    });
+    canvas.addEventListener("pointermove", (event) => {
+        if (!dragging || !start) return;
+        const rect = canvas.getBoundingClientRect();
+        offsetX += ((event.clientX - start.x) * 400) / rect.width;
+        offsetY += ((event.clientY - start.y) * 400) / rect.height;
+        start = { x: event.clientX, y: event.clientY };
+        draw();
+    });
+    ["pointerup", "pointercancel"].forEach((type) =>
+        canvas.addEventListener(type, () => {
+            dragging = false;
+            start = null;
+        }),
+    );
+    document
+        .getElementById("profilePhotoCropUpload")
+        ?.addEventListener("click", () =>
+            canvas.toBlob(
+                (blob) => {
+                    if (!blob) return;
+                    const file = new File([blob], "profile-photo.jpg", {
+                        type: "image/jpeg",
+                    });
+                    const transfer = new DataTransfer();
+                    transfer.items.add(file);
+                    input.files = transfer.files;
+                    preview.src = URL.createObjectURL(file);
+                    previewBox.classList.remove("d-none");
+                    modal.hide();
+                },
+                "image/jpeg",
+                0.9,
+            ),
+        );
 };
 
-if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init, { once: true });
+if (document.readyState === "loading")
+    document.addEventListener("DOMContentLoaded", init, { once: true });
 else init();

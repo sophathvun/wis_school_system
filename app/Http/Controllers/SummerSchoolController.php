@@ -10,7 +10,9 @@ use App\Models\Student;
 use App\Models\StudentEnrollment;
 use App\Models\Grade;
 use App\Models\AcademicTrack;
+use App\Models\StudentDocumentType;
 use App\Models\Occupation;
+use App\Models\Family;
 use App\Models\Province;
 use App\Models\District;
 use App\Models\Commune;
@@ -18,6 +20,7 @@ use App\Models\Village;
 use App\Services\FamilyService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
 class SummerSchoolController
@@ -29,19 +32,57 @@ class SummerSchoolController
     public function options()
     {
         return response()->json([
-            'academicYears' => AcademicYear::where('period_type', 'summer')->whereIn('lifecycle_status', ['pending', 'started'])->orderByDesc('id')->get(['id', 'academic_year', 'parent_academic_year_id', 'lifecycle_status']),
+            'nextStudentNo' => $this->nextStudentNumber(),
+            'academicYears' => AcademicYear::where('period_type', 'summer')->where('lifecycle_status', 'started')->orderByDesc('id')->get(['id', 'academic_year', 'parent_academic_year_id', 'lifecycle_status']),
             'regularAcademicYears' => AcademicYear::where('period_type', 'regular')->whereIn('lifecycle_status', ['pending', 'started'])->orderByDesc('id')->get(['id', 'academic_year', 'lifecycle_status']),
             'campuses' => SchoolInfo::where('status', 1)->orderBy('campus_name_en')->get(['id', 'campus_name_en']),
             'grades' => Grade::where('status', 1)->orderByRaw('CAST(grade_order AS UNSIGNED)')->get(['id', 'grade']),
             'classes' => SchoolClass::where('status', 1)->orderBy('class_name')->get(['id', 'class_name', 'grade_id']),
             'sessions' => Session::where('status', 1)->orderBy('session_order')->get(['id', 'session_short_name']),
-            'countries' => \App\Models\Country::where('status', 1)->orderBy('country_name_en')->get(['id', 'country_name_en', 'country_name_kh', 'nationality_name_en', 'nationality_name_kh']),
+            'countries' => \App\Models\Country::where('status', 1)->orderBy('country_name_en')->get(['id', 'country_name_en', 'country_name_kh', 'nationality_name_en', 'nationality_name_kh', 'flag_path']),
             'academicTracks' => AcademicTrack::where('status', 1)->orderBy('name_en')->get(['id', 'grade_id', 'name_en', 'name_kh', 'code']),
+            'documentTypes' => StudentDocumentType::where('status', 1)->orderBy('sort_order')->get(['id', 'name_en', 'name_kh']),
             'occupations' => Occupation::where('status', 1)->orderBy('occupation_name_en')->get(['id', 'occupation_name_en', 'occupation_name_kh']),
-            'studentEnrollments' => StudentEnrollment::with(['student:id,student_id,full_name_en,full_name_kh', 'academicYear:id,academic_year,period_type', 'campus:id,campus_name_en', 'grade:id,grade', 'schoolClass:id,class_name'])
-                ->whereHas('academicYear', fn ($year) => $year->where('period_type', 'regular'))
-                ->get(['id', 'student_id', 'academic_year_id', 'campus_id', 'grade_id', 'class_id']),
         ]);
+    }
+
+    private function nextStudentNumber(): string
+    {
+        $max = (int) Student::query()->selectRaw('MAX(CAST(student_no AS UNSIGNED)) as max_no')->value('max_no');
+        return str_pad((string) ($max + 1), 8, '0', STR_PAD_LEFT);
+    }
+
+    public function studentOptions()
+    {
+        return response()->json(StudentEnrollment::with([
+            'student:id,student_id,full_name_en,full_name_kh',
+            'academicYear:id,academic_year,period_type',
+            'campus:id,campus_name_en',
+            'grade:id,grade',
+            'schoolClass:id,class_name',
+        ])->whereHas('academicYear', fn ($year) => $year->where('period_type', 'regular'))
+            ->get(['id', 'student_id', 'academic_year_id', 'campus_id', 'grade_id', 'class_id']));
+    }
+
+    public function familyOptions()
+    {
+        return response()->json(
+            Family::with(['members' => fn ($query) => $query
+                ->whereIn('relationship_type', ['mother', 'father', 'guardian'])
+                ->select(['id', 'family_id', 'relationship_type', 'full_name_en', 'full_name_kh', 'occupation_en', 'occupation_kh', 'nationality_en', 'nationality_kh', 'phone', 'workplace'])])
+                ->get(['id', 'family_number'])
+                ->mapWithKeys(fn ($family) => [$family->family_number => $family->members->keyBy('relationship_type')->map(fn ($member) => $member->only([
+                    'full_name_en', 'full_name_kh', 'occupation_en', 'occupation_kh', 'nationality_en', 'nationality_kh', 'phone', 'workplace',
+                ]))->all()])->all(),
+        );
+    }
+
+    public function periodOptions()
+    {
+        return response()->json(AcademicYear::where('period_type', 'summer')
+            ->where('lifecycle_status', 'started')
+            ->orderByDesc('id')
+            ->get(['id', 'academic_year', 'parent_academic_year_id', 'lifecycle_status']));
     }
 
     public function locationOptions()
@@ -56,9 +97,18 @@ class SummerSchoolController
 
     public function fetch(Request $request)
     {
-        $query = StudentEnrollment::with(['student:id,student_id,full_name_en,full_name_kh', 'academicYear:id,academic_year,lifecycle_status', 'campus:id,campus_name_en', 'grade:id,grade', 'schoolClass:id,class_name', 'session:id,session_short_name'])
+        $query = StudentEnrollment::with(['student:id,student_id,full_name_en,full_name_kh,photo_path', 'academicYear:id,academic_year,lifecycle_status', 'campus:id,campus_name_en', 'grade:id,grade', 'schoolClass:id,class_name', 'academicTrack:id,name_en', 'session:id,session_short_name'])
             ->whereHas('academicYear', fn ($year) => $year->where('period_type', 'summer'))
             ->when($request->filled('academic_year_id'), fn ($q) => $q->where('academic_year_id', $request->integer('academic_year_id')))
+            ->when($request->filled('campus_id'), fn ($q) => $q->where('campus_id', $request->integer('campus_id')))
+            ->when($request->filled('grade_id'), fn ($q) => $q->where('grade_id', $request->integer('grade_id')))
+            ->when($request->filled('session_id'), fn ($q) => $q->where('session_id', $request->integer('session_id')))
+            ->when($request->filled('student_id'), fn ($q) => $q->where('student_id', $request->integer('student_id')))
+            ->when($request->filled('enrollment_status'), fn ($q) => $q->where('enrollment_status', $request->string('enrollment_status')->toString()))
+            ->when($request->filled('search'), function ($q) use ($request) {
+                $term = '%' . $request->string('search')->toString() . '%';
+                $q->whereHas('student', fn ($student) => $student->where('student_id', 'like', $term)->orWhere('full_name_en', 'like', $term)->orWhere('full_name_kh', 'like', $term));
+            })
             ->latest('id');
         return response()->json($query->paginate($request->integer('perPage', 15)));
     }
@@ -66,12 +116,17 @@ class SummerSchoolController
     public function save(Request $request)
     {
         $data = $request->validate([
-            'academic_year_id' => ['required', Rule::exists('tb_academic_year', 'id')->where(fn ($query) => $query->where('period_type', 'summer')->whereIn('lifecycle_status', ['pending', 'started']))],
+            'academic_year_id' => ['required', Rule::exists('tb_academic_year', 'id')->where(fn ($query) => $query->where('period_type', 'summer')->where('lifecycle_status', 'started'))],
             'enrollment_origin' => ['required', Rule::in(['internal', 'external'])],
             'student_record_id' => ['nullable', 'exists:tb_student,id', 'required_if:enrollment_origin,internal'],
             'external_student_id' => ['nullable', 'string', 'max:60'],
+            'student_no' => ['nullable', 'string', 'max:60'],
+            'student_id' => ['required_if:enrollment_origin,external', 'nullable', 'string', 'max:60', Rule::unique('tb_student', 'student_id')],
+            'existing_family_number' => ['nullable', 'string', 'max:80'],
+            'family_number' => ['nullable', 'string', 'max:80'],
             'full_name_en' => ['required_if:enrollment_origin,external', 'nullable', 'string', 'max:160'],
             'full_name_kh' => ['nullable', 'string', 'max:160'],
+            'photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
             'gender' => ['nullable', 'string', 'max:30'],
             'gender_kh' => ['nullable', 'string', 'max:30'],
             'date_of_birth' => ['nullable', 'date'],
@@ -95,6 +150,14 @@ class SummerSchoolController
             'current_address_en' => ['nullable', 'string', 'max:5000'],
             'current_address_kh' => ['nullable', 'string', 'max:5000'],
             'previous_school' => ['required_if:enrollment_origin,external', 'nullable', 'string', 'max:180'],
+            'tested_by' => ['nullable', 'string', 'max:160'],
+            'experienced_english' => ['nullable', 'string', 'max:5000'],
+            'test_result' => ['nullable', 'string', 'max:5000'],
+            'document_type_id' => ['nullable', 'exists:tb_student_document_type,id'],
+            'document_title' => ['nullable', 'string', 'max:160'],
+            'document_number' => ['nullable', 'string', 'max:120'],
+            'document_description' => ['nullable', 'string', 'max:5000'],
+            'document_file' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,doc,docx', 'max:2048'],
             'continue_at_western' => ['required_if:enrollment_origin,external', 'nullable', Rule::in(['yes', 'no', 'pending'])],
             'mother_name_en' => ['required_if:enrollment_origin,external', 'nullable', 'string', 'max:160'],
             'mother_name_kh' => ['nullable', 'string', 'max:160'],
@@ -127,18 +190,19 @@ class SummerSchoolController
             'class_id' => ['required', 'exists:tb_class,id'],
             'session_id' => ['nullable', 'exists:tb_session,id'],
             'academic_track_id' => ['nullable', 'exists:tb_academic_track,id'],
+            'enrollment_status' => ['nullable', Rule::in(['active', 'pending', 'completed', 'withdrawn'])],
+            'enrolled_on' => ['nullable', 'date'],
             'summer_remarks' => ['nullable', 'string', 'max:5000'],
         ]);
 
-        $enrollment = DB::transaction(function () use ($data) {
+        $enrollment = DB::transaction(function () use ($data, $request) {
             $academicYear = AcademicYear::findOrFail($data['academic_year_id']);
             if ($data['enrollment_origin'] === 'internal') {
                 $student = Student::findOrFail($data['student_record_id']);
             } else {
-                $token = strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', (string) ($data['external_student_id'] ?: 'EXT')), 0, 8));
                 $student = Student::create([
-                    'student_no' => 'SUM-' . $academicYear->id . '-' . strtoupper(substr(uniqid(), -6)),
-                    'student_id' => 'SUM-' . $token . '-' . strtoupper(substr(uniqid(), -5)),
+                    'student_no' => $data['student_no'] ?: 'SUM-' . $academicYear->id . '-' . strtoupper(substr(uniqid(), -6)),
+                    'student_id' => $data['student_id'],
                     'full_name_en' => $data['full_name_en'],
                     'full_name_kh' => $data['full_name_kh'] ?? null,
                     'gender' => $data['gender'] ?? null,
@@ -147,6 +211,13 @@ class SummerSchoolController
                     'nationality_country_id' => $data['nationality_country_id'] ?? null,
                     'home_phone' => $data['home_phone'] ?? null,
                     'email' => $data['email'] ?? null,
+                    'tested_by' => $data['tested_by'] ?? null,
+                    'experienced_english' => $data['experienced_english'] ?? null,
+                    'test_result' => $data['test_result'] ?? null,
+                    'remarks' => $data['summer_remarks'] ?? null,
+                    'tested_by' => $data['tested_by'] ?? null,
+                    'experienced_english' => $data['experienced_english'] ?? null,
+                    'test_result' => $data['test_result'] ?? null,
                     'birth_country_id' => $data['birth_country_id'] ?? null,
                     'birth_province_id' => $data['birth_province_id'] ?? null,
                     'birth_district_id' => $data['birth_district_id'] ?? null,
@@ -163,9 +234,18 @@ class SummerSchoolController
                     'address_street_kh' => $data['address_street_kh'] ?? null,
                     'current_address_en' => $data['current_address_en'] ?? null,
                     'current_address_kh' => $data['current_address_kh'] ?? null,
-                    'family_number' => 'SUM-' . $academicYear->id . '-' . strtoupper(substr(uniqid(), -6)),
+                    'family_number' => $data['existing_family_number'] ?: ($data['family_number'] ?: 'F' . $data['student_id']),
                     'status' => 1,
                 ]);
+                if ($request->hasFile('photo')) {
+                    $photoName = preg_replace('/[^A-Za-z0-9]+/', '_', trim((string) $student->full_name_en)) ?: 'Student';
+                    $student->photo_path = $request->file('photo')->storeAs(
+                        'student_photos',
+                        trim($photoName, '_') . '_' . $student->student_id . '.' . strtolower($request->file('photo')->extension()),
+                        'public',
+                    );
+                    $student->save();
+                }
                 $family = $this->familyService->syncStudentFamily($student, $student->family_number);
                 $this->familyService->syncEnrollmentMember($family, 'mother', [
                     'full_name_en' => $data['mother_name_en'], 'full_name_kh' => $data['mother_name_kh'] ?? null,
@@ -186,6 +266,21 @@ class SummerSchoolController
                     'occupation_id' => $data['guardian_occupation_id'] ?? null, 'nationality_country_id' => $data['guardian_nationality_country_id'] ?? null,
                     'phone' => $data['guardian_phone'] ?? null, 'workplace' => $data['guardian_workplace'] ?? null,
                 ]);
+                if ($request->hasFile('document_file')) {
+                    $file = $request->file('document_file');
+                    $student->documents()->create([
+                        'document_type_id' => $data['document_type_id'] ?? null,
+                        'title' => $data['document_title'] ?? $file->getClientOriginalName(),
+                        'document_number' => $data['document_number'] ?? null,
+                        'description' => $data['document_description'] ?? null,
+                        'file_path' => $file->store('student_documents', 'public'),
+                        'original_filename' => $file->getClientOriginalName(),
+                        'mime_type' => $file->getMimeType(),
+                        'file_size' => $file->getSize(),
+                        'status' => 'active',
+                        'uploaded_by' => auth()->id(),
+                    ]);
+                }
             }
 
             return StudentEnrollment::create([
@@ -203,8 +298,8 @@ class SummerSchoolController
                 'previous_school' => $data['previous_school'] ?? null,
                 'continue_at_western' => $data['continue_at_western'] ?? null,
                 'summer_remarks' => $data['summer_remarks'] ?? null,
-                'enrollment_status' => $academicYear->lifecycle_status === 'started' ? 'active' : 'pending',
-                'enrolled_on' => now()->toDateString(),
+                'enrollment_status' => $data['enrollment_status'] ?? ($academicYear->lifecycle_status === 'started' ? 'active' : 'pending'),
+                'enrolled_on' => $data['enrolled_on'] ?? now()->toDateString(),
             ]);
         });
 

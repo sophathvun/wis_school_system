@@ -1,0 +1,33 @@
+#documentTypeModal .modal-dialog {
+    width: calc(100vw - 2rem);
+    max-width: 420px;
+}
+
+#documentTypeModal .modal-body {
+    padding: 1.25rem 1.5rem;
+}
+
+#documentTypeModal .modal-footer,
+#documentTypeModal .modal-header {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+}
+
+#documentTypeModal .premium-form-field .form-control,
+#documentTypeModal .premium-form-field .form-select {
+    margin-bottom: 0;
+}
+
+#documentTypeModal .document-type-status-field > .form-label {
+    display: block;
+    margin-bottom: 0.45rem;
+    color: #5b4bd1;
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+@media (max-width: 575.98px) {
+    #documentTypeModal .modal-dialog {
+        max-width: calc(100vw - 1rem);
+    }
+}

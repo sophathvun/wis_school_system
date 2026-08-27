@@ -25,21 +25,22 @@
         <div class="form-text">Enter the Summer School dates according to your school schedule.</div>
     </div>
     <div class="col-12 academic-year-input-field">
-         <label class="form-label required">Academic Year</label>
+        <label class="form-label required">Academic Year</label>
         <div class="input-icon">
-                <span class="input-icon-addon">
-                    <i class="ti ti-calendar icon"></i>
-                </span>
-            <input type="text" class="form-control" name="academic_year" id="academic_year" placeholder="Enter academic year" required>
+            <span class="input-icon-addon">
+                <i class="ti ti-calendar icon"></i>
+            </span>
+            <input type="text" class="form-control" name="academic_year" id="academic_year"
+                placeholder="Enter academic year" required>
             <span class="invalid-feedback" data-error-for="academic_year"></span>
         </div>
     </div>
     <div class="col-12 academic-year-input-field">
         <label class="form-label">AY Code</label>
         <div class="input-icon">
-                <span class="input-icon-addon">
-                    <i class="ti ti-hash icon"></i>
-                </span>
+            <span class="input-icon-addon">
+                <i class="ti ti-hash icon"></i>
+            </span>
             <input type="text" class="form-control" name="ay_code" id="ay_code" placeholder="Enter AY code">
             <span class="invalid-feedback" data-error-for="ay_code"></span>
         </div>
@@ -59,7 +60,8 @@
             <option value="archived">Archived</option>
         </select>
         <div class="form-text">
-            Pending can be used for next-year promotion. Started is the active school year. Finished/Archived stay searchable for history.
+            Pending can be used for next-year promotion. Started is the active school year. Finished/Archived stay
+            searchable for history.
         </div>
         <span class="invalid-feedback" data-error-for="lifecycle_status"></span>
     </div>

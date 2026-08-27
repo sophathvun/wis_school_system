@@ -1,0 +1,1442 @@
+/* Extracted from resources/views/student-enrollment.blade.php. Keep page-specific styles in this file. */
+
+#enrollmentModal h4 {
+    text-transform: uppercase;
+    font-size: 1.15rem !important;
+    font-weight: 600;
+}
+
+#enrollmentModal .modal-body > h4 {
+    margin: 1.25rem 0 0 !important;
+    padding: 0.85rem 1rem;
+    border: 1px solid var(--tblr-border-color, #dfe3ea);
+    border-bottom: 0;
+    border-radius: 0.75rem 0.75rem 0 0;
+    background: var(--tblr-bg-surface, #fff);
+    color: #1e3a5f;
+    font-size: 1.15rem;
+    font-weight: 600;
+}
+
+#enrollmentModal .modal-body > h4 + .row,
+#enrollmentModal .modal-body > h4 + .nav {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding: 1rem;
+    border: 1px solid var(--tblr-border-color, #dfe3ea);
+    border-top: 1px solid var(--tblr-border-color, #dfe3ea);
+    border-radius: 0 0 0.75rem 0.75rem;
+    background: var(--tblr-bg-surface, #fff);
+}
+
+#enrollmentModal .modal-body > h4 + .nav + .tab-content {
+    margin-bottom: 1.25rem;
+    padding: 1rem;
+    border: 1px solid var(--tblr-border-color, #dfe3ea);
+    border-top: 0;
+    border-radius: 0 0 0.75rem 0.75rem;
+    background: var(--tblr-bg-surface, #fff);
+}
+
+#enrollmentModal .modal-body > h4.enrollment-profile-subheading {
+    margin-top: 0 !important;
+    padding: 0.75rem 1rem 0.25rem;
+    border: 0;
+    border-radius: 0;
+    background: var(--tblr-bg-surface, #fff);
+    font-size: 1rem;
+}
+
+#enrollmentModal .modal-body > h4.enrollment-profile-subheading + .row {
+    border: 0;
+    border-radius: 0;
+    margin: 0 !important;
+    padding: 0.5rem 1rem 1rem;
+}
+
+#enrollmentModal .modal-content {
+    max-height: calc(100vh - 2rem);
+    overflow: hidden;
+    background: var(--tblr-bg-surface, #fff);
+}
+
+#enrollmentModal .enrollment-profile-card {
+    margin-bottom: 1.25rem;
+    border: 1px solid var(--tblr-border-color, #dfe3ea);
+    border-radius: 0.75rem;
+    overflow: hidden;
+    background: var(--tblr-bg-surface, #fff);
+}
+
+#enrollmentModal .enrollment-profile-card > h4 {
+    margin: 0 !important;
+    padding: 0.85rem 1rem;
+    border: 0;
+    border-bottom: 1px solid var(--tblr-border-color, #dfe3ea);
+    border-radius: 0;
+}
+
+#enrollmentModal .enrollment-profile-card > .row {
+    margin: 0 !important;
+    padding: 1rem;
+    border: 0;
+    border-radius: 0;
+}
+
+#enrollmentModal .enrollment-profile-card > h4.enrollment-profile-subheading {
+    padding-top: 0.7rem;
+    padding-bottom: 0.25rem;
+    border-top: 1px solid var(--tblr-border-color, #dfe3ea);
+    border-bottom: 0;
+    font-size: 1rem;
+}
+
+#enrollmentModal .enrollment-document-card {
+    margin-bottom: 1.25rem;
+    border: 1px solid var(--tblr-border-color, #dfe3ea);
+    border-radius: 0.75rem;
+    overflow: hidden;
+    background: var(--tblr-bg-surface, #fff);
+}
+
+#enrollmentModal .enrollment-document-card > h4 {
+    margin: 0 !important;
+    padding: 0.85rem 1rem;
+    border: 0;
+    border-bottom: 1px solid var(--tblr-border-color, #dfe3ea);
+    border-radius: 0;
+}
+
+#enrollmentModal .enrollment-document-card > .nav {
+    margin: 0 !important;
+    padding: 0.75rem 1rem 0;
+    border: 0;
+    border-bottom: 1px solid var(--tblr-border-color, #dfe3ea);
+    border-radius: 0;
+}
+
+#enrollmentModal .enrollment-document-card > .tab-content {
+    margin: 0;
+    padding: 1rem;
+    border: 0;
+    border-radius: 0;
+}
+
+#enrollmentModal .modal-body {
+    overflow-y: auto;
+    overflow-x: hidden;
+    max-height: calc(100vh - 10rem);
+    background: var(--tblr-bg-surface, #fff);
+}
+
+#enrollmentModal .modal-footer,
+#enrollmentModal .modal-header {
+    background: var(--tblr-bg-surface, #fff);
+    border-color: var(--tblr-border-color);
+}
+
+#enrollmentModal .modal-body > h4,
+#enrollmentModal .modal-body > .row,
+#enrollmentModal .modal-body > .nav,
+#enrollmentModal .modal-body > .tab-content {
+    max-width: 100%;
+}
+
+.premium-document-dropzone {
+    position: relative;
+    min-height: 190px;
+    padding: 1.5rem;
+    border: 1.5px dashed #b8a9f4;
+    border-radius: 18px;
+    color: #4b5563;
+    background: linear-gradient(135deg, #fff 0%, #faf8ff 100%);
+    text-align: center;
+    cursor: pointer;
+    transition:
+        border-color 0.18s ease,
+        box-shadow 0.18s ease,
+        background-color 0.18s ease;
+}
+
+.premium-document-dropzone:hover,
+.premium-document-dropzone.is-dragging,
+.premium-document-dropzone:focus-visible {
+    border-color: #6b5bd6;
+    background: var(--tblr-bg-surface, #fff);
+    box-shadow: 0 0 0 4px rgba(107, 91, 214, 0.12);
+    outline: 0;
+}
+
+.premium-document-dropzone .document-upload-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 3.5rem;
+    height: 3.5rem;
+    margin-bottom: 0.65rem;
+    border-radius: 16px;
+    color: #6b5bd6;
+    background: #eeeaff;
+    font-size: 2rem;
+}
+
+.premium-document-dropzone .document-browse-link {
+    color: #6b5bd6;
+    font-weight: 700;
+}
+
+.premium-document-dropzone .document-upload-hint {
+    font-size: 0.78rem;
+    color: var(--tblr-secondary);
+}
+
+.premium-document-file-list {
+    display: grid;
+    gap: 0.6rem;
+    margin-top: 0.9rem;
+    text-align: left;
+}
+
+.premium-document-file-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    padding: 0.7rem 0.85rem;
+    border: 1px solid #e5e0fb;
+    border-radius: 14px;
+    background: var(--tblr-bg-surface, #fff);
+}
+
+.premium-document-file-item .document-file-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.35rem;
+    height: 2.35rem;
+    border-radius: 10px;
+    color: #6b5bd6;
+    background: #f0edff;
+    font-size: 1.25rem;
+}
+
+.premium-document-file-item .document-file-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow-wrap: anywhere;
+    font-weight: 600;
+}
+
+.premium-document-file-item .document-file-meta {
+    color: var(--tblr-secondary);
+    font-size: 0.78rem;
+}
+
+.premium-document-file-item .document-file-remove {
+    margin-left: auto;
+    border: 0;
+    color: var(--tblr-secondary);
+    background: transparent;
+}
+
+.student-document-upload-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 7fr) minmax(0, 3fr);
+    gap: 1rem;
+    align-items: start;
+    max-width: 100%;
+}
+
+.student-document-upload-layout > * {
+    min-width: 0;
+    max-width: 100%;
+}
+
+.student-document-upload-fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+.student-document-upload-fields .document-description-field {
+    grid-column: span 1;
+}
+
+#enrollmentModal .tab-content,
+#enrollmentModal .student-document-upload-layout,
+#enrollmentModal .table-responsive {
+    overflow: visible;
+}
+
+[data-bs-theme="dark"] #enrollmentModal .modal-content,
+[data-bs-theme="dark"] #enrollmentModal .modal-body,
+[data-bs-theme="dark"] #enrollmentModal .modal-header,
+[data-bs-theme="dark"] #enrollmentModal .modal-footer,
+[data-bs-theme="dark"] .premium-document-file-item {
+    background: var(--tblr-bg-surface, #1e293b);
+    color: var(--tblr-body-color);
+    border-color: var(--tblr-border-color);
+}
+
+[data-bs-theme="dark"] .premium-document-dropzone {
+    background: var(--tblr-bg-forms, #172033);
+    color: var(--tblr-body-color);
+    border-color: rgba(169, 156, 255, 0.55);
+}
+
+[data-bs-theme="dark"] .premium-document-dropzone:hover,
+[data-bs-theme="dark"] .premium-document-dropzone.is-dragging,
+[data-bs-theme="dark"] .premium-document-dropzone:focus-visible {
+    background: var(--tblr-bg-surface, #1e293b);
+    border-color: #a99cff;
+}
+
+[data-bs-theme="dark"] .premium-document-dropzone .document-upload-icon,
+[data-bs-theme="dark"] .premium-document-file-item .document-file-icon {
+    background: rgba(169, 156, 255, 0.14);
+    color: #c4b5fd;
+}
+
+[data-bs-theme="dark"] #enrollmentModal .nav-tabs .nav-link {
+    color: var(--tblr-body-color);
+}
+
+[data-bs-theme="dark"] #enrollmentModal .nav-tabs .nav-link.active {
+    background: var(--tblr-bg-surface, #1e293b);
+    border-color: var(--tblr-border-color);
+}
+
+@media (max-width: 767.98px) {
+    .student-document-upload-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .student-document-upload-fields {
+        grid-template-columns: 1fr;
+    }
+
+    .student-document-upload-fields .document-description-field {
+        grid-column: auto;
+    }
+}
+
+#enrollmentModal input::placeholder,
+#enrollmentModal textarea::placeholder,
+#enrollments-search::placeholder {
+    font-size: 0.875rem;
+    font-family: inherit;
+    font-weight: 400;
+    color: var(--tblr-secondary);
+    opacity: 1;
+}
+
+.table-sort {
+    border: 0;
+    background: transparent;
+    padding: 0;
+    font: inherit;
+    font-weight: 700;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.table-sort:hover,
+.table-sort.text-primary {
+    color: var(--tblr-primary) !important;
+}
+
+.table-sort [data-sort-icon] {
+    display: inline-block;
+    min-width: 0.75rem;
+    margin-left: 0.15rem;
+}
+
+.enrollment-list-filter {
+    width: 170px;
+    min-width: 150px;
+}
+
+.enrollment-list-filter-group .enrollment-search-combobox {
+    width: 170px;
+    min-width: 150px;
+}
+
+.enrollment-list-filter-group #enrollments-filter-student-combobox {
+    width: 220px;
+    min-width: 190px;
+}
+
+.enrollment-list-filter-group .location-combobox-toggle {
+    min-height: 31px;
+    height: 31px;
+    border-radius: 0.35rem;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+    background: var(--tblr-bg-surface, #fff);
+}
+
+.enrollment-list-filter-group .location-combobox-selected {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.enrollment-list-filter-group .location-combobox-menu {
+    min-width: 100%;
+    z-index: 1050;
+}
+
+.enrollment-expanded-row > td {
+    background: linear-gradient(
+        135deg,
+        rgba(109, 40, 217, 0.14),
+        rgba(14, 165, 233, 0.08)
+    );
+    padding: 0 1rem 1rem;
+    border-top: 0;
+}
+
+.enrollment-expand-toggle {
+    width: 1.5rem;
+    height: 1.5rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 0.4rem;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    color: #6d28d9;
+    background: transparent;
+    transition:
+        transform 0.18s ease,
+        color 0.18s ease,
+        background 0.18s ease,
+        box-shadow 0.18s ease;
+}
+
+.enrollment-expand-toggle:hover,
+.enrollment-expand-toggle:focus-visible {
+    color: #4c1d95;
+    background: rgba(109, 40, 217, 0.1);
+}
+
+.enrollment-student-name-en {
+    display: inline-flex;
+    align-items: center;
+}
+
+.enrollment-expand-toggle i {
+    font-size: 1.15rem;
+    transition: transform 0.18s ease;
+}
+
+.enrollment-expand-toggle.is-expanded i {
+    transform: rotate(180deg);
+}
+
+[data-bs-theme="dark"] .enrollment-expand-toggle {
+    color: #c4b5fd;
+    background: transparent;
+    border-color: transparent;
+}
+
+.enrollment-expanded-card {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid rgba(109, 40, 217, 0.28);
+    border-radius: 1rem;
+    background: linear-gradient(135deg, #f5f0ff 0%, #eef8ff 100%);
+    box-shadow: 0 1rem 2.5rem rgba(76, 29, 149, 0.14);
+    padding: 1rem;
+}
+
+.enrollment-expanded-card::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 6px;
+    background: linear-gradient(180deg, #6d28d9, #0ea5e9);
+}
+
+.enrollment-expanded-card .table {
+    --tblr-table-bg: transparent;
+}
+
+.enrollment-expanded-card thead th {
+    background: rgba(255, 255, 255, 0.55);
+    color: #4c1d95;
+}
+
+.enrollment-expanded-card .detail-chip {
+    border: 1px solid var(--tblr-border-color);
+    border-radius: 0.85rem;
+    padding: 0.65rem 0.75rem;
+    background: var(--tblr-bg-surface);
+    min-height: 58px;
+}
+
+.enrollment-expanded-card .detail-label {
+    color: var(--tblr-secondary);
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 0.2rem;
+}
+
+.enrollment-expanded-card .detail-value {
+    font-weight: 600;
+    color: var(--tblr-body-color);
+    word-break: break-word;
+}
+
+[data-bs-theme="dark"] .enrollment-expanded-card {
+    background: linear-gradient(
+        135deg,
+        rgba(76, 29, 149, 0.38),
+        rgba(14, 116, 144, 0.2)
+    );
+    border-color: rgba(196, 181, 253, 0.35);
+}
+
+[data-bs-theme="dark"] .enrollment-expanded-card thead th {
+    background: rgba(15, 23, 42, 0.45);
+    color: #ddd6fe;
+}
+
+#enrollments-filter-student {
+    width: 220px;
+    min-width: 190px;
+}
+
+@media (max-width: 767.98px) {
+    .enrollment-list-filter,
+    .enrollment-list-filter-group,
+    .enrollment-list-filter-group .enrollment-search-combobox,
+    .enrollment-list-filter-group #enrollments-filter-student-combobox,
+    #enrollments-filter-student,
+    #enrollments-search {
+        width: 100% !important;
+        max-width: none !important;
+    }
+}
+
+#enrollmentModal
+    .modal-body
+    .row.g-3
+    > [class*="col-"]
+    > .form-label
+    .text-danger {
+    color: var(--tblr-danger) !important;
+}
+
+#enrollmentModal .premium-floating-field {
+    position: relative;
+}
+
+#enrollmentModal .premium-floating-field > .form-label {
+    position: absolute;
+    z-index: 5;
+    top: 1rem !important;
+    left: calc(var(--tblr-gutter-x, 1rem) * 0.5 + 1rem) !important;
+    margin: 0 !important;
+    padding: 0 0.35rem !important;
+    color: var(--tblr-secondary) !important;
+    background: transparent !important;
+    font-size: 0.95rem !important;
+    font-weight: 400 !important;
+    line-height: 1.1 !important;
+    pointer-events: none;
+    transition:
+        top 0.16s ease,
+        left 0.16s ease,
+        font-size 0.16s ease,
+        color 0.16s ease,
+        background-color 0.16s ease;
+}
+
+#enrollmentModal .premium-floating-field > .form-control,
+#enrollmentModal .premium-floating-field > .form-select,
+#enrollmentModal .premium-floating-field > .input-icon,
+#enrollmentModal .premium-floating-field > .phone-input-group,
+#enrollmentModal .premium-floating-field > .date-picker,
+#enrollmentModal .premium-floating-field > .location-combobox,
+#enrollmentModal
+    .premium-floating-field
+    > .form-select.d-none
+    + .location-combobox {
+    min-height: 52px !important;
+}
+
+#enrollmentModal .premium-floating-field > .form-control,
+#enrollmentModal .premium-floating-field > .form-select,
+#enrollmentModal .premium-floating-field > .input-icon .form-control,
+#enrollmentModal .premium-floating-field > .phone-input-group .form-control,
+#enrollmentModal .premium-floating-field > .date-picker .form-control,
+#enrollmentModal
+    .premium-floating-field
+    > .location-combobox
+    .location-combobox-toggle {
+    height: 52px !important;
+    min-height: 52px !important;
+    padding-top: 1.25rem !important;
+    padding-bottom: 0.35rem !important;
+    border: 1.5px solid #dfe3ea !important;
+    border-radius: 14px !important;
+    background-color: var(--tblr-bg-surface, #fff) !important;
+    box-shadow: 0 2px 7px rgba(31, 41, 55, 0.04) !important;
+    transition:
+        border-color 0.18s ease,
+        box-shadow 0.18s ease,
+        background-color 0.18s ease;
+}
+
+#enrollmentModal .premium-floating-field > .form-control:focus,
+#enrollmentModal .premium-floating-field > .form-select:focus,
+#enrollmentModal .premium-floating-field > .input-icon .form-control:focus,
+#enrollmentModal
+    .premium-floating-field
+    > .phone-input-group
+    .form-control:focus,
+#enrollmentModal .premium-floating-field > .date-picker .form-control:focus,
+#enrollmentModal
+    .premium-floating-field
+    > .location-combobox
+    .location-combobox-toggle:focus,
+#enrollmentModal .premium-floating-field.has-value > .form-control,
+#enrollmentModal .premium-floating-field.has-value > .form-select,
+#enrollmentModal .premium-floating-field.has-value > .input-icon .form-control,
+#enrollmentModal
+    .premium-floating-field.has-value
+    > .phone-input-group
+    .form-control,
+#enrollmentModal .premium-floating-field.has-value > .date-picker .form-control,
+#enrollmentModal
+    .premium-floating-field.has-value
+    > .location-combobox
+    .location-combobox-toggle,
+#enrollmentModal .premium-floating-field:focus-within > .form-control,
+#enrollmentModal .premium-floating-field:focus-within > .form-select,
+#enrollmentModal
+    .premium-floating-field:focus-within
+    > .input-icon
+    .form-control,
+#enrollmentModal
+    .premium-floating-field:focus-within
+    > .phone-input-group
+    .form-control,
+#enrollmentModal
+    .premium-floating-field:focus-within
+    > .date-picker
+    .form-control,
+#enrollmentModal
+    .premium-floating-field:focus-within
+    > .location-combobox
+    .location-combobox-toggle {
+    border-color: #6b5bd6 !important;
+    background-color: var(--tblr-bg-surface, #fff) !important;
+    box-shadow: 0 0 0 3px rgba(107, 91, 214, 0.14) !important;
+}
+
+#enrollmentModal .premium-floating-field.has-value > .form-label,
+#enrollmentModal .premium-floating-field:focus-within > .form-label {
+    top: 0.42rem !important;
+    left: calc(var(--tblr-gutter-x, 1rem) * 0.5 + 1rem) !important;
+    padding: 0 0.45rem !important;
+    background: var(--tblr-bg-surface, #fff) !important;
+    color: #5b4bd1 !important;
+    font-size: 0.72rem !important;
+    font-weight: 700 !important;
+}
+
+#enrollmentModal .premium-floating-field > .phone-input-group .form-control {
+    padding-top: 1.45rem !important;
+    padding-bottom: 0.3rem !important;
+}
+
+#enrollmentModal
+    .premium-floating-field.has-value
+    > .phone-input-group
+    .form-control {
+    padding-top: 1.45rem !important;
+}
+
+#enrollmentModal .premium-floating-field:focus-within > .form-label {
+    background: var(--tblr-bg-surface, #fff) !important;
+}
+
+#enrollmentModal .modal-body .premium-floating-field > .form-control,
+#enrollmentModal .modal-body .premium-floating-field > .form-select,
+#enrollmentModal .modal-body .premium-floating-field .input-icon .form-control,
+#enrollmentModal
+    .modal-body
+    .premium-floating-field
+    .phone-input-group
+    .form-control,
+#enrollmentModal .modal-body .premium-floating-field .date-picker-trigger,
+#enrollmentModal .modal-body .premium-floating-field .location-combobox-toggle {
+    background-color: var(--tblr-bg-surface, #fff) !important;
+}
+
+#enrollmentModal .modal-body input.form-control,
+#enrollmentModal .modal-body textarea.form-control,
+#enrollmentModal .modal-body select.form-select,
+#enrollmentModal .modal-body .location-combobox-toggle,
+#enrollmentModal .modal-body .date-picker-trigger {
+    background-color: var(--tblr-bg-surface, #fff) !important;
+}
+
+#enrollmentModal .modal-body input.form-control,
+#enrollmentModal .modal-body textarea.form-control,
+#enrollmentModal .modal-body select.form-select,
+#enrollmentModal .modal-body .location-combobox-toggle,
+#enrollmentModal .modal-body .date-picker-trigger,
+#enrollmentModal .modal-body input.form-control:-webkit-autofill,
+#enrollmentModal .modal-body input.form-control:-webkit-autofill:hover,
+#enrollmentModal .modal-body input.form-control:-webkit-autofill:focus {
+    background-color: var(--tblr-bg-surface, #fff) !important;
+    -webkit-box-shadow: inset 0 0 0 1000px var(--tblr-bg-surface, #fff) !important;
+    box-shadow: inset 0 0 0 1000px var(--tblr-bg-surface, #fff) !important;
+}
+
+#enrollmentModal .modal-body .input-icon,
+#enrollmentModal .modal-body .phone-input-group,
+#enrollmentModal .modal-body .phone-input-group .iti,
+#enrollmentModal .modal-body .phone-input-group .iti input {
+    background: var(--tblr-bg-surface, #fff) !important;
+}
+
+#enrollmentModal #date_of_birth_trigger.date-picker-calendar-button,
+#enrollmentModal #enrolled_on_trigger.date-picker-calendar-button {
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+#enrollmentModal #date_of_birth_picker,
+#enrollmentModal #enrolled_on_picker {
+    height: 52px;
+    min-height: 52px;
+    overflow: visible;
+    border: 1.5px solid #dfe3ea !important;
+    border-radius: 14px !important;
+    background: var(--tblr-bg-surface, #fff) !important;
+    box-shadow: 0 2px 7px rgba(31, 41, 55, 0.04) !important;
+}
+
+#enrollmentModal #date_of_birth_picker:focus-within,
+#enrollmentModal #enrolled_on_picker:focus-within {
+    border-color: #6b5bd6 !important;
+    box-shadow: 0 0 0 3px rgba(107, 91, 214, 0.14) !important;
+}
+
+#enrollmentModal .premium-floating-field.has-value > .date-picker {
+    border-color: #6b5bd6 !important;
+    box-shadow: 0 0 0 3px rgba(107, 91, 214, 0.14) !important;
+}
+
+#enrollmentModal #date_of_birth_direct,
+#enrollmentModal #enrolled_on_direct {
+    height: 52px !important;
+    min-height: 52px !important;
+    padding-top: 0.75rem !important;
+    padding-bottom: 0.75rem !important;
+    border: 0 !important;
+    border-radius: 14px !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+#enrollmentModal .premium-floating-field:has(> .input-icon) > .form-label {
+    left: calc(var(--tblr-gutter-x, 1rem) * 0.5 + 1rem) !important;
+}
+
+#enrollmentModal
+    .premium-floating-field:has(> .phone-input-group)
+    > .form-label {
+    top: 0.42rem !important;
+    left: calc(var(--tblr-gutter-x, 1rem) * 0.5 + 1rem) !important;
+    padding: 0 0.45rem !important;
+    background: var(--tblr-bg-surface, #fff) !important;
+    color: #5b4bd1 !important;
+    font-size: 0.72rem !important;
+    font-weight: 700 !important;
+}
+
+#enrollmentModal
+    .premium-floating-field:not(.has-value):not(:focus-within):has(
+        > .input-icon
+    )
+    > .form-label {
+    left: calc(var(--tblr-gutter-x, 1rem) * 0.5 + 3.6rem) !important;
+}
+
+#enrollmentModal .premium-floating-field:has(> .date-picker) > .form-label {
+    top: 0.42rem !important;
+    left: calc(var(--tblr-gutter-x, 1rem) * 0.5 + 1rem) !important;
+    padding: 0 0.45rem !important;
+    background: var(--tblr-bg-surface, #fff) !important;
+    color: #5b4bd1 !important;
+    font-size: 0.72rem !important;
+    font-weight: 700 !important;
+}
+
+#enrollmentModal
+    .premium-floating-field:has(> .input-icon)
+    > .input-icon
+    .input-icon-addon {
+    height: 52px !important;
+    border: 0;
+    background: transparent;
+    color: var(--tblr-secondary);
+}
+
+#enrollmentModal
+    .premium-floating-field:has(> .input-icon)
+    > .input-icon
+    .form-control {
+    padding-left: 3.55rem !important;
+}
+
+#enrollmentModal
+    .premium-floating-field:has(> .phone-input-group)
+    > .phone-input-group
+    .form-control {
+    padding-left: 5rem !important;
+}
+
+#enrollmentModal
+    .premium-floating-field:has(> .phone-input-group)
+    > .phone-input-group
+    .iti {
+    width: 100%;
+    position: relative;
+}
+
+#enrollmentModal
+    .premium-floating-field:has(> .phone-input-group)
+    > .phone-input-group
+    .iti__country-container {
+    width: 4.65rem;
+    box-sizing: border-box;
+    padding: 1.5px 0 1.5px 0.7rem;
+    overflow: visible;
+}
+
+#enrollmentModal
+    .premium-floating-field:has(> .phone-input-group)
+    > .phone-input-group
+    .iti__selected-country {
+    width: 100%;
+    padding: 0 !important;
+    white-space: nowrap;
+}
+
+#enrollmentModal
+    .premium-floating-field:has(> .phone-input-group)
+    > .phone-input-group
+    .iti__selected-country-primary {
+    padding: 0 !important;
+    flex: 0 0 auto;
+}
+
+#enrollmentModal
+    .premium-floating-field:has(> .phone-input-group)
+    > .phone-input-group
+    .iti__selected-country-flag {
+    margin-right: 0.25rem;
+}
+
+#enrollmentModal
+    .premium-floating-field:has(> .phone-input-group)
+    > .phone-input-group
+    .iti__arrow {
+    margin-left: 0.25rem;
+}
+
+#enrollmentModal
+    .premium-floating-field:has(> .phone-input-group)
+    > .phone-input-group
+    .iti__selected-dial-code {
+    margin-left: 0.2rem;
+    white-space: nowrap;
+}
+
+/* Keep Home Phone visually identical while giving its number text a small
+           extra inset to prevent the first character from touching +855. */
+#enrollmentModal
+    .premium-floating-field:has(#home_phone_number)
+    > .phone-input-group
+    .form-control {
+    padding-left: 6rem !important;
+}
+
+#enrollmentModal
+    .premium-floating-field.has-value
+    > .phone-input-group
+    .form-control,
+#enrollmentModal
+    .premium-floating-field:focus-within
+    > .phone-input-group
+    .form-control {
+    padding-top: 0.75rem !important;
+    padding-bottom: 0.75rem !important;
+}
+
+#enrollmentModal
+    .premium-floating-field
+    > .date-picker
+    .date-picker-calendar-button {
+    height: 52px !important;
+}
+
+#enrollmentModal .premium-floating-field:not(.has-value) > .form-select {
+    color: transparent !important;
+}
+
+#enrollmentModal .premium-floating-field:not(.has-value) > .form-select option {
+    color: var(--tblr-body-color) !important;
+}
+
+#enrollmentModal .premium-floating-field.has-value > .form-select {
+    color: var(--tblr-body-color) !important;
+}
+
+#enrollmentModal .premium-floating-field .form-control::placeholder,
+#enrollmentModal .premium-floating-field textarea::placeholder,
+#enrollmentModal
+    .premium-floating-field
+    .location-combobox-search::placeholder {
+    color: transparent !important;
+    opacity: 0 !important;
+}
+
+#enrollmentModal
+    .premium-floating-field
+    .location-combobox-menu
+    .form-control::placeholder {
+    color: var(--tblr-secondary) !important;
+    opacity: 1 !important;
+}
+
+#studentInformationFields > [class*="col-"] .form-control,
+#studentInformationFields > [class*="col-"] .form-select,
+#studentInformationFields > [class*="col-"] .location-combobox-toggle,
+#studentInformationFields > [class*="col-"] .phone-input-group {
+    min-height: 52px;
+    height: 52px;
+}
+
+#studentInformationFields > [class*="col-"] .phone-input-group .form-control {
+    height: 52px;
+}
+
+#date_of_birth_picker,
+#enrolled_on_picker {
+    display: block;
+    position: relative;
+    width: 100%;
+}
+
+#date_of_birth_direct,
+#enrolled_on_direct {
+    width: 100%;
+    padding-right: 3.25rem;
+    text-align: left;
+}
+
+#date_of_birth_trigger.date-picker-calendar-button,
+#enrolled_on_trigger.date-picker-calendar-button {
+    position: absolute !important;
+    z-index: 3;
+    top: 0.25rem !important;
+    right: 0.25rem !important;
+    width: 42px !important;
+    min-width: 42px !important;
+    height: 44px !important;
+    padding: 0 !important;
+    justify-content: center;
+    border: 0 !important;
+    border-radius: 10px;
+    background: var(--tblr-bg-surface, #fff) !important;
+}
+
+#date_of_birth_trigger.date-picker-calendar-button .date-picker-display,
+#date_of_birth_trigger.date-picker-calendar-button .ti-chevron-down {
+    display: none;
+}
+
+#date_of_birth_popup {
+    position: absolute;
+    z-index: 1050;
+    top: calc(100% + 0.35rem);
+    left: 0;
+}
+
+#studentPhotoCropCanvas {
+    width: min(100%, 360px);
+    height: auto;
+    max-height: 480px;
+    display: block;
+    margin: 0 auto;
+    background: var(--tblr-bg-surface, #fff);
+    border: 1px solid var(--tblr-border-color);
+}
+
+.student-photo-crop-stage {
+    background: #f1f3f5;
+    border-radius: 0.5rem;
+    padding: 1rem;
+}
+
+#studentPhotoViewModal .modal-dialog {
+    max-width: 560px;
+}
+
+#studentPhotoViewModal .modal-content {
+    max-height: calc(100vh - 2rem);
+}
+
+#studentPhotoViewModal .modal-body {
+    min-height: 0;
+    overflow: auto !important;
+}
+
+#studentPhotoViewImage {
+    display: block;
+    max-width: 100%;
+    max-height: 52vh;
+    margin: 0 auto;
+    object-fit: contain;
+    transition: transform 0.2s ease;
+    transform-origin: center center;
+}
+
+@media (max-width: 575.98px) {
+    #studentPhotoViewModal .modal-dialog {
+        width: calc(100vw - 1rem);
+        margin: 0.5rem auto;
+    }
+
+    #studentPhotoViewModal .modal-footer {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    #studentPhotoViewModal .modal-footer > .d-flex {
+        max-width: 100%;
+        flex-wrap: wrap;
+    }
+}
+
+.student-profile-section-card {
+    border: 1px solid var(--tblr-border-color);
+    border-radius: 0.85rem;
+    background: var(--tblr-bg-surface);
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(32, 41, 56, 0.04);
+}
+
+.student-profile-section-card + .student-profile-section-card {
+    margin-top: 1.25rem;
+}
+
+.student-profile-section-card-header {
+    padding: 1.15rem 1.35rem;
+    border-bottom: 1px solid var(--tblr-border-color);
+}
+
+.student-profile-section-card-body {
+    padding: 1.35rem;
+}
+
+.student-profile-section-header {
+    margin-bottom: 0 !important;
+}
+
+.student-profile-paired-rows {
+    display: flex;
+    flex-direction: column;
+}
+
+.student-profile-paired-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 1.5rem;
+}
+
+.student-profile-paired-row > .d-flex {
+    min-width: 0;
+}
+
+.student-siblings-section {
+    margin: 0 0 1.25rem;
+}
+
+.student-siblings-section-title {
+    font-weight: 700;
+    margin-bottom: 0.65rem;
+}
+
+.student-sibling-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 0.75rem;
+}
+
+.student-sibling-card {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    border: 1px solid var(--tblr-border-color);
+    border-radius: 0.65rem;
+    background: var(--tblr-bg-surface-secondary, #f8fafc);
+}
+
+.student-sibling-photo {
+    width: 56px;
+    height: 72px;
+    flex: 0 0 auto;
+    object-fit: cover;
+    border-radius: 0.45rem;
+    border: 1px solid var(--tblr-border-color);
+    background: var(--tblr-bg-surface);
+}
+
+.student-sibling-info {
+    min-width: 0;
+}
+
+.student-sibling-name-kh,
+.student-sibling-name-en {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.student-sibling-name-en {
+    font-weight: 700;
+}
+
+.student-family-parent-heading .khmer-font-muol {
+    font-family: var(--khmer-font-muol) !important;
+    font-weight: 300 !important;
+    color: #1e3a5f !important;
+}
+
+.student-family-parent-heading > div {
+    font-size: 1.12rem;
+}
+
+.student-family-parent-heading > div:last-child {
+    font-weight: 700;
+    color: #1e3a5f;
+}
+
+.student-profile-enrollment-table th,
+.student-profile-enrollment-table td {
+    vertical-align: middle;
+    text-align: center;
+}
+
+.student-family-father-heading {
+    border-top: 2px dotted #94a3b8 !important;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+}
+
+.student-photo-siblings-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 1.25rem;
+    margin-bottom: 1.25rem;
+}
+
+.student-photo-siblings-row > .text-start {
+    flex: 0 0 auto;
+    margin-bottom: 0 !important;
+}
+
+.student-photo-siblings-row > .student-siblings-section {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+@media (max-width: 767.98px) {
+    .student-photo-siblings-row {
+        flex-direction: column;
+    }
+
+    .student-photo-siblings-row > .student-siblings-section {
+        width: 100%;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .student-profile-paired-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+.student-profile-paired-row > .d-flex {
+    padding-top: 0.25rem !important;
+    padding-bottom: 0.25rem !important;
+}
+
+#studentProfileModal .modal-dialog {
+    width: calc(100vw - 2rem);
+    max-width: 1200px;
+}
+
+.date-picker-input-row {
+    position: relative;
+    display: block;
+    width: 100%;
+    background: transparent !important;
+}
+
+#enrolled_on_picker {
+    position: relative;
+}
+
+#enrolled_on_popup {
+    position: absolute;
+    z-index: 2000;
+    top: calc(100% + 0.35rem);
+    left: auto;
+    right: 0;
+    width: 21rem;
+    max-width: min(21rem, calc(100vw - 2rem));
+}
+
+#addressFields > [class*="col-"] .form-control,
+#addressFields > [class*="col-"] .form-select,
+#addressFields > [class*="col-"] .location-combobox-toggle {
+    min-height: 52px;
+    height: 52px;
+}
+
+@media (min-width: 992px) {
+    #familyInformationFields {
+        display: grid;
+        grid-template-columns: repeat(8, minmax(0, 1fr));
+    }
+
+    #familyInformationFields > .col-md-3 {
+        width: auto;
+        max-width: none;
+    }
+
+    #familyInformationFields > .col-12 {
+        grid-column: 1 / -1;
+    }
+}
+
+.family-member-row {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1rem;
+    align-items: end;
+}
+
+.family-member-row > .col-md-3 {
+    width: auto;
+    max-width: none;
+    min-width: 0;
+}
+
+.family-member-heading {
+    grid-column: 1 / -1;
+    font-weight: 700;
+    color: var(--tblr-secondary);
+    margin-bottom: -0.25rem;
+}
+
+.family-member-row .form-control,
+.family-member-row .form-select,
+.family-member-row .location-combobox-toggle,
+.family-member-row .phone-input-group {
+    height: 52px;
+    min-height: 52px;
+}
+
+.family-member-row .phone-input-group .form-control {
+    height: 52px;
+    min-height: 52px;
+}
+
+@media (max-width: 991.98px) {
+    .family-member-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 575.98px) {
+    .family-member-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+.family-information .location-combobox-menu {
+    min-width: 220px;
+}
+
+.family-information .location-combobox.is-open {
+    z-index: 2001;
+}
+
+#enrollmentModal .premium-floating-field .location-combobox-toggle {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 0.75rem !important;
+    width: 100% !important;
+    text-align: left !important;
+}
+
+#enrollmentModal .premium-floating-field .location-combobox-selected {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.35rem !important;
+    min-width: 0 !important;
+    flex: 1 1 auto !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    font-size: 0.875rem !important;
+    line-height: 1.2 !important;
+}
+
+#enrollmentModal .premium-floating-field .location-combobox-selected-text {
+    display: block !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+}
+
+#enrollmentModal .premium-floating-field .location-combobox-selected .d-block,
+#enrollmentModal .premium-floating-field .location-combobox-selected .min-w-0 {
+    min-width: 0 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+#enrollmentModal
+    .premium-floating-field
+    .location-combobox-selected
+    .location-combobox-english,
+#enrollmentModal
+    .premium-floating-field
+    .location-combobox-selected
+    .location-combobox-khmer {
+    display: inline !important;
+    font-size: 0.875rem !important;
+    line-height: 1.2 !important;
+    white-space: nowrap !important;
+}
+
+#enrollmentModal
+    .premium-floating-field
+    .location-combobox-selected
+    .location-combobox-khmer:not(:empty)::before {
+    content: " / ";
+}
+
+#enrollmentModal .premium-floating-field .location-combobox-toggle > i {
+    flex: 0 0 auto !important;
+    color: var(--tblr-secondary) !important;
+}
+
+#enrollmentModal .premium-floating-field .location-combobox-menu {
+    border-radius: 14px !important;
+    border-color: #dfe3ea !important;
+    box-shadow: 0 0.75rem 1.5rem rgba(31, 41, 55, 0.16) !important;
+}
+
+.family-information > .col-md-3.family-field-open {
+    position: relative;
+    z-index: 3000;
+}
+
+.family-native-nationality {
+    position: relative;
+}
+
+.family-native-nationality select {
+    padding-right: 2.5rem;
+}
+
+.family-native-nationality-flag {
+    position: absolute;
+    top: 2.2rem;
+    right: 2.25rem;
+    width: 22px;
+    height: 15px;
+    object-fit: cover;
+    pointer-events: none;
+}
+
+.family-native-search {
+    height: 38px;
+}
+
+.family-information .location-combobox.is-open {
+    z-index: 2001;
+}
+
+@media (min-width: 1200px) {
+    #enrollmentInformationFields {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+    }
+
+    #enrollmentInformationFields.has-academic-track {
+        grid-template-columns: repeat(8, minmax(0, 1fr));
+    }
+
+    #enrollmentInformationFields > [class*="col-"] {
+        width: auto;
+        max-width: none;
+    }
+
+    #enrollmentInformationFields .form-label {
+        max-width: calc(100% - 1.25rem);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+}
+
+@media (min-width: 768px) and (max-width: 1199.98px) {
+    #enrollmentInformationFields {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    #enrollmentInformationFields > [class*="col-"] {
+        width: auto;
+        max-width: none;
+    }
+}
+
+@media (min-width: 992px) {
+    #addressFields > :nth-child(-n + 5) {
+        flex: 0 0 20%;
+        max-width: 20%;
+    }
+
+    #addressFields > :nth-child(n + 6):nth-child(-n + 9) {
+        flex: 0 0 20%;
+        max-width: 20%;
+    }
+}

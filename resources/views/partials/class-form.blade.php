@@ -3,7 +3,8 @@
     <input type="hidden" name="class_id" id="class_id">
     <div class="col-md-8">
         <label class="form-label required">Class Name</label>
-        <input type="text" class="form-control" name="class_name" id="class_name" placeholder="Enter class name" required>
+        <input type="text" class="form-control" name="class_name" id="class_name" placeholder="Enter class name"
+            required>
         <span class="invalid-feedback" data-error-for="class_name"></span>
     </div>
     <div class="col-md-4">

@@ -1,0 +1,102 @@
+/* Extracted from resources/views/academicYears-pdf.blade.php. Keep page-specific styles in this file. */
+
+body {
+    font-family: Arial, sans-serif;
+    color: #222;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+
+@page {
+    size: A4;
+    margin: 18mm 14mm;
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+.table th,
+.table td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: center;
+    font-size: 11px;
+}
+
+.table th {
+    background: #e6f1fb !important;
+    font-weight: bold;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 5px;
+    font-weight: normal;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+
+.status-pending {
+    color: #c2410c;
+    background: #ffedd5 !important;
+}
+
+.status-started {
+    color: #15803d;
+    background: #dcfce7 !important;
+}
+
+.status-finished {
+    color: #b91c1c;
+    background: #fee2e2 !important;
+}
+
+.text-center {
+    text-align: center;
+}
+
+@font-face {
+    font-family: "Khmer OS Muol Light";
+    font-style: normal;
+    font-weight: 300;
+    font-display: swap;
+    src: url("/fonts/khmer/KhmerOSmuollight.ttf")
+        format("truetype");
+}
+
+h1 {
+    font-size: 22px;
+    margin-bottom: 0;
+}
+
+h3 {
+    font-size: 30px;
+    margin-bottom: 0;
+}
+
+.khmer-title {
+    font-family: "Khmer OS Muol Light", "Noto Sans Khmer", sans-serif;
+    font-size: 30px;
+    font-weight: 300;
+    margin-bottom: 0;
+}
+
+.english-title {
+    font-size: 24px;
+    margin-top: 4px;
+}
+
+.school-logo {
+    width: 210px;
+    height: auto;
+}
+
+.header {
+    margin-bottom: 16px;
+}

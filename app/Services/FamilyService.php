@@ -25,18 +25,23 @@ class FamilyService
         return $family;
     }
 
-    public function syncEnrollmentMember(Family $family, string $relationshipType, array $data): ?FamilyMember
+    public function syncEnrollmentMember(Family $family, string $relationshipType, array $data, ?Student $student = null): ?FamilyMember
     {
         $hasData = collect($data)->contains(fn ($value) => filled($value));
         if (!$hasData) {
             return null;
         }
 
-        $member = $family->members()->where('relationship_type', $relationshipType)->first()
-            ?? new FamilyMember(['family_id' => $family->id, 'relationship_type' => $relationshipType]);
-
         $fullNameEn = $data['full_name_en'] ?? null;
         $fullNameKh = $data['full_name_kh'] ?? null;
+
+        // A family number has one shared contact per relationship. All
+        // siblings therefore read and update the same family member record.
+        $member = $family->members()
+            ->where('relationship_type', $relationshipType)
+            ->first();
+        $member ??= new FamilyMember(['family_id' => $family->id, 'relationship_type' => $relationshipType]);
+
         $member->fill([
             'full_name_en' => $fullNameEn,
             'full_name_kh' => $fullNameKh,

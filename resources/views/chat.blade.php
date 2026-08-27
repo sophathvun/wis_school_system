@@ -3,288 +3,269 @@
 @section('title', 'Chat')
 
 @section('page-header')
-<div class="container-fluid">
-    <div class="row g-2 align-items-center">
-        <div class="col">
-            <div class="page-pretitle">Communication</div>
-            <h2 class="page-title">Chat</h2>
-        </div>
-        <div class="col-auto">
-            <button class="btn btn-primary" id="new-chat">
-                <i class="ti ti-message-plus icon"></i> New Chat
-            </button>
+    <div class="container-fluid">
+        <div class="row g-2 align-items-center">
+            <div class="col">
+                <div class="page-pretitle">Communication</div>
+                <h2 class="page-title">Chat</h2>
+            </div>
+            <div class="col-auto">
+                <button class="btn btn-primary" id="new-chat">
+                    <i class="ti ti-message-plus icon"></i> New Chat
+                </button>
+            </div>
         </div>
     </div>
-</div>
 @endsection
 
 @section('content')
-<style>
-    .chat-shell { height: calc(100vh - 205px); min-height: 560px; }
-    .chat-conversation-list { width: 360px; border-right: 1px solid var(--tblr-border-color); overflow-y: auto; }
-    .chat-conversation-item { cursor: pointer; border: 0; border-bottom: 1px solid var(--tblr-border-color); transition: background-color .15s ease; }
-    .chat-conversation-item.active { background: var(--tblr-primary-lt); }
-    .chat-conversation-item:hover { background: var(--tblr-bg-surface-secondary); }
-    .chat-panel { min-width: 0; }
-    .chat-messages { flex: 1 1 auto; overflow-y: auto; min-height: 0; padding: 1.25rem; background: linear-gradient(180deg, rgba(91,75,202,.035), rgba(91,75,202,.01)); }
-    .chat-row { display: flex; align-items: flex-end; gap: .55rem; margin-bottom: .35rem; }
-    .chat-row.mine { justify-content: flex-end; }
-    .chat-message { max-width: 72%; width: fit-content; min-height: 0; padding: .7rem .85rem; border-radius: 1rem 1rem 1rem .25rem; background: var(--tblr-bg-surface); box-shadow: 0 1px 3px rgba(0,0,0,.06); white-space: normal; line-height: 1.35; word-break: break-word; cursor: pointer; }
-    .chat-message.mine { border-radius: 1rem 1rem .25rem 1rem; background: var(--tblr-primary); color: #fff; }
-    .chat-avatar { width: 2.15rem; height: 2.15rem; flex: 0 0 auto; border-radius: 15%; display: grid; place-items: center; position: relative; overflow: visible; background: var(--tblr-primary-lt); color: var(--tblr-primary); font-weight: 700; }
-    .chat-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 15%; display: block; }
-    .chat-online-dot { width: 9px; height: 9px; border-radius: 50%; background: #adb5bd; display: inline-block; }
-    .chat-online-dot.online { background: #2fb344; }
-    .chat-avatar .chat-online-dot { position: absolute; right: -1px; bottom: -1px; border: 2px solid var(--tblr-body-bg); }
-    .chat-empty { flex: 1; display: grid; place-items: center; color: var(--tblr-secondary); }
-    .chat-message-meta { display: flex; justify-content: flex-end; align-items: center; gap: .25rem; margin-top: .25rem; font-size: .68rem; opacity: .72; white-space: nowrap; }
-    .chat-message-meta.read { color: #2fb344; }
-    .chat-message-meta.unread { color: var(--tblr-secondary); }
-    .chat-message.mine .chat-message-meta.unread { color: rgba(255,255,255,.82); }
-    .chat-message-detail { display: none; width: min(72%, 320px); margin: .1rem 0 .65rem 2.7rem; padding: .6rem .75rem; border: 1px solid rgba(91,75,202,.13); border-radius: .85rem; background: var(--tblr-bg-surface); box-shadow: 0 8px 24px rgba(27,46,76,.08); }
-    .chat-message-detail.mine { margin-left: auto; margin-right: 2.7rem; }
-    .chat-message-detail.show { display: block; }
-    .chat-message-detail-title { margin-top: .15rem; color: var(--tblr-secondary); font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .035em; }
-    .chat-message-detail-row { display: flex; align-items: center; gap: .45rem; padding: .22rem 0; font-size: .78rem; }
-    .chat-read-receipts { display: flex; justify-content: flex-end; align-items: center; gap: .15rem; min-height: 1rem; margin: -.1rem 2.7rem .45rem 0; }
-    .chat-read-avatar { width: 1rem; height: 1rem; border-radius: 15%; display: grid; place-items: center; overflow: hidden; border: 1px solid var(--tblr-body-bg); background: var(--tblr-primary-lt); color: var(--tblr-primary); font-size: .48rem; font-weight: 700; }
-    .chat-read-avatar img { width: 100%; height: 100%; object-fit: cover; }
-    .chat-image { display: block; max-width: 260px; max-height: 320px; object-fit: contain; border-radius: .75rem; margin-bottom: .35rem; }
-    .chat-attachment-actions { display: flex; gap: .75rem; margin: .1rem 0 .25rem; font-size: .78rem; }
-    .chat-attachment-actions a, .chat-file-download { color: var(--tblr-primary); text-decoration: none; }
-    .chat-message.mine .chat-attachment-actions a, .chat-message.mine .chat-file-download { color: inherit; }
-    .chat-file-card { display: flex; align-items: center; gap: .65rem; padding: .6rem .7rem; border-radius: .7rem; background: rgba(255,255,255,.18); }
-    .chat-file-card a { color: inherit; text-decoration: none; min-width: 0; }
-    .chat-file-card .file-name { display: block; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .chat-file-download { flex: 0 0 auto; font-size: 1.15rem; }
-    .chat-attachment-preview { display: flex; align-items: center; gap: .6rem; padding: .55rem .75rem; border: 1px solid rgba(91,75,202,.16); border-radius: .75rem; margin-bottom: .6rem; background: var(--tblr-bg-surface-secondary); }
-    .chat-attachment-preview img { width: 2.6rem; height: 2.6rem; object-fit: cover; border-radius: .5rem; }
-    .chat-attachment-preview .file-name { min-width: 0; flex: 1; font-size: .82rem; }
-    .chat-emoji-picker { position: absolute; right: 1rem; bottom: 4.9rem; z-index: 5; width: 280px; padding: .7rem; border: 1px solid rgba(91,75,202,.18); border-radius: .9rem; background: var(--tblr-body-bg); box-shadow: 0 14px 35px rgba(27,46,76,.2); }
-    .chat-emoji-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: .2rem; }
-    .chat-emoji { border: 0; background: transparent; border-radius: .45rem; padding: .35rem; font-size: 1.25rem; }
-    .chat-emoji:hover { background: var(--tblr-primary-lt); }
-    .chat-recording { color: #d63939 !important; border-color: #d63939 !important; }
-    .chat-sending-voice { opacity: .72; pointer-events: none; }
-    .chat-message audio { width: 250px; max-width: 100%; height: 34px; }
-    .chat-message-text { white-space: pre-wrap; }
-    @media (max-width: 767px) {
-        .chat-shell { height: calc(100vh - 170px); }
-        .chat-conversation-list { width: 100%; border-right: 0; }
-        .chat-shell.has-conversation .chat-conversation-list { display: none; }
-        .chat-message { max-width: 82%; }
-    }
-</style>
 
-<div class="col-12">
-    <div class="card chat-shell d-flex flex-row overflow-hidden" id="chat-shell">
-        <div class="chat-conversation-list" id="conversation-list">
-            <div class="p-3 border-bottom">
-                <div class="d-flex align-items-center justify-content-between mb-3">
-                    <h3 class="card-title mb-0">Conversations</h3>
-                    <button type="button" class="btn btn-primary btn-sm" id="new-chat-sidebar" title="Start a chat or group chat">
-                        <i class="ti ti-message-plus me-1"></i> New Chat
-                    </button>
+
+    <div class="col-12">
+        <div class="card chat-shell d-flex flex-row overflow-hidden" id="chat-shell">
+            <div class="chat-conversation-list" id="conversation-list">
+                <div class="p-3 border-bottom">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <h3 class="card-title mb-0">Conversations</h3>
+                        <button type="button" class="btn btn-primary btn-sm" id="new-chat-sidebar"
+                            title="Start a chat or group chat">
+                            <i class="ti ti-message-plus me-1"></i> New Chat
+                        </button>
+                    </div>
+                    <div class="input-icon">
+                        <span class="input-icon-addon"><i class="ti ti-search"></i></span>
+                        <input id="conversation-search" class="form-control" placeholder="Search conversations">
+                    </div>
                 </div>
-                <div class="input-icon">
-                    <span class="input-icon-addon"><i class="ti ti-search"></i></span>
-                    <input id="conversation-search" class="form-control" placeholder="Search conversations">
+                <div id="conversations">
+                    <div class="text-secondary text-center p-4">Loading conversations...</div>
                 </div>
             </div>
-            <div id="conversations"><div class="text-secondary text-center p-4">Loading conversations...</div></div>
+
+            <div class="chat-panel flex-fill d-flex flex-column" id="chat-panel">
+                <div class="chat-empty" id="chat-empty">
+                    <div class="text-center">
+                        <i class="ti ti-messages fs-1"></i>
+                        <div class="mt-2">Select a conversation to start chatting.</div>
+                    </div>
+                </div>
+                <div class="d-none flex-column h-100" id="chat-content">
+                    <div class="card-header d-flex align-items-center gap-3">
+                        <button type="button" class="btn btn-outline-secondary btn-sm d-md-none" id="chat-back">
+                            <i class="ti ti-arrow-left"></i>
+                        </button>
+                        <div class="flex-fill min-w-0">
+                            <h3 class="card-title mb-0 text-truncate" id="chat-title">Conversation</h3>
+                            <div class="text-secondary small text-truncate" id="chat-members"></div>
+                        </div>
+                    </div>
+                    <div class="chat-messages" id="chat-messages"></div>
+                    <form class="border-top p-3 position-relative" id="message-form">
+                        <div id="chat-attachment-preview" class="chat-attachment-preview d-none"></div>
+                        <div id="chat-emoji-picker" class="chat-emoji-picker d-none">
+                            <div class="small fw-semibold text-secondary mb-2">Emoji</div>
+                            <div class="chat-emoji-grid" id="chat-emoji-grid"></div>
+                        </div>
+                        <div class="input-group">
+                            <div class="chat-composer-actions">
+                                <button type="button" id="chat-more-actions" class="btn btn-outline-secondary"
+                                    title="More chat options" aria-label="More chat options" aria-expanded="false">
+                                    <i class="ti ti-plus"></i>
+                                </button>
+                                <div id="chat-actions-menu" class="chat-composer-actions-menu d-none">
+                                    <button type="button" id="chat-attach" class="btn btn-outline-secondary"
+                                        title="Attach a file or photo">
+                                        <i class="ti ti-paperclip"></i>
+                                    </button>
+                                    <button type="button" id="chat-record-voice" class="btn btn-outline-primary"
+                                        title="Record voice message">
+                                        <i class="ti ti-microphone"></i>
+                                    </button>
+                                    <button type="button" id="chat-emoji" class="btn btn-outline-secondary"
+                                        title="Add emoji">
+                                        <i class="ti ti-mood-smile"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <textarea id="message-input" class="form-control" rows="1" placeholder="Type a message..."></textarea>
+                            <button class="btn btn-primary" type="submit"><i class="ti ti-send"></i></button>
+                        </div>
+                        <input type="file" id="chat-file" class="d-none"
+                            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar">
+                    </form>
+                </div>
+            </div>
         </div>
+    </div>
 
-        <div class="chat-panel flex-fill d-flex flex-column" id="chat-panel">
-            <div class="chat-empty" id="chat-empty">
-                <div class="text-center">
-                    <i class="ti ti-messages fs-1"></i>
-                    <div class="mt-2">Select a conversation to start chatting.</div>
+    <div class="modal modal-blur fade" id="newChatModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="ti ti-messages me-2"></i>Start New Chat</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-            </div>
-            <div class="d-none flex-column h-100" id="chat-content">
-                <div class="card-header d-flex align-items-center gap-3">
-                    <button type="button" class="btn btn-outline-secondary btn-sm d-md-none" id="chat-back">
-                        <i class="ti ti-arrow-left"></i>
-                    </button>
-                    <div class="flex-fill min-w-0">
-                        <h3 class="card-title mb-0 text-truncate" id="chat-title">Conversation</h3>
-                        <div class="text-secondary small text-truncate" id="chat-members"></div>
+                <form id="new-chat-form">
+                    <div class="modal-body">
+                        <div class="text-secondary small mb-2">
+                            <i class="ti ti-info-circle me-1"></i>Select one user for private chat or multiple users for a
+                            group chat.
+                        </div>
+                        <input id="user-search" class="form-control mb-3" placeholder="Search staff">
+                        <div id="chat-user-list" class="vstack gap-2" style="max-height:320px;overflow:auto"></div>
+                        <input id="group-title" class="form-control mt-3 d-none" placeholder="Group name (optional)">
                     </div>
-                </div>
-                <div class="chat-messages" id="chat-messages"></div>
-                <form class="border-top p-3 position-relative" id="message-form">
-                    <div id="chat-attachment-preview" class="chat-attachment-preview d-none"></div>
-                    <div id="chat-emoji-picker" class="chat-emoji-picker d-none">
-                        <div class="small fw-semibold text-secondary mb-2">Emoji</div>
-                        <div class="chat-emoji-grid" id="chat-emoji-grid"></div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-primary"><i class="ti ti-message-plus me-1"></i>Start
+                            Chat</button>
                     </div>
-                    <div class="input-group">
-                        <button type="button" id="chat-attach" class="btn btn-outline-secondary" title="Attach a file or photo">
-                            <i class="ti ti-paperclip"></i>
-                        </button>
-                        <button type="button" id="chat-record-voice" class="btn btn-outline-primary" title="Record voice message">
-                            <i class="ti ti-microphone"></i>
-                        </button>
-                        <button type="button" id="chat-emoji" class="btn btn-outline-secondary" title="Add emoji">
-                            <i class="ti ti-mood-smile"></i>
-                        </button>
-                        <textarea id="message-input" class="form-control" rows="1" placeholder="Type a message..."></textarea>
-                        <button class="btn btn-primary" type="submit"><i class="ti ti-send"></i></button>
-                    </div>
-                    <input type="file" id="chat-file" class="d-none" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar">
                 </form>
             </div>
         </div>
     </div>
-</div>
-
-<div class="modal modal-blur fade" id="newChatModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title"><i class="ti ti-messages me-2"></i>Start New Chat</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <form id="new-chat-form">
-                <div class="modal-body">
-                    <div class="text-secondary small mb-2">
-                        <i class="ti ti-info-circle me-1"></i>Select one user for private chat or multiple users for a group chat.
-                    </div>
-                    <input id="user-search" class="form-control mb-3" placeholder="Search staff">
-                    <div id="chat-user-list" class="vstack gap-2" style="max-height:320px;overflow:auto"></div>
-                    <input id="group-title" class="form-control mt-3 d-none" placeholder="Group name (optional)">
-                </div>
-                <div class="modal-footer">
-                    <button type="submit" class="btn btn-primary"><i class="ti ti-message-plus me-1"></i>Start Chat</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
 @endsection
 
 @php
     $currentChatUserId = auth()->id();
-    $currentChatUserPhoto = auth()->user()->photo_path ? asset('storage/'.auth()->user()->photo_path) : null;
+    $currentChatUserPhoto = auth()->user()->photo_path ? asset('storage/' . auth()->user()->photo_path) : null;
 @endphp
 
+@vite('resources/css/pages/chat.css')
 @push('scripts')
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
-    const routes = {
-        users: @json(route('chat.users')),
-        conversations: @json(route('chat.conversations')),
-        create: @json(route('chat.create')),
-        heartbeat: @json(route('chat.heartbeat')),
-        messagesBase: @json(url('/communication/chat')),
-    };
-    const currentUserId = @json($currentChatUserId);
-    const currentUserPhoto = @json($currentChatUserPhoto);
-    const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[ch]));
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+            const routes = {
+                users: @json(route('chat.users')),
+                conversations: @json(route('chat.conversations')),
+                create: @json(route('chat.create')),
+                heartbeat: @json(route('chat.heartbeat')),
+                messagesBase: @json(url('/communication/chat')),
+            };
+            const currentUserId = @json($currentChatUserId);
+            const currentUserPhoto = @json($currentChatUserPhoto);
+            const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            } [ch]));
 
-    const shell = document.getElementById('chat-shell');
-    const conversationsBox = document.getElementById('conversations');
-    const userList = document.getElementById('chat-user-list');
-    const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('newChatModal'));
-    const chatEmpty = document.getElementById('chat-empty');
-    const chatContent = document.getElementById('chat-content');
-    const chatMessages = document.getElementById('chat-messages');
-    const messageInput = document.getElementById('message-input');
-    const fileInput = document.getElementById('chat-file');
-    const attachmentPreview = document.getElementById('chat-attachment-preview');
-    const emojiPicker = document.getElementById('chat-emoji-picker');
-    const emojiGrid = document.getElementById('chat-emoji-grid');
-    const recordVoiceButton = document.getElementById('chat-record-voice');
-    let chats = [];
-    let users = [];
-    let activeId = null;
-    let activeConversation = null;
-    let selectedAttachment = null;
-    let mediaRecorder = null;
-    let voiceChunks = [];
-    let voiceStartedAt = null;
-    let voiceTimer = null;
-    let voiceMimeType = 'audio/webm';
+            const shell = document.getElementById('chat-shell');
+            const conversationsBox = document.getElementById('conversations');
+            const userList = document.getElementById('chat-user-list');
+            const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('newChatModal'));
+            const chatEmpty = document.getElementById('chat-empty');
+            const chatContent = document.getElementById('chat-content');
+            const chatMessages = document.getElementById('chat-messages');
+            const messageInput = document.getElementById('message-input');
+            const fileInput = document.getElementById('chat-file');
+            const attachmentPreview = document.getElementById('chat-attachment-preview');
+            const emojiPicker = document.getElementById('chat-emoji-picker');
+            const emojiGrid = document.getElementById('chat-emoji-grid');
+            const recordVoiceButton = document.getElementById('chat-record-voice');
+            const moreActionsButton = document.getElementById('chat-more-actions');
+            const actionsMenu = document.getElementById('chat-actions-menu');
+            let chats = [];
+            let users = [];
+            let activeId = null;
+            let activeConversation = null;
+            let selectedAttachment = null;
+            let mediaRecorder = null;
+            let voiceChunks = [];
+            let voiceStartedAt = null;
+            let voiceTimer = null;
+            let voiceMimeType = 'audio/webm';
 
-    const preferredVoiceType = () => {
-        const types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/ogg', 'audio/mp4'];
-        return types.find(type => MediaRecorder.isTypeSupported?.(type)) || '';
-    };
+            const preferredVoiceType = () => {
+                const types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/ogg',
+                    'audio/mp4'
+                ];
+                return types.find(type => MediaRecorder.isTypeSupported?.(type)) || '';
+            };
 
-    const voiceExtension = (mimeType) => {
-        if (mimeType.includes('ogg')) return 'ogg';
-        if (mimeType.includes('mp4')) return 'm4a';
-        return 'webm';
-    };
+            const voiceExtension = (mimeType) => {
+                if (mimeType.includes('ogg')) return 'ogg';
+                if (mimeType.includes('mp4')) return 'm4a';
+                return 'webm';
+            };
 
-    const setVoiceButtonIdle = () => {
-        window.clearInterval(voiceTimer);
-        voiceTimer = null;
-        recordVoiceButton.classList.remove('chat-recording', 'chat-sending-voice');
-        recordVoiceButton.innerHTML = '<i class="ti ti-microphone"></i>';
-        recordVoiceButton.title = 'Record voice message';
-    };
+            const setVoiceButtonIdle = () => {
+                window.clearInterval(voiceTimer);
+                voiceTimer = null;
+                recordVoiceButton.classList.remove('chat-recording', 'chat-sending-voice');
+                recordVoiceButton.innerHTML = '<i class="ti ti-microphone"></i>';
+                recordVoiceButton.title = 'Record voice message';
+            };
 
-    const setVoiceButtonRecording = () => {
-        recordVoiceButton.classList.add('chat-recording');
-        recordVoiceButton.title = 'Stop and send voice message';
-        const render = () => {
-            const seconds = Math.max(0, Math.floor((Date.now() - voiceStartedAt) / 1000));
-            recordVoiceButton.innerHTML = `<i class="ti ti-player-stop"></i><span class="ms-1">${seconds}s</span>`;
-        };
-        render();
-        voiceTimer = window.setInterval(render, 1000);
-    };
+            const setVoiceButtonRecording = () => {
+                recordVoiceButton.classList.add('chat-recording');
+                recordVoiceButton.title = 'Stop and send voice message';
+                const render = () => {
+                    const seconds = Math.max(0, Math.floor((Date.now() - voiceStartedAt) / 1000));
+                    recordVoiceButton.innerHTML =
+                        `<i class="ti ti-player-stop"></i><span class="ms-1">${seconds}s</span>`;
+                };
+                render();
+                voiceTimer = window.setInterval(render, 1000);
+            };
 
-    const setVoiceButtonSending = () => {
-        window.clearInterval(voiceTimer);
-        voiceTimer = null;
-        recordVoiceButton.classList.remove('chat-recording');
-        recordVoiceButton.classList.add('chat-sending-voice');
-        recordVoiceButton.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
-        recordVoiceButton.title = 'Sending voice message';
-    };
+            const setVoiceButtonSending = () => {
+                window.clearInterval(voiceTimer);
+                voiceTimer = null;
+                recordVoiceButton.classList.remove('chat-recording');
+                recordVoiceButton.classList.add('chat-sending-voice');
+                recordVoiceButton.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+                recordVoiceButton.title = 'Sending voice message';
+            };
 
-    async function api(url, options = {}) {
-        const response = await fetch(url, {
-            headers: {
-                'X-CSRF-TOKEN': csrf,
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-                ...(options.headers || {}),
-            },
-            credentials: 'same-origin',
-            ...options,
-        });
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(data.message || 'Unable to complete the request.');
-        return data;
-    }
+            async function api(url, options = {}) {
+                const response = await fetch(url, {
+                    headers: {
+                        'X-CSRF-TOKEN': csrf,
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                        ...(options.headers || {}),
+                    },
+                    credentials: 'same-origin',
+                    ...options,
+                });
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok) throw new Error(data.message || 'Unable to complete the request.');
+                return data;
+            }
 
-    async function postForm(url, formData) {
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' },
-            credentials: 'same-origin',
-            body: formData,
-        });
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(data.message || 'Unable to upload the file.');
-        return data;
-    }
+            async function postForm(url, formData) {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': csrf,
+                        'Accept': 'application/json'
+                    },
+                    credentials: 'same-origin',
+                    body: formData,
+                });
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok) throw new Error(data.message || 'Unable to upload the file.');
+                return data;
+            }
 
-    function avatar(user, className = 'chat-avatar') {
-        const status = user?.online !== undefined ? `<span class="chat-online-dot ${user.online ? 'online' : ''}" title="${user.online ? 'Online' : 'Offline'}"></span>` : '';
-        if (user?.photo) return `<span class="${className}" title="${esc(user.name || '')}"><img src="${esc(user.photo)}" alt="${esc(user.name || 'Staff')}">${status}</span>`;
-        return `<span class="${className}" title="${esc(user?.name || '')}"><i class="ti ti-user"></i>${status}</span>`;
-    }
+            function avatar(user, className = 'chat-avatar') {
+                const status = user?.online !== undefined ?
+                    `<span class="chat-online-dot ${user.online ? 'online' : ''}" title="${user.online ? 'Online' : 'Offline'}"></span>` :
+                    '';
+                if (user?.photo)
+                return `<span class="${className}" title="${esc(user.name || '')}"><img src="${esc(user.photo)}" alt="${esc(user.name || 'Staff')}">${status}</span>`;
+                return `<span class="${className}" title="${esc(user?.name || '')}"><i class="ti ti-user"></i>${status}</span>`;
+            }
 
-    function renderUsers(term = '') {
-        const q = term.toLowerCase();
-        const selected = Array.from(userList.querySelectorAll('input:checked')).map(input => input.value);
-        const filtered = users.filter(user => `${user.name} ${user.department || ''}`.toLowerCase().includes(q));
-        userList.innerHTML = filtered.map(user => `
+            function renderUsers(term = '') {
+                const q = term.toLowerCase();
+                const selected = Array.from(userList.querySelectorAll('input:checked')).map(input => input.value);
+                const filtered = users.filter(user => `${user.name} ${user.department || ''}`.toLowerCase()
+                    .includes(q));
+                userList.innerHTML = filtered.map(user => `
             <label class="form-check border rounded p-2 d-flex align-items-center gap-2">
                 <input class="form-check-input m-0" type="checkbox" value="${user.id}" ${selected.includes(String(user.id)) ? 'checked' : ''}>
                 ${avatar(user)}
@@ -294,14 +275,14 @@ document.addEventListener('DOMContentLoaded', function () {
                 </span>
             </label>
         `).join('') || '<div class="text-secondary">No users found.</div>';
-        document.getElementById('group-title').classList.toggle('d-none', selected.length < 2);
-    }
+                document.getElementById('group-title').classList.toggle('d-none', selected.length < 2);
+            }
 
-    function renderChats() {
-        const term = document.getElementById('conversation-search').value.toLowerCase();
-        conversationsBox.innerHTML = chats
-            .filter(chat => `${chat.title} ${chat.last_message || ''}`.toLowerCase().includes(term))
-            .map(chat => `
+            function renderChats() {
+                const term = document.getElementById('conversation-search').value.toLowerCase();
+                conversationsBox.innerHTML = chats
+                    .filter(chat => `${chat.title} ${chat.last_message || ''}`.toLowerCase().includes(term))
+                    .map(chat => `
                 <div class="chat-conversation-item p-3 ${chat.id === activeId ? 'active' : ''}" data-id="${chat.id}">
                     <div class="d-flex align-items-center gap-3">
                         ${avatar({ name: chat.title, photo: chat.photo, online: chat.online }, 'chat-avatar')}
@@ -313,68 +294,73 @@ document.addEventListener('DOMContentLoaded', function () {
                     </div>
                 </div>
             `).join('') || '<div class="text-secondary text-center p-4">No conversations yet.</div>';
-        conversationsBox.querySelectorAll('[data-id]').forEach(item => item.onclick = () => openChat(Number(item.dataset.id)));
-    }
+                conversationsBox.querySelectorAll('[data-id]').forEach(item => item.onclick = () => openChat(Number(
+                    item.dataset.id)));
+            }
 
-    function messageContent(message) {
-        const text = message.message && !(message.message_type !== 'text' && message.message === message.media_name)
-            ? `<div class="chat-message-text">${esc(message.message)}</div>` : '';
-        const downloadUrl = message.media_download_url || message.media_url;
-        if (message.message_type === 'voice' && message.media_url) {
-            return `<div class="fw-semibold mb-1"><i class="ti ti-wave-sine me-1"></i>Voice message</div><audio controls src="${esc(message.media_url)}"></audio>`;
-        }
-        if (message.message_type === 'image' && message.media_url) {
-            return `<a href="${esc(message.media_url)}" target="_blank" rel="noopener"><img src="${esc(message.media_url)}" alt="${esc(message.media_name || 'Attached image')}" class="chat-image"></a><div class="chat-attachment-actions"><a href="${esc(message.media_url)}" target="_blank" rel="noopener"><i class="ti ti-eye"></i> View</a><a href="${esc(downloadUrl)}"><i class="ti ti-download"></i> Download</a></div>${text}`;
-        }
-        if (message.message_type === 'file' && message.media_url) {
-            return `<div class="chat-file-card"><i class="ti ti-file-description fs-3"></i><a href="${esc(message.media_url)}" target="_blank" rel="noopener"><span class="file-name">${esc(message.media_name || 'Attached file')}</span><small>Open attachment</small></a><a class="chat-file-download" href="${esc(downloadUrl)}" title="Download attachment"><i class="ti ti-download"></i></a></div>${text}`;
-        }
-        return text;
-    }
+            function messageContent(message) {
+                const text = message.message && !(message.message_type !== 'text' && message.message === message
+                        .media_name) ?
+                    `<div class="chat-message-text">${esc(message.message)}</div>` : '';
+                const downloadUrl = message.media_download_url || message.media_url;
+                if (message.message_type === 'voice' && message.media_url) {
+                    return `<div class="fw-semibold mb-1"><i class="ti ti-wave-sine me-1"></i>Voice message</div><audio controls src="${esc(message.media_url)}"></audio>`;
+                }
+                if (message.message_type === 'image' && message.media_url) {
+                    return `<a href="${esc(message.media_url)}" target="_blank" rel="noopener"><img src="${esc(message.media_url)}" alt="${esc(message.media_name || 'Attached image')}" class="chat-image"></a><div class="chat-attachment-actions"><a href="${esc(message.media_url)}" target="_blank" rel="noopener"><i class="ti ti-eye"></i> View</a><a href="${esc(downloadUrl)}"><i class="ti ti-download"></i> Download</a></div>${text}`;
+                }
+                if (message.message_type === 'file' && message.media_url) {
+                    return `<div class="chat-file-card"><i class="ti ti-file-description fs-3"></i><a href="${esc(message.media_url)}" target="_blank" rel="noopener"><span class="file-name">${esc(message.media_name || 'Attached file')}</span><small>Open attachment</small></a><a class="chat-file-download" href="${esc(downloadUrl)}" title="Download attachment"><i class="ti ti-download"></i></a></div>${text}`;
+                }
+                return text;
+            }
 
-    function messageStatus(message) {
-        if (message.user_id !== currentUserId) return '<div class="chat-message-meta"><i class="ti ti-check"></i> Read</div>';
-        const read = (message.read_by || []).length > 0;
-        return `<div class="chat-message-meta ${read ? 'read' : 'unread'}"><i class="ti ti-${read ? 'checks' : 'check'}"></i>${read ? 'Read' : 'Unread'}</div>`;
-    }
+            function messageStatus(message) {
+                if (message.user_id !== currentUserId)
+                return '<div class="chat-message-meta"><i class="ti ti-check"></i> Read</div>';
+                const read = (message.read_by || []).length > 0;
+                return `<div class="chat-message-meta ${read ? 'read' : 'unread'}"><i class="ti ti-${read ? 'checks' : 'check'}"></i>${read ? 'Read' : 'Unread'}</div>`;
+            }
 
-    function detailRows(items, emptyText, icon) {
-        if (!items.length) return `<div class="chat-message-detail-row text-secondary"><i class="ti ${icon}"></i><span>${emptyText}</span></div>`;
-        return items.map(user => `
+            function detailRows(items, emptyText, icon) {
+                if (!items.length)
+                return `<div class="chat-message-detail-row text-secondary"><i class="ti ${icon}"></i><span>${emptyText}</span></div>`;
+                return items.map(user => `
             <div class="chat-message-detail-row">
                 ${avatar(user, 'chat-read-avatar')}
                 <span class="flex-fill">${esc(user.name)}</span>
                 ${user.read_at ? `<span class="text-secondary">${esc(user.read_at)}</span>` : ''}
             </div>
         `).join('');
-    }
+            }
 
-    function messageDetail(message) {
-        const isMine = message.user_id === currentUserId;
-        return `
+            function messageDetail(message) {
+                const isMine = message.user_id === currentUserId;
+                return `
             <div class="chat-message-detail ${isMine ? 'mine' : ''}" data-message-detail="${message.id}">
                 <div class="chat-message-detail-title">${isMine ? 'Read by' : 'Message info'}</div>
                 ${isMine ? detailRows(message.read_by || [], 'Not read yet', 'ti-eye-off') : '<div class="chat-message-detail-row text-secondary"><i class="ti ti-eye"></i><span>You have read this message.</span></div>'}
                 ${isMine ? `<div class="chat-message-detail-title">Unread</div>${detailRows(message.unread_by || [], 'Everyone has read this message', 'ti-checks')}` : ''}
             </div>
         `;
-    }
+            }
 
-    function readReceipts(message) {
-        if (message.user_id !== currentUserId) return '';
-        const readBy = message.read_by || [];
-        if (!readBy.length) return '<div class="chat-read-receipts"><span class="small text-secondary"><i class="ti ti-checks"></i> Sent</span></div>';
-        return `<div class="chat-read-receipts">${readBy.slice(0, 5).map(user => avatar(user, 'chat-read-avatar')).join('')}</div>`;
-    }
+            function readReceipts(message) {
+                if (message.user_id !== currentUserId) return '';
+                const readBy = message.read_by || [];
+                if (!readBy.length)
+                return '<div class="chat-read-receipts"><span class="small text-secondary"><i class="ti ti-checks"></i> Sent</span></div>';
+                return `<div class="chat-read-receipts">${readBy.slice(0, 5).map(user => avatar(user, 'chat-read-avatar')).join('')}</div>`;
+            }
 
-    function renderMessages() {
-        if (!activeConversation) return;
-        document.getElementById('chat-title').textContent = activeConversation.title || 'Conversation';
-        document.getElementById('chat-members').textContent = (activeConversation.users || [])
-            .filter(user => user.id !== currentUserId)
-            .map(user => `${user.name} - ${user.online ? 'Online' : 'Offline'}`)
-            .join(', ');
-        chatMessages.innerHTML = (activeConversation.messages || []).map(message => `
+            function renderMessages() {
+                if (!activeConversation) return;
+                document.getElementById('chat-title').textContent = activeConversation.title || 'Conversation';
+                document.getElementById('chat-members').textContent = (activeConversation.users || [])
+                    .filter(user => user.id !== currentUserId)
+                    .map(user => `${user.name} - ${user.online ? 'Online' : 'Offline'}`)
+                    .join(', ');
+                chatMessages.innerHTML = (activeConversation.messages || []).map(message => `
             <div class="chat-row ${message.user_id === currentUserId ? 'mine' : ''}">
                 ${message.user_id === currentUserId ? '' : avatar({ name: message.user_name, photo: message.user_photo, online: message.user_online })}
                 <div class="chat-message ${message.user_id === currentUserId ? 'mine' : ''}" data-message-id="${message.id}">
@@ -387,178 +373,220 @@ document.addEventListener('DOMContentLoaded', function () {
             ${messageDetail(message)}
             ${readReceipts(message)}
         `).join('') || '<div class="text-secondary text-center mt-4">No messages yet. Start the conversation.</div>';
-        chatMessages.querySelectorAll('[data-message-id]').forEach(bubble => {
-            bubble.addEventListener('click', event => {
-                if (event.target.closest('a, audio')) return;
-                const detail = chatMessages.querySelector(`[data-message-detail="${bubble.dataset.messageId}"]`);
-                const wasOpen = detail?.classList.contains('show');
-                chatMessages.querySelectorAll('.chat-message-detail.show').forEach(item => item.classList.remove('show'));
-                if (detail && !wasOpen) detail.classList.add('show');
-            });
-        });
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-    }
-
-    async function loadUsers() {
-        users = await api(routes.users);
-        renderUsers(document.getElementById('user-search').value);
-    }
-
-    async function loadChats() {
-        chats = await api(routes.conversations);
-        renderChats();
-    }
-
-    async function openChat(id) {
-        activeId = id;
-        renderChats();
-        const data = await api(`${routes.messagesBase}/${id}/messages`);
-        activeConversation = data.conversation;
-        activeConversation.messages = data.messages || [];
-        chatEmpty.classList.add('d-none');
-        chatContent.classList.remove('d-none');
-        chatContent.classList.add('d-flex');
-        shell.classList.add('has-conversation');
-        renderMessages();
-    }
-
-    function clearAttachment() {
-        selectedAttachment = null;
-        fileInput.value = '';
-        attachmentPreview.classList.add('d-none');
-        attachmentPreview.innerHTML = '';
-    }
-
-    function renderAttachmentPreview(file) {
-        const isImage = file.type.startsWith('image/');
-        attachmentPreview.innerHTML = `${isImage ? `<img src="${URL.createObjectURL(file)}" alt="">` : '<i class="ti ti-file-description fs-2 text-primary"></i>'}<span class="file-name text-truncate">${esc(file.name)}<small class="d-block text-secondary">${(file.size / 1024 / 1024).toFixed(2)} MB</small></span><button type="button" class="btn btn-sm btn-outline-secondary" id="chat-remove-file" title="Remove attachment"><i class="ti ti-x"></i></button>`;
-        attachmentPreview.classList.remove('d-none');
-        document.getElementById('chat-remove-file').addEventListener('click', clearAttachment);
-    }
-
-    async function uploadVoiceNote(blob, durationSeconds, mimeType = 'audio/webm') {
-        if (!activeId) return;
-        const formData = new FormData();
-        formData.append('audio', blob, `voice-note-${Date.now()}.${voiceExtension(mimeType)}`);
-        formData.append('duration_seconds', Math.max(1, Math.round(durationSeconds || 1)));
-        await postForm(`${routes.messagesBase}/${activeId}/voice`, formData);
-        await loadChats();
-        await openChat(activeId);
-    }
-
-    async function toggleVoiceRecording() {
-        if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
-            alert('Your browser does not support voice recording.');
-            return;
-        }
-        if (mediaRecorder && mediaRecorder.state === 'recording') {
-            mediaRecorder.stop();
-            return;
-        }
-        if (!activeId) return;
-        voiceChunks = [];
-        voiceStartedAt = Date.now();
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-        voiceMimeType = preferredVoiceType();
-        mediaRecorder = new MediaRecorder(stream, voiceMimeType ? { mimeType: voiceMimeType } : undefined);
-        voiceMimeType = mediaRecorder.mimeType || voiceMimeType || 'audio/webm';
-        mediaRecorder.ondataavailable = event => { if (event.data?.size) voiceChunks.push(event.data); };
-        mediaRecorder.onstop = async () => {
-            setVoiceButtonSending();
-            try {
-                stream.getTracks().forEach(track => track.stop());
-                const blob = new Blob(voiceChunks, { type: voiceMimeType });
-                const duration = (Date.now() - voiceStartedAt) / 1000;
-                if (!blob.size) throw new Error('No audio was recorded. Please allow microphone access and try again.');
-                await uploadVoiceNote(blob, duration, voiceMimeType);
-            } catch (error) {
-                alert(error.message || 'Unable to send voice message.');
-            } finally {
-                setVoiceButtonIdle();
+                chatMessages.querySelectorAll('[data-message-id]').forEach(bubble => {
+                    bubble.addEventListener('click', event => {
+                        if (event.target.closest('a, audio')) return;
+                        const detail = chatMessages.querySelector(
+                            `[data-message-detail="${bubble.dataset.messageId}"]`);
+                        const wasOpen = detail?.classList.contains('show');
+                        chatMessages.querySelectorAll('.chat-message-detail.show').forEach(item =>
+                            item.classList.remove('show'));
+                        if (detail && !wasOpen) detail.classList.add('show');
+                    });
+                });
+                chatMessages.scrollTop = chatMessages.scrollHeight;
             }
-        };
-        mediaRecorder.start();
-        setVoiceButtonRecording();
-    }
 
-    const emojis = ['😀','😃','😄','😁','😂','🤣','😊','😍','🥰','😘','😎','🤔','😢','😭','😡','👍','👏','🙏','❤️','💯','🎉','✅','⭐','🔥','💡','📚','📎','🙌','👋','✨','🤝','🙂'];
-    emojiGrid.innerHTML = emojis.map(emoji => `<button type="button" class="chat-emoji" data-emoji="${emoji}">${emoji}</button>`).join('');
-    emojiGrid.querySelectorAll('[data-emoji]').forEach(button => button.addEventListener('click', () => {
-        const start = messageInput.selectionStart ?? messageInput.value.length;
-        const end = messageInput.selectionEnd ?? messageInput.value.length;
-        messageInput.value = `${messageInput.value.slice(0, start)}${button.dataset.emoji}${messageInput.value.slice(end)}`;
-        messageInput.focus();
-        messageInput.selectionStart = messageInput.selectionEnd = start + button.dataset.emoji.length;
-    }));
+            async function loadUsers() {
+                users = await api(routes.users);
+                renderUsers(document.getElementById('user-search').value);
+            }
 
-    document.getElementById('new-chat')?.addEventListener('click', async () => { await loadUsers(); modal.show(); });
-    document.getElementById('new-chat-sidebar')?.addEventListener('click', async () => { await loadUsers(); modal.show(); });
-    document.getElementById('chat-back').addEventListener('click', () => {
-        shell.classList.remove('has-conversation');
-        activeId = null;
-        activeConversation = null;
-        chatContent.classList.add('d-none');
-        chatContent.classList.remove('d-flex');
-        chatEmpty.classList.remove('d-none');
-        renderChats();
-    });
-    document.getElementById('conversation-search').addEventListener('input', renderChats);
-    document.getElementById('user-search').addEventListener('input', event => renderUsers(event.target.value));
-    userList.addEventListener('change', () => renderUsers(document.getElementById('user-search').value));
-    document.getElementById('chat-emoji').addEventListener('click', () => emojiPicker.classList.toggle('d-none'));
-    document.getElementById('chat-attach').addEventListener('click', () => fileInput.click());
-    recordVoiceButton.addEventListener('click', () => toggleVoiceRecording().catch(error => alert(error.message || 'Unable to record voice message.')));
-    fileInput.addEventListener('change', () => {
-        const file = fileInput.files?.[0];
-        if (!file) return;
-        if (file.size > 20 * 1024 * 1024) {
-            alert('Attachments must be 20 MB or smaller.');
-            clearAttachment();
-            return;
-        }
-        selectedAttachment = file;
-        renderAttachmentPreview(file);
-    });
+            async function loadChats() {
+                chats = await api(routes.conversations);
+                renderChats();
+            }
 
-    document.getElementById('message-form').addEventListener('submit', async event => {
-        event.preventDefault();
-        const message = messageInput.value.trim();
-        if ((!message && !selectedAttachment) || !activeId) return;
-        const formData = new FormData();
-        if (message) formData.append('message', message);
-        if (selectedAttachment) formData.append('attachment', selectedAttachment, selectedAttachment.name);
-        await postForm(`${routes.messagesBase}/${activeId}/messages`, formData);
-        messageInput.value = '';
-        clearAttachment();
-        emojiPicker.classList.add('d-none');
-        await loadChats();
-        await openChat(activeId);
-    });
+            async function openChat(id) {
+                activeId = id;
+                renderChats();
+                const data = await api(`${routes.messagesBase}/${id}/messages`);
+                activeConversation = data.conversation;
+                activeConversation.messages = data.messages || [];
+                chatEmpty.classList.add('d-none');
+                chatContent.classList.remove('d-none');
+                chatContent.classList.add('d-flex');
+                shell.classList.add('has-conversation');
+                renderMessages();
+            }
 
-    document.getElementById('new-chat-form').addEventListener('submit', async event => {
-        event.preventDefault();
-        const ids = Array.from(userList.querySelectorAll('input:checked')).map(input => Number(input.value));
-        if (!ids.length) return;
-        const data = await api(routes.create, {
-            method: 'POST',
-            body: JSON.stringify({ user_ids: ids, title: document.getElementById('group-title').value }),
+            function clearAttachment() {
+                selectedAttachment = null;
+                fileInput.value = '';
+                attachmentPreview.classList.add('d-none');
+                attachmentPreview.innerHTML = '';
+            }
+
+            function renderAttachmentPreview(file) {
+                const isImage = file.type.startsWith('image/');
+                attachmentPreview.innerHTML =
+                    `${isImage ? `<img src="${URL.createObjectURL(file)}" alt="">` : '<i class="ti ti-file-description fs-2 text-primary"></i>'}<span class="file-name text-truncate">${esc(file.name)}<small class="d-block text-secondary">${(file.size / 1024 / 1024).toFixed(2)} MB</small></span><button type="button" class="btn btn-sm btn-outline-secondary" id="chat-remove-file" title="Remove attachment"><i class="ti ti-x"></i></button>`;
+                attachmentPreview.classList.remove('d-none');
+                document.getElementById('chat-remove-file').addEventListener('click', clearAttachment);
+            }
+
+            async function uploadVoiceNote(blob, durationSeconds, mimeType = 'audio/webm') {
+                if (!activeId) return;
+                const formData = new FormData();
+                formData.append('audio', blob, `voice-note-${Date.now()}.${voiceExtension(mimeType)}`);
+                formData.append('duration_seconds', Math.max(1, Math.round(durationSeconds || 1)));
+                await postForm(`${routes.messagesBase}/${activeId}/voice`, formData);
+                await loadChats();
+                await openChat(activeId);
+            }
+
+            async function toggleVoiceRecording() {
+                if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+                    alert('Your browser does not support voice recording.');
+                    return;
+                }
+                if (mediaRecorder && mediaRecorder.state === 'recording') {
+                    mediaRecorder.stop();
+                    return;
+                }
+                if (!activeId) return;
+                voiceChunks = [];
+                voiceStartedAt = Date.now();
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    audio: true,
+                    video: false
+                });
+                voiceMimeType = preferredVoiceType();
+                mediaRecorder = new MediaRecorder(stream, voiceMimeType ? {
+                    mimeType: voiceMimeType
+                } : undefined);
+                voiceMimeType = mediaRecorder.mimeType || voiceMimeType || 'audio/webm';
+                mediaRecorder.ondataavailable = event => {
+                    if (event.data?.size) voiceChunks.push(event.data);
+                };
+                mediaRecorder.onstop = async () => {
+                    setVoiceButtonSending();
+                    try {
+                        stream.getTracks().forEach(track => track.stop());
+                        const blob = new Blob(voiceChunks, {
+                            type: voiceMimeType
+                        });
+                        const duration = (Date.now() - voiceStartedAt) / 1000;
+                        if (!blob.size) throw new Error(
+                            'No audio was recorded. Please allow microphone access and try again.'
+                            );
+                        await uploadVoiceNote(blob, duration, voiceMimeType);
+                    } catch (error) {
+                        alert(error.message || 'Unable to send voice message.');
+                    } finally {
+                        setVoiceButtonIdle();
+                    }
+                };
+                mediaRecorder.start();
+                setVoiceButtonRecording();
+            }
+
+            const emojis = ['😀', '😃', '😄', '😁', '😂', '🤣', '😊', '😍', '🥰', '😘', '😎', '🤔', '😢', '😭',
+                '😡', '👍', '👏', '🙏', '❤️', '💯', '🎉', '✅', '⭐', '🔥', '💡', '📚', '📎', '🙌', '👋', '✨',
+                '🤝', '🙂'
+            ];
+            emojiGrid.innerHTML = emojis.map(emoji =>
+                `<button type="button" class="chat-emoji" data-emoji="${emoji}">${emoji}</button>`).join('');
+            emojiGrid.querySelectorAll('[data-emoji]').forEach(button => button.addEventListener('click', () => {
+                const start = messageInput.selectionStart ?? messageInput.value.length;
+                const end = messageInput.selectionEnd ?? messageInput.value.length;
+                messageInput.value =
+                    `${messageInput.value.slice(0, start)}${button.dataset.emoji}${messageInput.value.slice(end)}`;
+                messageInput.focus();
+                messageInput.selectionStart = messageInput.selectionEnd = start + button.dataset.emoji
+                    .length;
+            }));
+
+            document.getElementById('new-chat')?.addEventListener('click', async () => {
+                await loadUsers();
+                modal.show();
+            });
+            document.getElementById('new-chat-sidebar')?.addEventListener('click', async () => {
+                await loadUsers();
+                modal.show();
+            });
+            document.getElementById('chat-back').addEventListener('click', () => {
+                shell.classList.remove('has-conversation');
+                activeId = null;
+                activeConversation = null;
+                chatContent.classList.add('d-none');
+                chatContent.classList.remove('d-flex');
+                chatEmpty.classList.remove('d-none');
+                renderChats();
+            });
+            document.getElementById('conversation-search').addEventListener('input', renderChats);
+            document.getElementById('user-search').addEventListener('input', event => renderUsers(event.target
+                .value));
+            userList.addEventListener('change', () => renderUsers(document.getElementById('user-search').value));
+            moreActionsButton.addEventListener('click', () => {
+                const isHidden = actionsMenu.classList.toggle('d-none');
+                moreActionsButton.setAttribute('aria-expanded', String(!isHidden));
+                moreActionsButton.querySelector('i').classList.toggle('ti-plus', isHidden);
+                moreActionsButton.querySelector('i').classList.toggle('ti-x', !isHidden);
+            });
+            document.getElementById('chat-emoji').addEventListener('click', () => emojiPicker.classList.toggle(
+                'd-none'));
+            document.getElementById('chat-attach').addEventListener('click', () => fileInput.click());
+            recordVoiceButton.addEventListener('click', () => toggleVoiceRecording().catch(error => alert(error
+                .message || 'Unable to record voice message.')));
+            fileInput.addEventListener('change', () => {
+                const file = fileInput.files?.[0];
+                if (!file) return;
+                if (file.size > 20 * 1024 * 1024) {
+                    alert('Attachments must be 20 MB or smaller.');
+                    clearAttachment();
+                    return;
+                }
+                selectedAttachment = file;
+                renderAttachmentPreview(file);
+            });
+
+            document.getElementById('message-form').addEventListener('submit', async event => {
+                event.preventDefault();
+                const message = messageInput.value.trim();
+                if ((!message && !selectedAttachment) || !activeId) return;
+                const formData = new FormData();
+                if (message) formData.append('message', message);
+                if (selectedAttachment) formData.append('attachment', selectedAttachment,
+                    selectedAttachment.name);
+                await postForm(`${routes.messagesBase}/${activeId}/messages`, formData);
+                messageInput.value = '';
+                clearAttachment();
+                emojiPicker.classList.add('d-none');
+                await loadChats();
+                await openChat(activeId);
+            });
+
+            document.getElementById('new-chat-form').addEventListener('submit', async event => {
+                event.preventDefault();
+                const ids = Array.from(userList.querySelectorAll('input:checked')).map(input => Number(
+                    input.value));
+                if (!ids.length) return;
+                const data = await api(routes.create, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        user_ids: ids,
+                        title: document.getElementById('group-title').value
+                    }),
+                });
+                modal.hide();
+                await loadChats();
+                await openChat(data.id);
+            });
+
+            window.setInterval(async () => {
+                try {
+                    await loadChats();
+                    users = await api(routes.users);
+                    if (activeId) await openChat(activeId);
+                } catch (error) {}
+            }, 10000);
+            window.setInterval(() => api(routes.heartbeat, {
+                method: 'POST'
+            }).catch(() => {}), 60000);
+
+            loadUsers().catch(() => {});
+            loadChats().catch(() => {});
         });
-        modal.hide();
-        await loadChats();
-        await openChat(data.id);
-    });
-
-    window.setInterval(async () => {
-        try {
-            await loadChats();
-            users = await api(routes.users);
-            if (activeId) await openChat(activeId);
-        } catch (error) {}
-    }, 10000);
-    window.setInterval(() => api(routes.heartbeat, { method: 'POST' }).catch(() => {}), 60000);
-
-    loadUsers().catch(() => {});
-    loadChats().catch(() => {});
-});
-</script>
+    </script>
 @endpush

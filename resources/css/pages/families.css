@@ -1,0 +1,264 @@
+/* Extracted from resources/views/families.blade.php. Keep page-specific styles in this file. */
+
+.family-member-summary {
+    min-width: 180px;
+    line-height: 1.35;
+}
+
+.family-member-summary strong {
+    display: block;
+}
+
+.family-member-summary .family-phone {
+    display: block;
+    margin-top: 0.2rem;
+}
+
+.family-member-summary .family-phone i {
+    margin-right: 0.25rem;
+    color: var(--tblr-primary);
+}
+
+.family-expand-toggle {
+    width: 1.5rem;
+    height: 1.5rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 0.35rem;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    color: #6d28d9;
+    background: transparent;
+    transition:
+        color 0.18s ease,
+        background 0.18s ease;
+}
+
+.family-expand-toggle:hover,
+.family-expand-toggle:focus-visible {
+    color: #4c1d95;
+    background: rgba(109, 40, 217, 0.1);
+}
+
+.family-expand-toggle i {
+    transition: transform 0.18s ease;
+}
+
+.family-expand-toggle.is-expanded i {
+    transform: rotate(180deg);
+}
+
+.family-expanded-row > td {
+    background: linear-gradient(
+        135deg,
+        rgba(109, 40, 217, 0.08),
+        rgba(14, 165, 233, 0.05)
+    );
+    padding: 0.75rem 1rem;
+}
+
+.family-expanded-card {
+    border: 1px solid rgba(109, 40, 217, 0.2);
+    border-radius: 0.85rem;
+    background: var(--tblr-bg-surface);
+    padding: 0.75rem 1rem;
+}
+
+.family-student-photo {
+    width: 42px;
+    height: 56px;
+    object-fit: cover;
+    border-radius: 0.45rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--tblr-bg-surface-secondary);
+    color: var(--tblr-secondary);
+}
+
+.family-student-list {
+    display: grid;
+    gap: 0.75rem;
+}
+
+.family-student-card {
+    display: grid;
+    grid-template-columns:
+        minmax(250px, 1.25fr) minmax(150px, 0.7fr) minmax(310px, 1.7fr)
+        minmax(90px, 0.4fr);
+    gap: 1rem;
+    align-items: center;
+    padding: 0.9rem;
+    border: 1px solid var(--tblr-border-color);
+    border-radius: 0.8rem;
+    background: var(--tblr-bg-surface);
+}
+
+.family-student-profile {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    min-width: 0;
+}
+
+.family-student-photo-large {
+    width: 72px;
+    height: 96px;
+    border-radius: 0.6rem;
+    flex: 0 0 auto;
+}
+
+.family-student-identity {
+    min-width: 0;
+}
+
+.family-student-name-kh,
+.family-student-name-en {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.family-student-name-kh {
+    color: var(--tblr-secondary);
+    font-size: 1.2rem;
+}
+
+.family-student-name-en {
+    font-weight: 700;
+    font-size: 1rem;
+}
+
+.family-student-gender {
+    margin-top: 0.2rem;
+}
+
+.family-student-age {
+    color: var(--tblr-primary);
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-top: 0.35rem;
+}
+
+.family-detail-label {
+    color: var(--tblr-secondary);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-bottom: 0.3rem;
+}
+
+.family-enrollment-header,
+.family-enrollment-item {
+    display: grid;
+    grid-template-columns: 1.05fr 1fr 0.8fr 0.45fr 7rem;
+    gap: 0.45rem;
+    align-items: center;
+    text-align: center;
+}
+
+.family-enrollment-header {
+    color: var(--tblr-secondary);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 0.25rem 0.45rem 0.35rem;
+}
+
+.family-enrollment-item {
+    padding: 0.3rem 0.45rem;
+    border-bottom: 1px solid
+        var(--tblr-border-color-translucent, rgba(98, 105, 118, 0.16));
+    font-size: 0.85rem;
+}
+
+.family-enrollment-status {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-width: 0;
+}
+
+.family-enrollment-status .badge {
+    white-space: nowrap;
+}
+
+.family-enrollment-item:last-child {
+    border-bottom: 0;
+}
+
+.family-enrollment-year {
+    font-weight: 700;
+}
+
+.family-enrollment-campus,
+.family-enrollment-grade,
+.family-enrollment-group {
+    color: var(--tblr-secondary);
+}
+
+.family-enrollment-grade {
+    font-weight: 600;
+}
+
+@media (max-width: 1100px) {
+    .family-student-card {
+        grid-template-columns: minmax(240px, 1fr) minmax(140px, 0.7fr);
+    }
+
+    .family-student-enrollments {
+        grid-column: 1 / -1;
+    }
+
+    .family-student-status {
+        position: absolute;
+        margin-left: 210px;
+    }
+}
+
+@media (max-width: 640px) {
+    .family-student-card {
+        grid-template-columns: 1fr;
+    }
+
+    .family-student-status {
+        position: static;
+        margin-left: 0;
+    }
+
+    .family-student-enrollments {
+        grid-column: auto;
+    }
+}
+
+.family-student-photo-placeholder {
+    font-size: 1.25rem;
+}
+
+.family-parent-editor {
+    border: 1px solid var(--tblr-border-color);
+    border-radius: 0.8rem;
+    padding: 0.85rem;
+    background: var(--tblr-bg-surface-secondary);
+}
+
+.family-parent-editor h5 {
+    margin-bottom: 0.75rem;
+    color: var(--tblr-primary);
+}
+
+#familyModal .modal-dialog {
+    max-height: calc(100vh - 2rem);
+}
+
+#familyModal .modal-content {
+    max-height: calc(100vh - 2rem);
+}
+
+#familyModal .modal-body {
+    overflow-y: auto;
+}

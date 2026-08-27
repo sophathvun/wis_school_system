@@ -12,18 +12,45 @@ use Illuminate\Validation\ValidationException;
 
 class EnrollmentWorkflowService
 {
+    private const PROMOTION_ACTIONS = ['promotion', 'class_promotion', 'selected_promotion', 're_promotion'];
+
     public function promoteClass(array $data): int
     {
         return DB::transaction(function () use ($data) {
-            $enrollments = StudentEnrollment::where('campus_id', $data['from_campus_id'])
+            $sourceEnrollments = StudentEnrollment::where('campus_id', $data['from_campus_id'])
                 ->where('academic_year_id', $data['from_academic_year_id'])
                 ->where('grade_id', $data['from_grade_id'])
                 ->where('class_id', $data['from_class_id'])
-                ->where('enrollment_status', 'active')
                 ->get();
+
+            $alreadyPromoted = EnrollmentWorkflowAction::whereIn('student_id', $sourceEnrollments->pluck('student_id'))
+                ->where('from_campus_id', $data['from_campus_id'])
+                ->where('from_academic_year_id', $data['from_academic_year_id'])
+                ->where('from_grade_id', $data['from_grade_id'])
+                ->where('from_class_id', $data['from_class_id'])
+                ->where('to_academic_year_id', $data['to_academic_year_id'])
+                ->whereIn('action_type', self::PROMOTION_ACTIONS)
+                ->where('status', '!=', 'cancelled')
+                ->exists();
+            if ($alreadyPromoted) {
+                throw ValidationException::withMessages([
+                    'from_class_id' => 'Students in this class have already been promoted to the selected academic year.',
+                ]);
+            }
+
+            $enrollments = $sourceEnrollments->where('enrollment_status', 'active')->values();
 
             if ($enrollments->isEmpty()) {
                 throw ValidationException::withMessages(['from_class_id' => 'No active students were found in the selected class.']);
+            }
+
+            $alreadyPromoted = StudentEnrollment::whereIn('student_id', $enrollments->pluck('student_id'))
+                ->where('academic_year_id', $data['to_academic_year_id'])
+                ->exists();
+            if ($alreadyPromoted) {
+                throw ValidationException::withMessages([
+                    'from_class_id' => 'Students in this class have already been promoted to the selected academic year.',
+                ]);
             }
 
             foreach ($enrollments as $enrollment) {
@@ -47,16 +74,41 @@ class EnrollmentWorkflowService
     public function promoteSelected(array $data): int
     {
         return DB::transaction(function () use ($data) {
-            $enrollments = StudentEnrollment::whereIn('id', $data['enrollment_ids'])
+            $sourceEnrollments = StudentEnrollment::whereIn('id', $data['enrollment_ids'])
                 ->where('campus_id', $data['from_campus_id'])
                 ->where('academic_year_id', $data['from_academic_year_id'])
                 ->where('grade_id', $data['from_grade_id'])
                 ->where('class_id', $data['from_class_id'])
-                ->where('enrollment_status', 'active')
                 ->get();
+
+            $alreadyPromoted = EnrollmentWorkflowAction::whereIn('student_id', $sourceEnrollments->pluck('student_id'))
+                ->where('from_campus_id', $data['from_campus_id'])
+                ->where('from_academic_year_id', $data['from_academic_year_id'])
+                ->where('from_grade_id', $data['from_grade_id'])
+                ->where('from_class_id', $data['from_class_id'])
+                ->where('to_academic_year_id', $data['to_academic_year_id'])
+                ->whereIn('action_type', self::PROMOTION_ACTIONS)
+                ->where('status', '!=', 'cancelled')
+                ->exists();
+            if ($alreadyPromoted) {
+                throw ValidationException::withMessages([
+                    'enrollment_ids' => 'One or more selected students have already been promoted to the selected academic year.',
+                ]);
+            }
+
+            $enrollments = $sourceEnrollments->where('enrollment_status', 'active')->values();
 
             if ($enrollments->count() !== count(array_unique($data['enrollment_ids']))) {
                 throw ValidationException::withMessages(['enrollment_ids' => 'One or more selected students are not active in the selected class.']);
+            }
+
+            $alreadyPromoted = StudentEnrollment::whereIn('student_id', $enrollments->pluck('student_id'))
+                ->where('academic_year_id', $data['to_academic_year_id'])
+                ->exists();
+            if ($alreadyPromoted) {
+                throw ValidationException::withMessages([
+                    'enrollment_ids' => 'One or more selected students have already been promoted to the selected academic year.',
+                ]);
             }
 
             foreach ($enrollments as $enrollment) {
@@ -144,6 +196,21 @@ class EnrollmentWorkflowService
     public function promote(StudentEnrollment $source, array $data): StudentEnrollment
     {
         return DB::transaction(function () use ($source, $data) {
+            $cancelledPromotion = EnrollmentWorkflowAction::query()
+                ->where('source_enrollment_id', $source->id)
+                ->where('to_academic_year_id', $data['to_academic_year_id'])
+                ->where('status', 'cancelled')
+                ->whereIn('action_type', self::PROMOTION_ACTIONS)
+                ->latest('id')
+                ->first();
+            if ($cancelledPromotion) {
+                return $this->repromote($cancelledPromotion, [
+                    'effective_on' => $data['effective_on'],
+                    'reason' => $data['reason'] ?? 'Student returned and was promoted again',
+                    'notes' => $data['notes'] ?? null,
+                ]);
+            }
+
             $this->assertNextGradePromotion($source, (int) $data['to_grade_id']);
 
             $duplicate = StudentEnrollment::where('student_id', $source->student_id)
@@ -170,6 +237,88 @@ class EnrollmentWorkflowService
             $source->update(['status' => 1, 'enrollment_status' => 'completed', 'ended_on' => $data['effective_on'], 'exit_reason' => 'Promoted']);
             $this->record($source, $target, $data['action_type'] ?? 'promotion', $data);
             return $target;
+        });
+    }
+
+    public function cancelPromotion(EnrollmentWorkflowAction $workflow, array $data): EnrollmentWorkflowAction
+    {
+        return DB::transaction(function () use ($workflow, $data) {
+            $workflow = EnrollmentWorkflowAction::query()->lockForUpdate()->findOrFail($workflow->id);
+            if (!in_array($workflow->action_type, self::PROMOTION_ACTIONS, true)) {
+                throw ValidationException::withMessages(['workflow' => 'Only promotion records can be cancelled.']);
+            }
+            if ($workflow->status === 'cancelled') {
+                throw ValidationException::withMessages(['workflow' => 'This promotion is already cancelled.']);
+            }
+
+            $target = StudentEnrollment::lockForUpdate()->find($workflow->target_enrollment_id);
+            if (!$target) {
+                throw ValidationException::withMessages(['workflow' => 'The promoted enrollment no longer exists.']);
+            }
+
+            $target->update([
+                'enrollment_status' => 'promotion_cancelled',
+                'ended_on' => $data['effective_on'],
+                'exit_reason' => 'Promotion cancelled',
+                'notes' => $data['notes'] ?? $target->notes,
+            ]);
+            $workflow->update([
+                'status' => 'cancelled',
+                'cancelled_at' => now(),
+                'cancelled_by' => auth()->id(),
+                'cancellation_reason' => $data['reason'] ?? 'Student will not study in the target academic year.',
+                'notes' => $data['notes'] ?? $workflow->notes,
+            ]);
+            $this->recordEnrollmentHistory($target, 'promotion_cancelled', $data['effective_on'], $data['reason'] ?? 'Promotion cancelled', $data['notes'] ?? null);
+
+            return $workflow->fresh();
+        });
+    }
+
+    public function repromote(EnrollmentWorkflowAction $workflow, array $data): StudentEnrollment
+    {
+        return DB::transaction(function () use ($workflow, $data) {
+            $workflow = EnrollmentWorkflowAction::query()->lockForUpdate()->findOrFail($workflow->id);
+            if (!in_array($workflow->action_type, self::PROMOTION_ACTIONS, true) || $workflow->status !== 'cancelled') {
+                throw ValidationException::withMessages(['workflow' => 'Only a cancelled promotion can be promoted again.']);
+            }
+            $target = StudentEnrollment::lockForUpdate()->find($workflow->target_enrollment_id);
+            if (!$target) {
+                throw ValidationException::withMessages(['workflow' => 'The original target enrollment no longer exists.']);
+            }
+            $activeDuplicate = StudentEnrollment::where('student_id', $workflow->student_id)
+                ->where('academic_year_id', $workflow->to_academic_year_id)
+                ->where('enrollment_status', 'active')
+                ->where('id', '!=', $target->id)
+                ->exists();
+            if ($activeDuplicate) {
+                throw ValidationException::withMessages(['workflow' => 'This student already has an active enrollment in the target academic year.']);
+            }
+
+            $targetYear = AcademicYear::findOrFail($workflow->to_academic_year_id);
+            $target->update([
+                'status' => 1,
+                'enrollment_status' => $targetYear->lifecycle_status === 'started' ? 'active' : 'pending',
+                'enrolled_on' => $data['effective_on'],
+                'ended_on' => null,
+                'exit_reason' => null,
+                'notes' => $data['notes'] ?? $target->notes,
+            ]);
+            $this->record($target, $target, 're_promotion', [
+                'effective_on' => $data['effective_on'],
+                'reason' => $data['reason'] ?? 'Student returned and was promoted again',
+                'notes' => $data['notes'] ?? null,
+                'action_type' => 're_promotion',
+                'parent_workflow_id' => $workflow->id,
+            ], [
+                'campus_id' => $workflow->from_campus_id,
+                'academic_year_id' => $workflow->from_academic_year_id,
+                'grade_id' => $workflow->from_grade_id,
+                'class_id' => $workflow->from_class_id,
+                'session_id' => $workflow->from_session_id,
+            ]);
+
+            return $target->fresh();
         });
     }
 
@@ -224,7 +373,9 @@ class EnrollmentWorkflowService
             'student_id' => $source->student_id,
             'source_enrollment_id' => $source->id,
             'target_enrollment_id' => $target->id,
+            'parent_workflow_id' => $data['parent_workflow_id'] ?? null,
             'action_type' => $action,
+            'status' => 'completed',
             'from_campus_id' => $before['campus_id'] ?? $source->campus_id,
             'to_campus_id' => $to['campus_id'],
             'from_academic_year_id' => $before['academic_year_id'] ?? $source->academic_year_id,
@@ -241,20 +392,25 @@ class EnrollmentWorkflowService
             'changed_by' => auth()->id(),
         ]);
 
+        $this->recordEnrollmentHistory($target, $action, $data['effective_on'], $data['reason'] ?? null, $data['notes'] ?? null);
+    }
+
+    private function recordEnrollmentHistory(StudentEnrollment $target, string $action, $effectiveOn, ?string $reason, ?string $notes): void
+    {
         StudentEnrollmentHistory::create([
             'enrollment_id' => $target->id,
-            'student_id' => $source->student_id,
+            'student_id' => $target->student_id,
             'action_type' => $action,
-            'campus_id' => $to['campus_id'],
-            'academic_year_id' => $to['academic_year_id'],
-            'grade_id' => $to['grade_id'],
-            'class_id' => $to['class_id'],
-            'session_id' => $to['session_id'],
+            'campus_id' => $target->campus_id,
+            'academic_year_id' => $target->academic_year_id,
+            'grade_id' => $target->grade_id,
+            'class_id' => $target->class_id,
+            'session_id' => $target->session_id,
             'enrollment_status' => $target->enrollment_status,
             'student_type' => $target->student_type,
-            'effective_on' => $data['effective_on'],
-            'reason' => $data['reason'] ?? null,
-            'notes' => $data['notes'] ?? null,
+            'effective_on' => $effectiveOn,
+            'reason' => $reason,
+            'notes' => $notes,
             'changed_by' => auth()->id(),
         ]);
     }

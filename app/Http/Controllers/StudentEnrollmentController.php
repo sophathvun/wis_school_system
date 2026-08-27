@@ -35,6 +35,21 @@ class StudentEnrollmentController
         return response()->json($this->enrollmentListOptions());
     }
 
+    public function quickOptions()
+    {
+        return response()->json([
+            'nextStudentNo' => $this->nextStudentNumber(),
+            'families' => Student::query()
+                ->whereNotNull('family_number')
+                ->where('family_number', '!=', '')
+                ->select('family_number')
+                ->selectRaw('MIN(full_name_en) as full_name_en')
+                ->groupBy('family_number')
+                ->orderBy('family_number')
+                ->get(),
+        ]);
+    }
+
     public function options()
     {
         $listOptions = $this->enrollmentListOptions();
@@ -71,11 +86,12 @@ class StudentEnrollmentController
                 ->orderBy('family_number')
                 ->get(),
             'familyDetails' => Family::with(['members' => fn ($query) => $query->whereIn('relationship_type', ['mother', 'father', 'guardian'])])
-                ->where('status', 1)
                 ->get(['id', 'family_number'])
                 ->mapWithKeys(fn ($family) => [$family->family_number => [
                     'members' => $family->members->map(fn ($member) => [
                         'relationship_type' => $member->relationship_type,
+                        'full_name_en' => $member->full_name_en,
+                        'full_name_kh' => $member->full_name_kh,
                         'name_en' => $member->full_name_en,
                         'name_kh' => $member->full_name_kh,
                         'phone' => $member->phone,
@@ -122,7 +138,11 @@ class StudentEnrollmentController
             ->leftJoin('tb_class', 'tb_class.id', '=', 'tb_student_enrollment.class_id')
             ->leftJoin('tb_academic_track', 'tb_academic_track.id', '=', 'tb_student_enrollment.academic_track_id')
             ->leftJoin('tb_session', 'tb_session.id', '=', 'tb_student_enrollment.session_id')
-            ->with(['student.birthCountry', 'student.birthProvince', 'student.birthDistrict', 'student.birthCommune', 'student.birthVillage', 'student.nationalityCountry', 'student.addressCountry', 'student.addressProvince', 'student.addressDistrict', 'student.addressCommune', 'student.addressVillage', 'student.families.members', 'campus', 'academicYear', 'grade', 'schoolClass', 'academicTrack', 'schoolGroup', 'session'])
+            // Edit only needs the student's stored location IDs. Loading every
+            // location relationship for every enrollment makes the list and
+            // Edit action unnecessarily slow; family members remain eager-loaded.
+            ->with(['student.families.members', 'campus', 'academicYear', 'grade', 'schoolClass', 'academicTrack', 'schoolGroup', 'session'])
+            ->when(!$request->filled('enrollment_status'), fn ($q) => $q->whereNotIn('tb_student_enrollment.enrollment_status', ['promotion_cancelled', 'cancelled']))
             ->when($request->filled('academic_year_id'), fn ($q) => $q->where('tb_student_enrollment.academic_year_id', $request->integer('academic_year_id')))
             ->when($request->filled('campus_id'), fn ($q) => $q->where('tb_student_enrollment.campus_id', $request->integer('campus_id')))
             ->when($filterGradeId && $filterClassId, fn ($q) => $q->where('tb_student_enrollment.grade_id', (int) $filterGradeId)->where('tb_student_enrollment.class_id', (int) $filterClassId))
@@ -169,6 +189,7 @@ class StudentEnrollmentController
                 ->leftJoin('tb_academic_year', 'tb_academic_year.id', '=', 'tb_student_enrollment.academic_year_id')
                 ->with(['academicYear', 'campus', 'grade', 'schoolClass', 'academicTrack', 'session'])
                 ->where('tb_student_enrollment.student_id', $student->id)
+                ->whereNotIn('tb_student_enrollment.enrollment_status', ['promotion_cancelled', 'cancelled'])
                 ->orderByDesc('tb_academic_year.academic_year')
                 ->orderByDesc('tb_student_enrollment.id')
                 ->get(),
@@ -264,7 +285,7 @@ class StudentEnrollmentController
             'academic_track_id' => ['nullable', 'exists:tb_academic_track,id'],
             'session_id' => ['required', 'exists:tb_session,id'],
             'status' => ['required', 'boolean'],
-            'enrollment_status' => ['nullable', Rule::in(['active', 'pending', 'completed', 'withdrawn', 'transferred', 'graduated', 'cancelled'])],
+            'enrollment_status' => ['nullable', Rule::in(['active', 'pending', 'completed', 'withdrawn', 'transferred', 'graduated', 'cancelled', 'promotion_cancelled'])],
             'enrolled_on' => ['nullable', 'date'],
             'ended_on' => ['nullable', 'date', 'after_or_equal:enrolled_on'],
             'exit_reason' => ['nullable', 'string', 'max:255'],
@@ -336,42 +357,44 @@ class StudentEnrollmentController
                 if ($student->photo_path) {
                     Storage::disk('public')->delete($student->photo_path);
                 }
-                $student->photo_path = $request->file('photo')->store('student_photos', 'public');
+                $photo = $request->file('photo');
+                $photoName = $this->studentPhotoFilename($student, $photo->extension());
+                $student->photo_path = $photo->storeAs('student_photos', $photoName, 'public');
             }
             $student->status = $validated['status'];
             $student->save();
 
             $family = $this->familyService->syncStudentFamily($student, $validated['family_number']);
             $this->familyService->syncEnrollmentMember($family, 'mother', [
-                'name_en' => $validated['mother_name_en'] ?? null,
-                'name_kh' => $validated['mother_name_kh'] ?? null,
+                'full_name_en' => $validated['mother_name_en'] ?? null,
+                'full_name_kh' => $validated['mother_name_kh'] ?? null,
                 'occupation_en' => $validated['mother_occupation_en'] ?? null,
                 'occupation_kh' => $validated['mother_occupation_kh'] ?? null,
                 'workplace' => $validated['mother_workplace'] ?? null,
                 'nationality_country_id' => $validated['mother_nationality_country_id'] ?? null,
                 'occupation_id' => $validated['mother_occupation_id'] ?? null,
                 'phone' => $validated['mother_phone'] ?? null,
-            ]);
+            ], $student);
             $this->familyService->syncEnrollmentMember($family, 'father', [
-                'name_en' => $validated['father_name_en'] ?? null,
-                'name_kh' => $validated['father_name_kh'] ?? null,
+                'full_name_en' => $validated['father_name_en'] ?? null,
+                'full_name_kh' => $validated['father_name_kh'] ?? null,
                 'occupation_en' => $validated['father_occupation_en'] ?? null,
                 'occupation_kh' => $validated['father_occupation_kh'] ?? null,
                 'workplace' => $validated['father_workplace'] ?? null,
                 'nationality_country_id' => $validated['father_nationality_country_id'] ?? null,
                 'occupation_id' => $validated['father_occupation_id'] ?? null,
                 'phone' => $validated['father_phone'] ?? null,
-            ]);
+            ], $student);
             $this->familyService->syncEnrollmentMember($family, 'guardian', [
-                'name_en' => $validated['guardian_name_en'] ?? null,
-                'name_kh' => $validated['guardian_name_kh'] ?? null,
+                'full_name_en' => $validated['guardian_name_en'] ?? null,
+                'full_name_kh' => $validated['guardian_name_kh'] ?? null,
                 'occupation_en' => $validated['guardian_occupation_en'] ?? null,
                 'occupation_kh' => $validated['guardian_occupation_kh'] ?? null,
                 'workplace' => $validated['guardian_workplace'] ?? null,
                 'nationality_country_id' => $validated['guardian_nationality_country_id'] ?? null,
                 'occupation_id' => $validated['guardian_occupation_id'] ?? null,
                 'phone' => $validated['guardian_phone'] ?? null,
-            ]);
+            ], $student);
 
             $enrollment = $id ? StudentEnrollment::findOrFail($id) : new StudentEnrollment();
             $wasExisting = $enrollment->exists;
@@ -438,6 +461,16 @@ class StudentEnrollmentController
         return str_pad((string) $next, 8, '0', STR_PAD_LEFT);
     }
 
+    private function studentPhotoFilename(Student $student, string $extension): string
+    {
+        $name = trim((string) ($student->full_name_en ?: $student->full_name_kh ?: 'Student'));
+        $name = preg_replace('/[^\pL\pN]+/u', '_', $name) ?: 'Student';
+        $name = trim($name, '_');
+        $studentId = preg_replace('/[^\pL\pN]+/u', '_', trim((string) $student->student_id)) ?: $student->id;
+
+        return $name . '_' . trim($studentId, '_') . '.' . strtolower($extension);
+    }
+
     private function enrollmentListOptions(): array
     {
         return [
@@ -469,6 +502,7 @@ class StudentEnrollmentController
                     'tb_student.full_name_en',
                     'tb_student.full_name_kh',
                 ])
+                ->whereNotIn('tb_student_enrollment.enrollment_status', ['promotion_cancelled', 'cancelled'])
                 ->distinct()
                 ->orderByDesc('tb_academic_year.academic_year')
                 ->orderBy('tb_school_info.campus_name_en')

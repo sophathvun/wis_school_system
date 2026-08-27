@@ -1,0 +1,8 @@
+/* Extracted from resources/views/layouts/app.blade.php. Keep page-specific styles in this file. */
+
+:root {
+    --khmer-font-siemreap: "Khmer OS Siemreap", "Noto Sans Khmer", sans-serif;
+    --khmer-font-muol: "Khmer OS Muol Light", "Noto Sans Khmer", sans-serif;
+    --khmer-font-battambang:
+        "Khmer OS Battambang", "Noto Sans Khmer", sans-serif;
+}

@@ -1,0 +1,42 @@
+#academicTracksTable,
+#academicTracksTable td {
+    vertical-align: middle;
+}
+
+.table-sort-button {
+    padding: 0;
+    border: 0;
+    color: inherit;
+    font: inherit;
+    font-size: inherit;
+    font-weight: 400;
+    line-height: inherit;
+    background: transparent;
+    cursor: pointer;
+    text-transform: uppercase;
+}
+
+.table-sort-button:hover {
+    color: var(--tblr-primary);
+}
+
+#academicTrackModal .modal-dialog {
+    width: calc(100vw - 2rem);
+    max-width: 520px;
+}
+
+#academicTrackModal .modal-body {
+    padding: 1.25rem 1.5rem;
+}
+
+#academicTrackModal .modal-footer,
+#academicTrackModal .modal-header {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+}
+
+@media (max-width: 575.98px) {
+    #academicTrackModal .modal-dialog {
+        max-width: calc(100vw - 1rem);
+    }
+}

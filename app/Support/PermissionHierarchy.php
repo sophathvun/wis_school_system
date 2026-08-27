@@ -13,8 +13,10 @@ class PermissionHierarchy
             'users' => 'Users', 'departments' => 'Departments', 'positions' => 'Positions', 'roles' => 'Roles', 'notifications' => 'Notifications', 'chat' => 'Chat',
             'academic-years' => 'Academic Years', 'grades' => 'Grades', 'classes' => 'Classes', 'sessions' => 'Sessions',
             'education-levels' => 'Education Levels', 'programs' => 'Programs', 'school-info' => 'School Information',
-            'locations' => 'Locations', 'occupations' => 'Occupations', 'academic-tracks' => 'Academic Tracks', 'withdrawal-reasons' => 'Withdrawal Reasons',
-            'student-document-types' => 'Document Types', 'branding' => 'Branding', 'database-backups' => 'Database Backups',
+            'locations' => 'Locations', 'occupations' => 'Occupations', 'nationalities' => 'Nationalities', 'academic-tracks' => 'Academic Tracks', 'withdrawal-reasons' => 'Withdrawal Reasons',
+            'student-document-types' => 'Document Types', 'dashboard-templates' => 'Dashboard Templates', 'branding' => 'Branding', 'database-backups' => 'Database Backups',
+            'groups' => 'School Groups', 'terms' => 'Terms', 'campuses' => 'Campuses', 'summer-school' => 'Summer School', 'student-withdrawals' => 'Student Withdrawals',
+            'reports' => 'Reports',
             'students.search' => 'Search Students', 'students.enrollment' => 'Student Enrollment', 'families' => 'Family Management',
             'students.promotion' => 'Student Promotion / Transfer', 'students.graduation' => 'Student Graduation',
             'student-reentry' => 'Student Re-entry', 'student-documents' => 'Student Documents', 'student-data-transfer' => 'Import / Export Data',
@@ -26,28 +28,33 @@ class PermissionHierarchy
         return [
             'administrator' => [
                 'label' => 'Administrator', 'permission' => 'administrator.view',
-                'modules' => ['users', 'departments', 'positions', 'roles', 'notifications'],
+                'modules' => ['users', 'departments', 'positions', 'roles', 'dashboard-templates', 'branding', 'database-backups', 'campuses'],
                 'actions' => [],
             ],
             'communication' => [
                 'label' => 'Communication', 'permission' => 'communication.view',
-                'modules' => ['chat'],
+                'modules' => ['chat', 'notifications'],
                 'actions' => [],
             ],
             'settings' => [
                 'label' => 'Settings', 'permission' => 'settings.view',
-                'modules' => ['academic-years', 'grades', 'classes', 'sessions', 'education-levels', 'programs', 'school-info', 'locations', 'occupations', 'academic-tracks', 'withdrawal-reasons', 'student-document-types', 'branding', 'database-backups'],
+                'modules' => ['academic-years', 'grades', 'classes', 'sessions', 'education-levels', 'programs', 'groups', 'terms', 'school-info', 'locations', 'occupations', 'nationalities', 'academic-tracks', 'withdrawal-reasons', 'student-document-types'],
                 'actions' => ['settings.manage'],
             ],
             'students' => [
                 'label' => 'Students', 'permission' => 'students.view',
-                'modules' => ['students.search', 'students.enrollment', 'families', 'students.promotion', 'students.graduation', 'student-reentry', 'student-documents', 'student-data-transfer'],
+                'modules' => ['students.search', 'students.enrollment', 'summer-school', 'families', 'students.promotion', 'students.graduation', 'student-withdrawals', 'student-reentry', 'student-documents', 'student-data-transfer'],
                 'actions' => ['students.manage'],
             ],
             'dashboard' => [
                 'label' => 'Dashboard', 'permission' => 'dashboard.view',
                 'modules' => [],
-                'actions' => [],
+                'actions' => ['dashboard.customize', 'dashboard.reset'],
+            ],
+            'reports' => [
+                'label' => 'Reports', 'permission' => 'reports.view',
+                'modules' => [],
+                'actions' => ['reports.export'],
             ],
         ];
     }

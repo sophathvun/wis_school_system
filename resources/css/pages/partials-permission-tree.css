@@ -1,0 +1,105 @@
+/* Extracted from resources/views/partials/permission-tree.blade.php. Keep page-specific styles in this file. */
+
+.permission-campus-picker {
+    position: relative;
+}
+
+.permission-campus-picker-toggle {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 52px;
+    padding: 0.65rem 1rem;
+    border: 1px solid var(--tblr-border-color);
+    border-radius: var(--tblr-border-radius);
+    background: var(--tblr-bg-forms);
+    color: var(--tblr-body-color);
+    text-align: left;
+}
+
+.permission-campus-picker-menu {
+    position: absolute;
+    z-index: 30;
+    left: 0;
+    right: 0;
+    top: calc(100% + 0.35rem);
+    padding: 0.65rem;
+    background: var(--tblr-bg-surface);
+    border: 1px solid var(--tblr-border-color);
+    border-radius: var(--tblr-border-radius);
+    box-shadow: 0 12px 28px rgba(31, 41, 55, 0.16);
+}
+
+.permission-campus-picker-results {
+    max-height: 220px;
+    overflow-y: auto;
+    margin-top: 0.5rem;
+}
+
+.permission-campus-picker-option {
+    display: block;
+    padding: 0.45rem 0.5rem;
+    border-radius: 0.35rem;
+}
+
+.permission-campus-picker-option:hover {
+    background: rgba(127, 127, 127, 0.12);
+}
+
+.permission-campus-select {
+    display: none !important;
+}
+
+.permission-campus-label {
+    display: block;
+    background: transparent !important;
+    color: var(--tblr-body-color) !important;
+}
+
+[data-bs-theme="dark"] .permission-campus-picker-toggle span {
+    color: #f8fafc;
+}
+
+[data-bs-theme="dark"] .permission-campus-picker-toggle,
+[data-bs-theme="dark"] .permission-campus-picker-menu {
+    background: #1e293b;
+    color: #f8fafc;
+    border-color: #475569;
+}
+
+[data-bs-theme="dark"] .permission-campus-picker + .form-text,
+[data-bs-theme="dark"] .permission-campus-picker ~ .form-text {
+    color: #94a3b8;
+}
+
+[data-bs-theme="dark"] .form-label {
+    color: var(--tblr-body-color);
+}
+
+[data-bs-theme="dark"] .permission-campus-label {
+    background: transparent !important;
+    color: #f8fafc !important;
+}
+
+[data-bs-theme="dark"] .permission-full-access-bar {
+    background: #1e293b !important;
+    color: #f8fafc;
+    border-color: #475569 !important;
+}
+
+.permission-main-menu {
+    color: #123b72 !important;
+    font-size: 1.35rem !important;
+    line-height: 1.25;
+}
+
+.permission-submenu-label {
+    color: #111827 !important;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+[data-bs-theme="dark"] .permission-submenu-label {
+    color: #f8fafc !important;
+}

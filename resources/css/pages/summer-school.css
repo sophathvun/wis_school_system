@@ -1,0 +1,739 @@
+/* Extracted from resources/views/summer-school.blade.php. Keep page-specific styles in this file. */
+
+#summerSchoolModal select option:first-child,
+#summerSchoolModal select option[value=""] {
+    font-size: 0;
+}
+
+#summerSchoolModal .modal-dialog {
+    height: calc(100vh - 2rem);
+    max-height: calc(100vh - 2rem);
+}
+
+#summerSchoolModal .modal-dialog-scrollable .modal-content {
+    height: calc(100vh - 2rem) !important;
+    max-height: calc(100vh - 2rem) !important;
+}
+
+#summerSchoolModal .modal-content {
+    display: flex;
+    height: 100%;
+    max-height: 100%;
+    overflow: hidden;
+}
+
+#summerSchoolModal .modal-content > form {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+    height: 100%;
+}
+
+#summerSchoolModal .modal-body {
+    display: block;
+    flex: 1 1 auto;
+    height: 0;
+    min-height: 0;
+    overflow-y: scroll !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch;
+}
+
+.summer-registration-layout {
+    display: grid;
+    grid-template-columns: 210px minmax(0, 1fr);
+    gap: 1.25rem;
+    align-items: start;
+}
+
+.summer-registration-nav {
+    position: sticky;
+    top: 0;
+    display: grid;
+    gap: .5rem;
+}
+
+.summer-registration-nav-title {
+    padding: .25rem .75rem .5rem;
+    color: var(--tblr-secondary);
+    font-size: .75rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+
+.summer-registration-nav-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem;
+    width: 100%;
+    min-height: 52px;
+    padding: .75rem;
+    border: 1px solid var(--tblr-border-color);
+    border-radius: .65rem;
+    background: var(--tblr-bg-surface);
+    color: var(--tblr-body-color);
+    text-align: left;
+    transition: .15s ease;
+}
+
+.summer-registration-nav-item:hover,
+.summer-registration-nav-item.is-active {
+    border-color: var(--tblr-primary);
+    background: var(--tblr-primary-lt);
+    color: var(--tblr-primary);
+}
+
+.summer-registration-nav-item i {
+    flex: 0 0 auto;
+}
+
+.summer-registration-nav-label {
+    display: inline-flex;
+    align-items: center;
+    gap: .6rem;
+}
+
+.summer-registration-nav-label > i {
+    flex: 0 0 auto;
+    font-size: 1.15rem;
+}
+
+@media (max-width: 767.98px) {
+    .summer-registration-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .summer-registration-nav {
+        position: static;
+    }
+}
+
+.summer-external-field .form-control,
+.summer-external-field .form-select,
+.summer-external-field textarea,
+.summer-student-photo-upload .form-control {
+    min-height: 2.75rem;
+}
+
+.summer-student-photo-upload {
+    display: grid;
+    gap: .35rem;
+    padding: .75rem;
+    border: 1px dashed var(--tblr-border-color);
+    border-radius: .65rem;
+    background: var(--tblr-bg-surface-secondary);
+}
+
+#summerSchoolModal .summer-photo-label {
+    position: static !important;
+    display: block;
+    margin: 0 0 .5rem !important;
+    padding: 0 !important;
+    color: var(--tblr-body-color) !important;
+    background: transparent !important;
+    font-size: .95rem !important;
+    font-weight: 400 !important;
+}
+
+.summer-external-photo-dropzone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: .35rem;
+    padding: 1.25rem;
+    min-height: 168px;
+    text-align: center;
+}
+
+#summerSchoolModal .summer-external-photo-dropzone .summer-photo-label-inside {
+    position: static !important;
+    display: block;
+    margin: 0 0 .35rem !important;
+    padding: 0 !important;
+    color: var(--tblr-secondary) !important;
+    font-size: .95rem !important;
+    font-weight: 600 !important;
+    line-height: 1.1 !important;
+}
+
+#summerSchoolModal .summer-external-photo-dropzone .form-hint {
+    margin-top: .35rem;
+    color: var(--tblr-secondary);
+    font-size: .75rem;
+}
+
+.summer-external-photo-dropzone .logo-dropzone-icon {
+    margin: 0 0 .15rem;
+}
+
+.summer-external-photo-dropzone strong {
+    display: block;
+}
+
+.summer-external-photo-preview-wrap {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    bottom: 12px;
+    width: 150px;
+    z-index: 1;
+}
+
+.summer-external-photo-preview {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border: 1px solid var(--tblr-border-color);
+    border-radius: .5rem;
+}
+
+.summer-form-section-title {
+    margin: 1.25rem 0 0;
+    padding: .85rem 1rem;
+    border-bottom: 1px solid var(--tblr-border-color);
+    color: var(--tblr-body-color);
+    background: var(--tblr-bg-surface);
+    font-size: 1.15rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.summer-registration-content > .row.g-3 {
+    margin: 0 !important;
+    padding: 1rem;
+    border: 1px solid var(--tblr-border-color);
+    border-radius: .75rem;
+    background: var(--tblr-bg-surface);
+}
+
+#summerSchoolModal .premium-floating-field {
+    position: relative;
+}
+
+#summerSchoolModal .premium-floating-field > .form-label {
+    position: absolute;
+    z-index: 5;
+    top: 1rem !important;
+    left: 1rem !important;
+    margin: 0 !important;
+    padding: 0 .35rem !important;
+    color: var(--tblr-secondary) !important;
+    background: transparent !important;
+    font-size: .95rem !important;
+    font-weight: 400 !important;
+    line-height: 1.1 !important;
+    pointer-events: none;
+    transition: top .16s ease, left .16s ease, font-size .16s ease, color .16s ease;
+}
+
+/* Date fields always have a leading icon, so keep their labels floated. */
+#summerSchoolModal .premium-floating-field:has(> .summer-date-picker) > .form-label,
+#summerSchoolModal .premium-floating-field:has(> .summer-dob-khmer-input) > .form-label {
+    top: .35rem !important;
+    color: var(--tblr-primary) !important;
+    background: var(--tblr-bg-surface) !important;
+    font-size: .72rem !important;
+    font-weight: 600 !important;
+}
+
+#summerSchoolModal .premium-floating-field.summer-dob-always-float > .form-label {
+    top: .35rem !important;
+    color: var(--tblr-primary) !important;
+    background: var(--tblr-bg-surface) !important;
+    font-size: .72rem !important;
+    font-weight: 600 !important;
+}
+
+#summerSchoolModal .premium-floating-field > .form-control,
+#summerSchoolModal .premium-floating-field > .form-select,
+#summerSchoolModal .premium-floating-field > textarea {
+    height: 52px !important;
+    min-height: 52px !important;
+    padding-top: 1.25rem !important;
+    padding-bottom: .35rem !important;
+    border: 1.5px solid var(--tblr-border-color) !important;
+    border-radius: 14px !important;
+    background-color: var(--tblr-bg-surface) !important;
+    box-shadow: 0 2px 7px rgba(31, 41, 55, .04) !important;
+}
+
+#summerSchoolModal .premium-floating-field > .summer-date-picker,
+#summerSchoolModal .summer-date-picker .date-picker-trigger {
+    width: 100%;
+    min-height: 52px;
+}
+
+#summerSchoolModal .summer-date-picker .date-picker-trigger {
+    height: 52px;
+    padding: 1.25rem 1rem .35rem;
+    border: 1.5px solid var(--tblr-border-color) !important;
+    border-radius: 14px;
+    background: var(--tblr-bg-surface) !important;
+    color: var(--tblr-body-color);
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+}
+
+#summerSchoolModal .summer-date-picker .date-picker-display {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: auto !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    outline: 0;
+    background: transparent !important;
+    color: inherit;
+    box-shadow: none !important;
+}
+
+#summerSchoolModal .summer-date-picker .summer-dob-cake,
+#summerSchoolModal .summer-date-picker .summer-dob-calendar,
+#summerSchoolModal .summer-dob-khmer-input .input-icon-addon {
+    flex: 0 0 auto;
+    color: var(--tblr-secondary);
+    font-size: 1rem;
+}
+
+#summerSchoolModal .summer-dob-trigger,
+#summerSchoolModal .summer-dob-calendar {
+    cursor: pointer;
+}
+
+#summerSchoolModal .summer-dob-khmer-input {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    height: 52px;
+    min-height: 52px;
+    border: 1.5px solid var(--tblr-border-color) !important;
+    border-radius: 14px;
+    background: var(--tblr-bg-surface) !important;
+    box-shadow: 0 2px 7px rgba(31, 41, 55, .04) !important;
+}
+
+#summerSchoolModal .summer-dob-khmer-input .input-icon-addon {
+    position: static !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: auto;
+    height: auto;
+    padding-left: 1rem;
+}
+
+#summerSchoolModal .summer-dob-khmer-input .form-control {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 50px !important;
+    min-height: 50px !important;
+    padding: 1.1rem 1rem .35rem 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+#summerSchoolModal .summer-date-picker .date-picker-trigger:focus,
+#summerSchoolModal .premium-floating-field.has-value > .summer-date-picker .date-picker-trigger {
+    border-color: #6b5bd6 !important;
+    box-shadow: 0 0 0 3px rgba(107, 91, 214, .14) !important;
+}
+
+#summerSchoolModal .summer-bilingual-combobox .location-combobox-toggle {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    height: 52px;
+    min-height: 52px;
+    padding: 1.25rem 2.75rem .35rem 1rem;
+    border: 1.5px solid var(--tblr-border-color) !important;
+    border-radius: 14px;
+    background: var(--tblr-bg-surface);
+    color: var(--tblr-body-color);
+    text-align: left;
+}
+
+#summerSchoolModal .summer-bilingual-combobox .location-combobox-selected {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    min-width: 0;
+    line-height: 1.05;
+}
+
+#summerSchoolModal .summer-bilingual-combobox .location-combobox-selected-text,
+#summerSchoolModal .summer-bilingual-combobox .location-combobox-option > span {
+    display: block;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+#summerSchoolModal .summer-bilingual-icon {
+    flex: 0 0 auto;
+    color: var(--tblr-primary);
+    font-size: 1.25rem;
+}
+
+#summerSchoolModal .summer-bilingual-combobox .location-combobox-option {
+    justify-content: flex-start;
+    align-items: center;
+    gap: .75rem;
+    padding: .65rem .75rem;
+}
+
+#summerSchoolModal .summer-bilingual-combobox .location-combobox-option > span {
+    flex: 1 1 auto;
+    text-align: left;
+}
+
+#summerSchoolModal .summer-bilingual-combobox .location-combobox-toggle:focus,
+#summerSchoolModal .premium-floating-field.has-value > .summer-bilingual-combobox .location-combobox-toggle,
+#summerSchoolModal .premium-floating-field:focus-within > .summer-bilingual-combobox .location-combobox-toggle {
+    border-color: #6b5bd6 !important;
+    box-shadow: 0 0 0 3px rgba(107, 91, 214, .14) !important;
+}
+
+#summerSchoolModal .summer-bilingual-combobox .location-combobox-khmer {
+    display: block;
+    font-family: "Khmer OS Siem Reap", "Noto Sans Khmer", sans-serif;
+    font-size: .8rem;
+    line-height: 1.05;
+}
+
+#summerSchoolModal .summer-bilingual-combobox .location-combobox-english {
+    font-size: .9rem;
+    line-height: 1.05;
+}
+
+#summerSchoolModal .premium-floating-field > textarea {
+    height: auto !important;
+    min-height: 82px !important;
+}
+
+#summerSchoolModal .premium-floating-field > .phone-input-group,
+#summerSchoolModal .premium-floating-field > .phone-input-group .iti {
+    width: 100%;
+    min-height: 52px;
+}
+
+#summerSchoolModal .summer-email-field > .form-label {
+    top: .35rem !important;
+    color: var(--tblr-primary) !important;
+    background: var(--tblr-bg-surface) !important;
+    font-size: .72rem !important;
+    font-weight: 600 !important;
+}
+
+#summerSchoolModal .summer-email-input {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    height: 52px;
+    min-height: 52px;
+    padding: 1.1rem 1rem .35rem;
+    border: 1.5px solid var(--tblr-border-color) !important;
+    border-radius: 14px;
+    background: var(--tblr-bg-surface) !important;
+    box-shadow: 0 2px 7px rgba(31, 41, 55, .04) !important;
+}
+
+#summerSchoolModal .summer-email-icon {
+    flex: 0 0 auto;
+    color: var(--tblr-secondary);
+    font-size: 1rem;
+}
+
+#summerSchoolModal .summer-email-input .form-control {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: auto !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+#summerSchoolModal .summer-email-input.is-invalid {
+    border-color: var(--tblr-danger) !important;
+    box-shadow: 0 0 0 3px rgba(214, 57, 57, .12) !important;
+}
+
+#summerSchoolModal .summer-email-feedback {
+    display: none;
+    margin-top: .35rem;
+    color: var(--tblr-danger);
+    font-size: .75rem;
+}
+
+#summerSchoolModal .summer-email-feedback.is-visible {
+    display: block;
+}
+
+#summerSchoolModal .premium-floating-field > .phone-input-group {
+    height: 52px;
+    border: 1.5px solid var(--tblr-border-color) !important;
+    border-radius: 14px;
+    background: var(--tblr-bg-surface) !important;
+    box-shadow: 0 2px 7px rgba(31, 41, 55, .04) !important;
+}
+
+#summerSchoolModal .phone-input-group .iti__tel-input {
+    height: 50px;
+    border: 0 !important;
+    border-radius: 14px;
+    background: transparent !important;
+    box-shadow: none !important;
+    padding-top: 1.1rem;
+}
+
+#summerSchoolModal .premium-floating-field.has-value > .form-label,
+#summerSchoolModal .premium-floating-field:focus-within > .form-label {
+    top: .35rem !important;
+    color: var(--tblr-primary) !important;
+    background: var(--tblr-bg-surface) !important;
+    font-size: .72rem !important;
+    font-weight: 600 !important;
+}
+
+#summerSchoolModal .premium-floating-field:has(> .phone-input-group) > .form-label {
+    top: .35rem !important;
+    left: 1rem !important;
+    padding: 0 .35rem !important;
+    background: var(--tblr-bg-surface) !important;
+    color: var(--tblr-primary) !important;
+    font-size: .72rem !important;
+    font-weight: 600 !important;
+}
+
+.summer-registration-content .summer-form-section-title + .summer-external-field {
+    margin-top: 0;
+}
+
+.summer-registration-content .summer-external-field h5 {
+    padding: .5rem 0 .25rem;
+    border-bottom: 1px solid var(--tblr-border-color);
+    color: var(--tblr-secondary);
+    font-weight: 600;
+}
+
+#summerSchoolModal .enrollment-document-card,
+#summerSchoolModal .summer-enrollment-section {
+    margin-bottom: 1.25rem;
+    padding: 1rem;
+    border: 1px solid var(--tblr-border-color);
+    border-radius: .75rem;
+    background: var(--tblr-bg-surface);
+}
+
+#summerSchoolModal .enrollment-document-card > h4,
+#summerSchoolModal .summer-enrollment-section > h4 {
+    margin: 0 0 1rem !important;
+    padding-bottom: .75rem;
+    border-bottom: 1px solid var(--tblr-border-color);
+}
+
+.summer-five-column-row {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.summer-four-column-row {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.summer-family-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.summer-form-card {
+    margin-bottom: 1.25rem;
+    overflow: visible;
+    border: 1px solid var(--tblr-border-color);
+    border-radius: .75rem;
+    background: var(--tblr-bg-surface);
+}
+
+#summerSchoolModal .summer-form-card .location-combobox,
+#summerSchoolModal .summer-form-card .premium-floating-field {
+    position: relative;
+}
+
+#summerSchoolModal .summer-form-card .premium-floating-field:focus-within,
+#summerSchoolModal .summer-form-card .location-combobox:focus-within {
+    z-index: 1065;
+}
+
+#summerSchoolModal .summer-form-card .location-combobox-menu {
+    z-index: 1070;
+    max-height: none;
+    overflow: hidden !important;
+}
+
+#summerSchoolModal .summer-form-card .location-combobox-menu .location-combobox-results {
+    max-height: 18rem;
+    overflow-y: auto;
+}
+
+#summerSchoolModal .location-combobox-menu {
+    max-height: none !important;
+    overflow: hidden !important;
+}
+
+#summerSchoolModal .location-combobox-menu .location-combobox-results {
+    max-height: 18rem !important;
+    overflow-x: hidden;
+    overflow-y: auto !important;
+}
+
+.summer-form-card > h4 {
+    margin: 0 0 1rem !important;
+    padding: .85rem 1rem;
+    border-bottom: 1px solid var(--tblr-border-color);
+    text-transform: uppercase;
+}
+
+.summer-student-information-card > h4 {
+    color: var(--tblr-primary);
+    font-size: 1.1rem;
+    letter-spacing: .02em;
+    text-transform: uppercase;
+    background: #12345a;
+    color: #ffffff;
+    border-radius: .75rem .75rem 0 0;
+}
+
+#summerSchoolModal .summer-dark-header-card > h4 {
+    background: #12345a;
+    color: #ffffff;
+    border-radius: .75rem .75rem 0 0;
+}
+
+#summerSchoolModal .enrollment-document-card > h4,
+#summerSchoolModal .summer-enrollment-section > h4 {
+    margin: -1rem -1rem 1rem !important;
+    width: calc(100% + 2rem);
+    padding: .85rem 1rem !important;
+    background: #12345a;
+    color: #ffffff;
+    border-bottom: 1px solid var(--tblr-border-color);
+    border-radius: .75rem .75rem 0 0;
+    text-transform: uppercase;
+}
+
+.summer-student-information-card > .row {
+    row-gap: .65rem !important;
+}
+
+.summer-student-information-card > .row + .row {
+    margin-top: 0 !important;
+    padding-top: 0;
+    border-top: 0;
+}
+
+.summer-student-information-card > .summer-student-subsection {
+    margin: 0;
+    border: 0;
+    border-top: 1px solid var(--tblr-border-color);
+    border-radius: 0;
+    background: transparent;
+}
+
+.summer-student-information-card > .summer-student-subsection > h4 {
+    margin: 0 0 1rem !important;
+    padding: .85rem 1rem .65rem;
+    border-bottom: 0;
+    color: var(--tblr-body-color);
+    font-size: 1.1rem;
+    text-transform: uppercase;
+}
+
+.summer-student-information-card .summer-photo-field {
+    margin: 0 1rem 1rem;
+}
+
+.summer-student-information-card .summer-student-photo-upload {
+    padding: 0;
+    border: 0;
+    background: transparent;
+}
+
+.summer-student-information-card .summer-photo-label {
+    margin-bottom: .55rem !important;
+    color: var(--tblr-secondary) !important;
+    font-weight: 600 !important;
+}
+
+.summer-student-information-card .summer-external-photo-dropzone {
+    min-height: 156px;
+    border-color: var(--tblr-border-color) !important;
+    background: var(--tblr-bg-surface-secondary);
+}
+
+.summer-student-information-card .summer-external-photo-dropzone:hover,
+.summer-student-information-card .summer-external-photo-dropzone.is-dragging {
+    border-color: var(--tblr-primary) !important;
+    background: var(--tblr-primary-lt);
+}
+
+.summer-form-card > .row,
+.summer-form-card > .summer-family-subsection {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding: 0 1rem .65rem;
+}
+
+.summer-form-card > .row.g-3 {
+    --tblr-gutter-y: .65rem;
+}
+
+#summerSchoolModal .summer-form-card .row.g-3 {
+    --tblr-gutter-y: .65rem;
+    row-gap: .65rem;
+}
+
+.summer-family-subsection {
+    margin-bottom: .5rem;
+}
+
+.summer-family-subsection h5 {
+    margin: 0 0 .75rem;
+    padding: .5rem 0;
+    border-bottom: 1px solid var(--tblr-border-color);
+    color: var(--tblr-secondary);
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+@media (max-width: 991.98px) {
+    .summer-five-column-row,
+    .summer-four-column-row,
+    .summer-family-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 575.98px) {
+    .summer-five-column-row,
+    .summer-four-column-row,
+    .summer-family-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.summer-list-filter { width: 170px; min-width: 150px; }
+.summer-list-student-filter { width: 220px; min-width: 190px; }
+.summer-list-search { width: 260px; max-width: 100%; }
+.summer-student-photo, .summer-student-photo-placeholder { width: 42px; height: 58px; display: inline-flex; align-items: center; justify-content: center; object-fit: cover; border-radius: .55rem; border: 1px solid var(--tblr-border-color); background: var(--tblr-bg-surface); color: var(--tblr-secondary); }
+.summer-list-filter-group .form-select, .summer-list-search { background-color: var(--tblr-bg-forms); }
+
+@media (max-width: 767.98px) {
+    .summer-list-filter, .summer-list-filter-group, .summer-list-student-filter, .summer-list-search { width: 100% !important; max-width: none; }
+}

@@ -3,73 +3,37 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Academic Years PDF</title>
+    <title>Academic Year List</title>
+
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            color: #222;
-        }
-
-        .table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-
-        .table th,
-        .table td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: center;
-        }
-
-        .table th {
-            background: #f4f4f4;
-            font-weight: bold;
-        }
-
-        .text-center {
-            text-align: center;
-        }
-
-        @font-face {
-            font-family: 'Noto Sans Khmer';
-            font-style: normal;
-            font-weight: normal;
-            src: url('{{ storage_path('app/public/fonts/NotoSansKhmer-Regular.ttf') }}') format('truetype');
-        }
-
-        h1 {
-            font-size: 22px;
-            margin-bottom: 0;
-        }
-
-        h3 {
-            font-size: 30px;
-            margin-bottom: 0;
-        }
-
-        .khmer-title {
-            font-family: 'Noto Sans Khmer', 'Khmer OS System', sans-serif;
-            font-size: 30px;
-            margin-bottom: 0;
-        }
-
-        .header {
-            margin-bottom: 16px;
-        }
+        {!! file_get_contents(resource_path('css/pages/academicyears-pdf.css')) !!}
     </style>
 </head>
 
 <body>
     <div class="header">
         <div>
-            <img src="{{ $logoPath }}" alt="Logo"
-                style="width: 100px; height: auto;">
+            @if ($logoSrc)
+                <img src="{{ $logoSrc }}" alt="School Logo 1" class="school-logo">
+            @endif
         </div>
         <h3 class="khmer-title text-center">តារាងឆ្នាំសិក្សា</h3>
-        <h3 class="text-center">List of the Academic Year</h3>
+        <h3 class="text-center english-title">Academic Year List</h3>
     </div>
+
+    @if ($printMode ?? false)
+        <script>
+            window.addEventListener('load', function() {
+                window.setTimeout(function() {
+                    window.print();
+                }, 150);
+            });
+
+            window.addEventListener('afterprint', function() {
+                window.location.replace(@json(route('academic-years.index')));
+            });
+        </script>
+    @endif
 
     <table class="table">
         <thead>
@@ -80,12 +44,12 @@
                 <th>AY Code</th>
                 <th>Start Date</th>
                 <th>End Date</th>
-                <th>Description</th>
                 <th>Status</th>
             </tr>
         </thead>
         <tbody>
             @foreach ($academicYears as $index => $year)
+                @php($status = strtolower($year->lifecycle_status ?? ($year->status ? 'started' : 'finished')))
                 <tr>
                     <td>{{ $index + 1 }}</td>
                     <td>{{ $year->academic_year }}</td>
@@ -93,8 +57,7 @@
                     <td>{{ $year->ay_code }}</td>
                     <td>{{ $year->start_date?->format('Y-m-d') ?: '' }}</td>
                     <td>{{ $year->end_date?->format('Y-m-d') ?: '' }}</td>
-                    <td>{{ $year->description }}</td>
-                    <td>{{ $year->status ? 'Active' : 'Inactive' }}</td>
+                    <td><span class="status-badge status-{{ $status }}">{{ ucfirst($status) }}</span></td>
                 </tr>
             @endforeach
         </tbody>

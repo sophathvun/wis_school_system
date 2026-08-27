@@ -16,18 +16,24 @@
             </div>
             <div class="col-auto ms-auto d-print-none">
                 <div class="btn-list">
-                    <a href="{{ route('academic-years.pdf') }}" target="_blank"
+                    <a href="{{ route('academic-years.print') }}" target="_blank"
                         class="btn btn-secondary btn-5 d-none d-sm-inline-block">
-                        <i class="ti ti-file-text icon"></i>
-                        Export PDF
+                        <i class="ti ti-printer icon"></i>
+                        Print
                     </a>
-                    <button id="btnNewAcademicYear" class="btn btn-primary btn-5 d-none d-sm-inline-block"
-                        type="button">
+                    <a href="{{ route('academic-years.excel') }}" class="btn btn-outline-success btn-5 d-none d-sm-inline-block">
+                        <i class="ti ti-file-spreadsheet icon"></i>
+                        Excel
+                    </a>
+                    <button id="btnNewAcademicYear" class="btn btn-primary btn-5 d-none d-sm-inline-block" type="button">
                         <i class="ti ti-plus icon"></i>
                         New Academic Year
                     </button>
-                    <button id="btnNewAcademicYearMobile" class="btn btn-primary btn-6 d-sm-none btn-icon"
-                        type="button">
+                    <button id="btnToggleDeletedAcademicYears" class="btn btn-outline-secondary btn-5 d-none d-sm-inline-block" type="button">
+                        <i class="ti ti-trash icon"></i>
+                        Show Deleted
+                    </button>
+                    <button id="btnNewAcademicYearMobile" class="btn btn-primary btn-6 d-sm-none btn-icon" type="button">
                         <i class="ti ti-plus icon"></i>
                     </button>
                 </div>
@@ -42,29 +48,39 @@
                 <h3 class="card-title">Academic Year Lists</h3>
             </div>
             <div class="card-body border-bottom py-3">
-                <div class="row col-12 g-2 align-items-center justify-content-between">
-                    <div class="col-auto text-secondary">
-                        Show
-                        <div class="mx-2 d-inline-block">
-                            <select class="form-control form-control-sm" name="academic-years-per-page"
-                                id="academic-years-per-page">
-                                <option value="10" selected>10 / page</option>
-                                <option value="25">25 / page</option>
-                                <option value="50">50 / page</option>
-                                <option value="100">100 / page</option>
-                            </select>
-                        </div>
-                        entries
-                    </div>
-                    <div class="col-auto d-flex flex-wrap gap-2 align-items-center">
-                        <div class="col-auto p-0 d-flex align-items-center">
-                            <div class="input-icon">
-                                <span class="input-icon-addon">
-                                    <i class="ti ti-search icon"></i>
-                                </span>
-                                <input type="text" id="academic-years-search" class="form-control form-control-sm"
-                                    placeholder="Search academic years" aria-label="Search academic years">
+                <input type="hidden" name="academic-years-per-page" id="academic-years-per-page" value="10">
+                <div class="row g-2 align-items-end academic-year-filter-row">
+                    <div class="col-md-auto academic-year-filter-column">
+                        <div class="academic-year-combobox" data-filter-combobox="academic-year">
+                            <input type="hidden" id="academic-year-filter">
+                            <button type="button" class="academic-year-combobox-toggle">
+                                <span>Academic Year</span><i class="ti ti-chevron-down"></i>
+                            </button>
+                            <div class="academic-year-combobox-menu d-none">
+                                <input type="search" class="form-control form-control-sm academic-year-combobox-search"
+                                    placeholder="Search academic year" autocomplete="off">
+                                <div class="academic-year-combobox-results"></div>
                             </div>
+                        </div>
+                    </div>
+                    <div class="col-md-auto academic-year-filter-column academic-year-type-column">
+                        <div class="academic-year-combobox" data-filter-combobox="period-type">
+                            <input type="hidden" id="academic-year-type-filter">
+                            <button type="button" class="academic-year-combobox-toggle">
+                                <span>Academic Year Type</span><i class="ti ti-chevron-down"></i>
+                            </button>
+                            <div class="academic-year-combobox-menu d-none">
+                                <input type="search" class="form-control form-control-sm academic-year-combobox-search"
+                                    placeholder="Search type" autocomplete="off">
+                                <div class="academic-year-combobox-results"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 ms-md-auto">
+                        <div class="input-icon">
+                            <span class="input-icon-addon"><i class="ti ti-search icon"></i></span>
+                            <input type="search" id="academic-years-search" class="form-control form-control-sm"
+                                placeholder="Search academic years" aria-label="Search academic years">
                         </div>
                     </div>
                 </div>
@@ -73,15 +89,15 @@
                 <table class="table card-table">
                     <thead>
                         <tr>
-                            <th>No.</th>
-                            <th>Academic Year</th>
-                            <th>Type</th>
-                            <th>AY Code</th>
-                            <th>Start Date</th>
-                            <th>End Date</th>
-                            <th>Description</th>
-                            <th>Status</th>
-                            <th class="text-center">Started</th>
+                            <th><button type="button" class="table-sort-button" data-sort="id">No.</button></th>
+                            <th><button type="button" class="table-sort-button" data-sort="academic_year">Academic Year</button></th>
+                            <th><button type="button" class="table-sort-button" data-sort="period_type">Type</button></th>
+                            <th><button type="button" class="table-sort-button" data-sort="academic_year_code">AY Code</button></th>
+                            <th><button type="button" class="table-sort-button" data-sort="start_date">Start Date</button></th>
+                            <th><button type="button" class="table-sort-button" data-sort="end_date">End Date</button></th>
+                            <th><button type="button" class="table-sort-button" data-sort="description">Description</button></th>
+                            <th><button type="button" class="table-sort-button" data-sort="lifecycle_status">Status</button></th>
+                            <th class="text-center"><button type="button" class="table-sort-button" data-sort="lifecycle_status">Started</button></th>
                             <th class="text-center">Actions</th>
                         </tr>
                     </thead>
@@ -137,4 +153,5 @@
         </div>
     </div>
     @vite('resources/js/academicYears.js')
+    @vite('resources/css/pages/academic-years.css')
 @endsection

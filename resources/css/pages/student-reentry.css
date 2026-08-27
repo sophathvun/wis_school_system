@@ -1,0 +1,54 @@
+/* Extracted from resources/views/student-reentry.blade.php. Keep page-specific styles in this file. */
+
+.reentry-hero {
+    border: 1px solid rgba(98, 89, 226, 0.18);
+    background: linear-gradient(
+        135deg,
+        rgba(98, 89, 226, 0.08),
+        rgba(32, 107, 196, 0.04)
+    );
+    border-radius: 1rem;
+    padding: 1.35rem 1.5rem;
+}
+
+.reentry-hero-icon {
+    width: 3rem;
+    height: 3rem;
+    display: grid;
+    place-items: center;
+    border-radius: 0.9rem;
+    background: rgba(98, 89, 226, 0.14);
+    color: #5b50d6;
+    font-size: 1.5rem;
+}
+
+.reentry-table-photo {
+    width: 48px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: 0.65rem;
+    border: 1px solid var(--tblr-border-color);
+    background: var(--tblr-bg-surface-secondary);
+}
+
+.reentry-empty {
+    padding: 3rem 1rem;
+    text-align: center;
+    color: var(--tblr-secondary);
+}
+
+.reentry-modal .modal-dialog {
+    max-width: 640px;
+}
+
+.reentry-modal .modal-body {
+    max-height: calc(100vh - 190px);
+    overflow-y: auto;
+}
+
+.reentry-source-card {
+    border: 1px solid var(--tblr-border-color);
+    border-radius: 0.9rem;
+    padding: 1rem;
+    background: var(--tblr-bg-surface-secondary);
+}

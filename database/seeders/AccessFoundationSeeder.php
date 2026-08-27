@@ -12,9 +12,13 @@ class AccessFoundationSeeder extends Seeder
     {
         $permissions = [
             ['code' => 'dashboard.view', 'module' => 'dashboard', 'action' => 'view', 'name' => 'View dashboard'],
+            ['code' => 'dashboard.customize', 'module' => 'dashboard', 'action' => 'customize', 'name' => 'Customize Own Dashboard'],
+            ['code' => 'dashboard.reset', 'module' => 'dashboard', 'action' => 'reset', 'name' => 'Reset Own Dashboard'],
             ['code' => 'students.view', 'module' => 'students', 'action' => 'view', 'name' => 'View students'],
             ['code' => 'students.manage', 'module' => 'students', 'action' => 'manage', 'name' => 'Manage students'],
+            ['code' => 'settings.view', 'module' => 'settings', 'action' => 'view', 'name' => 'View Settings menu'],
             ['code' => 'settings.manage', 'module' => 'settings', 'action' => 'manage', 'name' => 'Manage settings'],
+            ['code' => 'reports.view', 'module' => 'reports', 'action' => 'view', 'name' => 'View reports'],
             ['code' => 'reports.export', 'module' => 'reports', 'action' => 'export', 'name' => 'Export reports'],
             ['code' => 'administrator.view', 'module' => 'administrator', 'action' => 'view', 'name' => 'View Administrator menu'],
             ['code' => 'communication.view', 'module' => 'communication', 'action' => 'view', 'name' => 'View Communication menu'],
@@ -23,6 +27,57 @@ class AccessFoundationSeeder extends Seeder
             ['code' => 'database-backups.download', 'module' => 'database-backups', 'action' => 'download', 'name' => 'Download database backups'],
             ['code' => 'database-backups.delete', 'module' => 'database-backups', 'action' => 'delete', 'name' => 'Delete database backups'],
         ];
+
+        // Keep the permission catalog in sync with the modules exposed by the
+        // application. updateOrCreate below makes this safe to run on existing
+        // installations without changing current assignments.
+        $moduleActions = [
+            'users' => ['view' => 'View users', 'manage' => 'Manage users', 'export' => 'Export users', 'delete' => 'Delete users'],
+            'departments' => ['view' => 'View departments', 'manage' => 'Manage departments', 'export' => 'Export departments', 'delete' => 'Delete departments'],
+            'positions' => ['view' => 'View positions', 'manage' => 'Manage positions', 'export' => 'Export positions', 'delete' => 'Delete positions'],
+            'roles' => ['view' => 'View roles', 'manage' => 'Manage roles', 'export' => 'Export roles', 'delete' => 'Delete roles'],
+            'dashboard-templates' => ['view' => 'View dashboard templates', 'manage' => 'Manage dashboard templates', 'delete' => 'Delete dashboard templates'],
+            'branding' => ['view' => 'View branding settings', 'manage' => 'Manage branding settings'],
+            'chat' => ['view' => 'View chat', 'manage' => 'Manage chat', 'download' => 'Download chat media'],
+            'notifications' => ['view' => 'View notifications', 'manage' => 'Manage notifications', 'send' => 'Send notifications', 'delete' => 'Delete notifications'],
+            'academic-years' => ['view' => 'View academic years', 'manage' => 'Manage academic years', 'export' => 'Export academic years', 'delete' => 'Delete academic years'],
+            'grades' => ['view' => 'View grades', 'manage' => 'Manage grades', 'export' => 'Export grades', 'delete' => 'Delete grades'],
+            'classes' => ['view' => 'View classes', 'manage' => 'Manage classes', 'export' => 'Export classes', 'delete' => 'Delete classes'],
+            'sessions' => ['view' => 'View sessions', 'manage' => 'Manage sessions', 'export' => 'Export sessions', 'delete' => 'Delete sessions'],
+            'education-levels' => ['view' => 'View education levels', 'manage' => 'Manage education levels', 'delete' => 'Delete education levels'],
+            'programs' => ['view' => 'View programs', 'manage' => 'Manage programs', 'delete' => 'Delete programs'],
+            'groups' => ['view' => 'View school groups', 'manage' => 'Manage school groups', 'delete' => 'Delete school groups'],
+            'terms' => ['view' => 'View terms', 'manage' => 'Manage terms', 'delete' => 'Delete terms'],
+            'school-info' => ['view' => 'View school information', 'manage' => 'Manage school information', 'export' => 'Export school information'],
+            'locations' => ['view' => 'View locations', 'manage' => 'Manage locations', 'export' => 'Export locations', 'delete' => 'Delete locations'],
+            'occupations' => ['view' => 'View occupations', 'manage' => 'Manage occupations', 'export' => 'Export occupations', 'delete' => 'Delete occupations'],
+            'nationalities' => ['view' => 'View nationalities', 'manage' => 'Manage nationalities', 'delete' => 'Delete nationalities'],
+            'academic-tracks' => ['view' => 'View academic tracks', 'manage' => 'Manage academic tracks', 'export' => 'Export academic tracks', 'delete' => 'Delete academic tracks'],
+            'withdrawal-reasons' => ['view' => 'View withdrawal reasons', 'manage' => 'Manage withdrawal reasons', 'export' => 'Export withdrawal reasons', 'delete' => 'Delete withdrawal reasons'],
+            'student-document-types' => ['view' => 'View student document types', 'manage' => 'Manage student document types', 'delete' => 'Delete student document types'],
+            'students.search' => ['view' => 'Search students', 'export' => 'Export student search results'],
+            'students.enrollment' => ['view' => 'View student enrollment', 'manage' => 'Manage student enrollment', 'delete' => 'Delete enrollments'],
+            'summer-school' => ['view' => 'View summer school', 'manage' => 'Manage summer school'],
+            'families' => ['view' => 'View families', 'manage' => 'Manage families', 'delete' => 'Delete families'],
+            'students.promotion' => ['view' => 'View student promotion and transfer', 'manage' => 'Manage student promotion and transfer'],
+            'students.graduation' => ['view' => 'View student graduation', 'manage' => 'Manage student graduation'],
+            'student-reentry' => ['view' => 'View student re-entry', 'manage' => 'Manage student re-entry'],
+            'student-documents' => ['view' => 'View student documents', 'manage' => 'Manage student documents', 'download' => 'Download student documents', 'delete' => 'Delete student documents'],
+            'student-data-transfer' => ['view' => 'View student data transfer', 'import' => 'Import student data', 'export' => 'Export student data'],
+            'student-withdrawals' => ['view' => 'View student withdrawals', 'manage' => 'Manage student withdrawals', 'approve' => 'Approve student withdrawals', 'delete' => 'Delete student withdrawals'],
+            'campuses' => ['view' => 'View campuses', 'manage' => 'Manage campuses'],
+        ];
+
+        foreach ($moduleActions as $module => $actions) {
+            foreach ($actions as $action => $name) {
+                $permissions[] = [
+                    'code' => "{$module}.{$action}",
+                    'module' => $module,
+                    'action' => $action,
+                    'name' => $name,
+                ];
+            }
+        }
 
         foreach ($permissions as $permission) {
             Permission::updateOrCreate(['code' => $permission['code']], $permission);

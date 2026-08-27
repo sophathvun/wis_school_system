@@ -1,0 +1,102 @@
+@font-face {
+    font-family: "Khmer OS Siemreap";
+    src: url("/fonts/khmer/KhmerOSsiemreap.ttf") format("truetype");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Khmer OS Muol Light";
+    src: url("/fonts/khmer/KhmerOSmuollight.ttf") format("truetype");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+@page {
+    size: A4;
+    margin: 14mm;
+}
+
+body {
+    color: #263648;
+    font-family: Arial, "Khmer OS Siemreap", "Noto Sans Khmer", sans-serif;
+    font-size: 12px;
+    margin: 0;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+
+.report-header {
+    margin-bottom: 18px;
+}
+
+.logo-row {
+    min-height: 54px;
+}
+
+.school-logo {
+    height: 58px;
+    object-fit: contain;
+}
+
+.title-row {
+    text-align: center;
+}
+
+.khmer-title {
+    color: #4f6380;
+    font-family: "Khmer OS Muol Light", "Khmer OS Siemreap", serif;
+    font-size: 26px;
+    font-weight: 400;
+    line-height: 1.25;
+    margin: 8px 0 0;
+}
+
+.english-title {
+    color: #111827;
+    font-family: Arial, sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    margin: 2px 0 24px;
+}
+
+.report-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th,
+td {
+    border: 1px solid #999;
+    padding: 7px 8px;
+    text-align: center;
+    vertical-align: middle;
+}
+
+th {
+    background: #e6f1fb;
+    color: #111827;
+    font-weight: 700;
+}
+
+.table-logo {
+    width: 44px;
+    height: 44px;
+    object-fit: contain;
+}
+
+.khmer-cell {
+    font-family: "Khmer OS Siemreap", Arial, sans-serif;
+}
+
+.text-left {
+    text-align: left;
+}
+
+.generated-date {
+    color: #4f6380;
+    font-size: 11px;
+    margin-top: 12px;
+}

@@ -6,6 +6,8 @@ use App\Models\Commune;
 use App\Models\Country;
 use App\Models\District;
 use App\Models\Province;
+use App\Models\BrandingSetting;
+use App\Models\SchoolInfo;
 use App\Models\Village;
 use Illuminate\Http\Request;
 use App\Support\SettingsQuery;
@@ -94,6 +96,7 @@ class LocationController
         if ($request->filled('search')) {
             $this->applySearch($query, $request->level, $en, $kh, $request->search);
         }
+        $this->applyHierarchyFilters($query, $request->level, $request);
         if ($parent && $request->parent_id) $query->where($parent, $request->parent_id);
         $sortBy = $request->get('sortBy', 'name');
         $sortDir = $request->get('sortDir', 'asc') === 'desc' ? 'desc' : 'asc';
@@ -147,6 +150,335 @@ class LocationController
             }
         }
         return response()->json($query->paginate(SettingsQuery::perPage($request)));
+    }
+
+    public function print(Request $request)
+    {
+        $level = $request->get('level', 'country');
+        abort_unless(isset($this->levels[$level]), 404);
+
+        $rows = $this->locationReportRows($request, $level);
+
+        return view('locations-pdf', [
+            'level' => $level,
+            'levelLabel' => $this->levelLabel($level),
+            'rows' => $rows,
+            'tableRows' => $rows->values()->map(fn ($row, $index) => $this->locationReportCells($row, $level, $index + 1)),
+            'headers' => $this->locationReportHeaders($level),
+            'logoData' => $this->locationReportLogoDataUri(),
+            'printMode' => true,
+        ]);
+    }
+
+    public function exportExcel(Request $request)
+    {
+        $level = $request->get('level', 'country');
+        abort_unless(isset($this->levels[$level]), 404);
+
+        $filename = 'location-list-' . $level . '-' . now()->format('Ymd-His') . '.xlsx';
+        $path = $this->locationExcelPath($this->locationReportRows($request, $level), $level);
+
+        return response()
+            ->download($path, $filename, [
+                'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            ])
+            ->deleteFileAfterSend(true);
+    }
+
+    private function locationReportRows(Request $request, string $level)
+    {
+        [$model, $en, $kh] = $this->levels[$level];
+        $query = $model::query();
+
+        if ($request->filled('search')) {
+            $this->applySearch($query, $level, $en, $kh, $request->search);
+        }
+
+        $this->applyHierarchyFilters($query, $level, $request);
+
+        $query->with(match ($level) {
+            'province' => 'country',
+            'district' => 'province.country',
+            'commune' => 'district.province.country',
+            'village' => 'commune.district.province.country',
+            default => [],
+        });
+
+        return $query->orderBy($en)->get();
+    }
+
+    private function levelLabel(string $level): string
+    {
+        return match ($level) {
+            'province' => 'Province / City',
+            'district' => 'District / Khan',
+            'commune' => 'Commune',
+            'village' => 'Village',
+            default => 'Country',
+        };
+    }
+
+    private function locationReportLogoPath(): ?string
+    {
+        $school = SchoolInfo::latest('id')->first();
+        $branding = BrandingSetting::current();
+        $logoPath = $branding?->report_logo_1_path
+            ? storage_path('app/public/' . ltrim($branding->report_logo_1_path, '/'))
+            : ($school?->logo_path
+                ? storage_path('app/public/' . ltrim($school->logo_path, '/'))
+                : storage_path('app/public/school_logo/wis_logo.png'));
+
+        if (!is_file($logoPath)) {
+            $logoPath = storage_path('app/public/school_logo/wis_logo.png');
+        }
+
+        return is_file($logoPath) ? $logoPath : null;
+    }
+
+    private function locationReportLogoDataUri(): ?string
+    {
+        $logoPath = $this->locationReportLogoPath();
+
+        if (!$logoPath) {
+            return null;
+        }
+
+        return 'data:' . (mime_content_type($logoPath) ?: 'image/png') . ';base64,' . base64_encode(file_get_contents($logoPath));
+    }
+
+    private function locationExcelPath($rows, string $level): string
+    {
+        $path = tempnam(sys_get_temp_dir(), 'location-list-');
+        $xlsxPath = $path . '.xlsx';
+        rename($path, $xlsxPath);
+
+        $entries = [
+            '[Content_Types].xml' => $this->xlsxContentTypes(),
+            '_rels/.rels' => $this->xlsxRootRels(),
+            'xl/workbook.xml' => $this->xlsxWorkbook(),
+            'xl/_rels/workbook.xml.rels' => $this->xlsxWorkbookRels(),
+            'xl/styles.xml' => $this->xlsxStyles(),
+            'xl/worksheets/sheet1.xml' => $this->locationWorksheetXml($rows, $level),
+        ];
+
+        $this->writeZipArchive($xlsxPath, $entries);
+
+        return $xlsxPath;
+    }
+
+    private function locationWorksheetXml($rows, string $level): string
+    {
+        $headers = $this->locationReportHeaders($level);
+        $lastColumn = chr(64 + count($headers));
+        $lastRow = $rows->count() + 6;
+        $sheetRows = [
+            $this->xlsxRow(1, [['A', 'តារាងទីតាំង', 1]], 30),
+            $this->xlsxRow(2, [['A', $this->levelLabel($level) . ' List', 2]], 24),
+            $this->xlsxRow(3, [['A', 'Generated: ' . now()->format('d-M-Y h:i A'), 6]], 20),
+            $this->xlsxRow(4, [], 8),
+            $this->xlsxRow(5, collect($headers)->map(fn ($header, $index) => [chr(65 + $index), $header, 3])->all(), 24),
+        ];
+
+        foreach ($rows as $index => $row) {
+            $cells = $this->locationReportCells($row, $level, $index + 1);
+            $sheetRows[] = $this->xlsxRow(
+                $index + 6,
+                collect($cells)->map(fn ($cell, $cellIndex) => [chr(65 + $cellIndex), $cell, $cellIndex === 2 ? 4 : 5])->all(),
+                22,
+            );
+        }
+
+        return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            . '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+            . '<dimension ref="A1:' . $lastColumn . $lastRow . '"/>'
+            . '<sheetViews><sheetView workbookViewId="0"><pane ySplit="5" topLeftCell="A6" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'
+            . '<sheetFormatPr defaultRowHeight="18"/>'
+            . '<cols><col min="1" max="1" width="8" customWidth="1"/><col min="2" max="' . count($headers) . '" width="22" customWidth="1"/></cols>'
+            . '<sheetData>' . implode('', $sheetRows) . '</sheetData>'
+            . '<mergeCells count="4"><mergeCell ref="A1:' . $lastColumn . '1"/><mergeCell ref="A2:' . $lastColumn . '2"/><mergeCell ref="A3:' . $lastColumn . '3"/><mergeCell ref="A4:' . $lastColumn . '4"/></mergeCells>'
+            . '</worksheet>';
+    }
+
+    private function locationReportHeaders(string $level): array
+    {
+        $base = ['No.', $this->levelLabel($level) . ' (English)', $this->levelLabel($level) . ' (Khmer)'];
+
+        return match ($level) {
+            'country' => [...$base, 'Nationality (English)', 'Nationality (Khmer)', 'Status'],
+            'province' => [...$base, 'Country', 'Status'],
+            'district' => [...$base, 'Province / City', 'Country', 'Status'],
+            'commune' => [...$base, 'District / Khan', 'Province / City', 'Country', 'Status'],
+            'village' => [...$base, 'Commune', 'District / Khan', 'Province / City', 'Country', 'Status'],
+            default => $base,
+        };
+    }
+
+    private function locationReportCells($row, string $level, int $number): array
+    {
+        $nameEn = $row->{$level . '_name_en'} ?? '';
+        $nameKh = $row->{$level . '_name_kh'} ?? '';
+        $base = [$number, $nameEn ?: '-', $nameKh ?: '-'];
+        $status = $row->status ? 'Active' : 'Inactive';
+
+        return match ($level) {
+            'country' => [...$base, $row->nationality_name_en ?: '-', $row->nationality_name_kh ?: '-', $status],
+            'province' => [...$base, $this->locationName($row->country, 'country'), $status],
+            'district' => [...$base, $this->locationName($row->province, 'province'), $this->locationName($row->province?->country, 'country'), $status],
+            'commune' => [...$base, $this->locationName($row->district, 'district'), $this->locationName($row->district?->province, 'province'), $this->locationName($row->district?->province?->country, 'country'), $status],
+            'village' => [...$base, $this->locationName($row->commune, 'commune'), $this->locationName($row->commune?->district, 'district'), $this->locationName($row->commune?->district?->province, 'province'), $this->locationName($row->commune?->district?->province?->country, 'country'), $status],
+            default => [...$base, $status],
+        };
+    }
+
+    private function locationName($row, string $level): string
+    {
+        if (!$row) {
+            return '-';
+        }
+
+        return trim(($row->{$level . '_name_kh'} ?: '') . ' ' . ($row->{$level . '_name_en'} ?: '')) ?: '-';
+    }
+
+    private function xlsxRow(int $row, array $cells, ?int $height = null): string
+    {
+        $heightAttribute = $height ? ' ht="' . $height . '" customHeight="1"' : '';
+
+        return '<row r="' . $row . '"' . $heightAttribute . '>' . collect($cells)->map(function ($cell) use ($row) {
+            [$column, $value, $style] = $cell;
+
+            return '<c r="' . $column . $row . '" s="' . $style . '" t="inlineStr"><is><t>' . $this->xlsxEscape((string) $value) . '</t></is></c>';
+        })->implode('') . '</row>';
+    }
+
+    private function xlsxEscape(?string $value): string
+    {
+        return htmlspecialchars($value ?? '', ENT_XML1 | ENT_COMPAT, 'UTF-8');
+    }
+
+    private function xlsxContentTypes(): string
+    {
+        return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            . '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+            . '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+            . '<Default Extension="xml" ContentType="application/xml"/>'
+            . '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+            . '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+            . '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
+            . '</Types>';
+    }
+
+    private function xlsxRootRels(): string
+    {
+        return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>';
+    }
+
+    private function xlsxWorkbook(): string
+    {
+        return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Location List" sheetId="1" r:id="rId1"/></sheets></workbook>';
+    }
+
+    private function xlsxWorkbookRels(): string
+    {
+        return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>';
+    }
+
+    private function xlsxStyles(): string
+    {
+        return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            . '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+            . '<fonts count="4"><font><sz val="11"/><name val="Arial"/></font><font><sz val="20"/><name val="Khmer OS Muol Light"/><color rgb="FF4F6380"/></font><font><b/><sz val="12"/><name val="Arial"/></font><font><sz val="11"/><name val="Khmer OS Siemreap"/></font></fonts>'
+            . '<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE6F1FB"/><bgColor indexed="64"/></patternFill></fill></fills>'
+            . '<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FF999999"/></left><right style="thin"><color rgb="FF999999"/></right><top style="thin"><color rgb="FF999999"/></top><bottom style="thin"><color rgb="FF999999"/></bottom><diagonal/></border></borders>'
+            . '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
+            . '<cellXfs count="7"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="2" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="3" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf></cellXfs>'
+            . '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
+    }
+
+    private function writeZipArchive(string $path, array $entries): void
+    {
+        $file = fopen($path, 'wb');
+        $centralDirectory = '';
+        $offset = 0;
+        $dosTime = $this->zipDosTime();
+        $dosDate = $this->zipDosDate();
+
+        foreach ($entries as $name => $contents) {
+            $name = str_replace('\\', '/', $name);
+            $contents = (string) $contents;
+            $size = strlen($contents);
+            $crc = crc32($contents);
+            $nameLength = strlen($name);
+            $localHeader = pack('VvvvvvVVVvv', 0x04034b50, 20, 0, 0, $dosTime, $dosDate, $crc, $size, $size, $nameLength, 0);
+
+            fwrite($file, $localHeader . $name . $contents);
+            $centralDirectory .= pack('VvvvvvvVVVvvvvvVV', 0x02014b50, 20, 20, 0, 0, $dosTime, $dosDate, $crc, $size, $size, $nameLength, 0, 0, 0, 0, 0, $offset) . $name;
+            $offset += strlen($localHeader) + $nameLength + $size;
+        }
+
+        $centralDirectorySize = strlen($centralDirectory);
+        fwrite($file, $centralDirectory);
+        fwrite($file, pack('VvvvvVVv', 0x06054b50, 0, 0, count($entries), count($entries), $centralDirectorySize, $offset, 0));
+        fclose($file);
+    }
+
+    private function zipDosTime(): int
+    {
+        $time = now();
+        return ($time->hour << 11) | ($time->minute << 5) | intdiv($time->second, 2);
+    }
+
+    private function zipDosDate(): int
+    {
+        $time = now();
+        return (($time->year - 1980) << 9) | ($time->month << 5) | $time->day;
+    }
+
+    private function applyHierarchyFilters($query, string $level, Request $request): void
+    {
+        if ($level === 'country') {
+            return;
+        }
+
+        if ($level === 'province') {
+            if ($request->filled('country_id')) $query->where('country_id', $request->integer('country_id'));
+            if ($request->filled('province_id')) $query->whereKey($request->integer('province_id'));
+            return;
+        }
+
+        if ($level === 'district') {
+            if ($request->filled('district_id')) $query->whereKey($request->integer('district_id'));
+            if ($request->filled('province_id')) $query->where('province_id', $request->integer('province_id'));
+            if ($request->filled('country_id')) {
+                $query->whereHas('province', fn ($province) => $province->where('country_id', $request->integer('country_id')));
+            }
+            return;
+        }
+
+        if ($level === 'commune') {
+            if ($request->filled('commune_id')) $query->whereKey($request->integer('commune_id'));
+            if ($request->filled('district_id')) $query->where('district_id', $request->integer('district_id'));
+            if ($request->filled('province_id') || $request->filled('country_id')) {
+                $query->whereHas('district.province', function ($province) use ($request) {
+                    if ($request->filled('province_id')) $province->whereKey($request->integer('province_id'));
+                    if ($request->filled('country_id')) $province->where('country_id', $request->integer('country_id'));
+                });
+            }
+            return;
+        }
+
+        if ($level === 'village') {
+            if ($request->filled('village_id')) $query->whereKey($request->integer('village_id'));
+            if ($request->filled('commune_id')) $query->where('commune_id', $request->integer('commune_id'));
+            if ($request->filled('district_id')) {
+                $query->whereHas('commune.district', fn ($district) => $district->whereKey($request->integer('district_id')));
+            }
+            if ($request->filled('province_id') || $request->filled('country_id')) {
+                $query->whereHas('commune.district.province', function ($province) use ($request) {
+                    if ($request->filled('province_id')) $province->whereKey($request->integer('province_id'));
+                    if ($request->filled('country_id')) $province->where('country_id', $request->integer('country_id'));
+                });
+            }
+        }
     }
 
     public function save(Request $request)

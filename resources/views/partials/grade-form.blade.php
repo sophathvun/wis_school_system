@@ -8,7 +8,8 @@
     </div>
     <div class="col-md-6">
         <label class="form-label required">Short Name</label>
-        <input type="text" class="form-control" name="grade_short_name" id="grade_short_name" placeholder="Enter short name" required>
+        <input type="text" class="form-control" name="grade_short_name" id="grade_short_name"
+            placeholder="Enter short name" required>
         <span class="invalid-feedback" data-error-for="grade_short_name"></span>
     </div>
     <div class="col-md-6">

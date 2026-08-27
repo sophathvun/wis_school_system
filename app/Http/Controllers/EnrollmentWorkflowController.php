@@ -29,7 +29,7 @@ class EnrollmentWorkflowController
         $mode = $request->input('mode', session('student_workflow_mode', 'promotion'));
         $historyActionTypes = $mode === 'transfer'
             ? ['transfer', 'class_transfer', 'selected_transfer']
-            : ['promotion', 'class_promotion', 'selected_promotion'];
+            : ['promotion', 'class_promotion', 'selected_promotion', 're_promotion'];
         $academicYears = AcademicYear::where('status', 1)
             ->where('period_type', 'regular')
             ->whereIn('lifecycle_status', ['started', 'pending'])
@@ -45,7 +45,11 @@ class EnrollmentWorkflowController
                 ->orderByDesc('id')
                 ->first(['id', 'academic_year', 'lifecycle_status']);
         $nextAcademicYear = $currentAcademicYear
-            ? $academicYears->where('period_type', 'regular')->where('id', '>', $currentAcademicYear->id)->sortBy('id')->first()
+            ? $academicYears
+                ->where('period_type', 'regular')
+                ->filter(fn ($year) => $this->academicYearSortValue($year->academic_year) > $this->academicYearSortValue($currentAcademicYear->academic_year))
+                ->sortBy(fn ($year) => $this->academicYearSortValue($year->academic_year))
+                ->first()
             : null;
 
         return response()->json([
@@ -106,6 +110,14 @@ class EnrollmentWorkflowController
         ]);
     }
 
+    private function academicYearSortValue(string $academicYear): int
+    {
+        preg_match_all('/\d{4}/', $academicYear, $matches);
+        $years = array_map('intval', $matches[0] ?? []);
+
+        return $years ? max($years) : 0;
+    }
+
     public function enrollmentOptions(Request $request)
     {
         $data = $request->validate([
@@ -127,7 +139,17 @@ class EnrollmentWorkflowController
                 'session:id,session_short_name',
             ])
             ->where('status', 1)
-            ->where('enrollment_status', 'active')
+            ->where(function ($query) use ($data) {
+                $query->where('enrollment_status', 'active')
+                    ->orWhereExists(function ($cancelled) use ($data) {
+                        $cancelled->selectRaw('1')
+                            ->from('tb_student_enrollment_workflow')
+                            ->whereColumn('tb_student_enrollment_workflow.source_enrollment_id', 'tb_student_enrollment.id')
+                            ->where('tb_student_enrollment_workflow.to_academic_year_id', $data['target_academic_year_id'] ?? 0)
+                            ->where('tb_student_enrollment_workflow.status', 'cancelled')
+                            ->whereIn('tb_student_enrollment_workflow.action_type', ['promotion', 'class_promotion', 'selected_promotion', 're_promotion']);
+                    });
+            })
             ->when(!empty($data['academic_year_id']), fn ($query) => $query->where('academic_year_id', $data['academic_year_id']))
             ->when(!empty($data['campus_id']), fn ($query) => $query->where('campus_id', $data['campus_id']))
             ->when(!empty($data['grade_id']), fn ($query) => $query->where('grade_id', $data['grade_id']))
@@ -136,6 +158,7 @@ class EnrollmentWorkflowController
                 'student_id',
                 StudentEnrollment::select('student_id')
                     ->where('academic_year_id', $data['target_academic_year_id'])
+                    ->whereNotIn('enrollment_status', ['withdrawn', 'cancelled'])
             ))
             ->when(filled($data['search'] ?? null), function ($query) use ($data) {
                 $search = $data['search'];
@@ -174,7 +197,7 @@ class EnrollmentWorkflowController
             ->when($request->filled('academic_year_id'), fn ($q) => $q->where('to_academic_year_id', $request->integer('academic_year_id')))
             ->when($request->filled('campus_id'), fn ($q) => $q->where('to_campus_id', $request->integer('campus_id')))
             ->when($gradeId && $classId, fn ($q) => $q->where('to_grade_id', (int) $gradeId)->where('to_class_id', (int) $classId))
-            ->when($mode === 'promotion', fn ($q) => $q->whereIn('action_type', ['promotion', 'class_promotion', 'selected_promotion']))
+            ->when($mode === 'promotion', fn ($q) => $q->whereIn('action_type', ['promotion', 'class_promotion', 'selected_promotion', 're_promotion']))
             ->when($mode === 'transfer', fn ($q) => $q->whereIn('action_type', ['transfer', 'class_transfer', 'selected_transfer']));
 
         match ($sortBy) {
@@ -197,6 +220,30 @@ class EnrollmentWorkflowController
         $source = StudentEnrollment::findOrFail($data['enrollment_id']);
         $target = $this->service->promote($source, $data);
         return response()->json(['status' => 'success', 'message' => 'Student promoted successfully.', 'data' => $target]);
+    }
+
+    public function cancelPromotion(Request $request, EnrollmentWorkflowAction $workflow)
+    {
+        $data = $request->validate([
+            'effective_on' => ['required', 'date'],
+            'reason' => ['required', 'string', 'max:255'],
+            'notes' => ['nullable', 'string', 'max:5000'],
+        ]);
+        $this->service->cancelPromotion($workflow, $data);
+
+        return response()->json(['status' => 'success', 'message' => 'Promotion cancelled and kept in the student history.']);
+    }
+
+    public function repromote(Request $request, EnrollmentWorkflowAction $workflow)
+    {
+        $data = $request->validate([
+            'effective_on' => ['required', 'date'],
+            'reason' => ['nullable', 'string', 'max:255'],
+            'notes' => ['nullable', 'string', 'max:5000'],
+        ]);
+        $target = $this->service->repromote($workflow, $data);
+
+        return response()->json(['status' => 'success', 'message' => 'Student promoted again successfully.', 'data' => $target]);
     }
 
     public function transfer(Request $request)
@@ -223,6 +270,22 @@ class EnrollmentWorkflowController
             'reason' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string', 'max:5000'],
         ]);
+
+        $sourceStudentIds = StudentEnrollment::where('campus_id', $data['from_campus_id'])
+            ->where('academic_year_id', $data['from_academic_year_id'])
+            ->where('grade_id', $data['from_grade_id'])
+            ->where('class_id', $data['from_class_id'])
+            ->pluck('student_id');
+
+        if ($sourceStudentIds->isNotEmpty() && StudentEnrollment::whereIn('student_id', $sourceStudentIds)
+            ->where('academic_year_id', $data['to_academic_year_id'])
+            ->exists()) {
+            return response()->json([
+                'status' => 'warning',
+                'message' => 'Students in this class have already been promoted to the selected academic year.',
+            ], 422);
+        }
+
         $count = $this->service->promoteClass($data);
         return response()->json(['status' => 'success', 'message' => "{$count} students promoted successfully.", 'count' => $count]);
     }

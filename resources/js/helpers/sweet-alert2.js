@@ -51,11 +51,13 @@ const toastOptions = () => ({
     ...getThemeOptions(),
 });
 
-export const showAlert = ({ type = "success", title, message = "" } = {}) => {
+export const showAlert = ({ type = "success", title, message = "", background, color } = {}) => {
     const config = getAlertConfig(type);
 
     return Swal.fire({
         ...toastOptions(),
+        ...(background ? { background } : {}),
+        ...(color ? { color } : {}),
         icon: config.icon,
         title: title || config.title,
         text: message,

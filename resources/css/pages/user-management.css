@@ -1,0 +1,732 @@
+/* Extracted from resources/views/user-management.blade.php. Keep page-specific styles in this file. */
+
+.table-sort-button {
+    padding: 0;
+    border: 0;
+    color: inherit;
+    font: inherit;
+    font-weight: 600;
+    background: transparent;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.table-sort-button:hover {
+    color: var(--tblr-primary);
+}
+
+#userModal .modal-content {
+    max-height: calc(100vh - 2rem);
+}
+
+#userModal .modal-dialog {
+    height: calc(100vh - 2rem);
+    max-height: calc(100vh - 2rem);
+}
+
+#userModal .modal-content {
+    height: 100%;
+}
+
+#userModal form {
+    min-height: 0;
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+}
+
+#userModal .modal-body {
+    min-height: 0;
+    height: 0;
+    flex: 1 1 auto;
+    max-height: none;
+    overflow-y: scroll !important;
+    overflow-x: hidden;
+}
+
+#userModal .modal-footer {
+    flex: 0 0 auto;
+}
+
+#userModal {
+    overflow-y: auto !important;
+}
+
+#userModal .modal-dialog {
+    height: auto;
+    max-height: none;
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+}
+
+#userModal .modal-content {
+    height: auto;
+    max-height: none;
+}
+
+#userModal form {
+    display: block;
+}
+
+#userModal .modal-body {
+    height: auto;
+    max-height: none;
+    overflow: visible !important;
+}
+
+[data-bs-theme="dark"] #userModal .form-control,
+[data-bs-theme="dark"] #userModal .form-select,
+[data-bs-theme="dark"] #userModal input[type="file"] {
+    background: #1e293b !important;
+    color: #f8fafc !important;
+    border-color: #475569 !important;
+}
+
+[data-bs-theme="dark"] #userModal .form-control::placeholder {
+    color: #94a3b8 !important;
+}
+
+[data-bs-theme="dark"] #userModal select option {
+    background: #1e293b;
+    color: #f8fafc;
+}
+
+[data-bs-theme="dark"] #userModal .form-label,
+[data-bs-theme="dark"] #userModal .form-check-label,
+[data-bs-theme="dark"] #userModal summary {
+    color: #f8fafc;
+}
+
+[data-bs-theme="dark"] #userModal .text-secondary,
+[data-bs-theme="dark"] #userModal small {
+    color: #94a3b8 !important;
+}
+
+[data-bs-theme="dark"] #userModal .border,
+[data-bs-theme="dark"] #userModal details {
+    border-color: #475569 !important;
+}
+
+[data-bs-theme="dark"] #userModal .logo-dropzone {
+    background: #1e293b !important;
+    border-color: #475569 !important;
+    color: #f8fafc;
+}
+
+#userModal .user-searchable-combobox {
+    position: relative;
+}
+
+#userModal .user-searchable-combobox .location-combobox-selected {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+#userModal .user-searchable-combobox .location-combobox-toggle {
+    width: 100%;
+    height: 52px;
+    padding: 1.25rem 2.75rem 0.35rem 1rem;
+    border: 1.5px solid #dfe3ea;
+    border-radius: 14px;
+    background: var(--tblr-bg-forms, #fff);
+    color: var(--tblr-body-color);
+    text-align: left;
+    font: inherit;
+    position: relative;
+}
+
+#userModal .user-searchable-combobox .location-combobox-toggle:focus {
+    outline: 0;
+    border-color: #6b5bd6;
+    box-shadow: 0 0 0 3px rgba(107, 91, 214, 0.14);
+}
+
+#userModal .user-searchable-combobox .location-combobox-toggle > i {
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--tblr-secondary);
+}
+
+#userModal .user-searchable-combobox .location-combobox-menu {
+    position: absolute;
+    z-index: 20;
+    left: 0;
+    right: 0;
+    top: calc(100% + 0.35rem);
+    padding: 0.65rem;
+    background: var(--tblr-bg-surface, #fff);
+    border: 1px solid var(--tblr-border-color);
+    border-radius: 14px;
+    box-shadow: 0 12px 28px rgba(31, 41, 55, 0.16);
+}
+
+#userModal .user-searchable-combobox .location-combobox-menu .form-control {
+    height: 44px;
+    border-radius: 10px;
+    padding: 0.55rem 0.75rem;
+}
+
+#userModal .user-searchable-combobox .location-combobox-results {
+    max-height: 220px;
+    overflow-y: auto;
+    margin-top: 0.5rem;
+}
+
+#userModal .user-searchable-combobox .location-combobox-option {
+    display: block;
+    width: 100%;
+    border: 0;
+    background: transparent;
+    text-align: left;
+    padding: 0.65rem 0.75rem;
+    border-radius: 9px;
+    color: var(--tblr-body-color);
+}
+
+#userModal .user-searchable-combobox .location-combobox-option:hover,
+#userModal .user-searchable-combobox .location-combobox-option.is-selected {
+    background: rgba(var(--tblr-primary-rgb), 0.12);
+    color: var(--tblr-body-color);
+}
+
+#userModal
+    .user-searchable-combobox
+    .location-combobox-option.is-selected::after {
+    content: "✓";
+    float: right;
+    color: var(--tblr-primary);
+    font-weight: 700;
+}
+
+#userModal .user-searchable-combobox .location-combobox-option {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.35rem;
+}
+
+#userModal
+    .user-searchable-combobox
+    .location-combobox-option
+    .form-check-input {
+    flex: 0 0 auto;
+    margin-top: 0;
+    pointer-events: none;
+}
+
+#userModal
+    .user-searchable-combobox
+    .location-combobox-option.is-selected::after {
+    margin-left: auto;
+}
+
+#userModal .user-searchable-combobox.is-multiple .location-combobox-option {
+    display: flex !important;
+    justify-content: flex-start !important;
+    align-items: center !important;
+    flex-direction: row !important;
+    text-align: left !important;
+}
+
+#userModal
+    .user-searchable-combobox.is-multiple
+    .location-combobox-option::after {
+    content: none !important;
+}
+
+#userModal
+    .user-searchable-combobox.is-multiple
+    .location-combobox-option
+    span {
+    margin: 0 !important;
+    text-align: left;
+}
+
+#userModal .user-searchable-combobox.is-multiple .user-multi-option-content {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 0.5rem !important;
+    width: auto !important;
+    max-width: 100%;
+    margin: 0 !important;
+}
+
+#userModal .user-searchable-combobox.is-multiple .user-multi-option-label {
+    display: inline-block !important;
+    flex: 0 1 auto !important;
+    width: auto !important;
+    margin: 0 !important;
+    text-align: left !important;
+    white-space: normal;
+}
+
+#userModal
+    .user-searchable-combobox.is-multiple
+    .location-combobox-option
+    .form-check-input {
+    margin: 0 !important;
+}
+
+#userModal .premium-form-field:has(> .phone-input-group) > .form-label {
+    top: 0.42rem !important;
+    left: 1rem !important;
+    padding: 0 0.45rem !important;
+    background: var(--tblr-bg-surface, #fff) !important;
+    color: #5b4bd1 !important;
+    font-size: 0.72rem !important;
+    font-weight: 700 !important;
+    z-index: 5;
+}
+
+#userModal
+    .premium-form-field:has(> .phone-input-group)
+    > .phone-input-group
+    .form-control {
+    height: 52px !important;
+    min-height: 52px !important;
+    padding-top: 1.45rem !important;
+    padding-right: 1rem !important;
+    padding-bottom: 0.3rem !important;
+    padding-left: 6rem !important;
+    border-radius: 14px !important;
+}
+
+#userModal
+    .premium-form-field:has(> .phone-input-group)
+    > .phone-input-group
+    .iti {
+    width: 100%;
+    position: relative;
+}
+
+#userModal
+    .premium-form-field:has(> .phone-input-group)
+    > .phone-input-group
+    .iti__country-container {
+    width: 4.65rem;
+    box-sizing: border-box;
+    padding: 1.5px 0 1.5px 0.7rem;
+    overflow: visible;
+}
+
+#userModal
+    .premium-form-field:has(> .phone-input-group)
+    > .phone-input-group
+    .iti__selected-country-primary {
+    padding: 0 !important;
+}
+
+#userModal
+    .premium-form-field:has(> .phone-input-group)
+    > .phone-input-group
+    .iti__selected-country-flag {
+    margin-right: 0.25rem;
+}
+
+#userModal
+    .premium-form-field:has(> .phone-input-group)
+    > .phone-input-group
+    .iti__arrow {
+    margin-left: 0.25rem;
+}
+
+#userModal
+    .premium-form-field:has(> .phone-input-group)
+    > .phone-input-group
+    .iti__selected-dial-code {
+    margin-left: 0.2rem;
+    white-space: nowrap;
+}
+
+#userModal [class*="col-"]:has(> .phone-input-group) > .form-label {
+    top: 0.42rem !important;
+    left: 1rem !important;
+    padding: 0 0.45rem !important;
+    background: var(--tblr-bg-surface, #fff) !important;
+    color: #5b4bd1 !important;
+    font-size: 0.72rem !important;
+    font-weight: 700 !important;
+    z-index: 5;
+}
+
+#userModal
+    [class*="col-"]:has(> .phone-input-group)
+    > .phone-input-group
+    .form-control {
+    height: 52px !important;
+    min-height: 52px !important;
+    padding-top: 1.45rem !important;
+    padding-right: 1rem !important;
+    padding-bottom: 0.3rem !important;
+    padding-left: 6rem !important;
+    border-radius: 14px !important;
+}
+
+#userModal .user-phone-field {
+    position: relative;
+}
+
+#userModal .user-phone-field > .form-label {
+    position: absolute;
+    z-index: 5;
+    top: 0.42rem !important;
+    left: 1rem !important;
+    margin: 0;
+    padding: 0 0.45rem !important;
+    background: var(--tblr-bg-surface, #fff) !important;
+    color: #5b4bd1 !important;
+    font-size: 0.72rem !important;
+    font-weight: 700 !important;
+    line-height: 1.1;
+    pointer-events: none;
+}
+
+[data-bs-theme="dark"]
+    #userModal
+    .user-searchable-combobox
+    .location-combobox-toggle {
+    background: #1e293b !important;
+    color: #f8fafc !important;
+    border-color: #475569 !important;
+}
+
+[data-bs-theme="dark"]
+    #userModal
+    .user-searchable-combobox
+    .location-combobox-menu {
+    background: #1e293b !important;
+    color: #f8fafc;
+    border-color: #475569;
+}
+
+[data-bs-theme="dark"]
+    #userModal
+    .user-searchable-combobox
+    .location-combobox-menu
+    .form-control {
+    background: #0f172a !important;
+    color: #f8fafc !important;
+    border-color: #64748b !important;
+}
+
+[data-bs-theme="dark"]
+    #userModal
+    .user-searchable-combobox
+    .location-combobox-option {
+    color: #f8fafc;
+}
+
+[data-bs-theme="dark"]
+    #userModal
+    .user-searchable-combobox
+    .location-combobox-option:hover,
+[data-bs-theme="dark"]
+    #userModal
+    .user-searchable-combobox
+    .location-combobox-option.is-selected {
+    background: #334155;
+    color: #f8fafc;
+}
+
+[data-bs-theme="dark"] #userModal .form-control,
+[data-bs-theme="dark"] #userModal .form-select,
+[data-bs-theme="dark"] #userModal input[type="file"] {
+    background: #1e293b !important;
+    color: #f8fafc !important;
+    border-color: #475569 !important;
+}
+
+[data-bs-theme="dark"] #userModal .form-control::placeholder {
+    color: #94a3b8 !important;
+}
+
+[data-bs-theme="dark"] #userModal select option {
+    background: #1e293b !important;
+    color: #f8fafc !important;
+}
+
+[data-bs-theme="dark"] #userModal .form-label,
+[data-bs-theme="dark"] #userModal .form-check-label,
+[data-bs-theme="dark"] #userModal summary {
+    color: #f8fafc !important;
+}
+
+[data-bs-theme="dark"] #userModal .text-secondary,
+[data-bs-theme="dark"] #userModal small {
+    color: #94a3b8 !important;
+}
+
+[data-bs-theme="dark"] #userModal .border,
+[data-bs-theme="dark"] #userModal details {
+    border-color: #475569 !important;
+}
+
+[data-bs-theme="dark"] #userModal .logo-dropzone {
+    background: #1e293b !important;
+    border-color: #64748b !important;
+    color: #f8fafc !important;
+}
+
+[data-bs-theme="dark"] #userModal .user-date-picker .date-picker-direct,
+[data-bs-theme="dark"] #userModal .user-date-picker .date-picker-trigger,
+[data-bs-theme="dark"] #userModal .user-date-picker .date-picker-popup {
+    background: #1e293b !important;
+    color: #f8fafc !important;
+    border-color: #475569 !important;
+}
+
+[data-bs-theme="dark"] #userModal .user-date-picker .date-picker-popup button {
+    color: #f8fafc !important;
+}
+
+.user-date-picker .date-picker-input-row {
+    position: relative;
+}
+
+.user-date-picker .date-picker-direct {
+    padding-right: 3rem !important;
+}
+
+.user-date-picker .date-picker-calendar-button {
+    position: absolute;
+    right: 0.35rem;
+    top: 50%;
+    z-index: 2;
+    width: 2.5rem;
+    min-height: 2.5rem;
+    padding: 0;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    transform: translateY(-50%);
+}
+
+.premium-password-field {
+    position: relative;
+}
+
+.premium-password-field .form-control {
+    height: 52px;
+    min-height: 52px;
+    padding: 1.25rem 3rem 0.35rem 1rem;
+    border: 1.5px solid #dfe3ea;
+    border-radius: 14px;
+    background: var(--tblr-bg-surface, #fff);
+    box-shadow: 0 2px 7px rgba(31, 41, 55, 0.04);
+}
+
+.premium-password-toggle {
+    position: absolute;
+    top: 50%;
+    right: 0.75rem;
+    transform: translateY(-50%);
+    border: 0;
+    background: transparent;
+    color: #8994a5;
+    padding: 0.25rem;
+}
+
+.profile-password-strength {
+    margin-top: 0.65rem;
+}
+
+.profile-password-strength-header {
+    display: flex;
+    justify-content: space-between;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.profile-password-strength-value {
+    color: #dc3545;
+}
+
+.profile-password-strength-value.medium {
+    color: #d97706;
+}
+
+.profile-password-strength-value.strong {
+    color: #198754;
+}
+
+.profile-password-strength-bar {
+    height: 4px;
+    background: #edf0f4;
+    border-radius: 99px;
+    overflow: hidden;
+    margin: 0.35rem 0 0.7rem;
+}
+
+.profile-password-strength-fill {
+    display: block;
+    height: 100%;
+    width: 0;
+    background: #dc3545;
+    transition:
+        width 0.2s ease,
+        background 0.2s ease;
+}
+
+.profile-password-strength-fill.medium {
+    background: #d97706;
+}
+
+.profile-password-strength-fill.strong {
+    background: #198754;
+}
+
+.profile-password-rules {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    color: #8994a5;
+    font-size: 0.8rem;
+}
+
+.profile-password-rule {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.profile-password-rule::before {
+    content: "";
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 50%;
+    background: #dfe5ec;
+}
+
+.profile-password-rule.is-valid {
+    color: #198754;
+}
+
+.profile-password-rule.is-valid::before {
+    background: #198754;
+}
+
+.profile-password-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.profile-password-note {
+    margin: 0;
+    white-space: nowrap;
+}
+
+@media (max-width: 767.98px) {
+    .profile-password-meta {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .profile-password-note {
+        white-space: normal;
+    }
+}
+
+.user-form-layout {
+    display: flex;
+    align-items: flex-start;
+    gap: 1.5rem;
+}
+
+.user-form-main {
+    flex: 0 0 calc(70% - 0.75rem);
+    max-width: calc(70% - 0.75rem);
+}
+
+.user-form-password {
+    flex: 0 0 calc(30% - 0.75rem);
+    max-width: calc(30% - 0.75rem);
+}
+
+.user-form-main .row:last-child {
+    margin-bottom: 0 !important;
+}
+
+[data-bs-theme="dark"] #userModal .user-form-password .text-secondary {
+    color: #94a3b8 !important;
+}
+
+@media (max-width: 991.98px) {
+    .user-form-layout {
+        display: block;
+    }
+
+    .user-form-main,
+    .user-form-password {
+        max-width: none;
+        width: 100%;
+    }
+
+    .user-form-password {
+        margin-top: 1rem;
+    }
+}
+
+[data-bs-theme="dark"] #userModal .premium-password-field .form-control {
+    background: #1e293b !important;
+    color: #f8fafc !important;
+    border-color: #475569 !important;
+}
+
+[data-bs-theme="dark"] #userModal .modal-footer {
+    border-color: #334155 !important;
+}
+
+.staff-photo-crop-stage {
+    background: #f1f3f5;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    text-align: center;
+    touch-action: none;
+}
+
+.staff-photo-crop-stage canvas {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: auto;
+    cursor: move;
+}
+
+#staffPhotoDropzone {
+    position: relative;
+    min-height: 152px;
+    padding: 1rem 150px 1rem 1rem;
+}
+
+#staffPhotoDropzone #staffPhotoPreviewContainer {
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    display: flex;
+    justify-content: center;
+    width: 120px;
+    margin: 0;
+    transform: translateY(-50%);
+}
+
+#staffPhotoDropzone #staffPhotoPreview {
+    width: 120px;
+    height: 120px;
+    min-height: 0;
+    object-fit: cover;
+    border-radius: 0.5rem;
+    border: 1px solid var(--tblr-border-color);
+}
+
+[data-bs-theme="dark"] .staff-photo-crop-stage {
+    background: #0f172a;
+}
