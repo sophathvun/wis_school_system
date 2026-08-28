@@ -23,9 +23,12 @@ class DashboardController
     public function index(Request $request)
     {
         $user = $request->user()->load('roles');
-        $academicYears = AcademicYear::where('period_type', 'regular')
+        $periodType = in_array($request->query('period_type'), ['regular', 'summer'], true)
+            ? $request->query('period_type')
+            : 'regular';
+        $academicYears = AcademicYear::where('period_type', $periodType)
             ->orderByDesc('academic_year')
-            ->get(['id', 'academic_year', 'lifecycle_status']);
+            ->get(['id', 'academic_year', 'period_type', 'lifecycle_status']);
         $activeAcademicYear = $academicYears->firstWhere('lifecycle_status', 'started') ?? $academicYears->first();
         $selectedAcademicYearId = $request->integer('academic_year_id') ?: $activeAcademicYear?->id;
 
@@ -54,6 +57,7 @@ class DashboardController
         $dashboardFilters = [
             'academic_year_id' => $selectedAcademicYearId,
             'campus_id' => $selectedCampusId,
+            'period_type' => $periodType,
         ];
         $permissionCampusId = $this->permissionCampusId($user, $selectedCampusId, $campusIds);
 
@@ -65,6 +69,7 @@ class DashboardController
             'campuses' => $campuses,
             'selectedAcademicYearId' => $selectedAcademicYearId,
             'selectedCampusId' => $selectedCampusId,
+            'selectedPeriodType' => $periodType,
             'canSelectCampus' => $user->isSuperAdmin() || $campuses->count() > 1,
             'dashboardSections' => $dashboardSections,
             'isPersonalizedDashboard' => (bool) $preference,
@@ -221,7 +226,7 @@ class DashboardController
 
     private function metrics(User $user, ?int $academicYearId, ?int $campusId, array $campusIds, array $dashboardFilters): array
     {
-        $activeAcademicYear = AcademicYear::where('period_type', 'regular')
+        $activeAcademicYear = AcademicYear::where('period_type', $dashboardFilters['period_type'] ?? 'regular')
             ->where('lifecycle_status', 'started')
             ->orderByDesc('start_date')
             ->first();

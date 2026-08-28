@@ -30,7 +30,7 @@ class ReportsController
         return view('reports.index', $payload + [
             'type' => $type,
             'reportTypes' => self::TYPES,
-            'academicYears' => AcademicYear::regular()->orderByDesc('academic_year')->get(['id', 'academic_year']),
+            'academicYears' => $this->academicYears($payload['filters']),
             'campuses' => $this->campuses($request, $payload['filters']),
             'grades' => Grade::where('status', 1)->orderByRaw('CAST(grade_order AS UNSIGNED)')->get(['id', 'grade']),
             'gradeClassOptions' => $type === 'student-list' ? $this->gradeClassOptions($request, $payload['filters']) : collect(),
@@ -72,6 +72,7 @@ class ReportsController
     {
         $filters = $request->validate([
             'academic_year_id' => ['nullable', 'integer'],
+            'period_type' => ['nullable', 'in:all,regular,summer'],
             'campus_id' => ['nullable', 'integer'],
             'grade_id' => ['nullable', 'integer'],
             'class_id' => ['nullable', 'integer'],
@@ -86,6 +87,7 @@ class ReportsController
             'score_columns' => ['nullable', 'integer', 'min:1', 'max:12'],
         ]);
         $filters['month'] = $filters['month'] ?? now()->format('Y-m');
+        $filters['period_type'] = $filters['period_type'] ?? 'all';
         $filters['score_columns'] = (int) ($filters['score_columns'] ?? 5);
         $filters['report_date'] = $filters['report_date'] ?? now()->format('Y-m-d');
         if (!empty($filters['grade_class']) && str_contains($filters['grade_class'], ':')) {
@@ -98,6 +100,7 @@ class ReportsController
         }
         $hasDataFilter = collect(['academic_year_id', 'campus_id', 'grade_id', 'class_id'])
             ->contains(fn ($key) => filled($filters[$key] ?? null));
+        $hasDataFilter = $hasDataFilter || ($filters['period_type'] ?? 'all') !== 'all';
         $enrollments = $hasDataFilter ? $this->enrollments($request, $filters)->get() : collect();
 
         return [
@@ -106,6 +109,14 @@ class ReportsController
             'statistics' => $type === 'student-statistics' ? ($hasDataFilter ? $this->statistics($request, $filters) : $this->emptyStatistics()) : null,
             'hasDataFilter' => $hasDataFilter,
         ];
+    }
+
+    private function academicYears(array $filters): Collection
+    {
+        return AcademicYear::query()
+            ->when(($filters['period_type'] ?? 'all') !== 'all', fn ($q) => $q->where('period_type', $filters['period_type']))
+            ->orderByDesc('academic_year')
+            ->get(['id', 'academic_year', 'period_type', 'parent_academic_year_id']);
     }
 
     private function emptyStatistics(): array
@@ -133,7 +144,7 @@ class ReportsController
             ->where('tb_student_enrollment.status', 1)
             ->whereIn('tb_student_enrollment.enrollment_status', ['active', 'completed'])
             ->whereHas('student', fn ($q) => $q->where('tb_student.status', 1))
-            ->whereHas('academicYear', fn ($q) => $q->where('period_type', 'regular'))
+            ->when(($filters['period_type'] ?? 'all') !== 'all', fn ($q) => $q->whereHas('academicYear', fn ($year) => $year->where('period_type', $filters['period_type'])))
             ->when(!$request->user()->isSuperAdmin(), fn ($q) => $q->whereIn('campus_id', $request->user()->accessibleCampuses()->pluck('tb_school_info.id')))
             ->when($filters['academic_year_id'] ?? null, fn ($q, $id) => $q->where('tb_student_enrollment.academic_year_id', $id))
             ->when($filters['campus_id'] ?? null, fn ($q, $id) => $q->where('tb_student_enrollment.campus_id', $id))
@@ -153,7 +164,7 @@ class ReportsController
     private function reportOptionEnrollments(Request $request, array $filters)
     {
         return StudentEnrollment::query()
-            ->whereHas('academicYear', fn ($q) => $q->where('period_type', 'regular'))
+            ->when(($filters['period_type'] ?? 'all') !== 'all', fn ($q) => $q->whereHas('academicYear', fn ($year) => $year->where('period_type', $filters['period_type'])))
             ->when(!$request->user()->isSuperAdmin(), fn ($q) => $q->whereIn('campus_id', $request->user()->accessibleCampuses()->pluck('tb_school_info.id')))
             ->when($filters['academic_year_id'] ?? null, fn ($q, $id) => $q->where('tb_student_enrollment.academic_year_id', $id))
             ->when($filters['campus_id'] ?? null, fn ($q, $id) => $q->where('tb_student_enrollment.campus_id', $id))

@@ -149,6 +149,17 @@
     @vite('resources/css/pages/dashboard.css')
     {{-- Keep the dashboard styles available when the local Vite manifest is stale. --}}
     <link rel="stylesheet" href="{{ asset('build/assets/dashboard-night.css') }}?v=6">
+    <style>
+        /* Fallback for deployments serving a stale Vite dashboard bundle. */
+        .premium-dashboard-card.premium-dashboard-card--student-statistics {
+            --premium-stat-accent: #166534;
+            border-top: 4px solid var(--premium-stat-accent);
+        }
+
+        .premium-dashboard-card.premium-dashboard-card--student-statistics:hover {
+            border-top-color: var(--premium-stat-accent);
+        }
+    </style>
 
     @if (session('success'))
         <div class="alert alert-success">{{ session('success') }}</div>
@@ -162,7 +173,16 @@
     <form class="card premium-dashboard-filter-card mb-3" method="GET" action="{{ route('dashboard') }}">
         <div class="card-body">
             <div class="row g-3 align-items-end">
-                <div class="col-md-4">
+                <div class="col-md-3">
+                    <label class="dashboard-filter-field">
+                        <span>Period</span>
+                        <select class="form-select" name="period_type" onchange="this.form.submit()" data-dashboard-searchable-select>
+                            <option value="regular" @selected($selectedPeriodType === 'regular')>Regular School Year</option>
+                            <option value="summer" @selected($selectedPeriodType === 'summer')>Summer School</option>
+                        </select>
+                    </label>
+                </div>
+                <div class="col-md-3">
                     <label class="dashboard-filter-field">
                         <span>Academic Year</span>
                         <select class="form-select" name="academic_year_id" onchange="this.form.submit()" data-dashboard-searchable-select>
@@ -182,7 +202,7 @@
                     </label>
                 </div>
                 @if ($canSelectCampus)
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <label class="dashboard-filter-field">
                             <span>Campus</span>
                             <select class="form-select" name="campus_id" onchange="this.form.submit()" data-dashboard-searchable-select>
@@ -196,7 +216,7 @@
                         </label>
                     </div>
                 @endif
-                <div class="col-md-auto ms-md-auto">
+                <div class="col-md-3">
                     <button class="btn btn-primary" type="submit">
                         <i class="ti ti-filter"></i> Apply
                     </button>
@@ -261,7 +281,7 @@
                                     $heroProfile = collect($metric['profiles'] ?? [])->first();
                                 @endphp
                                 @if ($heroProfile)
-                                    <a class="dashboard-staff-hero" href="{{ $metric['url'] ?? route('profile') }}">
+                                    <a class="dashboard-staff-hero dashboard-staff-hero--accent" href="{{ $metric['url'] ?? route('profile') }}">
                                         <div class="dashboard-staff-hero-main">
                                             <div class="dashboard-staff-hero-photo">
                                                 @if (!empty($heroProfile['photo']))
@@ -291,7 +311,16 @@
                                     <div class="card-body">
                                         <div class="premium-dashboard-label mb-3">{{ $widget->name }}</div>
                                         <div class="row g-3">
-                                            <div class="col-md-6">
+                                            <div class="col-md-4">
+                                                <label class="dashboard-filter-field">
+                                                    <span>Period</span>
+                                                    <select class="form-select" name="period_type" onchange="this.form.submit()" data-dashboard-searchable-select>
+                                                        <option value="regular" @selected($selectedPeriodType === 'regular')>Regular School Year</option>
+                                                        <option value="summer" @selected($selectedPeriodType === 'summer')>Summer School</option>
+                                                    </select>
+                                                </label>
+                                            </div>
+                                            <div class="col-md-4">
                                                 <label class="dashboard-filter-field">
                                                     <span>Academic Year</span>
                                                     <select class="form-select" name="academic_year_id" onchange="this.form.submit()" data-dashboard-searchable-select>
@@ -302,7 +331,7 @@
                                                 </label>
                                             </div>
                                             @if ($canSelectCampus)
-                                                <div class="col-md-6">
+                                                <div class="col-md-4">
                                                     <label class="dashboard-filter-field">
                                                         <span>Campus</span>
                                                         <select class="form-select" name="campus_id" onchange="this.form.submit()" data-dashboard-searchable-select>
@@ -353,7 +382,7 @@
                                     </div>
                                 </div>
                             @elseif ($widget->type === 'table')
-                                <div class="card premium-dashboard-card h-100">
+                                <div class="card premium-dashboard-card {{ $widget->code === 'student_statistics_by_campus_grade' ? 'premium-dashboard-card--student-statistics' : '' }} h-100">
                                     <div class="card-body">
                                         <div class="d-flex align-items-center justify-content-between mb-3">
                                             <div>
@@ -589,17 +618,23 @@
                                     </div>
                                 </div>
                             @else
-                                <a class="card premium-dashboard-card premium-stat-card h-100" href="{{ $metric['url'] ?? route('dashboard') }}">
+                                @php
+                                    $accentStatCodes = ['total_students', 'new_students', 'withdrawn_students', 'new_enrollments'];
+                                    $accentStatClass = in_array($widget->code, $accentStatCodes, true)
+                                        ? 'premium-stat-card--' . $widget->code
+                                        : '';
+                                @endphp
+                                <a class="card premium-dashboard-card premium-stat-card {{ $accentStatClass }} h-100" href="{{ $metric['url'] ?? route('dashboard') }}">
                                     <div class="card-body">
-                                        <div class="d-flex align-items-center justify-content-between gap-3">
-                                            <div>
-                                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                        <div class="d-flex align-items-center justify-content-between gap-3" @if ($widget->code === 'new_enrollments') style="display: block !important; position: relative;" @endif>
+                                            <div @if ($widget->code === 'new_enrollments') style="width: 100%;" @endif>
+                                                <div class="d-flex align-items-center gap-2 {{ $widget->code === 'new_enrollments' ? 'flex-nowrap justify-content-between w-100' : 'flex-wrap' }}">
                                                     <div class="premium-dashboard-label">{{ $widget->name }}</div>
                                                     @if (!empty($metric['badge']))
                                                         <span class="badge bg-blue-lt">{{ $metric['badge'] }}</span>
                                                     @endif
                                                 </div>
-                                                <div class="premium-dashboard-value">{{ $metric['value'] ?? '-' }}</div>
+                                                <div class="premium-dashboard-value" @if (in_array($widget->code, ['total_students', 'new_students', 'withdrawn_students', 'new_enrollments'], true)) style="color: var(--premium-stat-accent) !important;" @endif>{{ $metric['value'] ?? '-' }}</div>
                                                 @if (in_array($widget->code, ['total_students', 'new_students', 'withdrawn_students', 'new_enrollments', 'graduated_students'], true))
                                                     <div class="premium-dashboard-gender-summary">
                                                         <span>Male: {{ number_format((int) ($metric['male'] ?? 0)) }}</span>
@@ -609,7 +644,7 @@
                                                 @endif
                                                 <div class="text-secondary">{{ $metric['subtitle'] ?? '' }}</div>
                                             </div>
-                                            <span class="premium-dashboard-icon bg-{{ $widget->color ?: 'blue' }}-lt">
+                                            <span class="premium-dashboard-icon bg-{{ $widget->color ?: 'blue' }}-lt" @if ($widget->code === 'new_enrollments') style="position: absolute; top: 1.5rem; right: 0;" @endif>
                                                 <i class="ti {{ $widget->icon ?: 'ti-chart-bar' }}"></i>
                                             </span>
                                         </div>

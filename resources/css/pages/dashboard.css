@@ -1273,3 +1273,62 @@ html[data-bs-theme="dark"] .premium-grouped-bar-bars {
     color: #86efac;
     background: rgba(34, 197, 94, .18);
 }
+
+/* Keep the stat cards visually scannable with a distinct accent, as in the
+   reference card design. The accent is intentionally limited to the four
+   student metrics so other dashboard cards retain their neutral border. */
+.premium-dashboard-card.premium-stat-card--total_students {
+    --premium-stat-accent: #206bc4;
+    border-left: 4px solid var(--premium-stat-accent);
+}
+
+.premium-dashboard-card.premium-stat-card--new_students {
+    --premium-stat-accent: #2fb344;
+    border-left: 4px solid var(--premium-stat-accent);
+}
+
+.premium-dashboard-card.premium-stat-card--withdrawn_students {
+    --premium-stat-accent: #d63939;
+    border-left: 4px solid var(--premium-stat-accent);
+}
+
+.premium-dashboard-card.premium-stat-card--new_enrollments {
+    --premium-stat-accent: #f76707;
+    border-left: 4px solid var(--premium-stat-accent);
+}
+
+/* Match each student total to its card's left-border accent. */
+.premium-dashboard-card.premium-stat-card--total_students .premium-dashboard-value,
+.premium-dashboard-card.premium-stat-card--new_students .premium-dashboard-value,
+.premium-dashboard-card.premium-stat-card--withdrawn_students .premium-dashboard-value,
+.premium-dashboard-card.premium-stat-card--new_enrollments .premium-dashboard-value {
+    color: var(--premium-stat-accent);
+}
+
+.premium-dashboard-card.premium-stat-card--total_students:hover,
+.premium-dashboard-card.premium-stat-card--new_students:hover,
+.premium-dashboard-card.premium-stat-card--withdrawn_students:hover,
+.premium-dashboard-card.premium-stat-card--new_enrollments:hover {
+    border-left-color: var(--premium-stat-accent);
+}
+
+/* Highlight the campus/grade statistics table with the same strong accent
+   treatment as the reference cards, using a dark green top border. */
+.premium-dashboard-card.premium-dashboard-card--student-statistics {
+    --premium-stat-accent: #166534;
+    border-top: 4px solid var(--premium-stat-accent);
+}
+
+.premium-dashboard-card.premium-dashboard-card--student-statistics:hover {
+    border-top-color: var(--premium-stat-accent);
+}
+
+/* The profile hero uses its own purple accent to remain distinct from the
+   student metric cards while keeping the existing gradient treatment. */
+.dashboard-staff-hero.dashboard-staff-hero--accent {
+    border-left: 5px solid #7950f2;
+}
+
+.dashboard-staff-hero.dashboard-staff-hero--accent:hover {
+    border-left-color: #7950f2;
+}

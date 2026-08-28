@@ -181,6 +181,8 @@ Route::get('/students/enrollment', [StudentEnrollmentController::class, 'index']
 Route::get('/summer-school', [SummerSchoolController::class, 'index'])->name('summer-school.index');
 Route::get('/summer-school/options', [SummerSchoolController::class, 'options'])->name('summer-school.options');
 Route::get('/summer-school/student-options', [SummerSchoolController::class, 'studentOptions'])->name('summer-school.student-options');
+Route::get('/summer-school/western-filter-options', [SummerSchoolController::class, 'westernFilterOptions'])->name('summer-school.western-filter-options');
+Route::get('/summer-school/western-grade-options', [SummerSchoolController::class, 'westernGradeOptions'])->name('summer-school.western-grade-options');
 Route::get('/summer-school/family-options', [SummerSchoolController::class, 'familyOptions'])->name('summer-school.family-options');
 Route::get('/summer-school/period-options', [SummerSchoolController::class, 'periodOptions'])->name('summer-school.period-options');
 Route::get('/summer-school/location-options', [SummerSchoolController::class, 'locationOptions'])->name('summer-school.location-options');

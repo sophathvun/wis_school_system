@@ -16,7 +16,7 @@
 
     <div class="card">
         <div class="card-header">
-            <h3 class="card-title">Summer School Students</h3>
+            <h3 class="card-title text-uppercase">SUMMER SCHOOL STUDENTS</h3>
         </div>
         <div class="card-body border-bottom py-3">
             <div class="d-flex align-items-center gap-3 flex-wrap summer-list-filter-group">
@@ -33,9 +33,9 @@
             <table class="table table-vcenter card-table">
                 <thead>
                     <tr>
-                        <th>Photo</th><th>Student ID</th><th>Student Name</th><th>Type</th>
-                        <th>Academic Year</th><th>Campus</th><th>Grade</th><th>Track</th><th>Group</th>
-                        <th>Status</th>
+                        <th>Photo</th><th><button type="button" class="table-sort" data-summer-sort="student_id">Student ID</button></th><th><button type="button" class="table-sort" data-summer-sort="student_name">Student Name</button></th><th><button type="button" class="table-sort" data-summer-sort="enrollment_origin">Type</button></th>
+                        <th><button type="button" class="table-sort" data-summer-sort="academic_year">Academic Year</button></th><th><button type="button" class="table-sort" data-summer-sort="campus">Campus</button></th><th><button type="button" class="table-sort" data-summer-sort="grade">Grade</button></th><th><button type="button" class="table-sort" data-summer-sort="track">Track</button></th><th><button type="button" class="table-sort" data-summer-sort="group">Group</button></th>
+                        <th><button type="button" class="table-sort" data-summer-sort="enrollment_status">Status</button></th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -46,11 +46,12 @@
                 </tbody>
             </table>
         </div>
+        <div class="card-footer"><select id="summer-per-page" class="d-none" aria-hidden="true"><option value="15" selected>15</option></select><div id="summer-pagination-container"></div></div>
     </div>
     <div class="modal modal-blur fade" id="summerSchoolModal" tabindex="-1">
         <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">
-                <form id="summerSchoolForm">
+                <form id="summerSchoolForm" novalidate>
                     <div class="modal-header">
                         <h3 class="modal-title">Register Summer Student</h3><button type="button" class="btn-close"
                             data-bs-dismiss="modal"></button>
@@ -76,7 +77,7 @@
                                 </select></div>
                             <div class="col-12" id="summerWesternFilters">
                                 <div class="border rounded p-3">
-                                    <div class="fw-bold mb-2">Find Western Student</div>
+                                    <div class="summer-western-filter-header">FIND WESTERN STUDENT</div>
                                     <div class="row g-2">
                                         <div class="col-md-3"><label class="form-label small">Academic Year</label><select
                                                 id="summerStudentYearFilter" class="form-select">
@@ -86,7 +87,7 @@
                                                 id="summerStudentCampusFilter" class="form-select">
                                                 <option value=""></option>
                                             </select></div>
-                                        <div class="col-md-3"><label class="form-label small">Grade / Class</label><select
+                                        <div class="col-md-3"><label class="form-label small">Grade</label><select
                                                 id="summerStudentGradeClassFilter" class="form-select">
                                                 <option value=""></option>
                                             </select></div>
@@ -94,6 +95,7 @@
                                                 name="student_record_id" id="summerInternalStudent"
                                                 class="form-select"></select></div>
                                     </div>
+                                    <div id="summerWesternStudentInfo" class="summer-western-student-info d-none"></div>
                                 </div>
                             </div>
                             <div class="col-12 summer-external-field d-none"><h4 class="summer-form-section-title">Student Information</h4></div>
@@ -134,7 +136,6 @@
                             </div>
                             <div class="col-md-4 summer-external-field d-none"><label class="form-label">Date of
                                     Birth</label><input type="date" name="date_of_birth" class="form-control"></div>
-                            <div class="col-12 summer-external-field d-none"><h4 class="summer-form-section-title">Contact and Nationality</h4></div>
                             <div class="col-md-6 summer-external-field d-none"><label
                                     class="form-label">Nationality</label><select name="nationality_country_id"
                                     id="summerNationality" class="form-select">
@@ -155,10 +156,24 @@
                                     <option value="no">No</option>
                                 </select></div>
                             <div class="col-12 summer-external-field d-none"><h4 class="summer-form-section-title">Previous School and Assessment</h4></div>
-                            <div class="col-md-3 summer-external-field d-none"><label class="form-label">Previous School *</label><input name="previous_school" class="form-control"></div>
+                            <div class="col-md-3 summer-external-field d-none"><label class="form-label">Previous School</label><input name="previous_school" class="form-control"></div>
                             <div class="col-md-3 summer-external-field d-none"><label class="form-label">Tested By</label><input name="tested_by" class="form-control"></div>
                             <div class="col-md-3 summer-external-field d-none"><label class="form-label">Experienced English</label><textarea name="experienced_english" class="form-control" rows="1"></textarea></div>
                             <div class="col-md-3 summer-external-field d-none"><label class="form-label">Test Result</label><textarea name="test_result" class="form-control" rows="1"></textarea></div>
+                            <div class="col-12"><div class="border rounded p-3 summer-enrollment-section"><h4 class="mb-3">Enrollment Information</h4><div class="row g-3">
+                            <div class="col-md-4"><label class="form-label">Academic Year *</label><select
+                                    name="academic_year_id" id="summerAcademicYear" class="form-select" required></select></div>
+                            <div class="col-md-4"><label class="form-label">Campus *</label><select name="campus_id"
+                                    id="summerCampus" class="form-select" required></select></div>
+                            <div class="col-md-4"><label class="form-label">Grade *</label><select name="grade_id"
+                                    id="summerGrade" class="form-select" required></select></div>
+                            <div class="col-md-4"><label class="form-label">Class *</label><select name="class_id"
+                                    id="summerClass" class="form-select" required></select></div>
+                            <div class="col-md-4"><label class="form-label">Group *</label><select name="session_id" 
+                                    id="summerSession" class="form-select"></select></div>
+                            <div class="col-md-4"><label class="form-label">Enrollment Status</label><select name="enrollment_status" id="summerEnrollmentStatus" class="form-select"><option value="active">Active</option><option value="pending">Pending</option><option value="completed">Completed</option><option value="withdrawn">Withdrawn</option></select></div>
+                            <div class="col-md-4"><label class="form-label">Enrolled On</label><input type="date" name="enrolled_on" class="form-control"></div>
+                            </div></div></div>
                             <div class="col-12 summer-external-field d-none">
                                 <h4 class="summer-form-section-title">Family Information</h4>
                             </div>
@@ -216,20 +231,6 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-12"><div class="border rounded p-3 summer-enrollment-section"><h4 class="mb-3">Enrollment Information</h4><div class="row g-3">
-                            <div class="col-md-4"><label class="form-label">Academic Year *</label><select
-                                    name="academic_year_id" id="summerAcademicYear" class="form-select" required></select></div>
-                            <div class="col-md-4"><label class="form-label">Campus *</label><select name="campus_id"
-                                    id="summerCampus" class="form-select" required></select></div>
-                            <div class="col-md-4"><label class="form-label">Grade *</label><select name="grade_id"
-                                    id="summerGrade" class="form-select" required></select></div>
-                            <div class="col-md-4"><label class="form-label">Class *</label><select name="class_id"
-                                    id="summerClass" class="form-select" required></select></div>
-                            <div class="col-md-4"><label class="form-label">Group</label><select name="session_id"
-                                    id="summerSession" class="form-select"></select></div>
-                            <div class="col-md-4"><label class="form-label">Enrollment Status</label><select name="enrollment_status" class="form-select"><option value="active">Active</option><option value="pending">Pending</option><option value="completed">Completed</option><option value="withdrawn">Withdrawn</option></select></div>
-                            <div class="col-md-4"><label class="form-label">Enrolled On</label><input type="date" name="enrolled_on" class="form-control"></div>
-                            </div></div></div>
                         </div>
                             </div>
                         </div>
@@ -275,4 +276,89 @@
     </div>
     @vite('resources/js/summerSchool.js')
     @vite('resources/css/pages/summer-school.css')
+    <style>
+        /* Keep populated student identifiers neutral when a stale CSS bundle is served. */
+        #summerSchoolModal .premium-floating-field > input[name="student_no"],
+        #summerSchoolModal .premium-floating-field > input[name="student_id"] {
+            background-color: #fff !important;
+            -webkit-box-shadow: inset 0 0 0 1000px #fff !important;
+            box-shadow: 0 2px 7px rgba(31, 41, 55, .04) !important;
+        }
+        #summerSchoolModal .premium-floating-field > input[name="student_id"]:-webkit-autofill,
+        #summerSchoolModal .premium-floating-field > input[name="student_id"]:-webkit-autofill:hover,
+        #summerSchoolModal .premium-floating-field > input[name="student_id"]:-webkit-autofill:focus,
+        #summerSchoolModal .premium-floating-field > input[name="student_id"]:-webkit-autofill:active {
+            -webkit-box-shadow: inset 0 0 0 1000px #fff !important;
+            -webkit-text-fill-color: var(--tblr-body-color) !important;
+            background-color: #fff !important;
+            background-image: none !important;
+        }
+        #summerSchoolModal .premium-floating-field > input[name="full_name_en"] {
+            text-transform: uppercase;
+        }
+        #summerSchoolModal .premium-floating-field > input[name="mother_name_en"],
+        #summerSchoolModal .premium-floating-field > input[name="father_name_en"],
+        #summerSchoolModal .premium-floating-field > input[name="guardian_name_en"] {
+            text-transform: uppercase;
+        }
+        #summerSchoolModal .premium-floating-field > input[name="address_house_no_en"],
+        #summerSchoolModal .premium-floating-field > input[name="address_street_en"] {
+            background-color: #fff !important;
+            -webkit-box-shadow: inset 0 0 0 1000px #fff !important;
+            box-shadow: 0 2px 7px rgba(31, 41, 55, .04) !important;
+        }
+        #summerSchoolModal .premium-floating-field > input[name="address_house_no_en"]:-webkit-autofill,
+        #summerSchoolModal .premium-floating-field > input[name="address_house_no_en"]:-webkit-autofill:hover,
+        #summerSchoolModal .premium-floating-field > input[name="address_house_no_en"]:-webkit-autofill:focus,
+        #summerSchoolModal .premium-floating-field > input[name="address_street_en"]:-webkit-autofill,
+        #summerSchoolModal .premium-floating-field > input[name="address_street_en"]:-webkit-autofill:hover,
+        #summerSchoolModal .premium-floating-field > input[name="address_street_en"]:-webkit-autofill:focus {
+            -webkit-box-shadow: inset 0 0 0 1000px #fff !important;
+            -webkit-text-fill-color: var(--tblr-body-color) !important;
+            background-color: #fff !important;
+            background-image: none !important;
+        }
+        #summerSchoolModal .summer-family-grid input,
+        #summerSchoolModal .summer-family-grid input:-webkit-autofill,
+        #summerSchoolModal .summer-family-grid input:-webkit-autofill:hover,
+        #summerSchoolModal .summer-family-grid input:-webkit-autofill:focus,
+        #summerSchoolModal .summer-family-grid input:-webkit-autofill:active {
+            background-color: #fff !important;
+            background: #fff !important;
+            background-image: none !important;
+            -webkit-box-shadow: inset 0 0 0 1000px #fff !important;
+            box-shadow: inset 0 0 0 1000px #fff !important;
+            -webkit-text-fill-color: var(--tblr-body-color) !important;
+            transition: background-color 9999s ease-out !important;
+        }
+        #summerSchoolModal .premium-document-file-card { display:flex; align-items:center; gap:.9rem; margin-top:1.5rem; padding:.85rem 1rem; border:1.5px solid #ddd6fe; border-radius:18px; background:#fff; text-align:left; }
+        #summerSchoolModal .premium-document-file-icon { display:grid; flex:0 0 3.4rem; width:3.4rem; height:3.4rem; place-items:center; border-radius:16px; color:#6657d9; background:#f0edff; font-size:1.7rem; }
+        #summerSchoolModal .premium-document-file-meta { min-width:0; flex:1 1 auto; }
+        #summerSchoolModal .premium-document-file-name { overflow:hidden; color:#344054; font-size:1rem; font-weight:700; text-overflow:ellipsis; white-space:nowrap; }
+        #summerSchoolModal .premium-document-file-size { margin-top:.2rem; color:#667085; font-size:.9rem; }
+        #summerSchoolModal .premium-document-file-remove { flex:0 0 auto; width:2rem; height:2rem; border:0; color:#667085; background:transparent; font-size:1.35rem; }
+        #summerSchoolModal .premium-document-dropzone .document-upload-icon { display:grid; width:7rem; height:7rem; margin:0 auto 1rem; place-items:center; border-radius:1.6rem; color:#6657d9; background:#f0edff; }
+        #summerSchoolModal .premium-document-dropzone .document-upload-icon i { font-size:4.2rem; line-height:1; }
+        #summerSchoolModal .premium-floating-field > .phone-input-group { display:flex; align-items:center; overflow:hidden; }
+        #summerSchoolModal .phone-input-group .iti { display:flex; align-items:center; width:100%; }
+        #summerSchoolModal .phone-input-group .iti__tel-input { flex:1 1 auto; min-width:0; padding-top:.7rem; }
+    </style>
+    <script>
+        // Decorate the file list when an older cached Summer-school bundle is served.
+        (() => {
+            const decorate = () => {
+                const list = document.getElementById('summerDocumentFileList');
+                const input = document.getElementById('summerDocumentFile');
+                const file = input?.files?.[0];
+                if (!list || !file || list.querySelector('.premium-document-file-card')) return;
+                const size = file.size < 1048576 ? `${Math.max(1, Math.round(file.size / 1024))} KB` : `${(file.size / 1048576).toFixed(1)} MB`;
+                const row = document.createElement('div'); row.className = 'premium-document-file-card';
+                row.innerHTML = `<span class="premium-document-file-icon"><i class="ti ti-photo"></i></span><div class="premium-document-file-meta"><div class="premium-document-file-name"></div><div class="premium-document-file-size">${size} <span>• Ready to upload</span></div></div><button type="button" class="premium-document-file-remove" aria-label="Remove file"><i class="ti ti-x"></i></button>`;
+                row.querySelector('.premium-document-file-name').textContent = file.name;
+                list.replaceChildren(row);
+            };
+            new MutationObserver(decorate).observe(document.body, { childList: true, subtree: true });
+            document.addEventListener('change', (event) => { if (event.target?.id === 'summerDocumentFile') setTimeout(decorate, 0); });
+        })();
+    </script>
 @endsection
