@@ -1285,6 +1285,16 @@ body {
         overscroll-behavior: contain;
     }
 
+    /* Form modals must sit above the sticky mobile navigation so their
+     * header and first fields are never obscured when editing a record. */
+    .modal-backdrop {
+        z-index: 1990;
+    }
+
+    .modal {
+        z-index: 2000;
+    }
+
     .navbar-vertical .navbar-brand-image {
         width: 155px;
         height: 64px;
