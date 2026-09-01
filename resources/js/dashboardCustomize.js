@@ -36,7 +36,9 @@ document.addEventListener("DOMContentLoaded", () => {
             compact_list: "Compact List",
         };
         const sectionColumnOptions = {
+            "1": "1 Column",
             "6": "6 Columns",
+            "5": "5 Columns",
             "4": "4 Columns",
             "3": "3 Columns",
             "2": "2 Columns",

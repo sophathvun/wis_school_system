@@ -213,7 +213,7 @@ class DashboardTemplateController
                 return [
                     'id' => preg_replace('/[^A-Za-z0-9_-]/', '', $section['id'] ?? 'section-' . ($index + 1)) ?: 'section-' . ($index + 1),
                     'title' => trim((string) ($section['title'] ?? 'Section ' . ($index + 1))) ?: 'Section ' . ($index + 1),
-                    'columns' => in_array(($section['columns'] ?? '4'), ['6', '4', '3', '2', '8-4', '4-8', '7-5', '5-7'], true)
+                    'columns' => in_array(($section['columns'] ?? '4'), ['1', '6', '5', '4', '3', '2', '8-4', '4-8', '7-5', '5-7'], true)
                         ? $section['columns']
                         : '4',
                 ];

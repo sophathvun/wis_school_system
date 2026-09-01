@@ -836,6 +836,28 @@
     grid-column: span 6;
 }
 
+.dashboard-section-columns-1 .dashboard-selected-widget,
+.dashboard-section-columns-5 .dashboard-width-col-4,
+.dashboard-section-columns-5 .dashboard-width-col-5,
+.dashboard-section-columns-5 .dashboard-width-col-6 {
+    grid-column: 1 / -1;
+}
+
+.dashboard-section-columns-5 .dashboard-width-small,
+.dashboard-section-columns-5 .dashboard-width-col-1 {
+    grid-column: span 2;
+}
+
+.dashboard-section-columns-5 .dashboard-width-medium,
+.dashboard-section-columns-5 .dashboard-width-col-2 {
+    grid-column: span 4;
+}
+
+.dashboard-section-columns-5 .dashboard-width-large,
+.dashboard-section-columns-5 .dashboard-width-col-3 {
+    grid-column: span 6;
+}
+
 .dashboard-section-columns-6 .dashboard-width-col-1 {
     grid-column: span 2;
 }
