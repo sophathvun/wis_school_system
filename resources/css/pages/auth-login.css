@@ -143,7 +143,9 @@
 }
 
 #emailIdentifier::-webkit-contacts-auto-fill-button,
-#emailIdentifier::-webkit-credentials-auto-fill-button {
+#emailIdentifier::-webkit-credentials-auto-fill-button,
+#emailIdentifier::-webkit-textfield-decoration-container {
+    display: none !important;
     visibility: hidden;
     pointer-events: none;
 }
