@@ -135,12 +135,23 @@
                             $chartType = $widgetSettings['chart_type'] ?? 'standard';
                             $sectionColumns = (int) ($section['columns'] ?? 4);
                             $widgetColumn = max(1, (int) ($widgetSettings['column'] ?? 1));
-                            $columnSpan = $sectionColumns > 1 ? max(1, (int) floor(12 / $sectionColumns)) : 12;
+                            $baseColumnSpan = $sectionColumns > 1 ? max(1, (int) floor(12 / $sectionColumns)) : 12;
+                            $columnSpan = match ($width) {
+                                'full' => 12,
+                                'large' => min(12, $baseColumnSpan * 2),
+                                'col-2' => min(12, $baseColumnSpan * 2),
+                                'col-3' => min(12, $baseColumnSpan * 3),
+                                'col-4' => min(12, $baseColumnSpan * 4),
+                                'col-5' => min(12, $baseColumnSpan * 5),
+                                'col-6' => 12,
+                                default => $baseColumnSpan,
+                            };
+                            $columnStart = $width === 'full' ? 1 : (($widgetColumn - 1) * $baseColumnSpan) + 1;
                             $chartRows = collect($metric['chart'] ?? []);
                             $maxValue = max(1, $chartRows->max('value') ?: 1);
                         @endphp
 
-                        <div class="{{ $columnClass }}" @if($sectionColumns > 1 && $widgetColumn <= $sectionColumns) style="grid-column: {{ (($widgetColumn - 1) * $columnSpan) + 1 }} / span {{ $columnSpan }};" @endif>
+                        <div class="{{ $columnClass }}" @if($sectionColumns > 1 && ($width === 'full' || $widgetColumn <= $sectionColumns)) style="grid-column: {{ $columnStart }} / span {{ $columnSpan }};" @endif>
                             @if ($widget->type === 'hero')
                                 @php
                                     $heroProfile = collect($metric['profiles'] ?? [])->first();
