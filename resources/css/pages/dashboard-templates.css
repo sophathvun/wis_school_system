@@ -45,6 +45,48 @@
     .dashboard-template-card-actions .btn { width: 100%; }
     .dashboard-template-card-actions .btn { min-height: 3rem; font-size: 1rem; }
     .dashboard-template-card-actions .btn i { font-size: 1.35rem; }
+
+    .dashboard-template-list ~ .card-footer .premium-pagination {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: .8rem;
+        padding: .85rem .65rem;
+        border: 0;
+        border-top: 1px solid #e7eef6;
+        border-radius: 0 0 15px 15px;
+        background: linear-gradient(180deg, #f8fbff, #fff);
+    }
+
+    .dashboard-template-list ~ .card-footer .premium-pagination-list {
+        justify-content: center;
+        width: 100%;
+    }
+
+    .dashboard-template-list ~ .card-footer .premium-pagination-list .page-link {
+        display: grid;
+        width: 2.55rem;
+        height: 2.55rem;
+        place-items: center;
+        border-radius: 12px;
+    }
+
+    .dashboard-template-list ~ .card-footer .premium-pagination-info {
+        order: 2;
+        font-size: .8rem;
+    }
+
+    .dashboard-template-list ~ .card-footer .premium-pagination-controls {
+        display: flex;
+        width: 100%;
+        justify-content: center;
+        gap: .55rem;
+    }
+
+    .dashboard-template-list ~ .card-footer .premium-pagination-select .form-select,
+    .dashboard-template-list ~ .card-footer .premium-pagination-goto input {
+        min-height: 2.45rem;
+        border-radius: 12px;
+    }
 }
 
 .dashboard-template-modal {
