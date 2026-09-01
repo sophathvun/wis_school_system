@@ -66,7 +66,7 @@ class DashboardController
             'template' => $template,
             'widgets' => $widgets,
             'metrics' => Cache::remember(
-                'dashboard.metrics.' . $user->id . '.' . md5(json_encode($dashboardFilters) . '|' . implode(',', $campusIds)),
+                'dashboard.metrics.' . $user->id . '.' . ($user->updated_at?->timestamp ?? 0) . '.' . md5(json_encode($dashboardFilters) . '|' . implode(',', $campusIds)),
                 now()->addSeconds(30),
                 fn () => $this->metrics($user, $selectedAcademicYearId, $selectedCampusId, $campusIds, $dashboardFilters)
             ),
@@ -386,7 +386,7 @@ class DashboardController
             'dashboard_hero' => [
                 'value' => auth()->user()?->name ?: 'My Profile',
                 'subtitle' => 'Your staff profile',
-                'profiles' => $this->staffProfiles(auth()->id()),
+                'profiles' => $this->staffProfiles($user->id),
                 'url' => route('profile'),
             ],
             'active_academic_year' => [
@@ -760,7 +760,7 @@ class DashboardController
                 'initial' => strtoupper(substr((string) ($staff->name ?: 'S'), 0, 1)),
                 'position' => $staff->position?->name ?: 'Staff',
                 'department' => $staff->department?->name ?: 'General',
-                'status' => $staff->last_seen_at && $staff->last_seen_at->gt(now()->subMinutes(5)) ? 'Online' : 'My Profile',
+                'status' => $staff->last_seen_at && $staff->last_seen_at->gt(now()->subMinutes(5)) ? 'Online' : 'Active',
             ])
             ->values();
     }
