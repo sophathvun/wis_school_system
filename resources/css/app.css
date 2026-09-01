@@ -1438,6 +1438,7 @@ body {
         order: 1;
         gap: .1rem !important;
         margin-left: auto !important;
+        margin-right: .75rem !important;
     }
 
     .navbar-vertical .navbar-nav.flex-row .nav-item {
