@@ -68,6 +68,7 @@
                     </tbody>
                 </table>
             </div>
+            <div id="gradesMobileCards" class="grades-mobile-cards"></div>
             <div class="card-footer">
                 <div class="row g-2">
                     <div class="col-12 d-flex justify-content-center" id="grades-pagination-container"></div>
@@ -94,4 +95,5 @@
         </div>
     </div>
     @vite('resources/js/grade.js')
+    @vite('resources/css/pages/grade.css')
 @endsection

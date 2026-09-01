@@ -1,0 +1,22 @@
+.grades-mobile-cards { display: none; }
+
+@media (max-width: 767.98px) {
+    .grades-mobile-cards { display: grid; gap: 1rem; padding: 1rem; }
+    .table-responsive:has(#gradesTable) { display: none; }
+    .grade-mobile-card { padding: 1rem; border: 1px solid #dfe7f1; border-radius: 1rem; background: var(--tblr-bg-surface, #fff); box-shadow: 0 8px 22px rgba(31,63,104,.06); }
+    .grade-mobile-head { display: flex; align-items: flex-start; gap: .7rem; }
+    .grade-mobile-head > .badge { margin-left: auto; }
+    .grade-mobile-number { display: grid; width: 2.35rem; height: 2.35rem; flex: 0 0 auto; place-items: center; border-radius: .75rem; color: var(--tblr-primary); background: var(--tblr-primary-lt); font-weight: 700; }
+    .grade-mobile-head strong, .grade-mobile-head div span { display: block; }
+    .grade-mobile-head strong { font-size: 1.05rem; }
+    .grade-mobile-head div span { color: var(--tblr-secondary); font-size: .85rem; }
+    .grade-mobile-details { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; margin-top: 1rem; }
+    .grade-mobile-details div { display: grid; gap: .2rem; min-width: 0; }
+    .grade-mobile-details span { color: var(--tblr-secondary); font-size: .72rem; text-transform: uppercase; }
+    .grade-mobile-details strong { overflow-wrap: anywhere; font-size: .85rem; }
+    .grade-mobile-actions { display: flex; gap: .6rem; margin-top: 1rem; }
+    .grade-mobile-actions .btn { flex: 1 1 0; min-height: 44px; }
+    .grade-mobile-empty { padding: 2rem 1rem; color: var(--tblr-secondary); text-align: center; }
+}
+
+[data-bs-theme="dark"] .grade-mobile-card { border-color: rgba(148,163,184,.25); }

@@ -8,6 +8,7 @@ const modalElement = document.getElementById("gradeModal");
 const form = document.getElementById("gradeForm");
 const modal = modalElement ? new bootstrap.Modal(modalElement) : null;
 const table = document.getElementById("gradesTable");
+const mobileCards = document.getElementById("gradesMobileCards");
 const search = document.getElementById("grades-search");
 const perPageInput = document.getElementById("grades-per-page");
 const submitButton = document.getElementById("gradeSubmitBtn");
@@ -178,6 +179,8 @@ async function fetchGrades(page = 1, perPage = null) {
             throw new Error(result.message || "Unable to fetch grades.");
         grades = result.data;
         const offset = (result.current_page - 1) * size;
+        const escapeHtml = (value) => String(value ?? "").replace(/[&<>\"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '\"': "&quot;", "'": "&#039;" })[character]);
+        if (mobileCards) mobileCards.innerHTML = grades.length ? grades.map((item, index) => `<article class="grade-mobile-card"><div class="grade-mobile-head"><span class="grade-mobile-number">${offset + index + 1}</span><div><strong>${escapeHtml(item.grade)}</strong><span>${escapeHtml(item.grade_short_name)}</span></div><span class="badge ${item.status ? "bg-success-lt" : "bg-danger-lt"}">${item.status ? "Active" : "Inactive"}</span></div><div class="grade-mobile-details"><div><span>Order</span><strong>${escapeHtml(item.grade_order ?? "-")}</strong></div><div><span>Description</span><strong>${escapeHtml(item.description ?? "-")}</strong></div></div><div class="grade-mobile-actions"><button onclick="gradesPage.openEditModal(${item.id})" class="btn btn-primary"><i class="ti ti-pencil me-1"></i>Edit</button><button onclick="gradesPage.deleteGrade(${item.id})" class="btn btn-outline-danger"><i class="ti ti-trash me-1"></i>Delete</button></div></article>`).join("") : `<div class="grade-mobile-empty">No grades found.</div>`;
         table.innerHTML = grades.length
             ? grades
                   .map(
