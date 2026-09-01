@@ -182,6 +182,10 @@ document.addEventListener("DOMContentLoaded", () => {
                     </div>
                     ${previewBody(widget)}
                     <div class="dashboard-preview-card-actions">
+                        <div class="dashboard-mobile-widget-movers" aria-label="Move widget">
+                            <button class="btn btn-sm btn-outline-secondary" type="button" data-move-widget="up" title="Move up"><i class="ti ti-chevron-up"></i><span>Up</span></button>
+                            <button class="btn btn-sm btn-outline-secondary" type="button" data-move-widget="down" title="Move down"><i class="ti ti-chevron-down"></i><span>Down</span></button>
+                        </div>
                         ${widget.type === "chart" ? `<select class="form-select form-select-sm" data-widget-chart-type>${Object.entries(chartTypeOptions).map(([value, label]) => `<option value="${value}" ${value === (widget.chart_type || "standard") ? "selected" : ""}>${label}</option>`).join("")}</select>` : ""}
                         <select class="form-select form-select-sm" data-widget-width>${Object.entries(widthOptions).map(([value, label]) => `<option value="${value}" ${value === widget.width ? "selected" : ""}>${label}</option>`).join("")}</select>
                         <button class="btn btn-sm btn-outline-danger" type="button" data-remove-widget><i class="ti ti-x"></i></button>
@@ -262,6 +266,21 @@ document.addEventListener("DOMContentLoaded", () => {
                 const card = removeButton.closest(".dashboard-selected-widget");
                 selected = selected.filter((widget) => Number(widget.id) !== Number(card.dataset.widgetId));
                 renderSelected();
+            }
+
+            const moveButton = event.target.closest("[data-move-widget]");
+            if (moveButton) {
+                const card = moveButton.closest(".dashboard-selected-widget");
+                const id = Number(card?.dataset.widgetId);
+                const currentIndex = selected.findIndex((widget) => Number(widget.id) === id);
+                if (currentIndex >= 0) {
+                    const direction = moveButton.dataset.moveWidget === "up" ? -1 : 1;
+                    const targetIndex = currentIndex + direction;
+                    if (targetIndex >= 0 && targetIndex < selected.length) {
+                        [selected[currentIndex], selected[targetIndex]] = [selected[targetIndex], selected[currentIndex]];
+                        renderSelected();
+                    }
+                }
             }
 
             if (event.target.closest("[data-add-dashboard-section]")) {
