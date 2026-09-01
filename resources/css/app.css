@@ -1437,7 +1437,7 @@ body {
         flex: 0 0 auto;
         order: 1;
         gap: .1rem !important;
-        margin-left: .15rem;
+        margin-left: auto !important;
     }
 
     .navbar-vertical .navbar-nav.flex-row .nav-item {
