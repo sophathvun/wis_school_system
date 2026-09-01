@@ -108,6 +108,7 @@
                     </tbody>
                 </table>
             </div>
+            <div id="academicYearsMobileCards" class="academic-years-mobile-cards"></div>
             <div class="card-footer">
                 <div class="row g-2 justify-content-center justify-content-sm-between">
                     <div class="col-12 d-flex justify-content-center" id="academic-years-pagination-container">

@@ -92,3 +92,85 @@
     color: var(--tblr-primary);
     background: var(--tblr-primary-lt);
 }
+
+.academic-years-mobile-cards {
+    display: none;
+}
+
+@media (max-width: 767.98px) {
+    .academic-year-filter-row > [class*="col-"] {
+        width: 100%;
+    }
+
+    .academic-year-filter-row .input-icon,
+    .academic-year-filter-row #academic-years-search {
+        height: 52px;
+    }
+
+    .academic-years-mobile-cards {
+        display: grid;
+        gap: 1rem;
+        padding: 1rem;
+    }
+
+    .academic-years-mobile-cards + .card-footer {
+        border-top: 0;
+    }
+
+    .table-responsive:has(#academicYearsTable) {
+        display: none;
+    }
+
+    .academic-year-mobile-card {
+        padding: 1rem;
+        border: 1px solid #dfe7f1;
+        border-radius: 1rem;
+        background: var(--tblr-bg-surface, #fff);
+        box-shadow: 0 8px 22px rgba(31, 63, 104, .06);
+    }
+
+    .academic-year-mobile-card-head {
+        display: flex;
+        align-items: flex-start;
+        gap: .7rem;
+    }
+
+    .academic-year-mobile-card-head > :last-child {
+        margin-left: auto;
+    }
+
+    .academic-year-mobile-number {
+        display: grid;
+        width: 2.35rem;
+        height: 2.35rem;
+        flex: 0 0 auto;
+        place-items: center;
+        border-radius: .75rem;
+        color: var(--tblr-primary);
+        background: var(--tblr-primary-lt);
+        font-weight: 700;
+    }
+
+    .academic-year-mobile-card-head strong,
+    .academic-year-mobile-card-head span:not(.badge):not(.academic-year-mobile-number) {
+        display: block;
+    }
+
+    .academic-year-mobile-card-head strong { font-size: 1.05rem; }
+    .academic-year-mobile-card-head div span { color: var(--tblr-secondary); font-size: .85rem; }
+
+    .academic-year-mobile-details {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: .75rem;
+        margin-top: 1rem;
+    }
+
+    .academic-year-mobile-details div { display: grid; gap: .2rem; min-width: 0; }
+    .academic-year-mobile-details span { color: var(--tblr-secondary); font-size: .72rem; text-transform: uppercase; }
+    .academic-year-mobile-details strong { overflow-wrap: anywhere; font-size: .85rem; }
+    .academic-year-mobile-description { grid-column: 1 / -1; }
+
+    .academic-year-mobile-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
+    .academic-year-mobile-actions .btn { flex: 1 1 9rem; min-height: 44px; }
+}

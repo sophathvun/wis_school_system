@@ -18,6 +18,7 @@ const searchInput = document.getElementById("academic-years-search");
 const academicYearFilter = document.getElementById("academic-year-filter");
 const academicYearTypeFilter = document.getElementById("academic-year-type-filter");
 const academicYearsTable = document.getElementById("academicYearsTable");
+const academicYearsMobileCards = document.getElementById("academicYearsMobileCards");
 let allAcademicYears = [];
 let sortBy = "academic_year";
 let sortDir = "desc";
@@ -462,6 +463,7 @@ const restoreAcademicYear = async (id) => {
 //---- Fetch All Academic Years ----//
 const fetchAcademicYears = async (page = 1, perPage = null) => {
     let row = "";
+    let mobileCards = "";
     const searchValue = searchInput ? searchInput.value : "";
     const perPageValue =
         perPage !== null ? perPage : parseInt(perPageInput?.value ?? 10);
@@ -532,10 +534,16 @@ const fetchAcademicYears = async (page = 1, perPage = null) => {
                     ${deleteButton}`}
                 </td>
             </tr>`;
+            mobileCards += `<article class="academic-year-mobile-card">
+                <div class="academic-year-mobile-card-head"><span class="academic-year-mobile-number">${rowNumber + index + 1}</span><div><strong>${escapeHtml(year.academic_year)}</strong><span>${periodTypeLabel(year.period_type)}</span></div>${isDeleted ? "<span class='badge bg-orange-lt'>Deleted</span>" : lifecycleBadge(year.lifecycle_status)}</div>
+                <div class="academic-year-mobile-details"><div><span>AY Code</span><strong>${escapeHtml(year.ay_code ?? "-")}</strong></div><div><span>Start Date</span><strong>${escapeHtml(year.start_date ?? "-")}</strong></div><div><span>End Date</span><strong>${escapeHtml(year.end_date ?? "-")}</strong></div>${year.description ? `<div class="academic-year-mobile-description"><span>Description</span><strong>${escapeHtml(year.description)}</strong></div>` : ""}</div>
+                <div class="academic-year-mobile-actions">${isDeleted ? `<button onclick="academicYears.restoreAcademicYear(${year.id})" class="btn btn-success"><i class="ti ti-refresh me-1"></i>Restore</button>` : `${year.period_type === "regular" ? `<button onclick="academicYears.createNextAcademicYear(${year.id})" class="btn btn-outline-primary"><i class="ti ti-calendar-plus me-1"></i>Next Year</button>` : ""}<button onclick="academicYears.openEditModal(${year.id})" class="btn btn-primary"><i class="ti ti-pencil me-1"></i>Edit</button>${hasLinkedData ? `<button class="btn btn-outline-danger" disabled><i class="ti ti-trash me-1"></i>Delete</button>` : `<button onclick="academicYears.deleteAcademicYear(${year.id})" class="btn btn-outline-danger"><i class="ti ti-trash me-1"></i>Delete</button>`}`}</div>
+            </article>`;
         });
         if (academicYearsTable) {
             academicYearsTable.innerHTML = row;
         }
+        if (academicYearsMobileCards) academicYearsMobileCards.innerHTML = mobileCards || `<div class="academic-year-mobile-empty">No academic years found.</div>`;
         renderPagination(
             result,
             "academic-years-pagination-container",
