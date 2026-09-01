@@ -443,6 +443,24 @@
     background: #eef6ff;
 }
 
+.dashboard-column-drop-zone {
+    display: grid;
+    min-height: 180px;
+    align-content: start;
+    gap: .65rem;
+    padding: .7rem;
+    border: 1px dashed #c8d5e4;
+    border-radius: 14px;
+    background: rgba(248, 251, 255, .72);
+}
+
+.dashboard-column-drop-zone > span {
+    color: #8aa0ba;
+    font-size: .75rem;
+    font-weight: 700;
+    text-align: center;
+}
+
 .dashboard-drop-empty {
     display: flex;
     grid-column: 1 / -1;

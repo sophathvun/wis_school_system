@@ -78,6 +78,10 @@
 
             return [$widget->id => $settings['section_id'] ?? 'section-1'];
         })->all() ?? [];
+        $widgetColumns = $editTemplate?->widgets->mapWithKeys(function ($widget) {
+            $settings = json_decode($widget->pivot->settings ?: '{}', true);
+            return [$widget->id => (int) ($settings['column'] ?? 1)];
+        })->all() ?? [];
         $widgetChartTypes = old('widget_chart_types', $editTemplate?->widgets->mapWithKeys(function ($widget) {
             $settings = json_decode($widget->pivot->settings ?: '{}', true);
 
@@ -89,7 +93,7 @@
         $modalTitle = $editTemplate ? 'Edit Dashboard Template' : 'Create Dashboard Template';
         $shouldOpenModal = (bool) $editTemplate || old('template_id') !== null || old('name') !== null;
         $selectedWidgetPayload = collect($selectedWidgetIds)
-            ->map(function ($widgetId) use ($widgets, $widgetWidths, $widgetSections, $widgetChartTypes, $widgetCategory) {
+            ->map(function ($widgetId) use ($widgets, $widgetWidths, $widgetSections, $widgetColumns, $widgetChartTypes, $widgetCategory) {
                 $widget = $widgets->firstWhere('id', $widgetId);
 
                 if (!$widget) {
@@ -107,6 +111,7 @@
                     'description' => $widget->description ?: $widget->code,
                     'width' => $widgetWidths[$widget->id] ?? 'medium',
                     'section_id' => $widgetSections[$widget->id] ?? 'section-1',
+                    'column' => $widgetColumns[$widget->id] ?? 1,
                     'chart_type' => $widgetChartTypes[$widget->id] ?? 'standard',
                 ];
             })

@@ -713,6 +713,7 @@ class DashboardController
                     'status' => true,
                     'settings' => json_encode([
                         'section_id' => $savedWidget['section_id'] ?? 'section-1',
+                        'column' => (int) ($savedWidget['column'] ?? 1),
                         'chart_type' => $savedWidget['chart_type'] ?? 'standard',
                     ]),
                 ], true);
@@ -740,6 +741,7 @@ class DashboardController
                 'description' => $widget->description ?: $widget->code,
                 'width' => $widget->pivot->width ?? 'medium',
                 'section_id' => $settings['section_id'] ?? 'section-1',
+                'column' => (int) ($settings['column'] ?? 1),
                 'chart_type' => $settings['chart_type'] ?? 'standard',
             ];
         })->values()->all();

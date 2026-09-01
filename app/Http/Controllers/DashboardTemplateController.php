@@ -89,6 +89,8 @@ class DashboardTemplateController
             'widget_widths.*' => ['nullable', 'in:small,medium,large,full,col-1,col-2,col-3,col-4,col-5,col-6'],
             'widget_sections' => ['nullable', 'array'],
             'widget_sections.*' => ['nullable', 'string', 'max:80'],
+            'widget_columns' => ['nullable', 'array'],
+            'widget_columns.*' => ['nullable', 'integer', 'min:1', 'max:12'],
             'widget_chart_types' => ['nullable', 'array'],
             'widget_chart_types.*' => ['nullable', 'in:standard,donut,vertical_bar,grouped_bar,horizontal_bar,compact_list'],
             'assignments' => ['nullable', 'array'],
@@ -130,6 +132,7 @@ class DashboardTemplateController
                     'status' => true,
                     'settings' => json_encode([
                         'section_id' => $data['widget_sections'][$widgetId] ?? 'section-1',
+                        'column' => (int) ($data['widget_columns'][$widgetId] ?? 1),
                         'chart_type' => $data['widget_chart_types'][$widgetId] ?? 'standard',
                     ]),
                 ];

@@ -133,11 +133,14 @@
                             $width = $widget->pivot->width ?? 'medium';
                             $columnClass = $widthClasses[$width] ?? $widthClasses['medium'];
                             $chartType = $widgetSettings['chart_type'] ?? 'standard';
+                            $sectionColumns = (int) ($section['columns'] ?? 4);
+                            $widgetColumn = max(1, (int) ($widgetSettings['column'] ?? 1));
+                            $columnSpan = $sectionColumns > 1 ? max(1, (int) floor(12 / $sectionColumns)) : 12;
                             $chartRows = collect($metric['chart'] ?? []);
                             $maxValue = max(1, $chartRows->max('value') ?: 1);
                         @endphp
 
-                        <div class="{{ $columnClass }}">
+                        <div class="{{ $columnClass }}" @if($sectionColumns > 1 && $widgetColumn <= $sectionColumns) style="grid-column: {{ (($widgetColumn - 1) * $columnSpan) + 1 }} / span {{ $columnSpan }};" @endif>
                             @if ($widget->type === 'hero')
                                 @php
                                     $heroProfile = collect($metric['profiles'] ?? [])->first();

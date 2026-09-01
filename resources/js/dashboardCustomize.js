@@ -84,7 +84,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 widget.width = width;
                 hiddenFields.insertAdjacentHTML(
                     "beforeend",
-                    `<input type="hidden" name="widget_ids[]" value="${widget.id}"><input type="hidden" name="widget_widths[${widget.id}]" value="${width}"><input type="hidden" name="widget_sections[${widget.id}]" value="${sectionId}"><input type="hidden" name="widget_chart_types[${widget.id}]" value="${widget.chart_type || "standard"}">`,
+                    `<input type="hidden" name="widget_ids[]" value="${widget.id}"><input type="hidden" name="widget_widths[${widget.id}]" value="${width}"><input type="hidden" name="widget_sections[${widget.id}]" value="${sectionId}"><input type="hidden" name="widget_columns[${widget.id}]" value="${widget.column || 1}"><input type="hidden" name="widget_chart_types[${widget.id}]" value="${widget.chart_type || "standard"}">`,
                 );
             });
             hiddenFields.insertAdjacentHTML(
@@ -153,9 +153,7 @@ document.addEventListener("DOMContentLoaded", () => {
                                 <button class="btn btn-sm btn-outline-danger" type="button" data-remove-section ${sections.length <= 1 ? "disabled" : ""}><i class="ti ti-x"></i></button>
                             </div>
                             <div class="dashboard-section-drop-zone dashboard-section-columns-${section.columns}" data-section-drop-zone>
-                                <div class="dashboard-drop-empty ${selected.some((widget) => widget.section_id === section.id) ? "d-none" : ""}">
-                                    <i class="ti ti-hand-click"></i><span>Drop widgets into ${escapeHtml(section.title || `Section ${index + 1}`)}</span>
-                                </div>
+                                ${/^\\d+$/.test(section.columns) && Number(section.columns) > 1 ? Array.from({length: Number(section.columns)}, (_, column) => `<div class="dashboard-column-drop-zone" data-column="${column + 1}"><span>Column ${column + 1}</span></div>`).join("") : `<div class="dashboard-drop-empty"><i class="ti ti-hand-click"></i><span>Drop widgets into ${escapeHtml(section.title || `Section ${index + 1}`)}</span></div>`}
                             </div>
                         </div>`,
                 )
@@ -164,10 +162,10 @@ document.addEventListener("DOMContentLoaded", () => {
             selected.forEach((widget) => {
                 widget.section_id = sectionById(widget.section_id) ? widget.section_id : sections[0].id;
                 widget.width = normalizeWidth(widget.width);
+                widget.column = Math.max(1, Number(widget.column || 1));
                 if (sectionById(widget.section_id)?.columns === "1") widget.width = "full";
-                const dropZone = sectionsCanvas.querySelector(
-                    `[data-section-id="${widget.section_id}"] [data-section-drop-zone]`,
-                );
+                const sectionElement = sectionsCanvas.querySelector(`[data-section-id="${widget.section_id}"]`);
+                const dropZone = sectionElement?.querySelector(`[data-column="${widget.column || 1}"]`) || sectionElement?.querySelector("[data-section-drop-zone]");
                 if (!dropZone) return;
 
                 const card = document.createElement("div");
@@ -201,22 +199,24 @@ document.addEventListener("DOMContentLoaded", () => {
             renderPalette();
         };
 
-        const addWidget = (id, sectionId = null) => {
+        const addWidget = (id, sectionId = null, column = 1) => {
             const widget = widgetById(id);
             if (!widget || isSelected(id)) return;
-            selected.push({
+                selected.push({
                 ...widget,
                 width: defaultWidgetWidth(widget),
                 section_id: sectionId || sections[0].id,
+                column,
             });
             renderSelected();
         };
 
-        const moveWidget = (draggedId, targetId, sectionId = null) => {
+        const moveWidget = (draggedId, targetId, sectionId = null, column = 1) => {
             const fromIndex = selected.findIndex((widget) => Number(widget.id) === Number(draggedId));
             if (fromIndex < 0) return;
             const [moved] = selected.splice(fromIndex, 1);
             moved.section_id = sectionId || moved.section_id;
+            moved.column = column || moved.column || 1;
             const toIndex = targetId ? selected.findIndex((widget) => Number(widget.id) === Number(targetId)) : -1;
             if (toIndex < 0) selected.push(moved);
             else selected.splice(toIndex, 0, moved);
@@ -238,7 +238,7 @@ document.addEventListener("DOMContentLoaded", () => {
             event.dataTransfer.effectAllowed = "move";
         });
         sectionsCanvas?.addEventListener("dragover", (event) => {
-            const dropZone = event.target.closest("[data-section-drop-zone]");
+            const dropZone = event.target.closest("[data-column], [data-section-drop-zone]");
             if (!dropZone) return;
             event.preventDefault();
             dropZone.classList.add("is-drag-over");
@@ -253,11 +253,12 @@ document.addEventListener("DOMContentLoaded", () => {
             event.preventDefault();
             dropZone.classList.remove("is-drag-over");
             const sectionId = dropZone.closest("[data-section-id]")?.dataset.sectionId;
+            const column = Number(dropZone.dataset.column || 1);
             const dragged = event.dataTransfer.getData("text/plain");
             const targetCard = event.target.closest(".dashboard-selected-widget");
             dragged.startsWith("selected:")
-                ? moveWidget(dragged.replace("selected:", ""), targetCard?.dataset.widgetId, sectionId)
-                : addWidget(dragged, sectionId);
+                ? moveWidget(dragged.replace("selected:", ""), targetCard?.dataset.widgetId, sectionId, column)
+                : addWidget(dragged, sectionId, column);
         });
 
         builder.addEventListener("click", (event) => {
