@@ -171,7 +171,8 @@
     .academic-year-mobile-details strong { overflow-wrap: anywhere; font-size: .85rem; }
     .academic-year-mobile-description { grid-column: 1 / -1; }
 
-    .academic-year-mobile-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
-    .academic-year-mobile-actions .btn { flex: 1 1 9rem; min-height: 44px; }
+    .academic-year-mobile-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; margin-top: 1rem; }
+    .academic-year-mobile-actions .btn { min-width: 0; min-height: 44px; }
+    .academic-year-mobile-actions:has(> :nth-child(3)) > :first-child { grid-column: 1 / -1; }
     .academic-year-mobile-actions .btn i { font-size: 1.3rem; }
 }
