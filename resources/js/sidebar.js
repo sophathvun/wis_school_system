@@ -13,22 +13,22 @@ document.addEventListener("DOMContentLoaded", function () {
             if (window.innerWidth >= 992) return;
 
             event.preventDefault();
-            const destination = this.href;
+            const nextTheme = this.classList.contains("hide-theme-dark") ? "dark" : "light";
             document.querySelectorAll(".mobile-profile-menu.show").forEach((menu) => menu.classList.remove("show"));
-
-            if (!sidebarMenu.classList.contains("show")) {
-                window.location.href = destination;
-                return;
-            }
-
             sidebarMenu.querySelectorAll(".nav-item.dropdown").forEach((item) => item.classList.remove("is-mobile-open", "show"));
 
-            // Hide synchronously so the open menu cannot flash while the page
-            // reloads with the selected theme.
             sidebarMenu.classList.remove("show");
             sidebarMenu.style.display = "none";
             toggler.setAttribute("aria-expanded", "false");
-            window.location.href = destination;
+
+            // Apply the theme in place. Avoiding a page reload prevents the
+            // expanded menu from flashing before the new theme is visible.
+            document.documentElement.setAttribute("data-bs-theme", nextTheme);
+            window.localStorage.setItem("tabler-theme", nextTheme);
+            const url = new URL(window.location.href);
+            url.searchParams.set("theme", nextTheme);
+            window.history.replaceState({}, "", url);
+            sidebarMenu.style.display = "";
         }, true);
     });
 
