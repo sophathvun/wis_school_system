@@ -163,7 +163,6 @@
             </div>
         </form>
         <div class="dashboard-template-carousel" data-template-carousel data-template-start="{{ $templates->firstItem() ?: 0 }}" data-template-total="{{ $templates->total() }}">
-            <button class="dashboard-template-carousel-arrow dashboard-template-carousel-arrow--prev" type="button" data-template-prev aria-label="Previous template"><i class="ti ti-chevron-left"></i></button>
             <div class="dashboard-template-list">
             @forelse ($templates as $template)
                 @php($cannotDelete = $template->is_default || $template->assignments_count > 0)
@@ -196,8 +195,11 @@
                 <div class="dashboard-template-empty"><i class="ti ti-layout-dashboard"></i><span>No dashboard templates found.</span></div>
             @endforelse
             </div>
-            <button class="dashboard-template-carousel-arrow dashboard-template-carousel-arrow--next" type="button" data-template-next aria-label="Next template"><i class="ti ti-chevron-right"></i></button>
-            <div class="dashboard-template-position" data-template-position aria-live="polite">{{ $templates->total() ? ($templates->firstItem() ?: 1) . ' of ' . $templates->total() : '0 of 0' }}</div>
+            <div class="dashboard-template-carousel-nav">
+                <button class="dashboard-template-carousel-arrow dashboard-template-carousel-arrow--prev" type="button" data-template-prev aria-label="Previous template"><i class="ti ti-chevron-left"></i></button>
+                <div class="dashboard-template-position" data-template-position aria-live="polite">{{ $templates->total() ? ($templates->firstItem() ?: 1) . ' of ' . $templates->total() : '0 of 0' }}</div>
+                <button class="dashboard-template-carousel-arrow dashboard-template-carousel-arrow--next" type="button" data-template-next aria-label="Next template"><i class="ti ti-chevron-right"></i></button>
+            </div>
         </div>
         <div class="card-footer">
             <div class="dashboard-template-pagination">
