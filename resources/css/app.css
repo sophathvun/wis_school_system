@@ -693,6 +693,33 @@
     margin: 0 auto;
 }
 
+/* Branding uploads use one consistent, easy-to-scan vertical layout. */
+.branding-dropzone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: .35rem;
+    min-height: 224px;
+    padding: 1.25rem;
+}
+
+.branding-dropzone .branding-dropzone-copy {
+    text-align: center;
+    line-height: 1.45;
+}
+
+.branding-dropzone .branding-preview-label {
+    margin-top: .35rem;
+    color: var(--tblr-secondary);
+    font-size: .8rem;
+    font-weight: 600;
+}
+
+.branding-dropzone .branding-preview-wrap {
+    margin-top: .15rem;
+}
+
 .logo-upload-row {
     display: flex;
     align-items: stretch;

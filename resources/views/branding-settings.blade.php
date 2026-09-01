@@ -22,13 +22,16 @@
                             <div class="col-md-4">
                                 <label class="form-label">{{ $label }}</label>
                                 <div class="logo-upload-row d-flex align-items-stretch gap-3">
-                                    <div class="logo-dropzone flex-fill" data-branding-dropzone="{{ $field }}"
+                                    <div class="logo-dropzone branding-dropzone flex-fill" data-branding-dropzone="{{ $field }}"
                                         tabindex="0">
                                         <i class="ti ti-cloud-upload logo-dropzone-icon"></i>
-                                        <div><strong>Drag and drop {{ strtolower($label) }} here</strong></div>
-                                        <div class="text-secondary">or click to choose a file</div>
+                                        <div class="branding-dropzone-copy">
+                                            <strong>Drag and drop {{ strtolower($label) }} here</strong>
+                                            <div class="text-secondary">or click to choose a file</div>
+                                        </div>
                                         <input type="file" name="{{ $field }}" id="{{ $field }}"
                                             class="d-none" accept="{{ $accept }}">
+                                        <div class="branding-preview-label">Preview Photo</div>
                                         <div class="branding-preview-wrap {{ $branding->{$path} ? '' : 'd-none' }}"
                                             data-branding-preview-wrap="{{ $field }}">
                                             <img src="{{ $branding->{$path} ? asset('storage/' . $branding->{$path}) : '#' }}"
