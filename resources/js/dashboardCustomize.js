@@ -339,6 +339,13 @@ document.addEventListener("DOMContentLoaded", () => {
                     selected = selected.map((widget) =>
                         widget.section_id === sectionId ? { ...widget, width: "full" } : widget,
                     );
+                } else if (["2", "3", "4", "5", "6"].includes(sectionColumns.value)) {
+                    // A multi-column section uses one grid cell per widget by
+                    // default; additional widgets in the same column become
+                    // rows and can be reordered with drag-and-drop.
+                    selected = selected.map((widget) =>
+                        widget.section_id === sectionId ? { ...widget, width: "col-1" } : widget,
+                    );
                 }
                 renderSelected();
             }

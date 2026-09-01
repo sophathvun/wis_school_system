@@ -292,7 +292,7 @@
                                 <div class="d-flex justify-content-between align-items-center mb-3">
                                     <div>
                                         <div class="dashboard-builder-subtitle">Dashboard Preview</div>
-                                        <div class="text-secondary small">Create sections, choose columns, then drag widgets into each section.</div>
+                                        <div class="text-secondary small">Create sections, choose columns, then drag widgets into each section. Add multiple widgets to create rows within each column.</div>
                                     </div>
                                     <div class="btn-list">
                                         <button class="btn btn-sm btn-outline-primary" type="button" data-add-dashboard-section>
