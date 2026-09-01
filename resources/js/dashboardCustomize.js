@@ -157,7 +157,28 @@ document.addEventListener("DOMContentLoaded", () => {
                                     const sectionWidgets = selected.filter((widget) => widget.section_id === section.id);
                                     const onlyFullWidth = sectionWidgets.length > 0 && sectionWidgets.every((widget) => normalizeWidth(widget.width) === "full");
                                     if (/^\d+$/.test(section.columns) && Number(section.columns) > 1 && !onlyFullWidth) {
-                                        return Array.from({length: Number(section.columns)}, (_, column) => `<div class="dashboard-column-drop-zone" data-column="${column + 1}"><span>Column ${column + 1}</span></div>`).join("");
+                                        const columnCount = Number(section.columns);
+                                        const occupied = new Set();
+                                        const zones = [];
+                                        sectionWidgets.forEach((widget) => {
+                                            const start = Math.max(1, Number(widget.column || 1));
+                                            const match = String(normalizeWidth(widget.width)).match(/^col-(\d+)$/);
+                                            const span = Math.min(columnCount - start + 1, Math.max(1, Number(match?.[1] || 1)));
+                                            if (normalizeWidth(widget.width) !== "full") {
+                                                for (let column = start; column < start + span; column += 1) occupied.add(column);
+                                            }
+                                        });
+                                        for (let column = 1; column <= columnCount; column += 1) {
+                                            if (occupied.has(column)) {
+                                                const widget = sectionWidgets.find((item) => Number(item.column || 1) === column && normalizeWidth(item.width) !== "full");
+                                                const match = String(normalizeWidth(widget?.width)).match(/^col-(\d+)$/);
+                                                const span = Math.min(columnCount - column + 1, Math.max(1, Number(match?.[1] || 1)));
+                                                if (column === Number(widget?.column || 1)) zones.push(`<div class="dashboard-column-drop-zone dashboard-column-span-${span}" data-column="${column}"><span>Column${span > 1 ? `s ${column}–${column + span - 1}` : ` ${column}`}</span></div>`);
+                                                continue;
+                                            }
+                                            zones.push(`<div class="dashboard-column-drop-zone" data-column="${column}"><span>Column ${column}</span></div>`);
+                                        }
+                                        return zones.join("");
                                     }
                                     return sectionWidgets.length ? "" : `<div class="dashboard-drop-empty"><i class="ti ti-hand-click"></i><span>Drop widgets into ${escapeHtml(section.title || `Section ${index + 1}`)}</span></div>`;
                                 })()}

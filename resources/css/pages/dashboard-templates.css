@@ -482,6 +482,22 @@
     grid-column: 1 / -1 !important;
 }
 
+.dashboard-section-columns-2 > .dashboard-column-span-2 { grid-column: span 2; }
+.dashboard-section-columns-3 > .dashboard-column-span-2 { grid-column: span 2; }
+.dashboard-section-columns-4 > .dashboard-column-span-2 { grid-column: span 2; }
+.dashboard-section-columns-5 > .dashboard-column-span-2 { grid-column: span 2; }
+.dashboard-section-columns-6 > .dashboard-column-span-2 { grid-column: span 2; }
+.dashboard-section-columns-3 > .dashboard-column-span-3,
+.dashboard-section-columns-4 > .dashboard-column-span-3,
+.dashboard-section-columns-5 > .dashboard-column-span-3,
+.dashboard-section-columns-6 > .dashboard-column-span-3 { grid-column: span 3; }
+.dashboard-section-columns-4 > .dashboard-column-span-4,
+.dashboard-section-columns-5 > .dashboard-column-span-4,
+.dashboard-section-columns-6 > .dashboard-column-span-4 { grid-column: span 4; }
+.dashboard-section-columns-5 > .dashboard-column-span-5,
+.dashboard-section-columns-6 > .dashboard-column-span-5 { grid-column: span 5; }
+.dashboard-section-columns-6 > .dashboard-column-span-6 { grid-column: span 6; }
+
 .dashboard-section-drop-zone > .dashboard-selected-widget {
     grid-column: 1 / -1 !important;
 }
