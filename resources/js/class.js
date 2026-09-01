@@ -166,7 +166,7 @@ async function fetchClasses(page = 1, perPage = null) {
             ? classes
                   .map(
                       (item, index) =>
-                          `<tr><td>${offset + index + 1}</td><td>${item.class_name}</td><td>${item.class_order ?? ""}</td><td>${item.status ? "<span class='badge bg-success-lt'>Active</span>" : "<span class='badge bg-danger-lt'>Inactive</span>"}</td><td class="text-center"><button onclick="classesPage.openEditModal(${item.id})" class="btn btn-primary btn-sm"><i class="ti ti-pencil icon"></i>Edit</button> <button onclick="classesPage.deleteClass(${item.id})" class="btn btn-danger btn-sm"><i class="ti ti-trash icon"></i>Delete</button></td></tr>`,
+                          `<tr><td>${offset + index + 1}</td><td>${item.class_name}</td><td>${item.class_order ?? ""}</td><td>${window.statusToggleMarkup ? window.statusToggleMarkup("class", item.id, Boolean(item.status)) : (item.status ? "<span class='badge bg-success-lt'>Active</span>" : "<span class='badge bg-danger-lt'>Inactive</span>")}</td><td class="text-center"><button onclick="classesPage.openEditModal(${item.id})" class="btn btn-primary btn-sm"><i class="ti ti-pencil icon"></i>Edit</button> <button onclick="classesPage.deleteClass(${item.id})" class="btn btn-danger btn-sm"><i class="ti ti-trash icon"></i>Delete</button></td></tr>`,
                   )
                   .join("")
             : `<tr><td colspan="5" class="text-center">No classes found.</td></tr>`;
