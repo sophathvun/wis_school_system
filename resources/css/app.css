@@ -1577,8 +1577,8 @@ body {
         right: .75rem !important;
         left: auto !important;
         transform: none !important;
-        width: min(18rem, calc(100vw - 1.5rem));
-        min-width: 12rem;
+        width: calc(100vw - 1.5rem);
+        min-width: 0;
         margin: 0 !important;
         padding: .5rem !important;
         border: 1px solid rgba(148, 163, 184, .35) !important;

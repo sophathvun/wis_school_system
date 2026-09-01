@@ -6,6 +6,25 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (!toggler || !sidebarMenu) return;
 
+    // Close the expanded mobile menu before applying a theme change so the
+    // navigation never flashes over the page during the reload.
+    document.querySelectorAll("a.hide-theme-dark, a.hide-theme-light").forEach((themeLink) => {
+        themeLink.addEventListener("click", function (event) {
+            if (window.innerWidth >= 992 || !sidebarMenu.classList.contains("show")) return;
+
+            event.preventDefault();
+            sidebarMenu.querySelectorAll(".nav-item.dropdown").forEach((item) => {
+                item.classList.remove("is-mobile-open", "show");
+                getDirectChild(item, ".dropdown-menu")?.classList.remove("show");
+            });
+
+            const destination = this.href;
+            const collapseInstance = bootstrap.Collapse.getInstance(sidebarMenu) || new bootstrap.Collapse(sidebarMenu);
+            sidebarMenu.addEventListener("hidden.bs.collapse", () => { window.location.href = destination; }, { once: true });
+            collapseInstance.hide();
+        });
+    });
+
     // Function to toggle sidebar
     function toggleSidebar() {
         const isExpanded = toggler.getAttribute("aria-expanded") === "true";
