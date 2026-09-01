@@ -930,6 +930,26 @@
         flex-wrap: wrap;
         justify-content: center;
         border-radius: 1rem;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: .8rem;
+        padding: .85rem .65rem;
+        border: 0;
+        border-top: 1px solid #e7eef6;
+        background: linear-gradient(180deg, #f8fbff, #fff);
+    }
+
+    .premium-pagination-list {
+        justify-content: center;
+        width: 100%;
+    }
+
+    .premium-pagination-list .page-link {
+        display: grid;
+        width: 2.55rem;
+        height: 2.55rem;
+        place-items: center;
+        border-radius: 12px;
     }
 
     .premium-pagination-info {
@@ -942,6 +962,16 @@
 
     .premium-pagination-controls {
         margin-left: 0;
+        display: flex;
+        width: 100%;
+        justify-content: center;
+        gap: .55rem;
+    }
+
+    .premium-pagination-select .form-select,
+    .premium-pagination-goto input {
+        min-height: 2.45rem;
+        border-radius: 12px;
     }
 }
 
