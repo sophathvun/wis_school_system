@@ -1410,6 +1410,7 @@ body {
         display: flex;
         flex-wrap: nowrap;
         align-items: center;
+        justify-content: flex-start !important;
         gap: .35rem;
         position: relative;
     }
@@ -1422,7 +1423,7 @@ body {
         position: absolute;
         left: 50%;
         z-index: 0;
-        width: min(155px, 42vw);
+        width: min(135px, 30vw);
         margin: 0;
         transform: translateX(-50%);
         text-align: center;
@@ -1437,6 +1438,16 @@ body {
         order: 1;
         gap: .3rem;
         margin-left: .15rem;
+    }
+
+    .navbar-vertical .navbar-nav.flex-row .nav-link {
+        width: 1.5rem;
+        font-size: 1.15rem;
+    }
+
+    .navbar-vertical .navbar-nav.flex-row .avatar {
+        width: 1.75rem;
+        height: 1.75rem;
     }
 
     .navbar-vertical .navbar-nav.flex-row .nav-link,
