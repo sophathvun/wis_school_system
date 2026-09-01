@@ -13,6 +13,16 @@ const search = document.getElementById("classes-search");
 const perPageInput = document.getElementById("classes-per-page");
 const submitButton = document.getElementById("classSubmitBtn");
 const modalTitle = document.getElementById("classModalTitle");
+const statusToggle = document.getElementById("classStatusToggle");
+const syncStatusToggle = (active) => {
+    document.getElementById("status").value = active ? "1" : "0";
+    if (statusToggle) {
+        statusToggle.classList.toggle("is-active", active);
+        statusToggle.querySelector(".status-toggle-label").textContent = active ? "ON" : "OFF";
+        statusToggle.setAttribute("aria-pressed", String(active));
+    }
+};
+statusToggle?.addEventListener("click", () => syncStatusToggle(document.getElementById("status").value !== "1"));
 let classes = [];
 let sortBy = "class_order";
 let sortDir = "asc";
@@ -51,6 +61,7 @@ const openCreateModal = () => {
     form?.reset();
     clearErrors();
     document.getElementById("class_id").value = "";
+    syncStatusToggle(true);
     modalTitle.textContent = "Create Class";
     submitButton.textContent = "Create";
     modal?.show();
@@ -64,6 +75,7 @@ const openEditModal = (id) => {
     document.getElementById("class_name").value = item.class_name ?? "";
     document.getElementById("class_order").value = item.class_order ?? "";
     document.getElementById("status").value = String(item.status ?? 1);
+    syncStatusToggle(String(item.status ?? 1) === "1");
     modalTitle.textContent = "Edit Class";
     submitButton.textContent = "Update";
     modal?.show();

@@ -14,9 +14,7 @@
     </div>
     <div class="col-12">
         <label class="form-label">Status</label>
-        <select class="form-select" name="status" id="status">
-            <option value="1">Active</option>
-            <option value="0">Inactive</option>
-        </select>
+        <input type="hidden" name="status" id="status" value="1">
+        <button type="button" class="status-toggle is-active" id="classStatusToggle" data-form-status-toggle="status" aria-pressed="true"><span class="status-toggle-label">ON</span><span class="status-toggle-knob"></span></button>
     </div>
 </div>

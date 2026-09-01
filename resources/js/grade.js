@@ -13,6 +13,17 @@ const search = document.getElementById("grades-search");
 const perPageInput = document.getElementById("grades-per-page");
 const submitButton = document.getElementById("gradeSubmitBtn");
 const modalTitle = document.getElementById("gradeModalTitle");
+const statusToggle = document.getElementById("gradeStatusToggle");
+const syncStatusToggle = (active) => {
+    const value = active ? "1" : "0";
+    document.getElementById("status").value = value;
+    if (statusToggle) {
+        statusToggle.classList.toggle("is-active", active);
+        statusToggle.querySelector(".status-toggle-label").textContent = active ? "ON" : "OFF";
+        statusToggle.setAttribute("aria-pressed", String(active));
+    }
+};
+statusToggle?.addEventListener("click", () => syncStatusToggle(document.getElementById("status").value !== "1"));
 let grades = [];
 let sortBy = "grade_order";
 let sortDir = "asc";
@@ -53,6 +64,7 @@ const openCreateModal = () => {
     form?.reset();
     clearErrors();
     document.getElementById("grade_id").value = "";
+    syncStatusToggle(true);
     modalTitle.textContent = "Create Grade";
     submitButton.textContent = "Create";
     modal?.show();
@@ -79,6 +91,7 @@ const openEditModal = (id) => {
     document.getElementById("grade_order").value = grade.grade_order ?? "";
     document.getElementById("description").value = grade.description ?? "";
     document.getElementById("status").value = String(grade.status ?? 1);
+    syncStatusToggle(String(grade.status ?? 1) === "1");
     modalTitle.textContent = "Edit Grade";
     submitButton.textContent = "Update";
     modal?.show();
