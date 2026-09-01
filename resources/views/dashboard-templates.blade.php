@@ -153,8 +153,8 @@
                 <input type="hidden" name="per_page" value="{{ request('per_page', 10) }}">
                 <input type="hidden" name="sortBy" value="{{ $dashboardSortBy }}">
                 <input type="hidden" name="sortDir" value="{{ $dashboardSortDir }}">
-                <div class="row justify-content-end">
-                    <div class="col-auto input-icon">
+                <div class="row">
+                    <div class="col-12 input-icon">
                         <span class="input-icon-addon"><i class="ti ti-search"></i></span>
                         <input class="form-control form-control-sm" name="search" value="{{ request('search') }}"
                             placeholder="Search dashboard templates">
