@@ -398,7 +398,18 @@
 .premium-dashboard-grid {
     display: grid;
     grid-template-columns: repeat(12, minmax(0, 1fr));
+    align-items: start;
     gap: 1rem;
+}
+
+/* Keep each widget at its natural height so stacked rows remain visible
+ * instead of stretching to the tallest widget in the shared grid row. */
+.dynamic-dashboard .premium-dashboard-grid > * {
+    align-self: start;
+}
+
+.dynamic-dashboard .premium-dashboard-grid > * > .h-100 {
+    height: auto !important;
 }
 
 .dashboard-widget-small {
