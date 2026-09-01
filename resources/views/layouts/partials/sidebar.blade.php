@@ -30,6 +30,23 @@
                     <i class="ti ti-bell icon"></i>
                 </a>
             </div>
+            @auth
+                <div class="nav-item dropdown ms-3">
+                    <a href="#" class="nav-link d-flex align-items-center p-0" data-bs-toggle="dropdown"
+                        aria-label="Open profile menu">
+                        <span class="avatar avatar-sm"
+                            @if (auth()->user()->photo_path) style="background-image: url('{{ asset('storage/' . auth()->user()->photo_path) }}')" @endif></span>
+                    </a>
+                    <div class="dropdown-menu dropdown-menu-end dropdown-menu-arrow mobile-profile-menu">
+                        <div class="dropdown-header">{{ auth()->user()->name }}</div>
+                        <a href="{{ route('profile') }}" class="dropdown-item"><i class="ti ti-user me-2"></i>My Profile</a>
+                        <a href="{{ route('profile.status') }}" class="dropdown-item"><i class="ti ti-adjustments me-2"></i>Status</a>
+                        <a href="{{ route('feedback') }}" class="dropdown-item"><i class="ti ti-message me-2"></i>Feedback</a>
+                        <div class="dropdown-divider"></div>
+                        <form method="POST" action="{{ route('logout') }}">@csrf<button class="dropdown-item" type="submit"><i class="ti ti-logout me-2"></i>Logout</button></form>
+                    </div>
+                </div>
+            @endauth
         </div>
         <div class="collapse navbar-collapse" id="sidebar-menu">
             {{-- search sidebar --}}

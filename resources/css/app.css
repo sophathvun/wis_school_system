@@ -1499,6 +1499,21 @@ body {
         flex: 0 0 auto;
     }
 
+    .navbar-vertical .mobile-profile-menu {
+        min-width: 12rem;
+        padding: .45rem;
+        border: 1px solid rgba(255, 255, 255, .14);
+        border-radius: .85rem;
+        background: #1e293b;
+        box-shadow: 0 12px 28px rgba(15, 23, 42, .3);
+    }
+
+    .navbar-vertical .mobile-profile-menu .dropdown-header {
+        padding: .5rem .75rem;
+        color: rgba(255, 255, 255, .65);
+        font-size: .75rem;
+    }
+
     .navbar-vertical .nav-item.dropdown > .nav-link.dropdown-toggle {
         position: relative;
         justify-content: space-between;
