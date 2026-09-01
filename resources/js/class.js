@@ -8,6 +8,7 @@ const form = document.getElementById("classForm");
 const modalElement = document.getElementById("classModal");
 const modal = modalElement ? new bootstrap.Modal(modalElement) : null;
 const table = document.getElementById("classesTable");
+const mobileCards = document.getElementById("classesMobileCards");
 const search = document.getElementById("classes-search");
 const perPageInput = document.getElementById("classes-per-page");
 const submitButton = document.getElementById("classSubmitBtn");
@@ -162,6 +163,8 @@ async function fetchClasses(page = 1, perPage = null) {
             throw new Error(result.message || "Unable to fetch classes.");
         classes = result.data;
         const offset = (result.current_page - 1) * size;
+        const escapeHtml = (value) => String(value ?? "").replace(/[&<>\"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '\"': "&quot;", "'": "&#039;" })[character]);
+        if (mobileCards) mobileCards.innerHTML = classes.length ? classes.map((item, index) => `<article class="class-mobile-card"><div class="class-mobile-head"><span class="class-mobile-number">${offset + index + 1}</span><div><strong>${escapeHtml(item.class_name)}</strong><span>Order ${escapeHtml(item.class_order ?? "-")}</span></div>${window.statusToggleMarkup?.("class", item.id, Boolean(item.status)) || `<button type="button" class="status-toggle ${item.status ? "is-active" : ""}" data-status-toggle data-status-entity="class" data-status-id="${item.id}" data-status="${item.status ? 1 : 0}"><span class="status-toggle-label">${item.status ? "ON" : "OFF"}</span><span class="status-toggle-knob"></span></button>`}</div><div class="class-mobile-actions"><button onclick="classesPage.openEditModal(${item.id})" class="btn btn-primary"><i class="ti ti-pencil me-1"></i>Edit</button><button onclick="classesPage.deleteClass(${item.id})" class="btn btn-outline-danger"><i class="ti ti-trash me-1"></i>Delete</button></div></article>`).join("") : `<div class="class-mobile-empty">No classes found.</div>`;
         table.innerHTML = classes.length
             ? classes
                   .map(
