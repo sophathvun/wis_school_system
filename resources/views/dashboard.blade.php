@@ -361,6 +361,9 @@
                                             <div>
                                                 <div class="premium-dashboard-label">{{ $widget->name }}</div>
                                                 <div class="text-secondary">{{ $metric['subtitle'] ?? '' }}</div>
+                                                @if ($widget->code === 'students_by_grade_chart' && $selectedAcademicYearLabel)
+                                                    <div class="text-secondary small">Academic Year: {{ $selectedAcademicYearLabel }}</div>
+                                                @endif
                                             </div>
                                             <span class="premium-dashboard-icon bg-{{ $widget->color ?: 'blue' }}-lt">
                                                 <i class="ti {{ $widget->icon ?: 'ti-chart-bar' }}"></i>
