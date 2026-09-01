@@ -1,9 +1,9 @@
-<!doctype html>
-<html lang="en">
+﻿<!doctype html>
+<html lang="km">
 
 <head>
     <meta charset="UTF-8">
-    <title>User List</title>
+    <title>បញ្ជីឈ្មោះអ្នកប្រើប្រាស់</title>
     <style>
         @font-face {
             font-family: "Khmer OS Muol Light";
@@ -88,34 +88,22 @@
     </style>
 </head>
 
-<body>
+<body data-pdf-print-mode="{{ ($printMode ?? false) ? '1' : '0' }}">
     <div class="logo-row">
         @if ($logoSrc)
             <img src="{{ $logoSrc }}" alt="School Logo 1" class="school-logo">
         @endif
     </div>
     <div class="report-title">
-        <h3 class="khmer-title">តារាងអ្នកប្រើប្រាស់</h3>
+        <h3 class="khmer-title">បញ្ជីឈ្មោះអ្នកប្រើប្រាស់</h3>
         <h3 class="english-title">User List</h3>
     </div>
-
-    @if ($printMode ?? false)
-        <script>
-            window.addEventListener('load', function() {
-                window.setTimeout(function() {
-                    window.print();
-                }, 150);
-            });
-            window.addEventListener('afterprint', function() {
-                window.close();
-            });
-        </script>
-    @endif
 
     <table>
         <thead>
             <tr>
                 <th>No.</th>
+                <th>Staff ID</th>
                 <th>Staff Full Name</th>
                 <th>Username</th>
                 <th>Email</th>
@@ -131,6 +119,7 @@
             @foreach ($users as $index => $user)
                 <tr>
                     <td>{{ $index + 1 }}</td>
+                    <td>{{ $user->staff_id ?: '-' }}</td>
                     <td class="text-start">{{ $user->name }}</td>
                     <td>{{ $user->username }}</td>
                     <td>{{ $user->email }}</td>
@@ -146,6 +135,8 @@
     </table>
 
     <div class="report-footer">{{ now('Asia/Phnom_Penh')->format('d-M-Y h:i A') }}</div>
+    @vite('resources/js/pdfPrint.js')
 </body>
 
 </html>
+

@@ -22,15 +22,13 @@
     <p class="premium-pagination-info m-0">Showing <strong>{{ $userList->firstItem() ?? 0 }} to
             {{ $userList->lastItem() ?? 0 }}</strong> of <strong>{{ $userList->total() }} entries</strong></p>
     <div class="premium-pagination-controls"><label class="premium-pagination-select"><select
-                class="form-select form-select-sm"
-                onchange="const u=new URL(window.location.href);u.searchParams.set('per_page',this.value);u.searchParams.set('users_page',1);window.location=u">
+                class="form-select form-select-sm" data-pagination-per-page data-pagination-page-param="users_page">
                 <option value="10" @selected($userList->perPage() == 10)>10 / page</option>
                 <option value="25" @selected($userList->perPage() == 25)>25 / page</option>
                 <option value="50" @selected($userList->perPage() == 50)>50 / page</option>
                 <option value="100" @selected($userList->perPage() == 100)>100 / page</option>
             </select></label><label class="premium-pagination-goto"><span>Go to</span><input type="number"
                 class="form-control form-control-sm" min="1" max="{{ $lastPage }}"
-                value="{{ $currentPage }}"
-                onchange="const u=new URL(window.location.href);u.searchParams.set('users_page',Math.min({{ $lastPage }},Math.max(1,parseInt(this.value)||1)));window.location=u"><span>Page</span></label>
+                value="{{ $currentPage }}" data-pagination-goto data-pagination-max="{{ $lastPage }}" data-pagination-page-param="users_page"><span>Page</span></label>
     </div>
 </div>

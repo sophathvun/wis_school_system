@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 
 <head>
@@ -107,7 +107,7 @@
     </style>
 </head>
 
-<body>
+<body data-pdf-print-mode="{{ ($printMode ?? false) ? '1' : '0' }}">
     <div class="logo-row">
         @if ($logoSrc)
             <img src="{{ $logoSrc }}" alt="School Logo 1" class="school-logo">
@@ -115,23 +115,9 @@
     </div>
 
     <div class="report-title">
-        <h3 class="khmer-title">តារាងផ្នែក</h3>
+        <h3 class="khmer-title">ážáž¶ážšáž¶áž„áž•áŸ’áž“áŸ‚áž€</h3>
         <h3 class="english-title">Department List</h3>
     </div>
-
-    @if ($printMode ?? false)
-        <script>
-            window.addEventListener('load', function() {
-                window.setTimeout(function() {
-                    window.print();
-                }, 150);
-            });
-
-            window.addEventListener('afterprint', function() {
-                window.close();
-            });
-        </script>
-    @endif
 
     <table>
         <thead>
@@ -159,6 +145,8 @@
     </table>
 
     <div class="report-footer">{{ now('Asia/Phnom_Penh')->format('d-M-Y h:i A') }}</div>
+    @vite('resources/js/pdfPrint.js')
 </body>
 
 </html>
+

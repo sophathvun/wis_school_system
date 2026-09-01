@@ -107,33 +107,5 @@
         </div>
     </div>
 </div>
-@push('scripts')
-    <script>
-        document.getElementById('documentTypeModal')?.addEventListener('show.bs.modal', e => {
-            const d = e.relatedTarget?.dataset.type ? JSON.parse(e.relatedTarget.dataset.type) : null;
-            const active = d ? Boolean(d.status) : true;
-            document.getElementById('document_type_id').value = d?.id || '';
-            document.getElementById('document_type_key').value = d?.type_key || '';
-            document.getElementById('document_type_en').value = d?.name_en || '';
-            document.getElementById('document_type_kh').value = d?.name_kh || '';
-            document.getElementById('document_type_order').value = d?.sort_order || 0;
-            document.getElementById('document_type_status').value = active ? 1 : 0;
-            const toggle = document.getElementById('document_type_status_toggle');
-            toggle?.classList.toggle('is-active', active);
-            toggle?.setAttribute('aria-pressed', active ? 'true' : 'false');
-            toggle?.querySelector('.status-toggle-label') && (toggle.querySelector('.status-toggle-label').textContent =
-                active ? 'ON' : 'OFF');
-        });
-
-        document.getElementById('document_type_status_toggle')?.addEventListener('click', event => {
-            const toggle = event.currentTarget;
-            const input = document.getElementById('document_type_status');
-            const active = !toggle.classList.contains('is-active');
-            toggle.classList.toggle('is-active', active);
-            toggle.setAttribute('aria-pressed', active ? 'true' : 'false');
-            toggle.querySelector('.status-toggle-label').textContent = active ? 'ON' : 'OFF';
-            input.value = active ? 1 : 0;
-        });
-    </script>
-@endpush
+@vite('resources/js/studentDocumentTypes.js')
 @endsection

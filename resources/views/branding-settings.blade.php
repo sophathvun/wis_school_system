@@ -59,6 +59,4 @@
         </div>
     </div>
 @endsection
-@push('scripts')
-    @vite('resources/js/brandingSettings.js')
-@endpush
+@vite('resources/js/brandingSettings.js')

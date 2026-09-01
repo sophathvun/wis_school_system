@@ -115,8 +115,7 @@
                                 entries</strong></p>
                         <div class="premium-pagination-controls"><label class="premium-pagination-goto"><span>Go
                                     to</span><input type="number" min="1" max="{{ $reasons->lastPage() }}"
-                                    value="{{ $reasons->currentPage() }}"
-                                    onchange="location.href='{{ route('withdrawal-reasons.index') }}?page='+this.value+'&perPage={{ request('perPage', 10) }}&search='+encodeURIComponent('{{ request('search') }}')"><span>Page</span></label>
+                                    value="{{ $reasons->currentPage() }}" id="withdrawalReasonPageInput"><span>Page</span></label>
                         </div>
                     </div>
                 </div>
@@ -158,61 +157,4 @@
     </div>
 @endsection
 @vite('resources/css/pages/withdrawal-reasons.css')
-@push('scripts')
-    <script>
-        document.getElementById('reasonModal')?.addEventListener('show.bs.modal', event => {
-            const data = event.relatedTarget?.dataset.reason ? JSON.parse(event.relatedTarget.dataset.reason) :
-            null;
-            document.getElementById('reason_id').value = data?.id || '';
-            document.getElementById('reason_key').value = data?.reason_key || '';
-            document.getElementById('reason_name_en').value = data?.name_en || '';
-            document.getElementById('reason_name_kh').value = data?.name_kh || '';
-            document.getElementById('reason_sort_order').value = data?.sort_order || 0;
-            document.getElementById('reason_status').value = data?.status ? 1 : 0;
-        });
-        document.querySelector('.premium-pagination-controls')?.insertAdjacentHTML('afterbegin',
-            '<label class="premium-pagination-select"><select class="form-select form-select-sm" aria-label="Entries per page" onchange="location.href=\'' +
-            {{ Js::from(route('withdrawal-reasons.index')) }} +
-            '?page=1&perPage=\'+this.value+\'&search=\'+encodeURIComponent(\'' + {{ Js::from(request('search', '')) }} +
-            '\')"><option value="10" {{ request('perPage', 10) == 10 ? 'selected' : '' }}>10 / page</option><option value="25" {{ request('perPage') == 25 ? 'selected' : '' }}>25 / page</option><option value="50" {{ request('perPage') == 50 ? 'selected' : '' }}>50 / page</option><option value="100" {{ request('perPage') == 100 ? 'selected' : '' }}>100 / page</option></select></label>'
-            );
-
-        document.querySelectorAll('[data-withdrawal-reason-delete-form]').forEach(form => {
-            form.addEventListener('submit', async event => {
-                if (form.dataset.confirmed === 'true') {
-                    return;
-                }
-
-                event.preventDefault();
-
-                const confirmAction = window.schoolShowConfirm
-                    ? window.schoolShowConfirm(
-                        'Deactivate Withdrawal Reason',
-                        'Are you sure you want to deactivate this withdrawal reason?',
-                        'Deactivate',
-                        'Cancel',
-                    )
-                    : window.Swal?.fire({
-                        title: 'Deactivate Withdrawal Reason',
-                        text: 'Are you sure you want to deactivate this withdrawal reason?',
-                        icon: 'warning',
-                        showCancelButton: true,
-                        confirmButtonText: 'Deactivate',
-                        cancelButtonText: 'Cancel',
-                        confirmButtonColor: '#d63939',
-                    });
-
-                const result = confirmAction ? await confirmAction : {
-                    isConfirmed: confirm('Deactivate this withdrawal reason?'),
-                };
-
-                if (!result.isConfirmed) {
-                    return;
-                }
-
-                form.dataset.confirmed = 'true';
-                form.submit();
-            });
-        });
-    </script>
-@endpush
+@vite('resources/js/withdrawalReasons.js')

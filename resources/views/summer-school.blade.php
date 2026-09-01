@@ -1,4 +1,4 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 @section('title', 'Summer School')
 @section('page-header')
     <div class="container-fluid">
@@ -342,23 +342,5 @@
         #summerSchoolModal .premium-floating-field > .phone-input-group { display:flex; align-items:center; overflow:hidden; }
         #summerSchoolModal .phone-input-group .iti { display:flex; align-items:center; width:100%; }
         #summerSchoolModal .phone-input-group .iti__tel-input { flex:1 1 auto; min-width:0; padding-top:.7rem; }
-    </style>
-    <script>
-        // Decorate the file list when an older cached Summer-school bundle is served.
-        (() => {
-            const decorate = () => {
-                const list = document.getElementById('summerDocumentFileList');
-                const input = document.getElementById('summerDocumentFile');
-                const file = input?.files?.[0];
-                if (!list || !file || list.querySelector('.premium-document-file-card')) return;
-                const size = file.size < 1048576 ? `${Math.max(1, Math.round(file.size / 1024))} KB` : `${(file.size / 1048576).toFixed(1)} MB`;
-                const row = document.createElement('div'); row.className = 'premium-document-file-card';
-                row.innerHTML = `<span class="premium-document-file-icon"><i class="ti ti-photo"></i></span><div class="premium-document-file-meta"><div class="premium-document-file-name"></div><div class="premium-document-file-size">${size} <span>• Ready to upload</span></div></div><button type="button" class="premium-document-file-remove" aria-label="Remove file"><i class="ti ti-x"></i></button>`;
-                row.querySelector('.premium-document-file-name').textContent = file.name;
-                list.replaceChildren(row);
-            };
-            new MutationObserver(decorate).observe(document.body, { childList: true, subtree: true });
-            document.addEventListener('change', (event) => { if (event.target?.id === 'summerDocumentFile') setTimeout(decorate, 0); });
-        })();
-    </script>
-@endsection
+    </style>`r`n@endsection
+

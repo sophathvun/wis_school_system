@@ -57,8 +57,8 @@
 
 <body>
     <div class="toolbar">
-        <button type="button" onclick="window.print()">Print Form</button>
-        <button type="button" onclick="window.close()">Close</button>
+        <button type="button" data-withdrawal-print>Print Form</button>
+        <button type="button" data-withdrawal-close>Close</button>
     </div>
 
     <main class="sheet">
@@ -176,6 +176,7 @@
             </section>
         @endforeach
     </main>
+    @vite('resources/js/studentWithdrawalForm.js')
 </body>
 
 </html>

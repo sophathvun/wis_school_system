@@ -95,6 +95,7 @@
                     <tbody id="enrollmentsTable"></tbody>
                 </table>
             </div>
+            <div id="enrollmentsMobileCards" class="enrollment-mobile-cards d-none"></div>
             <div class="card-footer">
                 <div id="enrollments-pagination-container"></div>
             </div>

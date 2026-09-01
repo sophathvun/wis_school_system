@@ -68,6 +68,34 @@ class AccessFoundationSeeder extends Seeder
             'campuses' => ['view' => 'View campuses', 'manage' => 'Manage campuses'],
         ];
 
+        // Keep the catalog in sync with the granular actions introduced by
+        // the current application workflows.  This merge is intentionally
+        // additive so existing permission assignments remain untouched.
+        $moduleActions = array_replace_recursive($moduleActions, [
+            'users' => ['create' => 'Create Users', 'update' => 'Update Users', 'status' => 'Activate / Deactivate Users', 'permissions' => 'Assign User Permissions', 'campuses' => 'Assign User Campuses'],
+            'departments' => ['create' => 'Create Departments', 'update' => 'Update Departments', 'status' => 'Activate / Deactivate Departments', 'permissions' => 'Assign Department Permissions'],
+            'positions' => ['create' => 'Create Positions', 'update' => 'Update Positions', 'status' => 'Activate / Deactivate Positions'],
+            'roles' => ['create' => 'Create Roles', 'update' => 'Update Roles', 'status' => 'Activate / Deactivate Roles', 'permissions' => 'Assign Role Permissions'],
+            'notifications' => ['create' => 'Create Notifications', 'update' => 'Update Notifications', 'send' => 'Send Notifications'],
+            'chat' => ['send' => 'Send Messages', 'attach' => 'Attach Files and Photos', 'voice' => 'Send Voice Messages'],
+            'branding' => ['update' => 'Update Branding'],
+            'database-backups' => ['restore' => 'Restore Database Backups'],
+            'students.search' => ['view' => 'View Student Search'],
+            'students.enrollment' => ['create' => 'Create Student Enrollment', 'update' => 'Update Student Enrollment', 'status' => 'Change Enrollment Status', 'export' => 'Export Enrollment'],
+            'students.promotion' => ['execute' => 'Promote or Transfer Students', 'cancel' => 'Cancel Promotion or Transfer', 'export' => 'Export Promotion History'],
+            'students.transfer' => ['view' => 'View Student Transfer', 'manage' => 'Manage Student Transfer', 'execute' => 'Transfer Students', 'cancel' => 'Cancel Student Transfer', 'export' => 'Export Transfer Records'],
+            'students.graduation' => ['execute' => 'Graduate Students', 'cancel' => 'Cancel Graduation', 'export' => 'Export Graduation Records'],
+            'student-reentry' => ['create' => 'Create Student Re-entry', 'update' => 'Update Student Re-entry', 'cancel' => 'Cancel Student Re-entry'],
+            'student-documents' => ['create' => 'Upload Student Documents', 'update' => 'Update Student Documents'],
+            'student-withdrawals' => ['approve' => 'Approve student withdrawals'],
+        ]);
+
+        foreach (['academic-years' => 'Academic Years', 'grades' => 'Grades', 'classes' => 'Classes', 'sessions' => 'Groups', 'education-levels' => 'Education Levels', 'programs' => 'Programs', 'school-info' => 'School Information', 'locations' => 'Locations', 'occupations' => 'Occupations', 'academic-tracks' => 'Academic Tracks', 'withdrawal-reasons' => 'Withdrawal Reasons', 'student-document-types' => 'Document Types'] as $module => $label) {
+            $moduleActions[$module] = array_replace($moduleActions[$module] ?? [], [
+                'create' => "Create {$label}", 'update' => "Update {$label}", 'status' => "Activate / Deactivate {$label}",
+            ]);
+        }
+
         foreach ($moduleActions as $module => $actions) {
             foreach ($actions as $action => $name) {
                 $permissions[] = [

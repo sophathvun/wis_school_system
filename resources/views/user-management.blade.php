@@ -1,4 +1,4 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 @section('title', 'Users')
 @section('page-header')
     <div class="container-fluid">
@@ -19,286 +19,11 @@
             </div>
         </div>
     </div>
-
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const table = document.querySelector('.card table');
-            if (!table) return;
-            if (!table.dataset.staffPhotoColumn) {
-                table.dataset.staffPhotoColumn = '1';
-                const header = table.querySelector('thead tr');
-                const staffHeader = header?.children[1];
-                if (!staffHeader) return;
-                const photoHeader = document.createElement('th');
-                photoHeader.textContent = 'Photo';
-                header.insertBefore(photoHeader, staffHeader);
-                const photos = @json($users->pluck('photo_path')->values());
-                const names = @json($users->pluck('name')->values());
-                let index = 0;
-                table.querySelectorAll('tbody tr').forEach(row => {
-                    if (row.children.length === 1) {
-                        row.children[0].setAttribute('colspan', '10');
-                        return;
-                    }
-                    const cell = document.createElement('td');
-                    const path = photos[index];
-                    if (path) {
-                        const button = document.createElement('button');
-                        button.type = 'button';
-                        button.className = 'btn p-0 border-0 staff-photo-view-trigger';
-                        button.dataset.photoUrl = `/storage/${path}`;
-                        button.dataset.photoTitle = names[index] || 'Staff Photo';
-                        button.innerHTML =
-                            `<img src="${button.dataset.photoUrl}" alt="${button.dataset.photoTitle}" style="width:44px;height:44px;object-fit:cover;border-radius:.5rem;border:1px solid var(--tblr-border-color)">`;
-                        cell.appendChild(button);
-                    } else {
-                        cell.innerHTML =
-                            '<span class="avatar avatar-sm bg-secondary-lt"><i class="ti ti-user"></i></span>';
-                    }
-                    row.insertBefore(cell, row.children[1]);
-                    index += 1;
-                });
-            }
-            const viewModalElement = document.getElementById('staffPhotoViewModal');
-            const image = document.getElementById('staffPhotoViewImage');
-            const title = document.getElementById('staffPhotoViewTitle');
-            const zoom = document.getElementById('staffPhotoViewZoom');
-            if (!viewModalElement || !image || !title || !zoom) return;
-            const viewModal = bootstrap.Modal.getOrCreateInstance(viewModalElement);
-            const updateZoom = () => {
-                image.style.transform = `scale(${zoom.value})`;
-            };
-            document.querySelectorAll('.staff-photo-view-trigger').forEach(button => button.addEventListener(
-                'click', () => {
-                    image.src = button.dataset.photoUrl;
-                    title.textContent = button.dataset.photoTitle;
-                    zoom.value = '1';
-                    updateZoom();
-                    viewModal.show();
-                }));
-            zoom.addEventListener('input', updateZoom);
-            document.getElementById('staffPhotoViewZoomIn')?.addEventListener('click', () => {
-                zoom.value = Math.min(3, Number(zoom.value) + .1).toFixed(2);
-                updateZoom();
-            });
-            document.getElementById('staffPhotoViewZoomOut')?.addEventListener('click', () => {
-                zoom.value = Math.max(1, Number(zoom.value) - .1).toFixed(2);
-                updateZoom();
-            });
-            document.getElementById('staffPhotoViewZoomReset')?.addEventListener('click', () => {
-                zoom.value = '1';
-                updateZoom();
-            });
-        });
-    </script>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const form = document.querySelector('#userModal form');
-            const row = form?.querySelector('.row.g-3');
-            const emailField = row?.querySelector('input[name="email"]')?.closest('.col-md-3');
-            if (!row || !emailField || row.dataset.staffInformationReady) return;
-            if (row.querySelector('input[name="date_of_birth"]') || row.querySelector('select[name="position_id"]'))
-                return;
-            row.dataset.staffInformationReady = '1';
-            const makeField = (label, name, type, value) => {
-                const column = document.createElement('div');
-                column.className = 'col-md-3';
-                if (name === 'phone') column.classList.add('user-phone-field');
-                const caption = document.createElement('label');
-                caption.className = 'form-label';
-                caption.textContent = label;
-                column.appendChild(caption);
-                let control;
-                if (type === 'select') {
-                    control = document.createElement('select');
-                    control.className = 'form-select';
-                    [
-                        ['', 'Select'],
-                        ['male', 'Male'],
-                        ['female', 'Female'],
-                        ['other', 'Other']
-                    ].forEach(([optionValue, optionLabel]) => {
-                        const option = new Option(optionLabel, optionValue, false, String(value ||
-                            '') === optionValue);
-                        control.add(option);
-                    });
-                } else {
-                    control = document.createElement('input');
-                    control.type = type;
-                    control.className = 'form-control';
-                    control.value = value || '';
-                }
-                control.name = name;
-                column.appendChild(control);
-                return column;
-            };
-            const gender = makeField('Gender', 'gender', 'select', @json(old('gender', $editUser?->gender)));
-            const dateOfBirth = makeField('Date of Birth', 'date_of_birth', 'date', @json(old('date_of_birth', $editUser?->date_of_birth?->format('Y-m-d'))));
-            const phone = makeField('Phone Number', 'phone', 'tel', @json(old('phone', $editUser?->phone)));
-            const positionColumn = document.createElement('div');
-            positionColumn.className = 'col-md-3';
-            positionColumn.innerHTML = '<label class="form-label">Position</label>';
-            const positionSelect = document.createElement('select');
-            positionSelect.className = 'form-select';
-            positionSelect.name = 'position_id';
-            positionSelect.add(new Option('Select', ''));
-            @foreach ($positions as $position)
-                const positionOption = new Option(@json($position->name), @json((string) $position->id), false,
-                    @json((string) old('position_id', $editUser?->position_id)) === @json((string) $position->id));
-                positionOption.dataset.departmentId = @json((string) $position->department_id);
-                positionSelect.add(positionOption);
-            @endforeach
-            positionColumn.appendChild(positionSelect);
-            const departmentField = row.querySelector('select[name="department_id"]')?.closest('.col-md-3');
-            const departmentSelect = row.querySelector('select[name="department_id"]');
-            const fillDepartmentFromPosition = () => {
-                const selected = positionSelect.options[positionSelect.selectedIndex];
-                if (selected?.dataset.departmentId && departmentSelect) {
-                    departmentSelect.value = selected.dataset.departmentId;
-                    departmentSelect.dispatchEvent(new Event('change', {
-                        bubbles: true
-                    }));
-                }
-            };
-            positionSelect.addEventListener('change', fillDepartmentFromPosition);
-            fillDepartmentFromPosition();
-            if (departmentField) departmentField.before(positionColumn);
-            emailField.after(gender, dateOfBirth, phone);
-        });
-    </script>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const table = document.querySelector('.card table');
-            if (!table || table.dataset.staffDetailsColumns) return;
-            table.dataset.staffDetailsColumns = '1';
-            const header = table.querySelector('thead tr');
-            if (!header) return;
-            const users = @json($staffDetails);
-            const rows = [...table.querySelectorAll('tbody tr')];
-            const addColumn = (before, label, values) => {
-                const target = [...header.children].find(cell => cell.textContent.trim() === before);
-                if (!target) return;
-                const newHeader = document.createElement('th');
-                newHeader.textContent = label;
-                header.insertBefore(newHeader, target);
-                const index = [...header.children].indexOf(newHeader);
-                let dataIndex = 0;
-                rows.forEach(row => {
-                    if (row.children.length === 1) {
-                        row.children[0].setAttribute('colspan', String(header.children.length));
-                        return;
-                    }
-                    const cell = document.createElement('td');
-                    cell.textContent = values[dataIndex++] || '';
-                    row.insertBefore(cell, row.children[index]);
-                });
-            };
-            const staffNameHeader = [...header.children].find(cell => cell.textContent.trim() === 'Staff Name');
-            if (staffNameHeader) staffNameHeader.textContent = 'Staff Full Name';
-            addColumn('Username', 'Gender', users.map(user => user.gender));
-            addColumn('Username', 'Date of Birth', users.map(user => user.date_of_birth));
-            addColumn('Email', 'Phone Number', users.map(user => user.phone));
-            addColumn('Department', 'Campus Assignment', users.map(user => user.campus));
-            addColumn('Department', 'Position', users.map(user => user.position));
-            const positionHeader = [...header.children].find(cell => cell.textContent.trim() === 'Position');
-            const departmentHeader = [...header.children].find(cell => cell.textContent.trim() === 'Department');
-            if (positionHeader && departmentHeader) {
-                const positionIndex = [...header.children].indexOf(positionHeader);
-                const departmentIndex = [...header.children].indexOf(departmentHeader);
-                rows.forEach(row => {
-                    if (row.children.length === 1) return;
-                    const positionCell = row.children[positionIndex];
-                    const departmentCell = row.children[departmentIndex];
-                    if (!positionCell || !departmentCell) return;
-                    const department = departmentCell.textContent.trim();
-                    if (department && department !== '—' && department !== '-') {
-                        const detail = document.createElement('div');
-                        detail.className = 'text-secondary small';
-                        detail.textContent = `Dept: ${department}`;
-                        positionCell.appendChild(detail);
-                    }
-                    departmentCell.remove();
-                });
-                departmentHeader.remove();
-            }
-            const staffHeader = [...header.children].find(cell => cell.textContent.trim() === 'Staff Full Name');
-            const genderHeader = [...header.children].find(cell => cell.textContent.trim() === 'Gender');
-            const dateHeader = [...header.children].find(cell => cell.textContent.trim() === 'Date of Birth');
-            if (staffHeader && genderHeader && dateHeader) {
-                const staffIndex = [...header.children].indexOf(staffHeader);
-                const genderIndex = [...header.children].indexOf(genderHeader);
-                const dateIndex = [...header.children].indexOf(dateHeader);
-                rows.forEach(row => {
-                    if (row.children.length === 1) return;
-                    const staffCell = row.children[staffIndex];
-                    const genderCell = row.children[genderIndex];
-                    const dateCell = row.children[dateIndex];
-                    if (!staffCell || !genderCell || !dateCell) return;
-                    [
-                        ['Gender', genderCell.textContent.trim()],
-                        ['DOB', dateCell.textContent.trim()]
-                    ].forEach(([label, value]) => {
-                        const detail = document.createElement('div');
-                        detail.className = 'text-secondary small';
-                        detail.textContent = `${label}: ${value}`;
-                        staffCell.appendChild(detail);
-                    });
-                    dateCell.remove();
-                    genderCell.remove();
-                });
-                dateHeader.remove();
-                genderHeader.remove();
-            }
-            const userLoginHeader = [...header.children].find(cell => cell.textContent.trim() === 'Username');
-            const emailHeader = [...header.children].find(cell => cell.textContent.trim() === 'Email');
-            if (userLoginHeader && emailHeader) {
-                userLoginHeader.textContent = 'User Login';
-                const emailIndex = [...header.children].indexOf(emailHeader);
-                const userLoginIndex = [...header.children].indexOf(userLoginHeader);
-                rows.forEach(row => {
-                    if (row.children.length === 1) return;
-                    const loginCell = row.children[userLoginIndex];
-                    const emailCell = row.children[emailIndex];
-                    if (!loginCell || !emailCell) return;
-                    const email = emailCell.textContent.trim();
-                    if (email) {
-                        const emailText = document.createElement('div');
-                        emailText.className = 'text-secondary small';
-                        emailText.textContent = email;
-                        loginCell.appendChild(emailText);
-                    }
-                    emailCell.remove();
-                });
-                emailHeader.remove();
-            }
-            const roleHeader = [...header.children].find(cell => cell.textContent.trim() === 'Role');
-            if (roleHeader) {
-                const roleIndex = [...header.children].indexOf(roleHeader);
-                rows.forEach(row => {
-                    if (row.children.length === 1) return;
-                    const roleCell = row.children[roleIndex];
-                    if (roleCell) roleCell.textContent = [...new Set(roleCell.textContent.split(',').map(
-                        role => role.trim()).filter(Boolean))].join(', ') || '—';
-                });
-            }
-        });
-    </script>
-    @if ($editUser?->photo_path)
-        <script>
-            document.addEventListener('DOMContentLoaded', () => {
-                const preview = document.getElementById('staffPhotoPreview');
-                const container = document.getElementById('staffPhotoPreviewContainer');
-                if (preview && container) {
-                    preview.src = @json(asset('storage/' . $editUser->photo_path));
-                    container.classList.remove('d-none');
-                }
-            });
-        </script>
-    @endif
 @endsection
 @section('content')
 
-    <div class="modal modal-blur fade" id="userModal" tabindex="-1" aria-hidden="true">
+    <div class="modal modal-blur fade" id="userModal" tabindex="-1" aria-hidden="true"
+        data-open-on-load="{{ $editUser || ($createUser ?? false) ? '1' : '0' }}">
         <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
@@ -311,21 +36,26 @@
                     <div class="modal-body">
                         <div class="row g-3">
                             <div class="col-12">
-                                <label class="form-label">Photo</label>
                                 <div class="student-photo-upload-row">
                                     <div class="logo-dropzone" id="staffPhotoDropzone" tabindex="0">
-                                        <i class="ti ti-cloud-upload logo-dropzone-icon"></i>
-                                        <div><strong>Drag and drop staff photo here</strong></div>
-                                        <div class="text-secondary">or click, paste, or upload a file</div>
+                                        <div class="user-photo-dropzone-content">
+                                            <i class="ti ti-cloud-upload logo-dropzone-icon"></i>
+                                            <div><strong>Drag and drop staff photo here</strong></div>
+                                            <div class="text-secondary">or click, paste, or upload a file</div>
+                                        </div>
+                                        <div class="form-hint user-photo-dropzone-hint">JPG, PNG, or WEBP. Maximum
+                                            size: 2 MB.</div>
                                         <input type="file" class="d-none" name="photo" id="staff_photo"
                                             accept="image/jpeg,image/png,image/webp">
                                     </div>
                                     <div class="d-none staff-photo-preview-wrap" id="staffPhotoPreviewContainer"><img
                                             id="staffPhotoPreview" src="#" alt="Staff photo preview"
+                                            data-initial-photo="{{ $editUser?->photo_path ? asset('storage/' . $editUser->photo_path) : '' }}"
                                             class="student-photo-preview"></div>
                                 </div>
-                                <small class="form-hint">JPG, PNG, or WEBP. Maximum size: 2 MB.</small>
                             </div>
+                            <div class="col-md-3"><label class="form-label">Staff ID</label><input class="form-control"
+                                    name="staff_id" value="{{ old('staff_id', $editUser?->staff_id) }}" required></div>
                             <div class="col-md-3"><label class="form-label">Staff Name</label><input class="form-control"
                                     name="name" value="{{ old('name', $editUser?->name) }}" required></div>
                             <div class="col-md-3"><label class="form-label">Username</label><input class="form-control"
@@ -334,8 +64,7 @@
                                     type="email" name="email" value="{{ old('email', $editUser?->email) }}" required>
                             </div>
                             <div class="col-md-3"><label class="form-label">Password</label><input class="form-control"
-                                    type="password" name="password" minlength="8"><small class="text-secondary">Blank =
-                                    1234567890</small></div>
+                                    type="password" name="password" minlength="8"><small class="text-body-secondary fw-semibold d-block mt-1">Leave blank to use the default password.</small></div>
                             <div class="col-md-3"><label class="form-label">Confirm Password</label><input
                                     class="form-control" type="password" name="password_confirmation" minlength="8">
                             </div>
@@ -500,31 +229,6 @@
             </div>
         </div>
     </div>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const convert = () => {
-                document.querySelectorAll('.card table .badge').forEach(badge => {
-                    if (!/^(active|inactive)$/i.test(badge.textContent.trim()) || badge.closest(
-                            '[data-status-toggle]')) return;
-                    const row = badge.closest('tr');
-                    const edit = row?.querySelector('a[href*="edit="]');
-                    const id = edit?.href.match(/[?&]edit=(\d+)/)?.[1];
-                    if (!id || !window.statusToggleMarkup) return;
-                    badge.outerHTML = window.statusToggleMarkup('user', id, /^active$/i.test(badge
-                        .textContent.trim()));
-                });
-            };
-            convert();
-        });
-    </script>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const modal = document.getElementById('userModal');
-            const userId = modal?.querySelector('input[name="user_id"]')?.value;
-            const status = modal?.querySelector('select[name="status"]');
-            if (!userId && status) status.value = '1';
-        });
-    </script>
     @if (session('success'))
         <div class="alert alert-success">{{ session('success') }}</div>
     @endif
@@ -545,10 +249,12 @@
         };
         $sortIcon = function (string $field) {
             if (request('sortBy', 'name') !== $field) {
-                return '↕';
+                return '<span class="table-sort-icon" aria-hidden="true">↕</span>';
             }
 
-            return request('sortDir', 'asc') === 'asc' ? '↑' : '↓';
+            return request('sortDir', 'asc') === 'asc'
+                ? '<span class="table-sort-icon" aria-hidden="true">↑</span>'
+                : '<span class="table-sort-icon" aria-hidden="true">↓</span>';
         };
     @endphp
     <div class="card">
@@ -570,20 +276,105 @@
                 </div>
             </div>
         </form>
-        <div class="table-responsive table-vcenter text-nowrap">
+        <div class="user-management-mobile-list-wrap d-md-none">
+            <div class="user-management-mobile-scroll-hint user-management-mobile-scroll-hint-left"
+                aria-hidden="true">
+                <i class="ti ti-chevron-left"></i>
+            </div>
+            <div class="user-management-mobile-scroll-hint user-management-mobile-scroll-hint-right"
+                aria-hidden="true">
+                <i class="ti ti-chevron-right"></i>
+            </div>
+            <div class="user-management-mobile-scroll-position" aria-live="polite">
+                {{ $users->count() ? 1 : 0 }} of {{ $users->count() }}
+            </div>
+            <div class="user-management-mobile-list">
+            @forelse($users as $user)
+                <article class="user-management-mobile-card">
+                    <div class="user-management-mobile-head">
+                        <div class="user-management-mobile-photo">
+                            @if ($user->photo_path)
+                                <button type="button" class="btn p-0 border-0 staff-photo-view-trigger"
+                                    data-photo-url="{{ asset('storage/' . $user->photo_path) }}"
+                                    data-photo-title="{{ $user->name ?: 'Staff Photo' }}">
+                                    <img src="{{ asset('storage/' . $user->photo_path) }}"
+                                        alt="{{ $user->name ?: 'Staff Photo' }}">
+                                </button>
+                            @else
+                                <span class="avatar avatar-md bg-secondary-lt"><i class="ti ti-user"></i></span>
+                            @endif
+                        </div>
+                        <div class="user-management-mobile-title">
+                            <div class="user-management-mobile-name">{{ $user->name }}</div>
+                            <div class="user-management-mobile-subtitle">Staff ID: {{ $user->staff_id ?: '' }}</div>
+                            <div class="user-management-mobile-subtitle">{{ $user->username }}</div>
+                        </div>
+                        <button type="button"
+                            class="status-toggle {{ $user->status ? 'is-active' : '' }}"
+                            data-status-toggle data-status-entity="user"
+                            data-status-id="{{ $user->id }}"
+                            data-status="{{ $user->status ? 1 : 0 }}"
+                            aria-pressed="{{ $user->status ? 'true' : 'false' }}"><span
+                                class="status-toggle-label">{{ $user->status ? 'ON' : 'OFF' }}</span><span
+                                class="status-toggle-knob"></span></button>
+                    </div>
+                    <div class="user-management-mobile-grid">
+                        <div>
+                            <span>Phone</span>
+                            <strong>{{ $user->phone ?: '' }}</strong>
+                        </div>
+                        <div>
+                            <span>Role</span>
+                            <strong>{{ $user->roles->pluck('name')->unique()->join(', ') ?: '' }}</strong>
+                        </div>
+                        <div>
+                            <span>Position</span>
+                            <strong>{{ $user->position?->name ?: '' }}</strong>
+                        </div>
+                        <div>
+                            <span>Campus</span>
+                            <strong>{{ $user->is_global ? 'All Campuses' : ($user->campuses->pluck('campus_name_en')->filter()->join(', ') ?: '') }}</strong>
+                        </div>
+                    </div>
+                    <div class="user-management-mobile-extra">
+                        <div><span>Department</span><strong>{{ $user->department?->name ?: '' }}</strong></div>
+                        <div><span>Login</span><strong>{{ $user->login_identifier === 'both' ? 'Username / Email' : ucfirst($user->login_identifier) }}</strong></div>
+                    </div>
+                    <div class="user-management-mobile-actions">
+                        <a class="btn btn-outline-primary btn-sm" href="{{ route('users.index', ['edit' => $user->id]) }}"
+                            aria-label="Edit user">
+                            <i class="ti ti-edit"></i><span class="visually-hidden">Edit</span>
+                        </a>
+                        <form method="POST" action="{{ route('users.delete', $user) }}" onsubmit="return confirm('Delete this user?')">
+                            @csrf
+                            @method('DELETE')
+                            <button class="btn btn-outline-danger btn-sm" type="submit" aria-label="Delete user">
+                                <i class="ti ti-trash"></i><span class="visually-hidden">Delete</span>
+                            </button>
+                        </form>
+                    </div>
+                </article>
+            @empty
+                <div class="text-center text-secondary py-4">No users found.</div>
+            @endforelse
+            </div>
+        </div>
+
+        <div class="table-responsive table-vcenter text-nowrap d-none d-md-block">
             <table class="table card-table" data-staff-photo-column="1" data-staff-details-columns="1">
                 <thead>
                     <tr>
                         <th>No.</th>
                         <th>Photo</th>
-                        <th><a class="table-sort-button text-uppercase" href="{{ $sortUrl('name') }}">STAFF FULL NAME {{ $sortIcon('name') }}</a></th>
-                        <th><a class="table-sort-button text-uppercase" href="{{ $sortUrl('username') }}">USER LOGIN {{ $sortIcon('username') }}</a></th>
-                        <th><a class="table-sort-button text-uppercase" href="{{ $sortUrl('phone') }}">PHONE NUMBER {{ $sortIcon('phone') }}</a></th>
-                        <th><a class="table-sort-button text-uppercase" href="{{ $sortUrl('position') }}">POSITION {{ $sortIcon('position') }}</a></th>
-                        <th><a class="table-sort-button text-uppercase" href="{{ $sortUrl('campus') }}">CAMPUS ASSIGNMENT {{ $sortIcon('campus') }}</a></th>
-                        <th><a class="table-sort-button text-uppercase" href="{{ $sortUrl('role') }}">ROLE {{ $sortIcon('role') }}</a></th>
-                        <th><a class="table-sort-button text-uppercase" href="{{ $sortUrl('login_identifier') }}">LOGIN {{ $sortIcon('login_identifier') }}</a></th>
-                        <th><a class="table-sort-button text-uppercase" href="{{ $sortUrl('status') }}">STATUS {{ $sortIcon('status') }}</a></th>
+                        <th><a class="table-sort-button text-uppercase" href="{{ $sortUrl('staff_id') }}">STAFF ID {!! $sortIcon('staff_id') !!}</a></th>
+                        <th><a class="table-sort-button text-uppercase" href="{{ $sortUrl('name') }}">STAFF FULL NAME {!! $sortIcon('name') !!}</a></th>
+                        <th><a class="table-sort-button text-uppercase" href="{{ $sortUrl('username') }}">USER LOGIN {!! $sortIcon('username') !!}</a></th>
+                        <th><a class="table-sort-button text-uppercase" href="{{ $sortUrl('phone') }}">PHONE NUMBER {!! $sortIcon('phone') !!}</a></th>
+                        <th><a class="table-sort-button text-uppercase" href="{{ $sortUrl('position') }}">POSITION {!! $sortIcon('position') !!}</a></th>
+                        <th><a class="table-sort-button text-uppercase" href="{{ $sortUrl('campus') }}">CAMPUS ASSIGNMENT {!! $sortIcon('campus') !!}</a></th>
+                        <th><a class="table-sort-button text-uppercase" href="{{ $sortUrl('role') }}">ROLE {!! $sortIcon('role') !!}</a></th>
+                        <th><a class="table-sort-button text-uppercase" href="{{ $sortUrl('login_identifier') }}">LOGIN {!! $sortIcon('login_identifier') !!}</a></th>
+                        <th><a class="table-sort-button text-uppercase" href="{{ $sortUrl('status') }}">STATUS {!! $sortIcon('status') !!}</a></th>
                         <th class="text-center">Actions</th>
                     </tr>
                 </thead>
@@ -604,33 +395,40 @@
                                     <span class="avatar avatar-sm bg-secondary-lt"><i class="ti ti-user"></i></span>
                                 @endif
                             </td>
+                            <td>{{ $user->staff_id ?: '' }}</td>
                             <td>{{ $user->name }}
-                                <div class="text-secondary small">Gender: {{ $user->gender ?: '—' }}</div>
-                                <div class="text-secondary small">DOB: {{ $user->date_of_birth?->format('d-M-Y') ?: '—' }}</div>
+                                <div class="text-secondary small">Gender: {{ $user->gender ?: '' }}</div>
+                                <div class="text-secondary small">DOB: {{ $user->date_of_birth?->format('d-M-Y') ?: '' }}</div>
                             </td>
                             <td>{{ $user->username }}
                                 <div class="text-secondary small">{{ $user->email }}</div>
                             </td>
-                            <td>{{ $user->phone ?: '—' }}</td>
-                            <td>{{ $user->position?->name ?: '—' }}
-                                <div class="text-secondary small">Dept: {{ $user->department?->name ?: '—' }}</div>
+                            <td>{{ $user->phone ?: '' }}</td>
+                            <td>{{ $user->position?->name ?: '' }}
+                                <div class="text-secondary small">Dept: {{ $user->department?->name ?: '' }}</div>
                             </td>
-                            <td>{{ $user->is_global ? 'All Campuses' : ($user->campuses->pluck('campus_name_en')->filter()->join(', ') ?: '—') }}</td>
-                            <td>{{ $user->roles->pluck('name')->unique()->join(', ') ?: '—' }}</td>
+                            <td>{{ $user->is_global ? 'All Campuses' : ($user->campuses->pluck('campus_name_en')->filter()->join(', ') ?: '') }}</td>
+                            <td>{{ $user->roles->pluck('name')->unique()->join(', ') ?: '' }}</td>
                             <td>{{ $user->login_identifier === 'both' ? 'Username / Email' : ucfirst($user->login_identifier) }}
                             </td>
-                            <td><span
-                                    class="badge bg-{{ $user->status ? 'success' : 'secondary' }}">{{ $user->status ? 'Active' : 'Inactive' }}</span>
-                            </td>
-                            <td class="text-center"><a class="btn btn-sm btn-outline-primary"
+                            <td><button type="button"
+                                    class="status-toggle {{ $user->status ? 'is-active' : '' }}"
+                                    data-status-toggle data-status-entity="user"
+                                    data-status-id="{{ $user->id }}"
+                                    data-status="{{ $user->status ? 1 : 0 }}"
+                                    aria-pressed="{{ $user->status ? 'true' : 'false' }}"><span
+                                        class="status-toggle-label">{{ $user->status ? 'ON' : 'OFF' }}</span><span
+                                        class="status-toggle-knob"></span></button></td>
+                            <td class="text-center"><a class="btn btn-sm btn-outline-primary" data-edit="{{ $user->id }}"
                                     href="{{ route('users.index', ['edit' => $user->id]) }}"><i
                                         class="ti ti-edit"></i></a>
                                 <form class="d-inline" method="POST" action="{{ route('users.delete', $user) }}"
                                     onsubmit="return confirm('Delete this user?')">@csrf @method('DELETE')<button
-                                        class="btn btn-sm btn-outline-danger"><i class="ti ti-trash"></i></button></form>
+                                        class="btn btn-sm btn-outline-danger" data-delete="{{ $user->id }}"><i
+                                            class="ti ti-trash"></i></button></form>
                             </td>
                     </tr>@empty<tr>
-                            <td colspan="11" class="text-center text-secondary py-4">No users found.</td>
+                            <td colspan="12" class="text-center text-secondary py-4">No users found.</td>
                         </tr>
                     @endforelse
                 </tbody>
@@ -640,42 +438,7 @@
             <div class="d-flex justify-content-center">@include('partials.user-pagination')</div>
         </div>
     </div>
-    <script>
-        window.openUserModalSafely = function() {
-            const modal = document.getElementById('userModal');
-            if (!modal) return;
-            try {
-                if (window.bootstrap?.Modal) {
-                    window.bootstrap.Modal.getOrCreateInstance(modal).show();
-                    return;
-                }
-            } catch (error) {
-                console.warn('Bootstrap modal initialization failed; using fallback.', error);
-            }
-            document.querySelector('.modal-backdrop.user-modal-backdrop')?.remove();
-            const backdrop = document.createElement('div');
-            backdrop.className = 'modal-backdrop fade show user-modal-backdrop';
-            document.body.appendChild(backdrop);
-            modal.classList.add('show');
-            modal.style.display = 'block';
-            modal.setAttribute('aria-hidden', 'false');
-            modal.removeAttribute('inert');
-            document.body.classList.add('modal-open');
-        }
-        window.openUserModal = () => window.openUserModalSafely();
-        document.addEventListener('DOMContentLoaded', () => {
-            const modal = document.getElementById('userModal');
-            document.addEventListener('click', event => {
-                const newUserButton = event.target.closest('#btnNewUser');
-                if (!newUserButton) return;
-                event.preventDefault();
-                openUserModalSafely();
-            }, true);
-            @if ($editUser || ($createUser ?? false))
-                openUserModalSafely();
-            @endif
-        });
-    </script>
     @vite('resources/js/userManagement.js')
     @vite('resources/css/pages/user-management.css')
 @endsection
+

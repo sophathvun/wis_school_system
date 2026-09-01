@@ -9,8 +9,11 @@ const search = document.getElementById("locations-search");
 const perPageInput = document.getElementById("locations-per-page");
 const filterRow = document.getElementById("location-filter-row");
 const parent = document.getElementById("location-parent");
+const parentToggle = document.getElementById("location-parent-toggle");
+const parentMenu = document.getElementById("location-parent-menu");
 const parentSearch = document.getElementById("location-parent-search");
 const parentResults = document.getElementById("location-parent-results");
+const parentSelected = document.getElementById("location-parent-selected");
 const parentWrap = document.getElementById("location-parent-wrap");
 const parentLabel = document.getElementById("location-parent-label");
 const form = document.getElementById("locationForm");
@@ -332,44 +335,48 @@ const renderParentOptions = () => {
         ? items
               .map(
                   (item) =>
-                      `<button type="button" class="list-group-item list-group-item-action bg-dark text-light border-secondary" data-parent-id="${item.id}" data-parent-label="${optionText(item, nameKey, khKeyName)}">${optionText(item, nameKey, khKeyName)}</button>`,
+                      `<button type="button" class="location-combobox-option${String(parent.value || selectedParentId) === String(item.id) ? " is-selected" : ""}" data-parent-id="${item.id}" data-parent-label="${optionText(item, nameKey, khKeyName)}"><span class="school-profile-khmer">${escapeHtml(optionText(item, nameKey, khKeyName))}</span>${String(parent.value || selectedParentId) === String(item.id) ? '<i class="ti ti-check"></i>' : ""}</button>`,
               )
               .join("")
-        : `<div class="list-group-item bg-dark text-secondary border-secondary">No communes found</div>`;
-    parentResults.style.display = level.value === "village" ? "block" : "none";
+        : `<div class="text-secondary px-2 py-2">No options found</div>`;
+};
+
+const syncParentSelectedText = () => {
+    if (!parentSelected) return;
+    const [nameKey, khKeyName] = getParentNameKeys();
+    const selected = parentOptionsList.find(
+        (item) => String(item.id) === String(parent.value || selectedParentId),
+    );
+    parentSelected.textContent = selected
+        ? optionText(selected, nameKey, khKeyName)
+        : `Select ${parentLabel?.textContent || "Parent"}`;
+};
+
+const openParentMenu = () => {
+    if (!parentMenu) return;
+    parentMenu.classList.remove("d-none");
+    if (parentSearch) parentSearch.value = "";
+    renderParentOptions();
+    parentSearch?.focus();
+};
+
+const closeParentMenu = () => {
+    parentMenu?.classList.add("d-none");
 };
 
 const setParentOptions = () => {
     const config = parentData[level.value];
     parentWrap.classList.toggle("d-none", !config);
-    if (parentSearch)
-        parentSearch.style.display =
-            level.value === "village" ? "block" : "none";
-    if (parentResults)
-        parentResults.style.display =
-            level.value === "village" ? "block" : "none";
-    if (parent)
-        parent.style.display = level.value === "village" ? "none" : "block";
+    closeParentMenu();
+    parent?.classList.add("d-none");
     if (parentSearch) parentSearch.value = "";
     selectedParentId = "";
     if (!config) return;
 
     parentLabel.textContent = config[1];
     parentOptionsList = options[config[0]] || [];
-    if (level.value === "village") {
-        renderParentOptions();
-        parentSearch.focus();
-    } else {
-        const [nameKey, khKeyName] = getParentNameKeys();
-        parent.innerHTML =
-            `<option value="">Select ${config[1]}</option>` +
-            parentOptionsList
-                .map(
-                    (item) =>
-                        `<option value="${item.id}">${optionText(item, nameKey, khKeyName)}</option>`,
-                )
-                .join("");
-    }
+    renderParentOptions();
+    syncParentSelectedText();
 };
 
 const relationCell = (item) => {
@@ -428,6 +435,9 @@ const renderHead = () => {
     });
 };
 
+const statusToggleMarkup = (currentLevel, id, isActive) =>
+    `<button type="button" class="status-toggle${isActive ? " is-active" : ""}" data-location-action="status" data-location-id="${id}" data-location-level="${currentLevel}" aria-pressed="${isActive ? "true" : "false"}"><span class="status-toggle-label">${isActive ? "ON" : "OFF"}</span><span class="status-toggle-knob"></span></button>`;
+
 const fetchRows = async (page = 1, perPage = null) => {
     const size = perPage ?? parseInt(perPageInput.value);
     const params = new URLSearchParams({
@@ -458,7 +468,7 @@ const fetchRows = async (page = 1, perPage = null) => {
                       level.value === "village"
                           ? `${ancestorCell(item, "district")}${ancestorCell(item, "province")}${ancestorCell(item, "country")}`
                           : "";
-                  return `<tr><td>${offset + index + 1}</td><td class="location-name-cell"><div class="school-profile-khmer">${escapeHtml(item[kh] ?? "")}</div><div>${escapeHtml(item[name] ?? "")}</div></td>${level.value === "country" ? `<td><div class="school-profile-khmer">${escapeHtml(item.nationality_name_kh ?? "-")}</div><div>${escapeHtml(item.nationality_name_en ?? "-")}</div></td><td>${item.flag_path ? `<img src="/${item.flag_path}" alt="${escapeHtml(item[name] ?? "")}" style="width:28px;height:20px;object-fit:contain">` : "-"}</td>` : config ? relationCell(item) : ""}${["district", "commune"].includes(level.value) ? countryCell(item) : ""}${villageAncestors}<td>${statusToggleMarkup(level.value, item.id, !!item.status)}</td><td class="text-center"><button class="btn btn-primary btn-sm" onclick="locationsPage.edit(${item.id})">Edit</button> <button class="btn btn-danger btn-sm" onclick="locationsPage.remove(${item.id})">Delete</button></td></tr>`;
+                  return `<tr><td>${offset + index + 1}</td><td class="location-name-cell"><div class="school-profile-khmer">${escapeHtml(item[kh] ?? "")}</div><div>${escapeHtml(item[name] ?? "")}</div></td>${level.value === "country" ? `<td><div class="school-profile-khmer">${escapeHtml(item.nationality_name_kh ?? "-")}</div><div>${escapeHtml(item.nationality_name_en ?? "-")}</div></td><td>${item.flag_path ? `<img src="/${item.flag_path}" alt="${escapeHtml(item[name] ?? "")}" style="width:28px;height:20px;object-fit:contain">` : "-"}</td>` : config ? relationCell(item) : ""}${["district", "commune"].includes(level.value) ? countryCell(item) : ""}${villageAncestors}<td>${statusToggleMarkup(level.value, item.id, !!item.status)}</td><td class="text-center"><button type="button" class="btn btn-primary btn-sm" data-location-action="edit" data-location-id="${item.id}">Edit</button> <button type="button" class="btn btn-danger btn-sm" data-location-action="delete" data-location-id="${item.id}">Delete</button></td></tr>`;
               })
               .join("")
         : `<tr><td colspan="10" class="text-center">No locations found.</td></tr>`;
@@ -560,6 +570,7 @@ const edit = async (id) => {
             ];
         if (level.value === "village") {
             selectedParentId = String(parentId ?? "");
+            parent.value = selectedParentId;
             const matched = parentOptionsList.find(
                 (row) => String(row.id) === selectedParentId,
             );
@@ -571,8 +582,10 @@ const edit = async (id) => {
                 );
             renderParentOptions();
         } else {
-            parent.value = parentId;
+            parent.value = String(parentId ?? "");
+            selectedParentId = parent.value;
         }
+        syncParentSelectedText();
     }
 
     document.getElementById("locationModalTitle").textContent =
@@ -674,6 +687,56 @@ const remove = async (id) => {
     }
 };
 
+const updateStatus = async (id) => {
+    const item = rows.find((row) => Number(row.id) === Number(id));
+    if (!item) return;
+
+    const payload = {
+        level: level.value,
+        id,
+        name_en: item[key(level.value)] ?? "",
+        name_kh: item[khKey(level.value)] ?? "",
+        status: item.status ? "0" : "1",
+    };
+
+    if (level.value === "country") {
+        Object.assign(payload, {
+            country_code: item.country_code ?? "",
+            flag_path: item.flag_path ?? "",
+            nationality_name_en: item.nationality_name_en ?? "",
+            nationality_name_kh: item.nationality_name_kh ?? "",
+        });
+    } else {
+        const parentColumn =
+            level.value === "province"
+                ? "country_id"
+                : level.value === "district"
+                  ? "province_id"
+                  : level.value === "commune"
+                    ? "district_id"
+                    : "commune_id";
+        payload.parent_id = item[parentColumn] ?? "";
+    }
+
+    const r = await fetch("/locations/save", {
+        method: "POST",
+        headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            "X-CSRF-TOKEN": csrf,
+        },
+        body: JSON.stringify(payload),
+    });
+    const j = await r.json();
+
+    if (r.ok) {
+        showSuccess("Updated", j.message || "Location status updated.");
+        fetchRows();
+    } else {
+        showError("Error", j.message || "Unable to update status.");
+    }
+};
+
 level.addEventListener("change", async () => {
     await loadOptions();
     sortBy = "name";
@@ -684,14 +747,23 @@ level.addEventListener("change", async () => {
     fetchRows(1, parseInt(perPageInput.value));
 });
 
+parentToggle?.addEventListener("click", openParentMenu);
 parentSearch?.addEventListener("input", renderParentOptions);
 parentResults?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-parent-id]");
     if (!button) return;
     selectedParentId = button.dataset.parentId || "";
+    parent.value = selectedParentId;
     parentSearch.value = button.dataset.parentLabel || "";
-    parentResults.classList.add("d-none");
+    syncParentSelectedText();
+    closeParentMenu();
 });
+document.addEventListener("click", (event) => {
+    if (!parentWrap?.contains(event.target)) closeParentMenu();
+});
+document
+    .getElementById("locationModal")
+    ?.addEventListener("hidden.bs.modal", closeParentMenu);
 
 perPageInput.addEventListener("change", () =>
     fetchRows(1, parseInt(perPageInput.value)),
@@ -702,6 +774,19 @@ search.addEventListener("input", () =>
 document.getElementById("newLocation").addEventListener("click", openCreate);
 document.getElementById("printLocations")?.addEventListener("click", openPrintPreview);
 document.getElementById("excelLocations")?.addEventListener("click", downloadExcel);
+
+document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-location-action]");
+    if (!button) return;
+    const id = Number(button.dataset.locationId);
+    if (button.dataset.locationAction === "edit") {
+        edit(id);
+    } else if (button.dataset.locationAction === "delete") {
+        remove(id);
+    } else if (button.dataset.locationAction === "status") {
+        updateStatus(id);
+    }
+});
 
 window.locationsPage = { edit, remove };
 

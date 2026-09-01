@@ -849,6 +849,89 @@
     border-radius: 16px;
 }
 
+.premium-campus-grade-mobile {
+    display: none;
+    gap: .85rem;
+}
+
+.premium-campus-grade-mobile-card {
+    padding: .95rem;
+    border: 1px solid #dce3ec;
+    border-radius: 18px;
+    background: linear-gradient(180deg, #fff 0%, #f8fbff 100%);
+    box-shadow: 0 12px 28px rgba(31, 63, 104, .06);
+}
+
+.premium-campus-grade-mobile-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: .75rem;
+    margin-bottom: .9rem;
+}
+
+.premium-campus-grade-mobile-campus {
+    color: #1f3f68;
+    font-size: 1rem;
+    font-weight: 800;
+    letter-spacing: .01em;
+}
+
+.premium-campus-grade-mobile-summary {
+    margin-top: .2rem;
+    color: var(--tblr-secondary-color);
+    font-size: .8rem;
+    font-weight: 600;
+}
+
+.premium-campus-grade-mobile-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: .3rem .55rem;
+    border-radius: 999px;
+    color: #206bc4;
+    font-size: .72rem;
+    font-weight: 800;
+    background: #e7f1ff;
+    white-space: nowrap;
+}
+
+.premium-campus-grade-mobile-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .65rem;
+}
+
+.premium-campus-grade-mobile-cell {
+    display: grid;
+    gap: .15rem;
+    padding: .7rem .75rem;
+    border: 1px solid #e5edf6;
+    border-radius: 14px;
+    background: #fff;
+}
+
+.premium-campus-grade-mobile-cell span {
+    color: #7890ad;
+    font-size: .75rem;
+    font-weight: 700;
+    line-height: 1.1;
+}
+
+.premium-campus-grade-mobile-cell strong {
+    color: #27496d;
+    font-size: 1rem;
+    font-weight: 800;
+    line-height: 1.1;
+}
+
+.premium-campus-grade-mobile-cell small {
+    color: var(--tblr-secondary-color);
+    font-size: .72rem;
+    font-weight: 600;
+}
+
 .premium-dashboard-table {
     width: 100%;
     min-width: 980px;
@@ -1052,9 +1135,202 @@
     }
 }
 
+@media (max-width: 767.98px) {
+    .premium-campus-grade-mobile {
+        display: flex;
+        overflow-x: auto;
+        padding-bottom: .25rem;
+        scroll-snap-type: x mandatory;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .premium-campus-grade-mobile::-webkit-scrollbar {
+        display: none;
+    }
+
+    .premium-campus-grade-mobile-card {
+        flex: 0 0 min(88%, 26rem);
+        scroll-snap-align: start;
+    }
+
+    .premium-campus-grade-mobile-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: .45rem;
+    }
+
+    .premium-campus-grade-mobile-cell {
+        min-width: 0;
+        padding: .55rem .35rem;
+        border-radius: 12px;
+        text-align: center;
+    }
+
+    .premium-campus-grade-mobile-cell span {
+        overflow: hidden;
+        font-size: .68rem;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .premium-campus-grade-mobile-cell strong {
+        font-size: .9rem;
+    }
+
+    .premium-campus-grade-mobile-cell small {
+        font-size: .65rem;
+    }
+
+    .premium-dashboard-grid {
+        grid-template-columns: 1fr;
+        gap: .85rem;
+    }
+
+    .premium-dashboard-grid > * {
+        grid-column: 1 / -1 !important;
+        width: 100%;
+        min-width: 0;
+    }
+
+    .dashboard-staff-hero,
+    .premium-dashboard-card {
+        width: 100%;
+        max-width: 100%;
+    }
+
+    .premium-dashboard-section {
+        margin-bottom: 1.1rem;
+    }
+
+    .premium-dashboard-section-title {
+        margin-bottom: .6rem;
+        font-size: .92rem;
+    }
+
+    .premium-dashboard-table-wrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .premium-dashboard-table {
+        min-width: 700px;
+    }
+
+    .premium-mini-chart-row {
+        grid-template-columns: 1fr;
+        gap: .3rem;
+    }
+
+    .premium-mini-chart-row > strong {
+        justify-self: start;
+    }
+
+    .premium-compact-chart-item {
+        gap: .55rem;
+    }
+
+    .premium-donut-chart-wrap {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .premium-donut-chart {
+        width: min(210px, 100%);
+        justify-self: center;
+    }
+
+    .premium-chart-legend {
+        justify-content: center;
+    }
+
+    .premium-vertical-bar-chart,
+    .premium-standard-chart {
+        gap: .25rem;
+        grid-template-columns: repeat(auto-fit, minmax(32px, 1fr));
+    }
+
+    .premium-vertical-bar-column,
+    .premium-standard-chart-column {
+        min-width: 0;
+        gap: .2rem;
+    }
+
+    .premium-vertical-bar-column strong,
+    .premium-standard-chart-column strong {
+        font-size: .76rem;
+    }
+
+    .premium-vertical-bar-track,
+    .premium-standard-chart-track {
+        max-width: 24px;
+        height: 144px;
+    }
+
+    .premium-vertical-bar-column small,
+    .premium-standard-chart-column small {
+        font-size: .68rem;
+    }
+
+    .premium-dashboard-card .card-body > .d-flex,
+    .premium-dashboard-card .card-header .d-flex {
+        flex-direction: column;
+        align-items: flex-start !important;
+    }
+
+    .premium-dashboard-card.premium-stat-card .card-body > .d-flex {
+        position: relative;
+        padding-right: 3.25rem;
+    }
+
+    .premium-dashboard-card .premium-dashboard-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 14px;
+        font-size: 1.35rem;
+    }
+
+    .premium-dashboard-card.premium-stat-card .premium-dashboard-icon {
+        position: absolute;
+        top: 0;
+        right: 0;
+    }
+
+    .premium-dashboard-value {
+        font-size: 1.65rem;
+    }
+
+    .premium-dashboard-list-item {
+        padding: .65rem 0;
+    }
+
+    .premium-chat-preview {
+        gap: .35rem;
+    }
+}
+
 @media (max-width: 575.98px) {
+    .premium-campus-grade-mobile-card {
+        flex-basis: 96%;
+    }
+
+    .premium-campus-grade-mobile-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .premium-dashboard-filter-card .card-body {
+        padding: .9rem;
+    }
+
     .dashboard-staff-hero {
+        flex-direction: column;
+        align-items: stretch;
         padding: 1rem;
+        gap: .9rem;
+    }
+
+    .dashboard-staff-hero-main {
+        align-items: flex-start;
+        gap: .85rem;
+        width: 100%;
     }
 
     .dashboard-staff-hero-photo {
@@ -1063,7 +1339,16 @@
         flex-basis: 60px;
     }
 
+    .dashboard-staff-hero-copy h2 {
+        white-space: normal;
+    }
+
+    .dashboard-staff-hero-meta {
+        gap: .35rem;
+    }
+
     .dashboard-staff-hero-action {
+        align-self: flex-end;
         width: 2.35rem;
         height: 2.35rem;
     }
@@ -1072,12 +1357,66 @@
         min-width: 0;
         width: 100%;
         margin-left: 0;
+        padding: .7rem .85rem;
         text-align: left;
     }
 
     .dashboard-staff-hero-date,
     .dashboard-staff-hero-clock {
         justify-content: flex-start;
+    }
+
+    .premium-dashboard-filter-card .row.g-3 {
+        --bs-gutter-x: .75rem;
+        --bs-gutter-y: .75rem;
+    }
+
+    .premium-dashboard-filter-card .btn {
+        width: 100%;
+        min-height: 3rem;
+        border-radius: 14px;
+    }
+
+    .dashboard-filter-field > span {
+        margin-bottom: .3rem;
+        font-size: .78rem;
+    }
+
+    .dashboard-filter-field .form-select,
+    .dashboard-searchable-select-toggle {
+        min-height: 3rem;
+        border-radius: 14px;
+    }
+
+    .dashboard-searchable-select-menu {
+        width: 100%;
+    }
+
+    .premium-dashboard-card .card-body {
+        padding: .95rem;
+    }
+
+    .premium-dashboard-card .card-header {
+        padding: .95rem .95rem 0;
+    }
+
+    .premium-dashboard-value {
+        font-size: 1.45rem;
+    }
+
+    .premium-dashboard-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 13px;
+        font-size: 1.2rem;
+    }
+
+    .premium-dashboard-gender-summary {
+        gap: .35rem;
+    }
+
+    .premium-dashboard-table {
+        min-width: 620px;
     }
 }
 
@@ -1101,6 +1440,42 @@
 [data-bs-theme="dark"] .premium-compact-chart-item {
     border-color: var(--tblr-border-color) !important;
     background: var(--tblr-bg-forms, #172033) !important;
+}
+
+[data-bs-theme="dark"] .premium-campus-grade-mobile-card {
+    border-color: var(--tblr-border-color);
+    background: linear-gradient(180deg, #172033 0%, #111827 100%);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, .22);
+}
+
+[data-bs-theme="dark"] .premium-campus-grade-mobile-campus {
+    color: #e5eefb;
+}
+
+[data-bs-theme="dark"] .premium-campus-grade-mobile-summary {
+    color: var(--tblr-secondary-color);
+}
+
+[data-bs-theme="dark"] .premium-campus-grade-mobile-badge {
+    color: #93c5fd;
+    background: rgba(37, 99, 235, .16);
+}
+
+[data-bs-theme="dark"] .premium-campus-grade-mobile-cell {
+    border-color: var(--tblr-border-color);
+    background: var(--tblr-bg-forms, #172033);
+}
+
+[data-bs-theme="dark"] .premium-campus-grade-mobile-cell span {
+    color: #94a3b8;
+}
+
+[data-bs-theme="dark"] .premium-campus-grade-mobile-cell strong {
+    color: #e5eefb;
+}
+
+[data-bs-theme="dark"] .premium-campus-grade-mobile-cell small {
+    color: var(--tblr-secondary-color);
 }
 
 [data-bs-theme="dark"] .dashboard-filter-field > span,
@@ -1297,6 +1672,16 @@ html[data-bs-theme="dark"] .premium-grouped-bar-bars {
     border-left: 4px solid var(--premium-stat-accent);
 }
 
+.premium-dashboard-card.premium-stat-card--graduated_students {
+    --premium-stat-accent: #0ca678;
+    border-left: 4px solid var(--premium-stat-accent);
+}
+
+.premium-dashboard-card.premium-stat-card--staff_birthdays {
+    --premium-stat-accent: #f06595;
+    border-left: 4px solid var(--premium-stat-accent);
+}
+
 /* Match each student total to its card's left-border accent. */
 .premium-dashboard-card.premium-stat-card--total_students .premium-dashboard-value,
 .premium-dashboard-card.premium-stat-card--new_students .premium-dashboard-value,
@@ -1308,7 +1693,9 @@ html[data-bs-theme="dark"] .premium-grouped-bar-bars {
 .premium-dashboard-card.premium-stat-card--total_students:hover,
 .premium-dashboard-card.premium-stat-card--new_students:hover,
 .premium-dashboard-card.premium-stat-card--withdrawn_students:hover,
-.premium-dashboard-card.premium-stat-card--new_enrollments:hover {
+.premium-dashboard-card.premium-stat-card--new_enrollments:hover,
+.premium-dashboard-card.premium-stat-card--graduated_students:hover,
+.premium-dashboard-card.premium-stat-card--staff_birthdays:hover {
     border-left-color: var(--premium-stat-accent);
 }
 

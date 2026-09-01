@@ -187,11 +187,14 @@ Route::get('/summer-school/family-options', [SummerSchoolController::class, 'fam
 Route::get('/summer-school/period-options', [SummerSchoolController::class, 'periodOptions'])->name('summer-school.period-options');
 Route::get('/summer-school/location-options', [SummerSchoolController::class, 'locationOptions'])->name('summer-school.location-options');
 Route::get('/summer-school/fetch', [SummerSchoolController::class, 'fetch'])->name('summer-school.fetch');
+Route::get('/summer-school/{enrollment}/details', [SummerSchoolController::class, 'details'])->name('summer-school.details');
 Route::post('/summer-school/save', [SummerSchoolController::class, 'save'])->name('summer-school.save');
+Route::delete('/summer-school/{enrollment}', [SummerSchoolController::class, 'destroy'])->name('summer-school.destroy');
 Route::post('/summer-school/{enrollment}/convert-to-western', [SummerSchoolController::class, 'convertToWestern'])->name('summer-school.convert-to-western');
 Route::get('/student-enrollments/list-options', [StudentEnrollmentController::class, 'listOptions'])->name('student-enrollments.list-options');
 Route::get('/student-enrollments/quick-options', [StudentEnrollmentController::class, 'quickOptions'])->name('student-enrollments.quick-options');
 Route::get('/student-enrollments/options', [StudentEnrollmentController::class, 'options'])->name('student-enrollments.options');
+Route::get('/student-enrollments/family-details', [StudentEnrollmentController::class, 'familyDetails'])->name('student-enrollments.family-details');
 Route::get('/student-enrollments/fetch', [StudentEnrollmentController::class, 'fetchData'])->name('student-enrollments.fetch');
 Route::get('/student-enrollments/student/{student}/academic-years', [StudentEnrollmentController::class, 'studentAcademicYears'])->name('student-enrollments.student-academic-years');
 Route::get('/student-enrollments/student/{student}/siblings', [StudentEnrollmentController::class, 'siblings'])->name('student-enrollments.siblings');

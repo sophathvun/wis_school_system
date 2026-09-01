@@ -36,7 +36,7 @@
     </style>
 </head>
 
-<body>
+<body data-staff-card-public-url="{{ $publicCardUrl }}">
     @php
         $logoPath = $branding->report_logo_1_path ?? $branding->login_logo_path ?? $branding->sidebar_logo_path ?? null;
         $campusNames = $staff->campuses->pluck('campus_name_en')->filter()->join(', ');
@@ -110,6 +110,9 @@
 
                 <div class="staff-card-info" style="grid-column: 2; grid-row: 2;">
                     <h1>{{ $staff->name }}</h1>
+                    @if ($staff->staff_id)
+                        <p class="staff-card-position">Staff ID: {{ $staff->staff_id }}</p>
+                    @endif
                     <p class="staff-card-position">{{ $staff->position?->name ?: $staff->department?->name ?: 'Staff / Teacher' }}</p>
 
                     <div class="staff-card-meta" style="display: none !important;">
@@ -154,7 +157,7 @@
                 <a class="staff-card-icon-button" href="mailto:{{ $staff->email }}" @class(['is-disabled' => !$staff->email]) title="Email" aria-label="Email">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v14H3zM3 6l9 7 9-7"/></svg>
                 </a>
-                <button class="staff-card-icon-button" type="button" onclick="window.print()" title="Print" aria-label="Print">
+                <button class="staff-card-icon-button" type="button" data-staff-card-print title="Print" aria-label="Print">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v7H6z"/></svg>
                 </button>
             </div>
@@ -179,34 +182,7 @@
         </section>
     </main>
 
-    <script>
-        const isPrintPage = new URLSearchParams(window.location.search).get('print') === '1';
-        const normalCardUrl = @json($publicCardUrl);
-
-        if (isPrintPage) {
-            window.addEventListener('load', () => setTimeout(() => window.print(), 300), { once: true });
-            window.addEventListener('afterprint', () => {
-                setTimeout(() => {
-                    window.close();
-                    setTimeout(() => {
-                        if (!window.closed) {
-                            window.location.replace(normalCardUrl);
-                        }
-                    }, 150);
-                }, 50);
-            }, { once: true });
-        }
-
-        document.getElementById('copyStaffCardLink')?.addEventListener('click', async event => {
-            const url = event.currentTarget.dataset.url;
-            try {
-                await navigator.clipboard.writeText(url);
-                event.currentTarget.textContent = 'Copied';
-            } catch (error) {
-                window.prompt('Copy this link', url);
-            }
-        });
-    </script>
+    @vite('resources/js/staffCardPublic.js')
 </body>
 
 </html>

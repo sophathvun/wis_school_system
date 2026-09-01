@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -102,7 +102,7 @@
         }
     </style>
 </head>
-<body>
+<body data-pdf-print-mode="{{ ($printMode ?? false) ? '1' : '0' }}">
     <div class="report-header">
         <div class="logo-row">
             @if ($logoSrc)
@@ -110,39 +110,17 @@
             @endif
         </div>
         <div class="report-title">
-            <h3 class="khmer-title">តារាងឈ្មោះមុខរបរ</h3>
+            <h3 class="khmer-title">ážáž¶ážšáž¶áž„ážˆáŸ’áž˜áŸ„áŸ‡áž˜áž»ážážšáž”ážš</h3>
             <h3 class="english-title">Occupation List</h3>
         </div>
     </div>
-
-    @if ($printMode ?? false)
-        <script>
-            window.addEventListener('load', function () {
-                const printReport = function () {
-                    window.setTimeout(function () {
-                        window.print();
-                    }, 150);
-                };
-
-                if (document.fonts && document.fonts.ready) {
-                    document.fonts.ready.then(printReport);
-                } else {
-                    printReport();
-                }
-            });
-
-            window.addEventListener('afterprint', function () {
-                window.close();
-            });
-        </script>
-    @endif
 
     <table>
         <thead>
             <tr>
                 <th>No.</th>
                 <th>Occupation (English)</th>
-                <th class="khmer-font">មុខរបរ</th>
+                <th class="khmer-font">áž˜áž»ážážšáž”ážš</th>
                 <th>Status</th>
             </tr>
         </thead>
@@ -161,5 +139,7 @@
     <div class="report-footer">
         {{ now()->format('d-M-Y h:i A') }}
     </div>
+    @vite('resources/js/pdfPrint.js')
 </body>
 </html>
+

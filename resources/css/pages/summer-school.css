@@ -1131,6 +1131,13 @@
     width: 100%;
 }
 
+/* Prevent the native selects from flashing full-width before enhancement. */
+.summer-list-filter-group > select.summer-list-filter {
+    flex: 0 0 170px;
+    width: 170px !important;
+    min-width: 170px;
+}
+
 @media (max-width: 767.98px) {
     .summer-list-filter, .summer-list-filter-group, .summer-list-student-filter, .summer-list-search { width: 100% !important; max-width: none; }
     .summer-list-filter-group > .summer-search-combobox { flex: 1 1 100%; width: 100%; min-width: 0; }

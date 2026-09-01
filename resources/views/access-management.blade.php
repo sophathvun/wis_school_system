@@ -6,150 +6,6 @@
     @vite('resources/css/pages/access-management.css')
     @vite('resources/css/pages/partials-permission-tree.css')
 
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const nav = document.querySelector('.card-tabs .nav-tabs');
-            const content = document.querySelector('.card-tabs .tab-content');
-            const departmentLink = nav?.querySelector('a[href="#department-permissions-tab"]')?.closest(
-            '.nav-item');
-            const roleLink = nav?.querySelector('a[href="#role-permissions-tab"]')?.closest('.nav-item');
-            const departmentPane = document.getElementById('department-permissions-tab');
-            const rolePane = document.getElementById('role-permissions-tab');
-            if (nav && departmentLink && roleLink) nav.insertBefore(departmentLink, roleLink);
-            if (content && departmentPane && rolePane) content.insertBefore(departmentPane, rolePane);
-
-            const setToggle = (button, active) => {
-                button.classList.toggle('is-active', active);
-                button.dataset.status = active ? '1' : '0';
-                button.setAttribute('aria-pressed', String(active));
-                button.querySelector('.status-toggle-label').textContent = active ? 'ON' : 'OFF';
-                const input = button.querySelector('input[type="checkbox"]') || button.closest(
-                    '[data-permission-group]')?.querySelector(
-                    `[data-permission-input="${button.dataset.permissionId}"]`);
-                if (input) input.checked = active;
-            };
-
-            const refreshHierarchy = form => {
-                const fullAccess = form.querySelector('[data-full-access]');
-                if (fullAccess?.dataset.status === '1') {
-                    form.querySelectorAll('[data-permission-toggle]:not([data-full-access])').forEach(button =>
-                        setToggle(button, true));
-                    form.querySelectorAll('[data-permission-toggle]:not([data-full-access])').forEach(
-                    button => {
-                        button.disabled = true;
-                    });
-                    return;
-                }
-                form.querySelectorAll('[data-permission-toggle][data-permission-level="main"]').forEach(
-                main => {
-                    const mainOn = main.dataset.status === '1';
-                    form.querySelectorAll(`[data-parent-permission="${main.dataset.permissionId}"]`)
-                        .forEach(child => {
-                            const childButton = child.matches('button') ? child : child
-                                .querySelector('[data-permission-toggle]');
-                            if (!childButton) return;
-                            childButton.disabled = !mainOn;
-                            if (!mainOn) setToggle(childButton, false);
-                        });
-                });
-                form.querySelectorAll('[data-permission-toggle][data-permission-level="submenu"]').forEach(
-                    submenu => {
-                        const submenuOn = submenu.dataset.status === '1';
-                        form.querySelectorAll(`[data-action-parent="${submenu.dataset.permissionId}"]`)
-                            .forEach(action => {
-                                const actionButton = action.querySelector('[data-permission-toggle]');
-                                actionButton.disabled = !submenuOn || submenu.disabled;
-                                if (!submenuOn || submenu.disabled) setToggle(actionButton, false);
-                            });
-                    });
-            };
-
-            document.querySelectorAll('[data-permission-form]').forEach(form => {
-                form.querySelectorAll('[data-permission-toggle]:not([data-full-access])').forEach(button =>
-                    button.addEventListener('click', event => {
-                        event.preventDefault();
-                        if (button.disabled) return;
-                        setToggle(button, button.dataset.status !== '1');
-                        refreshHierarchy(form);
-                    }));
-                refreshHierarchy(form);
-                const fullAccess = form.querySelector('[data-full-access]');
-                fullAccess?.addEventListener('click', event => {
-                    event.preventDefault();
-                    const enabled = fullAccess.dataset.status !== '1';
-                    setToggle(fullAccess, enabled);
-                    form.querySelectorAll('[data-permission-toggle]:not([data-full-access])')
-                        .forEach(button => setToggle(button, enabled));
-                    refreshHierarchy(form);
-                });
-            });
-
-            document.querySelectorAll('[data-user-permissions-toggle]').forEach(button => button.addEventListener(
-                'click', () => {
-                    const row = document.getElementById(button.dataset.userPermissionsToggle);
-                    const hidden = row.classList.toggle('d-none');
-                    button.querySelector('.user-permissions-toggle-label').textContent = hidden ?
-                        'Show Permissions' : 'Hide Permissions';
-                    button.querySelector('i').className = hidden ? 'ti ti-chevron-down me-1' :
-                        'ti ti-chevron-up me-1';
-                }));
-
-            document.querySelectorAll('[data-permission-module-search]').forEach(search => {
-                const form = search.closest('[data-permission-form]');
-                if (!form) return;
-                const filter = () => {
-                    const term = search.value.toLowerCase().trim();
-                    form.querySelectorAll('[data-permission-group]').forEach(group => {
-                        const groupMatches = !term || (group.dataset.permissionGroupLabel || '')
-                            .includes(term);
-                        let visibleModules = 0;
-                        group.querySelectorAll('[data-permission-module]').forEach(module => {
-                            const matches = groupMatches || !term || (module.dataset
-                                    .permissionModuleLabel || '').includes(term) ||
-                                module.textContent.toLowerCase().includes(term);
-                            module.classList.toggle('d-none', !matches);
-                            if (matches) visibleModules++;
-                        });
-                        group.closest('.col-md-6')?.classList.toggle('d-none', Boolean(term) &&
-                            !groupMatches && visibleModules === 0);
-                    });
-                };
-                search.addEventListener('input', filter);
-            });
-
-            document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(element => new bootstrap.Tooltip(element));
-        });
-        const usersTable = document.querySelector('#users-list-tab table');
-        if (usersTable && !usersTable.dataset.emailColumn && !usersTable.dataset.emailColumnRendered) {
-            usersTable.dataset.emailColumn = '1';
-            const header = usersTable.querySelector('thead tr');
-            const usernameHeader = header?.children[2];
-            if (usernameHeader) {
-                const emailHeader = document.createElement('th');
-                emailHeader.textContent = 'Email';
-                header.insertBefore(emailHeader, usernameHeader.nextSibling);
-            }
-            const emails = @json($userList->pluck('email')->values());
-            let userIndex = 0;
-            usersTable.querySelectorAll('tbody tr').forEach(row => {
-                if (row.id) {
-                    const detailCell = row.querySelector('td[colspan]');
-                    if (detailCell) detailCell.colSpan = 9;
-                    return;
-                }
-                if (row.children.length === 1) {
-                    row.children[0].colSpan = 9;
-                    return;
-                }
-                const usernameCell = row.children[2];
-                if (!usernameCell) return;
-                const emailCell = document.createElement('td');
-                emailCell.textContent = emails[userIndex++] || '-';
-                row.insertBefore(emailCell, usernameCell.nextSibling);
-            });
-        }
-    </script>
-
     <div class="page-header">
         <div class="row align-items-center">
             <div class="col">
@@ -180,8 +36,6 @@
                             <a class="dropdown-item" href="{{ route('access-management.reports.excel', 'users') }}"><i class="ti ti-user-check me-2"></i>Permission by User</a>
                         </div>
                     </div>
-                    <a class="btn btn-outline-primary" href="{{ route('departments.index') }}">Departments</a>
-                    <a class="btn btn-outline-primary" href="{{ route('roles.index') }}">Roles</a>
                 </div>
             </div>
         </div>
@@ -244,9 +98,7 @@
                 <li class="nav-item"><a href="#role-permissions-tab" class="nav-link" data-bs-toggle="tab"><i
                             class="ti ti-shield me-2"></i>Permissions by Role</a></li>
                 <li class="nav-item"><a href="#department-permissions-tab" class="nav-link" data-bs-toggle="tab"><i
-                            class="ti ti-building-community me-2"></i>Permissions by Department</a></li>
-                <li class="nav-item"><a href="#user-permissions-tab" class="nav-link" data-bs-toggle="tab"><i
-                            class="ti ti-user me-2"></i>Permissions by User</a></li>
+                            class="ti ti-building-community me-2"></i>Permissions by Dept.</a></li>
             </ul>
         </div>
         <div class="tab-content">
@@ -258,19 +110,18 @@
                         <input type="hidden" name="permissionSortBy" value="{{ $permissionTableSortBy }}">
                         <input type="hidden" name="permissionSortDir" value="{{ $permissionTableSortDir }}">
                         <div class="col-auto text-secondary">Permission List</div>
-                        <div class="col-auto ms-auto">
+                        <div class="col-md-3 col-12 ms-md-auto">
                             <div class="input-icon">
                                 <span class="input-icon-addon"><i class="ti ti-search icon"></i></span>
                                 <input type="search" name="permission_search" value="{{ $permissionSearch }}"
-                                    class="form-control form-control-sm" placeholder="Search permissions"
-                                    aria-label="Search permissions">
+                                    class="form-control" placeholder="Search permissions"
+                                    aria-label="Search permissions" data-access-live-search>
                             </div>
                         </div>
-                        <div class="col-auto"><button class="btn btn-sm btn-primary">Search</button></div>
                     </form>
                 </div>
                 <div class="table-responsive table-vcenter text-nowrap">
-                    <table class="table card-table">
+                    <table class="table card-table" data-user-emails='@json($userList->pluck("email")->values())'>
                         <thead>
                             <tr>
                                 <th>No.</th>
@@ -314,7 +165,7 @@
                                     <td>{{ $permission->name ?: '-' }}</td>
                                     <td>{{ $permission->action ?: '-' }}</td>
                                     <td>
-                                        <span class="badge bg-{{ $cannotDelete ? 'primary' : 'secondary' }}">
+                                        <span class="badge permission-list-linked bg-{{ $cannotDelete ? 'primary' : 'secondary' }}">
                                             {{ $linkedCount }} linked
                                         </span>
                                     </td>
@@ -322,7 +173,7 @@
                                         <span data-bs-toggle="tooltip" title="{{ $deleteTooltip }}">
                                             <button class="btn btn-sm btn-outline-danger" type="button"
                                                 @disabled($cannotDelete)
-                                                onclick="this.closest('span').querySelector('form')?.requestSubmit()">
+                                                data-access-delete-trigger>
                                                 <i class="ti ti-trash"></i>
                                             </button>
                                             <form class="d-none" method="POST"
@@ -350,13 +201,12 @@
                     <form method="GET" class="row g-2 align-items-center"><input type="hidden" name="users_page"
                             value="1">
                         <div class="col-auto text-secondary">User List</div>
-                        <div class="col-auto ms-auto">
+                        <div class="col-md-3 col-12 ms-md-auto">
                             <div class="input-icon"><span class="input-icon-addon"><i
                                         class="ti ti-search icon"></i></span><input type="search" name="user_search"
-                                    value="{{ $userSearch }}" class="form-control form-control-sm"
-                                    placeholder="Search users" aria-label="Search users"></div>
+                                    value="{{ $userSearch }}" class="form-control"
+                                    placeholder="Search users" aria-label="Search users" data-access-live-search></div>
                         </div>
-                        <div class="col-auto"><button class="btn btn-sm btn-primary">Search</button></div>
                     </form>
                 </div>
                 <div class="table-responsive table-vcenter text-nowrap">
@@ -416,6 +266,7 @@
                                                             'permissionPrefix' => 'inline-user-' . $listedUser->id,
                                                             'fullAccess' => $listedUser->isSuperAdmin(),
                                                             'fullAccessLocked' => $listedUser->isSuperAdmin(),
+                                                            'showCampusAssignment' => true,
                                                         ])
                                                 </div>
                                                 <div class="card-footer text-end"><button class="btn btn-primary">Save
@@ -436,7 +287,7 @@
             <div class="tab-pane" id="role-permissions-tab">
                 <form method="GET">
                     <div class="card-body border-bottom"><label class="form-label">Select Role</label><select
-                            class="form-select" name="role_id" onchange="this.form.submit()">
+                            class="form-select" name="role_id" data-access-auto-submit>
                             @foreach ($roles as $item)
                                 <option value="{{ $item->id }}" @selected($role?->id === $item->id)>{{ $item->name }}
                                 </option>
@@ -472,13 +323,24 @@
 
             <div class="tab-pane" id="department-permissions-tab">
                 <form method="GET">
-                    <div class="card-body border-bottom"><label class="form-label">Select Department</label><select
-                            class="form-select" name="department_id" onchange="this.form.submit()">
-                            @foreach ($departments as $item)
-                                <option value="{{ $item->id }}" @selected($department?->id === $item->id)>{{ $item->name }}
-                                </option>
-                            @endforeach
-                        </select>
+                    <div class="card-body border-bottom">
+                        <div class="permission-campus-picker permission-department-picker has-value" data-department-picker>
+                            <button type="button" class="permission-campus-picker-toggle" data-department-picker-toggle aria-expanded="false">
+                                <span class="permission-campus-picker-field-label">Select Department</span>
+                                <span data-department-picker-label>{{ $department?->name }}</span><i class="ti ti-chevron-down"></i>
+                            </button>
+                            <div class="permission-campus-picker-menu d-none" data-department-picker-menu>
+                                <div class="input-icon"><span class="input-icon-addon"><i class="ti ti-search"></i></span>
+                                    <input type="search" class="form-control" placeholder="Search departments" data-department-picker-search>
+                                </div>
+                                <div class="permission-campus-picker-results" data-department-picker-results>
+                                    @foreach ($departments as $item)
+                                        <button type="button" class="permission-department-option" data-department-id="{{ $item->id }}">{{ $item->name }}</button>
+                                    @endforeach
+                                </div>
+                            </div>
+                            <input type="hidden" name="department_id" value="{{ $department?->id }}" data-department-picker-value>
+                        </div>
                     </div>
                 </form>
                 <form method="POST" action="{{ route('access-management.departments.permissions.save') }}"
@@ -496,10 +358,12 @@
                 </form>
             </div>
 
+            {{-- User-specific permissions are managed from the Users tab. --}}
+            @if (false)
             <div class="tab-pane" id="user-permissions-tab">
                 <form method="GET">
                     <div class="card-body border-bottom"><label class="form-label">Select User</label><select
-                            class="form-select" name="user_id" onchange="this.form.submit()">
+                            class="form-select" name="user_id" data-access-auto-submit>
                             @foreach ($users as $item)
                                 <option value="{{ $item->id }}" @selected($selectedUser?->id === $item->id)>{{ $item->name }} —
                                     {{ $item->username }}</option>
@@ -515,56 +379,15 @@
                                 'permissionPrefix' => 'user',
                                 'fullAccess' => $userFullAccess,
                                 'fullAccessLocked' => $selectedUser?->isSuperAdmin(),
+                                'showCampusAssignment' => true,
                             ])
                     </div>
                     <div class="card-footer text-end"><button class="btn btn-primary">Save User Permissions</button></div>
                 </form>
             </div>
+            @endif
 
         </div>
     </div>
-    <script>
-        (function() {
-            const table = document.querySelector('#users-list-tab table');
-            if (!table || table.dataset.emailColumnRendered) return;
-            table.dataset.emailColumnRendered = '1';
-            const header = table.querySelector('thead tr');
-            const usernameHeader = header?.children[2];
-            if (usernameHeader) {
-                const emailHeader = document.createElement('th');
-                emailHeader.textContent = 'Email';
-                header.insertBefore(emailHeader, usernameHeader.nextSibling);
-            }
-            const emails = @json($userList->pluck('email')->values());
-            let index = 0;
-            table.querySelectorAll('tbody tr').forEach(row => {
-                if (row.id) {
-                    row.querySelector('td[colspan]')?.setAttribute('colspan', '9');
-                    return;
-                }
-                if (row.children.length === 1) {
-                    row.children[0].setAttribute('colspan', '9');
-                    return;
-                }
-                const emailCell = document.createElement('td');
-                emailCell.textContent = emails[index++] || '-';
-                row.insertBefore(emailCell, row.children[3]);
-            });
-        })();
-    </script>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const table = document.querySelector('#users-list-tab table');
-            const header = table?.querySelector('thead tr');
-            const roleHeader = [...(header?.children || [])].find(cell => cell.textContent.trim() === 'Roles');
-            if (!table || !roleHeader) return;
-            const roleIndex = [...header.children].indexOf(roleHeader);
-            table.querySelectorAll('tbody tr').forEach(row => {
-                if (row.children.length === 1 || row.id) return;
-                const cell = row.children[roleIndex];
-                if (cell) cell.textContent = [...new Set(cell.textContent.split(',').map(role => role
-                .trim()).filter(Boolean))].join(', ') || '-';
-            });
-        });
-    </script>
+    @vite('resources/js/accessManagement.js')
 @endsection

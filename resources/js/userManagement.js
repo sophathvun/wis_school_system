@@ -33,6 +33,16 @@ const initStaffPhotoUploader = () => {
         userPhoneIntl.setNumber(userPhoneHidden.value);
     userPhoneVisible?.addEventListener("input", () => {
         userPhoneVisible.value = userPhoneVisible.value.replace(/\s+/g, "");
+        if (userPhoneHidden) {
+            userPhoneHidden.value =
+                userPhoneIntl?.getNumber() || userPhoneVisible.value.trim();
+        }
+    });
+    userPhoneVisible?.addEventListener("countrychange", () => {
+        if (userPhoneHidden) {
+            userPhoneHidden.value =
+                userPhoneIntl?.getNumber() || userPhoneVisible.value.trim();
+        }
     });
     const staffPhotoInput = document.getElementById("staff_photo");
     const staffPhotoDropzone = document.getElementById("staffPhotoDropzone");
@@ -84,6 +94,20 @@ const initStaffPhotoUploader = () => {
         if (!select || select.dataset.searchableReady) return;
         multiple = multiple || select.multiple;
         select.dataset.searchableReady = "1";
+        const searchLabel =
+            select.name === "gender"
+                ? "Gender"
+                : select.name === "department_id"
+                  ? "Department"
+                  : select.name === "role_id"
+                    ? "Role"
+                    : select.name === "campuses[]"
+                      ? "Campus"
+                      : select.name === "position_id"
+                        ? "Position"
+                        : select.name === "login_identifier"
+                          ? "Allowed Login Method"
+                          : "option";
         const wrapper = document.createElement("div");
         wrapper.className =
             "location-combobox position-combobox user-searchable-combobox";
@@ -91,27 +115,20 @@ const initStaffPhotoUploader = () => {
         const toggle = document.createElement("button");
         toggle.type = "button";
         toggle.className = "location-combobox-toggle";
-        toggle.innerHTML =
-            '<span class="location-combobox-selected"></span><i class="ti ti-chevron-down"></i>';
+        toggle.innerHTML = `<span class="location-combobox-floating-label">${escapeHtml(searchLabel)}</span><span class="location-combobox-selected"></span><i class="ti ti-chevron-down"></i>`;
         const menu = document.createElement("div");
         menu.className = "location-combobox-menu d-none";
         const search = document.createElement("input");
         search.type = "search";
         search.className = "form-control location-combobox-search";
-        const searchLabel =
-            select.name === "department_id"
-                ? "Department"
-                : select.name === "role_id"
-                  ? "Role"
-                  : select.name === "campuses[]"
-                    ? "Campus"
-                    : "option";
         search.placeholder = `Search ${searchLabel}`;
         const results = document.createElement("div");
         results.className = "location-combobox-results";
         menu.append(search, results);
         wrapper.append(toggle, menu);
         select.classList.add("d-none");
+        select.previousElementSibling?.classList?.contains("form-label") &&
+            select.previousElementSibling.classList.add("d-none");
         select.parentElement.insertBefore(wrapper, select);
 
         const selectedText = () =>
@@ -151,29 +168,88 @@ const initStaffPhotoUploader = () => {
                       .join("")
                 : '<div class="text-secondary px-2 py-2">No options found</div>';
         };
+        let menuPortaled = false;
+        const clearMenuPosition = () => {
+            menu.style.position = "";
+            menu.style.left = "";
+            menu.style.right = "";
+            menu.style.top = "";
+            menu.style.bottom = "";
+            menu.style.width = "";
+            menu.style.maxHeight = "";
+            results.style.maxHeight = "";
+            menu.classList.remove("is-portaled");
+        };
+        const positionMenu = () => {
+            if (!wrapper.classList.contains("is-open")) return;
+            const rect = toggle.getBoundingClientRect();
+            const viewportWidth = document.documentElement.clientWidth;
+            const viewportHeight = window.innerHeight;
+            const menuWidth = Math.min(rect.width + 8, viewportWidth - 16);
+            const left = Math.max(
+                8,
+                Math.min(rect.left - 4, viewportWidth - menuWidth - 8),
+            );
+            const spaceBelow = viewportHeight - rect.bottom - 14;
+            const spaceAbove = rect.top - 14;
+            const optionCount =
+                results.querySelectorAll(".location-combobox-option").length ||
+                1;
+            const estimatedMenuHeight = Math.min(360, 68 + optionCount * 46);
+            const openAbove =
+                spaceBelow < 140 &&
+                spaceAbove > spaceBelow &&
+                spaceAbove > estimatedMenuHeight;
+            const availableSpace = openAbove ? spaceAbove : spaceBelow;
+            const resultsHeight = Math.max(120, Math.min(300, availableSpace - 78));
+            Object.assign(menu.style, {
+                position: "fixed",
+                left: `${left}px`,
+                right: "auto",
+                top: openAbove
+                    ? `${Math.max(8, rect.top - Math.min(estimatedMenuHeight, resultsHeight + 78) - 6)}px`
+                    : `${rect.bottom + 6}px`,
+                bottom: "auto",
+                width: `${menuWidth}px`,
+                maxHeight: `${resultsHeight + 78}px`,
+            });
+            results.style.maxHeight = `${resultsHeight}px`;
+        };
+        const closeMenu = () => {
+            wrapper.classList.remove("is-open");
+            menu.classList.add("d-none");
+            if (menuPortaled) {
+                wrapper.appendChild(menu);
+                menuPortaled = false;
+            }
+            clearMenuPosition();
+        };
+        const openMenu = () => {
+            closeOtherComboboxes();
+            render();
+            wrapper.classList.add("is-open");
+            menu.classList.remove("d-none");
+            if (!menuPortaled) {
+                document.body.appendChild(menu);
+                menuPortaled = true;
+            }
+            menu.classList.add("is-portaled");
+            positionMenu();
+            search.focus();
+        };
         const closeOtherComboboxes = () => {
             document
                 .querySelectorAll(".user-searchable-combobox")
                 .forEach((combo) => {
                     if (combo === wrapper) return;
-                    combo.classList.remove("is-open");
-                    combo
-                        .querySelector(".location-combobox-menu")
-                        ?.classList.add("d-none");
+                    combo.dispatchEvent(new CustomEvent("user-combobox-close"));
                 });
         };
+        wrapper.addEventListener("user-combobox-close", closeMenu);
         toggle.addEventListener("click", (event) => {
             event.stopPropagation();
-            closeOtherComboboxes();
-            wrapper.classList.toggle("is-open");
-            menu.classList.toggle(
-                "d-none",
-                !wrapper.classList.contains("is-open"),
-            );
-            if (wrapper.classList.contains("is-open")) {
-                render();
-                search.focus();
-            }
+            if (wrapper.classList.contains("is-open")) closeMenu();
+            else openMenu();
         });
         search.addEventListener("input", render);
         search.addEventListener("click", (event) => event.stopPropagation());
@@ -187,8 +263,7 @@ const initStaffPhotoUploader = () => {
             if (multiple) option.selected = !option.selected;
             else {
                 select.value = option.value;
-                wrapper.classList.remove("is-open");
-                menu.classList.add("d-none");
+                closeMenu();
             }
             select.dispatchEvent(new Event("change", { bubbles: true }));
             sync();
@@ -196,11 +271,11 @@ const initStaffPhotoUploader = () => {
         });
         select.addEventListener("change", sync);
         document.addEventListener("click", (event) => {
-            if (!wrapper.contains(event.target)) {
-                wrapper.classList.remove("is-open");
-                menu.classList.add("d-none");
-            }
+            if (!wrapper.contains(event.target) && !menu.contains(event.target))
+                closeMenu();
         });
+        window.addEventListener("resize", positionMenu);
+        document.addEventListener("scroll", positionMenu, true);
         render();
         sync();
     };
@@ -510,88 +585,277 @@ const initStaffPhotoUploader = () => {
         userPassword.addEventListener("input", updateStrength);
         updateStrength();
     }
+    const userModal = document.getElementById("userModal");
     const userFieldsRow = document.querySelector(
         "#userModal .modal-body > .row.g-3",
     );
+    const normalizeUserFormLayout = () => {
+        const row = document.querySelector("#userModal .modal-body > .row.g-3");
+        const columns = row?.querySelector(".user-form-columns");
+        const left = columns?.querySelector(".user-form-column-main");
+        const right = columns?.querySelector(".user-form-column-account");
+        if (!row || !columns || !left || !right) return;
+        const photoField = row
+            .querySelector('input[name="photo"]')
+            ?.closest('[class*="col-"]');
+        if (photoField) {
+            photoField.classList.add("user-form-photo-field");
+            row.insertBefore(photoField, columns);
+        }
+        const leftNames = new Set([
+            "staff_id",
+            "name",
+            "gender",
+            "date_of_birth",
+            "phone",
+            "position_id",
+            "department_id",
+            "campuses[]",
+            "role_id",
+            "login_identifier",
+            "status",
+        ]);
+        const rightNames = new Set([
+            "username",
+            "email",
+            "password",
+            "password_confirmation",
+        ]);
+        const fieldColumns = new Set();
+        row.querySelectorAll("[name]").forEach((control) => {
+            if (control.name === "photo") return;
+            const column = control.closest('[class*="col-"]');
+            if (column) fieldColumns.add(column);
+        });
+        fieldColumns.forEach((column) => {
+            const control = column.querySelector("[name]");
+            if (!control || column.querySelector("#staffPhotoDropzone")) return;
+            if (leftNames.has(control.name)) left.appendChild(column);
+            else if (rightNames.has(control.name)) right.appendChild(column);
+        });
+        const staffOrder = [
+            "staff_id",
+            "name",
+            "gender",
+            "date_of_birth",
+            "phone",
+            "campuses[]",
+            "position_id",
+            "department_id",
+        ];
+        [...left.children]
+            .filter((item) => item.querySelector("[name]"))
+            .sort((a, b) => {
+                const aName = a.querySelector("[name]")?.name;
+                const bName = b.querySelector("[name]")?.name;
+                const aIndex = staffOrder.indexOf(aName);
+                const bIndex = staffOrder.indexOf(bName);
+                return (aIndex < 0 ? 999 : aIndex) - (bIndex < 0 ? 999 : bIndex);
+            })
+            .forEach((field) => left.appendChild(field));
+    };
     if (userFieldsRow && !userFieldsRow.dataset.userColumnsReady) {
         userFieldsRow.dataset.userColumnsReady = "1";
         const modalBody = userFieldsRow.parentElement;
         const photoField = userFieldsRow
             .querySelector('input[type="file"]')
             ?.closest(".col-12");
+        photoField?.classList.add("user-form-photo-field");
         const field = (selector) =>
             userFieldsRow.querySelector(selector)?.closest('[class*="col-"]');
-        const main = document.createElement("div");
-        main.className = "user-form-main";
-        const side = document.createElement("div");
-        side.className = "user-form-password";
-        const rows = [
-            [
-                'input[name="name"]',
-                'select[name="gender"]',
-                ".user-date-picker",
-            ],
-            [
-                'input[name="phone"]',
-                'select[name="position_id"]',
-                'select[name="department_id"]',
-            ],
-            [
-                'select[name="campuses[]"]',
-                'select[name="role_id"]',
-                'select[name="login_identifier"]',
-            ],
-            [
-                'input[name="username"]',
-                'input[name="email"]',
-                ".user-status-controls",
-            ],
+        const left = document.createElement("div");
+        const right = document.createElement("div");
+        left.className = "user-form-column user-form-column-main";
+        right.className = "user-form-column user-form-column-account";
+        const leftHeading = document.createElement("div");
+        leftHeading.className = "user-form-section-title user-form-section-title-staff";
+        leftHeading.textContent = "STAFF INFORMATION";
+        const rightHeading = document.createElement("div");
+        rightHeading.className = "user-form-section-title user-form-section-title-login";
+        rightHeading.textContent = "USERNAME - LOGIN";
+        left.appendChild(leftHeading);
+        right.appendChild(rightHeading);
+        const leftRows = [
+            ["staff_id", "name"],
+            ["gender", "date_of_birth"],
+            ["phone", "campuses[]"],
+            ["position_id", "department_id"],
+            ["role_id", "login_identifier"],
+            ["status"],
         ];
-        rows.forEach((selectors) => {
-            const row = document.createElement("div");
-            row.className = "row g-3 mb-3";
-            selectors.forEach((selector) => {
+        leftRows.forEach((names) => {
+            names.forEach((name) => {
                 const item =
-                    field(selector) ||
+                    field(`input[name="${name}"]`) ||
+                    field(`select[name="${name}"]`) ||
+                    field(`textarea[name="${name}"]`) ||
                     userFieldsRow
-                        .querySelector(selector)
+                        .querySelector(`[name="${name}"]`)
                         ?.closest('[class*="col-"]');
-                if (item) {
-                    item.className = "col-md-4";
-                    row.appendChild(item);
-                }
+                if (item) left.appendChild(item);
             });
-            main.appendChild(row);
         });
-        [userPassword, userPasswordConfirmation].forEach((input) => {
-            const item = input?.closest('[class*="col-"]');
-            if (item) {
-                item.className = "mb-3";
-                side.appendChild(item);
+        [
+            "username",
+            "email",
+            "password",
+            "password_confirmation",
+        ].forEach((name) => {
+            const item =
+                field(`input[name="${name}"]`) ||
+                field(`select[name="${name}"]`) ||
+                field(`textarea[name="${name}"]`) ||
+                userFieldsRow
+                    .querySelector(`[name="${name}"]`)
+                    ?.closest('[class*="col-"]');
+            if (item) right.appendChild(item);
+        });
+        const columns = document.createElement("div");
+        columns.className = "user-form-columns";
+        columns.append(left, right);
+        const untouched = [];
+        [...userFieldsRow.children].forEach((column) => {
+            const control = column.querySelector("[name]");
+            if (!control) {
+                untouched.push(column);
+                return;
             }
+            if (
+                control.name === "photo" ||
+                column === photoField ||
+                left.contains(column) ||
+                right.contains(column)
+            )
+                return;
+            untouched.push(column);
         });
-        const layout = document.createElement("div");
-        layout.className = "user-form-layout";
-        layout.append(main, side);
-        userFieldsRow.remove();
-        if (photoField) {
-            const photoRow = document.createElement("div");
-            photoRow.className = "row g-3 mb-3";
-            photoRow.appendChild(photoField);
-            modalBody.insertBefore(photoRow, modalBody.firstChild);
-        }
-        modalBody.insertBefore(
-            layout,
-            modalBody.firstChild?.nextSibling || null,
-        );
+        const beforeSections = photoField
+            ? [photoField, ...untouched.filter((column) => column !== photoField)]
+            : untouched;
+        userFieldsRow.replaceChildren(...beforeSections, columns);
+        normalizeUserFormLayout();
     }
+    const preview = document.getElementById("staffPhotoPreview");
+    const previewContainer = document.getElementById(
+        "staffPhotoPreviewContainer",
+    );
+    const initialPreview = preview?.dataset.initialPhoto;
+    if (preview && previewContainer && initialPreview) {
+        preview.src = initialPreview;
+        previewContainer.classList.remove("d-none");
+    }
+    const staffPhotoViewModalElement =
+        document.getElementById("staffPhotoViewModal");
+    const staffPhotoViewImage = document.getElementById("staffPhotoViewImage");
+    const staffPhotoViewTitle = document.getElementById("staffPhotoViewTitle");
+    const staffPhotoViewZoom = document.getElementById("staffPhotoViewZoom");
+    if (
+        staffPhotoViewModalElement &&
+        staffPhotoViewImage &&
+        staffPhotoViewTitle &&
+        staffPhotoViewZoom &&
+        bootstrap?.Modal
+    ) {
+        const staffPhotoViewModal =
+            bootstrap.Modal.getOrCreateInstance(staffPhotoViewModalElement);
+        const updateViewZoom = () => {
+            staffPhotoViewImage.style.transform = `scale(${staffPhotoViewZoom.value})`;
+        };
+        document
+            .querySelectorAll(".staff-photo-view-trigger")
+            .forEach((button) =>
+                button.addEventListener("click", () => {
+                    staffPhotoViewImage.src = button.dataset.photoUrl || "";
+                    staffPhotoViewTitle.textContent =
+                        button.dataset.photoTitle || "Staff Photo";
+                    staffPhotoViewZoom.value = "1";
+                    updateViewZoom();
+                    staffPhotoViewModal.show();
+                }),
+            );
+        staffPhotoViewZoom.addEventListener("input", updateViewZoom);
+        document
+            .getElementById("staffPhotoViewZoomIn")
+            ?.addEventListener("click", () => {
+                staffPhotoViewZoom.value = Math.min(
+                    3,
+                    Number(staffPhotoViewZoom.value) + 0.1,
+                ).toFixed(2);
+                updateViewZoom();
+            });
+        document
+            .getElementById("staffPhotoViewZoomOut")
+            ?.addEventListener("click", () => {
+                staffPhotoViewZoom.value = Math.max(
+                    1,
+                    Number(staffPhotoViewZoom.value) - 0.1,
+                ).toFixed(2);
+                updateViewZoom();
+            });
+        document
+            .getElementById("staffPhotoViewZoomReset")
+            ?.addEventListener("click", () => {
+                staffPhotoViewZoom.value = "1";
+                updateViewZoom();
+            });
+    }
+    document
+        .querySelectorAll(".card table .badge")
+        .forEach((badge) => {
+            if (
+                !/^(active|inactive)$/i.test(badge.textContent.trim()) ||
+                badge.closest("[data-status-toggle]")
+            )
+                return;
+            const row = badge.closest("tr");
+            const edit = row?.querySelector('a[href*="edit="]');
+            const id = edit?.href.match(/[?&]edit=(\d+)/)?.[1];
+            if (!id || !window.statusToggleMarkup) return;
+            badge.outerHTML = window.statusToggleMarkup(
+                "user",
+                id,
+                /^active$/i.test(badge.textContent.trim()),
+            );
+        });
+    const openUserModalSafely = () => {
+        const modal = document.getElementById("userModal");
+        if (!modal) return;
+        try {
+            if (bootstrap?.Modal) {
+                bootstrap.Modal.getOrCreateInstance(modal).show();
+                return;
+            }
+        } catch (error) {
+            console.warn(
+                "Bootstrap modal initialization failed; using fallback.",
+                error,
+            );
+        }
+        document.querySelector(".modal-backdrop.user-modal-backdrop")?.remove();
+        const backdrop = document.createElement("div");
+        backdrop.className = "modal-backdrop fade show user-modal-backdrop";
+        document.body.appendChild(backdrop);
+        modal.classList.add("show");
+        modal.style.display = "block";
+        modal.setAttribute("aria-hidden", "false");
+        modal.removeAttribute("inert");
+        document.body.classList.add("modal-open");
+    };
+    window.openUserModalSafely = openUserModalSafely;
+    window.openUserModal = () => openUserModalSafely();
+    if (userModal?.dataset.openOnLoad === "1") openUserModalSafely();
     const searchableSelects = [
+        [genderSelect, false],
         [
             document.querySelector('#userModal select[name="department_id"]'),
             false,
         ],
         [positionSelect, false],
         [document.querySelector('#userModal select[name="role_id"]'), false],
+        [
+            document.querySelector('#userModal select[name="login_identifier"]'),
+            false,
+        ],
         [document.querySelector('#userModal select[name="campuses[]"]'), true],
     ];
     searchableSelects.forEach(([select, multiple]) =>
@@ -859,9 +1123,50 @@ const initStaffPhotoUploader = () => {
         });
 };
 
+const bootUserManagementPage = () => {
+    const userModal = document.getElementById("userModal");
+
+    // Keep the mobile carousel position visible between the scroll arrows.
+    const mobileList = document.querySelector(".user-management-mobile-list");
+    const mobilePosition = document.querySelector(
+        ".user-management-mobile-scroll-position",
+    );
+    const syncMobilePosition = () => {
+        if (!mobileList || !mobilePosition) return;
+        const cards = [...mobileList.querySelectorAll(".user-management-mobile-card")];
+        if (!cards.length) {
+            mobilePosition.textContent = "0 of 0";
+            return;
+        }
+        const cardWidth = cards[0].getBoundingClientRect().width;
+        const gap = Number.parseFloat(getComputedStyle(mobileList).columnGap) || 0;
+        const current = Math.min(
+            cards.length,
+            Math.max(1, Math.round(mobileList.scrollLeft / (cardWidth + gap)) + 1),
+        );
+        mobilePosition.textContent = `${current} of ${cards.length}`;
+    };
+    mobileList?.addEventListener("scroll", syncMobilePosition, { passive: true });
+    window.addEventListener("resize", syncMobilePosition);
+    syncMobilePosition();
+
+    document.addEventListener(
+        "click",
+        (event) => {
+            const newUserButton = event.target.closest("#btnNewUser");
+            if (!newUserButton) return;
+            event.preventDefault();
+            initStaffPhotoUploader();
+            window.openUserModalSafely?.();
+        },
+        true,
+    );
+
+    if (userModal?.dataset.openOnLoad === "1") initStaffPhotoUploader();
+};
+
 if (document.readyState === "loading")
-    document.addEventListener("DOMContentLoaded", initStaffPhotoUploader, {
+    document.addEventListener("DOMContentLoaded", bootUserManagementPage, {
         once: true,
     });
-else initStaffPhotoUploader();
-window.addEventListener("load", initStaffPhotoUploader, { once: true });
+else bootUserManagementPage();

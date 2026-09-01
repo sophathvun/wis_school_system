@@ -173,8 +173,8 @@
                                 <i class="ti ti-address-book"></i> Save Contact
                             </a>
                             <a class="btn btn-outline-secondary profile-name-card-print-button" href="{{ $publicCardUrl }}?print=1"
-                                title="Print name card" aria-label="Print name card"
-                                onclick="const printWindow = window.open(this.href, 'staff-card-print', 'popup,width=900,height=900'); if (printWindow) { printWindow.focus(); return false; }">
+                                title="Print name card" aria-label="Print name card" id="profileNameCardPrintButton"
+                                data-print-url="{{ $publicCardUrl }}?print=1">
                                 <i class="ti ti-printer"></i>
                             </a>
                             <a class="btn btn-outline-info" target="_blank" rel="noopener"
@@ -195,14 +195,14 @@
                                 @csrf
                                 @method('PATCH')
                                 <label for="publicCardOrientation">Card orientation</label>
-                                <select class="form-select" id="publicCardOrientation" name="public_card_orientation" onchange="this.form.submit()">
+                                <select class="form-select" id="publicCardOrientation" name="public_card_orientation" data-profile-auto-submit>
                                     <option value="landscape" @selected(($profileUser->public_card_orientation ?: 'landscape') === 'landscape')>Landscape</option>
                                     <option value="portrait" @selected(($profileUser->public_card_orientation ?: 'landscape') === 'portrait')>Portrait</option>
                                 </select>
                                 <label for="publicCardBackground">Background color</label>
                                 <input class="form-control form-control-color" type="color" id="publicCardBackground"
                                     name="public_card_background" value="{{ $profileUser->public_card_background ?: '#206bc4' }}"
-                                    title="Choose name-card background color" onchange="this.form.submit()">
+                                    title="Choose name-card background color" data-profile-auto-submit>
                             </form>
                             <form method="POST" action="{{ route('profile.name-card.update') }}">
                                 @csrf
@@ -210,7 +210,7 @@
                                 <input type="hidden" name="public_card_enabled" value="0">
                                 <label class="profile-card-toggle">
                                     <input type="checkbox" name="public_card_enabled" value="1"
-                                        @checked($profileUser->public_card_enabled) onchange="this.form.submit()">
+                                        @checked($profileUser->public_card_enabled) data-profile-auto-submit>
                                     <span></span>
                                     <strong>Allow public QR card</strong>
                                 </label>
@@ -274,6 +274,7 @@
                         </div>
                         <div class="profile-readonly-grid">
                             <div><span>Staff Name</span><strong>{{ $profileUser->name ?: '—' }}</strong></div>
+                            <div><span>Staff ID</span><strong>{{ $profileUser->staff_id ?: '—' }}</strong></div>
                             <div><span>Username</span><strong>{{ $profileUser->username ?: '—' }}</strong></div>
                             <div><span>Email</span><strong>{{ $profileUser->email ?: '—' }}</strong></div>
                             <div><span>Phone</span><strong>{{ $profileUser->phone ?: '—' }}</strong></div>
@@ -317,17 +318,51 @@
                         </div><small class="form-hint">JPG, PNG, or WEBP. Maximum size: 2 MB. Crop output: 400 × 400
                             px.</small>
                     </div>
-                    <div class="col-md-6"><label class="form-label">Staff Name</label><input class="form-control"
-                            name="name" value="{{ old('name', auth()->user()->name) }}" required></div>
-                    <div class="col-md-6"><label class="form-label">Username</label><input class="form-control"
-                            name="username" value="{{ old('username', auth()->user()->username) }}" required></div>
-                    <div class="col-md-6"><label class="form-label">Email</label><input class="form-control" type="email"
-                            name="email" value="{{ old('email', auth()->user()->email) }}" required></div>
-                    <div class="col-md-6"><label class="form-label">New Password</label><input class="form-control"
-                            type="password" name="password" minlength="8"><small class="text-secondary">Leave blank to keep
-                            the current password.</small></div>
-                    <div class="col-md-6"><label class="form-label">Confirm New Password</label><input class="form-control"
-                            type="password" name="password_confirmation" minlength="8"></div>
+                    <div class="col-lg-6">
+                        <div class="row g-3">
+                            <div class="col-12"><label class="form-label">Staff Name</label><input class="form-control"
+                                    name="name" value="{{ old('name', $profileUser->name) }}" required></div>
+                            <div class="col-12"><label class="form-label">Staff ID</label><input class="form-control"
+                                    value="{{ $profileUser->staff_id ?: '—' }}" readonly><small class="form-hint">Staff ID is managed by an administrator.</small></div>
+                            <div class="col-md-6"><label class="form-label">Gender</label><select class="form-select" name="gender">
+                                    <option value="">Select Gender</option>
+                                    <option value="male" @selected(old('gender', $profileUser->gender) === 'male')>Male</option>
+                                    <option value="female" @selected(old('gender', $profileUser->gender) === 'female')>Female</option>
+                                    <option value="other" @selected(old('gender', $profileUser->gender) === 'other')>Other</option>
+                                </select></div>
+                            <div class="col-md-6"><label class="form-label">Date of Birth</label><input class="form-control"
+                                    type="date" name="date_of_birth" value="{{ old('date_of_birth', $profileUser->date_of_birth?->format('Y-m-d')) }}"></div>
+                            <div class="col-12"><label class="form-label">Position</label><input class="form-control"
+                                    value="{{ $profileUser->position?->name ?: '—' }}" readonly>
+                                <small class="form-hint">Department: {{ $profileUser->department?->name ?: '—' }} · Managed by an administrator.</small></div>
+                            <div class="col-12"><label class="form-label">Assigned Campus</label><input class="form-control"
+                                    value="{{ $profileUser->campuses->pluck('campus_name_en')->filter()->join(', ') ?: '—' }}" readonly>
+                                <small class="form-hint">Campus assignments cannot be changed from My Profile.</small></div>
+                            <div class="col-12"><label class="form-label">Phone Number</label><input class="form-control"
+                                    type="tel" name="phone" value="{{ old('phone', $profileUser->phone) }}"></div>
+                            <div class="col-12"><label class="form-label">Role</label><input class="form-control"
+                                    value="{{ $profileUser->roles->pluck('name')->filter()->join(', ') ?: '—' }}" readonly>
+                                <small class="form-hint">Roles are managed by an administrator.</small></div>
+                            <div class="col-12"><label class="form-label">Login Method</label><select class="form-select" name="login_identifier">
+                                    <option value="username" @selected(old('login_identifier', $profileUser->login_identifier ?: 'username') === 'username')>Username only</option>
+                                    <option value="email" @selected(old('login_identifier', $profileUser->login_identifier) === 'email')>Email only</option>
+                                    <option value="both" @selected(old('login_identifier', $profileUser->login_identifier) === 'both')>Username or Email</option>
+                                </select></div>
+                            <div class="col-12"><label class="form-label">Username</label><input class="form-control"
+                                    name="username" value="{{ old('username', $profileUser->username) }}" required></div>
+                            <div class="col-12"><label class="form-label">Email</label><input class="form-control" type="email"
+                                    name="email" value="{{ old('email', $profileUser->email) }}" required></div>
+                        </div>
+                    </div>
+                    <div class="col-lg-6">
+                        <div class="row g-3">
+                            <div class="col-12"><label class="form-label">New Password</label><input class="form-control"
+                                    type="password" name="password" minlength="8"><small class="text-secondary">Leave blank to keep
+                                    the current password.</small></div>
+                            <div class="col-12"><label class="form-label">Confirm New Password</label><input class="form-control"
+                                    type="password" name="password_confirmation" minlength="8"></div>
+                        </div>
+                    </div>
                 </div><button class="btn btn-primary mt-4">Save changes</button>
             </form>
         </div>
@@ -367,190 +402,7 @@
             </div>
         </div>
     </div>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const profileLinks = document.querySelectorAll('[data-profile-panel]');
-            const profilePanels = document.querySelectorAll('[data-profile-panel-content]');
-            const activateProfilePanel = panelName => {
-                const selectedPanel = [...profilePanels].some(panel => panel.dataset.profilePanelContent === panelName)
-                    ? panelName
-                    : 'profile-view';
-
-                profileLinks.forEach(link => {
-                    const isActive = link.dataset.profilePanel === selectedPanel;
-                    link.classList.toggle('is-active', isActive);
-                    link.setAttribute('aria-selected', isActive ? 'true' : 'false');
-                    link.tabIndex = isActive ? 0 : -1;
-                });
-                profilePanels.forEach(panel => {
-                    panel.hidden = panel.dataset.profilePanelContent !== selectedPanel;
-                });
-            };
-
-            profileLinks.forEach(link => {
-                link.addEventListener('click', () => {
-                    const panelName = link.dataset.profilePanel;
-                    activateProfilePanel(panelName);
-                    window.history.replaceState(null, '', `#${panelName}`);
-                });
-            });
-
-            activateProfilePanel(window.location.hash.replace('#', ''));
-
-            const regenerateForm = document.getElementById('regenerateNameCardForm');
-            regenerateForm?.addEventListener('submit', async event => {
-                event.preventDefault();
-
-                const confirmDialog = window.schoolShowConfirm
-                    ? await window.schoolShowConfirm(
-                        'Generate a new QR code?',
-                        'The current QR code and public link will stop working.',
-                        'Generate QR',
-                        'Cancel',
-                    )
-                    : { isConfirmed: window.confirm('Generate a new QR code? The current QR code and public link will stop working.') };
-
-                if (confirmDialog.isConfirmed) {
-                    regenerateForm.submit();
-                }
-            });
-
-            document.getElementById('copyPublicCardUrl')?.addEventListener('click', async () => {
-                const input = document.getElementById('publicCardUrl');
-                if (!input) return;
-                input.select();
-                input.setSelectionRange(0, input.value.length);
-                try {
-                    await navigator.clipboard.writeText(input.value);
-                } catch (error) {
-                    document.execCommand('copy');
-                }
-            });
-
-            const z = document.getElementById('profilePhotoDropzone'),
-                i = document.getElementById('profile_photo'),
-                p = document.getElementById('profilePhotoPreview');
-            if (!z || !i) return;
-            const show = f => {
-                if (!f || !f.type.startsWith('image/') || f.size > 2097152) return;
-                const d = new DataTransfer();
-                d.items.add(f);
-                i.files = d.files;
-                p.querySelector('img').src = URL.createObjectURL(f);
-                p.classList.remove('d-none')
-            };
-            z.addEventListener('click', () => i.click());
-            z.addEventListener('keydown', e => {
-                if (e.key === 'Enter' || e.key === ' ') i.click()
-            });
-            i.addEventListener('change', () => show(i.files?.[0]));
-            z.addEventListener('dragover', e => {
-                e.preventDefault();
-                z.classList.add('is-dragging')
-            });
-            z.addEventListener('dragleave', () => z.classList.remove('is-dragging'));
-            z.addEventListener('drop', e => {
-                e.preventDefault();
-                z.classList.remove('is-dragging');
-                show(e.dataTransfer.files?.[0])
-            })
-        });
-    </script>
-
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            document.querySelector('form[action$="/profile"]')?.classList.add('profile-account-form');
-        });
-    </script>
-
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const form = document.querySelector('form[action$="/profile"]');
-            if (!form || form.dataset.passwordUiReady) return;
-            form.dataset.passwordUiReady = '1';
-            const fieldsRow = form.querySelector('.row.g-3');
-            if (fieldsRow && !fieldsRow.dataset.profileColumnsReady) {
-                fieldsRow.dataset.profileColumnsReady = '1';
-                const left = document.createElement('div');
-                const right = document.createElement('div');
-                left.className = 'col-md-6 profile-fields-column profile-fields-left';
-                right.className = 'col-md-6 profile-fields-column';
-                const moveField = (selector, target) => {
-                    const field = fieldsRow.querySelector(selector)?.closest('.col-md-6');
-                    if (!field) return;
-                    target.appendChild(field);
-                };
-                moveField('input[name="name"]', left);
-                moveField('input[name="username"]', left);
-                moveField('input[name="email"]', left);
-                moveField('input[name="password"]', right);
-                moveField('input[name="password_confirmation"]', right);
-                fieldsRow.append(left, right);
-            }
-            const password = form.querySelector('input[name="password"]');
-            const confirmation = form.querySelector('input[name="password_confirmation"]');
-            const addToggle = input => {
-                if (!input || input.parentElement.classList.contains('premium-password-field')) return;
-                const wrapper = document.createElement('div');
-                wrapper.className = 'premium-password-field';
-                input.parentElement.insertBefore(wrapper, input);
-                wrapper.appendChild(input);
-                const button = document.createElement('button');
-                button.type = 'button';
-                button.className = 'premium-password-toggle';
-                button.setAttribute('aria-label', 'Show password');
-                button.innerHTML = '<i class="ti ti-eye"></i>';
-                button.addEventListener('click', () => {
-                    const visible = input.type === 'text';
-                    input.type = visible ? 'password' : 'text';
-                    button.setAttribute('aria-label', visible ? 'Show password' : 'Hide password');
-                    button.innerHTML = `<i class="ti ${visible ? 'ti-eye' : 'ti-eye-off'}"></i>`;
-                });
-                wrapper.appendChild(button);
-            };
-            addToggle(password);
-            addToggle(confirmation);
-            if (password) {
-                const strength = document.createElement('div');
-                strength.className = 'profile-password-strength';
-                strength.innerHTML =
-                    '<div class="profile-password-strength-header"><span>Password Strength</span><span class="profile-password-strength-value">Weak</span></div><div class="profile-password-strength-bar"><span class="profile-password-strength-fill"></span></div><div class="profile-password-rules"><span class="profile-password-rule" data-rule="length">8 Chars</span><span class="profile-password-rule" data-rule="upper">A-Z</span><span class="profile-password-rule" data-rule="lower">a-z</span><span class="profile-password-rule" data-rule="number">123</span><span class="profile-password-rule" data-rule="special">@#$</span></div>';
-                password.closest('.premium-password-field')?.after(strength);
-                const note = password.closest('.col-md-6')?.querySelector('small.text-secondary');
-                const rules = strength.querySelector('.profile-password-rules');
-                if (note && rules) {
-                    const meta = document.createElement('div');
-                    meta.className = 'profile-password-meta';
-                    note.classList.add('profile-password-note');
-                    meta.append(note, rules);
-                    strength.appendChild(meta);
-                }
-                const updateStrength = () => {
-                    const value = password.value;
-                    const checks = {
-                        length: value.length >= 8,
-                        upper: /[A-Z]/.test(value),
-                        lower: /[a-z]/.test(value),
-                        number: /\d/.test(value),
-                        special: /[^A-Za-z0-9]/.test(value)
-                    };
-                    Object.entries(checks).forEach(([rule, valid]) => strength.querySelector(
-                        `[data-rule="${rule}"]`)?.classList.toggle('is-valid', valid));
-                    const score = Object.values(checks).filter(Boolean).length;
-                    const label = strength.querySelector('.profile-password-strength-value');
-                    const fill = strength.querySelector('.profile-password-strength-fill');
-                    const level = score >= 4 ? 'strong' : score >= 2 ? 'medium' : '';
-                    label.textContent = score >= 4 ? 'Strong' : score >= 2 ? 'Medium' : 'Weak';
-                    label.className = `profile-password-strength-value ${level}`;
-                    fill.style.width = `${score * 20}%`;
-                    fill.className = `profile-password-strength-fill ${level}`;
-                };
-                password.addEventListener('input', updateStrength);
-                updateStrength();
-            }
-        });
-    </script>
-
     @vite('resources/js/profilePhoto.js')
+    @vite('resources/js/profile.js')
     @vite('resources/css/pages/profile.css')
 @endsection

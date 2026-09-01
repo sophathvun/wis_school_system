@@ -31,7 +31,7 @@ class EnrollmentWorkflowController
             ? ['transfer', 'class_transfer', 'selected_transfer']
             : ['promotion', 'class_promotion', 'selected_promotion', 're_promotion'];
         $academicYears = AcademicYear::where('status', 1)
-            ->where('period_type', 'regular')
+            ->when($mode !== 'transfer', fn ($query) => $query->where('period_type', 'regular'))
             ->whereIn('lifecycle_status', ['started', 'pending'])
             ->orderByDesc('academic_year')
             ->get(['id', 'academic_year', 'period_type', 'lifecycle_status', 'start_date', 'end_date']);
@@ -39,7 +39,7 @@ class EnrollmentWorkflowController
             ->first(fn ($year) => $year->lifecycle_status === 'started')
             ?: $academicYears->first(fn ($year) => $year->period_type === 'regular' && $year->start_date && $year->end_date && now()->toDateString() >= $year->start_date->toDateString() && now()->toDateString() <= $year->end_date->toDateString())
             ?: AcademicYear::where('status', 1)
-                ->where('period_type', 'regular')
+                ->when($mode !== 'transfer', fn ($query) => $query->where('period_type', 'regular'))
                 ->whereIn('lifecycle_status', ['started', 'pending'])
                 ->whereHas('enrollments', fn ($query) => $query->where('status', 1)->where('enrollment_status', 'active'))
                 ->orderByDesc('id')
@@ -357,7 +357,7 @@ class EnrollmentWorkflowController
         return $request->validate([
             'enrollment_id' => ['required', 'exists:tb_student_enrollment,id'],
             'to_campus_id' => ['nullable', 'exists:tb_school_info,id'],
-            'to_academic_year_id' => [$promotion ? 'required' : 'nullable', Rule::exists('tb_academic_year', 'id')->where('period_type', 'regular')->whereIn('lifecycle_status', ['started', 'pending'])],
+            'to_academic_year_id' => [$promotion ? 'required' : 'nullable', Rule::exists('tb_academic_year', 'id')->whereIn('period_type', ['regular', 'summer'])->whereIn('lifecycle_status', ['started', 'pending'])],
             'to_grade_id' => [$promotion ? 'required' : 'nullable', 'exists:tb_grade,id'],
             'to_class_id' => [$promotion ? 'required' : 'nullable', 'exists:tb_class,id'],
             'to_session_id' => ['nullable', 'exists:tb_session,id'],

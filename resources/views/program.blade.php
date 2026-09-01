@@ -91,14 +91,4 @@
         </div>
     </div>
     @vite('resources/js/program.js')
-    <script>
-        document.getElementById('programModal')?.addEventListener('shown.bs.modal', () => {
-            ['academic_year_id', 'education_level_id'].forEach((id) => {
-                const select = document.getElementById(id);
-                if (select && select.options.length && select.options[0].value === '') {
-                    select.remove(0);
-                }
-            });
-        });
-    </script>
 @endsection

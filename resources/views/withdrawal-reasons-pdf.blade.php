@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -97,7 +97,7 @@
         }
     </style>
 </head>
-<body>
+<body data-pdf-print-mode="{{ ($printMode ?? false) ? '1' : '0' }}">
     <div class="report-header">
         <div class="logo-row">
             @if ($logoSrc)
@@ -105,32 +105,10 @@
             @endif
         </div>
         <div class="report-title">
-            <h2 class="khmer-title">តារាងមូលហេតុនៃការបោះបង់ការសិក្សា</h2>
+            <h2 class="khmer-title">ážáž¶ážšáž¶áž„áž˜áž¼áž›áž áŸážáž»áž“áŸƒáž€áž¶ážšáž”áŸ„áŸ‡áž”áž„áŸ‹áž€áž¶ážšážŸáž·áž€áŸ’ážŸáž¶</h2>
             <h2 class="english-title">Withdrawal Reason List</h2>
         </div>
     </div>
-
-    @if ($printMode ?? false)
-        <script>
-            window.addEventListener('load', function () {
-                const printReport = function () {
-                    window.setTimeout(function () {
-                        window.print();
-                    }, 150);
-                };
-
-                if (document.fonts && document.fonts.ready) {
-                    document.fonts.ready.then(printReport);
-                } else {
-                    printReport();
-                }
-            });
-
-            window.addEventListener('afterprint', function () {
-                window.close();
-            });
-        </script>
-    @endif
 
     <table>
         <thead>
@@ -160,5 +138,7 @@
     <div class="report-footer">
         {{ now()->format('d-M-Y h:i A') }}
     </div>
+    @vite('resources/js/pdfPrint.js')
 </body>
 </html>
+

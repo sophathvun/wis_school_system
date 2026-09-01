@@ -5,6 +5,7 @@
 }
 
 .permission-campus-picker-toggle {
+    position: relative;
     display: flex;
     width: 100%;
     align-items: center;
@@ -16,6 +17,57 @@
     background: var(--tblr-bg-forms);
     color: var(--tblr-body-color);
     text-align: left;
+}
+
+.permission-campus-picker-toggle [data-campus-picker-label] {
+    max-width: calc(100% - 2rem);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.permission-campus-picker-toggle .permission-campus-picker-field-label {
+    color: var(--tblr-secondary-color);
+    font-weight: 400;
+    transition: all 0.15s ease;
+}
+
+.permission-campus-picker.has-value .permission-campus-picker-toggle {
+    align-items: flex-end;
+    padding-top: 1.15rem;
+}
+
+.permission-campus-picker.has-value .permission-campus-picker-field-label {
+    position: absolute;
+    top: 0.45rem;
+    left: 1rem;
+    color: var(--tblr-primary);
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+
+.permission-campus-picker:not(.has-value) [data-campus-picker-label] {
+    display: none;
+}
+
+.permission-module-search {
+    /* The picker reserves room for its floating label; reserve the same
+       room here so both controls share one visual baseline. */
+    padding-top: 1.4rem;
+    max-width: none;
+    margin-top: 0 !important;
+    align-self: flex-start !important;
+    transform: none;
+}
+
+.permission-module-search .form-control {
+    min-height: 52px;
+}
+
+@media (max-width: 767px) {
+    .permission-module-search {
+        padding-top: 0;
+    }
 }
 
 .permission-campus-picker-menu {
@@ -30,6 +82,18 @@
     border-radius: var(--tblr-border-radius);
     box-shadow: 0 12px 28px rgba(31, 41, 55, 0.16);
 }
+
+.permission-department-option {
+    display: block;
+    width: 100%;
+    padding: 0.55rem 0.65rem;
+    border: 0;
+    background: transparent;
+    color: var(--tblr-body-color);
+    text-align: left;
+}
+
+.permission-department-option:hover { background: var(--tblr-tertiary-bg); }
 
 .permission-campus-picker-results {
     max-height: 220px;
@@ -100,6 +164,52 @@
     text-transform: uppercase;
 }
 
+.permission-module-chevron {
+    margin-left: auto;
+    margin-right: 0.75rem;
+    color: var(--tblr-secondary-color);
+    transition: transform 0.2s ease;
+}
+
+.permission-action > span {
+    flex: 1 1 auto;
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    line-height: 1.35;
+}
+
+.permission-action > .status-toggle {
+    flex: 0 0 auto;
+}
+
+.permission-submenu.is-collapsed .permission-action {
+    display: none !important;
+}
+
+.permission-submenu.is-collapsed .permission-module-chevron {
+    transform: rotate(180deg);
+}
+
 [data-bs-theme="dark"] .permission-submenu-label {
     color: #f8fafc !important;
+}
+
+@media (max-width: 767px) {
+    .permission-module-header {
+        cursor: pointer;
+        user-select: none;
+    }
+
+    .permission-submenu.is-collapsed .permission-module-header {
+        margin-bottom: 0;
+    }
+
+    [data-permission-form] > .card-footer {
+        position: sticky;
+        bottom: 0;
+        z-index: 10;
+        background: var(--tblr-bg-surface) !important;
+        box-shadow: 0 -4px 12px rgba(15, 23, 42, 0.12);
+    }
 }

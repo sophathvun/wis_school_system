@@ -52,13 +52,11 @@ class StudentEnrollmentController
 
     public function options()
     {
-        $listOptions = $this->enrollmentListOptions();
-
         return response()->json([
             'academicYears' => AcademicYear::whereIn('lifecycle_status', ['started', 'pending'])
                 ->latest('id')
                 ->get(['id', 'academic_year', 'period_type', 'parent_academic_year_id', 'lifecycle_status', 'start_date', 'end_date']),
-            'allAcademicYears' => $listOptions['allAcademicYears'],
+            // All-year list filters are supplied by /list-options.
             'grades' => Grade::where('status', 1)->orderByRaw('CAST(grade_order AS UNSIGNED)')->get(['id', 'grade', 'grade_short_name', 'grade_order']),
             'classes' => SchoolClass::where('status', 1)->orderByRaw('CAST(class_order AS UNSIGNED)')->get(['id', 'class_name', 'grade_id']),
             'enrollmentGradeClasses' => StudentEnrollment::query()
@@ -76,7 +74,8 @@ class StudentEnrollmentController
             'enrollmentStudents' => Student::whereHas('enrollments')
                 ->orderByRaw("COALESCE(NULLIF(full_name_en, ''), full_name_kh) asc")
                 ->get(['id', 'student_id', 'full_name_en', 'full_name_kh']),
-            'enrollmentFilterRows' => $listOptions['enrollmentFilterRows'],
+            // The list filter rows are loaded by /list-options separately;
+            // avoid duplicating this potentially very large payload here.
             'families' => Student::query()
                 ->whereNotNull('family_number')
                 ->where('family_number', '!=', '')
@@ -85,21 +84,6 @@ class StudentEnrollmentController
                 ->groupBy('family_number')
                 ->orderBy('family_number')
                 ->get(),
-            'familyDetails' => Family::with(['members' => fn ($query) => $query->whereIn('relationship_type', ['mother', 'father', 'guardian'])])
-                ->get(['id', 'family_number'])
-                ->mapWithKeys(fn ($family) => [$family->family_number => [
-                    'members' => $family->members->map(fn ($member) => [
-                        'relationship_type' => $member->relationship_type,
-                        'full_name_en' => $member->full_name_en,
-                        'full_name_kh' => $member->full_name_kh,
-                        'name_en' => $member->full_name_en,
-                        'name_kh' => $member->full_name_kh,
-                        'phone' => $member->phone,
-                        'workplace' => $member->workplace,
-                        'occupation_id' => $member->occupation_id,
-                        'nationality_country_id' => $member->nationality_country_id,
-                    ])->values(),
-                ]])->all(),
             'nextStudentNo' => $this->nextStudentNumber(),
             'countries' => Country::where('status', 1)->orderBy('country_name_en')->get(['id', 'country_name_en', 'country_name_kh', 'nationality_name_en', 'nationality_name_kh', 'flag_path']),
             'occupations' => Occupation::where('status', 1)->orderBy('occupation_name_en')->get(['id', 'occupation_name_en', 'occupation_name_kh']),
@@ -141,7 +125,16 @@ class StudentEnrollmentController
             // Edit only needs the student's stored location IDs. Loading every
             // location relationship for every enrollment makes the list and
             // Edit action unnecessarily slow; family members remain eager-loaded.
-            ->with(['student.families.members', 'campus', 'academicYear', 'grade', 'schoolClass', 'academicTrack', 'schoolGroup', 'session'])
+            ->with([
+                'student.families.members',
+                'campus',
+                'academicYear' => fn ($year) => $year->withTrashed(),
+                'grade',
+                'schoolClass',
+                'academicTrack',
+                'schoolGroup',
+                'session',
+            ])
             ->when(!$request->filled('enrollment_status'), fn ($q) => $q->whereNotIn('tb_student_enrollment.enrollment_status', ['promotion_cancelled', 'cancelled']))
             ->when($request->filled('academic_year_id'), fn ($q) => $q->where('tb_student_enrollment.academic_year_id', $request->integer('academic_year_id')))
             ->when($request->filled('campus_id'), fn ($q) => $q->where('tb_student_enrollment.campus_id', $request->integer('campus_id')))
@@ -187,12 +180,43 @@ class StudentEnrollmentController
             'enrollments' => StudentEnrollment::query()
                 ->select('tb_student_enrollment.*')
                 ->leftJoin('tb_academic_year', 'tb_academic_year.id', '=', 'tb_student_enrollment.academic_year_id')
-                ->with(['academicYear', 'campus', 'grade', 'schoolClass', 'academicTrack', 'session'])
+                ->with([
+                    'academicYear' => fn ($year) => $year->withTrashed(),
+                    'campus',
+                    'grade',
+                    'schoolClass',
+                    'academicTrack',
+                    'session',
+                ])
                 ->where('tb_student_enrollment.student_id', $student->id)
                 ->whereNotIn('tb_student_enrollment.enrollment_status', ['promotion_cancelled', 'cancelled'])
                 ->orderByDesc('tb_academic_year.academic_year')
                 ->orderByDesc('tb_student_enrollment.id')
                 ->get(),
+        ]);
+    }
+
+    public function familyDetails(Request $request)
+    {
+        $familyNumber = trim((string) $request->query('family_number'));
+        abort_if($familyNumber === '', 422, 'Family number is required.');
+
+        $family = Family::with(['members' => fn ($query) => $query
+            ->whereIn('relationship_type', ['mother', 'father', 'guardian'])])
+            ->where('family_number', $familyNumber)
+            ->first();
+
+        return response()->json([
+            'family_number' => $familyNumber,
+            'members' => $family?->members->map(fn ($member) => [
+                'relationship_type' => $member->relationship_type,
+                'full_name_en' => $member->full_name_en,
+                'full_name_kh' => $member->full_name_kh,
+                'phone' => $member->phone,
+                'workplace' => $member->workplace,
+                'occupation_id' => $member->occupation_id,
+                'nationality_country_id' => $member->nationality_country_id,
+            ])->values() ?? collect(),
         ]);
     }
 
@@ -399,6 +423,19 @@ class StudentEnrollmentController
             $enrollment = $id ? StudentEnrollment::findOrFail($id) : new StudentEnrollment();
             $wasExisting = $enrollment->exists;
             $oldAssignment = $wasExisting ? $enrollment->only(['campus_id', 'academic_year_id', 'grade_id', 'class_id', 'academic_track_id', 'session_id']) : [];
+            if ($wasExisting) {
+                $newAssignment = collect($validated)->only(['campus_id', 'academic_year_id', 'grade_id', 'class_id', 'academic_track_id', 'session_id'])
+                    ->map(fn ($value) => $value === null || $value === '' ? null : (int) $value)
+                    ->all();
+                $oldAssignment = collect($oldAssignment)
+                    ->map(fn ($value) => $value === null || $value === '' ? null : (int) $value)
+                    ->all();
+                if ($oldAssignment !== $newAssignment) {
+                    throw ValidationException::withMessages([
+                        'enrollment_id' => 'Enrollment assignment cannot be changed here. Use Transfer Student to change the campus, grade, class, academic year, track, or group.',
+                    ]);
+                }
+            }
             $enrollment->fill(collect($validated)->only(['campus_id', 'academic_year_id', 'grade_id', 'class_id', 'academic_track_id', 'session_id', 'status'])->all());
             $enrollment->group_id = null;
             $enrollment->student_id = $student->id;

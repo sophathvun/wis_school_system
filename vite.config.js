@@ -2,7 +2,6 @@ import { defineConfig } from "vite";
 import { globSync } from "node:fs";
 import laravel from "laravel-vite-plugin";
 import { bunny } from "laravel-vite-plugin/fonts";
-import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
     plugins: [
@@ -23,11 +22,40 @@ export default defineConfig({
                 "resources/js/summerSchool.js",
                 "resources/js/locations.js",
                 "resources/js/families.js",
+                "resources/js/departments.js",
+                "resources/js/positions.js",
                 "resources/js/occupation.js",
                 "resources/js/academicTracks.js",
                 "resources/js/nationality.js",
                 "resources/js/brandingSettings.js",
                 "resources/js/userManagement.js",
+                "resources/js/authLogin.js",
+                "resources/js/accessManagement.js",
+                "resources/js/printPage.js",
+                "resources/js/dashboard.js",
+                "resources/js/dashboardCustomize.js",
+                "resources/js/dashboardTemplates.js",
+                "resources/js/enrollmentWorkflows.js",
+                "resources/js/chatWidget.js",
+                "resources/js/chat.js",
+                "resources/js/databaseBackups.js",
+                "resources/js/reportsIndex.js",
+                "resources/js/reportsPrint.js",
+                "resources/js/pdfPrint.js",
+                "resources/js/staffCardPublic.js",
+                "resources/js/studentWithdrawalForm.js",
+                "resources/js/studentDocuments.js",
+                "resources/js/studentDocumentTypes.js",
+                "resources/js/studentGraduation.js",
+                "resources/js/studentReentry.js",
+                "resources/js/studentSearch.js",
+                "resources/js/studentWithdrawal.js",
+                "resources/js/notificationManagement.js",
+                "resources/js/notificationSend.js",
+                "resources/js/notificationsPage.js",
+                "resources/js/profile.js",
+                "resources/js/roles.js",
+                "resources/js/withdrawalReasons.js",
                 "resources/js/profilePhoto.js",
                 "resources/js/khmer-calendar.js",
             ],
@@ -38,7 +66,6 @@ export default defineConfig({
                 }),
             ],
         }),
-        tailwindcss(),
     ],
     server: {
         watch: {

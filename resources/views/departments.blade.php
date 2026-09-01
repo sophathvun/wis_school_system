@@ -118,8 +118,7 @@
                                             class="ti ti-edit"></i></a>
                                     <span data-bs-toggle="tooltip" title="{{ $deleteTooltip }}">
                                         <button type="button" class="btn btn-sm btn-outline-danger"
-                                            @disabled($cannotDelete)
-                                            onclick="this.closest('span').querySelector('form')?.requestSubmit()"><i
+                                            @disabled($cannotDelete) data-department-delete-trigger><i
                                                 class="ti ti-trash"></i></button>
                                         <form class="d-none" method="POST"
                                             action="{{ route('departments.delete', $department) }}"
@@ -136,7 +135,7 @@
             </div>
             <div class="card-footer">@include('partials.admin-pagination', ['paginator' => $departments])</div>
         </div>
-        <div class="modal modal-blur fade" id="departmentModal" tabindex="-1">
+        <div class="modal modal-blur fade" id="departmentModal" tabindex="-1" data-auto-open="{{ $editDepartment ? 'true' : 'false' }}">
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content">
                     <form method="POST" action="{{ route('departments.save') }}">@csrf<div class="modal-header">
@@ -167,31 +166,6 @@
                 </div>
             </div>
         </div>
-        <script>
-            document.addEventListener('DOMContentLoaded', () => {
-                const modal = document.getElementById('departmentModal');
-                modal?.querySelectorAll('.department-field').forEach(field => {
-                    const control = field.querySelector('input');
-                    const sync = () => field.classList.toggle('has-value', Boolean(control.value));
-                    control.addEventListener('input', sync);
-                    sync();
-                });
-                const status = modal?.querySelector('select[name="status"]'),
-                    toggle = modal?.querySelector('#departmentStatusToggle');
-                toggle?.addEventListener('click', () => {
-                    status.value = status.value === '1' ? '0' : '1';
-                    const active = status.value === '1';
-                    toggle.classList.toggle('is-active', active);
-                    toggle.querySelector('.status-toggle-label').textContent = active ? 'ON' : 'OFF';
-                    toggle.setAttribute('aria-pressed', active ? 'true' : 'false');
-                });
-                document.getElementById('btnNewDepartment')?.addEventListener('click', () => new bootstrap.Modal(modal)
-                    .show());
-                document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(element => new bootstrap.Tooltip(element));
-                @if ($editDepartment)
-                    new bootstrap.Modal(modal).show();
-                @endif
-            });
-        </script>
+        @vite('resources/js/departments.js')
     @vite('resources/css/pages/departments.css')
 @endsection

@@ -3,27 +3,44 @@
     'fullAccessLocked' => $fullAccessLocked ?? false,
 ])
 @php($mainMenuIcons = ['administrator' => 'ti-shield-lock', 'communication' => 'ti-messages', 'settings' => 'ti-settings', 'students' => 'ti-user', 'dashboard' => 'ti-dashboard'])
-@php($submenuIcons = ['users' => 'ti-users', 'departments' => 'ti-building-community', 'positions' => 'ti-briefcase', 'roles' => 'ti-shield', 'dashboard-templates' => 'ti-layout-dashboard', 'notifications' => 'ti-bell', 'chat' => 'ti-message-circle', 'academic-years' => 'ti-calendar', 'grades' => 'ti-school', 'classes' => 'ti-door', 'sessions' => 'ti-clock', 'education-levels' => 'ti-school', 'programs' => 'ti-books', 'school-info' => 'ti-building-community', 'locations' => 'ti-map-pin', 'occupations' => 'ti-briefcase', 'academic-tracks' => 'ti-route', 'withdrawal-reasons' => 'ti-user-minus', 'student-document-types' => 'ti-file-description', 'branding' => 'ti-palette', 'database-backups' => 'ti-database', 'students.search' => 'ti-search', 'students.enrollment' => 'ti-user-plus', 'families' => 'ti-users-group', 'students.promotion' => 'ti-arrows-transfer-up', 'students.graduation' => 'ti-certificate', 'student-reentry' => 'ti-user-check', 'student-documents' => 'ti-files', 'student-data-transfer' => 'ti-file-import'])
+@php($submenuIcons = ['users' => 'ti-users', 'departments' => 'ti-building-community', 'positions' => 'ti-briefcase', 'roles' => 'ti-shield', 'dashboard-templates' => 'ti-layout-dashboard', 'notifications' => 'ti-bell', 'chat' => 'ti-message-circle', 'academic-years' => 'ti-calendar', 'grades' => 'ti-school', 'classes' => 'ti-door', 'sessions' => 'ti-clock', 'education-levels' => 'ti-school', 'programs' => 'ti-books', 'school-info' => 'ti-building-community', 'locations' => 'ti-map-pin', 'occupations' => 'ti-briefcase', 'academic-tracks' => 'ti-route', 'withdrawal-reasons' => 'ti-user-minus', 'student-document-types' => 'ti-file-description', 'branding' => 'ti-palette', 'database-backups' => 'ti-database', 'students.search' => 'ti-search', 'students.enrollment' => 'ti-user-plus', 'families' => 'ti-users-group', 'students.promotion' => 'ti-arrows-transfer-up', 'students.transfer' => 'ti-arrows-left-right', 'students.graduation' => 'ti-certificate', 'student-reentry' => 'ti-user-check', 'student-documents' => 'ti-files', 'student-data-transfer' => 'ti-file-import'])
+<div class="row g-3 align-items-start mb-3">
 @php($permissionUser = $listedUser ?? ($selectedUser ?? null))
-@if ($permissionUser)
-    <div class="mb-3">
-        <label class="form-label permission-campus-label">Campus Assignment</label>
+@if (($showCampusAssignment ?? false) && $permissionUser)
+    <div class="col-md-6">
         @if ($permissionUser->is_global)
             <div class="form-control bg-light">All Campuses (Global Administrator)</div>
         @else
-            <select class="form-select permission-campus-select" name="campuses[]" multiple size="4">
-                @foreach ($campuses ?? collect() as $campus)
-                    <option value="{{ $campus->id }}" @selected($permissionUser->campuses->contains($campus->id))>{{ $campus->campus_name_en }}
-                    </option>
-                @endforeach
-            </select>
-            <div class="form-text">Hold Ctrl (Windows) or Command (Mac) to select more than one campus.</div>
+            <div class="permission-campus-picker {{ $permissionUser->campuses->isNotEmpty() ? 'has-value' : '' }}" data-campus-picker>
+                <button type="button" class="permission-campus-picker-toggle" data-campus-picker-toggle
+                    aria-expanded="false">
+                    <span class="permission-campus-picker-field-label">Campus Assignment</span>
+                    <span data-campus-picker-label>{{ $permissionUser->campuses->pluck('campus_name_en')->join(', ') }}</span>
+                    <i class="ti ti-chevron-down"></i>
+                </button>
+                <div class="permission-campus-picker-menu d-none" data-campus-picker-menu>
+                    <div class="input-icon">
+                        <span class="input-icon-addon"><i class="ti ti-search"></i></span>
+                        <input type="search" class="form-control" placeholder="Search campuses" data-campus-picker-search>
+                    </div>
+                    <div class="permission-campus-picker-results" data-campus-picker-results>
+                        @foreach ($campuses ?? collect() as $campus)
+                            <label class="permission-campus-picker-option" data-campus-name="{{ strtolower($campus->campus_name_en) }}">
+                                <input type="checkbox" class="form-check-input me-2" name="campuses[]" value="{{ $campus->id }}"
+                                    @checked($permissionUser->campuses->contains($campus->id))>
+                                <span>{{ $campus->campus_name_en }}</span>
+                            </label>
+                        @endforeach
+                    </div>
+                </div>
+            </div>
         @endif
     </div>
 @endif
-<div class="permission-module-search mb-3">
+<div class="permission-module-search {{ ($showCampusAssignment ?? false) ? 'col-md-6' : 'col-md-12' }}">
     <div class="input-icon"><span class="input-icon-addon"><i class="ti ti-search"></i></span><input type="search"
             class="form-control" data-permission-module-search placeholder="Search main modules or actions..."></div>
+</div>
 </div>
 <div class="row g-3">
     @foreach ($permissionHierarchy as $groupKey => $group)
@@ -50,9 +67,13 @@
                         <div class="permission-submenu" data-permission-module
                             data-permission-module-label="{{ strtolower($module['label']) }}"
                             data-parent-permission="{{ $mainId }}">
-                            <div class="d-flex justify-content-between align-items-center py-2">
+                            <div class="d-flex justify-content-between align-items-center py-2 permission-module-header"
+                                data-permission-module-toggle>
                                 <span class="permission-submenu-label"><i
                                         class="ti {{ $submenuIcons[$moduleKey] ?? 'ti-point' }} me-2"></i>{{ strtoupper($module['label']) }}</span>
+                                @if ($module['actions']->isNotEmpty())
+                                    <i class="ti ti-chevron-up permission-module-chevron" aria-hidden="true"></i>
+                                @endif
                                 <button type="button" class="status-toggle {{ $submenuOn ? 'is-active' : '' }}"
                                     data-permission-toggle data-permission-level="submenu"
                                     data-permission-id="{{ $submenuId }}"
@@ -111,62 +132,3 @@
     @endforeach
 </div>
 
-<script>
-    const initPermissionCampusPickers = () => {
-        document.querySelectorAll('.permission-campus-select').forEach(select => {
-            if (select.dataset.searchableReady) return;
-            select.dataset.searchableReady = '1';
-            select.classList.add('d-none');
-            const picker = document.createElement('div');
-            picker.className = 'permission-campus-picker';
-            picker.innerHTML =
-                '<button type="button" class="permission-campus-picker-toggle"><span></span><i class="ti ti-chevron-down"></i></button><div class="permission-campus-picker-menu d-none"><input type="search" class="form-control" placeholder="Search campuses"><div class="permission-campus-picker-results"></div></div>';
-            select.after(picker);
-            const button = picker.querySelector('button'),
-                menu = picker.querySelector('.permission-campus-picker-menu'),
-                search = picker.querySelector('input'),
-                summary = picker.querySelector('button span'),
-                results = picker.querySelector('.permission-campus-picker-results');
-            const sync = () => {
-                const chosen = [...select.selectedOptions].map(option => option.textContent.trim());
-                summary.textContent = chosen.join(', ');
-            };
-            const render = () => {
-                const term = search.value.toLowerCase().trim();
-                const options = [...select.options].filter(option => !term || option.textContent
-                    .toLowerCase().includes(term));
-                results.innerHTML = options.length ? options.map(option =>
-                    `<label class="permission-campus-picker-option"><input class="form-check-input me-2" type="checkbox" value="${option.value}" ${option.selected ? 'checked' : ''}>${option.textContent}</label>`
-                    ).join('') : '<div class="text-secondary px-2 py-2">No campuses found</div>';
-            };
-            button.addEventListener('click', () => {
-                menu.classList.toggle('d-none');
-                if (!menu.classList.contains('d-none')) {
-                    search.value = '';
-                    render();
-                    search.focus();
-                }
-            });
-            search.addEventListener('input', render);
-            results.addEventListener('change', event => {
-                if (!event.target.matches('input[type="checkbox"]')) return;
-                const option = [...select.options].find(item => item.value === event.target.value);
-                if (option) option.selected = event.target.checked;
-                select.dispatchEvent(new Event('change', {
-                    bubbles: true
-                }));
-                sync();
-            });
-            document.addEventListener('click', event => {
-                if (!picker.contains(event.target)) menu.classList.add('d-none');
-            });
-            select.addEventListener('change', () => {
-                sync();
-                render();
-            });
-            sync();
-        });
-    };
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initPermissionCampusPickers);
-    else initPermissionCampusPickers();
-</script>

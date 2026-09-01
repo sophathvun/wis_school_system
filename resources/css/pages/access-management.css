@@ -16,6 +16,29 @@
     text-decoration: none;
 }
 
+.permission-list-linked {
+    color: #fff !important;
+}
+
+/* Keep the original tab layout while making each interaction state clearer. */
+.card-tabs .nav-tabs .nav-link {
+    background: #f1f5f9;
+    color: #526581;
+    border-color: #dbe3ec;
+}
+
+.card-tabs .nav-tabs .nav-link:hover {
+    background: #e2efff;
+    color: #206bc4;
+    border-color: #b9d5f5;
+}
+
+.card-tabs .nav-tabs .nav-link.active {
+    background: #206bc4;
+    color: #fff;
+    border-color: #206bc4;
+}
+
 [data-bs-theme="dark"] .card-tabs .nav-tabs .nav-link {
     color: #94a3b8;
 }
@@ -24,6 +47,24 @@
     background: #1e293b;
     color: #f8fafc;
     border-color: #475569;
+}
+
+[data-bs-theme="dark"] .card-tabs .nav-tabs .nav-link {
+    background: #243449;
+    color: #cbd5e1;
+    border-color: #334155;
+}
+
+[data-bs-theme="dark"] .card-tabs .nav-tabs .nav-link:hover {
+    background: #304b6b;
+    color: #e0f2fe;
+    border-color: #4673a3;
+}
+
+[data-bs-theme="dark"] .card-tabs .nav-tabs .nav-link.active {
+    background: #206bc4;
+    color: #fff;
+    border-color: #206bc4;
 }
 
 [data-bs-theme="dark"] .card-tabs .form-control,
@@ -62,4 +103,166 @@
 
 .permission-module-search .input-icon-addon {
     color: #64748b;
+}
+
+.card-tabs .input-icon .form-control {
+    min-height: 52px;
+    border-radius: 0.75rem;
+    font-size: 1.15rem;
+}
+
+@media (max-width: 767px) {
+    [data-bs-theme="dark"] .card-tabs > .card-header {
+        background: linear-gradient(135deg, #172235 0%, #203a5c 100%);
+    }
+
+    [data-bs-theme="dark"] .card-tabs > .card-header .nav-link {
+        background: #243449;
+        color: #dbeafe;
+        border-color: #3a506c;
+    }
+
+    [data-bs-theme="dark"] .card-tabs > .card-header .nav-link.active {
+        background: #206bc4;
+        color: #fff;
+        border-color: #206bc4;
+    }
+}
+
+@media (max-width: 767px) {
+    .card-tabs > .card-header {
+        overflow: visible;
+        padding: 0.55rem;
+        background: linear-gradient(135deg, #f8fafc 0%, #eef4fb 100%);
+    }
+
+    .card-tabs > .card-header .nav-tabs {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.4rem;
+    }
+
+    .card-tabs > .card-header .nav-link {
+        min-height: 42px;
+        padding: 0.55rem 0.9rem;
+        border: 1px solid #d5e0ec;
+        border-radius: 0.65rem;
+        background: rgba(255, 255, 255, 0.82);
+        box-shadow: 0 2px 5px rgba(15, 23, 42, 0.06);
+        white-space: normal;
+        text-align: center;
+    }
+
+    .card-tabs > .card-header .nav-link:hover {
+        background: #e2efff;
+        border-color: #b9d5f5;
+    }
+
+    .card-tabs > .card-header .nav-link.active {
+        background: #206bc4;
+        color: #fff;
+        border-color: #206bc4;
+        box-shadow: 0 4px 10px rgba(32, 107, 196, 0.28);
+    }
+
+    .card-tabs .card-body > form.row {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+
+    .card-tabs .card-body > form.row .col-auto,
+    .card-tabs .card-body > form.row .col-auto.ms-auto {
+        width: 100%;
+        margin-left: 0 !important;
+    }
+
+    #permission-list-tab .table-responsive,
+    #users-list-tab .table-responsive {
+        overflow: visible;
+    }
+
+    #permission-list-tab table,
+    #users-list-tab table,
+    #permission-list-tab tbody,
+    #users-list-tab tbody {
+        display: block;
+    }
+
+    #permission-list-tab thead,
+    #users-list-tab thead {
+        display: none;
+    }
+
+    #permission-list-tab tbody tr,
+    #users-list-tab tbody tr:not([id]) {
+        display: block;
+        margin: 0.75rem;
+        padding: 0.65rem 0.85rem;
+        border: 1px solid var(--tblr-border-color);
+        border-radius: 0.75rem;
+        background: var(--tblr-bg-surface);
+        box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+    }
+
+    #permission-list-tab tbody td,
+    #users-list-tab tbody tr:not([id]) td {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 0.45rem 0;
+        white-space: normal;
+        border: 0;
+    }
+
+    #permission-list-tab tbody td::before,
+    #users-list-tab tbody tr:not([id]) td::before {
+        flex: 0 0 38%;
+        color: var(--tblr-secondary-color);
+        font-size: 0.72rem;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    #permission-list-tab tbody td:nth-child(1)::before { content: "No."; }
+    #permission-list-tab tbody td:nth-child(2)::before { content: "Module"; }
+    #permission-list-tab tbody td:nth-child(3)::before { content: "Code"; }
+    #permission-list-tab tbody td:nth-child(4)::before { content: "Name"; }
+    #permission-list-tab tbody td:nth-child(5)::before { content: "Action"; }
+    #permission-list-tab tbody td:nth-child(6)::before { content: "Linked Data"; }
+    #permission-list-tab tbody td:nth-child(7)::before { content: "Manage"; }
+    #users-list-tab tbody tr:not([id]) td:nth-child(1)::before { content: "No."; }
+    #users-list-tab tbody tr:not([id]) td:nth-child(2)::before { content: "Name"; }
+    #users-list-tab tbody tr:not([id]) td:nth-child(3)::before { content: "Username"; }
+    #users-list-tab tbody tr:not([id]) td:nth-child(4)::before { content: "Position"; }
+    #users-list-tab tbody tr:not([id]) td:nth-child(5)::before { content: "Campus"; }
+    #users-list-tab tbody tr:not([id]) td:nth-child(6)::before { content: "Department"; }
+    #users-list-tab tbody tr:not([id]) td:nth-child(7)::before { content: "Roles"; }
+    #users-list-tab tbody tr:not([id]) td:nth-child(8)::before { content: "Status"; }
+
+    #users-list-tab tbody tr[id] {
+        display: block;
+    }
+
+    #users-list-tab tbody tr[id] > td {
+        display: block;
+        width: 100%;
+        padding: 0;
+        border: 0;
+    }
+
+    #users-list-tab tbody tr[id] .card {
+        max-width: 100%;
+        margin: 0.5rem 0 !important;
+        overflow: hidden;
+    }
+
+    #users-list-tab tbody tr[id] .card-body {
+        padding: 0.75rem;
+    }
+
+    #users-list-tab tbody tr[id] .permission-action span {
+        min-width: 0;
+        overflow-wrap: anywhere;
+    }
 }

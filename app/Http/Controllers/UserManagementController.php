@@ -25,6 +25,7 @@ class UserManagementController
         $sortDir = strtolower($request->query('sortDir', 'asc')) === 'desc' ? 'desc' : 'asc';
         $usersQuery = User::with(['department', 'position', 'roles', 'campuses'])->when($search, fn ($query) => $query->where(function ($query) use ($search) {
             $query->where('name', 'like', "%{$search}%")
+                ->orWhere('staff_id', 'like', "%{$search}%")
                 ->orWhere('username', 'like', "%{$search}%")
                 ->orWhere('email', 'like', "%{$search}%")
                 ->orWhere('phone', 'like', "%{$search}%")
@@ -36,6 +37,7 @@ class UserManagementController
         $this->applyUserSort($usersQuery, $sortBy, $sortDir);
         $users = $usersQuery->paginate($perPage)->withQueryString();
         $staffDetails = $users->getCollection()->map(fn ($user) => [
+            'staff_id' => $user->staff_id ?: '',
             'gender' => $user->gender ?: '',
             'date_of_birth' => $user->date_of_birth?->format('d-M-Y') ?: '',
             'phone' => $user->phone ?: '',
@@ -87,7 +89,7 @@ class UserManagementController
             $request->merge(['status' => '1']);
         }
         $data = $request->validate([
-            'user_id' => ['nullable', 'exists:users,id'], 'name' => ['required', 'string', 'max:255'],
+            'user_id' => ['nullable', 'exists:users,id'], 'staff_id' => ['required', 'string', 'max:50', 'unique:users,staff_id,'.$userId], 'name' => ['required', 'string', 'max:255'],
             'gender' => ['nullable', 'string', 'max:20'], 'date_of_birth' => ['nullable', 'date'], 'phone' => ['nullable', 'string', 'max:50'], 'position_id' => ['nullable', 'exists:access_positions,id'],
             'username' => ['required', 'string', 'max:80', 'unique:users,username,'.$userId],
             'email' => ['required', 'email', 'max:255', 'unique:users,email,'.$userId],
@@ -151,7 +153,7 @@ class UserManagementController
     private function applyUserSort($query, string $sortBy, string $sortDir): void
     {
         match ($sortBy) {
-            'username', 'email', 'phone', 'login_identifier', 'status' => $query->orderBy($sortBy, $sortDir)->orderBy('name'),
+            'staff_id', 'username', 'email', 'phone', 'login_identifier', 'status' => $query->orderBy($sortBy, $sortDir)->orderBy('name'),
             'department' => $query->orderBy(Department::select('name')->whereColumn('access_departments.id', 'users.department_id')->limit(1), $sortDir)->orderBy('name'),
             'position' => $query->orderBy(Position::select('name')->whereColumn('access_positions.id', 'users.position_id')->limit(1), $sortDir)->orderBy('name'),
             'role' => $query->orderBy(DB::table('access_user_roles')
@@ -244,15 +246,9 @@ class UserManagementController
             $this->xlsxRow(8, [], 8),
             $this->xlsxRow(9, [
                 ['A', 'No.', 3],
-                ['B', 'Staff Full Name', 3],
-                ['C', 'Username', 3],
-                ['D', 'Email', 3],
-                ['E', 'Phone Number', 3],
-                ['F', 'Position', 3],
-                ['G', 'Campus Assignment', 3],
-                ['H', 'Role', 3],
-                ['I', 'Login', 3],
-                ['J', 'Status', 3],
+                ['B', 'Staff ID', 3], ['C', 'Staff Full Name', 3], ['D', 'Username', 3],
+                ['E', 'Email', 3], ['F', 'Phone Number', 3], ['G', 'Position', 3],
+                ['H', 'Campus Assignment', 3], ['I', 'Role', 3], ['J', 'Login', 3], ['K', 'Status', 3],
             ], 24),
         ];
 
@@ -260,26 +256,22 @@ class UserManagementController
             $row = $index + 10;
             $rows[] = $this->xlsxRow($row, [
                 ['A', (string) ($index + 1), 5],
-                ['B', $user->name ?: '-', 5],
-                ['C', $user->username ?: '-', 5],
-                ['D', $user->email ?: '-', 5],
-                ['E', $user->phone ?: '-', 5],
-                ['F', $user->position?->name ?: '-', 5],
-                ['G', $this->campusLabel($user), 5],
-                ['H', $user->roles->pluck('name')->unique()->join(', ') ?: '-', 5],
-                ['I', $user->login_identifier === 'both' ? 'Username / Email' : ucfirst((string) $user->login_identifier), 5],
-                ['J', $user->status ? 'Active' : 'Inactive', 5],
+                ['B', $user->staff_id ?: '-', 5], ['C', $user->name ?: '-', 5], ['D', $user->username ?: '-', 5],
+                ['E', $user->email ?: '-', 5], ['F', $user->phone ?: '-', 5], ['G', $user->position?->name ?: '-', 5],
+                ['H', $this->campusLabel($user), 5], ['I', $user->roles->pluck('name')->unique()->join(', ') ?: '-', 5],
+                ['J', $user->login_identifier === 'both' ? 'Username / Email' : ucfirst((string) $user->login_identifier), 5],
+                ['K', $user->status ? 'Active' : 'Inactive', 5],
             ], 22);
         }
 
         return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             . '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
-            . '<dimension ref="A1:J' . $lastRow . '"/>'
+            . '<dimension ref="A1:K' . $lastRow . '"/>'
             . '<sheetViews><sheetView workbookViewId="0"><pane ySplit="9" topLeftCell="A10" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'
             . '<sheetFormatPr defaultRowHeight="18"/>'
             . '<cols><col min="1" max="1" width="8" customWidth="1"/><col min="2" max="2" width="26" customWidth="1"/><col min="3" max="5" width="20" customWidth="1"/><col min="6" max="6" width="22" customWidth="1"/><col min="7" max="8" width="28" customWidth="1"/><col min="9" max="10" width="16" customWidth="1"/></cols>'
             . '<sheetData>' . implode('', $rows) . '</sheetData>'
-            . '<mergeCells count="5"><mergeCell ref="A1:J3"/><mergeCell ref="A5:J5"/><mergeCell ref="A6:J6"/><mergeCell ref="A7:J7"/><mergeCell ref="A8:J8"/></mergeCells>'
+            . '<mergeCells count="5"><mergeCell ref="A1:K3"/><mergeCell ref="A5:K5"/><mergeCell ref="A6:K6"/><mergeCell ref="A7:K7"/><mergeCell ref="A8:K8"/></mergeCells>'
             . ($hasLogo ? '<drawing r:id="rId1"/>' : '')
             . '</worksheet>';
     }

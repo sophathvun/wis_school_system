@@ -18,7 +18,15 @@ class ChatController
     public function index(Request $request)
     {
         $this->touch($request);
-        return view('chat', ['users' => $this->availableUsers($request)]);
+        $user = $request->user();
+
+        return view('chat', [
+            'users' => $this->availableUsers($request),
+            'currentChatUserId' => $user->id,
+            'currentChatUserPhoto' => $user->photo_path
+                ? asset('storage/' . $user->photo_path)
+                : null,
+        ]);
     }
 
     public function users(Request $request)

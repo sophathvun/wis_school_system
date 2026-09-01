@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -10,30 +10,16 @@
     </style>
 </head>
 
-<body>
+<body data-pdf-print-mode="{{ ($printMode ?? false) ? '1' : '0' }}" data-pdf-redirect-url="{{ route('academic-years.index') }}">
     <div class="header">
         <div>
             @if ($logoSrc)
                 <img src="{{ $logoSrc }}" alt="School Logo 1" class="school-logo">
             @endif
         </div>
-        <h3 class="khmer-title text-center">តារាងឆ្នាំសិក្សា</h3>
+        <h3 class="khmer-title text-center">ážáž¶ážšáž¶áž„áž†áŸ’áž“áž¶áŸ†ážŸáž·áž€áŸ’ážŸáž¶</h3>
         <h3 class="text-center english-title">Academic Year List</h3>
     </div>
-
-    @if ($printMode ?? false)
-        <script>
-            window.addEventListener('load', function() {
-                window.setTimeout(function() {
-                    window.print();
-                }, 150);
-            });
-
-            window.addEventListener('afterprint', function() {
-                window.location.replace(@json(route('academic-years.index')));
-            });
-        </script>
-    @endif
 
     <table class="table">
         <thead>
@@ -63,6 +49,8 @@
         </tbody>
     </table>
     <p>Generated: {{ now()->format('F j, Y H:i') }}</p>
+    @vite('resources/js/pdfPrint.js')
 </body>
 
 </html>
+

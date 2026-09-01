@@ -1,5 +1,11 @@
 /* Extracted from resources/views/layouts/partials/chat-widget.blade.php. Keep page-specific styles in this file. */
 
+@media (max-width: 767px) {
+    .chat-widget-open-full {
+        display: none !important;
+    }
+}
+
 .school-chat-launcher {
     position: fixed;
     right: 1.25rem;
@@ -505,11 +511,25 @@
 
 @media (max-width: 767px) {
     .school-chat-drawer {
-        right: 0.75rem;
-        left: 0.75rem;
-        bottom: 5.75rem;
-        width: auto;
-        height: min(82vh, 760px);
+        inset: 0;
+        right: 0;
+        left: 0;
+        bottom: 0;
+        width: 100%;
+        max-width: none;
+        height: 100dvh;
+        max-height: none;
+        border-radius: 0;
+        border-width: 0;
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    body.school-chat-drawer-open {
+        overflow: hidden;
+    }
+
+    body.school-chat-drawer-open .school-chat-launcher {
+        display: none;
     }
 
     .school-chat-call-panel {

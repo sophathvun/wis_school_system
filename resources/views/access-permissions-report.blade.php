@@ -88,7 +88,7 @@
     </style>
 </head>
 
-<body>
+<body data-print-mode="{{ ($printMode ?? false) ? '1' : '0' }}">
     <div class="logo-row">
         @if ($logoSrc)
             <img src="{{ $logoSrc }}" alt="School Logo 1" class="school-logo">
@@ -98,19 +98,6 @@
         <h3 class="khmer-title">{{ $titleKh }}</h3>
         <h3 class="english-title">{{ $titleEn }}</h3>
     </div>
-
-    @if ($printMode ?? false)
-        <script>
-            window.addEventListener('load', function() {
-                window.setTimeout(function() {
-                    window.print();
-                }, 150);
-            });
-            window.addEventListener('afterprint', function() {
-                window.close();
-            });
-        </script>
-    @endif
 
     <table>
         <thead>
@@ -136,6 +123,7 @@
     </table>
 
     <div class="report-footer">{{ now('Asia/Phnom_Penh')->format('d-M-Y h:i A') }}</div>
+    @vite('resources/js/printPage.js')
 </body>
 
 </html>

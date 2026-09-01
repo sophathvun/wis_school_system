@@ -2,148 +2,9 @@
 
 @section('title', 'School Dashboard')
 
-@push('scripts')
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const escapeHtml = value => String(value ?? '')
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#039;');
 
-            const closeAllDashboardSelects = except => {
-                document.querySelectorAll('.dashboard-searchable-select.is-open').forEach(combo => {
-                    if (combo !== except) {
-                        combo.classList.remove('is-open');
-                    }
-                });
-            };
 
-            document.querySelectorAll('[data-dashboard-searchable-select]').forEach(select => {
-                if (select.dataset.dashboardSearchableReady) return;
-                select.dataset.dashboardSearchableReady = '1';
 
-                const combo = document.createElement('div');
-                combo.className = 'dashboard-searchable-select location-combobox';
-
-                const toggle = document.createElement('button');
-                toggle.type = 'button';
-                toggle.className = 'dashboard-searchable-select-toggle location-combobox-toggle';
-                toggle.innerHTML = `
-                    <span class="dashboard-searchable-select-text location-combobox-selected"></span>
-                    <i class="ti ti-chevron-down"></i>
-                `;
-
-                const menu = document.createElement('div');
-                menu.className = 'dashboard-searchable-select-menu location-combobox-menu';
-                menu.innerHTML = `
-                    <label class="dashboard-searchable-select-search-wrap">
-                        <i class="ti ti-search"></i>
-                        <input type="search" class="form-control dashboard-searchable-select-search location-combobox-search" placeholder="Search">
-                    </label>
-                    <div class="dashboard-searchable-select-results location-combobox-results"></div>
-                `;
-
-                select.classList.add('d-none');
-                select.insertAdjacentElement('afterend', combo);
-                combo.append(toggle, menu);
-
-                const text = toggle.querySelector('.dashboard-searchable-select-text');
-                const search = menu.querySelector('.dashboard-searchable-select-search');
-                const results = menu.querySelector('.dashboard-searchable-select-results');
-                const options = Array.from(select.options).map(option => ({
-                    value: option.value,
-                    label: option.textContent.trim(),
-                }));
-
-                const syncText = () => {
-                    text.textContent = select.selectedOptions[0]?.textContent.trim().replace(/\s+â€”\s+.*/, '') || 'Select';
-                };
-
-                const renderOptions = () => {
-                    const term = search.value.trim().toLowerCase();
-                    const matches = options.filter(option => option.label.toLowerCase().includes(term));
-
-                    results.innerHTML = matches.length ? matches.map(option => `
-                        <button type="button"
-                            class="dashboard-searchable-select-option location-combobox-option ${option.value === select.value ? 'is-selected' : ''}"
-                            data-value="${escapeHtml(option.value)}">
-                            ${escapeHtml(option.label)}
-                        </button>
-                    `).join('') : '<div class="dashboard-searchable-select-empty">No results found</div>';
-                };
-
-                toggle.addEventListener('click', () => {
-                    const willOpen = !combo.classList.contains('is-open');
-                    closeAllDashboardSelects(combo);
-                    combo.classList.toggle('is-open', willOpen);
-                    if (willOpen) {
-                        search.value = '';
-                        renderOptions();
-                        setTimeout(() => search.focus(), 20);
-                    }
-                });
-
-                search.addEventListener('input', renderOptions);
-
-                results.addEventListener('click', event => {
-                    const option = event.target.closest('[data-value]');
-                    if (!option) return;
-
-                    select.value = option.dataset.value;
-                    syncText();
-                    combo.classList.remove('is-open');
-                    select.dispatchEvent(new Event('change', { bubbles: true }));
-                });
-
-                syncText();
-                renderOptions();
-            });
-
-            document.addEventListener('click', event => {
-                if (!event.target.closest('.dashboard-searchable-select')) {
-                    closeAllDashboardSelects();
-                }
-            });
-        });
-    </script>
-@endpush
-
-@push('scripts')
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const pad = value => String(value).padStart(2, '0');
-            const storageKey = 'dashboardHeroStartedAt';
-            let startedAt;
-
-            try {
-                startedAt = Number(sessionStorage.getItem(storageKey));
-                if (!Number.isFinite(startedAt) || startedAt <= 0) {
-                    startedAt = Date.now();
-                    sessionStorage.setItem(storageKey, String(startedAt));
-                }
-            } catch (error) {
-                startedAt = Date.now();
-            }
-
-            const updateDashboardHeroClock = () => {
-                const elapsedSeconds = Math.floor((Date.now() - startedAt) / 1000);
-                const hours = Math.floor(elapsedSeconds / 3600);
-                const minutes = Math.floor((elapsedSeconds % 3600) / 60);
-                const seconds = elapsedSeconds % 60;
-                const display = `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
-
-                document.querySelectorAll('[data-dashboard-hero-clock]').forEach(clock => {
-                    clock.textContent = display;
-                });
-            };
-
-            updateDashboardHeroClock();
-            window.setInterval(updateDashboardHeroClock, 1000);
-        });
-    </script>
-@endpush
 
 @section('content')
     @vite('resources/css/pages/dashboard.css')
@@ -167,6 +28,7 @@
 
     @php
         $hasFilterWidget = $widgets->contains(fn ($widget) => $widget->code === 'dashboard_filters');
+        $selectedAcademicYearLabel = $academicYears->firstWhere('id', $selectedAcademicYearId)?->academic_year;
     @endphp
 
     @if (!$hasFilterWidget)
@@ -176,7 +38,7 @@
                 <div class="col-md-3">
                     <label class="dashboard-filter-field">
                         <span>Period</span>
-                        <select class="form-select" name="period_type" onchange="this.form.submit()" data-dashboard-searchable-select>
+                        <select class="form-select" name="period_type" data-dashboard-auto-submit data-dashboard-searchable-select>
                             <option value="regular" @selected($selectedPeriodType === 'regular')>Regular School Year</option>
                             <option value="summer" @selected($selectedPeriodType === 'summer')>Summer School</option>
                         </select>
@@ -185,7 +47,7 @@
                 <div class="col-md-3">
                     <label class="dashboard-filter-field">
                         <span>Academic Year</span>
-                        <select class="form-select" name="academic_year_id" onchange="this.form.submit()" data-dashboard-searchable-select>
+                        <select class="form-select" name="academic_year_id" data-dashboard-auto-submit data-dashboard-searchable-select>
                             @foreach ($academicYears as $academicYear)
                                 <option value="{{ $academicYear->id }}" @selected((int) $selectedAcademicYearId === (int) $academicYear->id)>
                                     {{ $academicYear->academic_year }}
@@ -205,7 +67,7 @@
                     <div class="col-md-3">
                         <label class="dashboard-filter-field">
                             <span>Campus</span>
-                            <select class="form-select" name="campus_id" onchange="this.form.submit()" data-dashboard-searchable-select>
+                            <select class="form-select" name="campus_id" data-dashboard-auto-submit data-dashboard-searchable-select>
                                 <option value="">{{ auth()->user()->isSuperAdmin() || auth()->user()->is_global ? 'All Campuses' : 'All Assigned Campuses' }}</option>
                                 @foreach ($campuses as $campus)
                                     <option value="{{ $campus->id }}" @selected((int) $selectedCampusId === (int) $campus->id)>
@@ -314,7 +176,7 @@
                                             <div class="col-md-4">
                                                 <label class="dashboard-filter-field">
                                                     <span>Period</span>
-                                                    <select class="form-select" name="period_type" onchange="this.form.submit()" data-dashboard-searchable-select>
+                                                    <select class="form-select" name="period_type" data-dashboard-auto-submit data-dashboard-searchable-select>
                                                         <option value="regular" @selected($selectedPeriodType === 'regular')>Regular School Year</option>
                                                         <option value="summer" @selected($selectedPeriodType === 'summer')>Summer School</option>
                                                     </select>
@@ -323,7 +185,7 @@
                                             <div class="col-md-4">
                                                 <label class="dashboard-filter-field">
                                                     <span>Academic Year</span>
-                                                    <select class="form-select" name="academic_year_id" onchange="this.form.submit()" data-dashboard-searchable-select>
+                                                    <select class="form-select" name="academic_year_id" data-dashboard-auto-submit data-dashboard-searchable-select>
                                                         @foreach ($academicYears as $academicYear)
                                                             <option value="{{ $academicYear->id }}" @selected((int) $selectedAcademicYearId === (int) $academicYear->id)>{{ $academicYear->academic_year }}</option>
                                                         @endforeach
@@ -334,7 +196,7 @@
                                                 <div class="col-md-4">
                                                     <label class="dashboard-filter-field">
                                                         <span>Campus</span>
-                                                        <select class="form-select" name="campus_id" onchange="this.form.submit()" data-dashboard-searchable-select>
+                                                        <select class="form-select" name="campus_id" data-dashboard-auto-submit data-dashboard-searchable-select>
                                                             <option value="">{{ auth()->user()->isSuperAdmin() || auth()->user()->is_global ? 'All Campuses' : 'All Assigned Campuses' }}</option>
                                                             @foreach ($campuses as $campus)
                                                                 <option value="{{ $campus->id }}" @selected((int) $selectedCampusId === (int) $campus->id)>{{ $campus->campus_name_en }}</option>
@@ -387,13 +249,43 @@
                                         <div class="d-flex align-items-center justify-content-between mb-3">
                                             <div>
                                                 <div class="premium-dashboard-label">{{ $widget->name }}</div>
+                                                @if ($widget->code === 'student_statistics_by_campus_grade')
+                                                    <div class="text-secondary">Academic Year: {{ $selectedAcademicYearLabel ?: 'All Academic Years' }}</div>
+                                                @endif
                                                 <div class="text-secondary">{{ $metric['subtitle'] ?? '' }}</div>
                                             </div>
                                             <span class="premium-dashboard-icon bg-{{ $widget->color ?: 'blue' }}-lt">
                                                 <i class="ti {{ $widget->icon ?: 'ti-table' }}"></i>
                                             </span>
                                         </div>
-                                        <div class="premium-dashboard-table-wrap">
+                                        <div class="premium-campus-grade-mobile d-md-none">
+                                            @forelse (($metric['table']['rows'] ?? []) as $row)
+                                                <article class="premium-campus-grade-mobile-card">
+                                                    <div class="premium-campus-grade-mobile-header">
+                                                        <div>
+                                                            <div class="premium-campus-grade-mobile-campus">{{ $row['campus'] }}</div>
+                                                            <div class="premium-campus-grade-mobile-summary">Total: {{ $row['total'] ?? 0 }} · Female: {{ $row['female'] ?? 0 }}</div>
+                                                        </div>
+                                                        <span class="premium-campus-grade-mobile-badge">{{ count($metric['table']['headers'] ?? []) }} Grades</span>
+                                                    </div>
+                                                    <div class="premium-campus-grade-mobile-grid">
+                                                        @foreach (($metric['table']['headers'] ?? []) as $index => $header)
+                                                            @php
+                                                                $cell = $row['grades'][$index] ?? ['total' => 0, 'female' => 0];
+                                                            @endphp
+                                                            <div class="premium-campus-grade-mobile-cell">
+                                                                <span>{{ $header }}</span>
+                                                                <strong>{{ $cell['total'] ?? 0 }}</strong>
+                                                                <small>F: {{ $cell['female'] ?? 0 }}</small>
+                                                            </div>
+                                                        @endforeach
+                                                    </div>
+                                                </article>
+                                            @empty
+                                                <div class="text-center text-secondary py-4">No student statistics found.</div>
+                                            @endforelse
+                                        </div>
+                                        <div class="premium-dashboard-table-wrap d-none d-md-block">
                                             <table class="premium-dashboard-table">
                                                 <thead>
                                                     <tr>
@@ -590,7 +482,10 @@
                                     </div>
                                 </a>
                             @elseif (in_array($widget->type, ['list', 'timeline'], true))
-                                <div class="card premium-dashboard-card h-100">
+                                @php
+                                    $listAccentClass = $widget->code === 'staff_birthdays' ? 'premium-stat-card--staff_birthdays' : '';
+                                @endphp
+                                <div class="card premium-dashboard-card {{ $listAccentClass }} h-100">
                                     <div class="card-header border-0">
                                         <div class="d-flex align-items-center gap-3">
                                             <span class="premium-dashboard-icon bg-{{ $widget->color ?: 'blue' }}-lt">
@@ -619,7 +514,7 @@
                                 </div>
                             @else
                                 @php
-                                    $accentStatCodes = ['total_students', 'new_students', 'withdrawn_students', 'new_enrollments'];
+                                    $accentStatCodes = ['total_students', 'new_students', 'withdrawn_students', 'new_enrollments', 'graduated_students'];
                                     $accentStatClass = in_array($widget->code, $accentStatCodes, true)
                                         ? 'premium-stat-card--' . $widget->code
                                         : '';
@@ -657,4 +552,6 @@
             </section>
             @endforeach
     </div>
+    @vite('resources/js/dashboard.js')
 @endsection
+

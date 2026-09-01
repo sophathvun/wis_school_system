@@ -1,3 +1,5 @@
+import Swal from "sweetalert2";
+
 const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
 const statusPermissions = {
     "academic-year": "academic-years.status",
@@ -36,7 +38,8 @@ window.statusToggleMarkup = (entity, id, active) => {
         return "";
     const lockedCurrentUser =
         entity === "user" &&
-        String(id) === String(window.currentUserId || "") &&
+        String(id) ===
+            String(window.currentUserId || document.body?.dataset.currentUserId || "") &&
         active;
     return `
     <button type="button" class="status-toggle ${active ? "is-active" : ""}"
@@ -51,6 +54,40 @@ document.addEventListener("click", async (event) => {
     if (!button || button.disabled) return;
 
     const nextStatus = button.dataset.status === "1" ? 0 : 1;
+    const currentUserId = String(
+        window.currentUserId || document.body?.dataset.currentUserId || "",
+    );
+    const isCurrentUserToggle =
+        button.dataset.statusEntity === "user" &&
+        String(button.dataset.statusId) === currentUserId;
+
+    if (isCurrentUserToggle && nextStatus === 0) {
+        await Swal.fire({
+            icon: "info",
+            title: "Action not allowed",
+            text: "You cannot deactivate your own account while you are logged in.",
+            confirmButtonText: "OK",
+        });
+        return;
+    }
+
+    // Deactivating a user is potentially disruptive, so ask for confirmation
+    // before sending the status change request. Other status toggles retain
+    // their existing one-click behavior.
+    if (button.dataset.statusEntity === "user" && nextStatus === 0) {
+        const result = await Swal.fire({
+            icon: "warning",
+            title: "Deactivate user?",
+            text: "This user will no longer be able to access the system.",
+            showCancelButton: true,
+            confirmButtonText: "Deactivate",
+            cancelButtonText: "Cancel",
+            reverseButtons: true,
+            focusCancel: true,
+        });
+        if (!result.isConfirmed) return;
+    }
+
     button.disabled = true;
 
     try {
@@ -82,7 +119,13 @@ document.addEventListener("click", async (event) => {
         button.setAttribute("aria-pressed", String(active));
     } catch (error) {
         console.error(error);
-        window.alert(error.message || "Unable to update status.");
+        const message = error.message || "Unable to update status.";
+        await Swal.fire({
+            icon: "error",
+            title: "Status update failed",
+            text: message,
+            confirmButtonText: "OK",
+        });
     } finally {
         button.disabled = false;
     }

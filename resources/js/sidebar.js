@@ -39,15 +39,64 @@ document.addEventListener("DOMContentLoaded", function () {
         toggler.setAttribute("aria-expanded", "false");
     });
 
-    // Close sidebar menu when clicking on navigation links (mobile only)
+    const getDirectChild = (element, selector) =>
+        Array.from(element.children).find((child) => child.matches(selector));
+
+    // On mobile, make parent menu clicks explicitly toggle their submenu.
+    // Use our own class so Bootstrap dropdown behavior cannot hide it again.
+    sidebarMenu.addEventListener(
+        "click",
+        function (event) {
+            if (window.innerWidth >= 992) return;
+
+            const toggle = event.target.closest(
+                ".nav-item.dropdown > .nav-link.dropdown-toggle",
+            );
+            if (!toggle || !sidebarMenu.contains(toggle)) return;
+
+            event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation();
+
+            const parentItem = toggle.closest(".nav-item.dropdown");
+            if (!parentItem) return;
+
+            const submenu = getDirectChild(parentItem, ".dropdown-menu");
+            const isOpen = parentItem.classList.contains("is-mobile-open");
+
+            sidebarMenu.querySelectorAll(".nav-item.dropdown").forEach((item) => {
+                if (item === parentItem) return;
+                item.classList.remove("is-mobile-open", "show");
+                getDirectChild(item, ".dropdown-menu")?.classList.remove("show");
+                getDirectChild(item, ".nav-link.dropdown-toggle")?.setAttribute(
+                    "aria-expanded",
+                    "false",
+                );
+            });
+
+            parentItem.classList.toggle("is-mobile-open", !isOpen);
+            parentItem.classList.toggle("show", !isOpen);
+            submenu?.classList.toggle("show", !isOpen);
+            toggle.setAttribute("aria-expanded", String(!isOpen));
+        },
+        true,
+    );
+
+    // Close sidebar menu when clicking a real destination link (mobile only)
     navLinks.forEach((link) => {
         link.addEventListener("click", function () {
-            if (window.innerWidth < 992) {
-                const collapseInstance =
-                    bootstrap.Collapse.getInstance(sidebarMenu) ||
-                    new bootstrap.Collapse(sidebarMenu);
-                collapseInstance.hide();
+            if (window.innerWidth >= 992) return;
+            if (
+                this.classList.contains("dropdown-toggle") ||
+                this.getAttribute("data-bs-toggle") === "dropdown" ||
+                this.getAttribute("href") === "#"
+            ) {
+                return;
             }
+            const collapseInstance =
+                bootstrap.Collapse.getInstance(sidebarMenu) ||
+                new bootstrap.Collapse(sidebarMenu);
+            collapseInstance.hide();
         });
     });
 

@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 
 <head>
@@ -10,7 +10,7 @@
     </style>
 </head>
 
-<body>
+<body data-pdf-print-mode="{{ ($printMode ?? false) ? '1' : '0' }}">
     <div class="report-header">
         <div class="logo-row">
             @if ($logoSrc ?? false)
@@ -18,29 +18,10 @@
             @endif
         </div>
         <div class="title-row">
-            <h1 class="khmer-title">តារាងថ្នាក់រៀន</h1>
+            <h1 class="khmer-title">ážáž¶ážšáž¶áž„ážáŸ’áž“áž¶áž€áŸ‹ážšáŸ€áž“</h1>
             <h2 class="english-title">Class List</h2>
         </div>
     </div>
-
-    @if ($printMode ?? false)
-        <script>
-            window.addEventListener('load', function() {
-                window.setTimeout(function() {
-                    window.print();
-                }, 150);
-            });
-
-            window.addEventListener('afterprint', function() {
-                window.close();
-                window.setTimeout(function() {
-                    if (!window.closed) {
-                        window.location.replace(@json(route('classes.index')));
-                    }
-                }, 100);
-            });
-        </script>
-    @endif
 
     <table class="report-table">
         <thead>
@@ -63,6 +44,8 @@
         </tbody>
     </table>
     <p class="generated-date">Generated: {{ now()->format('d-M-Y h:i A') }}</p>
+    @vite('resources/js/pdfPrint.js')
 </body>
 
 </html>
+

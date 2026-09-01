@@ -24,7 +24,7 @@
                 <div class="card-body border-bottom py-3">
                     <div class="row g-2 align-items-center justify-content-between">
                         <div class="col-auto text-secondary">Show <div class="mx-2 d-inline-block"><select
-                                    class="form-control form-control-sm" name="per_page" onchange="this.form.submit()">
+                                    class="form-control form-control-sm" name="per_page" data-auto-submit>
                                     <option value="10" @selected(request('per_page', 10) == 10)>10 / page</option>
                                     <option value="25" @selected(request('per_page') == 25)>25 / page</option>
                                     <option value="50" @selected(request('per_page') == 50)>50 / page</option>
@@ -83,7 +83,8 @@
                 <div class="d-flex justify-content-center">@include('partials.admin-pagination', ['paginator' => $notifications])</div>
             </div>
         </div>
-        <div class="modal modal-blur fade" id="notificationEditModal" tabindex="-1">
+        <div class="modal modal-blur fade" id="notificationEditModal" tabindex="-1"
+            data-auto-open="{{ $editNotification ? 'true' : 'false' }}">
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content">
                     <form method="POST"
@@ -108,12 +109,5 @@
                 </div>
             </div>
         </div>
-        <script>
-            document.addEventListener('DOMContentLoaded', () => {
-                const m = document.getElementById('notificationEditModal');
-                @if ($editNotification)
-                    new bootstrap.Modal(m).show();
-                @endif
-            });
-        </script>
-    @endsection
+    @vite('resources/js/notificationManagement.js')
+@endsection

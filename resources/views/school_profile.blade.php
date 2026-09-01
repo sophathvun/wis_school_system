@@ -137,14 +137,11 @@
                                 <input id="viewGoogleMapLink" class="form-control d-none" readonly>
                                 <div id="viewGoogleMapEmpty" class="text-secondary">-</div>
                                 <div id="viewGoogleMapActions" class="btn-list d-none ms-2">
-                                    <button type="button" class="btn btn-outline-primary"
-                                        onclick="schoolProfilesPage.openGoogleMap()"><i class="ti ti-map-pin icon"></i>Open
+                                    <button type="button" class="btn btn-outline-primary" data-school-map-action="open"><i class="ti ti-map-pin icon"></i>Open
                                         Map</button>
-                                    <button type="button" class="btn btn-outline-secondary"
-                                        onclick="schoolProfilesPage.copyGoogleMapLink()"><i
+                                    <button type="button" class="btn btn-outline-secondary" data-school-map-action="copy"><i
                                             class="ti ti-copy icon"></i>Copy</button>
-                                    <button type="button" class="btn btn-outline-info"
-                                        onclick="schoolProfilesPage.shareGoogleMapLink()"><i
+                                    <button type="button" class="btn btn-outline-info" data-school-map-action="share"><i
                                             class="ti ti-share icon"></i>Share</button>
                                 </div>
                             </div>

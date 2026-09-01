@@ -373,6 +373,7 @@ let gradeItems = [];
 let academicTrackItems = [];
 let familyItems = [];
 let familyDetails = {};
+const familyDetailsRequests = new Map();
 let studentFamilyDetails = {};
 let nextStudentNo = "";
 let quickEnrollmentOptionsPromise = null;
@@ -455,6 +456,70 @@ const formatWithdrawalDate = (value = "") => {
     if (Number.isNaN(date.getTime()))
         return escapeHtml(String(value).slice(0, 10));
     return `${pad2(date.getDate())}-${date.toLocaleString("en-US", { month: "short" })}-${date.getFullYear()}`;
+};
+const enrollmentStatusBadgeClass = (item = {}) =>
+    item.enrollment_status === "graduated"
+        ? "blue"
+        : item.enrollment_status === "withdrawn"
+          ? "danger"
+          : item.enrollment_status === "pending"
+            ? "warning"
+            : item.enrollment_status === "active"
+              ? "success"
+              : "secondary";
+const enrollmentStatusLabel = (item = {}) =>
+    item.enrollment_status || (item.status ? "active" : "inactive");
+const enrollmentMobileActionButtons = (item = {}) => {
+    const studentNameArg = JSON.stringify(item.student?.full_name_en ?? "");
+    return `
+    <div class="d-flex flex-wrap gap-2">
+        <button class="btn btn-outline-primary btn-sm" type="button" onclick="enrollmentsPage.viewProfile(${item.id})" title="View student profile"><i class="ti ti-user me-1"></i>Profile</button>
+        <button class="btn btn-info btn-sm" type="button" onclick="enrollmentsPage.history(${item.id}, ${studentNameArg})">History</button>
+        <button class="btn btn-primary btn-sm" type="button" onclick="enrollmentsPage.edit(${item.id})">Edit</button>
+        <button class="btn btn-danger btn-sm" type="button" onclick="enrollmentsPage.remove(${item.id})">Delete</button>
+    </div>`;
+};
+const enrollmentMobileCard = (item = {}, index = 0) => {
+    const statusLabel = enrollmentStatusLabel(item);
+    const statusClass = enrollmentStatusBadgeClass(item);
+    const withdrawnNote =
+        item.enrollment_status === "withdrawn" && item.ended_on
+            ? `<div class="text-danger small mt-1">${escapeHtml(formatWithdrawalDate(item.ended_on))}</div>`
+            : "";
+    return `
+        <article class="enrollment-mobile-card">
+            <div class="enrollment-mobile-card-header">
+                <div class="enrollment-mobile-photo">${studentPhotoMarkup(item.student)}</div>
+                <div class="enrollment-mobile-meta">
+                    <div class="enrollment-mobile-id">${escapeHtml(item.student?.student_id ?? "-")} ${transferredCampusIcon(item)}</div>
+                    <div class="enrollment-mobile-name">${enrollmentListStudentName(item.student, item.id)}</div>
+                    <div class="d-flex flex-wrap gap-2 mt-2">
+                        <span class="badge bg-${item.student_type === "old" ? "blue" : "green"}-lt">${item.student_type === "old" ? "Old" : "New"}</span>
+                        <span class="badge bg-${statusClass}-lt">${escapeHtml(statusLabel)}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="enrollment-mobile-details">
+                <div class="enrollment-mobile-detail"><span>Academic Year</span><strong>${escapeHtml(item.academic_year?.academic_year ?? "-")}</strong></div>
+                <div class="enrollment-mobile-detail"><span>Campus</span><strong>${escapeHtml(item.campus?.campus_name_en ?? "-")}</strong></div>
+                <div class="enrollment-mobile-detail"><span>Grade</span><strong>${enrollmentListGradeClass(item)}</strong></div>
+                <div class="enrollment-mobile-detail"><span>Track</span><strong>${escapeHtml(item.academic_track?.name_en ?? "-")}</strong></div>
+                <div class="enrollment-mobile-detail"><span>Group</span><strong>${escapeHtml(item.session?.session_short_name ?? "-")}</strong></div>
+                <div class="enrollment-mobile-detail"><span>Status</span><strong>${escapeHtml(statusLabel)}</strong>${withdrawnNote}</div>
+            </div>
+            <div class="enrollment-mobile-actions">
+                ${enrollmentMobileActionButtons(item)}
+            </div>
+            ${expandedEnrollmentIds.has(Number(item.id)) ? `<div class="enrollment-mobile-expanded">${enrollmentAcademicYearsMarkup(item)}</div>` : ""}
+        </article>
+    `;
+};
+const renderEnrollmentMobileCards = (items = []) => {
+    const mobileCards = document.getElementById("enrollmentsMobileCards");
+    if (!mobileCards) return;
+    mobileCards.innerHTML = items.length
+        ? items.map((item, index) => enrollmentMobileCard(item, index)).join("")
+        : `<div class="enrollment-mobile-empty text-center text-secondary">No enrollments found.</div>`;
 };
 const detailChip = (label, value, extraClass = "") => `
     <div class="col-md-3 col-sm-6">
@@ -1169,6 +1234,30 @@ const autoFamilyNumber = () => {
 
 const populateSelectedFamily = () => {
     const selectedFamily = field("existing_family_number")?.value || "";
+    if (selectedFamily && !familyDetails[selectedFamily]) {
+        if (!familyDetailsRequests.has(selectedFamily)) {
+            const request = fetch(
+                `/student-enrollments/family-details?family_number=${encodeURIComponent(selectedFamily)}`,
+                { headers: { Accept: "application/json" } },
+            )
+                .then((response) => {
+                    if (!response.ok)
+                        throw new Error("Unable to load family details.");
+                    return response.json();
+                })
+                .then((details) => {
+                    familyDetails[selectedFamily] = details;
+                    if (field("existing_family_number")?.value === selectedFamily)
+                        populateSelectedFamily();
+                })
+                .catch(() => {
+                    familyDetails[selectedFamily] = { members: [] };
+                })
+                .finally(() => familyDetailsRequests.delete(selectedFamily));
+            familyDetailsRequests.set(selectedFamily, request);
+        }
+        return;
+    }
     const family = familyDetails[selectedFamily] || { members: [] };
     ["mother", "father", "guardian"].forEach((type) => {
         const member =
@@ -1627,6 +1716,12 @@ const studentBilingualUi = (type) => ({
 });
 const setStudentBilingualText = (type) => {
     const ui = studentBilingualUi(type);
+    if (type === "gender" && ui.select?.value) {
+        const selected = Array.from(ui.select.options).find(
+            (option) => option.value.toLowerCase() === ui.select.value.toLowerCase(),
+        );
+        if (selected) ui.select.value = selected.value;
+    }
     const option = ui.select?.selectedOptions?.[0];
     if (!option || !option.value) {
         if (ui.selected) ui.selected.textContent = emptySelectedLabel;
@@ -1668,6 +1763,13 @@ const renderStudentBilingualResults = (type) => {
 const setupStudentBilingual = (type) => {
     const ui = studentBilingualUi(type);
     if (!ui.select || !ui.toggle) return;
+    if (type === "gender" && !ui.select.options.length) {
+        ui.select.innerHTML =
+            '<option value=""></option>' +
+            '<option value="Male" data-en="Male" data-kh="ប្រុស">Male</option>' +
+            '<option value="Female" data-en="Female" data-kh="ស្រី">Female</option>' +
+            '<option value="Other" data-en="Other" data-kh="ផ្សេងទៀត">Other</option>';
+    }
     ui.select.classList.add("d-none");
     ui.toggle.addEventListener("click", () => {
         ui.menu.classList.toggle("d-none");
@@ -2645,7 +2747,7 @@ const loadOptions = async () => {
         gradeItems = options.grades || [];
         academicTrackItems = options.academicTracks || [];
         familyItems = options.families || [];
-        familyDetails = options.familyDetails || {};
+        familyDetails = { ...familyDetails, ...(options.familyDetails || {}) };
         studentFamilyDetails = options.studentFamilyDetails || {};
         setFamilyReferenceOptions(options);
         setOptions(
@@ -2749,7 +2851,7 @@ const loadOptions = async () => {
     gradeItems = options.grades || [];
     academicTrackItems = options.academicTracks || [];
     familyItems = options.families || [];
-    familyDetails = options.familyDetails || {};
+    familyDetails = { ...familyDetails, ...(options.familyDetails || {}) };
     studentFamilyDetails = options.studentFamilyDetails || {};
     setFamilyReferenceOptions(options);
     setOptions(
@@ -3136,6 +3238,23 @@ const loadQuickEnrollmentOptions = () => {
     return quickEnrollmentOptionsPromise;
 };
 
+const enrollmentAssignmentFields = [
+    "academic_year_id",
+    "campus_id",
+    "grade_id",
+    "class_id",
+    "academic_track_id",
+    "session_id",
+];
+const setEnrollmentAssignmentLocked = (locked) => {
+    enrollmentAssignmentFields.forEach((id) => {
+        const element = field(id);
+        if (!element) return;
+        element.disabled = locked;
+        element.closest(".premium-floating-field, [class*='col-']")?.classList.toggle("enrollment-assignment-locked", locked);
+    });
+};
+
 const openCreate = async (forEdit = false) => {
     form.reset();
     resetEnrollmentDocumentFiles();
@@ -3151,6 +3270,7 @@ const openCreate = async (forEdit = false) => {
     title.textContent = "Create Student Enrollment";
     submit.textContent = "Create";
     field("status").value = "1";
+    setEnrollmentAssignmentLocked(false);
     updateAcademicTrackVisibility();
     syncDobDisplay();
     closeDobPicker();
@@ -3175,17 +3295,24 @@ const openCreate = async (forEdit = false) => {
 const openEdit = async (id) => {
     const row = rows.find((item) => item.id === id);
     if (!row) return;
-    const createInitialization = openCreate(true);
+    // Wait until the form's option lists are loaded before applying the
+    // existing values. Otherwise loadOptions() can rebuild the selects after
+    // they are populated and clear the selected data.
+    await openCreate(true);
+    setEnrollmentAssignmentLocked(true);
     title.textContent = "Edit Student Enrollment";
     submit.textContent = "Update";
     const student = row.student || {};
     field("enrollment_id").value = row.id;
     field("student_record_id").value = row.student_id;
+    // Prefer the family matching the stored number, but fall back to the
+    // student's linked family when older records have a stale family_number.
+    // This keeps shared mother/father details visible for every sibling.
     const linkedFamily = (student.families || []).find(
         (family) =>
             String(family.family_number || "") ===
             String(student.family_number || ""),
-    );
+    ) || student.families?.[0];
     if (linkedFamily?.family_number && linkedFamily.members?.length) {
         familyDetails[linkedFamily.family_number] = {
             members: linkedFamily.members.map((member) => ({
@@ -3213,23 +3340,28 @@ const openEdit = async (id) => {
         "experienced_english",
         "test_result",
         "tested_by",
+        "remarks",
     ].forEach((key) => {
         field(key).value = student[key] ?? "";
     });
+    const storedGender = String(student.gender || "").trim().toLowerCase();
+    const genderAliases = { m: "male", f: "female" };
+    const normalizedGender = genderAliases[storedGender] || storedGender;
+    const matchingGender = Array.from(field("gender")?.options || []).find(
+        (option) => option.value.toLowerCase() === normalizedGender,
+    );
+    field("gender").value = matchingGender?.value || "";
     field("full_name_en").value = student.full_name_en ?? "";
     field("full_name_kh").value = student.full_name_kh ?? "";
     field("home_phone_number").value = student.home_phone || "";
     // Populate the shared family contacts immediately. The remaining edit
     // options (locations/documents) may take longer to load.
-    field("existing_family_number").value = student.family_number || "";
+    field("existing_family_number").value =
+        student.family_number || linkedFamily?.family_number || "";
     initPhoneInputs();
     populateSelectedFamily();
     if (student.photo_path)
         showStudentPhotoPreview(`/storage/${student.photo_path}`);
-    // Do not block Edit on the auxiliary option/location requests. The form
-    // and shared family contacts are already populated above; the remaining
-    // dropdowns can finish loading in the background.
-    createInitialization.catch(() => {});
     loadEnrollmentDocuments(row.student_id);
     [
         "nationality_country_id",
@@ -3313,7 +3445,13 @@ const openEdit = async (id) => {
     );
     field("address_village_id").value = student.address_village_id || "";
     addressFields.forEach((type) => setAddressSelectedText(type));
-    updateCurrentAddress();
+    // Preserve a saved free-text address when no structured location values
+    // exist; otherwise rebuilding the selects clears it during Edit.
+    const hasStructuredAddress =
+        addressFields.some((type) => field(`address_${type}_id`)?.value) ||
+        field("address_house_no_en")?.value ||
+        field("address_street_en")?.value;
+    if (hasStructuredAddress) updateCurrentAddress();
     field("status").value = row.status ? "1" : "0";
     field("enrollment_status").value =
         row.enrollment_status || (row.status ? "active" : "cancelled");
@@ -3522,18 +3660,22 @@ const loadEnrollmentDocuments = async (studentId) => {
 
 form.addEventListener("submit", async (event) => {
     event.preventDefault();
-    if (!form.checkValidity()) {
+        if (!form.checkValidity()) {
         form.reportValidity();
         return;
     }
     syncFamilyPhoneValues();
     syncHomePhoneValue();
     submit.disabled = true;
+    const lockedAssignmentFields = enrollmentAssignmentFields
+        .map((id) => field(id))
+        .filter((element) => element?.disabled);
+    lockedAssignmentFields.forEach((element) => (element.disabled = false));
     try {
         const response = await fetch("/student-enrollments/save", {
             method: "POST",
             headers: { Accept: "application/json", "X-CSRF-TOKEN": csrf },
-            body: new FormData(form),
+        body: new FormData(form),
         });
         const responseText = await response.text();
         let result;
@@ -3562,6 +3704,7 @@ form.addEventListener("submit", async (event) => {
     } catch (error) {
         alertError(error.message);
     } finally {
+        lockedAssignmentFields.forEach((element) => (element.disabled = true));
         submit.disabled = false;
     }
 });
@@ -3667,10 +3810,13 @@ async function fetchRows(page = 1) {
     );
     const result = await response.json();
     rows = result.data || [];
+    renderEnrollmentMobileCards(rows);
     table.innerHTML = rows.length
         ? rows
               .map(
-                  (item) => `
+                  (item) => {
+                      const studentNameArg = JSON.stringify(item.student?.full_name_en ?? "");
+                      return `
         <tr>
             <td>${studentPhotoMarkup(item.student)}</td>
             <td>${escapeHtml(item.student?.student_id ?? "-")} ${transferredCampusIcon(item)}</td>
@@ -3684,11 +3830,12 @@ async function fetchRows(page = 1) {
             <td><span class="badge bg-${item.enrollment_status === "graduated" ? "blue" : item.enrollment_status === "withdrawn" ? "danger" : item.enrollment_status === "pending" ? "warning" : item.enrollment_status === "active" ? "success" : "secondary"}-lt">${escapeHtml(item.enrollment_status || (item.status ? "active" : "inactive"))}</span>${item.enrollment_status === "withdrawn" && item.ended_on ? `<div class="text-danger small mt-1">${formatWithdrawalDate(item.ended_on)}</div>` : ""}</td>
             <td>
                 <button class="btn btn-outline-primary btn-sm" onclick="enrollmentsPage.viewProfile(${item.id})" title="View student profile"><i class="ti ti-user me-1"></i>Profile</button>
-                <button class="btn btn-info btn-sm" onclick="enrollmentsPage.history(${item.id}, '${escapeHtml(item.student?.full_name_en ?? "")}')">History</button>
+                <button class="btn btn-info btn-sm" onclick="enrollmentsPage.history(${item.id}, ${studentNameArg})">History</button>
                 <button class="btn btn-primary btn-sm" onclick="enrollmentsPage.edit(${item.id})">Edit</button>
                 <button class="btn btn-danger btn-sm" onclick="enrollmentsPage.remove(${item.id})">Delete</button>
     </td>
-        </tr>${expandedEnrollmentIds.has(Number(item.id)) ? enrollmentAcademicYearsMarkup(item) : ""}`,
+        </tr>${expandedEnrollmentIds.has(Number(item.id)) ? enrollmentAcademicYearsMarkup(item) : ""}`;
+                  },
               )
               .join("")
         : `<tr><td colspan="11" class="text-center">No enrollments found.</td></tr>`;
@@ -3775,6 +3922,15 @@ field("date_of_birth_direct")?.addEventListener("change", (event) =>
 );
 loadEnrollmentListOptions().catch(() => {});
 loadQuickEnrollmentOptions().catch(() => {});
+// Warm the Edit form's option caches in the background. The first Edit click
+// should not have to wait for the large enrollment and location payloads.
+window.setTimeout(() => {
+    Promise.allSettled([
+        loadOptions(),
+        loadBirthLocations(),
+        loadAddressLocations(),
+    ]).catch(() => {});
+}, 0);
 fetchRows();
 window.enrollmentsPage = {
     edit: openEdit,

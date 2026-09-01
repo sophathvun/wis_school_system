@@ -317,6 +317,13 @@ const shareGoogleMapLink = async () => {
         }
     }
 };
+document.getElementById("viewGoogleMapActions")?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-school-map-action]");
+    if (!button) return;
+    if (button.dataset.schoolMapAction === "open") openGoogleMap();
+    if (button.dataset.schoolMapAction === "copy") copyGoogleMapLink();
+    if (button.dataset.schoolMapAction === "share") shareGoogleMapLink();
+});
 form?.addEventListener("submit", async (event) => {
     event.preventDefault();
     phoneInput.value = phoneIntl?.getNumber() || phoneNumber.value.trim();

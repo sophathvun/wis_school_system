@@ -95,7 +95,7 @@ class SummerSchoolController
             ->whereHas('academicYear', fn ($year) => $year->withTrashed()
                 ->where('period_type', 'regular')
                 ->whereIn('lifecycle_status', ['finished', 'started']))
-            ->get(['id', 'student_id', 'academic_year_id', 'campus_id', 'grade_id', 'class_id', 'group_id', 'session_id', 'enrollment_status', 'status']));
+            ->get(['id', 'student_id', 'academic_year_id', 'campus_id', 'grade_id', 'class_id', 'group_id', 'session_id', 'enrollment_status', 'enrolled_on', 'status']));
     }
 
     public function westernFilterOptions(Request $request)
@@ -150,7 +150,7 @@ class SummerSchoolController
 
     public function fetch(Request $request)
     {
-        $query = StudentEnrollment::with(['student:id,student_id,full_name_en,full_name_kh,photo_path', 'academicYear' => fn ($year) => $year->withTrashed()->select(['id', 'academic_year', 'lifecycle_status', 'period_type']), 'campus:id,campus_name_en', 'grade:id,grade', 'schoolClass:id,class_name', 'academicTrack:id,name_en', 'session:id,session_short_name'])
+        $query = StudentEnrollment::with(['student:id,student_id,student_no,full_name_en,full_name_kh,gender,gender_kh,date_of_birth,nationality_country_id,home_phone,email,birth_country_id,birth_province_id,birth_district_id,birth_commune_id,birth_village_id,address_country_id,address_province_id,address_district_id,address_commune_id,address_village_id,address_house_no_en,address_house_no_kh,address_street_en,address_street_kh,current_address_en,current_address_kh,previous_school,experienced_english,test_result,tested_by,remarks,photo_path,family_number', 'academicYear' => fn ($year) => $year->withTrashed()->select(['id', 'academic_year', 'lifecycle_status', 'period_type']), 'campus:id,campus_name_en', 'grade:id,grade', 'schoolClass:id,class_name', 'academicTrack:id,name_en', 'session:id,session_short_name'])
             ->whereIn('academic_year_id', AcademicYear::withTrashed()
                 ->where(fn ($year) => $year->where('period_type', 'summer')->orWhere('academic_year', 'like', 'Summer %'))
                 ->select('id'))
@@ -166,6 +166,26 @@ class SummerSchoolController
             })
             ->latest('id');
         return response()->json($query->paginate($request->integer('perPage', 15)));
+    }
+
+    public function details(StudentEnrollment $enrollment)
+    {
+        abort_unless($enrollment->academicYear?->period_type === 'summer', 404);
+        $enrollment->load(['student', 'student.families.members']);
+        $contacts = $enrollment->student->families->flatMap->members->map(fn ($member) => [
+            'relationship_type' => $member->relationship_type,
+            'full_name_en' => $member->full_name_en,
+            'full_name_kh' => $member->full_name_kh,
+            'phone' => $member->phone,
+            'workplace' => $member->workplace,
+            'occupation_en' => $member->occupation_en,
+            'occupation_kh' => $member->occupation_kh,
+            'nationality_en' => $member->nationality_en,
+            'nationality_kh' => $member->nationality_kh,
+            'occupation_id' => $member->occupation_id,
+            'nationality_country_id' => $member->nationality_country_id,
+        ])->values();
+        return response()->json(array_merge($enrollment->toArray(), ['family_contacts' => $contacts]));
     }
 
     public function save(Request $request)
@@ -397,5 +417,13 @@ class SummerSchoolController
         ]);
 
         return response()->json(['status' => 'success', 'message' => 'Student converted to Western enrollment successfully.', 'data' => $regularEnrollment->load(['student', 'academicYear', 'campus', 'grade', 'schoolClass', 'session'])], 201);
+    }
+
+    public function destroy(StudentEnrollment $enrollment)
+    {
+        abort_unless($enrollment->academicYear?->period_type === 'summer', 404);
+        $enrollment->delete();
+
+        return response()->json(['status' => 'success', 'message' => 'Summer School enrollment deleted successfully.']);
     }
 }

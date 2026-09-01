@@ -331,7 +331,7 @@
                                             <i class="ti ti-arrows-transfer-up me-2"></i> Student Promotion
                                         </a>
                                     @endif
-                                    @if ($canView('students.promotion.view'))
+                                    @if ($canView('students.transfer.view'))
                                         <a class="dropdown-item {{ request()->routeIs('studentTransfer.*') ? 'active' : '' }}"
                                             href="{{ route('studentTransfer.index') }}">
                                             <i class="ti ti-arrows-left-right me-2"></i> Student Transfer

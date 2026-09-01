@@ -22,15 +22,13 @@
     <p class="premium-pagination-info m-0">Showing <strong>{{ $paginator->firstItem() ?? 0 }} to
             {{ $paginator->lastItem() ?? 0 }}</strong> of <strong>{{ $paginator->total() }} entries</strong></p>
     <div class="premium-pagination-controls"><label class="premium-pagination-select"><select
-                class="form-select form-select-sm"
-                onchange="const u=new URL(window.location.href);u.searchParams.set('per_page',this.value);u.searchParams.set('page',1);window.location=u">
+                class="form-select form-select-sm" data-pagination-per-page>
                 <option value="10" @selected($paginator->perPage() == 10)>10 / page</option>
                 <option value="25" @selected($paginator->perPage() == 25)>25 / page</option>
                 <option value="50" @selected($paginator->perPage() == 50)>50 / page</option>
                 <option value="100" @selected($paginator->perPage() == 100)>100 / page</option>
             </select></label><label class="premium-pagination-goto"><span>Go to</span><input type="number"
                 class="form-control form-control-sm" min="1" max="{{ $lastPage }}"
-                value="{{ $currentPage }}"
-                onchange="const u=new URL(window.location.href);u.searchParams.set('page',Math.min({{ $lastPage }},Math.max(1,parseInt(this.value)||1)));window.location=u"><span>Page</span></label>
+                value="{{ $currentPage }}" data-pagination-goto data-pagination-max="{{ $lastPage }}"><span>Page</span></label>
     </div>
 </div>

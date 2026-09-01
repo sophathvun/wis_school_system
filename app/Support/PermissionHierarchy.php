@@ -18,7 +18,7 @@ class PermissionHierarchy
             'groups' => 'School Groups', 'terms' => 'Terms', 'campuses' => 'Campuses', 'summer-school' => 'Summer School', 'student-withdrawals' => 'Student Withdrawals',
             'reports' => 'Reports',
             'students.search' => 'Search Students', 'students.enrollment' => 'Student Enrollment', 'families' => 'Family Management',
-            'students.promotion' => 'Student Promotion / Transfer', 'students.graduation' => 'Student Graduation',
+            'students.promotion' => 'Student Promotion', 'students.transfer' => 'Student Transfer', 'students.graduation' => 'Student Graduation',
             'student-reentry' => 'Student Re-entry', 'student-documents' => 'Student Documents', 'student-data-transfer' => 'Import / Export Data',
         ];
     }
@@ -43,7 +43,7 @@ class PermissionHierarchy
             ],
             'students' => [
                 'label' => 'Students', 'permission' => 'students.view',
-                'modules' => ['students.search', 'students.enrollment', 'summer-school', 'families', 'students.promotion', 'students.graduation', 'student-withdrawals', 'student-reentry', 'student-documents', 'student-data-transfer'],
+                'modules' => ['students.search', 'students.enrollment', 'summer-school', 'families', 'students.promotion', 'students.transfer', 'students.graduation', 'student-withdrawals', 'student-reentry', 'student-documents', 'student-data-transfer'],
                 'actions' => ['students.manage'],
             ],
             'dashboard' => [

@@ -133,7 +133,17 @@ class AuthController
     public function updateProfile(Request $request)
     {
         $user = $request->user();
-        $data = $request->validate(['name' => ['required', 'string', 'max:255'], 'username' => ['required', 'string', 'max:80', 'unique:users,username,'.$user->id], 'email' => ['required', 'email', 'unique:users,email,'.$user->id], 'password' => ['nullable', 'min:8', 'confirmed'], 'photo' => ['nullable', 'image', 'max:2048']]);
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'gender' => ['nullable', 'in:male,female,other'],
+            'date_of_birth' => ['nullable', 'date', 'before_or_equal:today'],
+            'phone' => ['nullable', 'string', 'max:50'],
+            'username' => ['required', 'string', 'max:80', 'unique:users,username,'.$user->id],
+            'email' => ['required', 'email', 'unique:users,email,'.$user->id],
+            'login_identifier' => ['required', 'in:username,email,both'],
+            'password' => ['nullable', 'min:8', 'confirmed'],
+            'photo' => ['nullable', 'image', 'max:2048'],
+        ]);
         $user->fill(collect($data)->except(['password', 'photo'])->toArray());
         if (!empty($data['password'])) {
             $user->password = $data['password'];

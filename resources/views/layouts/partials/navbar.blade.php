@@ -1,3 +1,8 @@
+@php
+    $headerNotificationPayload = $headerNotificationPayload ?? [];
+    $headerUnreadNotifications = $headerUnreadNotifications ?? 0;
+@endphp
+
 <header class="navbar navbar-expand-md sticky-top d-none d-lg-flex d-print-none">
     <div class="container-fluid">
         <!-- BEGIN NAVBAR TOGGLER -->
@@ -32,7 +37,8 @@
                 </div>
                 <div class="nav-item dropdown d-none d-md-flex">
                     <a href="#" class="nav-link px-0" data-bs-toggle="dropdown" tabindex="-1"
-                        aria-label="Show notifications" data-bs-auto-close="outside" aria-expanded="false">
+                        aria-label="Show notifications" data-bs-auto-close="outside" aria-expanded="false"
+                        data-navbar-notification-toggle>
                         <!-- Download SVG icon from http://tabler.io/icons/icon/bell -->
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
                             fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
@@ -41,15 +47,18 @@
                                 d="M10 5a2 2 0 1 1 4 0a7 7 0 0 1 4 6v3a4 4 0 0 0 2 3h-16a4 4 0 0 0 2 -3v-3a7 7 0 0 1 4 -6" />
                             <path d="M9 17v1a3 3 0 0 0 6 0v-1" />
                         </svg>
-                        <span class="badge bg-red"></span>
+                        <span class="badge bg-red" data-navbar-notification-badge></span>
                     </a>
-                    <div class="dropdown-menu dropdown-menu-arrow dropdown-menu-end dropdown-menu-card">
+                    <div class="dropdown-menu dropdown-menu-arrow dropdown-menu-end dropdown-menu-card"
+                        data-navbar-notification-menu data-navbar-notification-payload='@json($headerNotificationPayload)'
+                        data-navbar-notification-count="{{ $headerUnreadNotifications }}">
                         <div class="card">
                             <div class="card-header d-flex">
                                 <h3 class="card-title">Notifications</h3>
                                 <div class="btn-close ms-auto" data-bs-dismiss="dropdown"></div>
                             </div>
-                            <div class="list-group list-group-flush list-group-hoverable">
+                            <div class="list-group list-group-flush list-group-hoverable"
+                                data-navbar-notification-list>
                                 <div class="list-group-item">
                                     <div class="row align-items-center">
                                         <div class="col-auto"><span
@@ -157,8 +166,7 @@
             </div>
             <div class="nav-item ms-3">
                 <a href="{{ route('chat.index') }}" class="nav-link px-0 position-relative" aria-label="Open chat"
-                    title="Chat"
-                    onclick="if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();">
+                    title="Chat" data-navbar-chat-link>
                     <i class="ti ti-messages icon"></i>
                     <span id="chat-unread-badge"
                         class="badge bg-red position-absolute top-0 start-100 translate-middle d-none">0</span>
@@ -190,7 +198,7 @@
             @auth<a href="{{ route('feedback') }}" class="dropdown-item">Feedback</a>@endauth
             <div class="dropdown-divider"></div>
             @auth<a href="{{ route('profile') }}" class="dropdown-item">Settings</a>@endauth
-            @auth<form method="POST" action="{{ route('logout') }}" onsubmit="try{sessionStorage.removeItem('dashboardHeroStartedAt')}catch(e){}">@csrf<button class="dropdown-item"
+            @auth<form method="POST" action="{{ route('logout') }}" data-clear-dashboard-hero>@csrf<button class="dropdown-item"
                     type="submit">Logout</button></form>@endauth
         </div>
     </div>
@@ -211,60 +219,6 @@
             )
             ->values();
     @endphp
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const list = document.querySelector('.dropdown-menu-card .list-group');
-            const badge = document.querySelector('[aria-label="Show notifications"] .badge');
-            const items = @json($headerNotificationPayload);
-            if (badge) {
-                badge.textContent = {{ $headerUnreadNotifications }} || '';
-                badge.classList.toggle('d-none', !{{ $headerUnreadNotifications }});
-            }
-            if (list) list.innerHTML = items.length ? items.map(item =>
-                    '<div class="list-group-item"><div class="row align-items-center"><div class="col-auto"><span class="status-dot ' +
-                    (item.read ? '' : 'status-dot-animated bg-red') +
-                    ' d-block"></span></div><div class="col text-truncate"><a href="' + item.url +
-                    '" class="text-body d-block" target="_blank" rel="noopener noreferrer">' + item.title +
-                    '</a><div class="d-block text-secondary text-truncate mt-n1">' + (item.message || '') +
-                    '</div><small class="text-secondary">' + (item.time || '') + '</small></div></div></div>').join(
-                    '') +
-                '<div class="list-group-item text-center"><a href="{{ route('notifications.index') }}">View all notifications</a></div>' :
-                '<div class="list-group-item text-center text-secondary py-4">No notifications.</div>';
-        });
-    </script>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const badge = document.getElementById('chat-unread-badge');
-            let previousUnread = null;
-            const refreshChatUnread = async () => {
-                try {
-                    const response = await fetch('{{ route('chat.unread') }}', {
-                        headers: {
-                            Accept: 'application/json'
-                        }
-                    });
-                    if (!response.ok) return;
-                    const data = await response.json();
-                    const unread = Number(data.unread || 0);
-                    if (badge) {
-                        badge.textContent = unread > 99 ? '99+' : unread;
-                        badge.classList.toggle('d-none', unread === 0);
-                    }
-                    if (previousUnread !== null && unread > previousUnread && 'Notification' in window &&
-                        Notification.permission === 'granted') {
-                        new Notification('New chat message', {
-                            body: 'You have a new unread chat message.',
-                            tag: 'school-chat'
-                        });
-                    }
-                    previousUnread = unread;
-                } catch (error) {
-                    /* Chat badge remains unchanged if the user is offline. */ }
-            };
-            refreshChatUnread();
-            window.setInterval(refreshChatUnread, 5000);
-        });
-    </script>
 @endauth
 <div class="collapse navbar-collapse" id="navbar-menu">
     <!-- BEGIN NAVBAR MENU -->

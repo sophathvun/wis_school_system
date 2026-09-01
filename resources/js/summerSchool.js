@@ -4,6 +4,17 @@ import { showError, showSuccess } from "./helpers/sweet-alert2";
 import { renderPagination } from "./helpers/pagination";
 
 const summerField = (id) => document.getElementById(id);
+let summerEnrollmentEditLocked = false;
+const summerEnrollmentAssignmentFields = ["summerAcademicYear", "summerCampus", "summerGrade", "summerClass", "summerSession"];
+const setSummerEnrollmentAssignmentLocked = (locked) => {
+    summerEnrollmentEditLocked = locked;
+    summerEnrollmentAssignmentFields.forEach((id) => {
+        const element = summerField(id);
+        if (!element) return;
+        element.disabled = locked;
+        element.closest(".summer-enrollment-section")?.classList.toggle("enrollment-assignment-locked", locked);
+    });
+};
 const summerStyleRequiredAsterisks = () => {
     const requiredNames = [
         "student_id", "full_name_en", "academic_year_id", "campus_id", "grade_id", "class_id", "session_id",
@@ -68,6 +79,20 @@ const summerEnhanceDocumentSection = (panel) => {
     dropzone.addEventListener("dragleave", () => dropzone.classList.remove("is-dragging"));
     dropzone.addEventListener("drop", (event) => { event.preventDefault(); dropzone.classList.remove("is-dragging"); if (!event.dataTransfer.files.length) return; const transfer = new DataTransfer(); transfer.items.add(event.dataTransfer.files[0]); input.files = transfer.files; render(); });
 };
+const summerDecorateDocumentFileList = () => {
+    const list = document.getElementById("summerDocumentFileList");
+    const input = document.getElementById("summerDocumentFile");
+    const file = input?.files?.[0];
+    if (!list || !file || list.querySelector(".premium-document-file-card")) return;
+    const size = file.size < 1048576
+        ? `${Math.max(1, Math.round(file.size / 1024))} KB`
+        : `${(file.size / 1048576).toFixed(1)} MB`;
+    const row = document.createElement("div");
+    row.className = "premium-document-file-card";
+    row.innerHTML = `<span class="premium-document-file-icon"><i class="ti ti-photo"></i></span><div class="premium-document-file-meta"><div class="premium-document-file-name"></div><div class="premium-document-file-size">${size} <span>• Ready to upload</span></div></div><button type="button" class="premium-document-file-remove" aria-label="Remove file"><i class="ti ti-x"></i></button>`;
+    row.querySelector(".premium-document-file-name").textContent = file.name;
+    list.replaceChildren(row);
+};
 const summerClearRegistrationPlaceholders = () => {
     const form = summerField("summerSchoolForm");
     if (!form) return;
@@ -87,6 +112,7 @@ const summerConvertModal = summerField("summerConvertModal")
 let summerOptions = {};
 let summerSort = { key: null, direction: "asc" };
 let summerStudentEnrollments = [];
+const summerRowCache = new Map();
 const summerPhoneSyncs = [];
 const summerExternalPhotoInput = summerField("summerExternalPhoto");
 const summerExternalPhotoDropzone = summerField("summerExternalPhotoDropzone");
@@ -669,7 +695,12 @@ const summerAddEnrollmentParityFields = () => {
     const enrollmentSection = summerField("summerAcademicYear")?.closest(".summer-enrollment-section");
     const enrollmentWrapper = enrollmentSection?.closest(".col-12");
     const familyCard = Array.from(panel.querySelectorAll(":scope > .summer-form-card")).find((card) => card.querySelector(":scope > h4")?.textContent.trim() === "Family Information");
-    if (enrollmentWrapper && panel.parentElement) panel.parentElement.insertBefore(enrollmentWrapper, panel.nextSibling);
+    if (enrollmentWrapper && panel.parentElement) {
+        const documentCard = panel.querySelector(":scope > .enrollment-document-card");
+        if (documentCard) documentCard.remove();
+        panel.parentElement.insertBefore(enrollmentWrapper, panel.nextSibling);
+        if (documentCard) panel.parentElement.insertBefore(documentCard, enrollmentWrapper.nextSibling);
+    }
     if (familyCard) {
         familyCard.classList.add("summer-external-field", "d-none", "summer-dark-header-card");
     }
@@ -1048,6 +1079,7 @@ const summerLoadRows = async (page = 1, perPage = null) => {
     ].forEach(([id, key]) => { if (summerField(id)?.value) params.set(key, summerField(id).value); });
     const result = await (await fetch(`/summer-school/fetch?${params}`)).json();
     const rows = [...(result.data || [])];
+    rows.forEach((row) => summerRowCache.set(String(row.id), row));
     if (summerSort.key) {
         const value = (row) => ({ student_id: row.student?.student_id, student_name: row.student?.full_name_en, enrollment_origin: row.enrollment_origin, academic_year: row.academic_year?.academic_year, campus: row.campus?.campus_name_en, grade: row.grade?.grade, track: row.academic_track?.name_en, group: row.session?.session_short_name, enrollment_status: row.enrollment_status }[summerSort.key] || "");
         rows.sort((a, b) => String(value(a)).localeCompare(String(value(b)), undefined, { numeric: true, sensitivity: "base" }) * (summerSort.direction === "asc" ? 1 : -1));
@@ -1071,11 +1103,10 @@ const summerLoadRows = async (page = 1, perPage = null) => {
     summerField("summerSchoolRows").innerHTML = rows.length
         ? rows
               .map((item) => {
-                  const canConvert =
-                      item.enrollment_origin === "external" &&
-                      item.continue_at_western === "yes";
+                  const canConvert = item.enrollment_origin === "external";
                   const photo = item.student?.photo_path ? `<img class="summer-student-photo" src="/storage/${summerEsc(item.student.photo_path)}" alt="Student photo">` : `<span class="summer-student-photo-placeholder"><i class="ti ti-user"></i></span>`;
-                  return `<tr><td>${photo}</td><td>${summerEsc(item.student?.student_id || "-")}</td><td><strong>${summerEsc(item.student?.full_name_en || item.student?.full_name_kh || "-")}</strong></td><td><span class="badge ${item.enrollment_origin === "external" ? "bg-warning-lt" : "bg-blue-lt"}">${item.enrollment_origin === "external" ? "New" : "Old"}</span></td><td>${summerEsc(item.academic_year?.academic_year || "-")}</td><td>${summerEsc(item.campus?.campus_name_en || "-")}</td><td>${summerEsc(item.grade?.grade || "-")}</td><td>${summerEsc(item.academic_track?.name_en || "-")}</td><td>${summerEsc(item.session?.session_short_name || "-")}</td><td><span class="badge ${item.enrollment_status === "active" ? "bg-success-lt" : item.enrollment_status === "withdrawn" ? "bg-danger-lt" : "bg-warning-lt"}">${summerEsc(item.enrollment_status || "-")}</span></td><td>${canConvert ? `<button type="button" class="btn btn-sm btn-outline-primary" data-summer-convert="${item.id}"><i class="ti ti-arrow-right me-1"></i>Continue</button>` : "-"}</td></tr>`;
+                  const statusClass = item.enrollment_status === "active" ? "bg-success-lt text-success" : item.enrollment_status === "withdrawn" ? "bg-danger-lt text-danger" : "bg-warning-lt text-warning";
+                  return `<tr><td>${photo}</td><td>${summerEsc(item.student?.student_id || "-")}</td><td><strong>${summerEsc(item.student?.full_name_en || item.student?.full_name_kh || "-")}</strong></td><td><span class="badge ${item.enrollment_origin === "external" ? "bg-warning-lt" : "bg-blue-lt"}">${item.enrollment_origin === "external" ? "New" : "Old"}</span></td><td>${summerEsc(item.academic_year?.academic_year || "-")}</td><td>${summerEsc(item.campus?.campus_name_en || "-")}</td><td>${summerEsc(item.grade?.grade || "-")}</td><td>${summerEsc(item.academic_track?.name_en || "-")}</td><td>${summerEsc(item.session?.session_short_name || "-")}</td><td><span class="badge ${statusClass}">${summerEsc(item.enrollment_status || "-")}</span></td><td class="text-nowrap"><button type="button" class="btn btn-sm btn-outline-secondary" data-summer-edit="${item.id}" data-summer-edit-origin="${item.enrollment_origin === "external" ? "external" : "internal"}" title="Edit"><i class="ti ti-edit"></i></button> <button type="button" class="btn btn-sm btn-outline-danger" data-summer-delete="${item.id}" title="Delete"><i class="ti ti-trash"></i></button> ${canConvert ? `<button type="button" class="btn btn-sm btn-outline-primary" data-summer-convert="${item.id}" title="Continue at Western"><i class="ti ti-arrow-right"></i></button>` : ""}</td></tr>`;
               })
               .join("")
         : '<tr><td colspan="11" class="text-center text-secondary">No Summer School students found.</td></tr>';
@@ -1123,6 +1154,7 @@ summerField("summerFilterYear")?.addEventListener("change", summerLoadRows);
 ["summerFilterCampus", "summerFilterGrade", "summerFilterGroup", "summerFilterStudent", "summerFilterStatus"].forEach((id) => summerField(id)?.addEventListener("change", summerLoadRows));
 summerField("summerFilterSearch")?.addEventListener("input", (() => { let timer; return () => { clearTimeout(timer); timer = setTimeout(summerLoadRows, 250); }; })());
 summerField("summerSchoolNew")?.addEventListener("click", () => {
+    setSummerEnrollmentAssignmentLocked(false);
     summerField("summerSchoolForm").reset();
     const internalStudent = summerField("summerInternalStudent");
     if (internalStudent) { internalStudent.value = ""; internalStudent.dispatchEvent(new Event("change", { bubbles: true })); }
@@ -1149,7 +1181,131 @@ summerField("summerStudentSearch")?.addEventListener(
     "input",
     summerRenderInternalStudents,
 );
-summerField("summerSchoolRows")?.addEventListener("click", (event) => {
+summerField("summerSchoolRows")?.addEventListener("click", async (event) => {
+    const deleteButton = event.target.closest("[data-summer-delete]");
+    if (deleteButton) {
+        if (!window.confirm("Delete this Summer School enrollment?")) return;
+        fetch(`/summer-school/${deleteButton.dataset.summerDelete}`, { method: "DELETE", headers: { Accept: "application/json", "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')?.content || "" } })
+            .then((response) => response.json().then((result) => ({ response, result })))
+            .then(({ response, result }) => { if (!response.ok) throw new Error(result.message || "Unable to delete enrollment."); showSuccess("Deleted", result.message); summerLoadRows(); })
+            .catch((error) => showError("Delete Failed", error.message));
+        return;
+    }
+    const editButton = event.target.closest("[data-summer-edit]");
+    if (editButton) {
+        setSummerEnrollmentAssignmentLocked(true);
+        const origin = editButton.dataset.summerEditOrigin || "internal";
+        const record = summerRowCache.get(String(editButton.dataset.summerEdit));
+        const originField = summerField("summerOrigin");
+        if (originField) {
+            originField.value = origin;
+            originField.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+        document.querySelectorAll("[data-summer-origin]").forEach((tab) => tab.classList.toggle("is-active", tab.dataset.summerOrigin === origin));
+        summerToggleOrigin();
+        // Open immediately; complete record details are filled asynchronously.
+        summerModal?.show();
+        if (record) {
+            try {
+                const response = await fetch(`/summer-school/${editButton.dataset.summerEdit}/details`, { headers: { Accept: "application/json" } });
+                if (response.ok) Object.assign(record, await response.json());
+            } catch (error) { console.warn("Unable to load complete student details", error); }
+            const form = summerField("summerSchoolForm");
+            const values = {
+                academic_year_id: record.academic_year_id,
+                campus_id: record.campus_id,
+                grade_id: record.grade_id,
+                class_id: record.class_id,
+                session_id: record.session_id,
+                enrollment_status: record.enrollment_status,
+                enrolled_on: record.enrolled_on,
+                student_record_id: record.student_id,
+                student_id: record.student?.student_id,
+                student_no: record.student?.student_no,
+                family_number: record.student?.family_number || record.student?.families?.[0]?.family_number,
+                full_name_en: record.student?.full_name_en,
+                full_name_kh: record.student?.full_name_kh,
+                gender: record.student?.gender,
+                gender_kh: record.student?.gender_kh,
+                date_of_birth: record.student?.date_of_birth,
+                date_of_birth_kh: record.student?.date_of_birth,
+                nationality_country_id: record.student?.nationality_country_id,
+                home_phone: record.student?.home_phone,
+                email: record.student?.email,
+                birth_country_id: record.student?.birth_country_id,
+                birth_province_id: record.student?.birth_province_id,
+                birth_district_id: record.student?.birth_district_id,
+                birth_commune_id: record.student?.birth_commune_id,
+                birth_village_id: record.student?.birth_village_id,
+                address_country_id: record.student?.address_country_id,
+                address_province_id: record.student?.address_province_id,
+                address_district_id: record.student?.address_district_id,
+                address_commune_id: record.student?.address_commune_id,
+                address_village_id: record.student?.address_village_id,
+                address_house_no_en: record.student?.address_house_no_en,
+                address_house_no_kh: record.student?.address_house_no_kh,
+                address_street_en: record.student?.address_street_en,
+                address_street_kh: record.student?.address_street_kh,
+                current_address_en: record.student?.current_address_en,
+                current_address_kh: record.student?.current_address_kh,
+                previous_school: record.student?.previous_school,
+                experienced_english: record.student?.experienced_english,
+                test_result: record.student?.test_result,
+                tested_by: record.student?.tested_by,
+                summer_remarks: record.student?.remarks,
+            };
+            Object.entries(values).forEach(([name, value]) => {
+                const field = form?.querySelector(`[name="${name}"]`);
+                if (!field || value == null) return;
+                field.value = value;
+                field.dispatchEvent(new Event("change", { bubbles: true }));
+                field.closest(".premium-floating-field")?.classList.add("has-value");
+            });
+            ["home_phone", "mother_phone", "father_phone", "guardian_phone"].forEach((name) => {
+                const hidden = form?.querySelector(`input[type="hidden"][name="${name}"]`);
+                const visible = form?.querySelector(`#${name}_number`);
+                if (hidden?.value && visible) { visible.value = String(hidden.value).replace(/^\+855/, ""); visible.dispatchEvent(new Event("input", { bubbles: true })); }
+            });
+            const dobDisplay = form?.querySelector(".summer-dob-picker .date-picker-display, .summer-date-picker .date-picker-display");
+            if (dobDisplay && record.student?.date_of_birth) {
+                const date = new Date(`${record.student.date_of_birth}T00:00:00`);
+                if (!Number.isNaN(date.getTime())) dobDisplay.value = date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }).replace(/ /g, "-");
+            }
+            const enrolledOn = form?.querySelector('[name="enrolled_on"]');
+            const enrolledDisplay = enrolledOn?.closest(".date-picker")?.querySelector(".date-picker-display");
+            if (enrolledDisplay && record.enrolled_on) {
+                const date = new Date(`${record.enrolled_on}T00:00:00`);
+                if (!Number.isNaN(date.getTime())) enrolledDisplay.value = date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }).replace(/ /g, "-");
+            }
+            const familyMembers = [...(record.family_contacts || []), ...(record.student?.family_members || record.student?.familyMembers || [])];
+            (record.student?.families || []).forEach((family) => (family.members || []).forEach((member) => familyMembers.push(member)));
+            familyMembers.forEach((member) => {
+                const relationship = member.relationship_type || member.pivot?.relationship_type;
+                const prefix = relationship === "mother" ? "mother" : relationship === "father" ? "father" : relationship === "guardian" ? "guardian" : null;
+                if (!prefix) return;
+                const familyValues = {
+                    [`${prefix}_name_en`]: member.full_name_en,
+                    [`${prefix}_name_kh`]: member.full_name_kh,
+                    [`${prefix}_phone`]: member.phone,
+                    [`${prefix}_workplace`]: member.workplace,
+                    [`${prefix}_occupation_id`]: member.occupation_id,
+                    [`${prefix}_occupation_en`]: member.occupation_en,
+                    [`${prefix}_occupation_kh`]: member.occupation_kh,
+                    [`${prefix}_nationality_country_id`]: member.nationality_country_id,
+                    [`${prefix}_nationality_en`]: member.nationality_en,
+                    [`${prefix}_nationality_kh`]: member.nationality_kh,
+                };
+                Object.entries(familyValues).forEach(([name, value]) => {
+                    const field = form?.querySelector(`[name="${name}"]`);
+                    if (!field || value == null) return;
+                    field.value = value;
+                    field.dispatchEvent(new Event("change", { bubbles: true }));
+                    field.closest(".premium-floating-field")?.classList.add("has-value");
+                });
+            });
+        }
+        return;
+    }
     const button = event.target.closest("[data-summer-convert]");
     if (!button) return;
     summerField("summerConvertEnrollmentId").value =
@@ -1212,6 +1368,10 @@ summerField("summerSchoolForm")?.addEventListener("submit", async (event) => {
         return;
     }
     summerPhoneSyncs.forEach((sync) => sync());
+    const lockedAssignmentFields = summerEnrollmentEditLocked
+        ? summerEnrollmentAssignmentFields.map((id) => summerField(id)).filter(Boolean)
+        : [];
+    lockedAssignmentFields.forEach((element) => (element.disabled = false));
     const error = summerField("summerSchoolError");
     error.classList.add("d-none");
     const response = await fetch("/summer-school/save", {
@@ -1224,6 +1384,7 @@ summerField("summerSchoolForm")?.addEventListener("submit", async (event) => {
         },
         body: new FormData(event.target),
     });
+    lockedAssignmentFields.forEach((element) => (element.disabled = true));
     const result = await response.json().catch(() => ({}));
     if (!response.ok) {
         error.textContent =
@@ -1549,3 +1710,8 @@ summerLoadOptions().then(() => {
         });
 });
 summerPeriodOptionsPromise.catch(() => {});
+const summerDocumentListObserver = new MutationObserver(summerDecorateDocumentFileList);
+summerDocumentListObserver.observe(document.body, { childList: true, subtree: true });
+document.addEventListener("change", (event) => {
+    if (event.target?.id === "summerDocumentFile") setTimeout(summerDecorateDocumentFileList, 0);
+});

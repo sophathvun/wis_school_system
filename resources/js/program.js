@@ -111,6 +111,14 @@ async function fetchRows(page = 1) {
     renderPageInfo(j);
 }
 document.getElementById("newProgram").onclick = openCreate;
+document.getElementById("programModal")?.addEventListener("shown.bs.modal", () => {
+    ["academic_year_id", "education_level_id"].forEach((id) => {
+        const select = document.getElementById(id);
+        if (select && select.options.length && select.options[0].value === "") {
+            select.remove(0);
+        }
+    });
+});
 perPage.onchange = () => fetchRows();
 search.onkeyup = () => fetchRows();
 loadOptions();

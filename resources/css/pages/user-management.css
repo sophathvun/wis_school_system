@@ -11,8 +11,265 @@
     text-decoration: none;
 }
 
+.table-sort-button .table-sort-icon {
+    margin-left: .25rem;
+    font-size: .85em;
+    opacity: .75;
+}
+
 .table-sort-button:hover {
     color: var(--tblr-primary);
+}
+
+.user-management-mobile-list-wrap {
+    position: relative;
+    display: none;
+}
+
+.user-management-mobile-list {
+    display: flex;
+    gap: .85rem;
+    overflow-x: auto;
+    /* Reserve a small toolbar row for the scroll affordances so they never
+       sit on top of card fields while the card itself remains full width. */
+    padding: 3.75rem .75rem 1rem;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scroll-padding-inline: .75rem;
+    overscroll-behavior-x: contain;
+}
+
+.user-management-mobile-scroll-hint {
+    position: absolute;
+    top: .75rem;
+    z-index: 2;
+    display: grid;
+    place-items: center;
+    width: 2.2rem;
+    height: 2.2rem;
+    border: 1px solid rgba(37, 99, 235, .18);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .82);
+    box-shadow: 0 8px 20px rgba(31, 63, 104, .12);
+    color: #7d8ea8;
+    pointer-events: none;
+    backdrop-filter: blur(8px);
+}
+
+.user-management-mobile-scroll-hint i {
+    font-size: 1rem;
+}
+
+.user-management-mobile-scroll-hint-left {
+    left: .5rem;
+}
+
+.user-management-mobile-scroll-hint-right {
+    right: .5rem;
+}
+
+.user-management-mobile-scroll-position {
+    position: absolute;
+    top: .9rem;
+    left: 50%;
+    z-index: 2;
+    min-width: 4.5rem;
+    padding: .35rem .7rem;
+    border: 1px solid rgba(37, 99, 235, .18);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .88);
+    box-shadow: 0 8px 20px rgba(31, 63, 104, .12);
+    color: #48627f;
+    font-size: .8rem;
+    font-weight: 700;
+    line-height: 1.2;
+    text-align: center;
+    transform: translateX(-50%);
+    pointer-events: none;
+    backdrop-filter: blur(8px);
+}
+
+.user-management-mobile-card {
+    display: grid;
+    gap: .6rem;
+    padding: .95rem;
+    border: 1px solid #dce3ec;
+    border-radius: 18px;
+    background: linear-gradient(180deg, #fff 0%, #f8fbff 100%);
+    box-shadow: 0 12px 28px rgba(31, 63, 104, .06);
+}
+
+.user-management-mobile-head {
+    display: flex;
+    align-items: flex-start;
+    gap: .75rem;
+}
+
+.user-management-mobile-photo img {
+    width: 56px;
+    height: 56px;
+    object-fit: cover;
+    border: 1px solid var(--tblr-border-color);
+    border-radius: 14px;
+}
+
+.user-management-mobile-title {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.user-management-mobile-name {
+    overflow: hidden;
+    color: #1f3f68;
+    font-size: 1rem;
+    font-weight: 800;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.user-management-mobile-subtitle {
+    overflow: hidden;
+    color: var(--tblr-secondary-color);
+    font-size: .8rem;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.user-management-mobile-grid,
+.user-management-mobile-extra {
+    display: grid;
+    gap: .5rem;
+}
+
+.user-management-mobile-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.user-management-mobile-grid > div,
+.user-management-mobile-extra > div {
+    display: grid;
+    gap: .15rem;
+    padding: .75rem .8rem;
+    border: 1px solid #e5edf6;
+    border-radius: 14px;
+    background: #fff;
+}
+
+.user-management-mobile-grid span,
+.user-management-mobile-extra span {
+    color: #7890ad;
+    font-size: .74rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.user-management-mobile-grid strong,
+.user-management-mobile-extra strong {
+    color: #27496d;
+    font-size: .92rem;
+    font-weight: 700;
+    word-break: break-word;
+}
+
+.user-management-mobile-extra {
+    grid-template-columns: 1fr;
+}
+
+.user-management-mobile-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .75rem;
+    align-items: center;
+}
+
+.user-management-mobile-actions form {
+    margin: 0;
+}
+
+.user-management-mobile-actions .btn {
+    width: 100%;
+    min-height: 3rem;
+    padding: .55rem .75rem;
+    border-radius: 1rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    font-weight: 700;
+}
+
+.user-management-mobile-actions .btn i {
+    font-size: 1rem;
+}
+
+.user-management-mobile-actions .btn .visually-hidden {
+    position: static;
+    width: auto;
+    height: auto;
+    margin: 0 0 0 .45rem;
+    overflow: visible;
+    clip: auto;
+    white-space: nowrap;
+}
+
+[data-bs-theme="dark"] .user-management-mobile-actions .btn-outline-primary {
+    border-color: rgba(96, 165, 250, .6);
+    color: #60a5fa;
+}
+
+[data-bs-theme="dark"] .user-management-mobile-actions .btn-outline-danger {
+    border-color: rgba(248, 113, 113, .6);
+    color: #f87171;
+}
+
+[data-bs-theme="dark"] .user-management-mobile-card {
+    border-color: rgba(148, 163, 184, .24);
+    background: linear-gradient(180deg, #1e293b 0%, #162338 100%);
+    box-shadow: 0 16px 34px rgba(0, 0, 0, .28);
+}
+
+[data-bs-theme="dark"] .user-management-mobile-scroll-hint {
+    border-color: rgba(96, 165, 250, .35);
+    background: rgba(15, 23, 42, .9);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, .35);
+    color: #93c5fd;
+}
+
+[data-bs-theme="dark"] .user-management-mobile-scroll-position {
+    border-color: rgba(96, 165, 250, .35);
+    background: rgba(15, 23, 42, .9);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, .35);
+    color: #bfdbfe;
+}
+
+[data-bs-theme="dark"] .user-management-mobile-photo img {
+    border-color: rgba(148, 163, 184, .42);
+    background: #0f172a;
+}
+
+[data-bs-theme="dark"] .user-management-mobile-name {
+    color: #f8fafc;
+}
+
+[data-bs-theme="dark"] .user-management-mobile-subtitle {
+    color: #94a3b8;
+}
+
+[data-bs-theme="dark"] .user-management-mobile-grid > div,
+[data-bs-theme="dark"] .user-management-mobile-extra > div {
+    border-color: rgba(148, 163, 184, .22);
+    background: rgba(15, 23, 42, .72);
+}
+
+[data-bs-theme="dark"] .user-management-mobile-grid span,
+[data-bs-theme="dark"] .user-management-mobile-extra span {
+    color: #93a8c3;
+}
+
+[data-bs-theme="dark"] .user-management-mobile-grid strong,
+[data-bs-theme="dark"] .user-management-mobile-extra strong {
+    color: #e2e8f0;
 }
 
 #userModal .modal-content {
@@ -115,20 +372,23 @@
 
 #userModal .user-searchable-combobox {
     position: relative;
+    z-index: 5;
 }
 
 #userModal .user-searchable-combobox .location-combobox-selected {
     display: block;
     min-width: 0;
+    margin-top: 1.05rem;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
+    opacity: 0;
 }
 
 #userModal .user-searchable-combobox .location-combobox-toggle {
     width: 100%;
     height: 52px;
-    padding: 1.25rem 2.75rem 0.35rem 1rem;
+    padding: .88rem 2.75rem 0.3rem 1rem;
     border: 1.5px solid #dfe3ea;
     border-radius: 14px;
     background: var(--tblr-bg-forms, #fff);
@@ -136,12 +396,35 @@
     text-align: left;
     font: inherit;
     position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
 }
 
 #userModal .user-searchable-combobox .location-combobox-toggle:focus {
     outline: 0;
     border-color: #6b5bd6;
     box-shadow: 0 0 0 3px rgba(107, 91, 214, 0.14);
+}
+
+#userModal .user-searchable-combobox .location-combobox-floating-label {
+    position: absolute;
+    left: 1rem;
+    top: 44%;
+    display: block;
+    transform: translateY(-50%);
+    margin: 0;
+    color: var(--tblr-secondary);
+    font-size: .95rem;
+    font-weight: 600;
+    line-height: 1;
+    transition:
+        top 0.16s ease,
+        transform 0.16s ease,
+        font-size 0.16s ease,
+        color 0.16s ease,
+        background-color 0.16s ease;
 }
 
 #userModal .user-searchable-combobox .location-combobox-toggle > i {
@@ -152,23 +435,63 @@
     color: var(--tblr-secondary);
 }
 
+#userModal .user-searchable-combobox .location-combobox-selected {
+    margin-top: 0.45rem;
+    line-height: 1.15;
+}
+
+#userModal .user-searchable-combobox.has-value .location-combobox-floating-label,
+#userModal .user-searchable-combobox:focus-within .location-combobox-floating-label,
+#userModal .user-searchable-combobox.is-open .location-combobox-floating-label {
+    top: 0.42rem;
+    transform: none;
+    color: #5b4bd1;
+    font-size: 0.72rem;
+    background: var(--tblr-bg-surface, #fff);
+    padding: 0 0.45rem;
+    z-index: 2;
+}
+
+#userModal .user-searchable-combobox.has-value .location-combobox-selected,
+#userModal .user-searchable-combobox:focus-within .location-combobox-selected,
+#userModal .user-searchable-combobox.is-open .location-combobox-selected {
+    margin-top: .72rem;
+}
+
+#userModal .user-searchable-combobox.has-value .location-combobox-selected,
+#userModal .user-searchable-combobox:focus-within .location-combobox-selected,
+#userModal .user-searchable-combobox.is-open .location-combobox-selected {
+    opacity: 1;
+}
+
 #userModal .user-searchable-combobox .location-combobox-menu {
     position: absolute;
-    z-index: 20;
-    left: 0;
-    right: 0;
+    z-index: 3000;
+    left: -0.25rem;
+    right: -0.25rem;
     top: calc(100% + 0.35rem);
-    padding: 0.65rem;
+    min-width: calc(100% + 0.5rem);
+    padding: 0.75rem;
     background: var(--tblr-bg-surface, #fff);
     border: 1px solid var(--tblr-border-color);
-    border-radius: 14px;
-    box-shadow: 0 12px 28px rgba(31, 41, 55, 0.16);
+    border-radius: 16px;
+    box-shadow: 0 18px 36px rgba(31, 41, 55, 0.18);
+}
+
+.location-combobox-menu.is-portaled {
+    z-index: 4000;
+    border-radius: 16px;
+    box-shadow: 0 18px 36px rgba(31, 41, 55, 0.18);
 }
 
 #userModal .user-searchable-combobox .location-combobox-menu .form-control {
     height: 44px;
     border-radius: 10px;
     padding: 0.55rem 0.75rem;
+}
+
+#userModal .user-searchable-combobox.is-open {
+    z-index: 3001;
 }
 
 #userModal .user-searchable-combobox .location-combobox-results {
@@ -273,101 +596,6 @@
     margin: 0 !important;
 }
 
-#userModal .premium-form-field:has(> .phone-input-group) > .form-label {
-    top: 0.42rem !important;
-    left: 1rem !important;
-    padding: 0 0.45rem !important;
-    background: var(--tblr-bg-surface, #fff) !important;
-    color: #5b4bd1 !important;
-    font-size: 0.72rem !important;
-    font-weight: 700 !important;
-    z-index: 5;
-}
-
-#userModal
-    .premium-form-field:has(> .phone-input-group)
-    > .phone-input-group
-    .form-control {
-    height: 52px !important;
-    min-height: 52px !important;
-    padding-top: 1.45rem !important;
-    padding-right: 1rem !important;
-    padding-bottom: 0.3rem !important;
-    padding-left: 6rem !important;
-    border-radius: 14px !important;
-}
-
-#userModal
-    .premium-form-field:has(> .phone-input-group)
-    > .phone-input-group
-    .iti {
-    width: 100%;
-    position: relative;
-}
-
-#userModal
-    .premium-form-field:has(> .phone-input-group)
-    > .phone-input-group
-    .iti__country-container {
-    width: 4.65rem;
-    box-sizing: border-box;
-    padding: 1.5px 0 1.5px 0.7rem;
-    overflow: visible;
-}
-
-#userModal
-    .premium-form-field:has(> .phone-input-group)
-    > .phone-input-group
-    .iti__selected-country-primary {
-    padding: 0 !important;
-}
-
-#userModal
-    .premium-form-field:has(> .phone-input-group)
-    > .phone-input-group
-    .iti__selected-country-flag {
-    margin-right: 0.25rem;
-}
-
-#userModal
-    .premium-form-field:has(> .phone-input-group)
-    > .phone-input-group
-    .iti__arrow {
-    margin-left: 0.25rem;
-}
-
-#userModal
-    .premium-form-field:has(> .phone-input-group)
-    > .phone-input-group
-    .iti__selected-dial-code {
-    margin-left: 0.2rem;
-    white-space: nowrap;
-}
-
-#userModal [class*="col-"]:has(> .phone-input-group) > .form-label {
-    top: 0.42rem !important;
-    left: 1rem !important;
-    padding: 0 0.45rem !important;
-    background: var(--tblr-bg-surface, #fff) !important;
-    color: #5b4bd1 !important;
-    font-size: 0.72rem !important;
-    font-weight: 700 !important;
-    z-index: 5;
-}
-
-#userModal
-    [class*="col-"]:has(> .phone-input-group)
-    > .phone-input-group
-    .form-control {
-    height: 52px !important;
-    min-height: 52px !important;
-    padding-top: 1.45rem !important;
-    padding-right: 1rem !important;
-    padding-bottom: 0.3rem !important;
-    padding-left: 6rem !important;
-    border-radius: 14px !important;
-}
-
 #userModal .user-phone-field {
     position: relative;
 }
@@ -385,6 +613,37 @@
     font-weight: 700 !important;
     line-height: 1.1;
     pointer-events: none;
+}
+
+#userModal .user-phone-field > .phone-input-group .form-control {
+    height: 52px !important;
+    min-height: 52px !important;
+    padding: 1.45rem 1rem 0.3rem !important;
+    border-radius: 14px !important;
+}
+
+#userModal .user-phone-field > .phone-input-group,
+#userModal .user-phone-field > .phone-input-group .iti {
+    width: 100%;
+}
+
+#userModal .user-phone-field > .phone-input-group .iti .form-control {
+    padding-left: 6.35rem !important;
+}
+
+#userModal .user-phone-field > .phone-input-group .iti__country-container {
+    width: 5.75rem;
+    padding-top: 1.2rem;
+    padding-left: .7rem;
+}
+
+#userModal .user-phone-field > .phone-input-group .iti__selected-country-primary {
+    padding: 0 !important;
+}
+
+#userModal .user-phone-field > .phone-input-group .iti__selected-dial-code {
+    margin-left: .35rem;
+    white-space: nowrap;
 }
 
 [data-bs-theme="dark"]
@@ -725,6 +984,298 @@
     object-fit: cover;
     border-radius: 0.5rem;
     border: 1px solid var(--tblr-border-color);
+}
+
+/* Keep the Add/Edit User dialog compact instead of stretching across the
+   entire viewport. It remains fluid on tablets and phones. */
+#userModal .modal-dialog {
+    width: calc(100% - 2rem);
+    max-width: 1100px;
+    height: auto;
+    margin: 1rem auto;
+}
+
+#userModal .modal-body {
+    padding: 1rem 1.25rem;
+}
+
+#userModal #staffPhotoDropzone {
+    min-height: 112px;
+    padding-block: .75rem;
+}
+
+#userModal .user-form-column {
+    position: relative;
+    display: grid;
+    align-content: start;
+    gap: 1rem;
+    box-sizing: border-box;
+    min-width: 0;
+    border: 1px solid var(--tblr-border-color);
+    border-radius: .75rem;
+    overflow: visible;
+    background: var(--tblr-bg-surface);
+    padding-bottom: 1rem;
+}
+
+#userModal .modal-body > .row.g-3 {
+    display: block;
+}
+
+#userModal .user-form-photo-field {
+    width: 100%;
+    max-width: 100%;
+    padding: 0;
+    margin: 0 0 1rem;
+}
+
+#userModal .user-form-photo-field .form-label {
+    margin-bottom: .45rem;
+    font-weight: 600;
+}
+
+#userModal .user-form-photo-field .student-photo-upload-row {
+    position: relative;
+    display: flex;
+    align-items: stretch;
+    gap: 1rem;
+    width: 100%;
+}
+
+#userModal .user-form-photo-field #staffPhotoDropzone {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    flex: 1 1 auto;
+    width: 100%;
+    min-height: 118px;
+    padding: .95rem 145px .95rem 1rem;
+    border-radius: .85rem;
+}
+
+#userModal .user-form-photo-field .user-photo-dropzone-label {
+    display: block;
+    margin: 0 0 .45rem;
+    color: #5b4bd1;
+    font-size: .8rem;
+    font-weight: 700;
+    line-height: 1;
+    text-align: center;
+}
+
+#userModal .user-form-photo-field .user-photo-dropzone-content {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: .35rem;
+    text-align: center;
+}
+
+#userModal .user-form-photo-field .user-photo-dropzone-hint {
+    margin: .55rem 0 0;
+    text-align: center;
+}
+
+#userModal .user-form-photo-field #staffPhotoDropzone #staffPhotoPreviewContainer {
+    position: absolute;
+    top: .75rem;
+    right: 1rem;
+    display: flex;
+    width: 116px;
+    aspect-ratio: 1 / 1;
+    margin: 0;
+    transform: none;
+    align-items: center;
+    justify-content: center;
+}
+
+#userModal .user-form-photo-field #staffPhotoDropzone #staffPhotoPreviewContainer.d-none {
+    display: none !important;
+}
+
+#userModal .user-form-photo-field #staffPhotoDropzone #staffPhotoPreview {
+    width: 116px;
+    aspect-ratio: 1 / 1;
+    height: 100%;
+    min-height: 0;
+    object-fit: cover;
+    border: 1px solid var(--tblr-border-color);
+    border-radius: .75rem;
+}
+
+#userModal .user-form-column-main {
+    flex: 0 0 calc(70% - .625rem);
+    width: calc(70% - .625rem) !important;
+    max-width: calc(70% - .625rem) !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+#userModal .user-form-column-account {
+    flex: 0 0 calc(30% - .625rem);
+    width: calc(30% - .625rem) !important;
+    max-width: calc(30% - .625rem) !important;
+    grid-template-columns: minmax(0, 1fr);
+}
+
+#userModal .user-form-columns {
+    display: flex;
+    align-items: flex-start;
+    gap: 1.25rem;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+#userModal .user-form-columns > :not(.user-form-column) {
+    flex: 0 0 100%;
+    width: 100%;
+    max-width: 100%;
+}
+
+#userModal .user-form-column > [class*="col-"] {
+    position: relative;
+    width: auto;
+    max-width: none;
+    padding-inline: 0;
+    margin-inline: 1rem;
+    overflow: visible;
+}
+
+#userModal .user-form-section-title {
+    grid-column: 1 / -1;
+    color: #fff;
+    margin: 0 0 .5rem;
+    padding: .85rem 1rem;
+    border-bottom: 1px solid rgba(255,255,255,.18);
+    border-radius: .75rem .75rem 0 0;
+    font-size: 1.15rem;
+    font-weight: 600;
+    letter-spacing: 0;
+    line-height: 1.2;
+    text-transform: uppercase;
+}
+
+#userModal .user-form-section-title-staff {
+    background: #12345a;
+}
+
+#userModal .user-form-section-title-login {
+    background: #12345a;
+}
+
+@media (max-width: 767.98px) {
+    .user-management-mobile-list-wrap {
+        display: block;
+    }
+
+    .user-management-mobile-list::-webkit-scrollbar {
+        display: none;
+    }
+
+    .user-management-mobile-card {
+        flex: 0 0 100%;
+        min-width: 100%;
+        scroll-snap-align: start;
+    }
+
+    .user-management-mobile-card .status-toggle {
+        min-width: 74px;
+        min-height: 34px;
+        padding-inline: .8rem;
+    }
+
+    .user-management-mobile-card .status-toggle .status-toggle-label {
+        font-size: .72rem;
+    }
+
+    .user-management-mobile-card .status-toggle .status-toggle-knob {
+        width: 24px;
+        height: 24px;
+    }
+
+    .user-management-mobile-grid {
+        grid-template-columns: 1fr;
+    }
+
+    #userModal .modal-dialog {
+        width: calc(100% - .5rem);
+        max-width: none;
+        margin: .25rem auto;
+    }
+
+    #userModal .modal-body {
+        padding: .75rem .65rem;
+    }
+
+    #userModal .user-form-photo-field {
+        margin-bottom: .75rem;
+    }
+
+    #userModal .user-form-photo-field .student-photo-upload-row {
+        flex-direction: column;
+        gap: .75rem;
+    }
+
+    #userModal .user-form-photo-field #staffPhotoDropzone {
+        padding: 1rem;
+        min-height: 132px;
+        justify-content: center;
+        text-align: center;
+    }
+
+    #userModal .user-form-photo-field .user-photo-dropzone-label {
+        margin-bottom: .35rem;
+    }
+
+    #userModal .user-form-photo-field #staffPhotoDropzone #staffPhotoPreviewContainer {
+        position: static;
+        width: 100%;
+        height: auto;
+        margin-top: .85rem;
+        transform: none;
+    }
+
+    #userModal .user-form-photo-field #staffPhotoDropzone #staffPhotoPreview {
+        width: min(160px, 100%);
+        aspect-ratio: 1 / 1;
+        height: auto;
+        margin-inline: auto;
+    }
+
+    #userModal .user-form-columns {
+        flex-direction: column;
+        gap: .75rem;
+    }
+
+    #userModal .user-form-column-main,
+    #userModal .user-form-column-account {
+        flex: 0 0 100%;
+        width: 100% !important;
+        max-width: 100% !important;
+        grid-template-columns: 1fr;
+    }
+
+    #userModal .user-form-column > [class*="col-"] {
+        margin-inline: .5rem;
+    }
+
+    #userModal .user-form-section-title {
+        padding: .75rem .85rem;
+        font-size: .95rem;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .table-responsive.d-none.d-md-block {
+        display: none !important;
+    }
+
+    #userModal .modal-dialog {
+        width: calc(100% - 1rem);
+        margin: .5rem auto;
+    }
 }
 
 [data-bs-theme="dark"] .staff-photo-crop-stage {

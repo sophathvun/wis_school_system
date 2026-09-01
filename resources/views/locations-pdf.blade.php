@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 
 <head>
@@ -89,35 +89,16 @@
     </style>
 </head>
 
-<body>
+<body data-pdf-print-mode="{{ ($printMode ?? false) ? '1' : '0' }}" data-pdf-redirect-url="{{ route('locations.index') }}">
     <div class="logo-row">
         @if ($logoData)
             <img src="{{ $logoData }}" alt="School Logo 1" class="school-logo">
         @endif
     </div>
     <div class="title-row">
-        <h1 class="khmer-title">តារាងទីតាំង</h1>
+        <h1 class="khmer-title">ážáž¶ážšáž¶áž„áž‘áž¸ážáž¶áŸ†áž„</h1>
         <h2 class="english-title">{{ $levelLabel }} List</h2>
     </div>
-
-    @if ($printMode ?? false)
-        <script>
-            window.addEventListener('load', function() {
-                window.setTimeout(function() {
-                    window.print();
-                }, 150);
-            });
-
-            window.addEventListener('afterprint', function() {
-                window.close();
-                window.setTimeout(function() {
-                    if (!window.closed) {
-                        window.location.replace(@json(route('locations.index')));
-                    }
-                }, 100);
-            });
-        </script>
-    @endif
 
     <table>
         <thead>
@@ -138,6 +119,8 @@
         </tbody>
     </table>
     <p class="generated-date">Generated: {{ now()->format('d-M-Y h:i A') }}</p>
+    @vite('resources/js/pdfPrint.js')
 </body>
 
 </html>
+
