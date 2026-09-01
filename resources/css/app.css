@@ -1411,6 +1411,7 @@ body {
         flex-wrap: nowrap;
         align-items: center;
         gap: .35rem;
+        position: relative;
     }
 
     .navbar-vertical .navbar-toggler {
@@ -1418,8 +1419,12 @@ body {
     }
 
     .navbar-vertical .navbar-brand {
-        flex: 1 1 auto;
-        min-width: 0;
+        position: absolute;
+        left: 50%;
+        z-index: 0;
+        width: min(155px, 42vw);
+        margin: 0;
+        transform: translateX(-50%);
         text-align: center;
     }
 
@@ -1429,8 +1434,15 @@ body {
 
     .navbar-vertical .navbar-nav.flex-row {
         flex: 0 0 auto;
+        order: 1;
         gap: .3rem;
-        margin-left: auto;
+        margin-left: .15rem;
+    }
+
+    .navbar-vertical .navbar-nav.flex-row .nav-link,
+    .navbar-vertical .navbar-toggler {
+        position: relative;
+        z-index: 1;
     }
 
     .navbar-vertical .navbar-nav.flex-row .nav-item.ms-3 {
