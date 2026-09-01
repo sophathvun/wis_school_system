@@ -10,13 +10,19 @@ document.addEventListener("DOMContentLoaded", function () {
     // navigation never flashes over the page during the reload.
     document.querySelectorAll("a.hide-theme-dark, a.hide-theme-light").forEach((themeLink) => {
         themeLink.addEventListener("click", function (event) {
-            if (window.innerWidth >= 992 || !sidebarMenu.classList.contains("show")) return;
+            if (window.innerWidth >= 992) return;
 
             event.preventDefault();
-            sidebarMenu.querySelectorAll(".nav-item.dropdown").forEach((item) => item.classList.remove("is-mobile-open", "show"));
+            const destination = this.href;
             document.querySelectorAll(".mobile-profile-menu.show").forEach((menu) => menu.classList.remove("show"));
 
-            const destination = this.href;
+            if (!sidebarMenu.classList.contains("show")) {
+                window.location.href = destination;
+                return;
+            }
+
+            sidebarMenu.querySelectorAll(".nav-item.dropdown").forEach((item) => item.classList.remove("is-mobile-open", "show"));
+
             // Hide synchronously so the open menu cannot flash while the page
             // reloads with the selected theme.
             sidebarMenu.classList.remove("show");
