@@ -17,6 +17,7 @@ use App\Models\UserNotification;
 use Illuminate\Http\Request;
 use Illuminate\Database\Eloquent\Relations\Pivot;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 
 class DashboardController
 {
@@ -64,7 +65,11 @@ class DashboardController
         return view('dashboard', [
             'template' => $template,
             'widgets' => $widgets,
-            'metrics' => $this->metrics($user, $selectedAcademicYearId, $selectedCampusId, $campusIds, $dashboardFilters),
+            'metrics' => Cache::remember(
+                'dashboard.metrics.' . $user->id . '.' . md5(json_encode($dashboardFilters) . '|' . implode(',', $campusIds)),
+                now()->addSeconds(30),
+                fn () => $this->metrics($user, $selectedAcademicYearId, $selectedCampusId, $campusIds, $dashboardFilters)
+            ),
             'academicYears' => $academicYears,
             'campuses' => $campuses,
             'selectedAcademicYearId' => $selectedAcademicYearId,
@@ -271,21 +276,35 @@ class DashboardController
             ->selectRaw("COUNT(DISTINCT CASE WHEN LOWER(COALESCE(tb_student.gender, '')) IN ('female', 'f') OR COALESCE(tb_student.gender_kh, '') LIKE '%ស្រី%' THEN tb_student_enrollment.student_id END) as female")
             ->first();
 
+        // Consolidate the repeated enrollment counters into one aggregate query.
+        // These cards previously each executed a separate full-table count.
+        $summary = (clone $enrollmentScope)
+            ->selectRaw('COUNT(DISTINCT student_id) as total_students')
+            ->selectRaw("COUNT(DISTINCT CASE WHEN enrollment_status = 'active' THEN student_id END) as active_students")
+            ->selectRaw("SUM(CASE WHEN DATE(created_at) = ? THEN 1 ELSE 0 END) as new_enrollments", [today()->toDateString()])
+            ->selectRaw("COUNT(DISTINCT CASE WHEN student_type = 'new' THEN student_id END) as new_students")
+            ->selectRaw("SUM(CASE WHEN enrollment_status = 'withdrawn' THEN 1 ELSE 0 END) as withdrawn_students")
+            ->selectRaw("COUNT(DISTINCT CASE WHEN enrollment_status = 'active' AND class_id IS NOT NULL THEN class_id END) as classes_count")
+            ->selectRaw("SUM(CASE WHEN enrollment_status = 'active' THEN 1 ELSE 0 END) as active_status")
+            ->selectRaw("SUM(CASE WHEN enrollment_status = 'withdrawn' THEN 1 ELSE 0 END) as withdrawn_status")
+            ->selectRaw("SUM(CASE WHEN enrollment_status IN ('completed', 'finished') THEN 1 ELSE 0 END) as completed_status")
+            ->first();
+
         return [
             'total_students' => [
-                'value' => number_format((clone $enrollmentScope)->distinct('student_id')->count('student_id')),
+                'value' => number_format((int) ($summary->total_students ?? 0)),
                 'subtitle' => 'Students in selected scope',
                 'male' => (int) ($totalStudentGenderCounts->male ?? 0),
                 'female' => (int) ($totalStudentGenderCounts->female ?? 0),
                 'url' => route('searchStudent.index', $studentFilters),
             ],
             'active_students' => [
-                'value' => number_format((clone $enrollmentScope)->where('enrollment_status', 'active')->distinct('student_id')->count('student_id')),
+                'value' => number_format((int) ($summary->active_students ?? 0)),
                 'subtitle' => 'Active in selected scope',
                 'url' => route('searchStudent.index', $studentFilters),
             ],
             'new_enrollments' => [
-                'value' => number_format((clone $enrollmentScope)->whereDate('created_at', today())->count()),
+                'value' => number_format((int) ($summary->new_enrollments ?? 0)),
                 'subtitle' => 'New enrolments today',
                 'male' => (int) ($todayEnrollmentGenderCounts->male ?? 0),
                 'female' => (int) ($todayEnrollmentGenderCounts->female ?? 0),
@@ -293,14 +312,14 @@ class DashboardController
                 'url' => route('studentEnrollment.index', $studentFilters),
             ],
             'new_students' => [
-                'value' => number_format((clone $enrollmentScope)->where('student_type', 'new')->distinct('student_id')->count('student_id')),
+                'value' => number_format((int) ($summary->new_students ?? 0)),
                 'subtitle' => 'New students in selected scope',
                 'male' => (int) ($newStudentGenderCounts->male ?? 0),
                 'female' => (int) ($newStudentGenderCounts->female ?? 0),
                 'url' => route('searchStudent.index', $studentFilters),
             ],
             'withdrawn_students' => [
-                'value' => number_format((clone $enrollmentScope)->where('enrollment_status', 'withdrawn')->count()),
+                'value' => number_format((int) ($summary->withdrawn_students ?? 0)),
                 'subtitle' => 'Withdrawn in selected scope',
                 'male' => (int) ($withdrawnStudentGenderCounts->male ?? 0),
                 'female' => (int) ($withdrawnStudentGenderCounts->female ?? 0),
@@ -314,7 +333,7 @@ class DashboardController
                 'url' => route('studentGraduation.index', $studentFilters),
             ],
             'classes_count' => [
-                'value' => number_format((clone $enrollmentScope)->where('enrollment_status', 'active')->whereNotNull('class_id')->distinct('class_id')->count('class_id')),
+                'value' => number_format((int) ($summary->classes_count ?? 0)),
                 'subtitle' => 'Active classes in selected scope',
                 'url' => route('classes.index'),
             ],
@@ -327,9 +346,9 @@ class DashboardController
                 'value' => 'Chart',
                 'subtitle' => 'Student status in selected scope',
                 'chart' => [
-                    ['label' => 'Active', 'value' => (clone $enrollmentScope)->where('enrollment_status', 'active')->count(), 'color' => '#2fb344'],
-                    ['label' => 'Withdrawn', 'value' => (clone $enrollmentScope)->where('enrollment_status', 'withdrawn')->count(), 'color' => '#d63939'],
-                    ['label' => 'Completed', 'value' => (clone $enrollmentScope)->whereIn('enrollment_status', ['completed', 'finished'])->count(), 'color' => '#206bc4'],
+                    ['label' => 'Active', 'value' => (int) ($summary->active_status ?? 0), 'color' => '#2fb344'],
+                    ['label' => 'Withdrawn', 'value' => (int) ($summary->withdrawn_status ?? 0), 'color' => '#d63939'],
+                    ['label' => 'Completed', 'value' => (int) ($summary->completed_status ?? 0), 'color' => '#206bc4'],
                 ],
                 'url' => route('studentEnrollment.index', $studentFilters),
             ],
