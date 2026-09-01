@@ -813,6 +813,11 @@
 
     .database-backup-mobile-actions .btn {
         width: 100%;
+        height: 52px;
+        min-height: 52px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
     }
 }
 
