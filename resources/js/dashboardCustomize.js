@@ -153,7 +153,14 @@ document.addEventListener("DOMContentLoaded", () => {
                                 <button class="btn btn-sm btn-outline-danger" type="button" data-remove-section ${sections.length <= 1 ? "disabled" : ""}><i class="ti ti-x"></i></button>
                             </div>
                             <div class="dashboard-section-drop-zone dashboard-section-columns-${section.columns}" data-section-drop-zone>
-                                ${/^\d+$/.test(section.columns) && Number(section.columns) > 1 ? Array.from({length: Number(section.columns)}, (_, column) => `<div class="dashboard-column-drop-zone" data-column="${column + 1}"><span>Column ${column + 1}</span></div>`).join("") : `<div class="dashboard-drop-empty"><i class="ti ti-hand-click"></i><span>Drop widgets into ${escapeHtml(section.title || `Section ${index + 1}`)}</span></div>`}
+                                ${(() => {
+                                    const sectionWidgets = selected.filter((widget) => widget.section_id === section.id);
+                                    const onlyFullWidth = sectionWidgets.length > 0 && sectionWidgets.every((widget) => normalizeWidth(widget.width) === "full");
+                                    if (/^\d+$/.test(section.columns) && Number(section.columns) > 1 && !onlyFullWidth) {
+                                        return Array.from({length: Number(section.columns)}, (_, column) => `<div class="dashboard-column-drop-zone" data-column="${column + 1}"><span>Column ${column + 1}</span></div>`).join("");
+                                    }
+                                    return sectionWidgets.length ? "" : `<div class="dashboard-drop-empty"><i class="ti ti-hand-click"></i><span>Drop widgets into ${escapeHtml(section.title || `Section ${index + 1}`)}</span></div>`;
+                                })()}
                             </div>
                         </div>`,
                 )

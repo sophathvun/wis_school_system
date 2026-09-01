@@ -482,6 +482,10 @@
     grid-column: 1 / -1 !important;
 }
 
+.dashboard-section-drop-zone > .dashboard-selected-widget {
+    grid-column: 1 / -1 !important;
+}
+
 .dashboard-column-drop-zone > span {
     color: #8aa0ba;
     font-size: .75rem;
