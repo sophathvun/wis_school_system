@@ -1408,11 +1408,12 @@ body {
     .navbar-vertical .container-fluid {
         background: inherit;
         display: flex;
-        flex-wrap: nowrap;
+        flex-wrap: wrap;
         align-items: center;
         justify-content: flex-start !important;
         gap: .35rem;
         position: relative;
+        min-height: 4.5rem;
     }
 
     .navbar-vertical .navbar-toggler {
@@ -1462,6 +1463,12 @@ body {
     .navbar-vertical .navbar-nav.flex-row .avatar {
         width: 1.5rem;
         height: 1.5rem;
+    }
+
+    .navbar-vertical .navbar-collapse {
+        flex-basis: 100%;
+        width: 100%;
+        order: 10;
     }
 
     .navbar-vertical .navbar-nav.flex-row .nav-link,
