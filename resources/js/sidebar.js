@@ -17,9 +17,12 @@ document.addEventListener("DOMContentLoaded", function () {
             document.querySelectorAll(".mobile-profile-menu.show").forEach((menu) => menu.classList.remove("show"));
 
             const destination = this.href;
-            const collapseInstance = bootstrap.Collapse.getInstance(sidebarMenu) || new bootstrap.Collapse(sidebarMenu);
-            sidebarMenu.addEventListener("hidden.bs.collapse", () => { window.location.href = destination; }, { once: true });
-            collapseInstance.hide();
+            // Hide synchronously so the open menu cannot flash while the page
+            // reloads with the selected theme.
+            sidebarMenu.classList.remove("show");
+            sidebarMenu.style.display = "none";
+            toggler.setAttribute("aria-expanded", "false");
+            window.location.href = destination;
         }, true);
     });
 
