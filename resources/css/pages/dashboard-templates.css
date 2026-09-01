@@ -31,6 +31,7 @@
 .dashboard-template-card-actions { display: flex; gap: .6rem; margin-top: auto; }
 .dashboard-template-card-actions form { display: contents; }
 .dashboard-template-card-actions .btn { flex: 1 1 0; min-height: 2.6rem; }
+.dashboard-template-card-actions .btn i { font-size: 1.15rem; vertical-align: -0.12em; }
 .dashboard-template-empty { display: grid; min-height: 180px; grid-column: 1 / -1; place-items: center; gap: .5rem; color: #71829a; font-weight: 700; }
 .dashboard-template-empty i { color: #4b91d8; font-size: 2rem; }
 
@@ -42,6 +43,8 @@
     .dashboard-template-card-index { width: 2.1rem; height: 2.1rem; }
     .dashboard-template-card-actions { flex-direction: column; }
     .dashboard-template-card-actions .btn { width: 100%; }
+    .dashboard-template-card-actions .btn { min-height: 3rem; font-size: 1rem; }
+    .dashboard-template-card-actions .btn i { font-size: 1.35rem; }
 }
 
 .dashboard-template-modal {
