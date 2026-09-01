@@ -1407,6 +1407,34 @@ body {
 
     .navbar-vertical .container-fluid {
         background: inherit;
+        display: flex;
+        flex-wrap: nowrap;
+        align-items: center;
+        gap: .35rem;
+    }
+
+    .navbar-vertical .navbar-toggler {
+        flex: 0 0 auto;
+    }
+
+    .navbar-vertical .navbar-brand {
+        flex: 1 1 auto;
+        min-width: 0;
+        text-align: center;
+    }
+
+    .navbar-vertical .navbar-brand-image {
+        width: min(155px, 100%);
+    }
+
+    .navbar-vertical .navbar-nav.flex-row {
+        flex: 0 0 auto;
+        gap: .3rem;
+        margin-left: auto;
+    }
+
+    .navbar-vertical .navbar-nav.flex-row .nav-item.ms-3 {
+        margin-left: 0 !important;
     }
 
     .navbar-vertical #sidebar-menu {
