@@ -25,9 +25,9 @@
     @if ($errors->any())
         <div class="alert alert-danger">{{ $errors->first() }}</div>
     @endif
-    <div class="card">
+    <div class="card database-backup-table-card">
         <div class="table-responsive">
-            <table class="table table-vcenter card-table">
+            <table class="table table-vcenter card-table database-backup-table">
                 <thead>
                     <tr>
                         <th>Backup File</th>
@@ -58,6 +58,23 @@
                 </tbody>
             </table>
         </div>
+    </div>
+    <div class="database-backup-mobile-list">
+        @forelse($backups as $backup)
+            <article class="card database-backup-mobile-card">
+                <div class="database-backup-mobile-title"><i class="ti ti-file-database"></i><span>{{ $backup['filename'] }}</span></div>
+                <div class="database-backup-mobile-meta">
+                    <div><span>Created</span><strong>{{ \Carbon\Carbon::createFromTimestamp($backup['modified'])->timezone('Asia/Phnom_Penh')->format('Y-m-d H:i:s') }}</strong></div>
+                    <div><span>Size</span><strong>{{ number_format($backup['size'] / 1048576, 2) }} MB</strong></div>
+                </div>
+                <div class="database-backup-mobile-actions">
+                    <a class="btn btn-primary" href="{{ route('database-backups.download', $backup['filename']) }}"><i class="ti ti-download me-1"></i>Download</a>
+                    <form method="POST" action="{{ route('database-backups.delete', $backup['filename']) }}" data-database-backup-delete-form>@csrf @method('DELETE')<button class="btn btn-outline-danger" type="submit"><i class="ti ti-trash me-1"></i>Delete</button></form>
+                </div>
+            </article>
+        @empty
+            <div class="card database-backup-mobile-card text-center text-secondary">No database backups created yet.</div>
+        @endforelse
     </div>
     <div class="card mt-3">
         <div class="card-body">
