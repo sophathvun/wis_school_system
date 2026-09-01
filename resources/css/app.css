@@ -819,6 +819,10 @@
         align-items: center;
         justify-content: center;
     }
+
+    .database-backup-mobile-actions .btn-outline-danger i {
+        font-size: 1.3rem;
+    }
 }
 
 [data-bs-theme="dark"] .database-backup-mobile-card {
