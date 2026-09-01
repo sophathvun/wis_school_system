@@ -173,10 +173,10 @@ document.addEventListener("DOMContentLoaded", () => {
                                                 const widget = sectionWidgets.find((item) => Number(item.column || 1) === column && normalizeWidth(item.width) !== "full");
                                                 const match = String(normalizeWidth(widget?.width)).match(/^col-(\d+)$/);
                                                 const span = Math.min(columnCount - column + 1, Math.max(1, Number(match?.[1] || 1)));
-                                                if (column === Number(widget?.column || 1)) zones.push(`<div class="dashboard-column-drop-zone dashboard-column-span-${span}" data-column="${column}"><span>Column${span > 1 ? `s ${column}–${column + span - 1}` : ` ${column}`}</span></div>`);
+                                                if (column === Number(widget?.column || 1)) zones.push(`<div class="dashboard-column-drop-zone dashboard-column-span-${span}" data-column="${column}" style="grid-column: ${column} / span ${span};"><span>Column${span > 1 ? `s ${column}–${column + span - 1}` : ` ${column}`}</span></div>`);
                                                 continue;
                                             }
-                                            zones.push(`<div class="dashboard-column-drop-zone" data-column="${column}"><span>Column ${column}</span></div>`);
+                                            zones.push(`<div class="dashboard-column-drop-zone" data-column="${column}" style="grid-column: ${column};"><span>Column ${column}</span></div>`);
                                         }
                                         return zones.join("");
                                     }
