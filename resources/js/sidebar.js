@@ -28,7 +28,6 @@ document.addEventListener("DOMContentLoaded", function () {
             const url = new URL(window.location.href);
             url.searchParams.set("theme", nextTheme);
             window.history.replaceState({}, "", url);
-            sidebarMenu.style.display = "";
         }, true);
     });
 
