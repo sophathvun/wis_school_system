@@ -17,8 +17,8 @@
 @endsection
 
 @section('content')
-    <div class="alert alert-info"><i class="ti ti-info-circle me-2"></i>Backups contain sensitive school data and are stored
-        privately in <code>storage/app/private/backups</code>. Download a copy to another secure computer or drive.</div>
+    <div class="alert alert-info database-backup-notice"><i class="ti ti-info-circle me-2"></i><span>Backups contain sensitive school data and are stored
+        privately in <code>storage/app/private/backups</code>. Download a copy to another secure computer or drive.</span></div>
     @if (session('success'))
         <div class="alert alert-success">{{ session('success') }}</div>
     @endif
@@ -48,7 +48,7 @@
                                 <form class="d-inline" method="POST"
                                     action="{{ route('database-backups.delete', $backup['filename']) }}"
                                     data-database-backup-delete-form>@csrf @method('DELETE')<button
-                                        class="btn btn-sm btn-outline-danger"><i class="ti ti-trash"></i></button></form>
+                                        class="btn btn-sm btn-outline-danger"><i class="ti ti-trash me-1"></i><span>Delete</span></button></form>
                             </td>
                         </tr>
                     @empty<tr>
@@ -69,7 +69,7 @@
                 </div>
                 <div class="database-backup-mobile-actions">
                     <a class="btn btn-primary" href="{{ route('database-backups.download', $backup['filename']) }}"><i class="ti ti-download me-1"></i>Download</a>
-                    <form method="POST" action="{{ route('database-backups.delete', $backup['filename']) }}" data-database-backup-delete-form>@csrf @method('DELETE')<button class="btn btn-outline-danger" type="submit"><i class="ti ti-trash me-1"></i>Delete</button></form>
+                                    <form method="POST" action="{{ route('database-backups.delete', $backup['filename']) }}" data-database-backup-delete-form>@csrf @method('DELETE')<button class="btn btn-outline-danger" type="submit"><i class="ti ti-trash me-1"></i>Delete</button></form>
                 </div>
             </article>
         @empty

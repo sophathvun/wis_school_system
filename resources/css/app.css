@@ -731,6 +731,23 @@
 }
 
 @media (max-width: 575.98px) {
+    .database-backup-notice {
+        display: flex;
+        align-items: flex-start;
+        gap: .5rem;
+        overflow-wrap: anywhere;
+    }
+
+    .database-backup-notice .me-2 {
+        flex: 0 0 auto;
+        margin-right: 0 !important;
+    }
+
+    .database-backup-notice code {
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+
     .database-backup-table-card {
         display: none;
     }
