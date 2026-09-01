@@ -135,6 +135,19 @@
     padding-left: 2.8rem;
 }
 
+/* Keep the designed envelope icon as the only email-field icon. */
+#emailIdentifier {
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: none !important;
+}
+
+#emailIdentifier::-webkit-contacts-auto-fill-button,
+#emailIdentifier::-webkit-credentials-auto-fill-button {
+    visibility: hidden;
+    pointer-events: none;
+}
+
 .auth-input-wrap .auth-password-toggle {
     position: absolute;
     z-index: 2;

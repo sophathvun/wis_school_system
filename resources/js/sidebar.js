@@ -6,6 +6,19 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (!toggler || !sidebarMenu) return;
 
+    // The profile control is a separate floating dropdown. Close the main
+    // mobile navigation first so both menus can never render together.
+    document.querySelectorAll(".mobile-profile-menu").forEach((menu) => {
+        const toggle = menu.parentElement?.querySelector('[data-bs-toggle="dropdown"]');
+        toggle?.addEventListener("click", () => {
+            if (window.innerWidth >= 992) return;
+            sidebarMenu.classList.remove("show");
+            sidebarMenu.style.display = "none";
+            toggler.setAttribute("aria-expanded", "false");
+            sidebarMenu.querySelectorAll(".nav-item.dropdown").forEach((item) => item.classList.remove("is-mobile-open", "show"));
+        }, true);
+    });
+
     // Close the expanded mobile menu before applying a theme change so the
     // navigation never flashes over the page during the reload.
     document.querySelectorAll("a.hide-theme-dark, a.hide-theme-light").forEach((themeLink) => {
