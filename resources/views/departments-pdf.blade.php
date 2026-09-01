@@ -47,7 +47,10 @@
             font-family: "Khmer OS Muol Light", "Noto Sans Khmer", sans-serif;
             font-size: 22px;
             font-weight: 300;
+            line-height: 1.5;
         }
+
+        .report-title > .khmer-title:first-child { display: none; }
 
         .english-title {
             margin: 3px 0 0;
@@ -116,6 +119,7 @@
 
     <div class="report-title">
         <h3 class="khmer-title">ážáž¶ážšáž¶áž„áž•áŸ’áž“áŸ‚áž€</h3>
+        <h3 class="khmer-title">តារាងផ្នែក</h3>
         <h3 class="english-title">Department List</h3>
     </div>
 
