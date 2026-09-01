@@ -164,6 +164,7 @@ document.addEventListener("DOMContentLoaded", () => {
             selected.forEach((widget) => {
                 widget.section_id = sectionById(widget.section_id) ? widget.section_id : sections[0].id;
                 widget.width = normalizeWidth(widget.width);
+                if (sectionById(widget.section_id)?.columns === "1") widget.width = "full";
                 const dropZone = sectionsCanvas.querySelector(
                     `[data-section-id="${widget.section_id}"] [data-section-drop-zone]`,
                 );
@@ -334,6 +335,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 sections = sections.map((section) =>
                     section.id === sectionId ? { ...section, columns: sectionColumns.value } : section,
                 );
+                if (sectionColumns.value === "1") {
+                    selected = selected.map((widget) =>
+                        widget.section_id === sectionId ? { ...widget, width: "full" } : widget,
+                    );
+                }
                 renderSelected();
             }
         });
