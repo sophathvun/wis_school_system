@@ -1436,18 +1436,26 @@ body {
     .navbar-vertical .navbar-nav.flex-row {
         flex: 0 0 auto;
         order: 1;
-        gap: .3rem;
+        gap: .1rem !important;
         margin-left: .15rem;
+    }
+
+    .navbar-vertical .navbar-nav.flex-row .nav-item {
+        flex: 0 0 1.5rem;
+        width: 1.5rem;
+        margin-left: 0 !important;
     }
 
     .navbar-vertical .navbar-nav.flex-row .nav-link {
         width: 1.5rem;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
         font-size: 1.15rem;
     }
 
     .navbar-vertical .navbar-nav.flex-row .avatar {
-        width: 1.75rem;
-        height: 1.75rem;
+        width: 1.5rem;
+        height: 1.5rem;
     }
 
     .navbar-vertical .navbar-nav.flex-row .nav-link,
