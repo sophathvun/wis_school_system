@@ -162,89 +162,37 @@
                 </div>
             </div>
         </form>
-        <div class="table-responsive">
-            <table class="table table-vcenter card-table">
-                <thead>
-                    <tr>
-                        <th>No.</th>
-                        <th>
-                            <a class="table-sort-button" href="{{ $sortUrl('name') }}">Template {{ $sortIcon('name') }}</a>
-                        </th>
-                        <th>
-                            <a class="table-sort-button" href="{{ $sortUrl('code') }}">Code {{ $sortIcon('code') }}</a>
-                        </th>
-                        <th>
-                            <a class="table-sort-button" href="{{ $sortUrl('layout') }}">Layout {{ $sortIcon('layout') }}</a>
-                        </th>
-                        <th>Widgets</th>
-                        <th>Assignments</th>
-                        <th>
-                            <a class="table-sort-button" href="{{ $sortUrl('display_order') }}">Order {{ $sortIcon('display_order') }}</a>
-                        </th>
-                        <th>Default</th>
-                        <th>
-                            <a class="table-sort-button" href="{{ $sortUrl('status') }}">Status {{ $sortIcon('status') }}</a>
-                        </th>
-                        <th class="text-end">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse ($templates as $template)
-                        @php($cannotDelete = $template->is_default || $template->assignments_count > 0)
-                        <tr>
-                            <td>{{ $templates->firstItem() + $loop->index }}</td>
-                            <td>
-                                <div class="fw-semibold">{{ $template->name }}</div>
-                                <div class="text-secondary small">{{ $template->description ?: 'No description' }}</div>
-                            </td>
-                            <td><code>{{ $template->code }}</code></td>
-                            <td>{{ $layoutLabels[$template->layout] ?? $template->layout }}</td>
-                            <td>
-                                <span class="badge bg-blue-lt">{{ $template->widgets_count }} Widgets</span>
-                            </td>
-                            <td>
-                                <span class="badge bg-purple-lt">{{ $template->assignments_count }} Assignments</span>
-                            </td>
-                            <td>{{ $template->display_order }}</td>
-                            <td>
-                                @if ($template->is_default)
-                                    <span class="badge bg-yellow-lt">Default</span>
-                                @else
-                                    <span class="text-secondary">-</span>
-                                @endif
-                            </td>
-                            <td>
-                                <span class="badge {{ $template->status ? 'bg-green-lt' : 'bg-red-lt' }}">
-                                    {{ $template->status ? 'Active' : 'Inactive' }}
-                                </span>
-                            </td>
-                            <td class="text-end">
-                                <div class="btn-list justify-content-end flex-nowrap">
-                                    <a class="btn btn-sm btn-outline-primary"
-                                        href="{{ route('dashboard-templates.index', request()->except('edit') + ['edit' => $template->id]) }}">
-                                        <i class="ti ti-edit"></i>
-                                    </a>
-                                    <form action="{{ route('dashboard-templates.delete', $template) }}" method="POST"
-                                        class="d-inline" data-confirm-message="Delete this dashboard template?">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit" class="btn btn-sm btn-outline-danger"
-                                            @disabled($cannotDelete)
-                                            data-bs-toggle="tooltip"
-                                            title="{{ $cannotDelete ? 'Cannot delete because this template is default or already assigned.' : 'Delete template' }}">
-                                            <i class="ti ti-trash"></i>
-                                        </button>
-                                    </form>
-                                </div>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="10" class="text-center text-secondary py-4">No dashboard templates found.</td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
+        <div class="dashboard-template-list">
+            @forelse ($templates as $template)
+                @php($cannotDelete = $template->is_default || $template->assignments_count > 0)
+                <article class="dashboard-template-card">
+                    <div class="dashboard-template-card-head">
+                        <div class="dashboard-template-card-index">{{ $templates->firstItem() + $loop->index }}</div>
+                        <div class="dashboard-template-card-title">
+                            <h3>{{ $template->name }}</h3>
+                            <p>{{ $template->description ?: 'No description' }}</p>
+                            <code>{{ $template->code }}</code>
+                        </div>
+                        <span class="badge {{ $template->status ? 'bg-green-lt' : 'bg-red-lt' }}">{{ $template->status ? 'Active' : 'Inactive' }}</span>
+                    </div>
+                    <div class="dashboard-template-card-meta">
+                        <span><i class="ti ti-layout-dashboard"></i>{{ $layoutLabels[$template->layout] ?? $template->layout }}</span>
+                        <span><i class="ti ti-layout-grid"></i>{{ $template->widgets_count }} Widgets</span>
+                        <span><i class="ti ti-users-group"></i>{{ $template->assignments_count }} Assignments</span>
+                        <span><i class="ti ti-sort-ascending"></i>Order {{ $template->display_order }}</span>
+                        @if ($template->is_default)<span class="badge bg-yellow-lt"><i class="ti ti-star"></i> Default</span>@endif
+                    </div>
+                    <div class="dashboard-template-card-actions">
+                        <a class="btn btn-outline-primary" href="{{ route('dashboard-templates.index', request()->except('edit') + ['edit' => $template->id]) }}"><i class="ti ti-edit"></i> Edit template</a>
+                        <form action="{{ route('dashboard-templates.delete', $template) }}" method="POST" data-confirm-message="Delete this dashboard template?">
+                            @csrf @method('DELETE')
+                            <button type="submit" class="btn btn-outline-danger" @disabled($cannotDelete) data-bs-toggle="tooltip" title="{{ $cannotDelete ? 'Cannot delete because this template is default or already assigned.' : 'Delete template' }}"><i class="ti ti-trash"></i> Delete</button>
+                        </form>
+                    </div>
+                </article>
+            @empty
+                <div class="dashboard-template-empty"><i class="ti ti-layout-dashboard"></i><span>No dashboard templates found.</span></div>
+            @endforelse
         </div>
         <div class="card-footer">
             {{ $templates->links() }}
