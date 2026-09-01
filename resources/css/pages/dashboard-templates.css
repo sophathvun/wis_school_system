@@ -445,6 +445,7 @@
 
 .dashboard-column-drop-zone {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     min-height: 180px;
     align-content: start;
     gap: .65rem;
@@ -452,6 +453,33 @@
     border: 1px dashed #c8d5e4;
     border-radius: 14px;
     background: rgba(248, 251, 255, .72);
+}
+
+/* Numeric sections expose one independent drop zone per column. Keep the
+ * zones evenly sized and let every widget dropped into a zone use its full
+ * width so additional widgets naturally stack as rows. */
+.dashboard-section-columns-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.dashboard-section-columns-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.dashboard-section-columns-4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.dashboard-section-columns-5 {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.dashboard-section-columns-6 {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.dashboard-column-drop-zone .dashboard-selected-widget {
+    grid-column: 1 / -1 !important;
 }
 
 .dashboard-column-drop-zone > span {
