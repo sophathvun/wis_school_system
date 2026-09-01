@@ -34,8 +34,10 @@
 .dashboard-template-card-actions .btn i { font-size: 1.15rem; vertical-align: -0.12em; }
 .dashboard-template-empty { display: grid; min-height: 180px; grid-column: 1 / -1; place-items: center; gap: .5rem; color: #71829a; font-weight: 700; }
 .dashboard-template-empty i { color: #4b91d8; font-size: 2rem; }
+.dashboard-template-pagination { padding: 0 1.25rem 1.25rem; }
 
 @media (max-width: 767.98px) {
+    .dashboard-template-pagination { padding: 0 .85rem .85rem; }
     .dashboard-template-list { grid-template-columns: 1fr; gap: .75rem; padding: .85rem; }
     .dashboard-template-card { padding: 1rem; border-radius: 15px; }
     .dashboard-template-card-head { grid-template-columns: 2.1rem minmax(0, 1fr); }
@@ -46,7 +48,7 @@
     .dashboard-template-card-actions .btn { min-height: 3rem; font-size: 1rem; }
     .dashboard-template-card-actions .btn i { font-size: 1.35rem; }
 
-    .dashboard-template-list ~ .card-footer .premium-pagination {
+    .dashboard-template-pagination .premium-pagination {
         display: grid;
         grid-template-columns: 1fr;
         gap: .8rem;
@@ -57,12 +59,12 @@
         background: linear-gradient(180deg, #f8fbff, #fff);
     }
 
-    .dashboard-template-list ~ .card-footer .premium-pagination-list {
+    .dashboard-template-pagination .premium-pagination-list {
         justify-content: center;
         width: 100%;
     }
 
-    .dashboard-template-list ~ .card-footer .premium-pagination-list .page-link {
+    .dashboard-template-pagination .premium-pagination-list .page-link {
         display: grid;
         width: 2.55rem;
         height: 2.55rem;
@@ -70,20 +72,20 @@
         border-radius: 12px;
     }
 
-    .dashboard-template-list ~ .card-footer .premium-pagination-info {
+    .dashboard-template-pagination .premium-pagination-info {
         order: 2;
         font-size: .8rem;
     }
 
-    .dashboard-template-list ~ .card-footer .premium-pagination-controls {
+    .dashboard-template-pagination .premium-pagination-controls {
         display: flex;
         width: 100%;
         justify-content: center;
         gap: .55rem;
     }
 
-    .dashboard-template-list ~ .card-footer .premium-pagination-select .form-select,
-    .dashboard-template-list ~ .card-footer .premium-pagination-goto input {
+    .dashboard-template-pagination .premium-pagination-select .form-select,
+    .dashboard-template-pagination .premium-pagination-goto input {
         min-height: 2.45rem;
         border-radius: 12px;
     }
