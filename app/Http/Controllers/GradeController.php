@@ -36,6 +36,7 @@ class GradeController
             })
             ->when($sortBy === 'grade_order', fn ($query) => $query->orderByRaw("CAST(grade_order AS UNSIGNED) {$sortDir}"))
             ->when($sortBy !== 'grade_order', fn ($query) => $query->orderBy($sortBy, $sortDir))
+            ->withCount('classes')
             ->orderBy('id')
             ->paginate($perPage);
 
@@ -388,6 +389,10 @@ class GradeController
 
         if (!$grade) {
             return response()->json(['status' => 'error', 'message' => 'Grade not found.'], 404);
+        }
+
+        if ($grade->classes()->exists()) {
+            return response()->json(['status' => 'error', 'message' => 'This grade cannot be deleted because it is linked to classes.'], 409);
         }
 
         $grade->delete();

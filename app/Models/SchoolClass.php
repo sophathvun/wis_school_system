@@ -16,4 +16,7 @@ class SchoolClass extends Model
     public function grade() { return $this->belongsTo(Grade::class); }
     public function session() { return $this->belongsTo(Session::class); }
     public function groups() { return $this->hasMany(SchoolGroup::class, 'class_id'); }
+    public function enrollments() { return $this->hasMany(StudentEnrollment::class, 'class_id'); }
+    public function enrollmentHistory() { return $this->hasMany(StudentEnrollmentHistory::class, 'class_id'); }
+    public function graduations() { return $this->hasMany(StudentGraduation::class, 'class_id'); }
 }

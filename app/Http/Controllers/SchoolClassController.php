@@ -30,6 +30,7 @@ class SchoolClassController
             ->when($search, fn ($query) => $query->where('class_name', 'like', "%{$search}%"))
             ->when($sortBy === 'class_order', fn ($query) => $query->orderByRaw("CAST(class_order AS UNSIGNED) {$sortDir}"))
             ->when($sortBy !== 'class_order', fn ($query) => $query->orderBy($sortBy, $sortDir))
+            ->withCount(['groups', 'enrollments', 'enrollmentHistory', 'graduations'])
             ->orderBy('id')->paginate($perPage);
 
         return response()->json($classes);
@@ -349,6 +350,10 @@ class SchoolClassController
     {
         $class = SchoolClass::find($id);
         if (!$class) return response()->json(['status' => 'error', 'message' => 'Class not found.'], 404);
+
+        if ($class->groups()->exists() || $class->enrollments()->exists() || $class->enrollmentHistory()->exists() || $class->graduations()->exists()) {
+            return response()->json(['status' => 'error', 'message' => 'This class cannot be deleted because it is linked to other data.'], 409);
+        }
 
         $class->delete();
         return response()->json(['status' => 'success', 'message' => 'Class deleted successfully.']);
