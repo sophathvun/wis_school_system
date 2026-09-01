@@ -1262,11 +1262,16 @@ body {
 }
 
 @media (max-width: 991.98px) {
-    .navbar-vertical {
+    /* Keep the mobile navigation in the document flow. Tabler's more
+     * specific .navbar-vertical.navbar-expand-lg rule otherwise leaves it
+     * fixed over the first fields of every form. */
+    .navbar-vertical.navbar-expand-lg {
         position: sticky;
         top: 0;
         z-index: 1080;
         width: 100%;
+        flex: 0 0 auto;
+        align-self: stretch;
         box-shadow: 0 8px 24px rgba(15, 23, 42, .12);
     }
 
