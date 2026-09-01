@@ -412,6 +412,16 @@
     height: auto !important;
 }
 
+/* The desktop masonry pass positions widgets independently by column. */
+.premium-dashboard-grid.dashboard-masonry-active {
+    position: relative;
+    display: block;
+}
+
+.premium-dashboard-grid.dashboard-masonry-active > * {
+    position: absolute;
+}
+
 .dashboard-widget-small {
     grid-column: span 3;
 }
