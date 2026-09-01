@@ -244,11 +244,11 @@ document.addEventListener("DOMContentLoaded", () => {
             dropZone.classList.add("is-drag-over");
         });
         sectionsCanvas?.addEventListener("dragleave", (event) => {
-            const dropZone = event.target.closest("[data-section-drop-zone]");
+            const dropZone = event.target.closest("[data-column], [data-section-drop-zone]");
             if (dropZone && !dropZone.contains(event.relatedTarget)) dropZone.classList.remove("is-drag-over");
         });
         sectionsCanvas?.addEventListener("drop", (event) => {
-            const dropZone = event.target.closest("[data-section-drop-zone]");
+            const dropZone = event.target.closest("[data-column], [data-section-drop-zone]");
             if (!dropZone) return;
             event.preventDefault();
             dropZone.classList.remove("is-drag-over");
