@@ -195,7 +195,7 @@
             @endforelse
         </div>
         <div class="card-footer">
-            {{ $templates->links() }}
+            @include('partials.admin-pagination', ['paginator' => $templates])
         </div>
     </div>
 
