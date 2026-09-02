@@ -47,6 +47,7 @@
             font-family: "Khmer OS Muol Light", "Noto Sans Khmer", sans-serif;
             font-size: 22px;
             font-weight: 300;
+            line-height: 1.5;
         }
 
         .english-title {
@@ -115,7 +116,7 @@
     </div>
 
     <div class="report-title">
-        <h3 class="khmer-title">ážáž¶ážšáž¶áž„ážáž½áž“áž¶áž‘áž¸</h3>
+        <h3 class="khmer-title">តារាងតួនាទី</h3>
         <h3 class="english-title">Role List</h3>
     </div>
 
@@ -153,4 +154,3 @@
 </body>
 
 </html>
-
