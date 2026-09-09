@@ -1,4 +1,4 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 @section('title', 'Departments')
 @section('page-header')
     <div class="container-fluid">
@@ -41,10 +41,10 @@
         };
         $sortIcon = function (string $field) use ($departmentSortBy, $departmentSortDir) {
             if ($departmentSortBy !== $field) {
-                return '↕';
+                return '<span class="table-sort-icon" aria-hidden="true">&varr;</span>';
             }
 
-            return $departmentSortDir === 'asc' ? '↑' : '↓';
+            return $departmentSortDir === 'asc' ? '<span class="table-sort-icon" aria-hidden="true">&uarr;</span>' : '<span class="table-sort-icon" aria-hidden="true">&darr;</span>';
         };
     @endphp
 
@@ -56,7 +56,7 @@
         <div class="alert alert-danger">{{ $errors->first() }}</div>
     @endif
 
-        <div class="card">
+        <div class="card departments-list-card">
             <div class="card-header">
                 <h3 class="card-title">Department Lists</h3>
             </div>
@@ -81,17 +81,17 @@
                             <th>No.</th>
                             <th>
                                 <a class="table-sort-button text-uppercase" href="{{ $sortUrl('name') }}">
-                                    Department {{ $sortIcon('name') }}
+                                    Department {!! $sortIcon('name') !!}
                                 </a>
                             </th>
                             <th>
                                 <a class="table-sort-button text-uppercase" href="{{ $sortUrl('code') }}">
-                                    Code {{ $sortIcon('code') }}
+                                    Code {!! $sortIcon('code') !!}
                                 </a>
                             </th>
                             <th>
                                 <a class="table-sort-button text-uppercase" href="{{ $sortUrl('status') }}">
-                                    Status {{ $sortIcon('status') }}
+                                    Status {!! $sortIcon('status') !!}
                                 </a>
                             </th>
                             <th class="text-center">Actions</th>
@@ -169,3 +169,5 @@
         @vite('resources/js/departments.js')
     @vite('resources/css/pages/departments.css')
 @endsection
+
+

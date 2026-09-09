@@ -1,4 +1,4 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 @section('title', 'Academic Year')
 @php
     // $categories = \App\Helpers\SelectHelper::categories();
@@ -43,7 +43,7 @@
 @endsection
 @section('content')
     <div class="col-12">
-        <div class="card">
+        <div class="card academic-years-list-card">
             <div class="card-header">
                 <h3 class="card-title">Academic Year Lists</h3>
             </div>
@@ -156,3 +156,5 @@
     @vite('resources/js/academicYears.js')
     @vite('resources/css/pages/academic-years.css')
 @endsection
+
+

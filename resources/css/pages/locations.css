@@ -1,3 +1,10 @@
+﻿@media (min-width: 768px) {
+    .locations-list-card .table thead th {
+        border-color: var(--tblr-primary);
+        background: var(--tblr-primary);
+        color: #fff;
+    }
+}
 /* Extracted from resources/views/locations.blade.php. Keep page-specific styles in this file. */
 
 #locationModal .modal-dialog {
@@ -97,4 +104,253 @@
 
 .location-filter-select-wrap .form-control {
     min-height: 32px;
+}
+
+
+.location-mobile-cards {
+    display: none;
+}
+
+.location-mobile-card {
+    position: relative;
+    margin: 0 0 1rem;
+    padding: 0 0.75rem 0.85rem;
+    border: 1px solid #dbe5f1;
+    border-radius: 0.45rem;
+    background: #fff;
+    box-shadow: 0 0.35rem 0.9rem rgba(31, 45, 61, 0.08);
+    overflow: hidden;
+}
+
+.location-mobile-card::after {
+    content: "";
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    height: 5px;
+    background: var(--tblr-primary);
+}
+
+.location-card-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    min-height: 3.3rem;
+    margin: 0 -0.75rem 0.5rem 0;
+}
+
+.location-card-number {
+    display: inline-flex;
+    width: 3.2rem;
+    height: 3.2rem;
+    align-items: center;
+    justify-content: center;
+    background: var(--tblr-primary);
+    color: #fff;
+    font-size: 1.15rem;
+    font-weight: 700;
+}
+
+.location-card-top .status-toggle {
+    margin-top: 0.75rem;
+    margin-right: 0.75rem;
+}
+
+.location-card-main {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 0.75rem 1rem;
+    align-items: start;
+}
+
+.location-card-name {
+    color: #263957;
+    font-weight: 700;
+    line-height: 1.3;
+}
+
+.location-card-subtitle,
+.location-card-main {
+    color: #53647d;
+    font-size: 0.82rem;
+}
+
+.location-card-label {
+    margin-bottom: 0.15rem;
+    color: #5f6b84;
+    font-size: 0.78rem;
+}
+
+.location-card-country {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+}
+
+.location-mobile-flag {
+    display: block;
+    width: 2.1rem;
+    height: 1.4rem;
+    object-fit: contain;
+    margin-bottom: 0.35rem;
+}
+
+.location-card-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+
+.location-card-actions .btn {
+    min-height: 2.35rem;
+}
+
+@media (max-width: 767.98px) {
+    .locations-list-card .card-header {
+        padding: 1rem 1rem;
+    }
+
+    .locations-list-card .card-title {
+        text-transform: uppercase;
+    }
+
+    .locations-list-card .card-body {
+        padding: 1rem;
+    }
+
+    .locations-list-card .table-responsive {
+        display: none;
+    }
+
+    .location-mobile-cards {
+        display: block;
+        padding: 1rem;
+    }
+
+    .locations-list-card .input-icon {
+        width: 100% !important;
+        min-width: 0 !important;
+    }
+
+    .location-filter-select-wrap {
+        min-width: calc(50% - 0.25rem);
+        flex: 1 1 calc(50% - 0.25rem);
+    }
+}
+
+@media (max-width: 767.98px) {
+    .location-mobile-card {
+        padding-top: 3.95rem;
+    }
+
+    .location-card-top {
+        position: static;
+        min-height: 0;
+        margin: 0;
+    }
+
+    .location-card-number {
+        display: grid;
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 3.2rem;
+        height: 3.2rem;
+        place-items: center;
+        font-size: 1.25rem;
+        font-weight: 800;
+        line-height: 1;
+    }
+
+    .location-card-top .status-toggle {
+        position: absolute;
+        top: 0.72rem;
+        right: 0.75rem;
+        margin: 0;
+    }
+
+    .location-card-main {
+        margin-top: 0;
+    }
+}
+
+@media (min-width: 768px) {
+    .locations-list-card .table thead .table-sort,
+    .locations-list-card .table thead .table-sort:hover,
+    .locations-list-card .table thead .table-sort:focus {
+        color: #fff;
+        text-decoration: none;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .location-level-combobox .location-combobox-toggle,
+    .location-filter-combobox .location-combobox-toggle,
+    #locations-search {
+        min-height: 3rem;
+        font-size: 1rem;
+        border-radius: 0.55rem;
+    }
+
+    .locations-list-card .input-icon-addon {
+        min-height: 3rem;
+        font-size: 1.15rem;
+    }
+
+    .location-combobox-menu input[type="search"] {
+        min-height: 2.75rem;
+        font-size: 1rem;
+    }
+
+    .location-combobox-option {
+        min-height: 2.75rem;
+        font-size: 0.98rem;
+    }
+}
+
+.location-card-grid {
+    display: grid;
+    gap: 0.8rem 1rem;
+    color: #53647d;
+    font-size: 0.82rem;
+}
+
+.location-card-grid-2 {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.location-card-field {
+    min-width: 0;
+}
+
+.location-country-line {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.45rem;
+    min-width: 0;
+}
+
+.location-country-line .location-flag {
+    flex: 0 0 auto;
+    width: 1.65rem;
+    height: 1.1rem;
+    margin-top: 0.18rem;
+    object-fit: contain;
+}
+
+.location-card-country-field:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+}
+
+@media (max-width: 420px) {
+    .location-card-grid {
+        gap: 0.7rem 0.75rem;
+    }
+}
+
+#locationModal .status-toggle {
+    display: inline-flex;
+    margin-top: 0.15rem;
 }

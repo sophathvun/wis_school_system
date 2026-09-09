@@ -1,4 +1,4 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 
 @section('title', 'Roles and Permissions')
 
@@ -57,14 +57,14 @@
                 'permissionSortBy' => $field,
                 'permissionSortDir' => $nextDir,
                 'permission_page' => 1,
-            ]);
+            ]) . '#permission-list-tab';
         };
         $permissionSortIcon = function (string $field) use ($permissionTableSortBy, $permissionTableSortDir) {
             if ($permissionTableSortBy !== $field) {
-                return '↕';
+                return '<span class="table-sort-icon" aria-hidden="true">&varr;</span>';
             }
 
-            return $permissionTableSortDir === 'asc' ? '↑' : '↓';
+            return $permissionTableSortDir === 'asc' ? '<span class="table-sort-icon" aria-hidden="true">&uarr;</span>' : '<span class="table-sort-icon" aria-hidden="true">&darr;</span>';
         };
     @endphp
 
@@ -88,7 +88,7 @@
         </form>
     </div>
 
-    <div class="card card-tabs">
+    <div class="card card-tabs access-management-tabs-card">
         <div class="card-header">
             <ul class="nav nav-tabs nav-tabs-lifted card-header-tabs" data-bs-toggle="tabs">
                 <li class="nav-item"><a href="#users-list-tab" class="nav-link active" data-bs-toggle="tab"><i
@@ -127,22 +127,22 @@
                                 <th>No.</th>
                                 <th>
                                     <a class="table-sort-button text-uppercase" href="{{ $permissionSortUrl('module') }}">
-                                        Module {{ $permissionSortIcon('module') }}
+                                        Module {!! $permissionSortIcon('module') !!}
                                     </a>
                                 </th>
                                 <th>
                                     <a class="table-sort-button text-uppercase" href="{{ $permissionSortUrl('code') }}">
-                                        Permission Code {{ $permissionSortIcon('code') }}
+                                        Permission Code {!! $permissionSortIcon('code') !!}
                                     </a>
                                 </th>
                                 <th>
                                     <a class="table-sort-button text-uppercase" href="{{ $permissionSortUrl('name') }}">
-                                        Permission Name {{ $permissionSortIcon('name') }}
+                                        Permission Name {!! $permissionSortIcon('name') !!}
                                     </a>
                                 </th>
                                 <th>
                                     <a class="table-sort-button text-uppercase" href="{{ $permissionSortUrl('action') }}">
-                                        Action {{ $permissionSortIcon('action') }}
+                                        Action {!! $permissionSortIcon('action') !!}
                                     </a>
                                 </th>
                                 <th>Linked Data</th>
@@ -365,7 +365,7 @@
                     <div class="card-body border-bottom"><label class="form-label">Select User</label><select
                             class="form-select" name="user_id" data-access-auto-submit>
                             @foreach ($users as $item)
-                                <option value="{{ $item->id }}" @selected($selectedUser?->id === $item->id)>{{ $item->name }} —
+                                <option value="{{ $item->id }}" @selected($selectedUser?->id === $item->id)>{{ $item->name }} â€”
                                     {{ $item->username }}</option>
                             @endforeach
                         </select></div>
@@ -391,3 +391,6 @@
     </div>
     @vite('resources/js/accessManagement.js')
 @endsection
+
+
+

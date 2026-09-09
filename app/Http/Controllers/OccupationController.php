@@ -47,6 +47,7 @@ class OccupationController
         $sortDir = strtolower($request->string('sortDir')->toString()) === 'desc' ? 'desc' : 'asc';
 
         return response()->json(Occupation::query()
+            ->withCount('familyMembers')
             ->when($search, fn ($query) => $query->where(fn ($sub) => $sub->where('occupation_name_en', 'like', "%{$search}%")->orWhere('occupation_name_kh', 'like', "%{$search}%")))
             ->orderBy($sortBy, $sortDir)
             ->paginate(SettingsQuery::perPage($request)));
@@ -149,14 +150,14 @@ class OccupationController
             $this->xlsxRow(2, [], 28),
             $this->xlsxRow(3, [], 28),
             $this->xlsxRow(4, [], 10),
-            $this->xlsxRow(5, [['A', 'តារាងឈ្មោះមុខរបរ', 1]], 30),
+            $this->xlsxRow(5, [['A', 'ážáž¶ážšáž¶áž„ážˆáŸ’áž˜áŸ„áŸ‡áž˜áž»ážážšáž”ážš', 1]], 30),
             $this->xlsxRow(6, [['A', 'Occupation List', 2]], 26),
             $this->xlsxRow(7, [['A', 'Generated: ' . now()->format('d-M-Y h:i A'), 6]], 20),
             $this->xlsxRow(8, [], 8),
             $this->xlsxRow(9, [
                 ['A', 'No.', 3],
                 ['B', 'Occupation (English)', 3],
-                ['C', 'មុខរបរ', 3],
+                ['C', 'áž˜áž»ážážšáž”ážš', 3],
                 ['D', 'Status', 3],
             ], 24),
         ];
@@ -398,3 +399,5 @@ class OccupationController
         return (($time->year - 1980) << 9) | ($time->month << 5) | $time->day;
     }
 }
+
+

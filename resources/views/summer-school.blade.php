@@ -1,25 +1,17 @@
 ﻿@extends('layouts.app')
 @section('title', 'Summer School')
 @section('page-header')
-    <div class="container-fluid">
-        <div class="row g-2 align-items-center">
-            <div class="col">
-                <div class="page-pretitle">Students</div>
-                <h2 class="page-title">Summer School</h2>
-            </div>
-            <div class="col-auto"><button class="btn btn-primary" id="summerSchoolNew"><i class="ti ti-plus me-1"></i>Register
-                    Summer Student</button></div>
-        </div>
-    </div>
+    <span class="d-none"></span>
 @endsection
 @section('content')
-
-    <div class="card">
+    <div class="col-12 summer-school-page-content">
+    <div class="card enrollment-list-card summer-school-list-card">
         <div class="card-header">
-            <h3 class="card-title text-uppercase">SUMMER SCHOOL STUDENTS</h3>
+            <h3 class="card-title">SUMMER SCHOOL LISTS</h3>
+            <button class="btn btn-primary" id="summerSchoolNew"><i class="ti ti-plus me-1"></i>Register Summer Student</button>
         </div>
         <div class="card-body border-bottom py-3">
-            <div class="d-flex align-items-center gap-3 flex-wrap summer-list-filter-group">
+            <div class="d-flex align-items-center gap-3 flex-wrap enrollment-list-filter-group summer-list-filter-group">
                 <select id="summerFilterYear" class="form-select form-select-sm summer-list-filter"><option value="">All Academic Year</option></select>
                 <select id="summerFilterCampus" class="form-select form-select-sm summer-list-filter"><option value="">All Campus</option></select>
                 <select id="summerFilterGrade" class="form-select form-select-sm summer-list-filter"><option value="">All Grade</option></select>
@@ -46,7 +38,9 @@
                 </tbody>
             </table>
         </div>
+        <div id="summerMobileCards" class="summer-mobile-cards"></div>
         <div class="card-footer"><select id="summer-per-page" class="d-none" aria-hidden="true"><option value="15" selected>15</option></select><div id="summer-pagination-container"></div></div>
+    </div>
     </div>
     <div class="modal modal-blur fade" id="summerSchoolModal" tabindex="-1">
         <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
@@ -342,5 +336,5 @@
         #summerSchoolModal .premium-floating-field > .phone-input-group { display:flex; align-items:center; overflow:hidden; }
         #summerSchoolModal .phone-input-group .iti { display:flex; align-items:center; width:100%; }
         #summerSchoolModal .phone-input-group .iti__tel-input { flex:1 1 auto; min-width:0; padding-top:.7rem; }
-    </style>`r`n@endsection
-
+    </style>
+@endsection

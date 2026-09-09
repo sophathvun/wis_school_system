@@ -1,3 +1,11 @@
+﻿@media (min-width: 768px) {
+    .grade-list-card .table thead th,
+    .grade-list-card .table thead .table-sort {
+        border-color: var(--tblr-primary);
+        background: var(--tblr-primary);
+        color: #fff;
+    }
+}
 .grades-mobile-cards { display: none; }
 
 @media (max-width: 767.98px) {
@@ -25,3 +33,239 @@
 }
 
 [data-bs-theme="dark"] .grade-mobile-card { border-color: rgba(148,163,184,.25); }
+
+/* Match Class mobile card style */
+@media (max-width: 767.98px) {
+    .grades-mobile-cards {
+        grid-template-columns: 1fr;
+        gap: .85rem;
+    }
+
+    .grade-mobile-card {
+        position: relative;
+        min-height: 132px;
+        padding: 3.25rem .85rem .85rem;
+        overflow: hidden;
+        border-radius: .45rem;
+        box-shadow: 0 8px 18px rgba(31, 63, 104, .08);
+    }
+
+    .grade-mobile-card::after {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        height: .35rem;
+        background: var(--tblr-primary);
+        content: "";
+    }
+
+    .grade-mobile-number {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 3.2rem;
+        height: 3.2rem;
+        border-radius: 0;
+        color: #fff;
+        background: var(--tblr-primary);
+        font-size: 1.25rem;
+        font-weight: 800;
+        line-height: 1;
+    }
+
+    .grade-mobile-head {
+        align-items: center;
+        min-width: 0;
+        margin-left: 3.75rem;
+    }
+
+    .grade-mobile-head > .status-toggle {
+        position: absolute;
+        top: .8rem;
+        right: .85rem;
+    }
+
+    .grade-mobile-head strong {
+        overflow: hidden;
+        color: #243b59;
+        font-size: .95rem;
+        font-weight: 800;
+        line-height: 1.25;
+        text-overflow: ellipsis;
+        text-transform: uppercase;
+        white-space: nowrap;
+    }
+
+    .grade-mobile-head div span {
+        font-size: .8rem;
+        line-height: 1.35;
+    }
+
+    .grade-mobile-details {
+        gap: .75rem;
+        margin-top: .8rem;
+        color: var(--tblr-secondary);
+        font-size: .8rem;
+        line-height: 1.35;
+    }
+
+    .grade-mobile-actions {
+        gap: .45rem;
+        margin-top: .8rem;
+    }
+
+    .grade-mobile-actions .btn {
+        min-height: 38px;
+        padding-right: .5rem;
+        padding-left: .5rem;
+        font-size: .78rem;
+    }
+}
+
+[data-bs-theme="dark"] .grade-mobile-head strong {
+    color: var(--tblr-body-color);
+}
+/* Grade requested three-column mobile arrangement */
+@media (max-width: 767.98px) {
+    .grade-mobile-card {
+        padding: .85rem .85rem 1rem;
+    }
+
+    .grade-mobile-top-row {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: .85rem;
+    }
+
+    .grade-mobile-number {
+        position: static;
+        flex: 0 0 auto;
+    }
+
+    .grade-mobile-status {
+        margin-top: .15rem;
+    }
+
+    .grade-mobile-columns {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(3.25rem, auto);
+        align-items: start;
+        gap: .85rem;
+        margin-top: 1rem;
+        color: var(--tblr-secondary);
+        font-size: .8rem;
+        line-height: 1.45;
+    }
+
+    .grade-mobile-column {
+        display: grid;
+        gap: .45rem;
+        min-width: 0;
+        align-content: start;
+    }
+
+    .grade-mobile-name,
+    .grade-mobile-column span,
+    .grade-mobile-column strong {
+        min-width: 0;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .grade-mobile-name {
+        color: #243b59;
+        font-size: .95rem;
+        font-weight: 800;
+        line-height: 1.25;
+        text-transform: uppercase;
+    }
+
+    .grade-mobile-description-column {
+        text-align: left;
+    }
+
+    .grade-mobile-order-column {
+        justify-items: end;
+        text-align: right;
+    }
+
+    .grade-mobile-head,
+    .grade-mobile-details {
+        display: none;
+    }
+}
+
+@media (max-width: 359.98px) {
+    .grade-mobile-columns {
+        grid-template-columns: 1fr;
+    }
+
+    .grade-mobile-order-column {
+        justify-items: start;
+        text-align: left;
+    }
+}
+
+[data-bs-theme="dark"] .grade-mobile-name {
+    color: var(--tblr-body-color);
+}
+/* Keep mobile number badge flush to top border like Class */
+@media (max-width: 767.98px) {
+    .grade-mobile-card {
+        padding: 3.25rem .85rem 1rem;
+    }
+
+    .grade-mobile-number {
+        position: absolute;
+        top: 0;
+        left: 0;
+        flex: none;
+    }
+}
+/* Align status with top number badge */
+@media (max-width: 767.98px) {
+    .grade-mobile-top-row {
+        min-height: 3.2rem;
+        align-items: center;
+        justify-content: flex-end;
+    }
+
+    .grade-mobile-status {
+        margin-top: 0;
+        margin-left: auto;
+    }
+}
+/* Pin status to same top row as number badge */
+@media (max-width: 767.98px) {
+    .grade-mobile-status {
+        position: absolute;
+        top: .8rem;
+        right: .85rem;
+        margin-top: 0;
+        margin-left: 0;
+    }
+}
+/* Tighten space below top number/status row */
+@media (max-width: 767.98px) {
+    .grade-mobile-card {
+        padding-top: 2.85rem;
+    }
+
+    .grade-mobile-columns {
+        margin-top: .15rem;
+    }
+}
+/* Further reduce space below top number/status row */
+@media (max-width: 767.98px) {
+    .grade-mobile-card {
+        padding-top: 2.45rem;
+    }
+
+    .grade-mobile-columns {
+        margin-top: 0;
+    }
+}

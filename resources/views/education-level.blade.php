@@ -1,4 +1,4 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 @section('title', 'Education Levels')
 @section('page-header')
     <div class="container-fluid">
@@ -14,7 +14,7 @@
 @endsection
 @section('content')
     <div class="col-12">
-        <div class="card">
+        <div class="card education-level-list-card">
             <div class="card-header">
                 <h3 class="card-title">Education Level Lists</h3>
             </div>
@@ -38,6 +38,7 @@
                     <tbody id="educationLevelsTable"></tbody>
                 </table>
             </div>
+            <div id="educationLevelsMobileCards" class="education-levels-mobile-cards"></div>
             <div class="card-footer">
                 <div id="education-levels-pagination-container"></div>
             </div>
@@ -85,4 +86,10 @@
         </div>
     </div>
     @vite('resources/js/educationLevel.js')
+    @vite('resources/css/pages/education-level.css')
 @endsection
+
+
+
+
+

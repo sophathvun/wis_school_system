@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 
 <head>
@@ -118,7 +118,6 @@
     </div>
 
     <div class="report-title">
-        <h3 class="khmer-title">ážáž¶ážšáž¶áž„áž•áŸ’áž“áŸ‚áž€</h3>
         <h3 class="khmer-title">តារាងផ្នែក</h3>
         <h3 class="english-title">Department List</h3>
     </div>
@@ -153,4 +152,5 @@
 </body>
 
 </html>
+
 

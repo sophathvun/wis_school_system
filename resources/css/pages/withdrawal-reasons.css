@@ -1,3 +1,11 @@
+﻿@media (min-width: 768px) {
+    .withdrawal-reasons-list-card .table thead th,
+    .withdrawal-reasons-list-card .table thead .table-sort-button {
+        border-color: var(--tblr-primary);
+        background: var(--tblr-primary);
+        color: #fff;
+    }
+}
 /* Extracted from resources/views/withdrawal-reasons.blade.php. Keep page-specific styles in this file. */
 
 .input-icon form .form-control {
@@ -24,4 +32,203 @@
 .table-sort-button:hover {
     color: var(--tblr-primary);
     text-decoration: none;
+}
+
+
+@media (min-width: 768px) {
+    .withdrawal-reasons-list-card .table thead .table-sort-button:hover,
+    .withdrawal-reasons-list-card .table thead .table-sort-button:focus {
+        color: #fff;
+        text-decoration: none;
+    }
+}
+
+.withdrawal-reasons-list-card .table .status-toggle {
+    margin: 0 auto;
+}
+
+#reasonModal .status-toggle {
+    display: inline-flex;
+    margin-top: 0.15rem;
+}
+
+.withdrawal-reason-mobile-cards {
+    display: none;
+}
+
+.withdrawal-reason-mobile-card {
+    position: relative;
+    margin: 0 0 1rem;
+    padding: 3.75rem 0.75rem 0.85rem;
+    border: 1px solid #dbe5f1;
+    border-radius: 0.45rem;
+    background: #fff;
+    box-shadow: 0 0.35rem 0.9rem rgba(31, 45, 61, 0.08);
+    overflow: hidden;
+}
+
+.withdrawal-reason-mobile-card::after {
+    content: "";
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    height: 5px;
+    background: var(--tblr-primary);
+}
+
+.withdrawal-reason-card-number {
+    display: grid;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 3.2rem;
+    height: 3.2rem;
+    place-items: center;
+    color: #fff;
+    background: var(--tblr-primary);
+    font-size: 1.25rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.withdrawal-reason-card-top .status-toggle {
+    position: absolute;
+    top: 0.72rem;
+    right: 0.75rem;
+}
+
+.withdrawal-reason-card-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 0.75rem 1rem;
+    color: #53647d;
+    font-size: 0.85rem;
+}
+
+.withdrawal-reason-card-grid > div:first-child {
+    grid-column: span 2;
+}
+
+.withdrawal-reason-card-label {
+    margin-bottom: 0.18rem;
+    color: #5f6b84;
+    font-size: 0.78rem;
+}
+
+.withdrawal-reason-card-name,
+.withdrawal-reason-card-value {
+    min-width: 0;
+    overflow: hidden;
+    color: #263957;
+    font-weight: 700;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+}
+
+.withdrawal-reason-card-name.school-profile-khmer {
+    font-size: 0.92rem;
+    line-height: 1.45;
+}
+
+.withdrawal-reason-card-subtitle {
+    min-width: 0;
+    overflow: hidden;
+    color: #53647d;
+    font-size: 0.82rem;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+}
+
+.withdrawal-reason-card-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    margin-top: 0.85rem;
+}
+
+.withdrawal-reason-card-actions .btn,
+.withdrawal-reason-card-actions form {
+    width: 100%;
+}
+
+.withdrawal-reason-card-actions .btn {
+    min-height: 2.35rem;
+}
+
+.withdrawal-reason-status-field {
+    display: flex;
+    align-items: end;
+}
+
+@media (max-width: 767.98px) {
+    .withdrawal-reason-page-actions {
+        flex: 0 0 100%;
+        width: 100%;
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.5rem !important;
+    }
+
+    .withdrawal-reason-page-actions .btn {
+        width: 100%;
+        min-height: 2.55rem;
+        justify-content: center;
+        white-space: nowrap;
+        font-size: 0.86rem;
+    }
+
+    .withdrawal-reason-page-actions button.btn-primary {
+        grid-column: 1 / -1;
+    }
+
+    .withdrawal-reasons-list-card .card-header {
+        padding: 1rem;
+    }
+
+    .withdrawal-reasons-list-card .card-body {
+        padding: 1rem;
+    }
+
+    .withdrawal-reasons-list-card .row.col-12,
+    .withdrawal-reasons-list-card .col-auto,
+    .withdrawal-reasons-list-card .input-icon,
+    .withdrawal-reasons-list-card .input-icon form {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .withdrawal-reasons-list-card .input-icon .form-control {
+        width: 100%;
+        min-height: 3rem;
+        border-radius: 0.55rem;
+        font-size: 1rem;
+    }
+
+    .withdrawal-reasons-list-card .table-responsive {
+        display: none;
+    }
+
+    .withdrawal-reason-mobile-cards {
+        display: block;
+        padding: 1rem;
+    }
+}
+
+.withdrawal-reason-card-grid {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.withdrawal-reason-card-grid > div:first-child {
+    grid-column: auto;
+}
+
+.withdrawal-reason-card-actions form {
+    display: flex;
+    margin: 0;
+}
+
+.withdrawal-reason-card-actions form .btn {
+    flex: 1 1 auto;
+    height: 100%;
 }

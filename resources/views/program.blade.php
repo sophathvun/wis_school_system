@@ -11,9 +11,9 @@
         </div>
 </div>@endsection
 @section('content')<div class="col-12">
-        <div class="card">
+        <div class="card program-list-card">
             <div class="card-header">
-                <h3 class="card-title">Program Lists</h3>
+                <h3 class="card-title">PROGRAM LISTS</h3>
             </div>
             <div class="card-body border-bottom py-3 d-flex justify-content-end">
                 <input type="hidden" id="programs-per-page" value="10">
@@ -35,6 +35,7 @@
                     <tbody id="programsTable"></tbody>
                 </table>
             </div>
+            <div id="programsMobileCards" class="programs-mobile-cards"></div>
             <div class="card-footer">
                 <div id="programs-pagination-container"></div>
             </div>
@@ -54,31 +55,48 @@
                         <div class="alert alert-danger d-none" data-alert></div>
                         <div class="row g-3">
                             <div class="col-12">
-                                <label class="form-label">Academic Year</label>
-                                <select id="academic_year_id" name="academic_year_id" class="form-select"></select>
+                                <div class="form-floating">
+                                    <select id="academic_year_id" name="academic_year_id" class="form-select"
+                                        placeholder="Academic Year"></select>
+                                    <label for="academic_year_id">Academic Year</label>
+                                </div>
                             </div>
                             <div class="col-12">
-                                <label class="form-label">Education Level <span class="text-danger">*</span></label>
-                                <select id="education_level_id" name="education_level_id" class="form-select"></select>
+                                <div class="form-floating">
+                                    <select id="education_level_id" name="education_level_id" class="form-select"
+                                        placeholder="Education Level"></select>
+                                    <label for="education_level_id">Education Level <span class="text-danger">*</span></label>
+                                </div>
                             </div>
                             <div class="col-12">
-                                <label class="form-label">Program Name <span class="text-danger">*</span></label>
-                                <input id="program_name" name="program_name" class="form-control">
+                                <div class="form-floating">
+                                    <input id="program_name" name="program_name" class="form-control"
+                                        placeholder="Program Name">
+                                    <label for="program_name">Program Name <span class="text-danger">*</span></label>
+                                </div>
                             </div>
                             <div class="col-12">
-                                <label class="form-label">Program Code <span class="text-danger">*</span></label>
-                                <input id="program_code" name="program_code" class="form-control">
+                                <div class="form-floating">
+                                    <input id="program_code" name="program_code" class="form-control"
+                                        placeholder="Program Code">
+                                    <label for="program_code">Program Code <span class="text-danger">*</span></label>
+                                </div>
                             </div>
                             <div class="col-12">
-                                <label class="form-label">Description</label>
-                                <textarea id="description" name="description" class="form-control"></textarea>
+                                <div class="form-floating">
+                                    <textarea id="description" name="description" class="form-control"
+                                        placeholder="Description"></textarea>
+                                    <label for="description">Description</label>
+                                </div>
                             </div>
                             <div class="col-12">
                                 <label class="form-label">Status</label>
-                                <select id="status" name="status" class="form-select">
-                                    <option value="1">Active</option>
-                                    <option value="0">Inactive</option>
-                                </select>
+                                <input type="hidden" id="status" name="status" value="1">
+                                <button type="button" id="programStatusToggle" class="status-toggle is-active" data-status="1"
+                                    aria-pressed="true">
+                                    <span class="status-toggle-label">ON</span>
+                                    <span class="status-toggle-knob"></span>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -91,4 +109,10 @@
         </div>
     </div>
     @vite('resources/js/program.js')
+    @vite('resources/css/pages/program.css')
 @endsection
+
+
+
+
+

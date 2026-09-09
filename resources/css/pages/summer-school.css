@@ -1,5 +1,209 @@
 /* Extracted from resources/views/summer-school.blade.php. Keep page-specific styles in this file. */
 
+.summer-school-list-card > .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    min-height: 4.5rem;
+}
+
+.summer-school-page-content {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    margin: 0;
+    min-width: 0;
+    transform: none !important;
+    overflow: visible;
+}
+
+.summer-school-page-content .summer-school-list-card {
+    position: relative;
+    width: 100%;
+    margin: 0;
+    transform: none !important;
+    overflow: visible;
+}
+
+.summer-school-list-card > .card-header .card-title {
+    display: block !important;
+    visibility: visible !important;
+    color: var(--tblr-body-color, #182433) !important;
+}
+
+.summer-student-name {
+    display: flex;
+    flex-direction: column;
+    gap: .15rem;
+    min-width: 10rem;
+}
+
+.summer-student-name-kh {
+    color: var(--tblr-body-color, #182433);
+    font-family: "Khmer OS Siem Reap", "Noto Sans Khmer", sans-serif;
+    font-size: 1.05rem;
+    font-weight: 400;
+    line-height: 1.45;
+}
+
+.summer-student-name-en {
+    color: var(--tblr-body-color, #182433);
+    font-size: .95rem;
+    line-height: 1.35;
+}
+
+.summer-mobile-cards {
+    display: none;
+}
+
+.summer-mobile-card {
+    padding: 1rem;
+    border-top: 1px solid var(--tblr-border-color, #dfe3ea);
+    background: var(--tblr-bg-surface, #fff);
+}
+
+.summer-mobile-card:first-child {
+    border-top: 0;
+}
+
+.summer-mobile-card-header {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.summer-mobile-photo {
+    flex: 0 0 auto;
+}
+
+.summer-mobile-photo .summer-student-photo,
+.summer-mobile-photo .summer-student-photo-placeholder {
+    width: 92px;
+    height: 92px;
+    border-radius: 16px;
+}
+
+.summer-mobile-meta {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.summer-mobile-id {
+    color: var(--tblr-secondary);
+    font-size: .82rem;
+}
+
+.summer-mobile-details {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .8rem 1.1rem;
+    margin-top: 1rem;
+}
+
+.summer-mobile-detail {
+    min-width: 0;
+}
+
+.summer-mobile-detail span {
+    display: block;
+    margin-bottom: .15rem;
+    color: var(--tblr-secondary);
+    font-size: .73rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.summer-mobile-detail strong {
+    display: block;
+    font-size: .9rem;
+    line-height: 1.35;
+    word-break: break-word;
+}
+
+.summer-mobile-actions {
+    margin-top: 1rem;
+}
+
+.summer-mobile-actions > .d-flex {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .55rem !important;
+}
+
+.summer-mobile-actions .btn {
+    display: inline-flex;
+    width: 100%;
+    min-height: 2.8rem;
+    align-items: center;
+    justify-content: center;
+    gap: .3rem;
+    border-radius: .55rem;
+    font-size: .95rem;
+    font-weight: 700;
+}
+
+.summer-mobile-empty {
+    padding: 1.5rem 1rem;
+    border-top: 1px solid var(--tblr-border-color, #dfe3ea);
+}
+
+@media (min-width: 992px) {
+    .summer-school-page-content {
+        position: static;
+        left: auto;
+        width: 100% !important;
+        padding: 0;
+    }
+
+    .summer-school-page-content .summer-school-list-card {
+        margin-left: 0 !important;
+        width: 100% !important;
+    }
+}
+
+@media (max-width: 991.98px) {
+    .summer-school-page-content {
+        margin-top: 1rem;
+        padding: 0 .75rem 1rem;
+    }
+
+    .summer-school-list-card {
+        max-width: 100%;
+        overflow: hidden;
+    }
+
+    .summer-school-list-card .table-responsive {
+        max-width: 100%;
+        overflow-x: auto;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .summer-school-list-card > .card-header {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .summer-school-list-card > .card-header #summerSchoolNew {
+        display: flex;
+        width: 100%;
+        min-height: 2.95rem;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+    }
+
+    .summer-school-list-card > .table-responsive {
+        display: none;
+    }
+
+    .summer-mobile-cards {
+        display: block;
+    }
+}
+
 #summerSchoolModal select option:first-child,
 #summerSchoolModal select option[value=""] {
     font-size: 0;
@@ -102,6 +306,10 @@
 }
 
 @media (max-width: 767.98px) {
+    #summerSchoolModal .modal-body {
+        padding: .85rem;
+    }
+
     .summer-registration-layout {
         grid-template-columns: 1fr;
     }
@@ -877,6 +1085,64 @@
 #summerSchoolModal .summer-western-student-info-body small { display: block; color: #74839a; font-size: .7rem; }
 #summerSchoolModal .summer-western-student-info-body strong { display: block; color: #173b63; font-size: .9rem; }
 
+@media (max-width: 767.98px) {
+    #summerSchoolModal .summer-western-student-info {
+        margin: .85rem 0 0;
+        border-left-width: 4px;
+        border-radius: 12px;
+    }
+
+    #summerSchoolModal .summer-western-student-info-body {
+        display: grid;
+        grid-template-columns: 5.5rem minmax(0, 1fr);
+        gap: .85rem;
+        padding: .85rem;
+    }
+
+    #summerSchoolModal .summer-western-student-info-body > img,
+    #summerSchoolModal .summer-western-student-info-body > span {
+        width: 5.5rem;
+        height: 7.35rem;
+        grid-row: span 1;
+        border-radius: 14px;
+    }
+
+    #summerSchoolModal .summer-western-info-column {
+        min-width: 0;
+        padding: .75rem;
+        border: 1px solid #d9e2ef;
+        border-radius: 12px;
+        background: #f8fbff;
+    }
+
+    #summerSchoolModal .summer-western-student-info-body > img + .summer-western-info-column,
+    #summerSchoolModal .summer-western-student-info-body > span + .summer-western-info-column {
+        padding: 0;
+        border: 0;
+        background: transparent;
+    }
+
+    #summerSchoolModal .summer-western-info-column:nth-of-type(n + 2) {
+        grid-column: 1 / -1;
+    }
+
+    #summerSchoolModal .summer-western-family-column {
+        display: none;
+    }
+
+    #summerSchoolModal .summer-western-info-column h5 {
+        margin-bottom: .35rem;
+        font-size: .76rem;
+        letter-spacing: 0;
+    }
+
+    #summerSchoolModal .summer-western-student-info-body strong {
+        overflow-wrap: anywhere;
+        font-size: .88rem;
+        line-height: 1.45;
+    }
+}
+
 #summerSchoolModal #summerWesternFilters > .border > .row {
     padding: 1rem;
 }
@@ -1115,7 +1381,13 @@
 
 .summer-list-filter { width: 170px; min-width: 150px; }
 .summer-list-student-filter { width: 220px; min-width: 190px; }
-.summer-list-search { width: 260px; max-width: 100%; }
+.summer-list-search {
+    width: 260px;
+    max-width: 100%;
+    min-height: 2.5rem;
+    padding-top: .55rem;
+    padding-bottom: .55rem;
+}
 .summer-student-photo, .summer-student-photo-placeholder { width: 42px; height: 58px; display: inline-flex; align-items: center; justify-content: center; object-fit: cover; border-radius: .55rem; border: 1px solid var(--tblr-border-color); background: var(--tblr-bg-surface); color: var(--tblr-secondary); }
 .summer-list-filter-group .form-select, .summer-list-search { background-color: var(--tblr-bg-forms); }
 
@@ -1124,6 +1396,12 @@
     flex: 0 0 170px;
     width: 170px;
     min-width: 170px;
+}
+
+.summer-list-filter-group > .summer-search-combobox .location-combobox-toggle,
+.summer-list-filter-group > select.summer-list-filter,
+.summer-list-filter-group .summer-list-search {
+    min-height: 2.5rem;
 }
 
 .summer-list-filter-group > .summer-search-combobox .location-combobox-toggle,
@@ -1139,6 +1417,47 @@
 }
 
 @media (max-width: 767.98px) {
-    .summer-list-filter, .summer-list-filter-group, .summer-list-student-filter, .summer-list-search { width: 100% !important; max-width: none; }
-    .summer-list-filter-group > .summer-search-combobox { flex: 1 1 100%; width: 100%; min-width: 0; }
+    .summer-school-list-card > .card-body > .d-flex {
+        gap: .75rem !important;
+    }
+
+    .summer-list-filter-group {
+        width: 100%;
+        gap: .55rem !important;
+    }
+
+    .summer-list-filter,
+    .summer-list-filter-group,
+    .summer-list-student-filter,
+    .summer-list-search {
+        max-width: none;
+    }
+
+    .summer-list-filter-group > .summer-search-combobox,
+    .summer-list-filter-group > select.summer-list-filter {
+        flex: 1 1 calc(50% - .3rem);
+        width: calc(50% - .3rem) !important;
+        min-width: calc(50% - .3rem);
+    }
+
+    .summer-list-filter-group > #summerFilterStudent + .summer-search-combobox,
+    .summer-list-filter-group > #summerFilterStatus + .summer-search-combobox {
+        flex-basis: 100%;
+        width: 100% !important;
+        min-width: 0;
+    }
+
+    .summer-school-list-card > .card-body .ms-auto {
+        width: 100% !important;
+        max-width: 100% !important;
+        flex: 0 0 100% !important;
+        margin-left: 0 !important;
+    }
+
+    .summer-list-search {
+        width: 100% !important;
+        min-height: 3.1rem;
+        border-radius: .65rem;
+        font-size: 1rem;
+    }
 }

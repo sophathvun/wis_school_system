@@ -9,15 +9,15 @@
 
 @section('page-header')
     <div class="container-fluid">
-        <div class="row g-2 align-items-center">
+        <div class="row g-2 align-items-center workflow-page-header">
             <div class="col">
                 <div class="page-pretitle">Students</div>
                 <h2 class="page-title">Student {{ $label }}</h2>
             </div>
-            <div class="col-auto">
-                <a class="btn" href="{{ route('studentEnrollment.index') }}">Back to Enrollment</a>
+            <div class="col-auto workflow-page-actions">
+                <a class="btn workflow-desktop-action" href="{{ route('studentEnrollment.index') }}">Back to Enrollment</a>
                 @if ($isPromotion)
-                    <a class="btn btn-outline-primary ms-2" href="{{ route('studentGraduation.index') }}">Graduation</a>
+                    <a class="btn btn-outline-primary ms-2 workflow-desktop-action" href="{{ route('studentGraduation.index') }}">Graduation</a>
                 @endif
                 <button class="btn btn-primary ms-2" id="newWorkflow">
                     <i class="ti ti-plus icon"></i> New {{ $label }}
@@ -30,9 +30,9 @@
 @section('content')
 
 
-    <div class="card" data-enrollment-workflows data-workflow-mode="{{ $mode }}">
+    <div class="card enrollment-workflows-card" data-enrollment-workflows data-workflow-mode="{{ $mode }}">
         <div class="card-header">
-            <h3 class="card-title">{{ $label }} History</h3>
+            <h3 class="card-title">{{ strtoupper($label) }} HISTORY</h3>
         </div>
         <div class="card-body border-bottom py-3 d-flex flex-wrap justify-content-between workflow-filter-bar">
             <div class="d-flex align-items-center flex-wrap workflow-history-filters">
@@ -44,6 +44,12 @@
                 </select>
                 <select id="workflow-history-grade-class" class="form-select form-select-sm">
                     <option value=""></option>
+                </select>
+                <select id="workflow-history-status" class="form-select form-select-sm">
+                    <option value="">All Status</option>
+                    <option value="active">Active</option>
+                    <option value="cancelled">Cancelled</option>
+                    <option value="reversed">Reversed</option>
                 </select>
                 <select id="workflow-per-page" class="form-control form-control-sm d-none">
                     <option selected>10</option>
@@ -62,34 +68,44 @@
                 <thead>
                     <tr>
                         <th>No.</th>
-                        <th>Student Photo</th>
+                        <th>PHOTO</th>
                         <th><button type="button" class="table-sort" data-workflow-sort="student_id">Student ID <span
                                     data-workflow-sort-icon="student_id"></span></button></th>
                         <th><button type="button" class="table-sort" data-workflow-sort="student_name">Student Name <span
                                     data-workflow-sort-icon="student_name"></span></button></th>
-                        <th><button type="button" class="table-sort" data-workflow-sort="academic_year">Academic Year <span
-                                    data-workflow-sort-icon="academic_year"></span></button></th>
-                        <th><button type="button" class="table-sort" data-workflow-sort="grade">Grade <span
-                                    data-workflow-sort-icon="grade"></span></button></th>
-                        <th><button type="button" class="table-sort" data-workflow-sort="group">Group <span
-                                    data-workflow-sort-icon="group"></span></button></th>
-                        <th><button type="button" class="table-sort" data-workflow-sort="campus">Campus <span
-                                    data-workflow-sort-icon="campus"></span></button></th>
+                        @if ($isPromotion)
+                            <th><button type="button" class="table-sort" data-workflow-sort="academic_year">Academic Year <span
+                                        data-workflow-sort-icon="academic_year"></span></button></th>
+                            <th><button type="button" class="table-sort" data-workflow-sort="grade">Grade <span
+                                        data-workflow-sort-icon="grade"></span></button></th>
+                            <th><button type="button" class="table-sort" data-workflow-sort="group">Group <span
+                                        data-workflow-sort-icon="group"></span></button></th>
+                            <th><button type="button" class="table-sort" data-workflow-sort="campus">Campus <span
+                                        data-workflow-sort-icon="campus"></span></button></th>
+                        @else
+                            <th><button type="button" class="table-sort" data-workflow-sort="old_information">Transfer From <span
+                                        data-workflow-sort-icon="old_information"></span></button></th>
+                            <th><button type="button" class="table-sort" data-workflow-sort="transfer_information">Transfer To <span
+                                        data-workflow-sort-icon="transfer_information"></span></button></th>
+                        @endif
                         <th><button type="button" class="table-sort" data-workflow-sort="action">Action <span
                                     data-workflow-sort-icon="action"></span></button></th>
-                        <th>Status</th>
+                        <th><button type="button" class="table-sort" data-workflow-sort="status">Status <span
+                                    data-workflow-sort-icon="status"></span></button></th>
                         <th><button type="button" class="table-sort"
                                 data-workflow-sort="promoted_date">{{ $isPromotion ? 'Promoted Date' : 'Transferred Date' }}
                                 <span data-workflow-sort-icon="promoted_date"></span></button></th>
                         <th><button type="button" class="table-sort"
                                 data-workflow-sort="promoted_by">{{ $isPromotion ? 'Promoted By' : 'Transferred By' }} <span
                                     data-workflow-sort-icon="promoted_by"></span></button></th>
-                        <th>Actions</th>
+                        @if ($isPromotion)
+                            <th class="text-nowrap">Actions</th>
+                        @endif
                     </tr>
                 </thead>
                 <tbody id="workflowTable">
                     <tr>
-                        <td colspan="13" class="text-center">Loading...</td>
+                        <td colspan="{{ $isPromotion ? 13 : 10 }}" class="text-center">Loading...</td>
                     </tr>
                 </tbody>
             </table>
@@ -214,4 +230,3 @@
     @vite('resources/js/enrollmentWorkflows.js')
     @vite('resources/css/pages/enrollment-workflows.css')
 @endsection
-

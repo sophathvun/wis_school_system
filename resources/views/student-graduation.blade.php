@@ -6,8 +6,17 @@
 
 
     <div class="card">
-        <div class="card-header d-flex align-items-center">
-            <h3 class="card-title mb-0">Graduated Students</h3>
+        <div class="card-header d-flex align-items-center graduation-card-header">
+            <h3 class="card-title mb-0">GRADUATED STUDENT</h3>
+            <div class="graduation-summary-widget" aria-live="polite">
+                <div class="graduation-summary-title">Total Graduated Students</div>
+                <div class="graduation-summary-total" id="graduation-total">0</div>
+                <div class="graduation-summary-gender">
+                    <span>Male: <strong id="graduation-male">0</strong></span>
+                    <span class="graduation-summary-separator">|</span>
+                    <span>Female: <strong id="graduation-female">0</strong></span>
+                </div>
+            </div>
             <button class="btn btn-primary ms-auto" id="newGraduation">
                 <i class="ti ti-school icon"></i> Graduate Grade 12 Student
             </button>
@@ -37,41 +46,43 @@
             </div>
         </div>
 
-        <div class="table-responsive">
+        <div class="table-responsive graduation-table-responsive">
             <table class="table card-table">
                 <thead>
                     <tr>
                         <th>No.</th>
-                        <th>Student Photo</th>
-                        <th><button type="button" class="table-sort" data-graduation-sort="student_id">Student ID <span
+                        <th>PHOTO</th>
+                        <th><button type="button" class="graduation-table-sort" data-graduation-sort="student_id">Student ID <span
                                     data-graduation-sort-icon="student_id"></span></button></th>
-                        <th><button type="button" class="table-sort" data-graduation-sort="student_name">Student Name <span
+                        <th><button type="button" class="graduation-table-sort" data-graduation-sort="student_name">Student Name <span
                                     data-graduation-sort-icon="student_name"></span></button></th>
-                        <th><button type="button" class="table-sort" data-graduation-sort="academic_year">Academic Year
+                        <th><button type="button" class="graduation-table-sort" data-graduation-sort="academic_year">Academic Year
                                 <span data-graduation-sort-icon="academic_year"></span></button></th>
-                        <th><button type="button" class="table-sort" data-graduation-sort="class">Grade <span
+                        <th><button type="button" class="graduation-table-sort" data-graduation-sort="class">Grade <span
                                     data-graduation-sort-icon="class"></span></button></th>
-                        <th><button type="button" class="table-sort" data-graduation-sort="group">Group <span
+                        <th><button type="button" class="graduation-table-sort" data-graduation-sort="group">Group <span
                                     data-graduation-sort-icon="group"></span></button></th>
-                        <th><button type="button" class="table-sort" data-graduation-sort="campus">Campus <span
+                        <th><button type="button" class="graduation-table-sort" data-graduation-sort="campus">Campus <span
                                     data-graduation-sort-icon="campus"></span></button></th>
-                        <th><button type="button" class="table-sort" data-graduation-sort="graduation_date">Graduation Date
+                        <th><button type="button" class="graduation-table-sort" data-graduation-sort="graduation_date">Graduation Date
                                 <span data-graduation-sort-icon="graduation_date"></span></button></th>
-                        <th><button type="button" class="table-sort" data-graduation-sort="certificate">Certificate <span
+                        <th><button type="button" class="graduation-table-sort" data-graduation-sort="certificate">Certificate <span
                                     data-graduation-sort-icon="certificate"></span></button></th>
-                        <th><button type="button" class="table-sort" data-graduation-sort="alumni">Alumni <span
+                        <th><button type="button" class="graduation-table-sort" data-graduation-sort="alumni">Alumni <span
                                     data-graduation-sort-icon="alumni"></span></button></th>
-                        <th><button type="button" class="table-sort" data-graduation-sort="graduated_by">Graduated By <span
+                        <th><button type="button" class="graduation-table-sort" data-graduation-sort="graduated_by">Graduated By <span
                                     data-graduation-sort-icon="graduated_by"></span></button></th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody id="graduationTable">
                     <tr>
-                        <td colspan="12" class="text-center">Loading...</td>
+                        <td colspan="13" class="text-center">Loading...</td>
                     </tr>
                 </tbody>
             </table>
         </div>
+        <div id="graduationMobileCards" class="graduation-mobile-cards"></div>
         <div class="card-footer">
             <div id="graduation-pagination-container"></div>
         </div>
@@ -97,7 +108,11 @@
                                     <option value="all_campuses">All Campuses</option>
                                 </select>
                             </div>
-                            <div class="col-md-8 graduation-student-field">
+                            <div class="col-md-4 graduation-student-year-field">
+                                <label class="form-label">Academic Year *</label>
+                                <select id="student-year" class="form-select"></select>
+                            </div>
+                            <div class="col-md-4 graduation-student-field">
                                 <label class="form-label">Grade 12 Student *</label>
                                 <select id="graduation-enrollment" class="form-select" multiple></select>
                                 <div class="small text-secondary mt-2" id="graduation-current"></div>
@@ -154,3 +169,6 @@
     @vite('resources/js/studentGraduation.js')
     @vite('resources/css/pages/student-graduation.css')
 @endsection
+
+
+

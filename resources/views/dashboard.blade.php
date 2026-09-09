@@ -8,8 +8,6 @@
 
 @section('content')
     @vite('resources/css/pages/dashboard.css')
-    {{-- Keep the dashboard styles available when the local Vite manifest is stale. --}}
-    <link rel="stylesheet" href="{{ asset('build/assets/dashboard-night.css') }}?v=6">
     <style>
         /* Fallback for deployments serving a stale Vite dashboard bundle. */
         .premium-dashboard-card.premium-dashboard-card--student-statistics {
@@ -571,4 +569,3 @@
     </div>
     @vite('resources/js/dashboard.js')
 @endsection
-

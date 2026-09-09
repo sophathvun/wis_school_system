@@ -1,6 +1,7 @@
 /* Extracted from resources/views/academicYears-pdf.blade.php. Keep page-specific styles in this file. */
 
 body {
+    margin: 0;
     font-family: Arial, sans-serif;
     color: #222;
     -webkit-print-color-adjust: exact;
@@ -92,9 +93,17 @@ h3 {
     margin-top: 4px;
 }
 
+.school-logo-row {
+    width: 100%;
+    text-align: left;
+}
+
 .school-logo {
+    display: block;
     width: 210px;
+    max-width: 100%;
     height: auto;
+    margin: 0;
 }
 
 .header {

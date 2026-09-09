@@ -350,7 +350,7 @@
 }
 
 @media (max-width: 767.98px) {
-    .table-responsive {
+    .enrollment-list-card > .table-responsive {
         display: none;
     }
 
@@ -374,7 +374,7 @@
     }
 
     .enrollment-mobile-details {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 
@@ -456,26 +456,35 @@
     opacity: 1;
 }
 
-.table-sort {
+.enrollment-table-sort {
     border: 0;
     background: transparent;
     padding: 0;
     font: inherit;
-    font-weight: 700;
-    color: inherit;
+    font-weight: 500;
+    color: #fff;
     text-align: left;
+    text-transform: uppercase;
     cursor: pointer;
 }
 
-.table-sort:hover,
-.table-sort.text-primary {
-    color: var(--tblr-primary) !important;
+.enrollment-table-sort:hover,
+.enrollment-table-sort.text-primary {
+    color: #fff !important;
 }
 
-.table-sort [data-sort-icon] {
+.enrollment-table-sort [data-sort-icon] {
     display: inline-block;
-    min-width: 0.75rem;
-    margin-left: 0.15rem;
+    min-width: 0.8rem;
+    margin-left: 0.2rem;
+    color: #fff;
+    font-size: 0.8rem;
+    line-height: 1;
+    opacity: 0.55;
+}
+
+.enrollment-table-sort.text-primary [data-sort-icon] {
+    opacity: 0.95;
 }
 
 .enrollment-list-filter {
@@ -511,6 +520,31 @@
 .enrollment-list-filter-group .location-combobox-menu {
     min-width: 100%;
     z-index: 1050;
+}
+
+.enrollment-list-filter-group .enrollment-search-menu {
+    max-width: calc(100vw - 1.5rem);
+}
+
+.enrollment-actions-cell {
+    min-width: 13.5rem;
+}
+
+.enrollment-action-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(5.8rem, 1fr));
+    gap: 0.4rem;
+    width: 13rem;
+}
+
+.enrollment-action-grid .btn {
+    width: 100%;
+    min-height: 2rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    padding-inline: 0.45rem;
 }
 
 .enrollment-expanded-row > td {
@@ -1560,3 +1594,160 @@
         max-width: 20%;
     }
 }
+/* Student enrollment list: keep filters/search and table headers tidy on desktop. */
+@media (min-width: 768px) {
+    .enrollment-list-card > .card-body > .d-flex {
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        gap: 0.5rem !important;
+        overflow-x: auto;
+        padding-bottom: 0.25rem;
+    }
+
+    .enrollment-list-filter-group {
+        flex-wrap: nowrap !important;
+        flex: 1 1 auto;
+        min-width: 0;
+        gap: 0.45rem !important;
+    }
+
+    .enrollment-list-filter,
+    .enrollment-list-filter-group .enrollment-search-combobox {
+        width: 145px;
+        min-width: 128px;
+        flex: 1 1 128px;
+    }
+
+    .enrollment-list-filter-group #enrollments-filter-student-combobox,
+    #enrollments-filter-student {
+        width: 175px;
+        min-width: 155px;
+        flex: 1.15 1 155px;
+    }
+
+    .enrollment-list-card #enrollments-search {
+        width: 220px !important;
+        min-width: 190px;
+    }
+
+    .enrollment-list-card > .card-body .ms-auto {
+        margin-left: 0 !important;
+        flex: 0 0 auto;
+    }
+
+    .enrollment-list-card .table thead th,
+    .enrollment-list-card .enrollment-table-sort {
+        white-space: nowrap;
+    }
+
+    .enrollment-list-card .enrollment-table-sort {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.15rem;
+    }
+}
+/* Student enrollment mobile controls */
+@media (max-width: 767.98px) {
+    .enrollment-new-action {
+        display: block !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        flex: 0 0 100% !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+    }
+
+    .enrollment-new-action .btn {
+        display: flex !important;
+        width: 100% !important;
+        min-height: 2.95rem;
+        justify-content: center;
+        align-items: center;
+        font-size: 1rem;
+    }
+
+    .enrollment-list-card > .card-body > .d-flex {
+        gap: 0.75rem !important;
+    }
+
+    .enrollment-list-card > .card-body .ms-auto {
+        width: 100% !important;
+        max-width: 100% !important;
+        flex: 0 0 100% !important;
+        margin-left: 0 !important;
+    }
+
+    .enrollment-list-card #enrollments-search {
+        width: 100% !important;
+        max-width: none !important;
+        min-height: 3.1rem;
+        font-size: 1rem;
+        border-radius: 0.65rem;
+    }
+}
+/* Student enrollment mobile card field pairs */
+@media (max-width: 767.98px) {
+    .enrollment-mobile-details {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 0.8rem 1.1rem;
+        margin-top: 1rem;
+    }
+
+    .enrollment-mobile-detail {
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        min-width: 0;
+    }
+
+    .enrollment-mobile-detail span {
+        margin-bottom: 0.15rem;
+        font-size: 0.73rem;
+        letter-spacing: 0;
+    }
+
+    .enrollment-mobile-detail strong {
+        display: block;
+        font-size: 0.9rem;
+        line-height: 1.35;
+        word-break: break-word;
+    }
+}
+/* Student enrollment mobile action buttons */
+@media (max-width: 767.98px) {
+    .enrollment-mobile-actions .enrollment-action-grid {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        width: 100%;
+        gap: 0.55rem !important;
+    }
+
+    .enrollment-mobile-actions .enrollment-action-grid .btn {
+        width: 100%;
+        min-height: 2.8rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.3rem;
+        border-radius: 0.55rem;
+        font-size: 0.95rem;
+        font-weight: 700;
+        padding: 0.65rem 0.75rem;
+    }
+}
+/* Student enrollment mobile photo size */
+@media (max-width: 767.98px) {
+    .enrollment-mobile-card-header {
+        gap: 1rem;
+        align-items: center;
+    }
+
+    .enrollment-mobile-photo img,
+    .enrollment-mobile-photo .avatar {
+        width: 92px;
+        height: 92px;
+        border-radius: 16px;
+    }
+}
+

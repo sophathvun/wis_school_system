@@ -1,9 +1,77 @@
+@media (min-width: 768px) {
+    .school-profile-list-card .table thead th,
+    .school-profile-list-card .table thead .table-sort {
+        border-color: var(--tblr-primary);
+        background: var(--tblr-primary);
+        color: #fff;
+    }
+
+    .school-profile-list-card .school-profile-table-address {
+        min-width: 18rem;
+        max-width: 28rem;
+        white-space: normal;
+    }
+
+    .school-profile-list-card .school-profile-table-phone,
+    .school-profile-list-card .school-profile-table-address-line {
+        display: inline-flex;
+        align-items: flex-start;
+        gap: .3rem;
+    }
+
+    .school-profile-list-card .school-profile-table-phone {
+        align-items: center;
+        white-space: nowrap;
+    }
+
+    .school-profile-list-card .school-profile-table-phone .ti,
+    .school-profile-list-card .school-profile-table-address-line .ti {
+        flex: 0 0 auto;
+        margin-top: .08rem;
+        color: var(--tblr-primary);
+    }
+
+    .school-profile-list-card .school-profile-table-address .school-profile-khmer {
+        display: flex;
+        font-size: .82rem;
+        line-height: 1.35;
+    }
+
+    .school-profile-list-card .school-profile-table-address small {
+        display: inline;
+        line-height: 1.35;
+        white-space: normal;
+    }
+
+    .school-profile-list-card .school-profile-table-address-line + .school-profile-table-address-line {
+        margin-top: .18rem;
+    }
+}
 #schoolProfileModal .modal-dialog {
-    width: calc(100vw - 2rem);
-    max-width: 860px;
+    width: min(1120px, calc(100vw - 4rem));
+    max-width: 1120px;
+    height: calc(100vh - 3.5rem);
+    max-height: calc(100vh - 3.5rem);
+}
+
+#schoolProfileModal .modal-content {
+    height: 100%;
+    max-height: 100%;
+    overflow: hidden;
+}
+
+#schoolProfileModal form {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
 }
 
 #schoolProfileModal .modal-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
     padding: 1.25rem 1.5rem;
 }
 
@@ -46,12 +114,565 @@
     width: 120px;
 }
 
+#schoolProfileModal .school-profile-form-subheading {
+    color: #243b59;
+    font-size: .95rem;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+#schoolProfileModal .school-profile-phone-field > .phone-input-group,
+#schoolProfileModal .school-profile-phone-field > .phone-input-group .iti {
+    width: 100%;
+}
+
+#schoolProfileModal .school-profile-phone-field > .phone-input-group .iti .form-control {
+    height: 52px;
+    min-height: 52px;
+    padding: 1.45rem 1rem .3rem 8.15rem;
+    border-radius: 14px;
+}
+
+#schoolProfileModal .school-profile-phone-field > .phone-input-group .iti__country-container {
+    width: 7rem;
+    padding-top: 1.2rem;
+    padding-left: .7rem;
+}
+
+#schoolProfileModal .school-profile-phone-field > .phone-input-group .iti__selected-country {
+    display: inline-flex;
+    align-items: center;
+    min-width: 0;
+    padding: 0;
+}
+
+#schoolProfileModal .school-profile-phone-field > .phone-input-group .iti__selected-country-primary {
+    padding: 0;
+}
+
+#schoolProfileModal .school-profile-phone-field > .phone-input-group .iti__selected-dial-code {
+    margin-left: .45rem;
+    margin-right: .75rem;
+    white-space: nowrap;
+    line-height: 1;
+}
+
+#schoolProfileModal .school-profile-address-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(140px, 1fr));
+    gap: .75rem;
+}
+
+#schoolProfileModal .school-profile-address-grid .premium-floating-field {
+    position: relative;
+}
+
+#schoolProfileModal .location-combobox {
+    position: relative;
+}
+
+#schoolProfileModal .location-combobox-toggle {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    width: 100%;
+    min-height: 4.75rem;
+    gap: .5rem;
+    border: 1px solid var(--tblr-border-color);
+    border-radius: .75rem;
+    color: var(--tblr-body-color);
+    background: var(--tblr-bg-surface, #fff);
+    padding: 1.45rem .8rem .45rem;
+    text-align: left;
+    box-shadow: 0 4px 14px rgba(31, 63, 104, .06);
+}
+
+#schoolProfileModal .location-combobox-selected {
+    display: flex;
+    align-items: flex-start;
+    min-width: 0;
+    gap: .15rem;
+    overflow: visible;
+}
+
+#schoolProfileModal .school-profile-address-grid .premium-floating-field > .form-label {
+    position: absolute;
+    z-index: 6;
+    top: .55rem;
+    left: 1rem;
+    margin: 0;
+    padding: 0 .35rem;
+    color: #5b4bd1;
+    background: var(--tblr-bg-surface, #fff);
+    font-size: .78rem;
+    font-weight: 700;
+    line-height: 1.1;
+    pointer-events: none;
+}
+
+#schoolProfileModal .location-combobox-selected-text {
+    display: block;
+    min-width: 0;
+    overflow: visible;
+}
+
+#schoolProfileModal .location-combobox-selected-text .location-combobox-khmer {
+    max-width: 100%;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+    word-break: keep-all;
+}
+
+#schoolProfileModal .location-combobox-selected-text .location-combobox-english {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+#schoolProfileModal .location-combobox-menu {
+    position: absolute;
+    top: calc(100% + .35rem);
+    right: 0;
+    left: 0;
+    z-index: 1065;
+    border: 1px solid var(--tblr-border-color);
+    border-radius: .75rem;
+    background: var(--tblr-bg-surface, #fff);
+    box-shadow: 0 12px 32px rgba(31, 63, 104, .18);
+    padding: .5rem;
+}
+
+#schoolProfileModal .location-combobox-search {
+    min-height: 2.5rem;
+    margin-bottom: .45rem;
+}
+
+#schoolProfileModal .location-combobox-results {
+    max-height: 13rem;
+    overflow-y: auto;
+}
+
+#schoolProfileModal .location-combobox-option {
+    display: block;
+    width: 100%;
+    border: 0;
+    border-radius: .55rem;
+    background: transparent;
+    padding: .5rem .6rem;
+    text-align: left;
+}
+
+#schoolProfileModal .location-combobox-option:hover {
+    background: rgba(65, 119, 216, .08);
+}
+
+#schoolProfileModal .location-combobox-khmer {
+    display: block;
+    color: #243b59;
+    font-family: "Khmer OS Siemreap", "Noto Sans Khmer", sans-serif;
+    font-size: .82rem;
+    font-weight: 700;
+    line-height: 1.35;
+}
+
+#schoolProfileModal .location-combobox-english {
+    color: var(--tblr-secondary);
+    font-size: .75rem;
+    line-height: 1.3;
+}
+
 @media (max-width: 767.98px) {
     #schoolProfileModal .modal-dialog {
+        display: flex;
+        align-items: stretch;
+        width: calc(100vw - 1rem);
+        height: calc(100svh - 1rem);
+        max-height: calc(100svh - 1rem);
+        margin: .5rem auto;
         max-width: calc(100vw - 1rem);
     }
 
+    #schoolProfileModal .modal-content {
+        height: 100%;
+        max-height: 100%;
+        overflow: hidden;
+    }
+
+    #schoolProfileModal form {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        min-height: 0;
+    }
+
+    #schoolProfileModal .modal-body {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
+        padding: 1rem;
+    }
+
+    #schoolProfileModal .modal-header,
+    #schoolProfileModal .modal-footer {
+        flex: 0 0 auto;
+        padding-right: 1rem;
+        padding-left: 1rem;
+    }
+
     #schoolProfileModal .logo-dropzone {
+        grid-template-columns: 1fr;
+    }
+
+    #schoolProfileModal .school-profile-address-grid {
+        width: 100%;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: .65rem;
+        overflow: visible;
+        padding-bottom: 0;
+    }
+
+    #schoolProfileModal .school-profile-address-grid .premium-floating-field,
+    #schoolProfileModal .school-profile-address-grid .location-combobox,
+    #schoolProfileModal .school-profile-address-grid .location-combobox-toggle,
+    #schoolProfileModal .school-profile-address-grid .location-combobox-selected,
+    #schoolProfileModal .school-profile-address-grid .location-combobox-selected-text {
+        min-width: 0;
+        max-width: 100%;
+    }
+
+    #schoolProfileModal .school-profile-address-grid .location-combobox-toggle {
+        min-height: 4.55rem;
+        padding: 1.4rem .65rem .42rem;
+        gap: .35rem;
+    }
+
+    #schoolProfileModal .school-profile-address-grid .premium-floating-field > .form-label {
+        left: .75rem;
+        max-width: calc(100% - 1.5rem);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    #schoolProfileModal .school-profile-address-grid .location-combobox-selected-text .location-combobox-khmer {
+        font-size: .78rem;
+        line-height: 1.3;
+    }
+
+    #schoolProfileModal .school-profile-address-grid .location-combobox-selected-text .location-combobox-english {
+        font-size: .72rem;
+    }
+
+    #schoolProfileModal .school-profile-address-grid .location-flag {
+        width: 1.35rem;
+        height: .9rem;
+        margin-right: .35rem !important;
+    }
+}
+
+
+.school-profiles-mobile-cards {
+    display: none;
+}
+
+@media (max-width: 767.98px) {
+    #school-profiles-search {
+        width: 100%;
+        min-height: 3rem;
+        font-size: .95rem;
+    }
+
+    .school-profile-list-card .card-body .row {
+        display: block;
+        margin-right: 0;
+        margin-left: 0;
+    }
+
+    .school-profile-list-card .card-body .col-auto {
+        width: 100%;
+        padding-right: 0;
+        padding-left: 0;
+    }
+
+    .table-responsive:has(#schoolProfilesTable) {
+        display: none;
+    }
+
+    .school-profiles-mobile-cards {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: .85rem;
+        padding: 1rem;
+    }
+
+    .school-profile-mobile-card {
+        position: relative;
+        padding: 3.75rem .85rem 1rem;
+        overflow: hidden;
+        border: 1px solid #dfe7f1;
+        border-radius: .45rem;
+        background: var(--tblr-bg-surface, #fff);
+        box-shadow: 0 8px 18px rgba(31, 63, 104, .08);
+    }
+
+    .school-profile-mobile-card::after {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        height: .35rem;
+        background: var(--tblr-primary);
+        content: "";
+    }
+
+    .school-profile-mobile-number {
+        display: grid;
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 3.2rem;
+        height: 3.2rem;
+        place-items: center;
+        color: #fff;
+        background: var(--tblr-primary);
+        font-size: 1.25rem;
+        font-weight: 800;
+        line-height: 1;
+    }
+
+    .school-profile-mobile-status {
+        position: absolute;
+        top: .8rem;
+        right: .85rem;
+    }
+
+    .school-profile-mobile-grid {
+        display: grid;
+        grid-template-columns: 3.75rem minmax(0, 1fr) minmax(0, 1fr);
+        align-items: start;
+        gap: .75rem;
+        color: var(--tblr-secondary);
+        font-size: .8rem;
+        line-height: 1.45;
+    }
+
+    .school-profile-mobile-logo-wrap {
+        display: grid;
+        place-items: center;
+    }
+
+    .school-profile-mobile-logo {
+        width: 3rem;
+        height: 3rem;
+        object-fit: contain;
+    }
+
+    .school-profile-mobile-logo-empty {
+        display: grid;
+        width: 3rem;
+        height: 3rem;
+        place-items: center;
+        border: 1px solid #dbe4f0;
+        border-radius: .5rem;
+        color: var(--tblr-primary);
+        background: rgba(65, 119, 216, .08);
+        font-size: 1.45rem;
+    }
+
+    .school-profile-mobile-main,
+    .school-profile-mobile-campus {
+        display: grid;
+        gap: .25rem;
+        min-width: 0;
+    }
+
+    .school-profile-mobile-name,
+    .school-profile-mobile-main span,
+    .school-profile-mobile-campus span,
+    .school-profile-mobile-campus strong {
+        min-width: 0;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .school-profile-mobile-name {
+        color: #243b59;
+        font-size: .95rem;
+        font-weight: 800;
+        line-height: 1.25;
+    }
+
+    .school-profile-mobile-name-en {
+        color: var(--tblr-secondary);
+        font-size: .76rem;
+        font-weight: 500;
+        line-height: 1.25;
+    }
+
+    .school-profile-mobile-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: .45rem;
+        margin-top: .85rem;
+    }
+
+    .school-profile-mobile-actions .btn {
+        min-height: 38px;
+        padding-right: .5rem;
+        padding-left: .5rem;
+        font-size: .78rem;
+    }
+
+    .school-profile-mobile-empty {
+        padding: 2rem 1rem;
+        color: var(--tblr-secondary);
+        text-align: center;
+    }
+}
+
+@media (max-width: 359.98px) {
+    #schoolProfileModal .school-profile-address-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .school-profile-mobile-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .school-profile-mobile-logo-wrap {
+        justify-content: start;
+    }
+}
+
+[data-bs-theme="dark"] .school-profile-mobile-card {
+    border-color: rgba(148, 163, 184, .25);
+}
+
+[data-bs-theme="dark"] .school-profile-mobile-name {
+    color: var(--tblr-body-color);
+}
+
+/* School Information mobile card layout */
+@media (max-width: 767.98px) {
+    .school-profile-mobile-card {
+        padding-top: 3.65rem;
+    }
+
+    .school-profile-mobile-grid {
+        display: block;
+    }
+
+    .school-profile-mobile-main-row {
+        display: grid;
+        grid-template-columns: 3.4rem minmax(0, 1fr);
+        align-items: center;
+        gap: .75rem;
+        min-width: 0;
+    }
+
+    .school-profile-mobile-title-wrap {
+        display: grid;
+        gap: .2rem;
+        min-width: 0;
+    }
+
+    .school-profile-mobile-detail-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: .85rem;
+        margin-top: .85rem;
+        color: var(--tblr-secondary);
+        font-size: .8rem;
+        line-height: 1.45;
+    }
+
+    .school-profile-mobile-detail-grid > div {
+        display: grid;
+        gap: .25rem;
+        min-width: 0;
+    }
+
+    .school-profile-mobile-phone {
+        justify-items: end;
+        text-align: right;
+    }
+
+    .school-profile-mobile-phone strong {
+        display: inline-flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: .25rem;
+    }
+
+    .school-profile-mobile-address {
+        display: grid;
+        gap: .2rem;
+        margin-top: .85rem;
+        padding: .7rem .75rem;
+        border: 1px solid #dfe7f1;
+        border-radius: .55rem;
+        background: rgba(65, 119, 216, .05);
+        color: var(--tblr-secondary);
+        font-size: .78rem;
+        line-height: 1.45;
+    }
+
+    .school-profile-mobile-address .school-profile-mobile-label {
+        display: inline-flex;
+        align-items: center;
+        gap: .25rem;
+        color: var(--tblr-primary);
+        font-weight: 700;
+    }
+
+    .school-profile-mobile-address strong {
+        color: #243b59;
+        font-size: .82rem;
+        font-weight: 800;
+    }
+
+    .school-profile-mobile-address span {
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+
+    .school-profile-mobile-address .school-profile-khmer {
+        font-size: .76rem;
+        line-height: 1.45;
+    }
+
+    .school-profile-mobile-campus-kh {
+        color: #243b59;
+        font-size: .95rem;
+        font-weight: 800;
+        line-height: 1.25;
+    }
+
+    .school-profile-mobile-title-wrap span,
+    .school-profile-mobile-detail-grid span,
+    .school-profile-mobile-detail-grid strong {
+        min-width: 0;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .school-profile-mobile-label {
+        color: var(--tblr-secondary);
+        font-weight: 400;
+    }
+}
+
+@media (max-width: 359.98px) {
+    .school-profile-mobile-main-row,
+    .school-profile-mobile-detail-grid {
         grid-template-columns: 1fr;
     }
 }

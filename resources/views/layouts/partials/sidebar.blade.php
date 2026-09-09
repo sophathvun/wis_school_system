@@ -1,4 +1,4 @@
-<aside class="navbar navbar-vertical navbar-expand-lg" data-bs-theme="dark">
+﻿<aside class="navbar navbar-vertical navbar-expand-lg" data-bs-theme="dark">
     @php($canView = fn(string $permission) => auth()->user()->isSuperAdmin() || auth()->user()->hasPermission($permission))
     <div class="container-fluid">
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#sidebar-menu"
@@ -173,7 +173,7 @@
                         request()->routeIs('sessions.*') ||
                         request()->routeIs('education-levels.*') ||
                         request()->routeIs('programs.*') ||
-                        request()->routeIs('school-info.*') ||
+                        request()->routeIs('schoolInfo.*') ||
                         request()->routeIs('locations.*') ||
                         request()->routeIs('occupations.*') ||
                         request()->routeIs('academic-tracks.*') ||
@@ -195,7 +195,7 @@
                             request()->routeIs('sessions.*') ||
                             request()->routeIs('education-levels.*') ||
                             request()->routeIs('programs.*') ||
-                            request()->routeIs('school-info.*') ||
+                            request()->routeIs('schoolInfo.*') ||
                             request()->routeIs('locations.*') ||
                             request()->routeIs('occupations.*') ||
                             request()->routeIs('academic-tracks.*') ||
@@ -240,7 +240,7 @@
                                             Programs</a>
                                     @endif
                                     @if ($canView('school-info.view'))
-                                        <a class="dropdown-item {{ request()->routeIs('school-info.*') ? 'active' : '' }}"
+                                        <a class="dropdown-item {{ request()->routeIs('schoolInfo.*') ? 'active' : '' }}"
                                             href="{{ route('schoolInfo.index') }}">
                                             <i class="ti ti-building-community me-2"></i> School Information
                                         </a>
@@ -432,3 +432,4 @@
         </div>
     </div>
 </aside>
+

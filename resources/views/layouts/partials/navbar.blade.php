@@ -1,4 +1,4 @@
-@php
+﻿@php
     $headerNotificationPayload = $headerNotificationPayload ?? [];
     $headerUnreadNotifications = $headerUnreadNotifications ?? 0;
 @endphp
@@ -88,7 +88,7 @@
                                         <div class="col text-truncate">
                                             <a href="#" class="text-body d-block">Example 2</a>
                                             <div class="d-block text-secondary text-truncate mt-n1">
-                                                justify-content:between ⇒ justify-content:space-between (#29734)</div>
+                                                justify-content:between â‡’ justify-content:space-between (#29734)</div>
                                         </div>
                                         <div class="col-auto">
                                             <a href="#" class="list-group-item-actions show">
@@ -406,6 +406,14 @@
                 'icon' => 'ti-route-alt-left',
                 'url' => route('academic-tracks.index'),
             ],
+            request()->routeIs('withdrawal-reasons.*') => [
+                'parent' => 'Settings',
+                'parentIcon' => 'ti-settings',
+                'parentUrl' => route('schoolInfo.index'),
+                'label' => 'Withdrawal Reasons',
+                'icon' => 'ti-clipboard-list',
+                'url' => route('withdrawal-reasons.index'),
+            ],
             request()->routeIs('branding-settings.*') => [
                 'parent' => 'Administrator',
                 'parentIcon' => 'ti-user-shield',
@@ -503,3 +511,4 @@
 </div>
 </div>
 </header>
+

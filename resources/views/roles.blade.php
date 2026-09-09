@@ -1,4 +1,4 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 @section('title', 'Roles')
 @section('page-header')<div class="container-fluid">
         <div class="row g-2 align-items-center">
@@ -37,10 +37,10 @@
         };
         $sortIcon = function (string $field) use ($roleSortBy, $roleSortDir) {
             if ($roleSortBy !== $field) {
-                return '↕';
+                return '<span class="table-sort-icon" aria-hidden="true">&varr;</span>';
             }
 
-            return $roleSortDir === 'asc' ? '↑' : '↓';
+            return $roleSortDir === 'asc' ? '<span class="table-sort-icon" aria-hidden="true">&uarr;</span>' : '<span class="table-sort-icon" aria-hidden="true">&darr;</span>';
         };
     @endphp
     @if (session('success'))
@@ -48,7 +48,7 @@
         @endif @if ($errors->any())
             <div class="alert alert-danger">{{ $errors->first() }}</div>
         @endif
-        <div class="card">
+        <div class="card roles-list-card">
             <div class="card-header">
                 <h3 class="card-title">Role Lists</h3>
             </div>
@@ -73,27 +73,27 @@
                             <th>No.</th>
                             <th>
                                 <a class="table-sort-button text-uppercase" href="{{ $sortUrl('name') }}">
-                                    Role {{ $sortIcon('name') }}
+                                    Role {!! $sortIcon('name') !!}
                                 </a>
                             </th>
                             <th>
                                 <a class="table-sort-button text-uppercase" href="{{ $sortUrl('code') }}">
-                                    Code {{ $sortIcon('code') }}
+                                    Code {!! $sortIcon('code') !!}
                                 </a>
                             </th>
                             <th>
                                 <a class="table-sort-button text-uppercase" href="{{ $sortUrl('department') }}">
-                                    Department {{ $sortIcon('department') }}
+                                    Department {!! $sortIcon('department') !!}
                                 </a>
                             </th>
                             <th>
                                 <a class="table-sort-button text-uppercase" href="{{ $sortUrl('scope') }}">
-                                    Scope {{ $sortIcon('scope') }}
+                                    Scope {!! $sortIcon('scope') !!}
                                 </a>
                             </th>
                             <th>
                                 <a class="table-sort-button text-uppercase" href="{{ $sortUrl('status') }}">
-                                    Status {{ $sortIcon('status') }}
+                                    Status {!! $sortIcon('status') !!}
                                 </a>
                             </th>
                             <th class="text-center">Actions</th>
@@ -113,7 +113,7 @@
                                 <td>{{ $roles->firstItem() + $loop->index }}</td>
                                 <td>{{ $role->name }}</td>
                                 <td>{{ $role->code }}</td>
-                                <td>{{ $role->department?->name ?? '—' }}</td>
+                                <td>{{ $role->department?->name ?? 'â€”' }}</td>
                                 <td>{{ $role->is_global ? 'Global' : 'Campus' }}</td>
                                 <td><span
                                         class="badge bg-{{ $role->status ? 'success' : 'secondary' }}">{{ $role->status ? 'Active' : 'Inactive' }}</span>
@@ -176,3 +176,5 @@
         @vite('resources/js/roles.js')
     @vite('resources/css/pages/roles.css')
 @endsection
+
+

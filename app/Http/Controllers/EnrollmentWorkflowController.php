@@ -158,7 +158,7 @@ class EnrollmentWorkflowController
                 'student_id',
                 StudentEnrollment::select('student_id')
                     ->where('academic_year_id', $data['target_academic_year_id'])
-                    ->whereNotIn('enrollment_status', ['withdrawn', 'cancelled'])
+                    ->whereNotIn('enrollment_status', ['withdrawn', 'cancelled', 'promotion_cancelled'])
             ))
             ->when(filled($data['search'] ?? null), function ($query) use ($data) {
                 $search = $data['search'];
@@ -187,16 +187,24 @@ class EnrollmentWorkflowController
             ->select('tb_student_enrollment_workflow.*')
             ->leftJoin('tb_student', 'tb_student.id', '=', 'tb_student_enrollment_workflow.student_id')
             ->leftJoin('tb_academic_year', 'tb_academic_year.id', '=', 'tb_student_enrollment_workflow.to_academic_year_id')
+            ->leftJoin('tb_academic_year as from_academic_year', 'from_academic_year.id', '=', 'tb_student_enrollment_workflow.from_academic_year_id')
             ->leftJoin('tb_school_info', 'tb_school_info.id', '=', 'tb_student_enrollment_workflow.to_campus_id')
+            ->leftJoin('tb_school_info as from_school_info', 'from_school_info.id', '=', 'tb_student_enrollment_workflow.from_campus_id')
             ->leftJoin('tb_grade', 'tb_grade.id', '=', 'tb_student_enrollment_workflow.to_grade_id')
+            ->leftJoin('tb_grade as from_grade', 'from_grade.id', '=', 'tb_student_enrollment_workflow.from_grade_id')
             ->leftJoin('tb_class', 'tb_class.id', '=', 'tb_student_enrollment_workflow.to_class_id')
+            ->leftJoin('tb_class as from_class', 'from_class.id', '=', 'tb_student_enrollment_workflow.from_class_id')
             ->leftJoin('tb_session', 'tb_session.id', '=', 'tb_student_enrollment_workflow.to_session_id')
+            ->leftJoin('tb_session as from_session', 'from_session.id', '=', 'tb_student_enrollment_workflow.from_session_id')
             ->leftJoin('users', 'users.id', '=', 'tb_student_enrollment_workflow.changed_by')
-            ->with(['student:id,student_no,student_id,photo_path,full_name_en,full_name_kh', 'toCampus:id,campus_name_en', 'toAcademicYear:id,academic_year', 'toGrade:id,grade', 'toClass:id,class_name', 'toSession:id,session_short_name', 'changedBy:id,name'])
+            ->with(['student:id,student_no,student_id,photo_path,full_name_en,full_name_kh', 'fromCampus:id,campus_name_en', 'toCampus:id,campus_name_en', 'fromAcademicYear:id,academic_year', 'toAcademicYear:id,academic_year', 'fromGrade:id,grade', 'toGrade:id,grade', 'fromClass:id,class_name', 'toClass:id,class_name', 'fromSession:id,session_short_name', 'toSession:id,session_short_name', 'changedBy:id,name'])
             ->when($request->filled('search'), fn ($q) => $q->whereHas('student', fn ($student) => $student->where('student_no', 'like', '%' . $request->search . '%')->orWhere('student_id', 'like', '%' . $request->search . '%')->orWhere('full_name_en', 'like', '%' . $request->search . '%')->orWhere('full_name_kh', 'like', '%' . $request->search . '%')))
             ->when($request->filled('academic_year_id'), fn ($q) => $q->where('to_academic_year_id', $request->integer('academic_year_id')))
             ->when($request->filled('campus_id'), fn ($q) => $q->where('to_campus_id', $request->integer('campus_id')))
             ->when($gradeId && $classId, fn ($q) => $q->where('to_grade_id', (int) $gradeId)->where('to_class_id', (int) $classId))
+            ->when($request->filled('status'), fn ($q) => $request->query('status') === 'active'
+                ? $q->where('tb_student_enrollment_workflow.status', 'completed')
+                : $q->where('tb_student_enrollment_workflow.status', $request->query('status')))
             ->when($mode === 'promotion', fn ($q) => $q->whereIn('action_type', ['promotion', 'class_promotion', 'selected_promotion', 're_promotion']))
             ->when($mode === 'transfer', fn ($q) => $q->whereIn('action_type', ['transfer', 'class_transfer', 'selected_transfer']));
 
@@ -207,7 +215,20 @@ class EnrollmentWorkflowController
             'grade' => $query->orderByRaw("CAST(tb_grade.grade_order AS UNSIGNED) {$sortDir}")->orderBy('tb_class.class_name', $sortDir),
             'group' => $query->orderBy('tb_session.session_short_name', $sortDir),
             'campus' => $query->orderBy('tb_school_info.campus_name_en', $sortDir),
+            'old_information' => $query
+                ->orderBy('from_academic_year.academic_year', $sortDir)
+                ->orderBy('from_school_info.campus_name_en', $sortDir)
+                ->orderByRaw("CAST(from_grade.grade_order AS UNSIGNED) {$sortDir}")
+                ->orderBy('from_class.class_name', $sortDir)
+                ->orderBy('from_session.session_short_name', $sortDir),
+            'transfer_information' => $query
+                ->orderBy('tb_academic_year.academic_year', $sortDir)
+                ->orderBy('tb_school_info.campus_name_en', $sortDir)
+                ->orderByRaw("CAST(tb_grade.grade_order AS UNSIGNED) {$sortDir}")
+                ->orderBy('tb_class.class_name', $sortDir)
+                ->orderBy('tb_session.session_short_name', $sortDir),
             'action' => $query->orderBy('tb_student_enrollment_workflow.action_type', $sortDir),
+            'status' => $query->orderBy('tb_student_enrollment_workflow.status', $sortDir),
             'promoted_by' => $query->orderBy('users.name', $sortDir),
             default => $query->orderBy('tb_student_enrollment_workflow.updated_at', $sortDir)->orderBy('tb_student_enrollment_workflow.id', $sortDir),
         };
@@ -244,6 +265,19 @@ class EnrollmentWorkflowController
         $target = $this->service->repromote($workflow, $data);
 
         return response()->json(['status' => 'success', 'message' => 'Student promoted again successfully.', 'data' => $target]);
+    }
+
+    public function reverseTransfer(Request $request, EnrollmentWorkflowAction $workflow)
+    {
+        $data = $request->validate([
+            'effective_on' => ['required', 'date'],
+            'reason' => ['nullable', 'string', 'max:255'],
+            'notes' => ['nullable', 'string', 'max:5000'],
+        ]);
+
+        $target = $this->service->reverseTransfer($workflow, $data);
+
+        return response()->json(['status' => 'success', 'message' => 'Transfer reversed successfully.', 'data' => $target]);
     }
 
     public function transfer(Request $request)

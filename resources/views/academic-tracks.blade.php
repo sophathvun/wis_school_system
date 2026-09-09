@@ -7,7 +7,7 @@
                 <div class="page-pretitle">Settings</div>
                 <h2 class="page-title">Academic Tracks</h2>
             </div>
-            <div class="col-auto d-flex gap-2">
+            <div class="col-auto d-flex gap-2 academic-track-page-actions">
                 <button class="btn btn-outline-primary" id="printAcademicTracks"><i class="ti ti-printer icon"></i> Print</button>
                 <button class="btn btn-outline-success" id="excelAcademicTracks"><i class="ti ti-file-spreadsheet icon"></i> Excel</button>
                 <button class="btn btn-primary" id="newAcademicTrack"><i class="ti ti-plus icon"></i> New Academic
@@ -17,9 +17,9 @@
     </div>
 @endsection
 @section('content')
-    <div class="card">
+    <div class="card academic-tracks-list-card">
         <div class="card-header">
-            <h3 class="card-title">Academic Track List</h3>
+            <h3 class="card-title">ACADEMIC TRACK LIST</h3>
         </div>
         <div class="card-body border-bottom py-3">
             <input type="hidden" id="academic-tracks-per-page" value="10">
@@ -47,6 +47,7 @@
                 <tbody id="academicTracksTable"></tbody>
             </table>
         </div>
+        <div id="academicTracksMobileCards" class="academic-track-mobile-cards"></div>
         <div class="card-footer">
             <div id="academic-tracks-pagination-container"></div>
         </div>
@@ -71,9 +72,9 @@
                         <div class="row g-3">
                             <div class="col-md-6"><label class="form-label">Code</label><input name="code"
                                     id="academic_track_code" class="form-control" placeholder="SCI-KH"></div>
-                            <div class="col-md-6"><label class="form-label">Grade</label><select name="grade_id"
+                            <div class="col-md-6 academic-track-grade-field"><label class="form-label">Grade</label><select name="grade_id"
                                     id="academic_track_grade_id" class="form-select">
-                                    <option value="">All / Not assigned</option>
+                                    <option value=""></option>
                                     @foreach ($grades as $grade)
                                         <option value="{{ $grade->id }}">{{ $grade->grade }}</option>
                                     @endforeach
@@ -88,11 +89,7 @@
                                     <option value="khmer">Khmer</option>
                                     <option value="english">English</option>
                                 </select></div>
-                            <div class="col-md-12"><label class="form-label">Status</label><select name="status"
-                                    id="academic_track_status" class="form-select">
-                                    <option value="1">Active</option>
-                                    <option value="0">Inactive</option>
-                                </select></div>
+                            <div class="col-md-12"><label class="form-label">Status</label><input type="hidden" name="status" id="academic_track_status" value="1"><button type="button" id="academic-track-status-toggle" class="status-toggle is-active" aria-pressed="true"><span class="status-toggle-label">ON</span><span class="status-toggle-knob"></span></button></div>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -106,3 +103,4 @@
     @vite('resources/js/academicTracks.js')
     @vite('resources/css/pages/academic-tracks.css')
 @endsection
+

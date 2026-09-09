@@ -7,7 +7,7 @@
                 <div class="page-pretitle">Students</div>
                 <h2 class="page-title">Student Enrollment</h2>
             </div>
-            <div class="col-auto">
+            <div class="col-auto enrollment-new-action">
                 <button class="btn btn-primary" id="newEnrollment"><i class="ti ti-plus icon"></i> New Enrollment</button>
             </div>
         </div>
@@ -27,7 +27,7 @@
         class="d-none"></div>
 
     <div class="col-12">
-        <div class="card">
+        <div class="card enrollment-list-card">
             <div class="card-header">
                 <h3 class="card-title">Student Enrollment Lists</h3>
             </div>
@@ -71,23 +71,23 @@
                     <thead>
                         <tr>
                             <th>Photo</th>
-                            <th><button type="button" class="table-sort" data-sort="student_id">Student ID <span
+                            <th><button type="button" class="enrollment-table-sort" data-sort="student_id">Student ID <span
                                         data-sort-icon="student_id"></span></button></th>
-                            <th><button type="button" class="table-sort" data-sort="student_name">Student Name <span
+                            <th><button type="button" class="enrollment-table-sort" data-sort="student_name">Student Name <span
                                         data-sort-icon="student_name"></span></button></th>
-                            <th data-student-type-column="true"><button type="button" class="table-sort"
+                            <th data-student-type-column="true"><button type="button" class="enrollment-table-sort"
                                     data-sort="student_type">Type <span data-sort-icon="student_type"></span></button></th>
-                            <th><button type="button" class="table-sort" data-sort="academic_year">Academic Year <span
+                            <th><button type="button" class="enrollment-table-sort" data-sort="academic_year">Academic Year <span
                                         data-sort-icon="academic_year"></span></button></th>
-                            <th><button type="button" class="table-sort" data-sort="campus">Campus <span
+                            <th><button type="button" class="enrollment-table-sort" data-sort="campus">Campus <span
                                         data-sort-icon="campus"></span></button></th>
-                            <th><button type="button" class="table-sort" data-sort="grade">Grade <span
+                            <th><button type="button" class="enrollment-table-sort" data-sort="grade">Grade <span
                                         data-sort-icon="grade"></span></button></th>
-                            <th><button type="button" class="table-sort" data-sort="academic_track">Track <span
+                            <th><button type="button" class="enrollment-table-sort" data-sort="academic_track">Track <span
                                         data-sort-icon="academic_track"></span></button></th>
-                            <th><button type="button" class="table-sort" data-sort="group">Group <span
+                            <th><button type="button" class="enrollment-table-sort" data-sort="group">Group <span
                                         data-sort-icon="group"></span></button></th>
-                            <th><button type="button" class="table-sort" data-sort="status">Status <span
+                            <th><button type="button" class="enrollment-table-sort" data-sort="status">Status <span
                                         data-sort-icon="status"></span></button></th>
                             <th>Actions</th>
                         </tr>
@@ -95,7 +95,7 @@
                     <tbody id="enrollmentsTable"></tbody>
                 </table>
             </div>
-            <div id="enrollmentsMobileCards" class="enrollment-mobile-cards d-none"></div>
+            <div id="enrollmentsMobileCards" class="enrollment-mobile-cards"></div>
             <div class="card-footer">
                 <div id="enrollments-pagination-container"></div>
             </div>
@@ -208,9 +208,9 @@
                                         class="form-control school-profile-khmer" placeholder=" ">
                                 </div>
                                 <div class="col-md-4 premium-floating-field">
-                                    <label class="form-label school-profile-khmer">ថ្ងៃខែឆ្នាំកំណើត (Date of Birth)</label>
+                                    <label class="form-label school-profile-khmer">ÃƒÂ¡Ã…Â¾Ã‚ÂÃƒÂ¡Ã…Â¸Ã¢â‚¬â„¢ÃƒÂ¡Ã…Â¾Ã¢â‚¬Å¾ÃƒÂ¡Ã…Â¸Ã†â€™ÃƒÂ¡Ã…Â¾Ã‚ÂÃƒÂ¡Ã…Â¸Ã¢â‚¬Å¡ÃƒÂ¡Ã…Â¾Ã¢â‚¬Â ÃƒÂ¡Ã…Â¸Ã¢â‚¬â„¢ÃƒÂ¡Ã…Â¾Ã¢â‚¬Å“ÃƒÂ¡Ã…Â¾Ã‚Â¶ÃƒÂ¡Ã…Â¸Ã¢â‚¬Â ÃƒÂ¡Ã…Â¾Ã¢â€šÂ¬ÃƒÂ¡Ã…Â¸Ã¢â‚¬Â ÃƒÂ¡Ã…Â¾Ã…Â½ÃƒÂ¡Ã…Â¾Ã‚Â¾ÃƒÂ¡Ã…Â¾Ã‚Â (Date of Birth)</label>
                                     <input id="date_of_birth_kh" class="form-control school-profile-khmer" readonly
-                                        placeholder="ថ្ងៃ-ខែ-ឆ្នាំ">
+                                        placeholder="ÃƒÂ¡Ã…Â¾Ã‚ÂÃƒÂ¡Ã…Â¸Ã¢â‚¬â„¢ÃƒÂ¡Ã…Â¾Ã¢â‚¬Å¾ÃƒÂ¡Ã…Â¸Ã†â€™-ÃƒÂ¡Ã…Â¾Ã‚ÂÃƒÂ¡Ã…Â¸Ã¢â‚¬Å¡-ÃƒÂ¡Ã…Â¾Ã¢â‚¬Â ÃƒÂ¡Ã…Â¸Ã¢â‚¬â„¢ÃƒÂ¡Ã…Â¾Ã¢â‚¬Å“ÃƒÂ¡Ã…Â¾Ã‚Â¶ÃƒÂ¡Ã…Â¸Ã¢â‚¬Â ">
                                 </div>
                             </div>
 
@@ -703,7 +703,7 @@
                                                 <div class="fw-bold fs-3">Drop Files Here</div>
                                                 <div class="mt-1">or <span class="document-browse-link">Browse
                                                         File</span></div>
-                                                <div class="document-upload-hint mt-3">Supports PDF, JPG, PNG, DOC, DOCX ·
+                                                <div class="document-upload-hint mt-3">Supports PDF, JPG, PNG, DOC, DOCX Ãƒâ€šÃ‚Â·
                                                     Maximum 2 MB per file</div>
                                                 <div id="enrollmentDocumentFileList" class="premium-document-file-list">
                                                 </div><input type="file" id="enrollment-document-file" class="d-none"
@@ -855,3 +855,5 @@
     @vite('resources/js/studentEnrollment.js')
     @vite('resources/css/pages/student-enrollment.css')
 @endsection
+
+

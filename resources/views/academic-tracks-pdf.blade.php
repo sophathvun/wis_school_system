@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -105,7 +105,7 @@
             @endif
         </div>
         <div class="report-title">
-            <h2 class="khmer-title">ážáž¶ážšáž¶áž„ážáŸ’áž“áž¶áž€áŸ‹áž‡áž˜áŸ’ážšáž¾ážŸ</h2>
+            <h2 class="khmer-title">តារាងថ្នាក់ជម្រើស</h2>
             <h2 class="english-title">Academic Track List</h2>
         </div>
     </div>

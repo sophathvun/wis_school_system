@@ -1,3 +1,11 @@
+﻿@media (min-width: 768px) {
+    .academic-years-list-card .table thead th,
+    .academic-years-list-card .table thead .table-sort-button {
+        border-color: var(--tblr-primary);
+        background: var(--tblr-primary);
+        color: #fff;
+    }
+}
 .table-sort-button {
     padding: 0;
     border: 0;
@@ -175,4 +183,367 @@
     .academic-year-mobile-actions .btn { min-width: 0; min-height: 44px; }
     .academic-year-mobile-actions:has(> :nth-child(3)) > :first-child { grid-column: 1 / -1; }
     .academic-year-mobile-actions .btn i { font-size: 1.3rem; }
+}
+
+/* Match Class mobile card style */
+@media (max-width: 767.98px) {
+    .academic-years-mobile-cards {
+        grid-template-columns: 1fr;
+        gap: .85rem;
+    }
+
+    .academic-year-mobile-card {
+        position: relative;
+        min-height: 132px;
+        padding: 3.25rem .85rem .85rem;
+        overflow: hidden;
+        border-radius: .45rem;
+        box-shadow: 0 8px 18px rgba(31, 63, 104, .08);
+    }
+
+    .academic-year-mobile-card::after {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        height: .35rem;
+        background: var(--tblr-primary);
+        content: "";
+    }
+
+    .academic-year-mobile-number {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 3.2rem;
+        height: 3.2rem;
+        border-radius: 0;
+        color: #fff;
+        background: var(--tblr-primary);
+        font-size: 1.25rem;
+        font-weight: 800;
+        line-height: 1;
+    }
+
+    .academic-year-mobile-card-head {
+        align-items: center;
+        min-width: 0;
+        margin-left: 3.75rem;
+    }
+
+    .academic-year-mobile-card-head strong {
+        overflow: hidden;
+        color: #243b59;
+        font-size: .95rem;
+        font-weight: 800;
+        line-height: 1.25;
+        text-overflow: ellipsis;
+        text-transform: uppercase;
+        white-space: nowrap;
+    }
+
+    .academic-year-mobile-card-head div span {
+        font-size: .8rem;
+        line-height: 1.35;
+    }
+
+    .academic-year-mobile-details {
+        gap: .75rem;
+        margin-top: .8rem;
+        color: var(--tblr-secondary);
+        font-size: .8rem;
+        line-height: 1.35;
+    }
+
+    .academic-year-mobile-actions {
+        gap: .45rem;
+        margin-top: .8rem;
+    }
+
+    .academic-year-mobile-actions .btn {
+        min-height: 38px;
+        padding-right: .5rem;
+        padding-left: .5rem;
+        font-size: .78rem;
+    }
+}
+
+[data-bs-theme="dark"] .academic-year-mobile-card-head strong {
+    color: var(--tblr-body-color);
+}
+/* Academic Year mobile field arrangement */
+@media (max-width: 767.98px) {
+    .academic-year-mobile-status {
+        position: absolute;
+        top: .8rem;
+        right: .85rem;
+    }
+
+    .academic-year-mobile-main-row {
+        display: grid;
+        grid-template-columns: minmax(5.6rem, 1fr) minmax(5.4rem, .9fr) minmax(0, 1.25fr);
+        align-items: center;
+        gap: .7rem;
+        min-width: 0;
+        margin-left: 3.75rem;
+        color: var(--tblr-secondary);
+        font-size: .8rem;
+        line-height: 1.35;
+    }
+
+    .academic-year-mobile-main-row span {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .academic-year-mobile-name {
+        display: block;
+        min-width: 0;
+        overflow: hidden;
+        color: #243b59;
+        font-size: .95rem;
+        font-weight: 800;
+        line-height: 1.25;
+        text-overflow: ellipsis;
+        text-transform: uppercase;
+        white-space: nowrap;
+    }
+
+    .academic-year-mobile-details {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: .75rem;
+    }
+
+    .academic-year-mobile-details span {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .academic-year-mobile-description {
+        grid-column: 1 / -1;
+    }
+}
+
+[data-bs-theme="dark"] .academic-year-mobile-name {
+    color: var(--tblr-body-color);
+}
+/* Academic Year requested mobile arrangement */
+@media (max-width: 767.98px) {
+    .academic-year-mobile-card {
+        padding: .85rem .85rem 1rem;
+    }
+
+    .academic-year-mobile-top-row {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: .85rem;
+    }
+
+    .academic-year-mobile-number {
+        position: static;
+        flex: 0 0 auto;
+    }
+
+    .academic-year-mobile-status {
+        position: static;
+        margin-top: .15rem;
+    }
+
+    .academic-year-mobile-year-row,
+    .academic-year-mobile-date-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        align-items: center;
+        gap: .85rem;
+        margin-top: .85rem;
+        color: var(--tblr-secondary);
+        font-size: .8rem;
+        line-height: 1.35;
+    }
+
+    .academic-year-mobile-name,
+    .academic-year-mobile-description,
+    .academic-year-mobile-date-row span,
+    .academic-year-mobile-code-row {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .academic-year-mobile-name {
+        color: #243b59;
+        font-size: .95rem;
+        font-weight: 800;
+        text-transform: uppercase;
+    }
+
+    .academic-year-mobile-description {
+        text-align: right;
+    }
+
+    .academic-year-mobile-date-row span:last-child {
+        text-align: right;
+    }
+
+    .academic-year-mobile-code-row {
+        margin-top: .75rem;
+        color: var(--tblr-secondary);
+        font-size: .8rem;
+        line-height: 1.35;
+    }
+
+    .academic-year-mobile-main-row,
+    .academic-year-mobile-details {
+        display: none;
+    }
+}
+
+[data-bs-theme="dark"] .academic-year-mobile-name {
+    color: var(--tblr-body-color);
+}
+/* Academic Year two-column mobile arrangement */
+@media (max-width: 767.98px) {
+    .academic-year-mobile-columns {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(7rem, auto);
+        gap: .85rem;
+        margin-top: 1rem;
+        color: var(--tblr-secondary);
+        font-size: .8rem;
+        line-height: 1.45;
+    }
+
+    .academic-year-mobile-left-column,
+    .academic-year-mobile-right-column {
+        display: grid;
+        gap: .55rem;
+        min-width: 0;
+        align-content: start;
+    }
+
+    .academic-year-mobile-right-column {
+        justify-items: end;
+        text-align: right;
+    }
+
+    .academic-year-mobile-name,
+    .academic-year-mobile-description,
+    .academic-year-mobile-code-row,
+    .academic-year-mobile-right-column span {
+        min-width: 0;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .academic-year-mobile-name {
+        color: #243b59;
+        font-size: .95rem;
+        font-weight: 800;
+        line-height: 1.25;
+        text-transform: uppercase;
+    }
+
+    .academic-year-mobile-description {
+        color: var(--tblr-secondary);
+    }
+
+    .academic-year-mobile-code-row {
+        margin-top: 0;
+    }
+
+    .academic-year-mobile-year-row,
+    .academic-year-mobile-date-row,
+    .academic-year-mobile-main-row,
+    .academic-year-mobile-details {
+        display: none;
+    }
+}
+
+@media (max-width: 359.98px) {
+    .academic-year-mobile-columns {
+        grid-template-columns: 1fr;
+    }
+
+    .academic-year-mobile-right-column {
+        justify-items: start;
+        text-align: left;
+    }
+}
+/* Keep Academic Year left-column text aligned */
+@media (max-width: 767.98px) {
+    .academic-year-mobile-left-column {
+        justify-items: start;
+        text-align: left;
+    }
+
+    .academic-year-mobile-left-column .academic-year-mobile-description {
+        width: 100%;
+        text-align: left;
+    }
+}
+/* Keep mobile number badge flush to top border like Class */
+@media (max-width: 767.98px) {
+    .academic-year-mobile-card {
+        padding: 3.25rem .85rem 1rem;
+    }
+
+    .academic-year-mobile-number {
+        position: absolute;
+        top: 0;
+        left: 0;
+        flex: none;
+    }
+}
+/* Align status with top number badge */
+@media (max-width: 767.98px) {
+    .academic-year-mobile-top-row {
+        min-height: 3.2rem;
+        align-items: center;
+        justify-content: flex-end;
+    }
+
+    .academic-year-mobile-status {
+        position: static;
+        margin-top: 0;
+        margin-left: auto;
+    }
+}
+/* Pin status to same top row as number badge */
+@media (max-width: 767.98px) {
+    .academic-year-mobile-status {
+        position: absolute;
+        top: .8rem;
+        right: .85rem;
+        margin-top: 0;
+        margin-left: 0;
+    }
+}
+/* Tighten space below top number/status row */
+@media (max-width: 767.98px) {
+    .academic-year-mobile-card {
+        padding-top: 2.85rem;
+    }
+
+    .academic-year-mobile-columns {
+        margin-top: .15rem;
+    }
+}
+/* Further reduce space below top number/status row */
+@media (max-width: 767.98px) {
+    .academic-year-mobile-card {
+        padding-top: 2.45rem;
+    }
+
+    .academic-year-mobile-columns {
+        margin-top: 0;
+    }
 }

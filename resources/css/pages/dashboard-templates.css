@@ -1,3 +1,16 @@
+﻿@media (min-width: 768px) {
+    .dashboard-templates-list-card > .card-header {
+        border-color: #0f2f5f;
+        background: #0f2f5f;
+        color: #fff;
+        border-top-left-radius: var(--tblr-card-border-radius);
+        border-top-right-radius: var(--tblr-card-border-radius);
+    }
+
+    .dashboard-templates-list-card > .card-header .card-title {
+        color: #fff;
+    }
+}
 .table-sort-button {
     padding: 0;
     border: 0;
@@ -1278,3 +1291,7 @@
         max-height: none;
     }
 }
+
+
+
+

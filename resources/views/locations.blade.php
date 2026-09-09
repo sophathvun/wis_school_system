@@ -20,7 +20,7 @@
 </div>@endsection
 @section('content')
     <div class="col-12">
-        <div class="card">
+        <div class="card locations-list-card">
             <div class="card-header">
                 <h3 class="card-title">Country and Location Lists</h3>
             </div>
@@ -28,13 +28,22 @@
                 <input type="hidden" id="locations-per-page" value="10">
                 <div class="row g-2 align-items-center">
                     <div class="col-lg-3 col-12">
-                        <select id="location-level" class="form-control form-control-sm">
+                        <select id="location-level" class="d-none">
                             <option value="country">Country</option>
                             <option value="province">Province / City</option>
                             <option value="district">District / Khan</option>
                             <option value="commune">Commune</option>
                             <option value="village">Village</option>
                         </select>
+                        <div id="location-level-combobox" class="location-combobox location-level-combobox">
+                            <button type="button" id="location-level-toggle" class="location-combobox-toggle">
+                                <span id="location-level-selected">Country</span><i class="ti ti-chevron-down"></i>
+                            </button>
+                            <div id="location-level-menu" class="location-combobox-menu d-none">
+                                <input type="search" id="location-level-search" class="form-control form-control-sm" placeholder="Search level">
+                                <div id="location-level-results" class="location-combobox-results"></div>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="col-lg-5 col-12">
@@ -60,6 +69,7 @@
                     </tbody>
                 </table>
             </div>
+            <div id="locationsMobileCards" class="location-mobile-cards"></div>
             <div class="card-footer">
                 <div class="row g-2">
                     <div class="col-12 d-flex justify-content-center" id="locations-pagination-container"></div>
@@ -97,15 +107,17 @@
                                 class="form-control"></div>
                         <div class="row g-3" id="country-extra">
                             <div class="col-6"><label class="form-label">Country Code</label><input id="country-code"
-                                    class="form-control" placeholder="kh"></div>
+                                    class="form-control" placeholder="KH"></div>
+                            <div class="col-6"><label class="form-label">International Phone Code</label><input id="international-phone-code"
+                                    class="form-control" placeholder="+855"></div>
                             <div class="col-6"><label class="form-label">Flag Path</label><input id="flag-path"
                                     class="form-control" placeholder="flags/cambodia.svg"></div>
                         </div>
-                        <div class="mt-3"><label class="form-label">Status</label><select id="location-status"
-                                class="form-select">
-                                <option value="1">Active</option>
-                                <option value="0">Inactive</option>
-                            </select></div>
+                        <div class="mt-3"><label class="form-label">Status</label><input type="hidden" id="location-status" value="1">
+                            <button type="button" id="location-status-toggle" class="status-toggle is-active" aria-pressed="true">
+                                <span class="status-toggle-label">ON</span><span class="status-toggle-knob"></span>
+                            </button>
+                        </div>
                     </div>
                     <div class="modal-footer"><button type="button" class="btn me-auto"
                             data-bs-dismiss="modal">Close</button><button class="btn btn-primary"
@@ -117,3 +129,4 @@
     @vite('resources/js/locations.js')
     @vite('resources/css/pages/locations.css')
 @endsection
+

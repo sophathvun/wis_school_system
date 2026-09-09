@@ -1,4 +1,4 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 @section('title', 'Grades')
 
 @section('page-header')
@@ -31,7 +31,7 @@
 
 @section('content')
     <div class="col-12">
-        <div class="card">
+        <div class="card grade-list-card">
             <div class="card-header">
                 <h3 class="card-title">Grade Lists</h3>
             </div>
@@ -97,3 +97,5 @@
     @vite('resources/js/grade.js')
     @vite('resources/css/pages/grade.css')
 @endsection
+
+

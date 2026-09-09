@@ -257,7 +257,7 @@
                 : '<span class="table-sort-icon" aria-hidden="true">↓</span>';
         };
     @endphp
-    <div class="card">
+    <div class="card user-management-list-card">
         <div class="card-header">
             <h3 class="card-title">User Lists</h3>
         </div>
@@ -441,4 +441,5 @@
     @vite('resources/js/userManagement.js')
     @vite('resources/css/pages/user-management.css')
 @endsection
+
 

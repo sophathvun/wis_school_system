@@ -1,4 +1,4 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 
 @section('title', 'Database Backups')
 @section('page-header')
@@ -25,7 +25,7 @@
     @if ($errors->any())
         <div class="alert alert-danger">{{ $errors->first() }}</div>
     @endif
-    <div class="card database-backup-table-card">
+    <div class="card database-backup-table-card database-backup-list-card">
         <div class="table-responsive">
             <table class="table table-vcenter card-table database-backup-table">
                 <thead>
@@ -85,3 +85,6 @@
     </div>
 @endsection
 @vite('resources/js/databaseBackups.js')
+@vite('resources/css/pages/database-backups.css')
+
+

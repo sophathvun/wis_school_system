@@ -1349,7 +1349,9 @@
     }
 
     .dashboard-staff-hero-main {
-        align-items: flex-start;
+        display: grid;
+        grid-template-columns: 60px minmax(0, 1fr);
+        align-items: center;
         gap: .85rem;
         width: 100%;
     }
@@ -1357,10 +1359,20 @@
     .dashboard-staff-hero-photo {
         width: 60px;
         height: 60px;
-        flex-basis: 60px;
+        flex: 0 0 60px;
+        grid-column: 1;
     }
 
-    .dashboard-staff-hero-copy h2 {
+    .dashboard-staff-hero-copy {
+        display: block;
+        min-width: 0;
+        grid-column: 2;
+    }
+
+    .dashboard-staff-hero h2 {
+        display: block;
+        overflow: visible;
+        text-overflow: clip;
         white-space: normal;
     }
 

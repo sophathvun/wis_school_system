@@ -196,8 +196,11 @@ class ReportsController
             ->join('tb_student', 'tb_student.id', '=', 'tb_student_enrollment.student_id')
             ->join('tb_school_info', 'tb_school_info.id', '=', 'tb_student_enrollment.campus_id')
             ->join('tb_grade', 'tb_grade.id', '=', 'tb_student_enrollment.grade_id')
+            ->reorder()
             ->select('tb_student_enrollment.campus_id', 'tb_school_info.campus_name_en', 'tb_student_enrollment.grade_id', 'tb_grade.grade', DB::raw('COUNT(DISTINCT tb_student_enrollment.student_id) as total'))
             ->groupBy('tb_student_enrollment.campus_id', 'tb_school_info.campus_name_en', 'tb_student_enrollment.grade_id', 'tb_grade.grade')
+            ->orderBy('tb_school_info.campus_name_en')
+            ->orderByRaw('CAST(tb_grade.grade AS UNSIGNED)')
             ->get();
         $grades = Grade::where('status', 1)->orderByRaw('CAST(grade_order AS UNSIGNED)')->get(['id', 'grade']);
         $campusRows = $query->groupBy('campus_id')->map(function ($items) use ($grades) {

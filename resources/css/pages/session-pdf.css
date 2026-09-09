@@ -1,20 +1,39 @@
 /* Extracted from resources/views/session-pdf.blade.php. Keep page-specific styles in this file. */
 
-@font-face {
-    font-family: "Khmer OS Siemreap";
-    src: url("/fonts/khmer/KhmerOSsiemreap.ttf") format("truetype");
-    font-weight: 400;
-    font-style: normal;
-    font-display: swap;
-}
-
 body {
-    font-family: "Khmer OS Siemreap", "Noto Sans Khmer", sans-serif;
+    margin: 0;
+    color: #222;
+    font-family: Arial, "Khmer OS Siemreap", "Noto Sans Khmer", sans-serif;
     font-size: 12px;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
 }
 
-h2 {
+@page {
+    size: A4;
+    margin: 18mm 14mm 22mm;
+}
+
+.report-title {
+    margin-bottom: 18px;
     text-align: center;
+}
+
+.khmer-title {
+    margin: 0;
+    color: #4f6380;
+    font-family: "Khmer OS Muol Light", "Khmer OS Siemreap", sans-serif;
+    font-size: 24px;
+    font-weight: 300;
+    line-height: 1.35;
+}
+
+.english-title {
+    margin: 4px 0 0;
+    color: #111827;
+    font-family: Arial, sans-serif;
+    font-size: 22px;
+    font-weight: 700;
 }
 
 table {

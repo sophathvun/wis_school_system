@@ -615,12 +615,57 @@
     background: transparent;
     color: inherit;
     font: inherit;
-    font-weight: 600;
+    font-weight: 500;
     cursor: pointer;
 }
 
 .table-sort:hover {
     color: var(--tblr-primary);
+}
+
+.enrollment-list-card .table thead th {
+    border-color: rgba(255, 255, 255, 0.18);
+    background: var(--tblr-primary);
+    color: #fff;
+}
+
+.enrollment-list-card .table thead .table-sort {
+    color: inherit;
+}
+
+.enrollment-list-card .table thead .table-sort:hover,
+.enrollment-list-card .table thead .table-sort.text-primary {
+    color: #fff !important;
+}
+
+.page-body .card:has(.table-responsive) .table-responsive > .table thead th {
+    height: 2.625rem !important;
+    border-color: rgba(255, 255, 255, 0.18);
+    background: var(--tblr-primary) !important;
+    color: #fff !important;
+    font-weight: 500 !important;
+    text-transform: uppercase;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+.page-body .card:has(.table-responsive) .table-responsive > .table thead .table-sort,
+.page-body .card:has(.table-responsive) .table-responsive > .table thead .table-sort-btn,
+.page-body .card:has(.table-responsive) .table-responsive > .table thead .table-sort-button {
+    color: inherit;
+    font-weight: 500 !important;
+}
+
+.page-body .card:has(.table-responsive) .table-responsive > .table thead .table-sort:hover,
+.page-body .card:has(.table-responsive) .table-responsive > .table thead .table-sort:focus,
+.page-body .card:has(.table-responsive) .table-responsive > .table thead .table-sort.text-primary,
+.page-body .card:has(.table-responsive) .table-responsive > .table thead .table-sort-btn:hover,
+.page-body .card:has(.table-responsive) .table-responsive > .table thead .table-sort-btn:focus,
+.page-body .card:has(.table-responsive) .table-responsive > .table thead .table-sort-btn.text-primary,
+.page-body .card:has(.table-responsive) .table-responsive > .table thead .table-sort-button:hover,
+.page-body .card:has(.table-responsive) .table-responsive > .table thead .table-sort-button:focus,
+.page-body .card:has(.table-responsive) .table-responsive > .table thead .table-sort-button.text-primary {
+    color: #fff !important;
 }
 
 .premium-pagination {
@@ -1392,17 +1437,22 @@ body {
 }
 
 @media (max-width: 991.98px) {
-    /* Keep the mobile navigation in the document flow. Tabler's more
-     * specific .navbar-vertical.navbar-expand-lg rule otherwise leaves it
-     * fixed over the first fields of every form. */
+    /* Keep the mobile navigation fixed at the top while the page scrolls. */
     .navbar-vertical.navbar-expand-lg {
-        position: sticky;
-        top: 0;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
         z-index: 1080;
-        width: 100%;
+        width: 100% !important;
+        max-width: 100% !important;
         flex: 0 0 auto;
         align-self: stretch;
         box-shadow: 0 8px 24px rgba(15, 23, 42, .12);
+    }
+
+    .page > .page-wrapper {
+        padding-top: 4.5rem;
     }
 
     .navbar-vertical .container-fluid {
@@ -1779,3 +1829,218 @@ body {
 .premium-email-feedback.is-visible {
     display: block;
 }
+/* Keep the desktop top navbar fixed beside the left sidebar. */
+@media (min-width: 992px) {
+    .page > header.navbar.d-lg-flex.d-print-none {
+        position: fixed !important;
+        top: 0 !important;
+        right: 0 !important;
+        left: 15rem !important;
+        width: auto !important;
+        margin-left: 0 !important;
+        margin-inline-start: 0 !important;
+        transform: none !important;
+        z-index: 1060;
+        min-height: 3.5rem;
+        background: var(--tblr-bg-surface, #fff);
+        box-shadow: 0 1px 0 rgba(15, 23, 42, 0.08);
+    }
+
+    .page > .page-wrapper {
+        padding-top: 3.5rem;
+    }
+}
+
+
+/* Keep modal forms above the fixed desktop and mobile navigation. */
+.modal-backdrop {
+    z-index: 1990 !important;
+}
+
+.modal {
+    z-index: 2000 !important;
+}
+
+
+/* Reduce space between fixed navbar and page content. */
+@media (min-width: 992px) {
+    .page > .page-wrapper .page-body {
+        margin-top: .25rem !important;
+    }
+}
+
+@media (max-width: 991.98px) {
+    .page > .page-wrapper .page-body {
+        margin-top: .25rem !important;
+    }
+}
+
+
+/* Tighten the content start under fixed navbars. */
+@media (min-width: 992px) {
+    .page > .page-wrapper .page-body {
+        margin-top: 0 !important;
+        padding-top: .25rem !important;
+    }
+
+    .page > .page-wrapper .page-body > .container-fluid {
+        padding-top: 0 !important;
+    }
+}
+
+@media (max-width: 991.98px) {
+    .page > .page-wrapper .page-body {
+        margin-top: 0 !important;
+        padding-top: .25rem !important;
+    }
+
+    .page > .page-wrapper .page-body > .container-fluid {
+        padding-top: 0 !important;
+    }
+}
+
+/* Desktop navbar remains in layout flow; avoid double spacing below it. */
+@media (min-width: 992px) {
+    html,
+    body {
+        overflow-y: hidden;
+    }
+
+    .page > .page-wrapper {
+        padding-top: 1.5rem !important;
+        height: 100vh;
+        min-height: 0;
+        min-width: 0;
+        flex: 1 1 auto;
+        overflow-y: auto;
+        overflow-x: hidden;
+        box-sizing: border-box;
+    }
+
+    .page > .page-wrapper .page-body {
+        min-height: 0;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+}
+
+/* List pages keep the app frame fixed and scroll only the data area. */
+@media (min-width: 768px) {
+    .page > .page-wrapper:has(.page-body > .container-fluid > .card > .table-responsive),
+    .page > .page-wrapper:has(.page-body > .container-fluid > .col-12 > .card > .table-responsive) {
+        overflow: hidden;
+    }
+
+    .page > .page-wrapper:has(.page-body > .container-fluid > .card > .table-responsive) .page-body,
+    .page > .page-wrapper:has(.page-body > .container-fluid > .col-12 > .card > .table-responsive) .page-body {
+        display: flex;
+        height: calc(100vh - 5.25rem);
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    .page > .page-wrapper:has(.page-body > .container-fluid > .card > .table-responsive) .page-body > .container-fluid,
+    .page > .page-wrapper:has(.page-body > .container-fluid > .col-12 > .card > .table-responsive) .page-body > .container-fluid {
+        display: flex;
+        flex: 1 1 auto;
+        flex-direction: column;
+        min-height: 0;
+    }
+
+    .page-body > .container-fluid > .card:has(> .table-responsive),
+    .page-body > .container-fluid > .col-12 > .card:has(> .table-responsive) {
+        display: flex;
+        flex: 1 1 auto;
+        flex-direction: column;
+        min-height: 0;
+        max-height: 100%;
+        overflow: hidden;
+    }
+
+    .page-body > .container-fluid > .col-12:has(> .card > .table-responsive) {
+        display: flex;
+        flex: 1 1 auto;
+        flex-direction: column;
+        min-height: 0;
+    }
+
+    .page-body > .container-fluid > .card:has(> .table-responsive) > .card-header,
+    .page-body > .container-fluid > .card:has(> .table-responsive) > .card-body,
+    .page-body > .container-fluid > .card:has(> .table-responsive) > .card-footer,
+    .page-body > .container-fluid > .col-12 > .card:has(> .table-responsive) > .card-header,
+    .page-body > .container-fluid > .col-12 > .card:has(> .table-responsive) > .card-body,
+    .page-body > .container-fluid > .col-12 > .card:has(> .table-responsive) > .card-footer {
+        flex: 0 0 auto;
+    }
+
+    .page-body > .container-fluid > .card:has(> .table-responsive) > .table-responsive,
+    .page-body > .container-fluid > .col-12 > .card:has(> .table-responsive) > .table-responsive {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow: auto;
+    }
+
+    .page-body > .container-fluid > .card:has(> .table-responsive) > .table-responsive > .table thead th,
+    .page-body > .container-fluid > .col-12 > .card:has(> .table-responsive) > .table-responsive > .table thead th {
+        position: sticky;
+        top: 0;
+        z-index: 5;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .page > .page-wrapper:has(.page-body > .container-fluid > .card > .table-responsive),
+    .page > .page-wrapper:has(.page-body > .container-fluid > .col-12 > .card > .table-responsive) {
+        height: 100dvh;
+        overflow: hidden;
+    }
+
+    .page > .page-wrapper:has(.page-body > .container-fluid > .card > .table-responsive) .page-body,
+    .page > .page-wrapper:has(.page-body > .container-fluid > .col-12 > .card > .table-responsive) .page-body {
+        display: flex;
+        height: calc(100dvh - 4.25rem);
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    .page > .page-wrapper:has(.page-body > .container-fluid > .card > .table-responsive) .page-body > .container-fluid,
+    .page > .page-wrapper:has(.page-body > .container-fluid > .col-12 > .card > .table-responsive) .page-body > .container-fluid,
+    .page-body > .container-fluid > .col-12:has(> .card > .table-responsive) {
+        display: flex;
+        flex: 1 1 auto;
+        flex-direction: column;
+        min-height: 0;
+    }
+
+    .page-body > .container-fluid > .card:has(> .table-responsive),
+    .page-body > .container-fluid > .col-12 > .card:has(> .table-responsive) {
+        display: flex;
+        flex: 1 1 auto;
+        flex-direction: column;
+        min-height: 0;
+        max-height: 100%;
+        overflow: hidden;
+    }
+
+    .page-body > .container-fluid > .card:has(> .table-responsive) > .card-header,
+    .page-body > .container-fluid > .card:has(> .table-responsive) > .card-body,
+    .page-body > .container-fluid > .card:has(> .table-responsive) > .card-footer,
+    .page-body > .container-fluid > .col-12 > .card:has(> .table-responsive) > .card-header,
+    .page-body > .container-fluid > .col-12 > .card:has(> .table-responsive) > .card-body,
+    .page-body > .container-fluid > .col-12 > .card:has(> .table-responsive) > .card-footer {
+        flex: 0 0 auto;
+    }
+
+    .page-body > .container-fluid > .card:has(> .table-responsive) > .table-responsive,
+    .page-body > .container-fluid > .card:has(> .table-responsive) > .enrollment-mobile-cards,
+    .page-body > .container-fluid > .card:has(> .table-responsive) > .summer-mobile-cards,
+    .page-body > .container-fluid > .col-12 > .card:has(> .table-responsive) > .table-responsive,
+    .page-body > .container-fluid > .col-12 > .card:has(> .table-responsive) > .enrollment-mobile-cards,
+    .page-body > .container-fluid > .col-12 > .card:has(> .table-responsive) > .summer-mobile-cards {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow: auto;
+    }
+}
+

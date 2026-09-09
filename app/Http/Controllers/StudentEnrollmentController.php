@@ -135,7 +135,7 @@ class StudentEnrollmentController
                 'schoolGroup',
                 'session',
             ])
-            ->when(!$request->filled('enrollment_status'), fn ($q) => $q->whereNotIn('tb_student_enrollment.enrollment_status', ['promotion_cancelled', 'cancelled']))
+            ->when(!$request->filled('enrollment_status'), fn ($q) => $q->whereIn('tb_student_enrollment.enrollment_status', ['active', 'pending']))
             ->when($request->filled('academic_year_id'), fn ($q) => $q->where('tb_student_enrollment.academic_year_id', $request->integer('academic_year_id')))
             ->when($request->filled('campus_id'), fn ($q) => $q->where('tb_student_enrollment.campus_id', $request->integer('campus_id')))
             ->when($filterGradeId && $filterClassId, fn ($q) => $q->where('tb_student_enrollment.grade_id', (int) $filterGradeId)->where('tb_student_enrollment.class_id', (int) $filterClassId))
@@ -189,7 +189,7 @@ class StudentEnrollmentController
                     'session',
                 ])
                 ->where('tb_student_enrollment.student_id', $student->id)
-                ->whereNotIn('tb_student_enrollment.enrollment_status', ['promotion_cancelled', 'cancelled'])
+                ->whereIn('tb_student_enrollment.enrollment_status', ['active', 'pending'])
                 ->orderByDesc('tb_academic_year.academic_year')
                 ->orderByDesc('tb_student_enrollment.id')
                 ->get(),
@@ -539,7 +539,7 @@ class StudentEnrollmentController
                     'tb_student.full_name_en',
                     'tb_student.full_name_kh',
                 ])
-                ->whereNotIn('tb_student_enrollment.enrollment_status', ['promotion_cancelled', 'cancelled'])
+                ->whereIn('tb_student_enrollment.enrollment_status', ['active', 'pending'])
                 ->distinct()
                 ->orderByDesc('tb_academic_year.academic_year')
                 ->orderBy('tb_school_info.campus_name_en')

@@ -1,4 +1,4 @@
-﻿<!doctype html>
+ï»¿<!doctype html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -110,7 +110,7 @@
             @endif
         </div>
         <div class="report-title">
-            <h3 class="khmer-title">ážáž¶ážšáž¶áž„ážˆáŸ’áž˜áŸ„áŸ‡áž˜áž»ážážšáž”ážš</h3>
+            <h3 class="khmer-title">តារាងឈ្មោះមុខរបរ</h3>
             <h3 class="english-title">Occupation List</h3>
         </div>
     </div>
@@ -120,7 +120,7 @@
             <tr>
                 <th>No.</th>
                 <th>Occupation (English)</th>
-                <th class="khmer-font">áž˜áž»ážážšáž”ážš</th>
+                <th class="khmer-font">មុខរបរ</th>
                 <th>Status</th>
             </tr>
         </thead>

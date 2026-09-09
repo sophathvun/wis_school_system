@@ -7,6 +7,36 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
+## Run the school system locally (Windows / Laragon)
+
+1. Start Nginx and MySQL in Laragon (Start All).
+2. Open http://127.0.0.1:8002/.
+
+Laragon serves this address directly using
+`C:\laragon\etc\nginx\sites-enabled\school-system-8002.conf`.
+The source configuration is `scripts/laragon-school-system-8002.conf`.
+It persists across Laragon restarts and requires PHP 8.4.1 or newer.
+No separate server window is needed.
+
+### Optional standalone PHP server
+
+If Nginx is stopped, double-click `start-site.cmd` and keep its window open.
+MySQL must still be running.
+
+Press Ctrl+C in the standalone server window to stop.
+The launcher finds PHP in Laragon or PATH and selects the newest installed version
+that meets the installed dependencies' PHP 8.4.1 minimum. PHP 8.3 cannot run the
+current dependencies. This command serves the existing compiled frontend assets.
+
+From a terminal, run `.\start-site.cmd`.
+Use `.\start-site.cmd -Check` to check prerequisites without starting a server,
+or `.\start-site.cmd -Port 8003` to use another port. You can specify PHP explicitly
+with `.\start-site.cmd -PhpPath "C:\path\to\php.exe"`.
+
+If port 8002 is already in use, check the existing site before starting another
+server. For the separate Laragon Nginx URL, select PHP 8.4.25 or newer in Laragon
+and restart its services; that URL is http://school_system.test:8080/.
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:

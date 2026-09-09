@@ -18,10 +18,15 @@ class EnrollmentWorkflowAction extends Model
     protected $casts = ['effective_on' => 'date', 'cancelled_at' => 'datetime'];
 
     public function student() { return $this->belongsTo(Student::class); }
+    public function fromCampus() { return $this->belongsTo(SchoolInfo::class, 'from_campus_id'); }
     public function toCampus() { return $this->belongsTo(SchoolInfo::class, 'to_campus_id'); }
+    public function fromAcademicYear() { return $this->belongsTo(AcademicYear::class, 'from_academic_year_id'); }
     public function toAcademicYear() { return $this->belongsTo(AcademicYear::class, 'to_academic_year_id'); }
+    public function fromGrade() { return $this->belongsTo(Grade::class, 'from_grade_id'); }
     public function toGrade() { return $this->belongsTo(Grade::class, 'to_grade_id'); }
+    public function fromClass() { return $this->belongsTo(SchoolClass::class, 'from_class_id'); }
     public function toClass() { return $this->belongsTo(SchoolClass::class, 'to_class_id'); }
+    public function fromSession() { return $this->belongsTo(Session::class, 'from_session_id'); }
     public function toSession() { return $this->belongsTo(Session::class, 'to_session_id'); }
     public function changedBy() { return $this->belongsTo(User::class, 'changed_by'); }
     public function cancelledBy() { return $this->belongsTo(User::class, 'cancelled_by'); }

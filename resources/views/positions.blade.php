@@ -1,4 +1,4 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 @section('title', 'Positions')
 @section('page-header')
     <div class="container-fluid">
@@ -40,14 +40,14 @@
         };
         $sortIcon = function (string $field) use ($positionSortBy, $positionSortDir) {
             if ($positionSortBy !== $field) {
-                return '↕';
+                return '<span class="table-sort-icon" aria-hidden="true">&varr;</span>';
             }
 
-            return $positionSortDir === 'asc' ? '↑' : '↓';
+            return $positionSortDir === 'asc' ? '<span class="table-sort-icon" aria-hidden="true">&uarr;</span>' : '<span class="table-sort-icon" aria-hidden="true">&darr;</span>';
         };
     @endphp
 
-    <div class="card">
+    <div class="card positions-list-card">
         <div class="card-header">
             <h3 class="card-title">Position Lists</h3>
         </div>
@@ -72,22 +72,22 @@
                         <th>No.</th>
                         <th>
                             <a class="table-sort-button text-uppercase" href="{{ $sortUrl('name') }}">
-                                Position {{ $sortIcon('name') }}
+                                Position {!! $sortIcon('name') !!}
                             </a>
                         </th>
                         <th>
                             <a class="table-sort-button text-uppercase" href="{{ $sortUrl('department') }}">
-                                Department {{ $sortIcon('department') }}
+                                Department {!! $sortIcon('department') !!}
                             </a>
                         </th>
                         <th>
                             <a class="table-sort-button text-uppercase" href="{{ $sortUrl('code') }}">
-                                Code {{ $sortIcon('code') }}
+                                Code {!! $sortIcon('code') !!}
                             </a>
                         </th>
                         <th>
                             <a class="table-sort-button text-uppercase" href="{{ $sortUrl('status') }}">
-                                Status {{ $sortIcon('status') }}
+                                Status {!! $sortIcon('status') !!}
                             </a>
                         </th>
                         <th class="text-center">Actions</th>
@@ -104,7 +104,7 @@
                         <tr>
                             <td>{{ $positions->firstItem() + $loop->index }}</td>
                             <td>{{ $position->name }}</td>
-                            <td>{{ $position->department?->name ?? '—' }}</td>
+                            <td>{{ $position->department?->name ?? 'â€”' }}</td>
                             <td>{{ $position->code }}</td>
                             <td><button type="button" class="status-toggle {{ $position->status ? 'is-active' : '' }}"
                                     data-status-toggle data-status-entity="position" data-status-id="{{ $position->id }}"
@@ -175,3 +175,5 @@
     @vite('resources/js/positions.js')
     @vite('resources/css/pages/positions.css')
 @endsection
+
+

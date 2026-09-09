@@ -32,9 +32,9 @@
     @vite('resources/css/pages/school-profile.css')
 
     <div class="col-12">
-        <div class="card">
+        <div class="card school-profile-list-card">
             <div class="card-header">
-                <h3 class="card-title">School Profile Lists</h3>
+                <h3 class="card-title">SCHOOL PROFILE LISTS</h3>
             </div>
             <div class="card-body border-bottom py-3">
                 <input type="hidden" id="school-profiles-per-page" value="10">
@@ -55,17 +55,19 @@
                             <th><button type="button" class="table-sort" data-sort="school_name_en">School Name</button></th>
                             <th><button type="button" class="table-sort" data-sort="campus_name_en">Campus</button></th>
                             <th><button type="button" class="table-sort" data-sort="phone">Phone</button></th>
+                            <th><button type="button" class="table-sort" data-sort="address_en">Address</button></th>
                             <th><button type="button" class="table-sort" data-sort="status">Status</button></th>
                             <th class="text-center">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="schoolProfilesTable">
                         <tr>
-                            <td colspan="7" class="text-center">Loading school profiles...</td>
+                            <td colspan="8" class="text-center">Loading school profiles...</td>
                         </tr>
                     </tbody>
                 </table>
             </div>
+            <div id="schoolProfilesMobileCards" class="school-profiles-mobile-cards"></div>
             <div class="card-footer">
                 <div class="row g-2">
                     <div class="col-12 d-flex justify-content-center" id="school-profiles-pagination-container"></div>
@@ -160,3 +162,5 @@
     </div>
     @vite('resources/js/schoolProfile.js')
 @endsection
+
+

@@ -1,3 +1,11 @@
+﻿@media (min-width: 768px) {
+    .academic-tracks-list-card .table thead th,
+    .academic-tracks-list-card .table thead .table-sort-button {
+        border-color: var(--tblr-primary);
+        background: var(--tblr-primary);
+        color: #fff;
+    }
+}
 #academicTracksTable,
 #academicTracksTable td {
     vertical-align: middle;
@@ -39,4 +47,186 @@
     #academicTrackModal .modal-dialog {
         max-width: calc(100vw - 1rem);
     }
+}
+
+
+.academic-track-mobile-cards {
+    display: none;
+}
+
+.academic-track-mobile-card {
+    position: relative;
+    margin: 0 0 1rem;
+    padding: 3.75rem 0.75rem 0.85rem;
+    border: 1px solid #dbe5f1;
+    border-radius: 0.45rem;
+    background: #fff;
+    box-shadow: 0 0.35rem 0.9rem rgba(31, 45, 61, 0.08);
+    overflow: hidden;
+}
+
+.academic-track-mobile-card::after {
+    content: "";
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    height: 5px;
+    background: var(--tblr-primary);
+}
+
+.academic-track-card-number {
+    display: grid;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 3.2rem;
+    height: 3.2rem;
+    place-items: center;
+    color: #fff;
+    background: var(--tblr-primary);
+    font-size: 1.25rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.academic-track-card-top .status-toggle {
+    position: absolute;
+    top: 0.72rem;
+    right: 0.75rem;
+}
+
+.academic-tracks-list-card .table .status-toggle {
+    margin: 0 auto;
+}
+
+#academicTrackModal .status-toggle {
+    display: inline-flex;
+    margin-top: 0.15rem;
+}
+
+.academic-track-card-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 0.75rem 1rem;
+    color: #53647d;
+    font-size: 0.85rem;
+}
+
+.academic-track-card-label {
+    margin-bottom: 0.18rem;
+    color: #5f6b84;
+    font-size: 0.78rem;
+}
+
+.academic-track-card-name,
+.academic-track-card-value {
+    min-width: 0;
+    overflow: hidden;
+    color: #263957;
+    font-weight: 700;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+}
+
+.academic-track-card-name.school-profile-khmer {
+    font-size: 0.96rem;
+}
+
+.academic-track-card-subtitle {
+    min-width: 0;
+    overflow: hidden;
+    color: #53647d;
+    font-size: 0.82rem;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+}
+
+.academic-track-card-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    margin-top: 0.85rem;
+}
+
+.academic-track-card-actions .btn {
+    min-height: 2.35rem;
+}
+
+@media (max-width: 767.98px) {
+    .academic-tracks-list-card .card-header {
+        padding: 1rem;
+    }
+
+    .academic-tracks-list-card .card-title {
+        text-transform: uppercase;
+    }
+
+    .academic-tracks-list-card .card-body {
+        display: block !important;
+        padding: 1rem;
+    }
+
+    #academic-tracks-search {
+        width: 100% !important;
+        min-height: 3rem;
+        border-radius: 0.55rem;
+        font-size: 1rem;
+    }
+
+    .academic-tracks-list-card .input-icon {
+        width: 100%;
+        min-width: 0 !important;
+    }
+
+    .academic-tracks-list-card .table-responsive {
+        display: none;
+    }
+
+    .academic-track-mobile-cards {
+        display: block;
+        padding: 1rem;
+    }
+}
+
+.academic-track-grade-field .academic-track-grade-combobox {
+    width: 100%;
+}
+
+.academic-track-grade-field .location-combobox-toggle {
+    min-height: 2.75rem;
+}
+
+#academicTrackModal .location-combobox-menu {
+    z-index: 1065;
+}
+
+@media (max-width: 767.98px) {
+    .academic-track-page-actions {
+        flex: 0 0 100%;
+        width: 100%;
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.5rem !important;
+    }
+
+    .academic-track-page-actions .btn {
+        width: 100%;
+        min-height: 2.55rem;
+        justify-content: center;
+        white-space: nowrap;
+        font-size: 0.86rem;
+    }
+
+    .academic-track-page-actions #newAcademicTrack {
+        grid-column: 1 / -1;
+    }
+}
+
+.academic-track-search-combobox {
+    width: 100%;
+}
+
+.academic-track-search-combobox .location-combobox-toggle {
+    min-height: 2.75rem;
 }

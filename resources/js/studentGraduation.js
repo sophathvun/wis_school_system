@@ -28,6 +28,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const track = item.enrollment?.academic_track || item.enrollment?.academicTrack || {};
         return track.name_en || track.code || '';
     };
+    const gradeTrackCell = (item = {}) => {
+        const track = trackLabel(item);
+        return `<div class="graduation-grade-value">${esc(gradeClassLabel(item))}</div>${track ? `<div class="graduation-track-value">${esc(track)}</div>` : ''}`;
+    };
     const classOptionLabel = (item = {}) => {
         if (item.display_name) return item.display_name;
         const grade = String(item.grade?.grade || '').replace(/^grade\s*/i, '').trim();
@@ -37,6 +41,37 @@ document.addEventListener('DOMContentLoaded', () => {
     const studentPhoto = (student = {}) => student.photo_path
         ? `<img class="graduation-student-photo" src="/storage/${esc(student.photo_path)}" alt="${esc(studentName(student) || 'Student photo')}">`
         : '<span class="graduation-student-photo-placeholder"><i class="ti ti-user"></i></span>';
+    const graduationStatusBadge = (item = {}) =>
+        `<span class="badge bg-${item.is_alumni ? 'success' : 'secondary'}-lt">${item.is_alumni ? 'Alumni' : 'Graduated'}</span>`;
+    const graduationActionButtons = (item = {}) =>
+        `<button class="btn btn-outline-danger btn-sm graduation-cancel-btn" type="button" data-graduation-cancel="${item.id}"><i class="ti ti-ban me-1"></i>Cancel Graduation</button>`;
+    const graduationMobileCard = (item = {}, rowNumber = 1) => {
+        const student = item.student || {};
+        return `
+            <div class="graduation-mobile-card">
+                <div class="graduation-mobile-number">${pad(rowNumber)}</div>
+                <div class="graduation-mobile-status">${graduationStatusBadge(item)}</div>
+                <div class="graduation-mobile-student">
+                    ${studentPhoto(student)}
+                    <div class="min-w-0">
+                        <div class="graduation-mobile-student-id">Student ID: ${esc(student.student_id || student.student_no || '-')}</div>
+                        <div class="graduation-student-name-kh school-profile-khmer">${esc(studentNameKh(student) || '-')}</div>
+                        <div class="graduation-student-name-en">${esc(studentName(student) || '-')}</div>
+                    </div>
+                </div>
+                <div class="graduation-mobile-details">
+                    <div><span>Academic Year</span><strong>${esc(item.academic_year?.academic_year || '-')}</strong></div>
+                    <div><span>Campus</span><strong>${esc(item.campus?.campus_name_en || '-')}</strong></div>
+                    <div><span>Grade</span>${gradeTrackCell(item)}</div>
+                    <div><span>Group</span><strong>${esc(item.session?.session_short_name || '-')}</strong></div>
+                    <div><span>Graduation Date</span><strong>${esc(formatDate(item.graduation_date))}</strong></div>
+                    <div><span>Certificate</span><strong>${esc(item.certificate_number || '-')}</strong></div>
+                    <div><span>Graduated By</span><strong>${esc(item.changed_by?.name || 'System')}</strong></div>
+                </div>
+                <div class="graduation-mobile-actions">${graduationActionButtons(item)}</div>
+            </div>
+        `;
+    };
     const fill = (id, items, textKey, allLabel = '') => {
         const select = field(id);
         if (!select) return;
@@ -85,6 +120,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const item = searchable[id];
         wrapper.querySelector('.location-combobox-toggle').onclick = () => {
             Object.values(searchable).forEach(other => { if (other !== item) other.menu.classList.add('d-none'); });
+            enrollmentMulti?.menu.classList.add('d-none');
             item.menu.classList.toggle('d-none');
             item.search.value = '';
             renderSearchable(id);
@@ -98,9 +134,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const item = searchable[id];
         if (!item) return;
         const selected = item.select.options[item.select.selectedIndex];
-        item.selected.textContent = selected?.value ? selected.textContent : (id === 'graduation-year' ? 'All Academic Years' : id === 'graduation-campus' ? 'All Campuses' : id === 'graduation-class' ? 'All Grades' : '');
+        item.selected.textContent = selected?.value ? selected.textContent : (id === 'graduation-year' ? 'All Academic Years' : id === 'graduation-campus' ? 'All Campuses' : id === 'graduation-class' ? 'All Grades' : id === 'student-year' || id === 'batch-year' ? 'Select Academic Year' : id === 'batch-campus' ? 'Select Campus' : id === 'batch-class' ? 'Select Class' : '');
     };
-    const setupSearchables = () => ['graduation-year', 'graduation-campus', 'graduation-class', 'batch-year', 'batch-campus', 'batch-class'].forEach(makeSearchable);
+    const setupSearchables = () => ['graduation-year', 'graduation-campus', 'graduation-class', 'student-year', 'batch-year', 'batch-campus', 'batch-class'].forEach(makeSearchable);
 
     const enrollmentOptions = () => Array.from(field('graduation-enrollment').options);
     const selectedEnrollmentOptions = () => enrollmentOptions().filter(option => selectedGraduateEnrollmentIds.has(option.value));
@@ -229,11 +265,17 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const updateSortIcons = () => {
         document.querySelectorAll('[data-graduation-sort-icon]').forEach(icon => {
-            icon.textContent = icon.dataset.graduationSortIcon === graduationSortBy ? (graduationSortDir === 'asc' ? '↑' : '↓') : '';
+            icon.textContent = icon.dataset.graduationSortIcon === graduationSortBy ? (graduationSortDir === 'asc' ? '\u2191' : '\u2193') : '\u2195';
         });
         document.querySelectorAll('[data-graduation-sort]').forEach(button => {
             button.classList.toggle('text-primary', button.dataset.graduationSort === graduationSortBy);
         });
+    };
+    const updateSummary = (summary = {}) => {
+        const format = value => Number(value || 0).toLocaleString();
+        field('graduation-total').textContent = format(summary.total);
+        field('graduation-male').textContent = format(summary.male);
+        field('graduation-female').textContent = format(summary.female);
     };
     const render = async (page = 1, pageSize = Number(field('graduation-per-page').value || 10)) => {
         currentPage = page;
@@ -249,40 +291,53 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         const response = await fetch(`/student-graduations/fetch?${query.toString()}`, { headers: { Accept: 'application/json' } });
         const result = await response.json();
+        updateSummary(result.summary || {});
         const rows = result.data || [];
+        field('graduationMobileCards').innerHTML = rows.length ? rows.map((item, index) => graduationMobileCard(item, Number(result.from || 1) + index)).join('') : '<div class="graduation-mobile-empty text-center text-secondary">No graduated students found.</div>';
         field('graduationTable').innerHTML = rows.length ? rows.map((item, index) => {
             const student = item.student || {};
             const rowNumber = Number(result.from || 1) + index;
-            const track = trackLabel(item);
-            return `<tr><td>${rowNumber}</td><td>${studentPhoto(student)}</td><td>${esc(student.student_id || student.student_no || '-')}</td><td><div class="graduation-student-name-kh school-profile-khmer">${esc(studentNameKh(student) || '-')}</div><div class="graduation-student-name-en">${esc(studentName(student) || '-')}</div></td><td>${esc(item.academic_year?.academic_year || '-')}</td><td><div>${esc(gradeClassLabel(item))}</div>${track ? `<div class="text-secondary small">${esc(track)}</div>` : ''}</td><td>${esc(item.session?.session_short_name || '-')}</td><td>${esc(item.campus?.campus_name_en || '-')}</td><td>${esc(formatDate(item.graduation_date))}</td><td>${esc(item.certificate_number || '-')}</td><td><span class="badge bg-${item.is_alumni ? 'success' : 'secondary'}-lt">${item.is_alumni ? 'Yes' : 'No'}</span></td><td>${esc(item.changed_by?.name || 'System')}</td></tr>`;
-        }).join('') : '<tr><td colspan="12" class="text-center">No graduated students found.</td></tr>';
+            return `<tr><td>${rowNumber}</td><td>${studentPhoto(student)}</td><td>${esc(student.student_id || student.student_no || '-')}</td><td><div class="graduation-student-name-kh school-profile-khmer">${esc(studentNameKh(student) || '-')}</div><div class="graduation-student-name-en">${esc(studentName(student) || '-')}</div></td><td>${esc(item.academic_year?.academic_year || '-')}</td><td>${gradeTrackCell(item)}</td><td>${esc(item.session?.session_short_name || '-')}</td><td>${esc(item.campus?.campus_name_en || '-')}</td><td>${esc(formatDate(item.graduation_date))}</td><td>${esc(item.certificate_number || '-')}</td><td><span class="badge bg-${item.is_alumni ? 'success' : 'secondary'}-lt">${item.is_alumni ? 'Yes' : 'No'}</span></td><td>${esc(item.changed_by?.name || 'System')}</td><td>${graduationActionButtons(item)}</td></tr>`;
+        }).join('') : '<tr><td colspan="13" class="text-center">No graduated students found.</td></tr>';
         renderPagination(result, pageSize);
         updateSortIcons();
     };
 
-    const refreshEnrollmentOptions = async () => {
-        const data = await loadOptions(false);
+    const refreshStudentEnrollmentOptions = async () => {
+        enrollmentMulti?.menu.classList.add('d-none');
+        const data = await loadOptions(false, { academic_year_id: field('student-year').value || '' });
         selectedGraduateEnrollmentIds.clear();
         field('graduation-enrollment').innerHTML = (data.enrollments || []).map(item => {
             const name = item.student?.full_name_en || '';
             const info = `${item.academic_year?.academic_year || '-'} | ${item.campus?.campus_name_en || '-'} | Class ${item.school_class?.class_name || '-'} | Group ${item.session?.session_short_name || '-'}`;
             return `<option value="${item.id}" data-info="${esc(info)}">${esc(`${item.student?.student_id || item.student?.student_no || ''} - ${name}`)}</option>`;
         }).join('');
-        fill('batch-year', data.academicYears || [], 'academic_year');
-        fill('batch-campus', data.campuses || [], 'campus_name_en');
-        fill('batch-class', data.classes || [], classOptionLabel);
-        setupSearchables();
         makeEnrollmentMultiselect();
         refreshEnrollmentMultiValue();
         renderEnrollmentMultiOptions();
     };
+    const refreshEnrollmentOptions = async () => {
+        const data = await loadOptions(false);
+        fill('student-year', data.academicYears || [], 'academic_year');
+        if (!field('student-year').value && (data.academicYears || []).length) {
+            field('student-year').value = String(data.academicYears[0].id);
+        }
+        fill('batch-year', data.academicYears || [], 'academic_year');
+        fill('batch-campus', data.campuses || [], 'campus_name_en');
+        fill('batch-class', data.classes || [], classOptionLabel);
+        setupSearchables();
+        refreshSearchableValue('student-year');
+        await refreshStudentEnrollmentOptions();
+    };
     const applyScope = () => {
         const scope = field('graduation-scope').value;
         const batch = scope !== 'student';
+        document.querySelectorAll('.graduation-student-year-field').forEach(element => element.classList.toggle('d-none', batch));
         document.querySelectorAll('.graduation-student-field').forEach(element => element.classList.toggle('d-none', batch));
         field('graduation-batch-block').classList.toggle('d-none', !batch);
         field('batch-campus-block').classList.toggle('d-none', scope === 'all_campuses');
         field('batch-class-block').classList.toggle('d-none', scope !== 'class');
+        field('student-year').required = !batch;
         field('batch-year').required = batch;
         field('batch-campus').required = ['class', 'campus'].includes(scope);
         field('batch-class').required = scope === 'class';
@@ -311,6 +366,7 @@ document.addEventListener('DOMContentLoaded', () => {
     field('certificate-number').oninput = () => {
         field('certificate-number').value = field('certificate-number').value.replace(/\D/g, '').slice(0, 4);
     };
+    field('student-year').onchange = refreshStudentEnrollmentOptions;
     field('batch-campus').onchange = () => refreshClasses(field('batch-campus').value, field('batch-year').value, 'batch-class', false);
     field('batch-year').onchange = async () => {
         await refreshCampuses(field('batch-year').value, false, 'batch-campus');
@@ -324,19 +380,90 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     field('newGraduation').onclick = async () => {
-        await refreshEnrollmentOptions();
         field('graduationForm').reset();
         field('graduation-scope').value = 'student';
+        selectedGraduateEnrollmentIds.clear();
+        await refreshEnrollmentOptions();
         applyScope();
         field('graduation-date').value = new Date().toISOString().slice(0, 10);
         field('certificate-number').value = '';
-        selectedGraduateEnrollmentIds.clear();
         field('graduation-current').textContent = '';
         refreshEnrollmentMultiValue();
         field('graduationError').classList.add('d-none');
         modal.show();
         Object.keys(searchable).forEach(refreshSearchableValue);
     };
+    document.addEventListener('click', async event => {
+        const button = event.target.closest('[data-graduation-cancel]');
+        if (!button) return;
+        const graduationId = button.dataset.graduationCancel;
+        let cancellationType = 'failed';
+        let cancellationReason = '';
+        if (window.Swal) {
+            const result = await window.Swal.fire({
+                icon: 'warning',
+                title: 'Cancel graduation?',
+                html: `
+                    <div class="text-start">
+                        <label class="form-label">Reason Type</label>
+                        <select id="graduation-cancel-type" class="form-select mb-3">
+                            <option value="failed">Failed</option>
+                            <option value="cancelled">Cancelled</option>
+                            <option value="other">Other</option>
+                        </select>
+                        <label class="form-label">Remark</label>
+                        <textarea id="graduation-cancel-reason" class="form-control" rows="3" placeholder="Enter remark"></textarea>
+                    </div>
+                `,
+                showCancelButton: true,
+                confirmButtonText: 'Cancel Graduation',
+                confirmButtonColor: '#d63939',
+                preConfirm: () => {
+                    const type = document.getElementById('graduation-cancel-type')?.value || 'failed';
+                    const reason = document.getElementById('graduation-cancel-reason')?.value.trim() || '';
+                    if (!reason) {
+                        window.Swal.showValidationMessage('Please enter a remark.');
+                        return false;
+                    }
+                    return { type, reason };
+                }
+            });
+            if (!result.isConfirmed) return;
+            cancellationType = result.value.type;
+            cancellationReason = result.value.reason;
+        } else {
+            cancellationType = window.prompt('Reason type: failed, cancelled, or other', 'failed') || 'failed';
+            cancellationReason = window.prompt('Remark:') || '';
+            if (!cancellationReason) return;
+        }
+
+        button.disabled = true;
+        const response = await fetch(`/student-graduations/${graduationId}/cancel`, {
+            method: 'POST',
+            headers: {
+                Accept: 'application/json',
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrf
+            },
+            body: JSON.stringify({
+                cancellation_type: cancellationType,
+                cancellation_reason: cancellationReason
+            })
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            button.disabled = false;
+            const message = result.message || Object.values(result.errors || {})[0]?.[0] || 'Unable to cancel graduation.';
+            if (window.Swal) await window.Swal.fire({ icon: 'error', title: 'Action Failed', text: message });
+            else window.alert(message);
+            return;
+        }
+        if (window.Swal) {
+            await window.Swal.fire({ icon: 'success', title: 'Graduation Cancelled', text: result.message || 'Graduation cancelled successfully.', timer: 1800, showConfirmButton: false });
+        }
+        await loadListOptions();
+        await render(currentPage);
+    });
     field('graduationForm').onsubmit = async event => {
         event.preventDefault();
         const certificatePrefix = field('certificate-number').value.trim();
@@ -355,6 +482,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const endpoint = scope === 'student' ? 'graduate' : 'graduate-batch';
         if (scope === 'student') {
             const enrollmentIds = Array.from(selectedGraduateEnrollmentIds);
+            if (!field('student-year').value) {
+                field('graduationError').textContent = 'Please select an Academic Year.';
+                field('graduationError').classList.remove('d-none');
+                return;
+            }
             if (!enrollmentIds.length) {
                 field('graduationError').textContent = 'Please select at least one Grade 12 student.';
                 field('graduationError').classList.remove('d-none');
@@ -378,8 +510,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         const result = await response.json().catch(() => ({}));
         if (!response.ok) {
-            field('graduationError').textContent = result.message || Object.values(result.errors || {})[0]?.[0] || 'Unable to graduate student.';
+            const message = result.message || Object.values(result.errors || {})[0]?.[0] || 'Unable to graduate student.';
+            field('graduationError').textContent = message;
             field('graduationError').classList.remove('d-none');
+            if (window.Swal) await window.Swal.fire({ icon: 'error', title: 'Unable to Graduate', text: message });
+            else window.alert(message);
             return;
         }
         modal.hide();
@@ -388,6 +523,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     loadListOptions().then(() => render()).catch(() => {
-        field('graduationTable').innerHTML = '<tr><td colspan="12" class="text-center text-danger">Unable to load graduation records.</td></tr>';
+        field('graduationTable').innerHTML = '<tr><td colspan="13" class="text-center text-danger">Unable to load graduation records.</td></tr>';
     });
 });
+

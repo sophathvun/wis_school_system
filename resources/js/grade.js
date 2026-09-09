@@ -1,4 +1,4 @@
-import { renderPagination, renderPageInfo } from "./helpers/pagination.js";
+﻿import { renderPagination, renderPageInfo } from "./helpers/pagination.js";
 import { showSuccess, showError, showConfirm } from "./helpers/sweet-alert2.js";
 
 const csrfToken = document
@@ -193,7 +193,27 @@ async function fetchGrades(page = 1, perPage = null) {
         grades = result.data;
         const offset = (result.current_page - 1) * size;
         const escapeHtml = (value) => String(value ?? "").replace(/[&<>\"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '\"': "&quot;", "'": "&#039;" })[character]);
-        if (mobileCards) mobileCards.innerHTML = grades.length ? grades.map((item, index) => `<article class="grade-mobile-card"><div class="grade-mobile-head"><span class="grade-mobile-number">${offset + index + 1}</span><div><strong>${escapeHtml(item.grade)}</strong><span>${escapeHtml(item.grade_short_name)}</span></div>${window.statusToggleMarkup?.("grade", item.id, Boolean(item.status)) || `<button type="button" class="status-toggle ${item.status ? "is-active" : ""}" data-status-toggle data-status-entity="grade" data-status-id="${item.id}" data-status="${item.status ? 1 : 0}"><span class="status-toggle-label">${item.status ? "ON" : "OFF"}</span><span class="status-toggle-knob"></span></button>`}</div><div class="grade-mobile-details"><div><span>Order</span><strong>${escapeHtml(item.grade_order ?? "-")}</strong></div><div><span>Description</span><strong>${escapeHtml(item.description ?? "-")}</strong></div></div><div class="grade-mobile-actions"><button onclick="gradesPage.openEditModal(${item.id})" class="btn btn-primary"><i class="ti ti-pencil me-1"></i>Edit</button>${(Number(item.classes_count ?? 0) + Number(item.enrollments_count ?? 0) + Number(item.enrollment_history_count ?? 0) + Number(item.graduations_count ?? 0)) > 0 ? `<button class="btn btn-outline-danger" disabled title="This grade is linked to other data"><i class="ti ti-lock me-1"></i>Delete</button>` : `<button onclick="gradesPage.deleteGrade(${item.id})" class="btn btn-outline-danger"><i class="ti ti-trash me-1"></i>Delete</button>`}</div></article>`).join("") : `<div class="grade-mobile-empty">No grades found.</div>`;
+        if (mobileCards) mobileCards.innerHTML = grades.length ? grades.map((item, index) => `<article class="grade-mobile-card">
+            <div class="grade-mobile-top-row">
+                <span class="grade-mobile-number">${String(offset + index + 1).padStart(2, "0")}</span>
+                <div class="grade-mobile-status">${window.statusToggleMarkup?.("grade", item.id, Boolean(item.status)) || `<button type="button" class="status-toggle ${item.status ? "is-active" : ""}" data-status-toggle data-status-entity="grade" data-status-id="${item.id}" data-status="${item.status ? 1 : 0}"><span class="status-toggle-label">${item.status ? "ON" : "OFF"}</span><span class="status-toggle-knob"></span></button>`}</div>
+            </div>
+            <div class="grade-mobile-columns">
+                <div class="grade-mobile-column grade-mobile-grade-column">
+                    <strong class="grade-mobile-name">${escapeHtml(item.grade)}</strong>
+                    <span>${escapeHtml(item.grade_short_name)}</span>
+                </div>
+                <div class="grade-mobile-column grade-mobile-description-column">
+                    <span>Description</span>
+                    <strong>${escapeHtml(item.description ?? "-")}</strong>
+                </div>
+                <div class="grade-mobile-column grade-mobile-order-column">
+                    <span>Order</span>
+                    <strong>${escapeHtml(item.grade_order ?? "-")}</strong>
+                </div>
+            </div>
+            <div class="grade-mobile-actions"><button onclick="gradesPage.openEditModal(${item.id})" class="btn btn-primary"><i class="ti ti-pencil me-1"></i>Edit</button>${(Number(item.classes_count ?? 0) + Number(item.enrollments_count ?? 0) + Number(item.enrollment_history_count ?? 0) + Number(item.graduations_count ?? 0)) > 0 ? `<button class="btn btn-outline-danger" disabled title="This grade is linked to other data"><i class="ti ti-lock me-1"></i>Delete</button>` : `<button onclick="gradesPage.deleteGrade(${item.id})" class="btn btn-outline-danger"><i class="ti ti-trash me-1"></i>Delete</button>`}</div>
+        </article>`).join("") : `<div class="grade-mobile-empty">No grades found.</div>`;
         table.innerHTML = grades.length
             ? grades
                   .map(
@@ -245,3 +265,5 @@ window.gradesPage = {
     deleteGrade,
     fetchGrades,
 };
+
+

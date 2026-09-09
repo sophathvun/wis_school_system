@@ -1,4 +1,4 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 
 @section('title', 'Withdrawal Reasons')
 @section('page-header')
@@ -8,7 +8,7 @@
                 <div class="page-pretitle">Administrator</div>
                 <h2 class="page-title">Withdrawal Reasons</h2>
             </div>
-            <div class="col-auto d-flex gap-2">
+            <div class="col-auto d-flex gap-2 withdrawal-reason-page-actions">
                 <a class="btn btn-outline-primary" href="{{ route('withdrawal-reasons.print') }}" target="_blank" rel="noopener"><i class="ti ti-printer icon"></i> Print</a>
                 <a class="btn btn-outline-success" href="{{ route('withdrawal-reasons.excel') }}"><i class="ti ti-file-spreadsheet icon"></i> Excel</a>
                 <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#reasonModal"><i
@@ -20,9 +20,9 @@
 
 @section('content')
 
-    <div class="card">
+    <div class="card withdrawal-reasons-list-card">
         <div class="card-header">
-            <h3 class="card-title">Withdrawal Reason List</h3>
+            <h3 class="card-title">WITHDRAWAL REASON LIST</h3>
         </div>
         <div class="card-body border-bottom py-3">
             <div class="row col-12 g-2 align-items-center justify-content-end">
@@ -51,17 +51,17 @@
                         };
                         $sortIcon = function (string $field) {
                             if (request('sortBy', 'sort_order') !== $field) {
-                                return '↕';
+                                return '&varr;';
                             }
 
-                            return request('sortDir', 'asc') === 'asc' ? '↑' : '↓';
+                            return request('sortDir', 'asc') === 'asc' ? '&uarr;' : '&darr;';
                         };
                     @endphp
                     <tr>
-                        <th><a class="table-sort-button text-uppercase" href="{{ $sortUrl('sort_order') }}">ORDER {{ $sortIcon('sort_order') }}</a></th>
-                        <th><a class="table-sort-button text-uppercase" href="{{ $sortUrl('name_en') }}">REASON (ENGLISH) {{ $sortIcon('name_en') }}</a></th>
-                        <th><a class="table-sort-button" href="{{ $sortUrl('name_kh') }}">មូលហេតុ {{ $sortIcon('name_kh') }}</a></th>
-                        <th><a class="table-sort-button text-uppercase" href="{{ $sortUrl('status') }}">STATUS {{ $sortIcon('status') }}</a></th>
+                        <th><a class="table-sort-button text-uppercase" href="{{ $sortUrl('sort_order') }}">ORDER {!! $sortIcon('sort_order') !!}</a></th>
+                        <th><a class="table-sort-button text-uppercase" href="{{ $sortUrl('name_en') }}">REASON (ENGLISH) {!! $sortIcon('name_en') !!}</a></th>
+                        <th><a class="table-sort-button school-profile-khmer" href="{{ $sortUrl('name_kh') }}">&#x1798;&#x17bc;&#x179b;&#x17a0;&#x17c1;&#x178f;&#x17bb;&#x1794;&#x17c4;&#x17c7;&#x1794;&#x1784;&#x17cb;&#x1780;&#x17b6;&#x179a;&#x179f;&#x17b7;&#x1780;&#x17d2;&#x179f;&#x17b6; {!! $sortIcon('name_kh') !!}</a></th>
+                        <th><a class="table-sort-button text-uppercase" href="{{ $sortUrl('status') }}">STATUS {!! $sortIcon('status') !!}</a></th>
                         <th class="text-center text-uppercase">ACTIONS</th>
                     </tr>
                 </thead>
@@ -71,10 +71,8 @@
                             <td>{{ $reason->sort_order }}</td>
                             <td>{{ $reason->name_en }}<div class="text-secondary small">{{ $reason->reason_key }}</div>
                             </td>
-                            <td class="school-profile-khmer">{{ $reason->name_kh ?: '—' }}</td>
-                            <td><span
-                                    class="badge {{ $reason->status ? 'bg-green-lt text-green' : 'bg-secondary-lt text-secondary' }}">{{ $reason->status ? 'Active' : 'Inactive' }}</span>
-                            </td>
+                            <td class="school-profile-khmer">{{ $reason->name_kh ?: '-' }}</td>
+                            <td><button type="button" class="status-toggle {{ $reason->status ? 'is-active' : '' }}" data-status-toggle data-status-entity="withdrawal-reason" data-status-id="{{ $reason->id }}" data-status="{{ $reason->status ? 1 : 0 }}" aria-pressed="{{ $reason->status ? 'true' : 'false' }}"><span class="status-toggle-label">{{ $reason->status ? 'ON' : 'OFF' }}</span><span class="status-toggle-knob"></span></button></td>
                             <td class="text-center"><button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal"
                                     data-bs-target="#reasonModal" data-reason='@json($reason)'><i
                                         class="ti ti-edit"></i></button>
@@ -82,8 +80,8 @@
                                     <form class="d-inline" method="POST"
                                         action="{{ route('withdrawal-reasons.delete', $reason) }}"
                                         data-withdrawal-reason-delete-form>@csrf
-                                        @method('DELETE')<button class="btn btn-sm btn-outline-danger"><i
-                                                class="ti ti-ban"></i></button></form>
+                                        @method('DELETE')<button type="submit" class="btn btn-danger btn-sm" aria-label="Delete withdrawal reason"><i
+                                                class="ti ti-trash"></i></button></form>
                                 @endif
                             </td>
                         </tr>
@@ -93,6 +91,51 @@
                     @endforelse
                 </tbody>
             </table>
+        </div>
+        <div class="withdrawal-reason-mobile-cards">
+            @forelse($reasons as $reason)
+                <div class="withdrawal-reason-mobile-card">
+                    <div class="withdrawal-reason-card-top">
+                        <div class="withdrawal-reason-card-number">{{ str_pad($reasons->firstItem() + $loop->index, 2, '0', STR_PAD_LEFT) }}</div>
+                        <button type="button" class="status-toggle {{ $reason->status ? 'is-active' : '' }}"
+                            data-status-toggle data-status-entity="withdrawal-reason"
+                            data-status-id="{{ $reason->id }}" data-status="{{ $reason->status ? 1 : 0 }}"
+                            aria-pressed="{{ $reason->status ? 'true' : 'false' }}">
+                            <span class="status-toggle-label">{{ $reason->status ? 'ON' : 'OFF' }}</span><span class="status-toggle-knob"></span>
+                        </button>
+                    </div>
+                    <div class="withdrawal-reason-card-grid">
+                        <div>
+                            <div class="withdrawal-reason-card-label school-profile-khmer">&#x1798;&#x17bc;&#x179b;&#x17a0;&#x17c1;&#x178f;&#x17bb;&#x1794;&#x17c4;&#x17c7;&#x1794;&#x1784;&#x17cb;&#x1780;&#x17b6;&#x179a;&#x179f;&#x17b7;&#x1780;&#x17d2;&#x179f;&#x17b6;</div>
+                            <div class="withdrawal-reason-card-name school-profile-khmer">{{ $reason->name_kh ?: '-' }}</div>
+                        </div>
+                        <div>
+                            <div class="withdrawal-reason-card-label">Reason (English)</div>
+                            <div class="withdrawal-reason-card-name">{{ $reason->name_en ?: '-' }}</div>
+                            <div class="withdrawal-reason-card-subtitle">{{ $reason->reason_key ?: '-' }}</div>
+                        </div>
+                        <div>
+                            <div class="withdrawal-reason-card-label">Order</div>
+                            <div class="withdrawal-reason-card-value">{{ $reason->sort_order }}</div>
+                        </div>
+                    </div>
+                    <div class="withdrawal-reason-card-actions">
+                        <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal"
+                            data-bs-target="#reasonModal" data-reason='@json($reason)'><i class="ti ti-edit"></i></button>
+                        @if ($reason->status)
+                            <form method="POST" action="{{ route('withdrawal-reasons.delete', $reason) }}"
+                                data-withdrawal-reason-delete-form>@csrf
+                                @method('DELETE')
+                                <button type="submit" class="btn btn-outline-danger"><i class="ti ti-trash"></i></button>
+                            </form>
+                        @else
+                            <button type="button" class="btn btn-outline-danger" disabled><i class="ti ti-trash"></i></button>
+                        @endif
+                    </div>
+                </div>
+            @empty
+                <div class="text-center text-secondary py-3">No withdrawal reasons found.</div>
+            @endforelse
         </div>
         <div class="card-footer">
             <div class="row g-2 justify-content-center justify-content-sm-between">
@@ -141,11 +184,7 @@
                             <div class="col-6"><label class="form-label">Display Order *</label><input type="number"
                                     min="0" class="form-control" name="sort_order" id="reason_sort_order"
                                     value="0" required></div>
-                            <div class="col-6"><label class="form-label">Status *</label><select class="form-select"
-                                    name="status" id="reason_status">
-                                    <option value="1">Active</option>
-                                    <option value="0">Inactive</option>
-                                </select></div>
+                            <div class="col-6 withdrawal-reason-status-field"><input type="hidden" name="status" id="reason_status" value="1"><button type="button" id="reason-status-toggle" class="status-toggle is-active" aria-pressed="true"><span class="status-toggle-label">ON</span><span class="status-toggle-knob"></span></button></div>
                         </div>
                     </div>
                     <div class="modal-footer"><button type="button" class="btn me-auto"
@@ -158,3 +197,5 @@
 @endsection
 @vite('resources/css/pages/withdrawal-reasons.css')
 @vite('resources/js/withdrawalReasons.js')
+
+

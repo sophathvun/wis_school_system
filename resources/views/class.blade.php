@@ -27,21 +27,15 @@
 
 @section('content')
     <div class="col-12">
-        <div class="card">
+        <div class="card class-list-card">
             <div class="card-header">
-                <h3 class="card-title">Class Lists</h3>
+                <h3 class="card-title">CLASS LISTS</h3>
             </div>
             <div class="card-body border-bottom py-3">
                 <div class="row col-12 g-2 align-items-center justify-content-between">
-                    <div class="col-auto text-secondary">Show <div class="mx-2 d-inline-block"><select
-                                class="form-control form-control-sm" id="classes-per-page">
-                                <option value="10" selected>10 / page</option>
-                                <option value="25">25 / page</option>
-                                <option value="50">50 / page</option>
-                                <option value="100">100 / page</option>
-                            </select></div> entries</div>
-                    <div class="col-auto">
-                        <div class="input-icon"><span class="input-icon-addon"><i
+                    <input type="hidden" id="classes-per-page" value="10">
+                    <div class="col-12 col-sm-auto">
+                        <div class="input-icon class-search-field"><span class="input-icon-addon"><i
                                     class="ti ti-search icon"></i></span><input type="text" id="classes-search"
                                 class="form-control form-control-sm" placeholder="Search classes"></div>
                     </div>

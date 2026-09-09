@@ -1,3 +1,11 @@
+﻿@media (min-width: 768px) {
+    .user-management-list-card .table thead th,
+    .user-management-list-card .table thead .table-sort-button {
+        border-color: var(--tblr-primary);
+        background: var(--tblr-primary);
+        color: #fff;
+    }
+}
 /* Extracted from resources/views/user-management.blade.php. Keep page-specific styles in this file. */
 
 .table-sort-button {
@@ -520,7 +528,7 @@
 #userModal
     .user-searchable-combobox
     .location-combobox-option.is-selected::after {
-    content: "✓";
+    content: "âœ“";
     float: right;
     color: var(--tblr-primary);
     font-weight: 700;
@@ -1281,3 +1289,4 @@
 [data-bs-theme="dark"] .staff-photo-crop-stage {
     background: #0f172a;
 }
+

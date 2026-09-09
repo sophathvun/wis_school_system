@@ -8,6 +8,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use App\Support\SettingsQuery;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class SchoolInfoController
@@ -21,7 +22,7 @@ class SchoolInfoController
     {
         $perPage = SettingsQuery::perPage($request);
         $search = SettingsQuery::search($request);
-        $allowedSorts = ['id', 'logo_path', 'school_name_en', 'campus_name_en', 'phone', 'status'];
+        $allowedSorts = ['id', 'logo_path', 'school_name_en', 'campus_name_en', 'phone', 'address_en', 'address_kh', 'status'];
         $sortBy = SettingsQuery::sort($request, $allowedSorts, 'id');
         $sortDir = SettingsQuery::direction($request);
 
@@ -32,11 +33,22 @@ class SchoolInfoController
                         ->orWhere('school_name_kh', 'like', "%{$search}%")
                         ->orWhere('campus_name_en', 'like', "%{$search}%")
                         ->orWhere('campus_name_kh', 'like', "%{$search}%")
-                        ->orWhere('phone', 'like', "%{$search}%");
+                        ->orWhere('phone', 'like', "%{$search}%")
+                        ->orWhere('address_en', 'like', "%{$search}%")
+                        ->orWhere('address_kh', 'like', "%{$search}%")
+                        ->orWhere('address', 'like', "%{$search}%");
                 });
             })
             ->orderBy($sortBy, $sortDir)
             ->paginate($perPage);
+
+        $schools->getCollection()->transform(function (SchoolInfo $school) {
+            $linkSummary = $this->campusLinkSummary($school->id);
+            $school->is_linked = $linkSummary['total'] > 0;
+            $school->linked_message = $this->campusLinkedMessage($linkSummary);
+
+            return $school;
+        });
 
         return response()->json($schools);
     }
@@ -444,6 +456,17 @@ class SchoolInfoController
             'campus_name_en' => ['required', 'string', 'max:20', Rule::unique('tb_school_info', 'campus_name_en')->ignore($schoolId)],
             'campus_name_kh' => ['required', 'string', 'max:20', Rule::unique('tb_school_info', 'campus_name_kh')->ignore($schoolId)],
             'address' => ['nullable', 'string', 'max:250'],
+            'address_country_id' => ['nullable', 'integer', 'exists:tb_country,id'],
+            'address_province_id' => ['nullable', 'integer', 'exists:tb_province,id'],
+            'address_district_id' => ['nullable', 'integer', 'exists:tb_district,id'],
+            'address_commune_id' => ['nullable', 'integer', 'exists:tb_commune,id'],
+            'address_village_id' => ['nullable', 'integer', 'exists:tb_village,id'],
+            'address_en' => ['nullable', 'string', 'max:500'],
+            'address_kh' => ['nullable', 'string', 'max:500'],
+            'address_house_no_en' => ['nullable', 'string', 'max:100'],
+            'address_house_no_kh' => ['nullable', 'string', 'max:100'],
+            'address_street_en' => ['nullable', 'string', 'max:100'],
+            'address_street_kh' => ['nullable', 'string', 'max:100'],
             'google_map_url' => ['nullable', 'string', 'max:2000'],
             'phone' => ['nullable', 'string', 'max:50', Rule::unique('tb_school_info', 'phone')->ignore($schoolId)],
             'description' => ['nullable', 'string', 'max:100'],
@@ -479,10 +502,51 @@ class SchoolInfoController
         $school = SchoolInfo::find($id);
         if (!$school) return response()->json(['status' => 'error', 'message' => 'School profile not found.'], 404);
 
+        $linkSummary = $this->campusLinkSummary($school->id);
+        if ($linkSummary['total'] > 0) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $this->campusLinkedMessage($linkSummary),
+            ], 409);
+        }
+
         if ($school->logo_path) {
             Storage::disk('public')->delete($school->logo_path);
         }
         $school->delete();
         return response()->json(['status' => 'success', 'message' => 'School profile deleted successfully.']);
+    }
+
+    private function campusLinkSummary(int $campusId): array
+    {
+        $counts = [
+            'student enrollments' => DB::table('tb_student_enrollment')->where('campus_id', $campusId)->count(),
+            'enrollment history records' => DB::table('tb_student_enrollment_history')->where('campus_id', $campusId)->count(),
+            'graduation records' => DB::table('tb_student_graduation')->where('campus_id', $campusId)->count(),
+            'workflow source campus records' => DB::table('tb_student_enrollment_workflow')->where('from_campus_id', $campusId)->count(),
+            'workflow target campus records' => DB::table('tb_student_enrollment_workflow')->where('to_campus_id', $campusId)->count(),
+            'user campus assignments' => DB::table('access_user_campuses')->where('campus_id', $campusId)->count(),
+            'active user campus settings' => DB::table('users')->where('active_campus_id', $campusId)->count(),
+            'role campus assignments' => DB::table('access_user_roles')->where('campus_id', $campusId)->count(),
+        ];
+
+        return [
+            'counts' => array_filter($counts),
+            'total' => array_sum($counts),
+        ];
+    }
+
+    private function campusLinkedMessage(array $linkSummary): string
+    {
+        if (($linkSummary['total'] ?? 0) <= 0) {
+            return '';
+        }
+
+        $parts = collect($linkSummary['counts'])
+            ->map(fn ($count, $label) => "{$count} {$label}")
+            ->values()
+            ->join(', ');
+
+        return "This campus cannot be deleted because it is already linked to other data: {$parts}.";
     }
 }

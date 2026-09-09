@@ -592,6 +592,7 @@ class DashboardController
     private function graduatedStudentsCount(?int $academicYearId, ?int $campusId, array $campusIds): int
     {
         return StudentGraduation::query()
+            ->where('status', 'completed')
             ->when($academicYearId, fn ($query) => $query->where('academic_year_id', $academicYearId))
             ->when($campusId, fn ($query) => $query->where('campus_id', $campusId))
             ->when(!$campusId, fn ($query) => $query->whereIn('campus_id', $campusIds))
@@ -602,6 +603,7 @@ class DashboardController
     private function graduatedStudentsGenderCounts(?int $academicYearId, ?int $campusId, array $campusIds): object
     {
         return StudentGraduation::query()
+            ->where('tb_student_graduation.status', 'completed')
             ->when($academicYearId, fn ($query) => $query->where('tb_student_graduation.academic_year_id', $academicYearId))
             ->when($campusId, fn ($query) => $query->where('tb_student_graduation.campus_id', $campusId))
             ->when(!$campusId, fn ($query) => $query->whereIn('tb_student_graduation.campus_id', $campusIds))

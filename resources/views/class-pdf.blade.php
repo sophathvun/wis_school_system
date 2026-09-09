@@ -18,7 +18,7 @@
             @endif
         </div>
         <div class="title-row">
-            <h1 class="khmer-title">ážáž¶ážšáž¶áž„ážáŸ’áž“áž¶áž€áŸ‹ážšáŸ€áž“</h1>
+            <h1 class="khmer-title">តារាងថ្នាក់រៀន</h1>
             <h2 class="english-title">Class List</h2>
         </div>
     </div>
@@ -48,4 +48,3 @@
 </body>
 
 </html>
-

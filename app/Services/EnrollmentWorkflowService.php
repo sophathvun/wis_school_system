@@ -13,6 +13,7 @@ use Illuminate\Validation\ValidationException;
 class EnrollmentWorkflowService
 {
     private const PROMOTION_ACTIONS = ['promotion', 'class_promotion', 'selected_promotion', 're_promotion'];
+    private const TRANSFER_ACTIONS = ['transfer', 'class_transfer', 'selected_transfer'];
 
     public function promoteClass(array $data): int
     {
@@ -354,15 +355,70 @@ class EnrollmentWorkflowService
     {
         return DB::transaction(function () use ($source, $data) {
             $before = $source->only(['campus_id', 'academic_year_id', 'grade_id', 'class_id', 'session_id']);
+            $targetAcademicYearId = $data['to_academic_year_id'] ?? $source->academic_year_id;
+            $targetCampusId = $data['to_campus_id'] ?? $source->campus_id;
+            $targetGradeId = $data['to_grade_id'] ?? $source->grade_id;
+            $targetClassId = $data['to_class_id'] ?? $source->class_id;
+            $targetSessionId = $data['to_session_id'] ?? $source->session_id;
+
             $source->update([
-                'campus_id' => $data['to_campus_id'],
-                'grade_id' => $data['to_grade_id'] ?? $source->grade_id,
-                'class_id' => $data['to_class_id'] ?? $source->class_id,
-                'session_id' => $data['to_session_id'] ?? null,
+                'academic_year_id' => $targetAcademicYearId,
+                'campus_id' => $targetCampusId,
+                'grade_id' => $targetGradeId,
+                'class_id' => $targetClassId,
+                'session_id' => $targetSessionId,
+                'status' => 1,
                 'enrollment_status' => 'active',
+                'ended_on' => null,
+                'exit_reason' => null,
+                'notes' => $data['notes'] ?? $source->notes,
             ]);
+
+            // Keep transfer as one enrollment row. The workflow record stores
+            // the campus/class movement for history and future accounting use.
             $this->record($source, $source, $data['action_type'] ?? 'transfer', $data, $before);
+
             return $source->fresh();
+        });
+    }
+
+    public function reverseTransfer(EnrollmentWorkflowAction $workflow, array $data): StudentEnrollment
+    {
+        return DB::transaction(function () use ($workflow, $data) {
+            $workflow = EnrollmentWorkflowAction::query()->lockForUpdate()->findOrFail($workflow->id);
+            if (!in_array($workflow->action_type, self::TRANSFER_ACTIONS, true)) {
+                throw ValidationException::withMessages(['workflow' => 'Only transfer records can be reversed.']);
+            }
+            if ($workflow->status === 'reversed') {
+                throw ValidationException::withMessages(['workflow' => 'This transfer is already reversed.']);
+            }
+
+            $enrollment = StudentEnrollment::lockForUpdate()->find($workflow->target_enrollment_id ?: $workflow->source_enrollment_id);
+            if (!$enrollment) {
+                throw ValidationException::withMessages(['workflow' => 'The transferred enrollment no longer exists.']);
+            }
+
+            $enrollment->update([
+                'academic_year_id' => $workflow->from_academic_year_id ?: $enrollment->academic_year_id,
+                'campus_id' => $workflow->from_campus_id ?: $enrollment->campus_id,
+                'grade_id' => $workflow->from_grade_id ?: $enrollment->grade_id,
+                'class_id' => $workflow->from_class_id ?: $enrollment->class_id,
+                'session_id' => $workflow->from_session_id ?: $enrollment->session_id,
+                'status' => 1,
+                'enrollment_status' => 'active',
+                'ended_on' => null,
+                'exit_reason' => null,
+                'notes' => $data['notes'] ?? $enrollment->notes,
+            ]);
+
+            $workflow->update([
+                'status' => 'reversed',
+                'notes' => $data['notes'] ?? $workflow->notes,
+            ]);
+
+            $this->recordEnrollmentHistory($enrollment, 'reverse_transfer', $data['effective_on'], $data['reason'] ?? 'Transfer reversed', $data['notes'] ?? null);
+
+            return $enrollment->fresh();
         });
     }
 

@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -105,7 +105,7 @@
             @endif
         </div>
         <div class="report-title">
-            <h2 class="khmer-title">ážáž¶ážšáž¶áž„áž˜áž¼áž›áž áŸážáž»áž“áŸƒáž€áž¶ážšáž”áŸ„áŸ‡áž”áž„áŸ‹áž€áž¶ážšážŸáž·áž€áŸ’ážŸáž¶</h2>
+            <h2 class="khmer-title">តារាងមូលហេតុនៃការបោះបង់ការសិក្សា</h2>
             <h2 class="english-title">Withdrawal Reason List</h2>
         </div>
     </div>

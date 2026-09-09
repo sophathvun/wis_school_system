@@ -39,6 +39,36 @@
     min-width: min(100%, 280px);
 }
 
+.enrollment-workflows-card .table thead th {
+    height: 2.625rem;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+.enrollment-workflows-card .table thead .table-sort {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    min-height: 2.25rem;
+    background-image: none !important;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.enrollment-workflows-card .table thead .table-sort::after,
+.enrollment-workflows-card .table thead .table-sort::before {
+    display: none !important;
+    content: none !important;
+}
+
+.enrollment-workflows-card .table thead [data-workflow-sort-icon] {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1rem;
+    min-width: 1rem;
+}
+
 .workflow-student-photo {
     width: 42px;
     height: 42px;
@@ -77,6 +107,47 @@
     white-space: nowrap;
 }
 
+.workflow-cell-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+
+
+.workflow-info-stack {
+    display: grid;
+    gap: 0.35rem;
+    min-width: 11rem;
+}
+
+.workflow-info-stack div {
+    display: grid;
+    gap: 0.05rem;
+}
+
+.workflow-info-stack strong {
+    color: var(--tblr-body-color);
+    font-size: 0.86rem;
+    font-weight: 500;
+    line-height: 1.2;
+}
+
+.workflow-info-stack .workflow-changed-value {
+    display: inline-flex;
+    width: fit-content;
+    max-width: 100%;
+    align-items: center;
+    padding: 0.12rem 0.42rem;
+    border-radius: 999px;
+    color: var(--tblr-primary);
+    background: rgba(var(--tblr-primary-rgb), 0.12);
+    font-weight: 700;
+}
+
+.workflow-transfer-mobile-pair {
+    display: none;
+}
+
 #workflowModal .workflow-dialog {
     max-width: 980px;
 }
@@ -88,3 +159,328 @@
         margin-right: 0.5rem;
     }
 }
+
+@media (max-width: 767.98px) {
+    .workflow-page-header {
+        align-items: stretch !important;
+    }
+
+    .workflow-page-header > .col,
+    .workflow-page-actions {
+        flex: 0 0 100%;
+        width: 100%;
+    }
+
+    .workflow-page-actions {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
+    }
+
+    .workflow-page-actions .btn {
+        width: 100%;
+        margin-left: 0 !important;
+        justify-content: center;
+        min-height: 2.75rem;
+    }
+
+    .workflow-page-actions .workflow-desktop-action {
+        display: none;
+    }
+
+    .enrollment-workflows-card .card-header {
+        padding: 1rem;
+    }
+
+    .workflow-filter-bar {
+        display: grid !important;
+        grid-template-columns: 1fr;
+        padding: 1rem !important;
+        gap: 0.75rem;
+    }
+
+    .workflow-history-filters {
+        display: grid !important;
+        grid-template-columns: 1fr;
+        width: 100%;
+        gap: 0.6rem;
+    }
+
+    .workflow-history-filters .location-combobox,
+    .workflow-history-filters .form-select,
+    .workflow-search {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .workflow-search .form-control,
+    .workflow-history-filters .location-combobox-toggle,
+    .workflow-history-filters .form-select {
+        min-height: 2.75rem;
+    }
+
+    .enrollment-workflows-card .table-responsive {
+        overflow: visible !important;
+    }
+
+    .enrollment-workflows-card .table {
+        display: block;
+        margin: 0;
+        background: transparent;
+    }
+
+    .enrollment-workflows-card .table thead {
+        display: none;
+    }
+
+    .enrollment-workflows-card .table tbody {
+        display: grid;
+        gap: 0.85rem;
+        padding: 0.85rem;
+        background: var(--tblr-bg-surface-secondary);
+    }
+
+    .enrollment-workflows-card .table tbody tr.workflow-history-row {
+        position: relative;
+        display: grid;
+        grid-template-columns: 3.25rem 1fr;
+        gap: 0.35rem 0.65rem;
+        padding: 3.25rem 0.85rem 0.85rem;
+        border: 1px solid rgba(var(--tblr-primary-rgb), 0.18);
+        border-radius: 0.45rem;
+        background: var(--tblr-bg-surface);
+        box-shadow: 0 8px 18px rgba(31, 63, 104, 0.08);
+        overflow: hidden;
+    }
+
+    .enrollment-workflows-card .table tbody tr.workflow-history-row.workflow-transfer-row {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+
+    .enrollment-workflows-card .table tbody tr:not(.workflow-history-row) {
+        display: block;
+        border-radius: 0.85rem;
+        background: var(--tblr-bg-surface);
+    }
+
+    .enrollment-workflows-card .table tbody tr.workflow-history-row::after {
+        content: "";
+        position: absolute;
+        inset-inline: 0;
+        bottom: 0;
+        height: 0.28rem;
+        background: var(--tblr-primary);
+    }
+
+    .enrollment-workflows-card .table tbody td {
+        display: block;
+        width: 100%;
+        padding: 0;
+        border: 0 !important;
+        background: transparent !important;
+    }
+
+    .enrollment-workflows-card .table tbody tr.workflow-history-row > td.workflow-cell-number {
+        position: absolute;
+        top: 0;
+        left: 0;
+        display: grid !important;
+        width: 3.25rem !important;
+        height: 3.25rem;
+        place-items: center;
+        color: #fff;
+        background: var(--tblr-primary) !important;
+        font-size: 1.25rem;
+        font-weight: 800;
+        line-height: 1;
+    }
+
+    .workflow-cell-photo {
+        grid-column: 1;
+        grid-row: 1 / span 2;
+        align-self: start;
+        margin-top: 0.45rem;
+    }
+
+    .workflow-transfer-row .workflow-cell-photo {
+        grid-column: 1;
+        grid-row: 1 / span 2;
+        width: 3.25rem;
+    }
+
+    .workflow-student-photo,
+    .workflow-student-photo-placeholder {
+        width: 3.25rem;
+        height: 3.25rem;
+        border-radius: 0.75rem;
+    }
+
+    .workflow-cell-student-id,
+    .workflow-cell-student-name {
+        grid-column: 2;
+    }
+
+    .workflow-cell-student-id {
+        color: var(--tblr-secondary);
+        font-size: 0.8rem;
+        align-self: end;
+    }
+
+    .workflow-cell-student-id::before {
+        content: attr(data-label) ": ";
+        font-weight: 500;
+        text-transform: uppercase;
+    }
+
+    .workflow-cell-student-name {
+        align-self: start;
+        margin-bottom: 0.35rem;
+    }
+
+    .workflow-student-name-kh {
+        font-size: 1rem;
+        color: var(--tblr-body-color);
+    }
+
+    .workflow-student-name-en {
+        margin-top: 0.15rem;
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: var(--tblr-body-color);
+    }
+
+    .enrollment-workflows-card .table tbody td:not(.workflow-cell-number):not(.workflow-cell-photo):not(.workflow-cell-student-id):not(.workflow-cell-student-name):not(.workflow-cell-actions) {
+        grid-column: 1 / -1;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding-top: 0.45rem;
+        font-size: 0.9rem;
+    }
+
+    .enrollment-workflows-card .table tbody td:not(.workflow-cell-number):not(.workflow-cell-photo):not(.workflow-cell-student-id):not(.workflow-cell-student-name):not(.workflow-cell-actions)::before {
+        content: attr(data-label);
+        flex: 0 0 auto;
+        color: var(--tblr-secondary);
+        font-size: 0.72rem;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    .workflow-cell-actions {
+        grid-column: 1 / -1;
+        display: grid !important;
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
+        padding-top: 0.75rem !important;
+    }
+
+    .workflow-cell-actions::before {
+        display: none;
+        content: none;
+    }
+
+    .workflow-row-action {
+        width: 100%;
+        min-height: 2.65rem;
+        justify-content: center;
+        font-size: 0.9rem;
+    }
+
+    .workflow-info-cell {
+        display: grid !important;
+        align-items: stretch !important;
+        justify-content: stretch !important;
+        gap: 0.35rem !important;
+    }
+
+    .enrollment-workflows-card .table tbody tr.workflow-history-row > td.workflow-info-from {
+        grid-column: 1;
+    }
+
+    .enrollment-workflows-card .table tbody tr.workflow-history-row > td.workflow-info-to {
+        grid-column: 2;
+    }
+
+    .enrollment-workflows-card .table tbody tr.workflow-history-row > td.workflow-info-from,
+    .enrollment-workflows-card .table tbody tr.workflow-history-row > td.workflow-info-to {
+        display: none !important;
+    }
+
+    .enrollment-workflows-card .table tbody tr.workflow-history-row > td.workflow-transfer-mobile-pair {
+        grid-column: 1 / -1;
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 0.85rem;
+        align-content: start;
+        justify-content: stretch !important;
+        padding-top: 0.5rem;
+        min-width: 0;
+    }
+
+    .enrollment-workflows-card .table tbody tr.workflow-history-row > td.workflow-transfer-mobile-pair::before {
+        display: none;
+        content: none;
+    }
+
+    .workflow-transfer-mobile-column {
+        display: grid;
+        align-content: start;
+        gap: 0.35rem;
+        min-width: 0;
+    }
+
+    .workflow-transfer-mobile-column > span {
+        color: var(--tblr-secondary);
+        font-size: 0.72rem;
+        font-weight: 600;
+        line-height: 1.15;
+        text-transform: uppercase;
+    }
+
+    .workflow-info-cell::before {
+        margin-bottom: 0.15rem;
+    }
+
+    .workflow-info-stack {
+        min-width: 0;
+        gap: 0.45rem;
+    }
+
+    .workflow-info-stack div,
+    .workflow-info-stack strong {
+        min-width: 0;
+        max-width: 100%;
+    }
+
+    .workflow-info-stack strong {
+        text-align: left;
+        overflow-wrap: anywhere;
+    }
+
+    .enrollment-workflows-card .card-footer {
+        padding: 0;
+    }
+
+    #workflowModal .modal-content {
+        max-height: calc(100dvh - 1rem);
+        overflow: hidden;
+    }
+
+    #workflowModal .modal-body {
+        max-height: calc(100dvh - 9rem);
+        overflow: auto;
+        padding: 1rem;
+    }
+
+    #workflowModal .modal-footer {
+        padding: 0.75rem 1rem;
+    }
+
+    #workflowModal .modal-footer .btn {
+        flex: 1 1 0;
+        min-height: 2.65rem;
+    }
+}
+

@@ -7,59 +7,119 @@
                 <div class="page-pretitle">Settings</div>
                 <h2 class="page-title">Student Document Types</h2>
             </div>
-            <div class="col-auto"><button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#documentTypeModal"><i
+            <div class="col-auto document-type-new-action"><button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#documentTypeModal"><i
                         class="ti ti-plus me-1"></i> New Document Type</button></div>
         </div>
 </div>@endsection
 @section('content')@if (session('success'))
     <div class="alert alert-success">{{ session('success') }}</div>
 @endif
-<div class="card">
+<div class="card document-types-list-card">
     <div class="card-header">
         <h3 class="card-title">Document Type List</h3>
     </div>
     <div class="card-body border-bottom py-3">
         <form class="input-icon"><span class="input-icon-addon"><i class="ti ti-search"></i></span><input
                 class="form-control form-control-sm" name="search" value="{{ request('search') }}"
-                placeholder="Search document types"></form>
+                placeholder="Search document types"><input type="hidden" name="sortBy" value="{{ request('sortBy', 'sort_order') }}"><input type="hidden" name="sortDir" value="{{ request('sortDir', 'asc') }}"></form>
     </div>
-    <div class="table-responsive">
+    @php
+        $sortUrl = function (string $field) {
+            $currentSort = request('sortBy', 'sort_order');
+            $currentDir = request('sortDir', 'asc');
+            $nextDir = $currentSort === $field && $currentDir === 'asc' ? 'desc' : 'asc';
+            return request()->fullUrlWithQuery([
+                'sortBy' => $field,
+                'sortDir' => $nextDir,
+                'page' => 1,
+            ]);
+        };
+        $sortIcon = function (string $field) {
+            if (request('sortBy', 'sort_order') !== $field) {
+                return '&varr;';
+            }
+            return request('sortDir', 'asc') === 'asc' ? '&uarr;' : '&darr;';
+        };
+    @endphp
+    <div class="table-responsive document-types-table-wrap">
         <table class="table card-table">
             <thead>
                 <tr>
-                    <th>Order</th>
-                    <th>Type (English)</th>
-                    <th>Type (Khmer)</th>
-                    <th>Status</th>
-                    <th class="text-center">Actions</th>
+                    <th><a class="table-sort-button text-uppercase" href="{{ $sortUrl('sort_order') }}">ORDER {!! $sortIcon('sort_order') !!}</a></th>
+                    <th><a class="table-sort-button text-uppercase" href="{{ $sortUrl('name_en') }}">TYPE (ENGLISH) {!! $sortIcon('name_en') !!}</a></th>
+                    <th><a class="table-sort-button text-uppercase school-profile-khmer" href="{{ $sortUrl('name_kh') }}">TYPE (KHMER) {!! $sortIcon('name_kh') !!}</a></th>
+                    <th><a class="table-sort-button text-uppercase" href="{{ $sortUrl('type_key') }}">SYSTEM KEY {!! $sortIcon('type_key') !!}</a></th>
+                    <th><a class="table-sort-button text-uppercase" href="{{ $sortUrl('status') }}">STATUS {!! $sortIcon('status') !!}</a></th>
+                    <th class="text-center text-uppercase">ACTIONS</th>
                 </tr>
             </thead>
             <tbody>
                 @forelse($types as $type)
                     <tr>
                         <td>{{ $type->sort_order }}</td>
-                        <td>{{ $type->name_en }}<div class="small text-secondary">{{ $type->type_key }}</div>
-                        </td>
-                        <td class="school-profile-khmer">{{ $type->name_kh ?: '—' }}</td>
-                        <td><span
-                                class="badge bg-{{ $type->status ? 'success' : 'secondary' }}">{{ $type->status ? 'Active' : 'Inactive' }}</span>
-                        </td>
+                        <td>{{ $type->name_en }}</td>
+                        <td class="school-profile-khmer">{{ $type->name_kh ?: '-' }}</td>
+                        <td>{{ $type->type_key }}</td>
+                        <td><button type="button" class="status-toggle {{ $type->status ? 'is-active' : '' }}" data-status-toggle data-status-entity="student-document-type" data-status-id="{{ $type->id }}" data-status="{{ $type->status ? 1 : 0 }}" aria-pressed="{{ $type->status ? 'true' : 'false' }}"><span class="status-toggle-label">{{ $type->status ? 'ON' : 'OFF' }}</span><span class="status-toggle-knob"></span></button></td>
                         <td class="text-center"><button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal"
-                                data-bs-target="#documentTypeModal" data-type='@json($type)'><i
+                                data-bs-target="#documentTypeModal" data-type='@json($type)' aria-label="Edit document type"><i
                                     class="ti ti-edit"></i></button>
                             @if ($type->status)
                                 <form class="d-inline" method="POST"
                                     action="{{ route('student-document-types.delete', $type) }}">@csrf
-                                    @method('DELETE')<button class="btn btn-sm btn-outline-danger"><i
-                                            class="ti ti-ban"></i></button></form>
+                                    @method('DELETE')<button type="submit" class="btn btn-danger btn-sm" aria-label="Delete document type"><i
+                                            class="ti ti-trash"></i></button></form>
                             @endif
                         </td>
-                </tr>@empty<tr>
-                        <td colspan="5" class="text-center">No document types found.</td>
+                    </tr>
+                @empty
+                    <tr>
+                        <td colspan="6" class="text-center">No document types found.</td>
                     </tr>
                 @endforelse
             </tbody>
         </table>
+    </div>
+    <div class="document-type-mobile-cards">
+        @forelse($types as $type)
+            <div class="document-type-card">
+                <div class="document-type-card-top">
+                    <div class="document-type-card-number">{{ str_pad(($types->firstItem() ?? 1) + $loop->index, 2, '0', STR_PAD_LEFT) }}</div>
+                    <button type="button" class="status-toggle {{ $type->status ? 'is-active' : '' }}" data-status-toggle data-status-entity="student-document-type" data-status-id="{{ $type->id }}" data-status="{{ $type->status ? 1 : 0 }}" aria-pressed="{{ $type->status ? 'true' : 'false' }}"><span class="status-toggle-label">{{ $type->status ? 'ON' : 'OFF' }}</span><span class="status-toggle-knob"></span></button>
+                </div>
+                <div class="document-type-card-grid">
+                    <div class="document-type-card-field document-type-card-field-full">
+                        <div class="document-type-card-label school-profile-khmer">Type (Khmer)</div>
+                        <div class="document-type-card-value school-profile-khmer document-type-card-khmer">{{ $type->name_kh ?: '-' }}</div>
+                    </div>
+                    <div class="document-type-card-field document-type-card-field-full">
+                        <div class="document-type-card-label">Type (English)</div>
+                        <div class="document-type-card-value">{{ $type->name_en }}</div>
+                    </div>
+                    <div class="document-type-card-field">
+                        <div class="document-type-card-label">System Key</div>
+                        <div class="document-type-card-value">{{ $type->type_key }}</div>
+                    </div>
+                    <div class="document-type-card-field">
+                        <div class="document-type-card-label">Order</div>
+                        <div class="document-type-card-value">{{ $type->sort_order }}</div>
+                    </div>
+                </div>
+                <div class="document-type-card-actions">
+                    <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#documentTypeModal" data-type='@json($type)' aria-label="Edit document type"><i class="ti ti-edit"></i></button>
+                    @if ($type->status)
+                        <form method="POST" action="{{ route('student-document-types.delete', $type) }}">@csrf
+                            @method('DELETE')
+                            <button type="submit" class="btn btn-outline-danger" aria-label="Delete document type"><i class="ti ti-trash"></i></button>
+                        </form>
+                    @else
+                        <button type="button" class="btn btn-outline-danger" disabled aria-label="Delete document type"><i class="ti ti-trash"></i></button>
+                    @endif
+                </div>
+            </div>
+        @empty
+            <div class="document-type-empty-card">No document types found.</div>
+        @endforelse
     </div>
     <div class="card-footer">@include('partials.admin-pagination', ['paginator' => $types])</div>
 </div>

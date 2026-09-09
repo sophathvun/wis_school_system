@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -12,12 +12,12 @@
 
 <body data-pdf-print-mode="{{ ($printMode ?? false) ? '1' : '0' }}" data-pdf-redirect-url="{{ route('academic-years.index') }}">
     <div class="header">
-        <div>
+        <div class="school-logo-row">
             @if ($logoSrc)
                 <img src="{{ $logoSrc }}" alt="School Logo 1" class="school-logo">
             @endif
         </div>
-        <h3 class="khmer-title text-center">ážáž¶ážšáž¶áž„áž†áŸ’áž“áž¶áŸ†ážŸáž·áž€áŸ’ážŸáž¶</h3>
+        <h3 class="khmer-title text-center" lang="km">តារាងឆ្នាំសិក្សា</h3>
         <h3 class="text-center english-title">Academic Year List</h3>
     </div>
 
@@ -53,4 +53,3 @@
 </body>
 
 </html>
-

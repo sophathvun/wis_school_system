@@ -1,4 +1,4 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 @section('title', 'Sessions')
 
 @section('page-header')
@@ -22,9 +22,9 @@
 
 @section('content')
     <div class="col-12">
-        <div class="card">
+        <div class="card session-list-card">
             <div class="card-header">
-                <h3 class="card-title">Session Lists</h3>
+                <h3 class="card-title">SESSION LISTS</h3>
             </div>
             <div class="card-body border-bottom py-3">
                 <input type="hidden" id="sessions-per-page" value="10">
@@ -56,6 +56,7 @@
                     </tbody>
                 </table>
             </div>
+            <div id="sessionsMobileCards" class="sessions-mobile-cards"></div>
             <div class="card-footer">
                 <div class="row g-2">
                     <div class="col-12 d-flex justify-content-center" id="sessions-pagination-container"></div>
@@ -82,4 +83,7 @@
         </div>
     </div>
     @vite('resources/js/session.js')
+    @vite('resources/css/pages/session.css')
 @endsection
+
+

@@ -1,4 +1,4 @@
-﻿<!doctype html>
+ï»¿<!doctype html>
 <html>
 
 <head>
@@ -18,7 +18,7 @@
             @endif
         </div>
         <div class="report-title">
-            <h2 class="khmer-title">ážáž¶ážšáž¶áž„áž€áž˜áŸ’ážšáž·ážážáŸ’áž“áž¶áž€áŸ‹</h2>
+            <h2 class="khmer-title">តារាងកម្រិតថ្នាក់</h2>
             <h2 class="english-title">Grade List</h2>
         </div>
     </div>

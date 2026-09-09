@@ -1,0 +1,254 @@
+﻿@media (min-width: 768px) {
+    .program-list-card .table thead th {
+        border-color: var(--tblr-primary);
+        background: var(--tblr-primary);
+        color: #fff;
+    }
+}
+.programs-mobile-cards {
+    display: none;
+}
+
+#programModal .form-floating > label {
+    color: var(--tblr-secondary);
+}
+
+#programModal .form-floating > .form-control,
+#programModal .form-floating > .form-select {
+    min-height: 4rem;
+}
+
+#programModal .form-floating > textarea.form-control {
+    min-height: 5rem;
+}
+
+@media (max-width: 767.98px) {
+    #programs-search {
+        width: 100% !important;
+        min-height: 3rem;
+        font-size: .95rem;
+    }
+
+    .program-list-card .card-body {
+        display: block !important;
+    }
+
+    .table-responsive:has(#programsTable) {
+        display: none;
+    }
+
+    .programs-mobile-cards {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: .85rem;
+        padding: 1rem;
+    }
+
+    .program-mobile-card {
+        position: relative;
+        min-height: 132px;
+        padding: 2.45rem .85rem 1rem;
+        overflow: hidden;
+        border: 1px solid #dfe7f1;
+        border-radius: .45rem;
+        background: var(--tblr-bg-surface, #fff);
+        box-shadow: 0 8px 18px rgba(31, 63, 104, .08);
+    }
+
+    .program-mobile-card::after {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        height: .35rem;
+        background: var(--tblr-primary);
+        content: "";
+    }
+
+    .program-mobile-number {
+        display: grid;
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 3.2rem;
+        height: 3.2rem;
+        place-items: center;
+        color: #fff;
+        background: var(--tblr-primary);
+        font-size: 1.25rem;
+        font-weight: 800;
+        line-height: 1;
+    }
+
+    .program-mobile-status {
+        position: absolute;
+        top: .8rem;
+        right: .85rem;
+    }
+
+    .program-mobile-columns {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        align-items: start;
+        gap: .85rem;
+        margin-top: 0;
+        color: var(--tblr-secondary);
+        font-size: .8rem;
+        line-height: 1.45;
+    }
+
+    .program-mobile-column {
+        display: grid;
+        gap: .45rem;
+        min-width: 0;
+        align-content: start;
+    }
+
+    .program-mobile-name,
+    .program-mobile-column span,
+    .program-mobile-column strong {
+        min-width: 0;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .program-mobile-name {
+        color: #243b59;
+        font-size: .95rem;
+        font-weight: 800;
+        line-height: 1.25;
+        text-transform: uppercase;
+    }
+
+    .program-mobile-actions {
+        display: flex;
+        gap: .45rem;
+        margin-top: .8rem;
+    }
+
+    .program-mobile-actions .btn {
+        flex: 1 1 0;
+        min-height: 38px;
+        padding-right: .5rem;
+        padding-left: .5rem;
+        font-size: .78rem;
+    }
+
+    .program-mobile-empty {
+        padding: 2rem 1rem;
+        color: var(--tblr-secondary);
+        text-align: center;
+    }
+}
+
+@media (max-width: 359.98px) {
+    .program-mobile-columns {
+        grid-template-columns: 1fr;
+    }
+}
+
+[data-bs-theme="dark"] .program-mobile-card {
+    border-color: rgba(148, 163, 184, .25);
+}
+
+[data-bs-theme="dark"] .program-mobile-name {
+    color: var(--tblr-body-color);
+}
+/* Keep Program content clear of the number badge */
+@media (max-width: 767.98px) {
+    .program-mobile-columns {
+        margin-left: 3.75rem;
+    }
+}
+
+@media (max-width: 359.98px) {
+    .program-mobile-columns {
+        margin-left: 0;
+    }
+}
+/* Program two columns below numbering */
+@media (max-width: 767.98px) {
+    .program-mobile-columns {
+        margin-left: 0;
+        padding-top: .45rem;
+    }
+
+    .program-mobile-level-column {
+        text-align: right;
+        justify-items: end;
+    }
+}
+
+@media (max-width: 359.98px) {
+    .program-mobile-level-column {
+        text-align: left;
+        justify-items: start;
+    }
+}
+/* Keep first Program row clear of top number badge */
+@media (max-width: 767.98px) {
+    .program-mobile-columns {
+        padding-left: 3.75rem;
+    }
+}
+
+@media (max-width: 359.98px) {
+    .program-mobile-columns {
+        padding-left: 0;
+    }
+}
+/* More Program spacing and left-align first column */
+@media (max-width: 767.98px) {
+    .program-mobile-columns {
+        padding-left: 4.35rem;
+    }
+
+    .program-mobile-name-column {
+        justify-items: start;
+        text-align: left;
+    }
+
+    .program-mobile-name-column .program-mobile-name,
+    .program-mobile-name-column span {
+        text-align: left;
+    }
+}
+
+@media (max-width: 359.98px) {
+    .program-mobile-columns {
+        padding-left: 0;
+    }
+}
+/* Match Education Level mobile card spacing */
+@media (max-width: 767.98px) {
+    .program-mobile-card {
+        padding: 2.45rem .85rem 1rem;
+    }
+
+    .program-mobile-columns {
+        margin-left: 0;
+        padding-left: 0;
+        padding-top: 0;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+
+    .program-mobile-name-column,
+    .program-mobile-level-column {
+        justify-items: start;
+        text-align: left;
+    }
+}
+/* Prevent Program name from overlapping the number badge */
+@media (max-width: 767.98px) {
+    .program-mobile-card {
+        padding-top: 3.75rem;
+    }
+
+    .program-mobile-columns {
+        margin-left: 0;
+        padding-left: 0;
+        padding-top: 0;
+    }
+}

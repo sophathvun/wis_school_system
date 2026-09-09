@@ -469,16 +469,17 @@ const enrollmentStatusBadgeClass = (item = {}) =>
               : "secondary";
 const enrollmentStatusLabel = (item = {}) =>
     item.enrollment_status || (item.status ? "active" : "inactive");
-const enrollmentMobileActionButtons = (item = {}) => {
+const enrollmentActionButtons = (item = {}) => {
     const studentNameArg = JSON.stringify(item.student?.full_name_en ?? "");
     return `
-    <div class="d-flex flex-wrap gap-2">
+    <div class="enrollment-action-grid">
         <button class="btn btn-outline-primary btn-sm" type="button" onclick="enrollmentsPage.viewProfile(${item.id})" title="View student profile"><i class="ti ti-user me-1"></i>Profile</button>
         <button class="btn btn-info btn-sm" type="button" onclick="enrollmentsPage.history(${item.id}, ${studentNameArg})">History</button>
-        <button class="btn btn-primary btn-sm" type="button" onclick="enrollmentsPage.edit(${item.id})">Edit</button>
-        <button class="btn btn-danger btn-sm" type="button" onclick="enrollmentsPage.remove(${item.id})">Delete</button>
+        <button class="btn btn-primary btn-sm" type="button" onclick="enrollmentsPage.edit(${item.id})"><i class="ti ti-edit me-1"></i>Edit</button>
+        <button class="btn btn-danger btn-sm" type="button" onclick="enrollmentsPage.remove(${item.id})"><i class="ti ti-trash me-1"></i>Delete</button>
     </div>`;
 };
+const enrollmentMobileActionButtons = enrollmentActionButtons;
 const enrollmentMobileCard = (item = {}, index = 0) => {
     const statusLabel = enrollmentStatusLabel(item);
     const statusClass = enrollmentStatusBadgeClass(item);
@@ -503,8 +504,8 @@ const enrollmentMobileCard = (item = {}, index = 0) => {
                 <div class="enrollment-mobile-detail"><span>Academic Year</span><strong>${escapeHtml(item.academic_year?.academic_year ?? "-")}</strong></div>
                 <div class="enrollment-mobile-detail"><span>Campus</span><strong>${escapeHtml(item.campus?.campus_name_en ?? "-")}</strong></div>
                 <div class="enrollment-mobile-detail"><span>Grade</span><strong>${enrollmentListGradeClass(item)}</strong></div>
-                <div class="enrollment-mobile-detail"><span>Track</span><strong>${escapeHtml(item.academic_track?.name_en ?? "-")}</strong></div>
                 <div class="enrollment-mobile-detail"><span>Group</span><strong>${escapeHtml(item.session?.session_short_name ?? "-")}</strong></div>
+                <div class="enrollment-mobile-detail"><span>Track</span><strong>${escapeHtml(item.academic_track?.name_en ?? "-")}</strong></div>
                 <div class="enrollment-mobile-detail"><span>Status</span><strong>${escapeHtml(statusLabel)}</strong>${withdrawnNote}</div>
             </div>
             <div class="enrollment-mobile-actions">
@@ -541,25 +542,25 @@ const studentProfileMarkup = (student = {}) => {
         date && !Number.isNaN(date.getTime())
             ? `${String(date.getDate()).padStart(2, "0")}-${date.toLocaleString("en-US", { month: "short" })}-${date.getFullYear()}`
             : "-";
-    const khmerDigits = "០១២៣៤៥៦៧៨៩";
+    const khmerDigits = "áŸ áŸ¡áŸ¢áŸ£áŸ¤áŸ¥áŸ¦áŸ§áŸ¨áŸ©";
     const khmerNumber = (value) =>
         String(Math.max(0, value))
             .split("")
             .map((digit) => khmerDigits[Number(digit)] ?? digit)
             .join("");
     const khmerMonths = [
-        "មករា",
-        "កុម្ភៈ",
-        "មីនា",
-        "មេសា",
-        "ឧសភា",
-        "មិថុនា",
-        "កក្កដា",
-        "សីហា",
-        "កញ្ញា",
-        "តុលា",
-        "វិច្ឆិកា",
-        "ធ្នូ",
+        "áž˜áž€ážšáž¶",
+        "áž€áž»áž˜áŸ’áž—áŸˆ",
+        "áž˜áž¸áž“áž¶",
+        "áž˜áŸážŸáž¶",
+        "áž§ážŸáž—áž¶",
+        "áž˜áž·ážáž»áž“áž¶",
+        "áž€áž€áŸ’áž€ážŠáž¶",
+        "ážŸáž¸áž áž¶",
+        "áž€áž‰áŸ’áž‰áž¶",
+        "ážáž»áž›áž¶",
+        "ážœáž·áž…áŸ’áž†áž·áž€áž¶",
+        "áž’áŸ’áž“áž¼",
     ];
     const profileDateKhmer =
         date && !Number.isNaN(date.getTime())
@@ -585,7 +586,7 @@ const studentProfileMarkup = (student = {}) => {
             years -= 1;
             months += 12;
         }
-        age = `${khmerNumber(years)}ឆ្នាំ ${khmerNumber(months)}ខែ ${khmerNumber(days)}ថ្ងៃ`;
+        age = `${khmerNumber(years)}áž†áŸ’áž“áž¶áŸ† ${khmerNumber(months)}ážáŸ‚ ${khmerNumber(days)}ážáŸ’áž„áŸƒ`;
         ageEnglish = `${years} years ${months} months ${days} days`;
     }
     const birthPlace =
@@ -608,7 +609,7 @@ const studentProfileMarkup = (student = {}) => {
             .filter(Boolean)
             .map(escapeHtml)
             .join(" &nbsp;&nbsp; ") || "-";
-    return `<div class="text-center mb-4">${photo}</div><div class="student-profile-section-header row g-3 align-items-center mb-4"><div class="col-md-6"><div class="h3 mb-0 khmer-font-muol d-flex align-items-center gap-2"><img src="/flags/cambodia.svg" alt="Cambodia flag" style="width:24px;height:16px;object-fit:cover;">ប្រវត្តិរូបសិស្ស</div></div><div class="col-md-6"><div class="h3 mb-0 d-flex align-items-center gap-2"><img src="/flags/uk.svg" alt="United Kingdom flag" style="width:24px;height:16px;object-fit:cover;">STUDENT PROFILE</div></div></div><div class="row g-4"><div class="col-md-6"><div class="school-profile-khmer">${profileRow("អត្តលេខសិស្ស", escapeHtml(student.student_id || "-"))}${profileRow("ឈ្មោះ", escapeHtml(student.full_name_kh || "-"))}${profileRow("ភេទ", escapeHtml(student.gender_kh || "-"))}${profileRow("ថ្ងៃ ខែ ឆ្នាំកំណើត", `${escapeHtml(profileDateKhmer)}<div>អាយុ: ${age}</div>`)}${profileRow("ទីកន្លែងកំណើត", birthPlace)}${profileRow("សញ្ជាតិ", escapeHtml(student.nationality_country?.nationality_name_kh || "-"))}${profileRow("លេខទូរសព្ទ", escapeHtml(student.home_phone || "-"))}${profileRow("អុីម៉ែល", escapeHtml(student.email || "-"))}${profileRow("អាសយដ្ឋានបច្ចុប្បន្ន", escapeHtml(student.current_address_kh || "-"))}</div></div><div class="col-md-6"><div>${profileRow("Student ID", escapeHtml(student.student_id || "-"))}${profileRow("Name", escapeHtml(student.full_name_en || "-"))}${profileRow("Gender", escapeHtml(student.gender || "-"))}${profileRow("Date of Birth", `${escapeHtml(profileDate)}<div>Age: ${escapeHtml(ageEnglish)}</div>`)}${profileRow("Place of Birth", birthPlaceEn)}${profileRow("Nationality", escapeHtml(student.nationality_country?.nationality_name_en || "-"))}${profileRow("Phone", escapeHtml(student.home_phone || "-"))}${profileRow("Email", escapeHtml(student.email || "-"))}${profileRow("Current Address", escapeHtml(student.current_address_en || "-"))}</div></div></div>`;
+    return `<div class="text-center mb-4">${photo}</div><div class="student-profile-section-header row g-3 align-items-center mb-4"><div class="col-md-6"><div class="h3 mb-0 khmer-font-muol d-flex align-items-center gap-2"><img src="/flags/cambodia.svg" alt="Cambodia flag" style="width:24px;height:16px;object-fit:cover;">áž”áŸ’ážšážœážáŸ’ážáž·ážšáž¼áž”ážŸáž·ážŸáŸ’ážŸ</div></div><div class="col-md-6"><div class="h3 mb-0 d-flex align-items-center gap-2"><img src="/flags/uk.svg" alt="United Kingdom flag" style="width:24px;height:16px;object-fit:cover;">STUDENT PROFILE</div></div></div><div class="row g-4"><div class="col-md-6"><div class="school-profile-khmer">${profileRow("áž¢ážáŸ’ážáž›áŸážážŸáž·ážŸáŸ’ážŸ", escapeHtml(student.student_id || "-"))}${profileRow("ážˆáŸ’áž˜áŸ„áŸ‡", escapeHtml(student.full_name_kh || "-"))}${profileRow("áž—áŸáž‘", escapeHtml(student.gender_kh || "-"))}${profileRow("ážáŸ’áž„áŸƒ ážáŸ‚ áž†áŸ’áž“áž¶áŸ†áž€áŸ†ážŽáž¾áž", `${escapeHtml(profileDateKhmer)}<div>áž¢áž¶áž™áž»: ${age}</div>`)}${profileRow("áž‘áž¸áž€áž“áŸ’áž›áŸ‚áž„áž€áŸ†ážŽáž¾áž", birthPlace)}${profileRow("ážŸáž‰áŸ’áž‡áž¶ážáž·", escapeHtml(student.nationality_country?.nationality_name_kh || "-"))}${profileRow("áž›áŸážáž‘áž¼ážšážŸáž–áŸ’áž‘", escapeHtml(student.home_phone || "-"))}${profileRow("áž¢áž»áž¸áž˜áŸ‰áŸ‚áž›", escapeHtml(student.email || "-"))}${profileRow("áž¢áž¶ážŸáž™ážŠáŸ’áž‹áž¶áž“áž”áž…áŸ’áž…áž»áž”áŸ’áž”áž“áŸ’áž“", escapeHtml(student.current_address_kh || "-"))}</div></div><div class="col-md-6"><div>${profileRow("Student ID", escapeHtml(student.student_id || "-"))}${profileRow("Name", escapeHtml(student.full_name_en || "-"))}${profileRow("Gender", escapeHtml(student.gender || "-"))}${profileRow("Date of Birth", `${escapeHtml(profileDate)}<div>Age: ${escapeHtml(ageEnglish)}</div>`)}${profileRow("Place of Birth", birthPlaceEn)}${profileRow("Nationality", escapeHtml(student.nationality_country?.nationality_name_en || "-"))}${profileRow("Phone", escapeHtml(student.home_phone || "-"))}${profileRow("Email", escapeHtml(student.email || "-"))}${profileRow("Current Address", escapeHtml(student.current_address_en || "-"))}</div></div></div>`;
 };
 const studentFamilyMarkup = (student = {}) => {
     const members = (student.families || []).flatMap(
@@ -623,9 +624,9 @@ const studentFamilyMarkup = (student = {}) => {
     const mother = parent("mother");
     const father = parent("father");
     const parentRows = (khmer, english, member) =>
-        `${parentHeading(khmer, english)}${familyRow("ឈ្មោះម្តាយ", "Mother's Name", member.full_name_kh, member.full_name_en)}${familyRow("មុខរបរ", "Occupation", member.occupation_kh || member.occupation, member.occupation_en || member.occupation)}${familyRow("សញ្ជាតិ", "Nationality", member.nationality_kh, member.nationality_en)}${familyRow("លេខទូរសព្ទ", "Phone Number", member.phone, member.phone)}${familyRow("កន្លែងការងារ", "Workplace", member.workplace, member.workplace)}`;
-    const fatherRows = `${parentHeading("ឪពុក", "FATHER", "student-family-father-heading")}${familyRow("ឈ្មោះឪពុក", "Father's Name", father.full_name_kh, father.full_name_en)}${familyRow("មុខរបរ", "Occupation", father.occupation_kh || father.occupation, father.occupation_en || father.occupation)}${familyRow("សញ្ជាតិ", "Nationality", father.nationality_kh, father.nationality_en)}${familyRow("លេខទូរសព្ទ", "Phone Number", father.phone, father.phone)}${familyRow("កន្លែងការងារ", "Workplace", father.workplace, father.workplace)}`;
-    return `<div class="student-profile-section-card"><div class="student-profile-section-card-header"><div class="student-profile-section-header row g-3 align-items-center"><div class="col-md-6"><div class="h3 mb-0 khmer-font-muol d-flex align-items-center gap-2"><img src="/flags/cambodia.svg" alt="Cambodia flag" style="width:24px;height:16px;object-fit:cover;">ព័តមានអាណាព្យាបាល</div></div><div class="col-md-6"><div class="h3 mb-0 d-flex align-items-center gap-2"><img src="/flags/uk.svg" alt="United Kingdom flag" style="width:24px;height:16px;object-fit:cover;">PARENT INFORMATION</div></div></div></div><div class="student-profile-section-card-body"><div class="student-profile-paired-rows">${parentRows("ម្តាយ", "MOTHER", mother)}${fatherRows}</div></div></div>`;
+        `${parentHeading(khmer, english)}${familyRow("ážˆáŸ’áž˜áŸ„áŸ‡áž˜áŸ’ážáž¶áž™", "Mother's Name", member.full_name_kh, member.full_name_en)}${familyRow("áž˜áž»ážážšáž”ážš", "Occupation", member.occupation_kh || member.occupation, member.occupation_en || member.occupation)}${familyRow("ážŸáž‰áŸ’áž‡áž¶ážáž·", "Nationality", member.nationality_kh, member.nationality_en)}${familyRow("áž›áŸážáž‘áž¼ážšážŸáž–áŸ’áž‘", "Phone Number", member.phone, member.phone)}${familyRow("áž€áž“áŸ’áž›áŸ‚áž„áž€áž¶ážšáž„áž¶ážš", "Workplace", member.workplace, member.workplace)}`;
+    const fatherRows = `${parentHeading("ážªáž–áž»áž€", "FATHER", "student-family-father-heading")}${familyRow("ážˆáŸ’áž˜áŸ„áŸ‡ážªáž–áž»áž€", "Father's Name", father.full_name_kh, father.full_name_en)}${familyRow("áž˜áž»ážážšáž”ážš", "Occupation", father.occupation_kh || father.occupation, father.occupation_en || father.occupation)}${familyRow("ážŸáž‰áŸ’áž‡áž¶ážáž·", "Nationality", father.nationality_kh, father.nationality_en)}${familyRow("áž›áŸážáž‘áž¼ážšážŸáž–áŸ’áž‘", "Phone Number", father.phone, father.phone)}${familyRow("áž€áž“áŸ’áž›áŸ‚áž„áž€áž¶ážšáž„áž¶ážš", "Workplace", father.workplace, father.workplace)}`;
+    return `<div class="student-profile-section-card"><div class="student-profile-section-card-header"><div class="student-profile-section-header row g-3 align-items-center"><div class="col-md-6"><div class="h3 mb-0 khmer-font-muol d-flex align-items-center gap-2"><img src="/flags/cambodia.svg" alt="Cambodia flag" style="width:24px;height:16px;object-fit:cover;">áž–áŸážáž˜áž¶áž“áž¢áž¶ážŽáž¶áž–áŸ’áž™áž¶áž”áž¶áž›</div></div><div class="col-md-6"><div class="h3 mb-0 d-flex align-items-center gap-2"><img src="/flags/uk.svg" alt="United Kingdom flag" style="width:24px;height:16px;object-fit:cover;">PARENT INFORMATION</div></div></div></div><div class="student-profile-section-card-body"><div class="student-profile-paired-rows">${parentRows("áž˜áŸ’ážáž¶áž™", "MOTHER", mother)}${fatherRows}</div></div></div>`;
 };
 const siblingStatusClass = (status = "") => {
     const normalized = String(status || "").toLowerCase();
@@ -660,7 +661,7 @@ const renderSiblingCards = (siblings = []) =>
                   ]
                       .filter(Boolean)
                       .map(escapeHtml)
-                      .join(" · ");
+                      .join(" Â· ");
                   return `<div class="student-sibling-card">${photo}<div class="student-sibling-info"><div class="text-secondary small">Student ID: <strong>${escapeHtml(sibling.student_id || sibling.student_no || "-")}</strong></div><div class="student-sibling-name-kh school-profile-khmer">${escapeHtml(sibling.full_name_kh || "-")}</div><div class="student-sibling-name-en">${escapeHtml(sibling.full_name_en || "-")}</div><div class="small mt-1"><span class="text-secondary">Current Enrollment:</span> ${enrollmentLabel}</div><div class="mt-1"><span class="text-secondary small me-1">Status:</span><span class="badge bg-${siblingStatusClass(status)}-lt">${escapeHtml(siblingStatusLabel(status))}</span></div></div></div>`;
               })
               .join("")
@@ -916,7 +917,7 @@ const openStudentProfileReport = () => {
         .student-profile-photo-view-trigger img { width: 90px !important; height: 120px !important; }
         .table-responsive { overflow: visible; }
         @media print { .student-profile-section-card { break-inside: avoid; } }
-    </style></head><body><div class="report-header"><div class="report-brand-row"><div class="report-logo">${reportLogo ? `<img src="${escapeHtml(reportLogo)}" alt="School logo">` : ""}</div></div><h1><span class="report-title-kh">ប្រវត្តិរូបសិស្ស</span><span class="report-title-en">STUDENT PROFILE</span></h1><div class="report-photo-row">${studentPhoto ? `<img class="report-student-photo" src="${studentPhoto}" alt="Student photo">` : '<div class="report-student-photo-placeholder">Photo</div>'}</div></div>${reportSource.innerHTML}</body></html>`);
+    </style></head><body><div class="report-header"><div class="report-brand-row"><div class="report-logo">${reportLogo ? `<img src="${escapeHtml(reportLogo)}" alt="School logo">` : ""}</div></div><h1><span class="report-title-kh">áž”áŸ’ážšážœážáŸ’ážáž·ážšáž¼áž”ážŸáž·ážŸáŸ’ážŸ</span><span class="report-title-en">STUDENT PROFILE</span></h1><div class="report-photo-row">${studentPhoto ? `<img class="report-student-photo" src="${studentPhoto}" alt="Student photo">` : '<div class="report-student-photo-placeholder">Photo</div>'}</div></div>${reportSource.innerHTML}</body></html>`);
     reportWindow.document.close();
     reportWindow.addEventListener("afterprint", () => {
         reportWindow.close();
@@ -948,7 +949,7 @@ const enrollmentExpandedMarkup = (item = {}) => {
                     <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-3">
                         <div>
                             <div class="text-secondary small">Extended Student Enrollment</div>
-                            <h4 class="mb-0">${escapeHtml(student.student_id || "-")} · ${escapeHtml(nameEn || nameKh || "-")}</h4>
+                            <h4 class="mb-0">${escapeHtml(student.student_id || "-")} Â· ${escapeHtml(nameEn || nameKh || "-")}</h4>
                         </div>
                         <span class="badge bg-purple-lt">${escapeHtml(enrollmentListGradeClass(item))}</span>
                     </div>
@@ -992,8 +993,8 @@ const enrollmentAcademicYearsMarkup = (item = {}) => {
                 <div class="enrollment-expanded-card">
                     <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-3">
                         <div>
-                            <div class="text-secondary small">All Academic Year Enrollments · Descending Z-A</div>
-                            <h4 class="mb-0">${escapeHtml(student.student_id || "-")} · ${escapeHtml(nameEn || "-")}</h4>
+                            <div class="text-secondary small">All Academic Year Enrollments Â· Descending Z-A</div>
+                            <h4 class="mb-0">${escapeHtml(student.student_id || "-")} Â· ${escapeHtml(nameEn || "-")}</h4>
                         </div>
                         <span class="badge bg-purple-lt">${records.length ? `${records.length} record${records.length === 1 ? "" : "s"}` : "Enrollment Years"}</span>
                     </div>
@@ -1106,7 +1107,7 @@ const renderDobYears = () => {
 const toKhmerDigits = (value) =>
     String(value ?? "").replace(
         /[0-9]/g,
-        (digit) => "០១២៣៤៥៦៧៨៩"[Number(digit)],
+        (digit) => "áŸ áŸ¡áŸ¢áŸ£áŸ¤áŸ¥áŸ¦áŸ§áŸ¨áŸ©"[Number(digit)],
     );
 const khmerMonths = [
     "\u1798\u1780\u179a\u17b6",
@@ -1393,6 +1394,27 @@ const setupSearchableEnrollmentSelect = (id, label) => {
     const selected = field(`${id}-selected`);
     const isListFilter = id.startsWith("enrollments-filter-");
     const emptyLabel = isListFilter ? `All ${label}` : emptySelectedLabel;
+    const positionListFilterMenu = () => {
+        if (!isListFilter) return;
+        const rect = toggle.getBoundingClientRect();
+        const gap = 6;
+        const viewportPadding = 12;
+        const availableRight = window.innerWidth - viewportPadding;
+        const width = Math.min(
+            Math.max(rect.width, 180),
+            window.innerWidth - viewportPadding * 2,
+        );
+        const left = Math.min(
+            Math.max(rect.left, viewportPadding),
+            availableRight - width,
+        );
+        menu.style.position = "fixed";
+        menu.style.top = `${rect.bottom + gap}px`;
+        menu.style.left = `${left}px`;
+        menu.style.right = "auto";
+        menu.style.width = `${width}px`;
+        menu.style.zIndex = "1100";
+    };
     const sync = () => {
         selected.textContent = select.value
             ? select.selectedOptions?.[0]?.textContent || ""
@@ -1430,9 +1452,20 @@ const setupSearchableEnrollmentSelect = (id, label) => {
         if (!menu.classList.contains("d-none")) {
             searchInput.value = "";
             render();
+            positionListFilterMenu();
             searchInput.focus();
         }
     });
+    window.addEventListener("resize", () => {
+        if (!menu.classList.contains("d-none")) positionListFilterMenu();
+    });
+    window.addEventListener(
+        "scroll",
+        () => {
+            if (!menu.classList.contains("d-none")) positionListFilterMenu();
+        },
+        true,
+    );
     searchInput.addEventListener("input", render);
     results.addEventListener("click", (event) => {
         const option = event.target.closest("[data-searchable-select-value]");
@@ -1766,9 +1799,9 @@ const setupStudentBilingual = (type) => {
     if (type === "gender" && !ui.select.options.length) {
         ui.select.innerHTML =
             '<option value=""></option>' +
-            '<option value="Male" data-en="Male" data-kh="ប្រុស">Male</option>' +
-            '<option value="Female" data-en="Female" data-kh="ស្រី">Female</option>' +
-            '<option value="Other" data-en="Other" data-kh="ផ្សេងទៀត">Other</option>';
+            '<option value="Male" data-en="Male" data-kh="áž”áŸ’ážšáž»ážŸ">Male</option>' +
+            '<option value="Female" data-en="Female" data-kh="ážŸáŸ’ážšáž¸">Female</option>' +
+            '<option value="Other" data-en="Other" data-kh="áž•áŸ’ážŸáŸáž„áž‘áŸ€áž">Other</option>';
     }
     ui.select.classList.add("d-none");
     ui.toggle.addEventListener("click", () => {
@@ -2670,8 +2703,8 @@ const syncAddressKhmer = (englishId, khmerId, prefix) => {
         updateCurrentAddress();
     });
 };
-syncAddressKhmer("address_house_no_en", "address_house_no_kh", "ផ្ទះលេខ");
-syncAddressKhmer("address_street_en", "address_street_kh", "ផ្លូវ");
+syncAddressKhmer("address_house_no_en", "address_house_no_kh", "áž•áŸ’áž‘áŸ‡áž›áŸáž");
+syncAddressKhmer("address_street_en", "address_street_kh", "áž•áŸ’áž›áž¼ážœ");
 
 const filterBirthLocations = (type) => {
     const order = birthFields;
@@ -3486,7 +3519,7 @@ const renderEnrollmentDocumentFiles = () => {
             (file, index) => `
         <div class="premium-document-file-item">
             <span class="document-file-icon"><i class="ti ${documentFileIcon(file)}"></i></span>
-            <div class="min-w-0"><div class="document-file-name">${escapeHtml(file.name)}</div><div class="document-file-meta">${formatDocumentFileSize(file.size)} · Ready to upload</div></div>
+            <div class="min-w-0"><div class="document-file-name">${escapeHtml(file.name)}</div><div class="document-file-meta">${formatDocumentFileSize(file.size)} Â· Ready to upload</div></div>
             <button type="button" class="document-file-remove" data-document-file-remove="${index}" aria-label="Remove ${escapeHtml(file.name)}"><i class="ti ti-x"></i></button>
         </div>`,
         )
@@ -3815,7 +3848,6 @@ async function fetchRows(page = 1) {
         ? rows
               .map(
                   (item) => {
-                      const studentNameArg = JSON.stringify(item.student?.full_name_en ?? "");
                       return `
         <tr>
             <td>${studentPhotoMarkup(item.student)}</td>
@@ -3828,12 +3860,7 @@ async function fetchRows(page = 1) {
             <td>${escapeHtml(item.academic_track?.name_en ?? "-")}</td>
             <td>${escapeHtml(item.session?.session_short_name ?? "-")}</td>
             <td><span class="badge bg-${item.enrollment_status === "graduated" ? "blue" : item.enrollment_status === "withdrawn" ? "danger" : item.enrollment_status === "pending" ? "warning" : item.enrollment_status === "active" ? "success" : "secondary"}-lt">${escapeHtml(item.enrollment_status || (item.status ? "active" : "inactive"))}</span>${item.enrollment_status === "withdrawn" && item.ended_on ? `<div class="text-danger small mt-1">${formatWithdrawalDate(item.ended_on)}</div>` : ""}</td>
-            <td>
-                <button class="btn btn-outline-primary btn-sm" onclick="enrollmentsPage.viewProfile(${item.id})" title="View student profile"><i class="ti ti-user me-1"></i>Profile</button>
-                <button class="btn btn-info btn-sm" onclick="enrollmentsPage.history(${item.id}, ${studentNameArg})">History</button>
-                <button class="btn btn-primary btn-sm" onclick="enrollmentsPage.edit(${item.id})">Edit</button>
-                <button class="btn btn-danger btn-sm" onclick="enrollmentsPage.remove(${item.id})">Delete</button>
-    </td>
+            <td class="enrollment-actions-cell">${enrollmentActionButtons(item)}</td>
         </tr>${expandedEnrollmentIds.has(Number(item.id)) ? enrollmentAcademicYearsMarkup(item) : ""}`;
                   },
               )
@@ -3886,9 +3913,9 @@ const updateEnrollmentSortIcons = () => {
         icon.textContent =
             icon.dataset.sortIcon === enrollmentSortBy
                 ? enrollmentSortDir === "asc"
-                    ? "↑"
-                    : "↓"
-                : "";
+                    ? "\u2191"
+                    : "\u2193"
+                : "\u2195";
     });
     document.querySelectorAll("[data-sort]").forEach((button) => {
         button.classList.toggle(

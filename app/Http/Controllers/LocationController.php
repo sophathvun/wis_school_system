@@ -40,6 +40,13 @@ class LocationController
                 $sub->orWhere($kh, 'like', "%{$search}%");
             }
 
+            if ($level === 'country') {
+                $sub->orWhere('nationality_name_en', 'like', "%{$search}%")
+                    ->orWhere('nationality_name_kh', 'like', "%{$search}%")
+                    ->orWhere('country_code', 'like', "%{$search}%")
+                    ->orWhere('international_phone_code', 'like', "%{$search}%");
+            }
+
             if ($level === 'province') {
                 $sub->orWhereHas('country', fn($country) => $this->whereLocationName($country, 'country_name_en', 'country_name_kh', $search));
             }
@@ -79,7 +86,7 @@ class LocationController
     public function options(Request $request)
     {
         $map = [
-            'countries' => Country::where('status', 1)->orderBy('country_name_en')->get(['id','country_name_en','country_name_kh','nationality_name_en','nationality_name_kh','flag_path']),
+            'countries' => Country::where('status', 1)->orderBy('country_name_en')->get(['id','country_name_en','country_name_kh','nationality_name_en','nationality_name_kh','country_code','international_phone_code','flag_path']),
             'provinces' => Province::where('status', 1)->when($request->country_id, fn($q, $id) => $q->where('country_id', $id))->orderBy('province_name_en')->get(['id','country_id','province_name_en','province_name_kh']),
             'districts' => District::where('status', 1)->when($request->province_id, fn($q, $id) => $q->where('province_id', $id))->orderBy('district_name_en')->get(['id','province_id','district_name_en','district_name_kh']),
             'communes' => Commune::where('status', 1)->when($request->district_id, fn($q, $id) => $q->where('district_id', $id))->orderBy('commune_name_en')->get(['id','district_id','commune_name_en','commune_name_kh']),
@@ -101,7 +108,14 @@ class LocationController
         $sortBy = $request->get('sortBy', 'name');
         $sortDir = $request->get('sortDir', 'asc') === 'desc' ? 'desc' : 'asc';
         if ($request->level === 'country') {
-            $query->orderBy('country_name_en', $sortDir);
+            $countrySortColumn = match ($sortBy) {
+                'nationality' => 'nationality_name_en',
+                'country_code' => 'country_code',
+                'international_phone_code' => 'international_phone_code',
+                'status' => 'status',
+                default => 'country_name_en',
+            };
+            $query->orderBy($countrySortColumn, $sortDir);
         } else {
             $relation = match ($parent) { 'country_id' => ['country', 'tb_country', 'country_name_en'], 'province_id' => ['province', 'tb_province', 'province_name_en'], 'district_id' => ['district', 'tb_district', 'district_name_en'], default => ['commune', 'tb_commune', 'commune_name_en'] };
             $query->with(match ($request->level) { 'district' => 'province.country', 'commune' => 'district.province.country', 'village' => 'commune.district.province.country', default => $relation[0] });
@@ -272,7 +286,7 @@ class LocationController
         $lastColumn = chr(64 + count($headers));
         $lastRow = $rows->count() + 6;
         $sheetRows = [
-            $this->xlsxRow(1, [['A', 'តារាងទីតាំង', 1]], 30),
+            $this->xlsxRow(1, [['A', 'បញ្ជីឈ្មោះប្រទេស', 1]], 30),
             $this->xlsxRow(2, [['A', $this->levelLabel($level) . ' List', 2]], 24),
             $this->xlsxRow(3, [['A', 'Generated: ' . now()->format('d-M-Y h:i A'), 6]], 20),
             $this->xlsxRow(4, [], 8),
@@ -283,7 +297,7 @@ class LocationController
             $cells = $this->locationReportCells($row, $level, $index + 1);
             $sheetRows[] = $this->xlsxRow(
                 $index + 6,
-                collect($cells)->map(fn ($cell, $cellIndex) => [chr(65 + $cellIndex), $cell, $cellIndex === 2 ? 4 : 5])->all(),
+                collect($cells)->map(fn ($cell, $cellIndex) => [chr(65 + $cellIndex), $cell, str_contains($headers[$cellIndex] ?? '', 'Khmer') ? 4 : 5])->all(),
                 22,
             );
         }
@@ -304,11 +318,11 @@ class LocationController
         $base = ['No.', $this->levelLabel($level) . ' (English)', $this->levelLabel($level) . ' (Khmer)'];
 
         return match ($level) {
-            'country' => [...$base, 'Nationality (English)', 'Nationality (Khmer)', 'Status'],
-            'province' => [...$base, 'Country', 'Status'],
-            'district' => [...$base, 'Province / City', 'Country', 'Status'],
-            'commune' => [...$base, 'District / Khan', 'Province / City', 'Country', 'Status'],
-            'village' => [...$base, 'Commune', 'District / Khan', 'Province / City', 'Country', 'Status'],
+            'country' => [...$base, 'Nationality (English)', 'Nationality (Khmer)', 'Country Code', 'International Phone Code', 'Status'],
+            'province' => [...$base, 'Country (English)', 'Country (Khmer)', 'Status'],
+            'district' => [...$base, 'Province / City (English)', 'Province / City (Khmer)', 'Country (English)', 'Country (Khmer)', 'Status'],
+            'commune' => [...$base, 'District / Khan (English)', 'District / Khan (Khmer)', 'Province / City (English)', 'Province / City (Khmer)', 'Country (English)', 'Country (Khmer)', 'Status'],
+            'village' => [...$base, 'Commune (English)', 'Commune (Khmer)', 'District / Khan (English)', 'District / Khan (Khmer)', 'Province / City (English)', 'Province / City (Khmer)', 'Country (English)', 'Country (Khmer)', 'Status'],
             default => $base,
         };
     }
@@ -321,13 +335,22 @@ class LocationController
         $status = $row->status ? 'Active' : 'Inactive';
 
         return match ($level) {
-            'country' => [...$base, $row->nationality_name_en ?: '-', $row->nationality_name_kh ?: '-', $status],
-            'province' => [...$base, $this->locationName($row->country, 'country'), $status],
-            'district' => [...$base, $this->locationName($row->province, 'province'), $this->locationName($row->province?->country, 'country'), $status],
-            'commune' => [...$base, $this->locationName($row->district, 'district'), $this->locationName($row->district?->province, 'province'), $this->locationName($row->district?->province?->country, 'country'), $status],
-            'village' => [...$base, $this->locationName($row->commune, 'commune'), $this->locationName($row->commune?->district, 'district'), $this->locationName($row->commune?->district?->province, 'province'), $this->locationName($row->commune?->district?->province?->country, 'country'), $status],
+            'country' => [...$base, $row->nationality_name_en ?: '-', $row->nationality_name_kh ?: '-', $row->country_code ?: '-', $row->international_phone_code ?: '-', $status],
+            'province' => [...$base, ...$this->locationNameColumns($row->country, 'country'), $status],
+            'district' => [...$base, ...$this->locationNameColumns($row->province, 'province'), ...$this->locationNameColumns($row->province?->country, 'country'), $status],
+            'commune' => [...$base, ...$this->locationNameColumns($row->district, 'district'), ...$this->locationNameColumns($row->district?->province, 'province'), ...$this->locationNameColumns($row->district?->province?->country, 'country'), $status],
+            'village' => [...$base, ...$this->locationNameColumns($row->commune, 'commune'), ...$this->locationNameColumns($row->commune?->district, 'district'), ...$this->locationNameColumns($row->commune?->district?->province, 'province'), ...$this->locationNameColumns($row->commune?->district?->province?->country, 'country'), $status],
             default => [...$base, $status],
         };
+    }
+
+    private function locationNameColumns($row, string $level): array
+    {
+        if (!$row) {
+            return ['-', '-'];
+        }
+
+        return [$row->{$level . '_name_en'} ?: '-', $row->{$level . '_name_kh'} ?: '-'];
     }
 
     private function locationName($row, string $level): string
@@ -494,7 +517,10 @@ class LocationController
             $parentTable = match ($parent) { 'country_id' => 'tb_country', 'province_id' => 'tb_province', 'district_id' => 'tb_district', default => 'tb_commune' };
             $rules['parent_id'] = ['required', 'integer', "exists:{$parentTable},id"];
         }
-        if ($request->level === 'country') $rules['country_code'] = ['nullable','string','max:10'];
+        if ($request->level === 'country') {
+            $rules['country_code'] = ['nullable','string','max:10'];
+            $rules['international_phone_code'] = ['nullable','string','max:20'];
+        }
         if ($request->level === 'country') $rules['flag_image'] = ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'];
         $data = $request->validate($rules);
         $item = $request->id ? $model::findOrFail($request->id) : new $model();
@@ -506,6 +532,7 @@ class LocationController
         if ($parent) $item->{$parent} = $data['parent_id'];
         if ($request->level === 'country') {
             $item->country_code = $data['country_code'] ?? null;
+            $item->international_phone_code = $data['international_phone_code'] ?? null;
             if ($request->hasFile('flag_image')) {
                 if ($item->flag_path && str_starts_with($item->flag_path, 'storage/')) {
                     Storage::disk('public')->delete(substr($item->flag_path, 8));

@@ -8,11 +8,24 @@ const form = document.getElementById("sessionForm");
 const modalElement = document.getElementById("sessionModal");
 const modal = modalElement ? new bootstrap.Modal(modalElement) : null;
 const table = document.getElementById("sessionsTable");
+const mobileCards = document.getElementById("sessionsMobileCards");
 const search = document.getElementById("sessions-search");
 const perPageInput = document.getElementById("sessions-per-page");
 const submitButton = document.getElementById("sessionSubmitBtn");
 const modalTitle = document.getElementById("sessionModalTitle");
 let sessions = [];
+const escapeHtml = (value) =>
+    String(value ?? "").replace(
+        /[&<>"']/g,
+        (character) =>
+            ({
+                "&": "&amp;",
+                "<": "&lt;",
+                ">": "&gt;",
+                '"': "&quot;",
+                "'": "&#039;",
+            })[character],
+    );
 
 const clearErrors = () => {
     form?.querySelectorAll(".is-invalid").forEach((field) =>
@@ -160,11 +173,44 @@ async function fetchSessions(page = 1, perPage = null) {
             throw new Error(result.message || "Unable to fetch sessions.");
         sessions = result.data;
         const offset = (result.current_page - 1) * size;
+        if (mobileCards) {
+            mobileCards.innerHTML = sessions.length
+                ? sessions
+                      .map((item, index) => {
+                          const active = Boolean(item.status);
+                          const statusToggle =
+                              window.statusToggleMarkup?.(
+                                  "session",
+                                  item.id,
+                                  active,
+                              ) ||
+                              `<button type="button" class="status-toggle ${active ? "is-active" : ""}" data-status-toggle data-status-entity="session" data-status-id="${item.id}" data-status="${active ? 1 : 0}" aria-pressed="${active ? "true" : "false"}"><span class="status-toggle-label">${active ? "ON" : "OFF"}</span><span class="status-toggle-knob"></span></button>`;
+                          return `<article class="session-mobile-card">
+                            <div class="session-mobile-top-row">
+                                <span class="session-mobile-number">${String(offset + index + 1).padStart(2, "0")}</span>
+                                <div class="session-mobile-status">${statusToggle}</div>
+                            </div>
+                            <div class="session-mobile-columns">
+                                <div class="session-mobile-column session-mobile-session-column">
+                                    <strong class="session-mobile-name">${escapeHtml(item.session_name)}</strong>
+                                    <span>Group ${escapeHtml(item.session_short_name || "-")} - Order ${escapeHtml(item.session_order || "-")}</span>
+                                </div>
+                                <div class="session-mobile-column session-mobile-description-column">
+                                    <span>Description</span>
+                                    <strong>${escapeHtml(item.description || "-")}</strong>
+                                </div>
+                            </div>
+                            <div class="session-mobile-actions"><button onclick="sessionsPage.openEditModal(${item.id})" class="btn btn-primary"><i class="ti ti-pencil me-1"></i>Edit</button><button onclick="sessionsPage.deleteSession(${item.id})" class="btn btn-outline-danger"><i class="ti ti-trash me-1"></i>Delete</button></div>
+                        </article>`;
+                      })
+                      .join("")
+                : `<div class="session-mobile-empty">No sessions found.</div>`;
+        }
         table.innerHTML = sessions.length
             ? sessions
                   .map(
                       (item, index) =>
-                          `<tr><td>${offset + index + 1}</td><td>${item.session_name}</td><td>${item.session_short_name}</td><td>${item.session_order ?? ""}</td><td>${item.description ?? ""}</td><td>${item.status ? "<span class='badge bg-success-lt'>Active</span>" : "<span class='badge bg-danger-lt'>Inactive</span>"}</td><td class="text-center"><button onclick="sessionsPage.openEditModal(${item.id})" class="btn btn-primary btn-sm"><i class="ti ti-pencil icon"></i>Edit</button> <button onclick="sessionsPage.deleteSession(${item.id})" class="btn btn-danger btn-sm"><i class="ti ti-trash icon"></i>Delete</button></td></tr>`,
+                          `<tr><td>${offset + index + 1}</td><td>${escapeHtml(item.session_name)}</td><td>${escapeHtml(item.session_short_name)}</td><td>${escapeHtml(item.session_order ?? "")}</td><td>${escapeHtml(item.description ?? "")}</td><td>${window.statusToggleMarkup?.("session", item.id, Boolean(item.status)) || `<button type="button" class="status-toggle ${item.status ? "is-active" : ""}" data-status-toggle data-status-entity="session" data-status-id="${item.id}" data-status="${item.status ? 1 : 0}" aria-pressed="${item.status ? "true" : "false"}"><span class="status-toggle-label">${item.status ? "ON" : "OFF"}</span><span class="status-toggle-knob"></span></button>`}</td><td class="text-center"><button onclick="sessionsPage.openEditModal(${item.id})" class="btn btn-primary btn-sm"><i class="ti ti-pencil icon"></i>Edit</button> <button onclick="sessionsPage.deleteSession(${item.id})" class="btn btn-danger btn-sm"><i class="ti ti-trash icon"></i>Delete</button></td></tr>`,
                   )
                   .join("")
             : `<tr><td colspan="7" class="text-center">No sessions found.</td></tr>`;

@@ -208,6 +208,7 @@ Route::get('/student-enrollment-workflows/fetch', [EnrollmentWorkflowController:
 Route::post('/student-enrollment-workflows/promote', [EnrollmentWorkflowController::class, 'promote'])->name('student-enrollment-workflows.promote');
 Route::post('/student-enrollment-workflows/{workflow}/cancel-promotion', [EnrollmentWorkflowController::class, 'cancelPromotion'])->name('student-enrollment-workflows.cancel-promotion');
 Route::post('/student-enrollment-workflows/{workflow}/repromote', [EnrollmentWorkflowController::class, 'repromote'])->name('student-enrollment-workflows.repromote');
+Route::post('/student-enrollment-workflows/{workflow}/reverse-transfer', [EnrollmentWorkflowController::class, 'reverseTransfer'])->name('student-enrollment-workflows.reverse-transfer');
 Route::post('/student-enrollment-workflows/transfer', [EnrollmentWorkflowController::class, 'transfer'])->name('student-enrollment-workflows.transfer');
 Route::post('/student-enrollment-workflows/class-promote', [EnrollmentWorkflowController::class, 'promoteClass'])->name('student-enrollment-workflows.class-promote');
 Route::post('/student-enrollment-workflows/selected-promote', [EnrollmentWorkflowController::class, 'promoteSelected'])->name('student-enrollment-workflows.selected-promote');
@@ -218,6 +219,7 @@ Route::get('/families', [FamilyController::class, 'index'])->name('families.inde
 Route::get('/families/fetch', [FamilyController::class, 'fetchData'])->name('families.fetch');
 Route::get('/families/{family}', [FamilyController::class, 'show'])->name('families.show');
 Route::post('/families/save', [FamilyController::class, 'save'])->name('families.save');
+Route::post('/families/change-student-family', [FamilyController::class, 'changeStudentFamily'])->name('families.change-student-family');
 Route::delete('/families/{family}', [FamilyController::class, 'delete'])->name('families.delete');
 Route::get('/families/{family}/members', [FamilyMemberController::class, 'index'])->name('families.members.index');
 Route::post('/families/{family}/members/save', [FamilyMemberController::class, 'save'])->name('families.members.save');
@@ -259,6 +261,7 @@ Route::get('/student-graduations/options', [GraduationController::class, 'option
 Route::get('/student-graduations/fetch', [GraduationController::class, 'fetch'])->name('student-graduations.fetch');
 Route::post('/student-graduations/graduate', [GraduationController::class, 'graduate'])->name('student-graduations.graduate');
 Route::post('/student-graduations/graduate-batch', [GraduationController::class, 'graduateBatch'])->name('student-graduations.graduate-batch');
+Route::post('/student-graduations/{graduation}/cancel', [GraduationController::class, 'cancel'])->name('student-graduations.cancel');
 
 Route::get('/students/update', function () {
     return view('dashboard');

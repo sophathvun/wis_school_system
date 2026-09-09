@@ -1,0 +1,317 @@
+﻿@media (min-width: 768px) {
+    .session-list-card .table thead th {
+        border-color: var(--tblr-primary);
+        background: var(--tblr-primary);
+        color: #fff;
+    }
+}
+.sessions-mobile-cards {
+    display: none;
+}
+
+@media (max-width: 767.98px) {
+    .table-responsive:has(#sessionsTable) {
+        display: none;
+    }
+
+    .sessions-mobile-cards {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: .85rem;
+        padding: 1rem;
+    }
+
+    .session-mobile-card {
+        position: relative;
+        min-height: 132px;
+        padding: 3.25rem .85rem .85rem 1.15rem;
+        overflow: hidden;
+        border: 1px solid #dfe7f1;
+        border-radius: .45rem;
+        background: var(--tblr-bg-surface, #fff);
+        box-shadow: 0 8px 18px rgba(31, 63, 104, .08);
+    }
+
+    .session-mobile-card::after {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        height: .35rem;
+        background: var(--tblr-primary);
+        content: "";
+    }
+
+    .session-mobile-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: .75rem;
+        min-width: 0;
+    }
+
+    .session-mobile-number {
+        display: grid;
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 3.2rem;
+        height: 3.2rem;
+        place-items: center;
+        color: #fff;
+        background: var(--tblr-primary);
+        font-size: 1.25rem;
+        font-weight: 800;
+        line-height: 1;
+    }
+
+    .session-mobile-icon {
+        position: absolute;
+        top: .55rem;
+        right: .85rem;
+        color: var(--tblr-primary);
+        font-size: 2.45rem;
+        line-height: 1;
+        opacity: .95;
+    }
+
+    .session-mobile-name {
+        display: block;
+        min-width: 0;
+        overflow: hidden;
+        color: #243b59;
+        font-size: .95rem;
+        font-weight: 800;
+        line-height: 1.25;
+        text-overflow: ellipsis;
+        text-transform: uppercase;
+        white-space: nowrap;
+    }
+
+    .session-mobile-details {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+        gap: .75rem;
+        margin-top: .8rem;
+        color: var(--tblr-secondary);
+        font-size: .8rem;
+        line-height: 1.35;
+    }
+
+    .session-mobile-details span {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .session-mobile-title {
+        min-width: 0;
+    }
+
+    .session-mobile-title strong,
+    .session-mobile-title span {
+        display: block;
+    }
+
+    .session-mobile-title strong {
+        color: #243b59;
+        font-size: .9rem;
+        font-weight: 800;
+        line-height: 1.25;
+        text-transform: uppercase;
+    }
+
+    .session-mobile-title span {
+        color: var(--tblr-secondary);
+        font-size: .78rem;
+    }
+
+    .session-mobile-status {
+        flex: 0 0 auto;
+        margin-left: auto;
+    }
+
+    .session-mobile-description {
+        display: -webkit-box;
+        margin-top: .55rem;
+        overflow: hidden;
+        color: var(--tblr-secondary);
+        font-size: .78rem;
+        line-height: 1.35;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+    }
+
+    .session-mobile-actions {
+        display: flex;
+        gap: .45rem;
+        margin-top: .8rem;
+    }
+
+    .session-mobile-actions .btn {
+        flex: 1 1 0;
+        min-height: 38px;
+        padding-right: .5rem;
+        padding-left: .5rem;
+        font-size: .78rem;
+    }
+
+    .session-mobile-actions .btn i {
+        font-size: 1.2rem;
+    }
+
+    .session-mobile-empty {
+        padding: 2rem 1rem;
+        color: var(--tblr-secondary);
+        text-align: center;
+    }
+}
+
+[data-bs-theme="dark"] .session-mobile-card {
+    border-color: rgba(148, 163, 184, .25);
+}
+
+[data-bs-theme="dark"] .session-mobile-title strong {
+    color: var(--tblr-body-color);
+}
+
+[data-bs-theme="dark"] .session-mobile-name {
+    color: var(--tblr-body-color);
+}
+
+/* Session requested mobile arrangement */
+@media (max-width: 767.98px) {
+    .session-mobile-card {
+        padding: .85rem .85rem 1rem;
+    }
+
+    .session-mobile-top-row {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: .85rem;
+    }
+
+    .session-mobile-number {
+        position: static;
+        flex: 0 0 auto;
+    }
+
+    .session-mobile-status {
+        margin-top: .15rem;
+        margin-left: 0;
+    }
+
+    .session-mobile-icon,
+    .session-mobile-head,
+    .session-mobile-details {
+        display: none;
+    }
+
+    .session-mobile-columns {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        align-items: start;
+        gap: .85rem;
+        margin-top: 1rem;
+        color: var(--tblr-secondary);
+        font-size: .8rem;
+        line-height: 1.45;
+    }
+
+    .session-mobile-column {
+        display: grid;
+        gap: .45rem;
+        min-width: 0;
+        align-content: start;
+    }
+
+    .session-mobile-name,
+    .session-mobile-column span,
+    .session-mobile-column strong {
+        min-width: 0;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .session-mobile-name {
+        color: #243b59;
+        font-size: .95rem;
+        font-weight: 800;
+        line-height: 1.25;
+        text-transform: uppercase;
+    }
+
+    .session-mobile-description-column {
+        text-align: left;
+    }
+
+    .session-mobile-description-column > span {
+        color: var(--tblr-secondary);
+    }
+}
+
+@media (max-width: 359.98px) {
+    .session-mobile-columns {
+        grid-template-columns: 1fr;
+    }
+}
+/* Keep mobile number badge flush to top border like Class */
+@media (max-width: 767.98px) {
+    .session-mobile-card {
+        padding: 3.25rem .85rem 1rem;
+    }
+
+    .session-mobile-number {
+        position: absolute;
+        top: 0;
+        left: 0;
+        flex: none;
+    }
+}
+/* Align status with top number badge */
+@media (max-width: 767.98px) {
+    .session-mobile-top-row {
+        min-height: 3.2rem;
+        align-items: center;
+        justify-content: flex-end;
+    }
+
+    .session-mobile-status {
+        margin-top: 0;
+        margin-left: auto;
+    }
+}
+/* Pin status to same top row as number badge */
+@media (max-width: 767.98px) {
+    .session-mobile-status {
+        position: absolute;
+        top: .8rem;
+        right: .85rem;
+        margin-top: 0;
+        margin-left: 0;
+    }
+}
+/* Tighten space below top number/status row */
+@media (max-width: 767.98px) {
+    .session-mobile-card {
+        padding-top: 2.85rem;
+    }
+
+    .session-mobile-columns {
+        margin-top: .15rem;
+    }
+}
+/* Further reduce space below top number/status row */
+@media (max-width: 767.98px) {
+    .session-mobile-card {
+        padding-top: 2.45rem;
+    }
+
+    .session-mobile-columns {
+        margin-top: 0;
+    }
+}

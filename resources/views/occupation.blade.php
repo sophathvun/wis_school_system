@@ -1,4 +1,4 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 @section('title', 'Occupations')
 @section('page-header')<div class="container-fluid">
         <div class="row g-2 align-items-center">
@@ -14,7 +14,7 @@
         </div>
 </div>@endsection
 @section('content')
-    <div class="card">
+    <div class="card occupation-list-card">
         <div class="card-header">
             <h3 class="card-title">Occupation List</h3>
         </div>
@@ -35,6 +35,7 @@
                 <tbody id="occupationsTable"></tbody>
             </table>
         </div>
+        <div id="occupationsMobileCards" class="occupation-mobile-cards"></div>
         <div class="card-footer">
             <div id="occupations-pagination-container"></div>
         </div>
@@ -50,10 +51,11 @@
                         <div class="alert alert-danger d-none" data-alert></div>
                         <div class="mb-3"><label class="form-label">Occupation (English) *</label><input name="occupation_name_en" id="occupation_name_en" class="form-control" required></div>
                         <div class="mb-3"><label class="form-label">Occupation (Khmer)</label><input name="occupation_name_kh" id="occupation_name_kh" class="form-control school-profile-khmer"></div>
-                        <div><label class="form-label">Status</label><select name="status" id="occupation_status" class="form-select">
-                                <option value="1">Active</option>
-                                <option value="0">Inactive</option>
-                            </select></div>
+                        <div><label class="form-label">Status</label><input type="hidden" name="status" id="occupation_status" value="1">
+                            <button type="button" id="occupation-status-toggle" class="status-toggle is-active" aria-pressed="true">
+                                <span class="status-toggle-label">ON</span><span class="status-toggle-knob"></span>
+                            </button>
+                        </div>
                     </div>
                     <div class="modal-footer"><button type="button" class="btn me-auto" data-bs-dismiss="modal">Close</button><button class="btn btn-primary">Save Occupation</button>
                     </div>
@@ -64,3 +66,4 @@
     @vite('resources/js/occupation.js')
     @vite('resources/css/pages/occupation.css')
 @endsection
+

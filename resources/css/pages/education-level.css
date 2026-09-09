@@ -1,0 +1,204 @@
+﻿@media (min-width: 768px) {
+    .education-level-list-card .table thead th {
+        border-color: var(--tblr-primary);
+        background: var(--tblr-primary);
+        color: #fff;
+    }
+}
+.education-levels-mobile-cards {
+    display: none;
+}
+
+@media (max-width: 767.98px) {
+    #education-levels-search {
+        width: 100% !important;
+        min-height: 3rem;
+        font-size: .95rem;
+    }
+
+    .education-level-list-card .card-body {
+        display: block !important;
+    }
+
+    .table-responsive:has(#educationLevelsTable) {
+        display: none;
+    }
+
+    .education-levels-mobile-cards {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: .85rem;
+        padding: 1rem;
+    }
+
+    .education-level-mobile-card {
+        position: relative;
+        min-height: 132px;
+        padding: .85rem .85rem 1rem;
+        overflow: hidden;
+        border: 1px solid #dfe7f1;
+        border-radius: .45rem;
+        background: var(--tblr-bg-surface, #fff);
+        box-shadow: 0 8px 18px rgba(31, 63, 104, .08);
+    }
+
+    .education-level-mobile-card::after {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        height: .35rem;
+        background: var(--tblr-primary);
+        content: "";
+    }
+
+    .education-level-mobile-top-row {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: .85rem;
+    }
+
+    .education-level-mobile-number {
+        display: grid;
+        width: 3.2rem;
+        height: 3.2rem;
+        flex: 0 0 auto;
+        place-items: center;
+        color: #fff;
+        background: var(--tblr-primary);
+        font-size: 1.25rem;
+        font-weight: 800;
+        line-height: 1;
+    }
+
+    .education-level-mobile-status {
+        margin-top: .15rem;
+    }
+
+    .education-level-mobile-columns {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        align-items: start;
+        gap: .85rem;
+        margin-top: 1rem;
+        color: var(--tblr-secondary);
+        font-size: .8rem;
+        line-height: 1.45;
+    }
+
+    .education-level-mobile-column {
+        display: grid;
+        gap: .45rem;
+        min-width: 0;
+        align-content: start;
+    }
+
+    .education-level-mobile-name,
+    .education-level-mobile-column span,
+    .education-level-mobile-column strong {
+        min-width: 0;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .education-level-mobile-name {
+        color: #243b59;
+        font-size: .95rem;
+        font-weight: 800;
+        line-height: 1.25;
+        text-transform: uppercase;
+    }
+
+    .education-level-mobile-actions {
+        display: flex;
+        gap: .45rem;
+        margin-top: .8rem;
+    }
+
+    .education-level-mobile-actions .btn {
+        flex: 1 1 0;
+        min-height: 38px;
+        padding-right: .5rem;
+        padding-left: .5rem;
+        font-size: .78rem;
+    }
+
+    .education-level-mobile-empty {
+        padding: 2rem 1rem;
+        color: var(--tblr-secondary);
+        text-align: center;
+    }
+}
+
+@media (max-width: 359.98px) {
+    .education-level-mobile-columns {
+        grid-template-columns: 1fr;
+    }
+}
+
+[data-bs-theme="dark"] .education-level-mobile-card {
+    border-color: rgba(148, 163, 184, .25);
+}
+
+[data-bs-theme="dark"] .education-level-mobile-name {
+    color: var(--tblr-body-color);
+}
+/* Keep mobile number badge flush to top border like Class */
+@media (max-width: 767.98px) {
+    .education-level-mobile-card {
+        padding: 3.25rem .85rem 1rem;
+    }
+
+    .education-level-mobile-number {
+        position: absolute;
+        top: 0;
+        left: 0;
+        flex: none;
+    }
+}
+/* Align status with top number badge */
+@media (max-width: 767.98px) {
+    .education-level-mobile-top-row {
+        min-height: 3.2rem;
+        align-items: center;
+        justify-content: flex-end;
+    }
+
+    .education-level-mobile-status {
+        margin-top: 0;
+        margin-left: auto;
+    }
+}
+/* Pin status to same top row as number badge */
+@media (max-width: 767.98px) {
+    .education-level-mobile-status {
+        position: absolute;
+        top: .8rem;
+        right: .85rem;
+        margin-top: 0;
+        margin-left: 0;
+    }
+}
+/* Tighten space below top number/status row */
+@media (max-width: 767.98px) {
+    .education-level-mobile-card {
+        padding-top: 2.85rem;
+    }
+
+    .education-level-mobile-columns {
+        margin-top: .15rem;
+    }
+}
+/* Further reduce space below top number/status row */
+@media (max-width: 767.98px) {
+    .education-level-mobile-card {
+        padding-top: 2.45rem;
+    }
+
+    .education-level-mobile-columns {
+        margin-top: 0;
+    }
+}

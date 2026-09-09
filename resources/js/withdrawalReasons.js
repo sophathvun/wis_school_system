@@ -1,5 +1,20 @@
 document.addEventListener('DOMContentLoaded', () => {
     const modal = document.getElementById('reasonModal');
+    const statusInput = document.getElementById('reason_status');
+    const statusToggle = document.getElementById('reason-status-toggle');
+
+    const setModalStatus = (isActive = true) => {
+        if (statusInput) statusInput.value = isActive ? '1' : '0';
+        if (!statusToggle) return;
+        statusToggle.classList.toggle('is-active', isActive);
+        statusToggle.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        const label = statusToggle.querySelector('.status-toggle-label');
+        if (label) label.textContent = isActive ? 'ON' : 'OFF';
+    };
+
+    statusToggle?.addEventListener('click', () => {
+        setModalStatus(statusInput?.value !== '1');
+    });
 
     modal?.addEventListener('show.bs.modal', event => {
         const data = event.relatedTarget?.dataset.reason ? JSON.parse(event.relatedTarget.dataset.reason) : null;
@@ -9,7 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('reason_name_en').value = data?.name_en || '';
         document.getElementById('reason_name_kh').value = data?.name_kh || '';
         document.getElementById('reason_sort_order').value = data?.sort_order || 0;
-        document.getElementById('reason_status').value = data?.status ? 1 : 0;
+        setModalStatus(data ? Boolean(data.status) : true);
     });
 
     const paginationControls = document.querySelector('.premium-pagination-controls');

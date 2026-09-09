@@ -1,9 +1,19 @@
-import { renderPagination, renderPageInfo } from "./helpers/pagination.js";
+﻿import { renderPagination, renderPageInfo } from "./helpers/pagination.js";
 import { showAlert, showSuccess, showError, showConfirm } from "./helpers/sweet-alert2.js";
 
 const csrfToken = document
     .querySelector('meta[name="csrf-token"]')
     ?.getAttribute("content");
+
+const formatMobileDate = (value) => {
+    if (!value) return "-";
+    const [year, month, day] = String(value).split("-");
+    if (!year || !month || !day) return value;
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const monthIndex = Number(month) - 1;
+    if (monthIndex < 0 || monthIndex > 11) return value;
+    return day.padStart(2, "0") + "-" + monthNames[monthIndex] + "-" + year;
+};
 
 const modalElement = document.getElementById("academicYearModal");
 const viewModalElement = document.getElementById("academicYearViewModal");
@@ -521,12 +531,12 @@ const fetchAcademicYears = async (page = 1, perPage = null) => {
                 <td>${year.academic_year}</td>
                 <td>${periodTypeLabel(year.period_type)}</td>
                 <td>${escapeHtml(year.ay_code ?? "")}</td>
-                <td>${year.start_date ?? ""}</td>
-                <td>${year.end_date ?? ""}</td>
+                <td>${escapeHtml(formatMobileDate(year.start_date))}</td>
+                <td>${escapeHtml(formatMobileDate(year.end_date))}</td>
                 <td>${year.description ?? ""}</td>
                 <td>${isDeleted ? "<span class='badge bg-orange-lt'>Deleted</span>" : lifecycleBadge(year.lifecycle_status)}</td>
                 <td class="text-center">
-                    ${isDeleted ? "<span class='text-secondary'>—</span>" : year.lifecycle_status !== "started" ? `<button onclick="academicYears.setCurrentAcademicYear(${year.id})" class="btn btn-success btn-sm"><i class="ti ti-check icon"></i>Set Started</button>` : "<span class='badge bg-green-lt'>Started</span>"}
+                    ${isDeleted ? "<span class='text-secondary'>â€”</span>" : year.lifecycle_status !== "started" ? `<button onclick="academicYears.setCurrentAcademicYear(${year.id})" class="btn btn-success btn-sm"><i class="ti ti-check icon"></i>Set Started</button>` : "<span class='badge bg-green-lt'>Started</span>"}
                 </td>
                 <td class="text-center">
                     ${isDeleted ? `<button onclick="academicYears.restoreAcademicYear(${year.id})" class="btn btn-success btn-sm"><i class="ti ti-refresh icon"></i>Restore</button>` : `${year.period_type === "regular" ? `<button onclick="academicYears.createNextAcademicYear(${year.id})" class="btn btn-outline-primary btn-sm" title="Create the next academic year"><i class="ti ti-calendar-plus icon"></i>Next Year</button>` : ""}
@@ -535,8 +545,21 @@ const fetchAcademicYears = async (page = 1, perPage = null) => {
                 </td>
             </tr>`;
             mobileCards += `<article class="academic-year-mobile-card">
-                <div class="academic-year-mobile-card-head"><span class="academic-year-mobile-number">${rowNumber + index + 1}</span><div><strong>${escapeHtml(year.academic_year)}</strong><span>${periodTypeLabel(year.period_type)}</span></div>${isDeleted ? "<span class='badge bg-orange-lt'>Deleted</span>" : lifecycleBadge(year.lifecycle_status)}</div>
-                <div class="academic-year-mobile-details"><div><span>AY Code</span><strong>${escapeHtml(year.ay_code ?? "-")}</strong></div><div><span>Start Date</span><strong>${escapeHtml(year.start_date ?? "-")}</strong></div><div><span>End Date</span><strong>${escapeHtml(year.end_date ?? "-")}</strong></div>${year.description ? `<div class="academic-year-mobile-description"><span>Description</span><strong>${escapeHtml(year.description)}</strong></div>` : ""}</div>
+                <div class="academic-year-mobile-top-row">
+                    <span class="academic-year-mobile-number">${String(rowNumber + index + 1).padStart(2, "0")}</span>
+                    <div class="academic-year-mobile-status">${isDeleted ? "<span class='badge bg-orange-lt'>Deleted</span>" : lifecycleBadge(year.lifecycle_status)}</div>
+                </div>
+                <div class="academic-year-mobile-columns">
+                    <div class="academic-year-mobile-left-column">
+                        <strong class="academic-year-mobile-name">${escapeHtml(year.academic_year)}</strong>
+                        <span class="academic-year-mobile-description">${escapeHtml(year.description ?? "-")}</span>
+                        <span class="academic-year-mobile-code-row">AY Code ${escapeHtml(year.ay_code ?? "-")}</span>
+                    </div>
+                    <div class="academic-year-mobile-right-column">
+                        <span>Start ${escapeHtml(formatMobileDate(year.start_date))}</span>
+                        <span>End ${escapeHtml(formatMobileDate(year.end_date))}</span>
+                    </div>
+                </div>
                 <div class="academic-year-mobile-actions">${isDeleted ? `<button onclick="academicYears.restoreAcademicYear(${year.id})" class="btn btn-success"><i class="ti ti-refresh me-1"></i>Restore</button>` : `${year.period_type === "regular" ? `<button onclick="academicYears.createNextAcademicYear(${year.id})" class="btn btn-outline-primary"><i class="ti ti-calendar-plus me-1"></i>Next Year</button>` : ""}<button onclick="academicYears.openEditModal(${year.id})" class="btn btn-primary"><i class="ti ti-pencil me-1"></i>Edit</button>${hasLinkedData ? `<button class="btn btn-outline-danger" disabled><i class="ti ti-trash me-1"></i>Delete</button>` : `<button onclick="academicYears.deleteAcademicYear(${year.id})" class="btn btn-outline-danger"><i class="ti ti-trash me-1"></i>Delete</button>`}`}</div>
             </article>`;
         });
@@ -573,8 +596,9 @@ const fetchWithFilters = () => fetchAcademicYears(1, parseInt(perPageInput?.valu
 const updateSortButtons = () => {
     document.querySelectorAll(".table-sort-button").forEach((button) => {
         const isSelected = button.dataset.sort === sortBy;
-        button.innerHTML = `${button.dataset.label || button.textContent.replace(/[↕↑↓]/g, "").trim()} ${isSelected ? (sortDir === "asc" ? "↑" : "↓") : "↕"}`;
-        button.dataset.label = button.dataset.label || button.textContent.replace(/[↕↑↓]/g, "").trim();
+        const label = button.dataset.label || button.textContent.trim();
+        button.dataset.label = label;
+        button.innerHTML = `${label} <span class="table-sort-indicator" aria-hidden="true">${isSelected ? (sortDir === "asc" ? "↑" : "↓") : "↕"}</span>`;
     });
 };
 document.querySelectorAll(".table-sort-button").forEach((button) => {
@@ -600,3 +624,4 @@ window.academicYears = {
     fetchAcademicYears,
 };
 window.openCreateModal = openCreateModal;
+

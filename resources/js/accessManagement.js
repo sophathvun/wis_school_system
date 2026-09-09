@@ -1,4 +1,4 @@
-import * as bootstrap from "bootstrap";
+﻿import * as bootstrap from "bootstrap";
 
 document.addEventListener("DOMContentLoaded", () => {
     const nav = document.querySelector(".card-tabs .nav-tabs");
@@ -11,6 +11,23 @@ document.addEventListener("DOMContentLoaded", () => {
     const rolePane = document.getElementById("role-permissions-tab");
     if (nav && departmentLink && roleLink) nav.insertBefore(departmentLink, roleLink);
     if (content && departmentPane && rolePane) content.insertBefore(departmentPane, rolePane);
+
+    const activateTab = (tabId) => {
+        const tabLink = nav?.querySelector(`a[href="#${tabId}"]`);
+        if (!tabLink) return;
+        bootstrap.Tab.getOrCreateInstance(tabLink).show();
+    };
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const shouldShowPermissionList =
+        window.location.hash === "#permission-list-tab" ||
+        ["permissionSortBy", "permissionSortDir", "permission_page", "permission_search"].some((name) =>
+            urlParams.has(name),
+        );
+
+    if (shouldShowPermissionList) {
+        activateTab("permission-list-tab");
+    }
 
     const setToggle = (button, active) => {
         if (!button) return;
@@ -240,3 +257,4 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 });
+

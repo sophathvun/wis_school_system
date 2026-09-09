@@ -1,4 +1,4 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 
 @section('title', 'Dashboard Templates')
 
@@ -35,10 +35,10 @@
         };
         $sortIcon = function (string $field) use ($dashboardSortBy, $dashboardSortDir) {
             if ($dashboardSortBy !== $field) {
-                return '↕';
+                return 'â†•';
             }
 
-            return $dashboardSortDir === 'asc' ? '↑' : '↓';
+            return $dashboardSortDir === 'asc' ? 'â†‘' : 'â†“';
         };
         $layoutLabels = [
             'premium_grid' => 'Premium Grid',
@@ -149,9 +149,9 @@
         <div class="alert alert-danger">{{ $errors->first() }}</div>
     @endif
 
-    <div class="card">
+    <div class="card dashboard-templates-list-card">
         <div class="card-header">
-            <h3 class="card-title">Dashboard Template Lists</h3>
+            <h3 class="card-title">DASHBOARD TEMPLATE LISTS</h3>
         </div>
         <form method="GET">
             <div class="card-body border-bottom py-3">
@@ -369,4 +369,6 @@
     @vite('resources/js/dashboardCustomize.js')
     @vite('resources/js/dashboardTemplates.js')
 @endsection
+
+
 

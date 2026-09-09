@@ -1,9 +1,15 @@
-import { renderPagination, renderPageInfo } from "./helpers/pagination.js";
+﻿import { renderPagination, renderPageInfo } from "./helpers/pagination.js";
 import { showSuccess, showConfirm, showError } from "./helpers/sweet-alert2.js";
 
 const csrf = document.querySelector('meta[name="csrf-token"]')?.content;
 const level = document.getElementById("location-level");
+const levelToggle = document.getElementById("location-level-toggle");
+const levelMenu = document.getElementById("location-level-menu");
+const levelSearch = document.getElementById("location-level-search");
+const levelResults = document.getElementById("location-level-results");
+const levelSelected = document.getElementById("location-level-selected");
 const table = document.getElementById("locationsTable");
+const mobileCards = document.getElementById("locationsMobileCards");
 const head = document.getElementById("locations-head");
 const search = document.getElementById("locations-search");
 const perPageInput = document.getElementById("locations-per-page");
@@ -18,6 +24,7 @@ const parentWrap = document.getElementById("location-parent-wrap");
 const parentLabel = document.getElementById("location-parent-label");
 const form = document.getElementById("locationForm");
 const modal = new bootstrap.Modal(document.getElementById("locationModal"));
+const modalStatusToggle = document.getElementById("location-status-toggle");
 
 let rows = [];
 let options = {};
@@ -28,6 +35,7 @@ let sortDir = "asc";
 let locationsPrintWindow = null;
 
 const filterSelects = {};
+const levelOptionsList = Array.from(level?.options || []).map((option) => ({ value: option.value, label: option.textContent }));
 
 const escapeHtml = (value = "") =>
     String(value)
@@ -86,6 +94,54 @@ const filterConfigs = {
     ],
 };
 
+const setModalStatus = (isActive = true) => {
+    const statusInput = document.getElementById("location-status");
+    if (statusInput) statusInput.value = isActive ? "1" : "0";
+    if (!modalStatusToggle) return;
+    modalStatusToggle.classList.toggle("is-active", isActive);
+    modalStatusToggle.setAttribute("aria-pressed", isActive ? "true" : "false");
+    const label = modalStatusToggle.querySelector(".status-toggle-label");
+    if (label) label.textContent = isActive ? "ON" : "OFF";
+};
+const renderLevelOptions = () => {
+    if (!levelResults || !levelSelected) return;
+    const term = levelSearch?.value.trim().toLowerCase() || "";
+    const items = levelOptionsList.filter((item) => item.label.toLowerCase().includes(term));
+    const current = levelOptionsList.find((item) => item.value === level.value);
+    levelSelected.textContent = current?.label || "Country";
+    levelResults.innerHTML = items.length
+        ? items.map((item) => `<button type="button" class="location-combobox-option${item.value === level.value ? " is-selected" : ""}" data-level-value="${item.value}"><span>${escapeHtml(item.label)}</span>${item.value === level.value ? '<i class="ti ti-check"></i>' : ""}</button>`).join("")
+        : `<div class="text-secondary px-2 py-2">No options found</div>`;
+};
+
+const openLevelMenu = () => {
+    if (!levelMenu) return;
+    levelMenu.classList.remove("d-none");
+    if (levelSearch) levelSearch.value = "";
+    renderLevelOptions();
+    levelSearch?.focus();
+};
+
+const closeLevelMenu = () => {
+    levelMenu?.classList.add("d-none");
+};
+
+const changeLevel = async (newValue) => {
+    if (!level) return;
+    const changed = level.value !== newValue;
+    level.value = newValue;
+    closeLevelMenu();
+    renderLevelOptions();
+    if (!changed) return;
+    await loadOptions();
+    sortBy = "name";
+    sortDir = "asc";
+    renderCascadeFilters();
+    setParentOptions();
+    renderHead();
+    renderLevelOptions();
+    fetchRows(1, parseInt(perPageInput.value));
+};
 const ensureCountryNationalityFields = () => {
     const extra = document.getElementById("country-extra");
     if (!extra || document.getElementById("nationality-name-en")) return;
@@ -263,16 +319,39 @@ const refreshFilterOptions = () => {
             const select = filterSelects[name];
             if (!select) return;
             const selected = select.value;
+            const items = filteredItems(source, name);
             populateSelect(
                 select,
-                filteredItems(source, name),
+                items,
                 placeholder,
                 nameKey,
                 khKeyName,
                 selected,
             );
+            renderFilterComboboxOptions(select.closest(".location-filter-combobox"), select, source, placeholder, nameKey, khKeyName, items);
         },
     );
+};
+
+const renderFilterComboboxOptions = (wrap, select, source, placeholder, nameKey, khKeyName, sourceItems = null) => {
+    const results = wrap.querySelector("[data-filter-results]");
+    const selected = wrap.querySelector("[data-filter-selected]");
+    const searchInput = wrap.querySelector("[data-filter-search]");
+    const term = searchInput?.value.trim().toLowerCase() || "";
+    const availableItems = sourceItems || options[source] || [];
+    const items = availableItems.filter((item) => {
+        if (!term) return true;
+        const en = String(item[nameKey] ?? "").toLowerCase();
+        const kh = String(item[khKeyName] ?? "").toLowerCase();
+        return en.includes(term) || kh.includes(term);
+    });
+
+    const current = availableItems.find((item) => String(item.id) === String(select.value));
+    selected.textContent = current ? optionText(current, nameKey, khKeyName) : placeholder;
+    results.innerHTML = `<button type="button" class="location-combobox-option${select.value ? "" : " is-selected"}" data-filter-value=""><span>${placeholder}</span>${select.value ? "" : '<i class="ti ti-check"></i>'}</button>` +
+        (items.length
+            ? items.map((item) => `<button type="button" class="location-combobox-option${String(select.value) === String(item.id) ? " is-selected" : ""}" data-filter-value="${item.id}"><span class="school-profile-khmer">${escapeHtml(optionText(item, nameKey, khKeyName))}</span>${String(select.value) === String(item.id) ? '<i class="ti ti-check"></i>' : ""}</button>`).join("")
+            : `<div class="text-secondary px-2 py-2">No options found</div>`);
 };
 
 const renderCascadeFilters = () => {
@@ -283,15 +362,31 @@ const renderCascadeFilters = () => {
     (filterConfigs[level.value] || []).forEach(
         ([name, source, placeholder, nameKey, khKeyName]) => {
             const wrap = document.createElement("div");
-            wrap.className = "location-filter-select-wrap";
-            const select = document.createElement("select");
-            select.className = "form-control form-control-sm";
-            select.dataset.filterName = name;
-            wrap.appendChild(select);
+            wrap.className = "location-filter-select-wrap location-filter-combobox location-combobox";
+            wrap.innerHTML = `<select class="d-none" data-filter-name="${name}"></select><button type="button" class="location-combobox-toggle location-filter-toggle"><span data-filter-selected>${placeholder}</span><i class="ti ti-chevron-down"></i></button><div class="location-combobox-menu d-none" data-filter-menu><input type="search" class="form-control form-control-sm school-profile-khmer" data-filter-search placeholder="Search ${placeholder}"><div class="location-combobox-results" data-filter-results></div></div>`;
+            const select = wrap.querySelector("select");
             filterRow.appendChild(wrap);
             filterSelects[name] = select;
-            populateSelect(select, options[source] || [], placeholder, nameKey, khKeyName);
-            select.addEventListener("change", async () => {
+            const items = filteredItems(source, name);
+            populateSelect(select, items, placeholder, nameKey, khKeyName);
+            renderFilterComboboxOptions(wrap, select, source, placeholder, nameKey, khKeyName, items);
+
+            wrap.querySelector(".location-filter-toggle").addEventListener("click", () => {
+                const menu = wrap.querySelector("[data-filter-menu]");
+                document.querySelectorAll(".location-filter-combobox [data-filter-menu]").forEach((other) => {
+                    if (other !== menu) other.classList.add("d-none");
+                });
+                menu.classList.toggle("d-none");
+                wrap.querySelector("[data-filter-search]").value = "";
+                renderFilterComboboxOptions(wrap, select, source, placeholder, nameKey, khKeyName, filteredItems(source, name));
+                if (!menu.classList.contains("d-none")) wrap.querySelector("[data-filter-search]").focus();
+            });
+            wrap.querySelector("[data-filter-search]").addEventListener("input", () => renderFilterComboboxOptions(wrap, select, source, placeholder, nameKey, khKeyName, filteredItems(source, name)));
+            wrap.querySelector("[data-filter-results]").addEventListener("click", async (event) => {
+                const button = event.target.closest("[data-filter-value]");
+                if (!button) return;
+                select.value = button.dataset.filterValue;
+                wrap.querySelector("[data-filter-menu]").classList.add("d-none");
                 resetChildFilters(name);
                 await loadOptions();
                 refreshFilterOptions();
@@ -416,14 +511,99 @@ const ancestorCell = (item, type) => {
     return `<td><div class="d-flex align-items-center">${flag}<div><div class="school-profile-khmer">${relation[`${type}_name_kh`] ?? ""}</div><div>${relation[`${type}_name_en`] ?? "-"}</div></div></div></td>`;
 };
 
-const renderHead = () => {
+const locationTextBlock = (label, item, type, extraClass = "") => {
+    if (!item) return `<div class="location-card-field ${extraClass}"><div class="location-card-label">${label}</div><div>-</div></div>`;
+    return `<div class="location-card-field ${extraClass}">
+        <div class="location-card-label">${label}</div>
+        <div class="location-card-name school-profile-khmer">${escapeHtml(item[`${type}_name_kh`] ?? "")}</div>
+        <div class="location-card-subtitle">${escapeHtml(item[`${type}_name_en`] ?? "-")}</div>
+    </div>`;
+};
+
+const locationCountryBlock = (country, label = "Country") => {
+    if (!country) return `<div class="location-card-field"><div class="location-card-label">${label}</div><div>-</div></div>`;
+    return `<div class="location-card-field location-card-country-field">
+        <div class="location-card-label">${label}</div>
+        <div class="location-country-line">
+            ${country.flag_path ? `<img src="/${country.flag_path}" alt="${escapeHtml(country.country_name_en ?? "")}" class="location-flag">` : ""}
+            <div>
+                <div class="location-card-name school-profile-khmer">${escapeHtml(country.country_name_kh ?? "")}</div>
+                <div class="location-card-subtitle">${escapeHtml(country.country_name_en ?? "-")}</div>
+            </div>
+        </div>
+    </div>`;
+};
+
+const countryAncestor = (item) =>
+    item.country || item.province?.country || item.district?.province?.country || item.commune?.district?.province?.country;
+
+const renderCountryMobileContent = (item) => {
+    const flag = item.flag_path ? `<img src="/${item.flag_path}" alt="${escapeHtml(item.country_name_en ?? "")}" class="location-mobile-flag">` : "";
+    return `<div class="location-card-grid location-card-grid-2">
+        <div>${flag}${locationTextBlock("Country", item, "country")}</div>
+        <div>${locationTextBlock("Nationality", { nationality_name_kh: item.nationality_name_kh, nationality_name_en: item.nationality_name_en }, "nationality")}</div>
+        <div><div class="location-card-label">Country Code</div><div>${escapeHtml(item.country_code ?? "-")}</div></div>
+        <div><div class="location-card-label">Phone Code</div><div>${escapeHtml(item.international_phone_code ?? "-")}</div></div>
+    </div>`;
+};
+
+const renderLocationMobileContent = (item, currentLevel) => {
+    if (currentLevel === "country") return renderCountryMobileContent(item);
+    if (currentLevel === "province") {
+        return `<div class="location-card-grid location-card-grid-2">
+            ${locationTextBlock("Province/City", item, "province")}
+            ${locationCountryBlock(item.country, "Country")}
+        </div>`;
+    }
+    if (currentLevel === "district") {
+        return `<div class="location-card-grid location-card-grid-2">
+            ${locationTextBlock("District/Khan", item, "district")}
+            ${locationTextBlock("Province/City", item.province, "province")}
+            ${locationCountryBlock(item.province?.country, "Country")}
+        </div>`;
+    }
+    if (currentLevel === "commune") {
+        return `<div class="location-card-grid location-card-grid-2">
+            ${locationTextBlock("Commune", item, "commune")}
+            ${locationTextBlock("District/Khan", item.district, "district")}
+            ${locationTextBlock("Province/City", item.district?.province, "province")}
+            ${locationCountryBlock(item.district?.province?.country, "Country")}
+        </div>`;
+    }
+    return `<div class="location-card-grid location-card-grid-2">
+        ${locationTextBlock("Village", item, "village")}
+        ${locationTextBlock("Commune", item.commune, "commune")}
+        ${locationTextBlock("District/Khan", item.commune?.district, "district")}
+        ${locationTextBlock("Province/City", item.commune?.district?.province, "province")}
+        ${locationCountryBlock(item.commune?.district?.province?.country, "Country")}
+    </div>`;
+};
+
+const renderMobileCards = (offset = 0) => {
+    if (!mobileCards) return;
+    if (!rows.length) {
+        mobileCards.innerHTML = `<div class="text-center text-secondary py-3">No locations found.</div>`;
+        return;
+    }
+
+    mobileCards.innerHTML = rows.map((item, index) => {
+        const currentLevel = level.value;
+        const number = String(offset + index + 1).padStart(2, "0");
+
+        return `<div class="location-mobile-card">
+            <div class="location-card-top"><div class="location-card-number">${number}</div>${statusToggleMarkup(currentLevel, item.id, !!item.status)}</div>
+            ${renderLocationMobileContent(item, currentLevel)}
+            <div class="location-card-actions"><button type="button" class="btn btn-outline-primary" data-location-action="edit" data-location-id="${item.id}"><i class="ti ti-edit"></i></button><button type="button" class="btn btn-outline-danger" data-location-action="delete" data-location-id="${item.id}"><i class="ti ti-trash"></i></button></div>
+        </div>`;
+    }).join("");
+};const renderHead = () => {
     const parentTitle = parentData[level.value]?.[1];
     const villageColumns =
         level.value === "village"
             ? `<th><button type="button" class="table-sort" data-sort="district">District / Khan</button></th><th><button type="button" class="table-sort" data-sort="province">Province / City</button></th><th><button type="button" class="table-sort" data-sort="country">Country</button></th>`
             : "";
 
-    head.innerHTML = `<tr><th>No.</th><th><button type="button" class="table-sort" data-sort="name">${labels[level.value]}</button></th>${level.value === "country" ? "<th>Nationality</th><th>Flag</th>" : parentTitle ? `<th><button type="button" class="table-sort" data-sort="parent">${parentTitle}</button></th>${["district", "commune"].includes(level.value) ? `<th><button type="button" class="table-sort" data-sort="country">Country</button></th>` : ""}${villageColumns}` : ""}<th>Status</th><th class="text-center">Actions</th></tr>`;
+    head.innerHTML = `<tr><th>No.</th><th><button type="button" class="table-sort" data-sort="name">${labels[level.value]}</button></th>${level.value === "country" ? '<th><button type="button" class="table-sort" data-sort="nationality">Nationality</button></th><th><button type="button" class="table-sort" data-sort="country_code">Country Code</button></th><th><button type="button" class="table-sort" data-sort="international_phone_code">Phone Code</button></th><th>Flag</th>' : parentTitle ? `<th><button type="button" class="table-sort" data-sort="parent">${parentTitle}</button></th>${["district", "commune"].includes(level.value) ? `<th><button type="button" class="table-sort" data-sort="country">Country</button></th>` : ""}${villageColumns}` : ""}<th>Status</th><th class="text-center">Actions</th></tr>`;
 
     head.querySelectorAll("[data-sort]").forEach((button) => {
         button.addEventListener("click", () => {
@@ -468,7 +648,7 @@ const fetchRows = async (page = 1, perPage = null) => {
                       level.value === "village"
                           ? `${ancestorCell(item, "district")}${ancestorCell(item, "province")}${ancestorCell(item, "country")}`
                           : "";
-                  return `<tr><td>${offset + index + 1}</td><td class="location-name-cell"><div class="school-profile-khmer">${escapeHtml(item[kh] ?? "")}</div><div>${escapeHtml(item[name] ?? "")}</div></td>${level.value === "country" ? `<td><div class="school-profile-khmer">${escapeHtml(item.nationality_name_kh ?? "-")}</div><div>${escapeHtml(item.nationality_name_en ?? "-")}</div></td><td>${item.flag_path ? `<img src="/${item.flag_path}" alt="${escapeHtml(item[name] ?? "")}" style="width:28px;height:20px;object-fit:contain">` : "-"}</td>` : config ? relationCell(item) : ""}${["district", "commune"].includes(level.value) ? countryCell(item) : ""}${villageAncestors}<td>${statusToggleMarkup(level.value, item.id, !!item.status)}</td><td class="text-center"><button type="button" class="btn btn-primary btn-sm" data-location-action="edit" data-location-id="${item.id}">Edit</button> <button type="button" class="btn btn-danger btn-sm" data-location-action="delete" data-location-id="${item.id}">Delete</button></td></tr>`;
+                  return `<tr><td>${offset + index + 1}</td><td class="location-name-cell"><div class="school-profile-khmer">${escapeHtml(item[kh] ?? "")}</div><div>${escapeHtml(item[name] ?? "")}</div></td>${level.value === "country" ? `<td><div class="school-profile-khmer">${escapeHtml(item.nationality_name_kh ?? "-")}</div><div>${escapeHtml(item.nationality_name_en ?? "-")}</div></td><td>${escapeHtml(item.country_code ?? "-")}</td><td>${escapeHtml(item.international_phone_code ?? "-")}</td><td>${item.flag_path ? `<img src="/${item.flag_path}" alt="${escapeHtml(item[name] ?? "")}" style="width:28px;height:20px;object-fit:contain">` : "-"}</td>` : config ? relationCell(item) : ""}${["district", "commune"].includes(level.value) ? countryCell(item) : ""}${villageAncestors}<td>${statusToggleMarkup(level.value, item.id, !!item.status)}</td><td class="text-center"><button type="button" class="btn btn-primary btn-sm" data-location-action="edit" data-location-id="${item.id}">Edit</button> <button type="button" class="btn btn-danger btn-sm" data-location-action="delete" data-location-id="${item.id}">Delete</button></td></tr>`;
               })
               .join("")
         : `<tr><td colspan="10" class="text-center">No locations found.</td></tr>`;
@@ -480,6 +660,7 @@ const fetchRows = async (page = 1, perPage = null) => {
         fetchRows,
     );
     renderPageInfo(j);
+    renderMobileCards(offset);
 };
 
 const currentReportParams = () => {
@@ -515,6 +696,7 @@ const resetForm = () => {
     ensureCountryNationalityFields();
     form.reset();
     document.getElementById("location_id").value = "";
+    setModalStatus(true);
     const flagPreview = document.getElementById("country-flag-preview");
     if (flagPreview) {
         flagPreview.src = "";
@@ -546,10 +728,11 @@ const edit = async (id) => {
         item[key(level.value)] ?? "";
     document.getElementById("location-name-kh").value =
         item[khKey(level.value)] ?? "";
-    document.getElementById("location-status").value = item.status ? "1" : "0";
+    setModalStatus(!!item.status);
 
     if (level.value === "country") {
         document.getElementById("country-code").value = item.country_code ?? "";
+        document.getElementById("international-phone-code").value = item.international_phone_code ?? "";
         document.getElementById("flag-path").value = item.flag_path ?? "";
         const flagPreview = document.getElementById("country-flag-preview");
         if (flagPreview && item.flag_path) {
@@ -607,6 +790,7 @@ form.addEventListener("submit", async (e) => {
     if (level.value === "country") {
         Object.assign(payload, {
             country_code: document.getElementById("country-code").value,
+            international_phone_code: document.getElementById("international-phone-code").value,
             flag_path: document.getElementById("flag-path").value,
             nationality_name_en:
                 document.getElementById("nationality-name-en")?.value || "",
@@ -702,6 +886,7 @@ const updateStatus = async (id) => {
     if (level.value === "country") {
         Object.assign(payload, {
             country_code: item.country_code ?? "",
+            international_phone_code: item.international_phone_code ?? "",
             flag_path: item.flag_path ?? "",
             nationality_name_en: item.nationality_name_en ?? "",
             nationality_name_kh: item.nationality_name_kh ?? "",
@@ -737,14 +922,19 @@ const updateStatus = async (id) => {
     }
 };
 
+modalStatusToggle?.addEventListener("click", () => {
+    setModalStatus(document.getElementById("location-status")?.value !== "1");
+});
+
 level.addEventListener("change", async () => {
-    await loadOptions();
-    sortBy = "name";
-    sortDir = "asc";
-    renderCascadeFilters();
-    setParentOptions();
-    renderHead();
-    fetchRows(1, parseInt(perPageInput.value));
+    await changeLevel(level.value);
+});
+levelToggle?.addEventListener("click", openLevelMenu);
+levelSearch?.addEventListener("input", renderLevelOptions);
+levelResults?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-level-value]");
+    if (!button) return;
+    changeLevel(button.dataset.levelValue);
 });
 
 parentToggle?.addEventListener("click", openParentMenu);
@@ -759,6 +949,8 @@ parentResults?.addEventListener("click", (event) => {
     closeParentMenu();
 });
 document.addEventListener("click", (event) => {
+    if (!event.target.closest(".location-level-combobox")) closeLevelMenu();
+    if (!event.target.closest(".location-filter-combobox")) document.querySelectorAll(".location-filter-combobox [data-filter-menu]").forEach((menu) => menu.classList.add("d-none"));
     if (!parentWrap?.contains(event.target)) closeParentMenu();
 });
 document
@@ -776,6 +968,8 @@ document.getElementById("printLocations")?.addEventListener("click", openPrintPr
 document.getElementById("excelLocations")?.addEventListener("click", downloadExcel);
 
 document.addEventListener("click", (event) => {
+    if (!event.target.closest(".location-level-combobox")) closeLevelMenu();
+    if (!event.target.closest(".location-filter-combobox")) document.querySelectorAll(".location-filter-combobox [data-filter-menu]").forEach((menu) => menu.classList.add("d-none"));
     const button = event.target.closest("[data-location-action]");
     if (!button) return;
     const id = Number(button.dataset.locationId);
@@ -795,6 +989,7 @@ const initialize = async () => {
     renderCascadeFilters();
     setParentOptions();
     renderHead();
+    renderLevelOptions();
     fetchRows(1, parseInt(perPageInput.value));
 };
 
@@ -803,3 +998,7 @@ if (document.readyState === "complete") {
 } else {
     window.addEventListener("load", initialize, { once: true });
 }
+
+
+
+

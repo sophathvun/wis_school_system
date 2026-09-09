@@ -1,0 +1,7 @@
+﻿@media (min-width: 768px) {
+    .database-backup-list-card .table thead th {
+        border-color: var(--tblr-primary);
+        background: var(--tblr-primary);
+        color: #fff;
+    }
+}

@@ -1,0 +1,6 @@
+services:
+  schoolsystem:
+    image: schoolsystem
+    build:
+      context: .
+      dockerfile: ./Dockerfile

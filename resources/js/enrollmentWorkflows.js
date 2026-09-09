@@ -1,4 +1,4 @@
-﻿            document.addEventListener('DOMContentLoaded', () => {
+            document.addEventListener('DOMContentLoaded', () => {
                 const root = document.querySelector('[data-enrollment-workflows]');
                 if (!root) return;
                 const mode = root.dataset.workflowMode || 'transfer';
@@ -16,6 +16,7 @@
 
                 const esc = (value = '') => String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g,
                     '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+                let workflowRows = new Map();
                 const formatDateTime = (value = '') => {
                     if (!value) return '-';
                     const date = new Date(value);
@@ -38,6 +39,16 @@
                     class_transfer: 'Class Transfer',
                     selected_transfer: 'Selected Transfer',
                 } [action] || action);
+                const workflowStatusLabel = (status) => ({
+                    cancelled: 'Cancelled',
+                    reversed: 'Reversed',
+                    completed: 'Active',
+                } [status] || 'Active');
+                const workflowStatusBadge = (status) => ({
+                    cancelled: 'yellow',
+                    reversed: 'secondary',
+                    completed: 'green',
+                } [status] || 'green');
 
                 const fill = (id, items, value, label) => {
                     field(id).innerHTML = `<option value=""></option>` + items.map((item) =>
@@ -67,6 +78,23 @@
                     grade: item.to_grade?.grade,
                     class_name: item.to_class?.class_name
                 }) || '-';
+                const workflowFromGradeClass = (item = {}) => gradeClassLabel({
+                    grade: item.from_grade?.grade,
+                    class_name: item.from_class?.class_name
+                }) || '-';
+                const workflowGradeGroup = (gradeClass, group) => {
+                    const cleanGradeClass = String(gradeClass || '').trim();
+                    const cleanGroup = String(group || '').trim();
+                    if (!cleanGradeClass || cleanGradeClass === '-') return cleanGroup || '-';
+                    return cleanGroup && cleanGroup !== '-' ? `${cleanGradeClass}-${cleanGroup}` : cleanGradeClass;
+                };
+                const sameWorkflowValue = (fromValue, toValue) => String(fromValue || '').trim().toLowerCase() === String(toValue || '').trim().toLowerCase();
+                const workflowInfoBlock = (academicYear, campus, gradeGroup, changed = {}) => `
+                    <div class="workflow-info-stack">
+                        <div><strong class="${changed.academicYear ? 'workflow-changed-value' : ''}">${esc(academicYear || '-')}</strong></div>
+                        <div><strong class="${changed.campusGradeGroup ? 'workflow-changed-value' : ''}">${esc(`${campus || '-'}-${gradeGroup || '-'}`)}</strong></div>
+                    </div>
+                `;
                 const workflowStudentPhoto = (student = {}) => student.photo_path ?
                     `<img class="workflow-student-photo" src="/storage/${esc(student.photo_path)}" alt="${esc(studentName(student) || 'Student photo')}">` :
                     `<span class="workflow-student-photo-placeholder"><i class="ti ti-user"></i></span>`;
@@ -272,9 +300,9 @@
                             `${option.textContent} ${option.dataset.info || ''}`.toLowerCase()).includes(term));
                     const visibleMatches = matches.slice(0, 50);
                     const allOption = ['workflow-history-academic-year', 'workflow-history-campus',
-                            'workflow-history-grade-class'
+                            'workflow-history-grade-class', 'workflow-history-status'
                         ].includes(id) ?
-                        `<button type="button" class="location-combobox-option" data-value="">${id === 'workflow-history-academic-year' ? 'All Academic Years' : id === 'workflow-history-campus' ? 'All Campuses' : 'All Grades'}</button>` :
+                        `<button type="button" class="location-combobox-option" data-value="">${id === 'workflow-history-academic-year' ? 'All Academic Years' : id === 'workflow-history-campus' ? 'All Campuses' : id === 'workflow-history-grade-class' ? 'All Grades' : 'All Status'}</button>` :
                         '';
                     item.results.innerHTML = allOption + (visibleMatches.length ? visibleMatches.map((option) => `
             <button type="button" class="location-combobox-option" data-value="${option.value}">
@@ -347,7 +375,7 @@
                 };
 
                 const refreshSearchables = () => ['action_type', 'workflow-history-academic-year', 'workflow-history-campus',
-                    'workflow-history-grade-class', 'student_from_academic_year_id', 'enrollment_id',
+                    'workflow-history-grade-class', 'workflow-history-status', 'student_from_academic_year_id', 'enrollment_id',
                     'from_academic_year_id', 'from_campus_id', 'from_grade_id', 'from_class_id',
                     'to_academic_year_id', 'to_campus_id', 'to_grade_id', 'to_class_id', 'to_session_id'
                 ].forEach(makeSearchable);
@@ -362,7 +390,7 @@
                     const selected = item.select.options[item.select.selectedIndex];
                     item.selected.textContent = selected?.value ? selected.textContent : (id ===
                         'workflow-history-academic-year' ? 'All Academic Years' : id === 'workflow-history-campus' ?
-                        'All Campuses' : id === 'workflow-history-grade-class' ? 'All Grades' : '');
+                        'All Campuses' : id === 'workflow-history-grade-class' ? 'All Grades' : id === 'workflow-history-status' ? 'All Status' : '');
                     item.select.closest('.premium-form-field')?.classList.toggle('has-value', Boolean(selected?.value));
                     if (item.info) item.info.textContent = selected?.dataset.info || '';
                 }
@@ -393,15 +421,34 @@
                 const renderPagination = (result, pageSize) => {
                     const container = document.getElementById('workflow-pagination-container');
                     const totalPages = Number(result.last_page || 1);
-                    const pages = totalPages <= 5 ? Array.from({
-                        length: totalPages
-                    }, (_, i) => i + 1) : [1, 'ellipsis', Number(result.current_page), 'ellipsis', totalPages];
+                    const currentPage = Number(result.current_page || 1);
+                    const pages = [];
+                    const addPage = (page) => pages.push(page);
+                    const addEllipsis = () => pages.push('ellipsis');
+
+                    if (totalPages <= 5) {
+                        for (let page = 1; page <= totalPages; page++) addPage(page);
+                    } else if (currentPage <= 3) {
+                        [1, 2, 3].forEach(addPage);
+                        addEllipsis();
+                        addPage(totalPages);
+                    } else if (currentPage >= totalPages - 2) {
+                        addPage(1);
+                        addEllipsis();
+                        for (let page = totalPages - 2; page <= totalPages; page++) addPage(page);
+                    } else {
+                        addPage(1);
+                        addEllipsis();
+                        [currentPage - 1, currentPage, currentPage + 1].forEach(addPage);
+                        addEllipsis();
+                        addPage(totalPages);
+                    }
                     container.innerHTML = `
             <div class="premium-pagination">
                 <ul class="pagination premium-pagination-list m-0">
-                    <li class="page-item ${result.current_page === 1 ? 'disabled' : ''}"><a class="page-link" href="#" data-page="${result.current_page - 1}"><i class="ti ti-chevron-left icon icon-1"></i></a></li>
-                    ${pages.map((page) => page === 'ellipsis' ? '<li class="premium-pagination-ellipsis">...</li>' : `<li class="page-item ${page === result.current_page ? 'active' : ''}"><a class="page-link" href="#" data-page="${page}">${page}</a></li>`).join('')}
-                    <li class="page-item ${result.current_page === result.last_page ? 'disabled' : ''}"><a class="page-link" href="#" data-page="${result.current_page + 1}"><i class="ti ti-chevron-right icon icon-1"></i></a></li>
+                    <li class="page-item ${currentPage === 1 ? 'disabled' : ''}"><a class="page-link" href="#" data-page="${currentPage - 1}"><i class="ti ti-chevron-left icon icon-1"></i></a></li>
+                    ${pages.map((page) => page === 'ellipsis' ? '<li class="premium-pagination-ellipsis">...</li>' : `<li class="page-item ${page === currentPage ? 'active' : ''}"><a class="page-link" href="#" data-page="${page}">${page}</a></li>`).join('')}
+                    <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}"><a class="page-link" href="#" data-page="${currentPage + 1}"><i class="ti ti-chevron-right icon icon-1"></i></a></li>
                 </ul>
                 <p class="premium-pagination-info m-0">Showing <strong>${result.from ?? 0} to ${result.to ?? 0}</strong> of <strong>${result.total || 0} entries</strong></p>
                 <div class="premium-pagination-controls">
@@ -477,10 +524,12 @@
                         academic_year_id: field('workflow-history-academic-year')?.value || '',
                         campus_id: field('workflow-history-campus')?.value || '',
                         grade_class: field('workflow-history-grade-class')?.value || '',
+                        status: field('workflow-history-status')?.value || '',
                     });
                     const response = await fetch(`/student-enrollment-workflows/fetch?${params.toString()}`);
                     const result = await response.json();
                     const rows = result.data || [];
+                    workflowRows = new Map(rows.map((item) => [String(item.id), item]));
                     document.getElementById('workflowTable').innerHTML = rows.length ? rows.map((item,
                         index) => {
                             const student = item.student || {};
@@ -489,41 +538,72 @@
                             const badge = item.action_type?.includes('promotion') ? 'green' : 'blue';
                             const isPromotionRow = isPromotion && item.action_type?.includes('promotion');
                             const isCancelled = item.status === 'cancelled';
-                            const statusBadge = isCancelled ? 'yellow' : 'green';
+                            const statusBadge = workflowStatusBadge(item.status);
                             const actionButtons = isPromotionRow ? (isCancelled ?
                                 `<button type="button" class="btn btn-sm btn-outline-success workflow-row-action" data-workflow-action="repromote" data-workflow-id="${item.id}"><i class="ti ti-arrow-back-up"></i> Promote Again</button>` :
                                 `<button type="button" class="btn btn-sm btn-outline-danger workflow-row-action" data-workflow-action="cancel" data-workflow-id="${item.id}"><i class="ti ti-ban"></i> Cancel Promotion</button>`
                             ) : '-';
                             const rowNumber = Number(result.from || 1) + index;
+                            const mobileRowNumber = String(rowNumber).padStart(2, '0');
+                            const dateLabel = isPromotion ? 'Promoted Date' : 'Transferred Date';
+                            const byLabel = isPromotion ? 'Promoted By' : 'Transferred By';
+                            const fromAcademicYear = item.from_academic_year?.academic_year || '-';
+                            const toAcademicYear = item.to_academic_year?.academic_year || '-';
+                            const fromCampus = item.from_campus?.campus_name_en || '-';
+                            const toCampus = item.to_campus?.campus_name_en || '-';
+                            const fromGradeGroup = workflowGradeGroup(workflowFromGradeClass(item), item.from_session?.session_short_name || '-');
+                            const toGradeGroup = workflowGradeGroup(workflowGradeClass(item), item.to_session?.session_short_name || '-');
+                            const workflowInformationCells = isPromotion ? `
+                    <td data-label="Academic Year">${esc(toAcademicYear)}</td>
+                    <td data-label="Grade">${esc(workflowGradeClass(item))}</td>
+                    <td data-label="Group">${esc(item.to_session?.session_short_name || '-')}</td>
+                    <td data-label="Campus">${esc(toCampus)}</td>` : `
+                    <td class="workflow-info-cell workflow-info-from" data-label="Transfer From">${workflowInfoBlock(fromAcademicYear, fromCampus, fromGradeGroup)}</td>
+                    <td class="workflow-info-cell workflow-info-to" data-label="Transfer To">${workflowInfoBlock(toAcademicYear, toCampus, toGradeGroup, {
+                        academicYear: !sameWorkflowValue(fromAcademicYear, toAcademicYear),
+                        campusGradeGroup: !sameWorkflowValue(fromCampus, toCampus) || !sameWorkflowValue(fromGradeGroup, toGradeGroup),
+                    })}</td>
+                    <td class="workflow-transfer-mobile-pair" colspan="2">
+                        <div class="workflow-transfer-mobile-column">
+                            <span>Transfer From</span>
+                            ${workflowInfoBlock(fromAcademicYear, fromCampus, fromGradeGroup)}
+                        </div>
+                        <div class="workflow-transfer-mobile-column">
+                            <span>Transfer To</span>
+                            ${workflowInfoBlock(toAcademicYear, toCampus, toGradeGroup, {
+                                academicYear: !sameWorkflowValue(fromAcademicYear, toAcademicYear),
+                                campusGradeGroup: !sameWorkflowValue(fromCampus, toCampus) || !sameWorkflowValue(fromGradeGroup, toGradeGroup),
+                            })}
+                        </div>
+                    </td>`;
                             return `
-                <tr>
-                    <td>${rowNumber}</td>
-                    <td>${workflowStudentPhoto(student)}</td>
-                    <td>${esc(student.student_id || student.student_no || '-')}</td>
-                    <td>
+                <tr class="workflow-history-row ${isPromotion ? '' : 'workflow-transfer-row'}">
+                    <td class="workflow-cell-number" data-label="No.">${mobileRowNumber}</td>
+                    <td class="workflow-cell-photo" data-label="Photo">${workflowStudentPhoto(student)}</td>
+                    <td class="workflow-cell-student-id" data-label="Student ID">${esc(student.student_id || student.student_no || '-')}</td>
+                    <td class="workflow-cell-student-name" data-label="Student Name">
                         <div class="workflow-student-name-kh school-profile-khmer">${esc(nameKh || '-')}</div>
                         <div class="workflow-student-name-en">${esc(nameEn || '-')}</div>
                     </td>
-                    <td>${esc(item.to_academic_year?.academic_year || '-')}</td>
-                    <td>${esc(workflowGradeClass(item))}</td>
-                    <td>${esc(item.to_session?.session_short_name || '-')}</td>
-                    <td>${esc(item.to_campus?.campus_name_en || '-')}</td>
-                    <td><span class="badge bg-${badge}-lt">${esc(actionLabel(item.action_type))}</span></td>
-                    <td><span class="badge bg-${statusBadge}-lt" title="${esc(item.cancellation_reason || '')}">${esc(isCancelled ? 'Cancelled' : 'Active')}</span></td>
-                    <td>${esc(formatDateTime(item.updated_at || item.effective_on))}</td>
-                    <td>${esc(item.changed_by?.name || item.changed_by?.username || 'System')}</td>
-                    <td class="text-nowrap">${actionButtons}</td>
+                    ${workflowInformationCells}
+                    <td data-label="Action"><span class="badge bg-${badge}-lt">${esc(actionLabel(item.action_type))}</span></td>
+                    <td data-label="Status"><span class="badge bg-${statusBadge}-lt" title="${esc(item.cancellation_reason || '')}">${esc(workflowStatusLabel(item.status))}</span></td>
+                    <td data-label="${dateLabel}">${esc(formatDateTime(item.updated_at || item.effective_on))}</td>
+                    <td data-label="${byLabel}">${esc(item.changed_by?.name || item.changed_by?.username || 'System')}</td>
+                    ${isPromotion ? `<td class="workflow-cell-actions text-nowrap" data-label="Actions">${actionButtons}</td>` : ''}
                 </tr>
             `;
                         }).join('') :
-                        '<tr><td colspan="13" class="text-center">No workflow actions found.</td></tr>';
+                        `<tr><td colspan="${isPromotion ? 13 : 10}" class="text-center">No workflow actions found.</td></tr>`;
                     renderPagination(result, pageSize);
                     updateWorkflowSortIcons();
                 };
                 const updateWorkflowSortIcons = () => {
                     document.querySelectorAll('[data-workflow-sort-icon]').forEach((icon) => {
-                        icon.textContent = icon.dataset.workflowSortIcon === workflowSortBy ? (
-                            workflowSortDir === 'asc' ? 'â†‘' : 'â†“') : '';
+                        const selected = icon.dataset.workflowSortIcon === workflowSortBy;
+                        icon.innerHTML = selected ?
+                            `<i class="ti ${workflowSortDir === 'asc' ? 'ti-chevron-up' : 'ti-chevron-down'}"></i>` :
+                            '<i class="ti ti-selector"></i>';
                     });
                     document.querySelectorAll('[data-workflow-sort]').forEach((button) => {
                         button.classList.toggle('text-primary', button.dataset.workflowSort ===
@@ -618,7 +698,7 @@
                     }
                 });
                 document.getElementById('workflow-search').oninput = () => render(1);
-                ['workflow-history-academic-year', 'workflow-history-campus', 'workflow-history-grade-class'].forEach((
+                ['workflow-history-academic-year', 'workflow-history-campus', 'workflow-history-grade-class', 'workflow-history-status'].forEach((
                     id) => {
                     field(id)?.addEventListener('change', () => render(1));
                 });
@@ -639,6 +719,7 @@
                     if (!button) return;
                     const workflowId = button.dataset.workflowId;
                     const action = button.dataset.workflowAction;
+                    const row = workflowRows.get(String(workflowId));
                     let reason = '';
                     let notes = '';
                     let effectiveOn = new Date().toISOString().slice(0, 10);
@@ -692,7 +773,7 @@
                     });
                     const result = await response.json().catch(() => ({}));
                     if (!response.ok) {
-                        const message = result.message || Object.values(result.errors || {}).flat()[0] || 'Unable to update promotion status.';
+                        const message = result.message || Object.values(result.errors || {}).flat()[0] || 'Unable to update workflow status.';
                         if (window.Swal) {
                             await window.Swal.fire({ icon: 'error', title: 'Action Failed', text: message });
                         } else {
@@ -705,7 +786,7 @@
                         await window.Swal.fire({
                             icon: 'success',
                             title: action === 'cancel' ? 'Promotion Cancelled' : 'Promoted Again',
-                            text: result.message || 'Promotion status updated successfully.',
+                            text: result.message || 'Workflow status updated successfully.',
                             timer: 1800,
                             showConfirmButton: false,
                         });
@@ -784,3 +865,5 @@
                             '<tr><td colspan="11" class="text-center text-danger">Unable to load workflow history.</td></tr>';
                     }));
             });
+
+

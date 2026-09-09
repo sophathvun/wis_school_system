@@ -1,3 +1,23 @@
+﻿@media (min-width: 768px) {
+    .table thead .table-sort-button:hover,
+    .table thead .table-sort-button:focus,
+    .table thead .table-sort-button .table-sort-icon {
+        color: #fff;
+    }
+
+    .table thead .table-sort-button .table-sort-icon {
+        margin-left: .3rem;
+        font-weight: 700;
+    }
+}
+@media (min-width: 768px) {
+    .access-management-tabs-card .table thead th,
+    .access-management-tabs-card .table thead .table-sort-button {
+        border-color: var(--tblr-primary);
+        background: var(--tblr-primary);
+        color: #fff;
+    }
+}
 /* Extracted from resources/views/access-management.blade.php. Keep page-specific styles in this file. */
 
 .table-sort-button {
@@ -266,3 +286,5 @@
         overflow-wrap: anywhere;
     }
 }
+
+

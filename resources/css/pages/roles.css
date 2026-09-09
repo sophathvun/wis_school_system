@@ -1,3 +1,23 @@
+﻿@media (min-width: 768px) {
+    .table thead .table-sort-button:hover,
+    .table thead .table-sort-button:focus,
+    .table thead .table-sort-button .table-sort-icon {
+        color: #fff;
+    }
+
+    .table thead .table-sort-button .table-sort-icon {
+        margin-left: .3rem;
+        font-weight: 700;
+    }
+}
+@media (min-width: 768px) {
+    .roles-list-card .table thead th,
+    .roles-list-card .table thead .table-sort-button {
+        border-color: var(--tblr-primary);
+        background: var(--tblr-primary);
+        color: #fff;
+    }
+}
 /* Extracted from resources/views/roles.blade.php. Keep page-specific styles in this file. */
 
 .table-sort-button {
@@ -410,3 +430,5 @@
 #roleModal .role-settings-row .form-check {
     margin: 0 !important;
 }
+
+
