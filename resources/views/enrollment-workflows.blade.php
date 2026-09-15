@@ -118,7 +118,7 @@
     <div class="modal modal-blur fade" id="workflowModal" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered workflow-dialog">
             <div class="modal-content">
-                <form id="workflowForm">
+                <form id="workflowForm" novalidate>
                     <div class="modal-header">
                         <h3 class="modal-title">Student {{ $label }}</h3>
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -127,7 +127,7 @@
                         <div class="alert alert-danger d-none" id="workflowError"></div>
                         <div class="row g-3">
                             <div class="col-12">
-                                <label class="form-label">Action *</label>
+                                <label class="form-label">Action <span class="required-star">*</span></label>
                                 <select id="action_type" class="form-select">
                                     @if ($isPromotion)
                                         <option value="promotion">Promotion - Student</option>
@@ -143,11 +143,11 @@
 
                             <div class="col-12 workflow-section-title student-source-title">Current Enrollment</div>
                             <div class="col-md-6 student-action premium-form-field">
-                                <label class="form-label">Current Academic Year *</label>
+                                <label class="form-label">Current Academic Year <span class="required-star">*</span></label>
                                 <select id="student_from_academic_year_id" class="form-select"></select>
                             </div>
                             <div class="col-12 student-action">
-                                <label class="form-label">Student Enrollment *</label>
+                                <label class="form-label">Student Enrollment <span class="required-star">*</span></label>
                                 <select id="enrollment_id" class="form-select"></select>
                             </div>
 
@@ -155,19 +155,19 @@
                                 <div class="row g-3">
                                     <div class="col-12 workflow-section-title">Current Class</div>
                                     <div class="col-md-3 premium-form-field">
-                                        <label class="form-label">Source Academic Year *</label>
+                                        <label class="form-label">Source Academic Year <span class="required-star">*</span></label>
                                         <select id="from_academic_year_id" class="form-select"></select>
                                     </div>
                                     <div class="col-md-3">
-                                        <label class="form-label">Source Campus *</label>
+                                        <label class="form-label">Source Campus <span class="required-star">*</span></label>
                                         <select id="from_campus_id" class="form-select"></select>
                                     </div>
                                     <div class="col-md-3">
-                                        <label class="form-label">Source Grade *</label>
+                                        <label class="form-label">Source Grade <span class="required-star">*</span></label>
                                         <select id="from_grade_id" class="form-select"></select>
                                     </div>
                                     <div class="col-md-3">
-                                        <label class="form-label">Source Class *</label>
+                                        <label class="form-label">Source Class <span class="required-star">*</span></label>
                                         <select id="from_class_id" class="form-select"></select>
                                     </div>
                                 </div>
@@ -185,28 +185,28 @@
 
                             <div class="col-12 workflow-section-title target-section-title">
                                 {{ $isPromotion ? 'Promote To' : 'Transfer To' }}</div>
-                            <div class="col-md-6 target-year premium-form-field">
-                                <label class="form-label">Target Academic Year *</label>
+                            <div class="{{ $isPromotion ? 'col-md-6' : 'col-12' }} target-year premium-form-field">
+                                <label class="form-label">Target Academic Year <span class="required-star">*</span></label>
                                 <select id="to_academic_year_id" class="form-select"></select>
                             </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Target Campus *</label>
+                            <div class="{{ $isPromotion ? 'col-md-6' : 'col-md-3' }}">
+                                <label class="form-label">Target Campus <span class="required-star">*</span></label>
                                 <select id="to_campus_id" class="form-select"></select>
                             </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Target Grade</label>
-                                <select id="to_grade_id" class="form-select"></select>
+                            <div class="{{ $isPromotion ? 'col-md-4' : 'col-md-3' }}">
+                                <label class="form-label">Target Grade @if (!$isPromotion)<span class="required-star">*</span>@endif</label>
+                                <select id="to_grade_id" class="form-select" @if (!$isPromotion) required @endif></select>
                             </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Target Class</label>
-                                <select id="to_class_id" class="form-select"></select>
+                            <div class="{{ $isPromotion ? 'col-md-4' : 'col-md-3' }}">
+                                <label class="form-label">Target Class @if (!$isPromotion)<span class="required-star">*</span>@endif</label>
+                                <select id="to_class_id" class="form-select" @if (!$isPromotion) required @endif></select>
                             </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Target Group</label>
-                                <select id="to_session_id" class="form-select"></select>
+                            <div class="{{ $isPromotion ? 'col-md-4' : 'col-md-3' }}">
+                                <label class="form-label">Target Group @if (!$isPromotion)<span class="required-star">*</span>@endif</label>
+                                <select id="to_session_id" class="form-select" @if (!$isPromotion) required @endif></select>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label">Effective Date *</label>
+                                <label class="form-label">Effective Date <span class="required-star">*</span></label>
                                 <input type="date" id="effective_on" class="form-control" required>
                             </div>
                             <div class="col-md-6">

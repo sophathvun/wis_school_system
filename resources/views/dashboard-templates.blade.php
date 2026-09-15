@@ -35,10 +35,10 @@
         };
         $sortIcon = function (string $field) use ($dashboardSortBy, $dashboardSortDir) {
             if ($dashboardSortBy !== $field) {
-                return 'â†•';
+                return '↕';
             }
 
-            return $dashboardSortDir === 'asc' ? 'â†‘' : 'â†“';
+            return $dashboardSortDir === 'asc' ? '↑' : '↓';
         };
         $layoutLabels = [
             'premium_grid' => 'Premium Grid',

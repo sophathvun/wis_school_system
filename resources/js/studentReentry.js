@@ -16,6 +16,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const optionsUrl = modalElement.dataset.optionsUrl;
     const saveUrl = modalElement.dataset.saveUrl;
     const csrf = modalElement.dataset.csrf || document.querySelector('meta[name="csrf-token"]')?.content || '';
+    const requiredFields = {
+        'reentry-source': 'Withdrawn Student',
+        'reentry-year': 'Academic Year',
+        'reentry-campus': 'Campus',
+        'reentry-grade': 'Grade',
+        'reentry-class': 'Class',
+        'reentry-group': 'Group',
+        'reentry-date': 'Re-entry Date',
+    };
+    const serverFieldMap = {
+        source_history_id: 'reentry-source',
+        academic_year_id: 'reentry-year',
+        campus_id: 'reentry-campus',
+        grade_id: 'reentry-grade',
+        class_id: 'reentry-class',
+        session_id: 'reentry-group',
+        effective_on: 'reentry-date',
+    };
     const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({
         '&': '&amp;',
         '<': '&lt;',
@@ -36,6 +54,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const name = item => item.student?.full_name_en || item.student?.full_name_kh || '-';
     const label = item => [item.student?.student_id || item.student?.student_no, name(item)].filter(Boolean).join(' - ');
     const grade = item => `${item.grade?.grade || '-'}${item.school_class?.class_name || ''}`;
+    const withdrawnClassLabel = item => [
+        item.academic_year?.academic_year,
+        item.campus?.campus_name_en,
+        grade(item),
+        item.session?.session_short_name,
+    ].filter(value => value && value !== '-').join('-') || '-';
     const fill = (id, items, key, empty) => {
         field(id).innerHTML = `<option value="">${empty}</option>` + (items || []).map(item =>
             `<option value="${item.id}" data-grade-id="${item.grade_id || ''}">${escapeHtml(item[key])}</option>`).join('');
@@ -89,6 +113,108 @@ document.addEventListener('DOMContentLoaded', () => {
         searchable[id] = { sync, render };
     };
 
+    const visibleControl = id => {
+        const element = field(id);
+        if (!element) return null;
+        if (element.classList.contains('d-none')) {
+            return element.nextElementSibling?.querySelector('.location-combobox-toggle') || element.nextElementSibling || element;
+        }
+        return element;
+    };
+
+    const errorAnchor = id => {
+        const element = field(id);
+        if (!element) return null;
+        return element.classList.contains('d-none') ? element.nextElementSibling || element : element;
+    };
+
+    const clearFieldError = id => {
+        const control = visibleControl(id);
+        const anchor = errorAnchor(id);
+        control?.classList.remove('is-invalid');
+        anchor?.parentElement?.querySelector(`.reentry-validation-error[data-error-for="${id}"]`)?.remove();
+    };
+
+    const clearValidation = () => {
+        field('reentryForm')?.querySelectorAll('.is-invalid').forEach(item => item.classList.remove('is-invalid'));
+        field('reentryForm')?.querySelectorAll('.reentry-validation-error').forEach(item => item.remove());
+    };
+
+    const showFieldError = (id, message) => {
+        const control = visibleControl(id);
+        const anchor = errorAnchor(id);
+        if (!control || !anchor) return;
+        control.classList.add('is-invalid');
+        anchor.parentElement?.querySelector(`.reentry-validation-error[data-error-for="${id}"]`)?.remove();
+        anchor.insertAdjacentHTML('afterend', `<div class="invalid-feedback reentry-validation-error d-block" data-error-for="${id}">${escapeHtml(message)}</div>`);
+    };
+
+    const showValidationAlert = errors => {
+        const messages = Object.values(errors).filter(Boolean);
+        if (window.Swal) {
+            window.Swal.fire({
+                icon: 'error',
+                title: 'Please complete required fields',
+                html: `<div class="text-start">${messages.map(message => `<div>• ${escapeHtml(message)}</div>`).join('')}</div>`,
+                position: 'top',
+                confirmButtonText: 'OK',
+                confirmButtonColor: '#d63939',
+                backdrop: false,
+                allowOutsideClick: true,
+                customClass: {
+                    popup: 'reentry-validation-swal',
+                },
+            });
+        } else {
+            field('reentry-error').textContent = messages.join(' ');
+            field('reentry-error').classList.remove('d-none');
+        }
+    };
+
+    const showSuccessAlert = message => {
+        if (!window.Swal) return;
+        window.Swal.fire({
+            toast: true,
+            icon: 'success',
+            title: message || 'Student re-entered successfully.',
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 2600,
+            timerProgressBar: true,
+        });
+    };
+
+    const validateReentryForm = () => {
+        clearValidation();
+        const errors = {};
+        Object.entries(requiredFields).forEach(([id, labelText]) => {
+            if (!String(field(id)?.value || '').trim()) {
+                errors[id] = `${labelText} is required.`;
+                showFieldError(id, errors[id]);
+            }
+        });
+        if (Object.keys(errors).length) {
+            showValidationAlert(errors);
+            visibleControl(Object.keys(errors)[0])?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            return false;
+        }
+        return true;
+    };
+
+    const showServerErrors = errors => {
+        const mappedErrors = {};
+        Object.entries(errors || {}).forEach(([serverField, messages]) => {
+            const id = serverFieldMap[serverField];
+            if (!id) return;
+            const message = Array.isArray(messages) ? messages[0] : messages;
+            mappedErrors[id] = message || `${requiredFields[id] || 'This field'} is invalid.`;
+            showFieldError(id, mappedErrors[id]);
+        });
+        if (Object.keys(mappedErrors).length) {
+            showValidationAlert(mappedErrors);
+        }
+    };
+
     setupSearchable('reentry-source', 'Withdrawn Student');
     setupSearchable('reentry-year', 'Academic Year');
     setupSearchable('reentry-campus', 'Campus');
@@ -103,13 +229,49 @@ document.addEventListener('DOMContentLoaded', () => {
         searchable['reentry-source']?.render();
     };
 
+    const photoMarkup = item => item.student?.photo_path
+        ? `<img class="reentry-table-photo" src="/storage/${escapeHtml(item.student.photo_path)}" alt="Student photo">`
+        : '<span class="reentry-table-photo d-grid place-items-center"><i class="ti ti-user"></i></span>';
+
+    const studentNameMarkup = item => `<div>
+        <div class="school-profile-khmer text-secondary small">${escapeHtml(item.student?.full_name_kh || '-')}</div>
+        <div class="fw-semibold">${escapeHtml(item.student?.full_name_en || '-')}</div>
+        <div class="text-secondary small">${escapeHtml(item.student?.student_id || item.student?.student_no || '-')}</div>
+    </div>`;
+
+    const renderMobileCards = rows => {
+        const container = field('reentry-mobile-cards');
+        if (!container) return;
+        container.innerHTML = rows.length ? rows.map(item => `
+            <article class="reentry-mobile-card">
+                <div class="reentry-mobile-card-top">
+                    ${photoMarkup(item)}
+                    <div class="flex-fill">
+                        <div class="reentry-mobile-id">${escapeHtml(item.student?.student_id || item.student?.student_no || '-')}</div>
+                        <div class="reentry-mobile-name">${escapeHtml(name(item))}</div>
+                        <div class="school-profile-khmer text-secondary small">${escapeHtml(item.student?.full_name_kh || '-')}</div>
+                    </div>
+                    <span class="badge bg-success-lt text-success">Eligible</span>
+                </div>
+                <div class="reentry-mobile-details">
+                    <div class="reentry-mobile-detail-wide"><span>Withdrawn Class</span><strong>${escapeHtml(withdrawnClassLabel(item))}</strong></div>
+                    <div><span>Withdrawal Date</span><strong>${escapeHtml(formatDate(item.effective_on))}</strong></div>
+                </div>
+                <button type="button" class="btn btn-primary w-100" data-reentry-student="${item.id}">
+                    <i class="ti ti-user-check me-1"></i>Re-entry
+                </button>
+            </article>
+        `).join('') : '<div class="reentry-empty">No eligible withdrawn students found.</div>';
+    };
+
     const renderTable = () => {
         const term = field('reentry-search').value.toLowerCase().trim();
         const rows = state.withdrawals.filter(item => !term || `${label(item)} ${item.student?.full_name_kh || ''}`.toLowerCase().includes(term));
         field('reentry-count').textContent = rows.length;
         field('reentry-table').innerHTML = rows.length ? rows.map(item =>
-            `<tr><td><div class="d-flex align-items-center gap-3">${item.student?.photo_path ? `<img class="reentry-table-photo" src="/storage/${escapeHtml(item.student.photo_path)}" alt="Student photo">` : '<span class="reentry-table-photo d-grid place-items-center"><i class="ti ti-user"></i></span>'}<div><div class="school-profile-khmer text-secondary small">${escapeHtml(item.student?.full_name_kh || '-')}</div><div class="fw-semibold">${escapeHtml(item.student?.full_name_en || '-')}</div><div class="text-secondary small">${escapeHtml(item.student?.student_id || item.student?.student_no || '-')}</div></div></div></td><td>${escapeHtml(item.academic_year?.academic_year || '-')}</td><td>${escapeHtml(item.campus?.campus_name_en || '-')}</td><td>${escapeHtml(grade(item))}</td><td>${escapeHtml(item.session?.session_short_name || '-')}</td><td>${escapeHtml(formatDate(item.effective_on))}</td><td><span class="badge bg-success-lt text-success">Eligible</span></td><td class="text-center"><button type="button" class="btn btn-sm btn-primary" data-reentry-student="${item.id}"><i class="ti ti-user-check me-1"></i>Re-entry</button></td></tr>`
-        ).join('') : '<tr><td colspan="8"><div class="reentry-empty">No eligible withdrawn students found.</div></td></tr>';
+            `<tr><td>${photoMarkup(item)}</td><td>${studentNameMarkup(item)}</td><td>${escapeHtml(item.academic_year?.academic_year || '-')}</td><td>${escapeHtml(item.campus?.campus_name_en || '-')}</td><td>${escapeHtml(grade(item))}</td><td>${escapeHtml(item.session?.session_short_name || '-')}</td><td>${escapeHtml(formatDate(item.effective_on))}</td><td><span class="badge bg-success-lt text-success">Eligible</span></td><td class="text-center"><button type="button" class="btn btn-sm btn-primary" data-reentry-student="${item.id}"><i class="ti ti-user-check me-1"></i>Re-entry</button></td></tr>`
+        ).join('') : '<tr><td colspan="9"><div class="reentry-empty">No eligible withdrawn students found.</div></td></tr>';
+        renderMobileCards(rows);
     };
 
     const showSource = () => {
@@ -154,13 +316,24 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     field('reentry-search').addEventListener('input', renderTable);
-    field('reentry-source').addEventListener('change', showSource);
-    field('reentry-grade').addEventListener('change', filterClasses);
+    field('reentry-source').addEventListener('change', () => {
+        clearFieldError('reentry-source');
+        showSource();
+    });
+    field('reentry-grade').addEventListener('change', () => {
+        clearFieldError('reentry-grade');
+        filterClasses();
+    });
+    Object.keys(requiredFields).forEach(id => {
+        field(id)?.addEventListener('change', () => clearFieldError(id));
+        field(id)?.addEventListener('input', () => clearFieldError(id));
+    });
 
     const openReentry = async (sourceId = '') => {
         field('reentryForm').reset();
         Object.values(searchable).forEach(combo => combo.sync());
         field('reentry-error').classList.add('d-none');
+        clearValidation();
         field('reentry-source-card').classList.add('d-none');
         field('reentry-date').value = new Date().toISOString().slice(0, 10);
         try {
@@ -183,11 +356,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const button = event.target.closest('[data-reentry-student]');
         if (button) openReentry(button.dataset.reentryStudent);
     });
+    field('reentry-mobile-cards')?.addEventListener('click', event => {
+        const button = event.target.closest('[data-reentry-student]');
+        if (button) openReentry(button.dataset.reentryStudent);
+    });
     field('reentryForm').addEventListener('submit', async event => {
         event.preventDefault();
+        field('reentry-error').classList.add('d-none');
+        if (!validateReentryForm()) return;
         const button = field('saveReentry');
         button.disabled = true;
-        field('reentry-error').classList.add('d-none');
         const payload = {
             source_history_id: field('reentry-source').value,
             academic_year_id: field('reentry-year').value,
@@ -208,11 +386,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 },
                 body: JSON.stringify(payload),
             });
-            const result = await response.json();
-            if (!response.ok) throw new Error(result.message || Object.values(result.errors || {})[0]?.[0] || 'Unable to save re-entry.');
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                if (result.errors) showServerErrors(result.errors);
+                throw new Error(result.message || Object.values(result.errors || {})[0]?.[0] || 'Unable to save re-entry.');
+            }
             modal.hide();
             state.withdrawals = [];
             await load();
+            showSuccessAlert(result.message);
         } catch (error) {
             field('reentry-error').textContent = error.message;
             field('reentry-error').classList.remove('d-none');
@@ -224,6 +406,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!event.target.closest('.reentry-search-combobox')) document.querySelectorAll('.reentry-search-combobox .location-combobox-menu').forEach(menu => menu.classList.add('d-none'));
     });
     load().catch(error => {
-        field('reentry-table').innerHTML = `<tr><td colspan="8"><div class="reentry-empty text-danger">${escapeHtml(error.message)}</div></td></tr>`;
+        field('reentry-table').innerHTML = `<tr><td colspan="9"><div class="reentry-empty text-danger">${escapeHtml(error.message)}</div></td></tr>`;
+        const mobileCards = field('reentry-mobile-cards');
+        if (mobileCards) mobileCards.innerHTML = `<div class="reentry-empty text-danger">${escapeHtml(error.message)}</div>`;
     });
 });

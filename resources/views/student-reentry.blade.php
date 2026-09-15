@@ -27,13 +27,13 @@
                     </div>
                     <div>
                         <div class="text-secondary small">Eligible students</div>
-                        <div class="h2 mb-0" id="reentry-count">â€”</div>
+                        <div class="h2 mb-0" id="reentry-count">—</div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-    <div class="card">
+    <div class="card reentry-history-card">
         <div class="card-header">
             <div>
                 <h3 class="card-title mb-1">Re-entry History</h3>
@@ -49,7 +49,8 @@
             <table class="table table-vcenter card-table">
                 <thead>
                     <tr>
-                        <th>Student</th>
+                        <th>PHOTO</th>
+                        <th>STUDENT NAME</th>
                         <th>Withdrawn Academic Year</th>
                         <th>Campus</th>
                         <th>Grade</th>
@@ -61,20 +62,21 @@
                 </thead>
                 <tbody id="reentry-table">
                     <tr>
-                        <td colspan="8">
+                        <td colspan="9">
                             <div class="reentry-empty">Loading eligible students...</div>
                         </td>
                     </tr>
                 </tbody>
             </table>
         </div>
+        <div id="reentry-mobile-cards" class="reentry-mobile-cards"></div>
     </div>
     <div class="modal modal-blur fade reentry-modal" id="reentryModal" tabindex="-1"
         data-options-url="{{ route('student-reentry.options') }}" data-save-url="{{ route('student-reentry.save') }}"
         data-csrf="{{ csrf_token() }}">
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content">
-                <form id="reentryForm">
+                <form id="reentryForm" novalidate>
                     <div class="modal-header">
                         <div>
                             <h3 class="modal-title">Create Student Re-entry</h3>

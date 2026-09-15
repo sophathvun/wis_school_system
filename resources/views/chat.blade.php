@@ -29,6 +29,7 @@
             data-chat-heartbeat-url="{{ route('chat.heartbeat') }}"
             data-chat-messages-base="{{ url('/communication/chat') }}"
             data-chat-current-user-id="{{ $currentChatUserId }}"
+            data-chat-current-user-name="{{ auth()->user()->name }}"
             data-chat-current-user-photo="{{ $currentChatUserPhoto }}">
             <div class="chat-conversation-list" id="conversation-list">
                 <div class="p-3 border-bottom">

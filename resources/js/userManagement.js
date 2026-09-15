@@ -2,6 +2,64 @@ import * as bootstrap from "bootstrap";
 import intlTelInput from "intl-tel-input";
 import "intl-tel-input/styles";
 
+const initStaffPhotoViewer = () => {
+    if (document.body.dataset.staffPhotoViewerReady === "1") return;
+    const modalElement = document.getElementById("staffPhotoViewModal");
+    const image = document.getElementById("staffPhotoViewImage");
+    const title = document.getElementById("staffPhotoViewTitle");
+    const zoom = document.getElementById("staffPhotoViewZoom");
+    const download = document.getElementById("staffPhotoViewDownload");
+    if (!modalElement || !image || !title || !zoom || !bootstrap?.Modal) return;
+
+    document.body.dataset.staffPhotoViewerReady = "1";
+    const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
+    const updateZoom = () => {
+        image.style.transform = `scale(${zoom.value})`;
+    };
+    const downloadName = (value = "staff-photo", url = "") => {
+        const name =
+            String(value || "staff-photo")
+                .trim()
+                .replace(/[^\p{L}\p{N}]+/gu, "-")
+                .replace(/^-+|-+$/g, "") || "staff-photo";
+        const extension =
+            String(url).match(/\.([a-z0-9]{2,5})(?:[?#]|$)/i)?.[1] || "jpg";
+        return `${name}.${extension}`;
+    };
+
+    document.addEventListener("click", (event) => {
+        const trigger = event.target.closest(".staff-photo-view-trigger");
+        if (!trigger) return;
+        event.preventDefault();
+        event.stopPropagation();
+
+        const photoUrl = trigger.dataset.photoUrl || "";
+        image.src = photoUrl;
+        title.textContent = trigger.dataset.photoTitle || "Staff Photo";
+        zoom.value = "1";
+        updateZoom();
+        if (download) {
+            download.href = photoUrl || "#";
+            download.download = downloadName(trigger.dataset.photoTitle, photoUrl);
+        }
+        modal.show();
+    });
+
+    zoom.addEventListener("input", updateZoom);
+    document.getElementById("staffPhotoViewZoomIn")?.addEventListener("click", () => {
+        zoom.value = Math.min(3, Number(zoom.value) + 0.1).toFixed(2);
+        updateZoom();
+    });
+    document.getElementById("staffPhotoViewZoomOut")?.addEventListener("click", () => {
+        zoom.value = Math.max(1, Number(zoom.value) - 0.1).toFixed(2);
+        updateZoom();
+    });
+    document.getElementById("staffPhotoViewZoomReset")?.addEventListener("click", () => {
+        zoom.value = "1";
+        updateZoom();
+    });
+};
+
 const initStaffPhotoUploader = () => {
     if (document.body.dataset.userFormEnhanced) return;
     document.body.dataset.userFormEnhanced = "1";
@@ -17,6 +75,25 @@ const initStaffPhotoUploader = () => {
                     "'": "&#039;",
                 })[char],
         );
+    const formatCambodiaPhoneDisplay = (value = "") => {
+        let digits = String(value).replace(/\D/g, "");
+        if (digits.startsWith("855")) digits = digits.slice(3);
+        if (digits.startsWith("0")) digits = digits.slice(1);
+        digits = digits.slice(0, 9);
+        if (digits.length <= 2) return digits;
+        if (digits.length <= 5) return `${digits.slice(0, 2)} ${digits.slice(2)}`;
+        return `${digits.slice(0, 2)} ${digits.slice(2, 5)} ${digits.slice(5)}`;
+    };
+    const normalizeCambodiaPhoneValue = (value = "") => {
+        let digits = String(value).replace(/\D/g, "");
+        if (digits.startsWith("855")) digits = digits.slice(3);
+        if (digits.startsWith("0")) digits = digits.slice(1);
+        return digits ? `+855${digits}` : "";
+    };
+    const syncCambodiaPhoneInput = (visible, hidden, intl) => {
+        if (!visible || !hidden) return;
+        hidden.value = intl?.getNumber() || normalizeCambodiaPhoneValue(visible.value);
+    };
     const userPhoneVisible = document.querySelector(
         "#userModal #user_phone_number",
     );
@@ -29,20 +106,16 @@ const initStaffPhotoUploader = () => {
               loadUtils: () => import("intl-tel-input/utils"),
           })
         : null;
-    if (userPhoneIntl && userPhoneHidden?.value)
+    if (userPhoneIntl && userPhoneHidden?.value) {
         userPhoneIntl.setNumber(userPhoneHidden.value);
+        userPhoneVisible.value = formatCambodiaPhoneDisplay(userPhoneHidden.value);
+    }
     userPhoneVisible?.addEventListener("input", () => {
-        userPhoneVisible.value = userPhoneVisible.value.replace(/\s+/g, "");
-        if (userPhoneHidden) {
-            userPhoneHidden.value =
-                userPhoneIntl?.getNumber() || userPhoneVisible.value.trim();
-        }
+        userPhoneVisible.value = formatCambodiaPhoneDisplay(userPhoneVisible.value);
+        syncCambodiaPhoneInput(userPhoneVisible, userPhoneHidden, userPhoneIntl);
     });
     userPhoneVisible?.addEventListener("countrychange", () => {
-        if (userPhoneHidden) {
-            userPhoneHidden.value =
-                userPhoneIntl?.getNumber() || userPhoneVisible.value.trim();
-        }
+        syncCambodiaPhoneInput(userPhoneVisible, userPhoneHidden, userPhoneIntl);
     });
     const staffPhotoInput = document.getElementById("staff_photo");
     const staffPhotoDropzone = document.getElementById("staffPhotoDropzone");
@@ -256,18 +329,33 @@ const initStaffPhotoUploader = () => {
         results.addEventListener("click", (event) => {
             const button = event.target.closest("button[data-value]");
             if (!button) return;
+            event.preventDefault();
+            event.stopPropagation();
             const option = select.querySelector(
                 `option[value="${CSS.escape(button.dataset.value)}"]`,
             );
             if (!option) return;
-            if (multiple) option.selected = !option.selected;
-            else {
+            if (multiple) {
+                option.selected = !option.selected;
+                render();
+                sync();
+                wrapper.classList.add("is-open");
+                menu.classList.remove("d-none");
+                if (!menuPortaled) {
+                    document.body.appendChild(menu);
+                    menuPortaled = true;
+                }
+                menu.classList.add("is-portaled");
+                positionMenu();
+                search.focus({ preventScroll: true });
+            } else {
                 select.value = option.value;
+                select.dispatchEvent(new Event("change", { bubbles: true }));
+                sync();
                 closeMenu();
+                return;
             }
             select.dispatchEvent(new Event("change", { bubbles: true }));
-            sync();
-            if (multiple) render();
         });
         select.addEventListener("change", sync);
         document.addEventListener("click", (event) => {
@@ -302,7 +390,7 @@ const initStaffPhotoUploader = () => {
             const initialDisplay = initialValue
                 ? initialValue.split("-").reverse().join("-")
                 : "";
-            picker.innerHTML = `<div class="date-picker-input-row"><input type="text" class="form-control date-picker-direct" inputmode="numeric" value="${initialDisplay}" aria-label="Date of Birth"><button type="button" class="date-picker-trigger date-picker-calendar-button" aria-label="Open calendar"><i class="ti ti-calendar"></i></button></div><input type="hidden" name="date_of_birth" value="${initialValue}"><div class="date-picker-popup d-none"><div class="date-picker-header"><button type="button" class="date-picker-nav" data-date-prev><i class="ti ti-chevron-left"></i></button><button type="button" class="date-picker-year-toggle" data-date-month></button><button type="button" class="date-picker-nav" data-date-next><i class="ti ti-chevron-right"></i></button></div><div class="date-picker-grid"><div class="date-picker-weekdays"><span>SU</span><span>MO</span><span>TU</span><span>WE</span><span>TH</span><span>FR</span><span>SA</span></div><div class="date-picker-days"></div></div></div>`;
+            picker.innerHTML = `<div class="date-picker-input-row"><input type="text" class="form-control date-picker-direct" inputmode="numeric" value="${initialDisplay}" aria-label="Date of Birth"><button type="button" class="date-picker-trigger date-picker-calendar-button" aria-label="Open calendar"><i class="ti ti-calendar"></i></button></div><input type="hidden" name="date_of_birth" value="${initialValue}"><div class="date-picker-popup d-none"><div class="date-picker-header"><button type="button" class="date-picker-nav" data-date-prev><i class="ti ti-chevron-left"></i></button><button type="button" class="date-picker-year-toggle" data-date-month></button><button type="button" class="date-picker-nav" data-date-next><i class="ti ti-chevron-right"></i></button></div><div class="date-picker-year-popup d-none"><div class="date-picker-years"></div></div><div class="date-picker-grid"><div class="date-picker-weekdays"><span>SU</span><span>MO</span><span>TU</span><span>WE</span><span>TH</span><span>FR</span><span>SA</span></div><div class="date-picker-days"></div></div></div>`;
             dobInput.remove();
             dateColumn.appendChild(picker);
             dateColumn.classList.add("premium-form-field");
@@ -314,12 +402,28 @@ const initStaffPhotoUploader = () => {
             const popup = picker.querySelector(".date-picker-popup");
             const days = picker.querySelector(".date-picker-days");
             const monthButton = picker.querySelector("[data-date-month]");
+            const yearPopup = picker.querySelector(".date-picker-year-popup");
+            const years = picker.querySelector(".date-picker-years");
             let cursor = initialValue
                 ? new Date(`${initialValue}T00:00:00`)
                 : new Date();
             cursor = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
             const iso = (date) =>
                 `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+            const renderYears = () => {
+                const current = cursor.getFullYear();
+                const startYear = 1900;
+                const endYear = new Date().getFullYear() + 5;
+                years.innerHTML = Array.from(
+                    { length: endYear - startYear + 1 },
+                    (_, index) => {
+                        const year = startYear + index;
+                        const selectedClass = year === current ? " is-selected" : "";
+                        return `<button type="button" class="date-picker-year${selectedClass}" data-date-year="${year}">${year}</button>`;
+                    },
+                ).join("");
+                years.querySelector(".is-selected")?.scrollIntoView({ block: "center" });
+            };
             const render = () => {
                 monthButton.textContent = cursor.toLocaleDateString("en-US", {
                     month: "long",
@@ -362,6 +466,7 @@ const initStaffPhotoUploader = () => {
                             `<button type="button" class="date-picker-day${date.getMonth() !== cursor.getMonth() ? " is-outside" : ""}${iso(date) === hiddenDate.value ? " is-selected" : ""}" data-date-value="${iso(date)}">${date.getDate()}</button>`,
                     )
                     .join("");
+                renderYears();
             };
             trigger.addEventListener("click", (event) => {
                 event.stopPropagation();
@@ -386,8 +491,24 @@ const initStaffPhotoUploader = () => {
                         cursor.getMonth() + 1,
                         1,
                     );
+                    yearPopup.classList.add("d-none");
                     render();
                 });
+            monthButton.addEventListener("click", (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                yearPopup.classList.toggle("d-none");
+                if (!yearPopup.classList.contains("d-none")) renderYears();
+            });
+            years.addEventListener("click", (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                const button = event.target.closest("[data-date-year]");
+                if (!button) return;
+                cursor = new Date(Number(button.dataset.dateYear), cursor.getMonth(), 1);
+                yearPopup.classList.add("d-none");
+                render();
+            });
             days.addEventListener("click", (event) => {
                 const button = event.target.closest("[data-date-value]");
                 if (!button) return;
@@ -435,8 +556,10 @@ const initStaffPhotoUploader = () => {
                 );
             });
             document.addEventListener("click", (event) => {
-                if (!picker.contains(event.target))
+                if (!picker.contains(event.target)) {
                     popup.classList.add("d-none");
+                    yearPopup.classList.add("d-none");
+                }
             });
             if (initialValue) picker.classList.add("has-value");
             render();
@@ -493,8 +616,7 @@ const initStaffPhotoUploader = () => {
             if (userPhoneHidden)
                 userPhoneHidden.value =
                     userPhoneIntl?.getNumber() ||
-                    userPhoneVisible?.value.trim() ||
-                    "";
+                    normalizeCambodiaPhoneValue(userPhoneVisible?.value || "");
         });
     const addUserPasswordToggle = (input) => {
         if (
@@ -743,61 +865,6 @@ const initStaffPhotoUploader = () => {
     if (preview && previewContainer && initialPreview) {
         preview.src = initialPreview;
         previewContainer.classList.remove("d-none");
-    }
-    const staffPhotoViewModalElement =
-        document.getElementById("staffPhotoViewModal");
-    const staffPhotoViewImage = document.getElementById("staffPhotoViewImage");
-    const staffPhotoViewTitle = document.getElementById("staffPhotoViewTitle");
-    const staffPhotoViewZoom = document.getElementById("staffPhotoViewZoom");
-    if (
-        staffPhotoViewModalElement &&
-        staffPhotoViewImage &&
-        staffPhotoViewTitle &&
-        staffPhotoViewZoom &&
-        bootstrap?.Modal
-    ) {
-        const staffPhotoViewModal =
-            bootstrap.Modal.getOrCreateInstance(staffPhotoViewModalElement);
-        const updateViewZoom = () => {
-            staffPhotoViewImage.style.transform = `scale(${staffPhotoViewZoom.value})`;
-        };
-        document
-            .querySelectorAll(".staff-photo-view-trigger")
-            .forEach((button) =>
-                button.addEventListener("click", () => {
-                    staffPhotoViewImage.src = button.dataset.photoUrl || "";
-                    staffPhotoViewTitle.textContent =
-                        button.dataset.photoTitle || "Staff Photo";
-                    staffPhotoViewZoom.value = "1";
-                    updateViewZoom();
-                    staffPhotoViewModal.show();
-                }),
-            );
-        staffPhotoViewZoom.addEventListener("input", updateViewZoom);
-        document
-            .getElementById("staffPhotoViewZoomIn")
-            ?.addEventListener("click", () => {
-                staffPhotoViewZoom.value = Math.min(
-                    3,
-                    Number(staffPhotoViewZoom.value) + 0.1,
-                ).toFixed(2);
-                updateViewZoom();
-            });
-        document
-            .getElementById("staffPhotoViewZoomOut")
-            ?.addEventListener("click", () => {
-                staffPhotoViewZoom.value = Math.max(
-                    1,
-                    Number(staffPhotoViewZoom.value) - 0.1,
-                ).toFixed(2);
-                updateViewZoom();
-            });
-        document
-            .getElementById("staffPhotoViewZoomReset")
-            ?.addEventListener("click", () => {
-                staffPhotoViewZoom.value = "1";
-                updateViewZoom();
-            });
     }
     document
         .querySelectorAll(".card table .badge")
@@ -1125,6 +1192,7 @@ const initStaffPhotoUploader = () => {
 
 const bootUserManagementPage = () => {
     const userModal = document.getElementById("userModal");
+    initStaffPhotoViewer();
 
     // Keep the mobile carousel position visible between the scroll arrows.
     const mobileList = document.querySelector(".user-management-mobile-list");

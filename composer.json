@@ -73,6 +73,9 @@
         ],
         "pre-package-uninstall": [
             "Illuminate\\Foundation\\ComposerScripts::prePackageUninstall"
+        ],
+        "check:encoding": [
+            "@php scripts/check-encoding.php"
         ]
     },
     "extra": {

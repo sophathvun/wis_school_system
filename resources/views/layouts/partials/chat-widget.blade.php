@@ -1,4 +1,4 @@
-﻿@if (auth()->check() && !request()->routeIs('chat.index'))
+@if (auth()->check() && !request()->routeIs('chat.index'))
 
 
     <div id="school-chat-widget" class="school-chat-widget"
@@ -11,6 +11,7 @@
         data-calls-pending-url="{{ route('chat.calls.pending') }}"
         data-calls-base="{{ url('/communication/chat/calls') }}"
         data-current-user-id="{{ auth()->id() }}"
+        data-current-user-name="{{ auth()->user()->name }}"
         data-current-user-photo="{{ auth()->user()->photo_path ? asset('storage/' . auth()->user()->photo_path) : '' }}">
         <button type="button" id="school-chat-launcher" class="btn btn-primary school-chat-launcher position-relative"
             aria-label="Open chat" aria-expanded="false"
@@ -143,4 +144,3 @@
         <audio id="school-chat-remote-audio" autoplay playsinline></audio>
     </div>
 @endif
-

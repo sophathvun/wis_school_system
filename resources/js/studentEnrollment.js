@@ -4,6 +4,20 @@ import intlTelInput from "intl-tel-input";
 import "intl-tel-input/styles";
 
 const csrf = document.querySelector('meta[name="csrf-token"]')?.content;
+const userPermissions = (() => {
+    try {
+        return JSON.parse(document.body?.dataset.userPermissions || "[]");
+    } catch (_) {
+        return [];
+    }
+})();
+const hasPermission = (permission) =>
+    userPermissions.includes("*") || userPermissions.includes(permission);
+const canStudentDocumentView = hasPermission("student-documents.view");
+const canStudentDocumentCreate = hasPermission("student-documents.create");
+const canStudentDocumentPreview = hasPermission("student-documents.preview");
+const canStudentDocumentDownload = hasPermission("student-documents.download");
+const canStudentDocumentDelete = hasPermission("student-documents.delete");
 const form = document.getElementById("enrollmentForm");
 const modal = new bootstrap.Modal(document.getElementById("enrollmentModal"));
 const historyModal = new bootstrap.Modal(
@@ -40,8 +54,8 @@ const enrollmentFilterStudent = document.getElementById(
 const enrollmentFilterStatus = document.getElementById(
     "enrollments-filter-status",
 );
-let enrollmentSortBy = "id";
-let enrollmentSortDir = "desc";
+let enrollmentSortBy = "student_name";
+let enrollmentSortDir = "asc";
 const expandedEnrollmentIds = new Set();
 const expandedEnrollmentRecords = new Map();
 let currentEnrollmentPage = 1;
@@ -89,6 +103,36 @@ const enrollmentHistoryTable = document.getElementById(
     "enrollmentHistoryTable",
 );
 const field = (id) => document.getElementById(id);
+const applyEnrollmentDocumentPermissions = () => {
+    const card = document.querySelector(".enrollment-document-card");
+    const uploadButton = field("enrollment-document-upload-tab-button");
+    const listButton = field("enrollment-document-list-tab-button");
+    const uploadPane = field("enrollment-document-upload-tab");
+    const listPane = field("enrollment-document-list-tab");
+
+    if (!canStudentDocumentCreate) {
+        uploadButton?.closest(".nav-item")?.classList.add("d-none");
+        uploadPane?.classList.add("d-none");
+    }
+
+    if (!canStudentDocumentView) {
+        listButton?.closest(".nav-item")?.classList.add("d-none");
+        listPane?.classList.add("d-none");
+    }
+
+    if (!canStudentDocumentCreate && !canStudentDocumentView) {
+        card?.classList.add("d-none");
+        return;
+    }
+
+    if (!canStudentDocumentCreate && canStudentDocumentView) {
+        listButton?.classList.add("active");
+        listPane?.classList.add("show", "active");
+        uploadButton?.classList.remove("active");
+        uploadPane?.classList.remove("show", "active");
+    }
+};
+applyEnrollmentDocumentPermissions();
 document.addEventListener(
     "click",
     (event) => {
@@ -108,6 +152,21 @@ const homePhoneHidden = field("home_phone");
 let homePhoneIntl = null;
 let phoneVisibleInputs = [];
 let phoneInputsInitialized = false;
+const formatCambodiaPhoneDisplay = (value = "") => {
+    let digits = String(value).replace(/\D/g, "");
+    if (digits.startsWith("855")) digits = digits.slice(3);
+    if (digits.startsWith("0")) digits = digits.slice(1);
+    digits = digits.slice(0, 9);
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 5) return `${digits.slice(0, 2)} ${digits.slice(2)}`;
+    return `${digits.slice(0, 2)} ${digits.slice(2, 5)} ${digits.slice(5)}`;
+};
+const normalizeCambodiaPhoneValue = (value = "") => {
+    let digits = String(value).replace(/\D/g, "");
+    if (digits.startsWith("855")) digits = digits.slice(3);
+    if (digits.startsWith("0")) digits = digits.slice(1);
+    return digits ? `+855${digits}` : "";
+};
 const initPhoneInputs = () => {
     if (phoneInputsInitialized) return;
     phoneInputsInitialized = true;
@@ -141,7 +200,7 @@ const initPhoneInputs = () => {
     ].filter(Boolean);
     phoneVisibleInputs.forEach((input) => {
         input.addEventListener("input", () => {
-            input.value = input.value.replace(/\s+/g, "");
+            input.value = formatCambodiaPhoneDisplay(input.value);
             refreshPremiumFieldStates();
         });
         input.addEventListener("countrychange", refreshPremiumFieldStates);
@@ -151,14 +210,14 @@ const syncFamilyPhoneValues = () => {
     initPhoneInputs();
     familyPhoneInputs.forEach(({ visible, hidden, intl }) => {
         if (hidden)
-            hidden.value = intl?.getNumber() || visible?.value.trim() || "";
+            hidden.value = intl?.getNumber() || normalizeCambodiaPhoneValue(visible?.value || "");
     });
 };
 const syncHomePhoneValue = () => {
     initPhoneInputs();
     if (homePhoneHidden)
         homePhoneHidden.value =
-            homePhoneIntl?.getNumber() || homePhoneVisible?.value.trim() || "";
+            homePhoneIntl?.getNumber() || normalizeCambodiaPhoneValue(homePhoneVisible?.value || "");
 };
 const premiumFloatingWrappers = () =>
     Array.from(
@@ -380,7 +439,11 @@ let quickEnrollmentOptionsPromise = null;
 let dobCursor = new Date();
 let enrollmentOptionsCache = null;
 let enrollmentListOptionsCache = null;
+let enrollmentListOptionsPromise = null;
+let enrollmentFilterOptionsAbort = null;
+let enrollmentStatsAbort = null;
 let locationOptionsCache = null;
+let locationOptionsPromise = null;
 
 const escapeHtml = (value = "") =>
     String(value)
@@ -542,25 +605,25 @@ const studentProfileMarkup = (student = {}) => {
         date && !Number.isNaN(date.getTime())
             ? `${String(date.getDate()).padStart(2, "0")}-${date.toLocaleString("en-US", { month: "short" })}-${date.getFullYear()}`
             : "-";
-    const khmerDigits = "áŸ áŸ¡áŸ¢áŸ£áŸ¤áŸ¥áŸ¦áŸ§áŸ¨áŸ©";
+    const khmerDigits = "០១២៣៤៥៦៧៨៩";
     const khmerNumber = (value) =>
         String(Math.max(0, value))
             .split("")
             .map((digit) => khmerDigits[Number(digit)] ?? digit)
             .join("");
     const khmerMonths = [
-        "áž˜áž€ážšáž¶",
-        "áž€áž»áž˜áŸ’áž—áŸˆ",
-        "áž˜áž¸áž“áž¶",
-        "áž˜áŸážŸáž¶",
-        "áž§ážŸáž—áž¶",
-        "áž˜áž·ážáž»áž“áž¶",
-        "áž€áž€áŸ’áž€ážŠáž¶",
-        "ážŸáž¸áž áž¶",
-        "áž€áž‰áŸ’áž‰áž¶",
-        "ážáž»áž›áž¶",
-        "ážœáž·áž…áŸ’áž†áž·áž€áž¶",
-        "áž’áŸ’áž“áž¼",
+        "មករា",
+        "កុម្ភៈ",
+        "មីនា",
+        "មេសា",
+        "ឧសភា",
+        "មិថុនា",
+        "កក្កដា",
+        "សីហា",
+        "កញ្ញា",
+        "តុលា",
+        "វិច្ឆិកា",
+        "ធ្នូ",
     ];
     const profileDateKhmer =
         date && !Number.isNaN(date.getTime())
@@ -586,7 +649,7 @@ const studentProfileMarkup = (student = {}) => {
             years -= 1;
             months += 12;
         }
-        age = `${khmerNumber(years)}áž†áŸ’áž“áž¶áŸ† ${khmerNumber(months)}ážáŸ‚ ${khmerNumber(days)}ážáŸ’áž„áŸƒ`;
+        age = `${khmerNumber(years)}ឆ្នាំ ${khmerNumber(months)}ខែ ${khmerNumber(days)}ថ្ងៃ`;
         ageEnglish = `${years} years ${months} months ${days} days`;
     }
     const birthPlace =
@@ -609,7 +672,7 @@ const studentProfileMarkup = (student = {}) => {
             .filter(Boolean)
             .map(escapeHtml)
             .join(" &nbsp;&nbsp; ") || "-";
-    return `<div class="text-center mb-4">${photo}</div><div class="student-profile-section-header row g-3 align-items-center mb-4"><div class="col-md-6"><div class="h3 mb-0 khmer-font-muol d-flex align-items-center gap-2"><img src="/flags/cambodia.svg" alt="Cambodia flag" style="width:24px;height:16px;object-fit:cover;">áž”áŸ’ážšážœážáŸ’ážáž·ážšáž¼áž”ážŸáž·ážŸáŸ’ážŸ</div></div><div class="col-md-6"><div class="h3 mb-0 d-flex align-items-center gap-2"><img src="/flags/uk.svg" alt="United Kingdom flag" style="width:24px;height:16px;object-fit:cover;">STUDENT PROFILE</div></div></div><div class="row g-4"><div class="col-md-6"><div class="school-profile-khmer">${profileRow("áž¢ážáŸ’ážáž›áŸážážŸáž·ážŸáŸ’ážŸ", escapeHtml(student.student_id || "-"))}${profileRow("ážˆáŸ’áž˜áŸ„áŸ‡", escapeHtml(student.full_name_kh || "-"))}${profileRow("áž—áŸáž‘", escapeHtml(student.gender_kh || "-"))}${profileRow("ážáŸ’áž„áŸƒ ážáŸ‚ áž†áŸ’áž“áž¶áŸ†áž€áŸ†ážŽáž¾áž", `${escapeHtml(profileDateKhmer)}<div>áž¢áž¶áž™áž»: ${age}</div>`)}${profileRow("áž‘áž¸áž€áž“áŸ’áž›áŸ‚áž„áž€áŸ†ážŽáž¾áž", birthPlace)}${profileRow("ážŸáž‰áŸ’áž‡áž¶ážáž·", escapeHtml(student.nationality_country?.nationality_name_kh || "-"))}${profileRow("áž›áŸážáž‘áž¼ážšážŸáž–áŸ’áž‘", escapeHtml(student.home_phone || "-"))}${profileRow("áž¢áž»áž¸áž˜áŸ‰áŸ‚áž›", escapeHtml(student.email || "-"))}${profileRow("áž¢áž¶ážŸáž™ážŠáŸ’áž‹áž¶áž“áž”áž…áŸ’áž…áž»áž”áŸ’áž”áž“áŸ’áž“", escapeHtml(student.current_address_kh || "-"))}</div></div><div class="col-md-6"><div>${profileRow("Student ID", escapeHtml(student.student_id || "-"))}${profileRow("Name", escapeHtml(student.full_name_en || "-"))}${profileRow("Gender", escapeHtml(student.gender || "-"))}${profileRow("Date of Birth", `${escapeHtml(profileDate)}<div>Age: ${escapeHtml(ageEnglish)}</div>`)}${profileRow("Place of Birth", birthPlaceEn)}${profileRow("Nationality", escapeHtml(student.nationality_country?.nationality_name_en || "-"))}${profileRow("Phone", escapeHtml(student.home_phone || "-"))}${profileRow("Email", escapeHtml(student.email || "-"))}${profileRow("Current Address", escapeHtml(student.current_address_en || "-"))}</div></div></div>`;
+    return `<div class="text-center mb-4">${photo}</div><div class="student-profile-section-header row g-3 align-items-center mb-4"><div class="col-md-6"><div class="h3 mb-0 khmer-font-muol d-flex align-items-center gap-2"><img src="/flags/cambodia.svg" alt="Cambodia flag" style="width:24px;height:16px;object-fit:cover;">ប្រវត្តិរូបសិស្ស</div></div><div class="col-md-6"><div class="h3 mb-0 d-flex align-items-center gap-2"><img src="/flags/uk.svg" alt="United Kingdom flag" style="width:24px;height:16px;object-fit:cover;">STUDENT PROFILE</div></div></div><div class="row g-4"><div class="col-md-6"><div class="school-profile-khmer">${profileRow("អត្តលេខសិស្ស", escapeHtml(student.student_id || "-"))}${profileRow("ឈ្មោះ", escapeHtml(student.full_name_kh || "-"))}${profileRow("ភេទ", escapeHtml(student.gender_kh || "-"))}${profileRow("ថ្ងៃ ខែ ឆ្នាំកំណើត", `${escapeHtml(profileDateKhmer)}<div>អាយុ: ${age}</div>`)}${profileRow("ទីកន្លែងកំណើត", birthPlace)}${profileRow("សញ្ជាតិ", escapeHtml(student.nationality_country?.nationality_name_kh || "-"))}${profileRow("លេខទូរស័ព្ទ", escapeHtml(student.home_phone || "-"))}${profileRow("អ៊ីមែល", escapeHtml(student.email || "-"))}${profileRow("អាសយដ្ឋានបច្ចុប្បន្ន", escapeHtml(student.current_address_kh || "-"))}</div></div><div class="col-md-6"><div>${profileRow("Student ID", escapeHtml(student.student_id || "-"))}${profileRow("Name", escapeHtml(student.full_name_en || "-"))}${profileRow("Gender", escapeHtml(student.gender || "-"))}${profileRow("Date of Birth", `${escapeHtml(profileDate)}<div>Age: ${escapeHtml(ageEnglish)}</div>`)}${profileRow("Place of Birth", birthPlaceEn)}${profileRow("Nationality", escapeHtml(student.nationality_country?.nationality_name_en || "-"))}${profileRow("Phone", escapeHtml(student.home_phone || "-"))}${profileRow("Email", escapeHtml(student.email || "-"))}${profileRow("Current Address", escapeHtml(student.current_address_en || "-"))}</div></div></div>`;
 };
 const studentFamilyMarkup = (student = {}) => {
     const members = (student.families || []).flatMap(
@@ -624,11 +687,10 @@ const studentFamilyMarkup = (student = {}) => {
     const mother = parent("mother");
     const father = parent("father");
     const parentRows = (khmer, english, member) =>
-        `${parentHeading(khmer, english)}${familyRow("ážˆáŸ’áž˜áŸ„áŸ‡áž˜áŸ’ážáž¶áž™", "Mother's Name", member.full_name_kh, member.full_name_en)}${familyRow("áž˜áž»ážážšáž”ážš", "Occupation", member.occupation_kh || member.occupation, member.occupation_en || member.occupation)}${familyRow("ážŸáž‰áŸ’áž‡áž¶ážáž·", "Nationality", member.nationality_kh, member.nationality_en)}${familyRow("áž›áŸážáž‘áž¼ážšážŸáž–áŸ’áž‘", "Phone Number", member.phone, member.phone)}${familyRow("áž€áž“áŸ’áž›áŸ‚áž„áž€áž¶ážšáž„áž¶ážš", "Workplace", member.workplace, member.workplace)}`;
-    const fatherRows = `${parentHeading("ážªáž–áž»áž€", "FATHER", "student-family-father-heading")}${familyRow("ážˆáŸ’áž˜áŸ„áŸ‡ážªáž–áž»áž€", "Father's Name", father.full_name_kh, father.full_name_en)}${familyRow("áž˜áž»ážážšáž”ážš", "Occupation", father.occupation_kh || father.occupation, father.occupation_en || father.occupation)}${familyRow("ážŸáž‰áŸ’áž‡áž¶ážáž·", "Nationality", father.nationality_kh, father.nationality_en)}${familyRow("áž›áŸážáž‘áž¼ážšážŸáž–áŸ’áž‘", "Phone Number", father.phone, father.phone)}${familyRow("áž€áž“áŸ’áž›áŸ‚áž„áž€áž¶ážšáž„áž¶ážš", "Workplace", father.workplace, father.workplace)}`;
-    return `<div class="student-profile-section-card"><div class="student-profile-section-card-header"><div class="student-profile-section-header row g-3 align-items-center"><div class="col-md-6"><div class="h3 mb-0 khmer-font-muol d-flex align-items-center gap-2"><img src="/flags/cambodia.svg" alt="Cambodia flag" style="width:24px;height:16px;object-fit:cover;">áž–áŸážáž˜áž¶áž“áž¢áž¶ážŽáž¶áž–áŸ’áž™áž¶áž”áž¶áž›</div></div><div class="col-md-6"><div class="h3 mb-0 d-flex align-items-center gap-2"><img src="/flags/uk.svg" alt="United Kingdom flag" style="width:24px;height:16px;object-fit:cover;">PARENT INFORMATION</div></div></div></div><div class="student-profile-section-card-body"><div class="student-profile-paired-rows">${parentRows("áž˜áŸ’ážáž¶áž™", "MOTHER", mother)}${fatherRows}</div></div></div>`;
-};
-const siblingStatusClass = (status = "") => {
+        `${parentHeading(khmer, english)}${familyRow("ឈ្មោះម្ដាយ", "Mother's Name", member.full_name_kh, member.full_name_en)}${familyRow("មុខរបរ", "Occupation", member.occupation_kh || member.occupation, member.occupation_en || member.occupation)}${familyRow("សញ្ជាតិ", "Nationality", member.nationality_kh, member.nationality_en)}${familyRow("លេខទូរស័ព្ទ", "Phone Number", member.phone, member.phone)}${familyRow("កន្លែងការងារ", "Workplace", member.workplace, member.workplace)}`;
+    const fatherRows = `${parentHeading("ឪពុក", "FATHER", "student-family-father-heading")}${familyRow("ឈ្មោះឪពុក", "Father's Name", father.full_name_kh, father.full_name_en)}${familyRow("មុខរបរ", "Occupation", father.occupation_kh || father.occupation, father.occupation_en || father.occupation)}${familyRow("សញ្ជាតិ", "Nationality", father.nationality_kh, father.nationality_en)}${familyRow("លេខទូរស័ព្ទ", "Phone Number", father.phone, father.phone)}${familyRow("កន្លែងការងារ", "Workplace", father.workplace, father.workplace)}`;
+    return `<div class="student-profile-section-card"><div class="student-profile-section-card-header"><div class="student-profile-section-header row g-3 align-items-center"><div class="col-md-6"><div class="h3 mb-0 khmer-font-muol d-flex align-items-center gap-2"><img src="/flags/cambodia.svg" alt="Cambodia flag" style="width:24px;height:16px;object-fit:cover;">ព័ត៌មានអាណាព្យាបាល</div></div><div class="col-md-6"><div class="h3 mb-0 d-flex align-items-center gap-2"><img src="/flags/uk.svg" alt="United Kingdom flag" style="width:24px;height:16px;object-fit:cover;">PARENT INFORMATION</div></div></div></div><div class="student-profile-section-card-body"><div class="student-profile-paired-rows">${parentRows("ម្ដាយ", "MOTHER", mother)}${fatherRows}</div></div></div>`;
+};const siblingStatusClass = (status = "") => {
     const normalized = String(status || "").toLowerCase();
     if (normalized === "active") return "success";
     if (normalized === "pending") return "warning";
@@ -661,7 +723,7 @@ const renderSiblingCards = (siblings = []) =>
                   ]
                       .filter(Boolean)
                       .map(escapeHtml)
-                      .join(" Â· ");
+                      .join(" · ");
                   return `<div class="student-sibling-card">${photo}<div class="student-sibling-info"><div class="text-secondary small">Student ID: <strong>${escapeHtml(sibling.student_id || sibling.student_no || "-")}</strong></div><div class="student-sibling-name-kh school-profile-khmer">${escapeHtml(sibling.full_name_kh || "-")}</div><div class="student-sibling-name-en">${escapeHtml(sibling.full_name_en || "-")}</div><div class="small mt-1"><span class="text-secondary">Current Enrollment:</span> ${enrollmentLabel}</div><div class="mt-1"><span class="text-secondary small me-1">Status:</span><span class="badge bg-${siblingStatusClass(status)}-lt">${escapeHtml(siblingStatusLabel(status))}</span></div></div></div>`;
               })
               .join("")
@@ -724,16 +786,30 @@ const loadStudentEnrollmentSection = async (studentId, target) => {
 const renderStudentDocumentRows = (documents = []) =>
     documents.length
         ? documents
-              .map(
-                  (document) =>
-                      `<tr><td>${escapeHtml(document.type?.name_en || document.document_type || "-")}<div class="small school-profile-khmer">${escapeHtml(document.type?.name_kh || "")}</div></td><td>${escapeHtml(document.title || "-")}</td><td>${escapeHtml(document.document_number || "-")}</td><td>${escapeHtml(document.original_filename || "-")}</td><td>${document.file_path ? `<a class="btn btn-sm btn-outline-primary" href="/student-documents/${document.id}/download" target="_blank"><i class="ti ti-download me-1"></i>Download</a>` : "-"}</td></tr>`,
-              )
+              .map((document) => {
+                  const viewAction =
+                      document.file_path && canStudentDocumentPreview
+                          ? `<a class="btn btn-sm btn-outline-primary" href="/student-documents/${document.id}/view" target="_blank" rel="noopener"><i class="ti ti-eye me-1"></i>View</a>`
+                          : "";
+                  const downloadAction =
+                      document.file_path && canStudentDocumentDownload
+                          ? `<a class="btn btn-sm btn-outline-success" href="/student-documents/${document.id}/download"><i class="ti ti-download me-1"></i>Download</a>`
+                          : "";
+                  const fileActions = viewAction + downloadAction;
+
+                  return `<tr><td>${escapeHtml(document.type?.name_en || document.document_type || "-")}<div class="small school-profile-khmer">${escapeHtml(document.type?.name_kh || "")}</div></td><td>${escapeHtml(document.title || "-")}</td><td>${escapeHtml(document.document_number || "-")}</td><td>${escapeHtml(document.original_filename || "-")}</td><td><div class="d-flex flex-wrap gap-2">${fileActions || '<span class="text-secondary">-</span>'}</div></td></tr>`;
+              })
               .join("")
-        : `<tr><td colspan="5" class="text-center text-secondary">No student documents found.</td></tr>`;
+        : `<tr><td colspan="6" class="text-center text-secondary">No student documents found.</td></tr>`;
 const studentDocumentSectionMarkup = () =>
-    `<div class="student-profile-section-card"><div class="student-profile-section-card-header"><div class="h3 mb-0 d-flex align-items-center gap-2"><i class="ti ti-file-description"></i>STUDENT DOCUMENTS</div></div><div class="student-profile-section-card-body"><div class="table-responsive"><table class="table table-vcenter student-profile-enrollment-table mb-0"><thead><tr><th>Document Type</th><th>Title</th><th>Document Number</th><th>File</th><th>Action</th></tr></thead><tbody><tr><td colspan="5" class="text-center text-secondary">Loading documents...</td></tr></tbody></table></div></div></div>`;
+    `<div class="student-profile-section-card"><div class="student-profile-section-card-header"><div class="h3 mb-0 d-flex align-items-center gap-2"><i class="ti ti-file-description"></i>STUDENT DOCUMENTS</div></div><div class="student-profile-section-card-body"><div class="table-responsive"><table class="table table-vcenter student-profile-enrollment-table mb-0"><thead><tr><th>Document Type</th><th>Title</th><th>Document Number</th><th>File</th><th>Action</th></tr></thead><tbody><tr><td colspan="6" class="text-center text-secondary">Loading documents...</td></tr></tbody></table></div></div></div>`;
 const loadStudentDocumentSection = async (studentId, target) => {
     if (!target || !studentId) return;
+    if (!canStudentDocumentView) {
+        target.innerHTML = `<tr><td colspan="6" class="text-center text-secondary">You do not have permission to view student documents.</td></tr>`;
+        return;
+    }
+
     try {
         const response = await fetch(`/student-documents/fetch/${studentId}`, {
             headers: { Accept: "application/json" },
@@ -745,15 +821,32 @@ const loadStudentDocumentSection = async (studentId, target) => {
             );
         target.innerHTML = renderStudentDocumentRows(documents || []);
     } catch (error) {
-        target.innerHTML = `<tr><td colspan="5" class="text-center text-danger small">${escapeHtml(error.message || "Unable to load student documents.")}</td></tr>`;
+        target.innerHTML = `<tr><td colspan="6" class="text-center text-danger small">${escapeHtml(error.message || "Unable to load student documents.")}</td></tr>`;
     }
 };
-const showStudentProfile = (enrollmentId) => {
+const showStudentProfile = async (enrollmentId) => {
     const item = rows.find((row) => Number(row.id) === Number(enrollmentId));
     if (!item?.student || !studentProfileContent || !studentProfileModal)
         return;
-    currentStudentProfile = item.student;
-    studentProfileContent.innerHTML = studentProfileMarkup(item.student);
+    const student = { ...item.student };
+    if (student.family_number && !(student.families || []).some((family) => (family.members || []).length)) {
+        try {
+            const response = await fetch(
+                `/student-enrollments/family-details?family_number=${encodeURIComponent(student.family_number)}`,
+                { headers: { Accept: "application/json" } },
+            );
+            const familyDetailsResult = await response.json();
+            if (response.ok && Array.isArray(familyDetailsResult.members)) {
+                student.families = [
+                    { family_number: student.family_number, members: familyDetailsResult.members },
+                ];
+            }
+        } catch (error) {
+            console.warn("Unable to load family contacts for profile.", error);
+        }
+    }
+    currentStudentProfile = student;
+    studentProfileContent.innerHTML = studentProfileMarkup(student);
     const profileSource = document.createElement("div");
     profileSource.innerHTML = studentProfileContent.innerHTML;
     const profileCard = document.createElement("div");
@@ -808,7 +901,7 @@ const showStudentProfile = (enrollmentId) => {
     });
     profileCard.append(profileCardHeader, profileBody);
     const familySource = document.createElement("div");
-    familySource.innerHTML = studentFamilyMarkup(item.student);
+    familySource.innerHTML = studentFamilyMarkup(student);
     const familyCard = familySource.firstElementChild;
     const enrollmentSource = document.createElement("div");
     enrollmentSource.innerHTML = studentEnrollmentSectionMarkup();
@@ -818,7 +911,7 @@ const showStudentProfile = (enrollmentId) => {
     if (enrollmentCard) {
         studentProfileContent.append(enrollmentCard);
         loadStudentEnrollmentSection(
-            item.student.id,
+            student.id,
             enrollmentCard.querySelector("tbody"),
         );
     }
@@ -828,12 +921,12 @@ const showStudentProfile = (enrollmentId) => {
     if (documentCard) {
         studentProfileContent.append(documentCard);
         loadStudentDocumentSection(
-            item.student.id,
+            student.id,
             documentCard.querySelector("tbody"),
         );
     }
     loadStudentSiblings(
-        item.student.id,
+        student.id,
         siblingSection.querySelector(".student-sibling-list"),
     );
     studentProfileModal.show();
@@ -917,7 +1010,7 @@ const openStudentProfileReport = () => {
         .student-profile-photo-view-trigger img { width: 90px !important; height: 120px !important; }
         .table-responsive { overflow: visible; }
         @media print { .student-profile-section-card { break-inside: avoid; } }
-    </style></head><body><div class="report-header"><div class="report-brand-row"><div class="report-logo">${reportLogo ? `<img src="${escapeHtml(reportLogo)}" alt="School logo">` : ""}</div></div><h1><span class="report-title-kh">áž”áŸ’ážšážœážáŸ’ážáž·ážšáž¼áž”ážŸáž·ážŸáŸ’ážŸ</span><span class="report-title-en">STUDENT PROFILE</span></h1><div class="report-photo-row">${studentPhoto ? `<img class="report-student-photo" src="${studentPhoto}" alt="Student photo">` : '<div class="report-student-photo-placeholder">Photo</div>'}</div></div>${reportSource.innerHTML}</body></html>`);
+    </style></head><body><div class="report-header"><div class="report-brand-row"><div class="report-logo">${reportLogo ? `<img src="${escapeHtml(reportLogo)}" alt="School logo">` : ""}</div></div><h1><span class="report-title-kh">ប្រវត្តិរូបសិស្ស</span><span class="report-title-en">STUDENT PROFILE</span></h1><div class="report-photo-row">${studentPhoto ? `<img class="report-student-photo" src="${studentPhoto}" alt="Student photo">` : '<div class="report-student-photo-placeholder">Photo</div>'}</div></div>${reportSource.innerHTML}</body></html>`);
     reportWindow.document.close();
     reportWindow.addEventListener("afterprint", () => {
         reportWindow.close();
@@ -949,7 +1042,7 @@ const enrollmentExpandedMarkup = (item = {}) => {
                     <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-3">
                         <div>
                             <div class="text-secondary small">Extended Student Enrollment</div>
-                            <h4 class="mb-0">${escapeHtml(student.student_id || "-")} Â· ${escapeHtml(nameEn || nameKh || "-")}</h4>
+                            <h4 class="mb-0">${escapeHtml(student.student_id || "-")} · ${escapeHtml(nameEn || nameKh || "-")}</h4>
                         </div>
                         <span class="badge bg-purple-lt">${escapeHtml(enrollmentListGradeClass(item))}</span>
                     </div>
@@ -993,8 +1086,8 @@ const enrollmentAcademicYearsMarkup = (item = {}) => {
                 <div class="enrollment-expanded-card">
                     <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-3">
                         <div>
-                            <div class="text-secondary small">All Academic Year Enrollments Â· Descending Z-A</div>
-                            <h4 class="mb-0">${escapeHtml(student.student_id || "-")} Â· ${escapeHtml(nameEn || "-")}</h4>
+                            <div class="text-secondary small">All Academic Year Enrollments - Descending Z-A</div>
+                            <h4 class="mb-0">${escapeHtml(student.student_id || "-")} - ${escapeHtml(nameEn || "-")}</h4>
                         </div>
                         <span class="badge bg-purple-lt">${records.length ? `${records.length} record${records.length === 1 ? "" : "s"}` : "Enrollment Years"}</span>
                     </div>
@@ -1010,9 +1103,9 @@ const studentPhotoMarkup = (student) => {
         const name = escapeHtml(
             student.full_name_en || student.student_id || "Student Photo",
         );
-        return `<button type="button" class="btn p-0 border-0 student-photo-view-trigger" data-photo-url="${url}" data-photo-title="${name}" aria-label="View student photo"><img src="${url}" alt="${name}" style="width:44px;height:44px;object-fit:cover;border-radius:.5rem;border:1px solid var(--tblr-border-color);background:var(--tblr-bg-surface);"></button>`;
+        return `<button type="button" class="btn p-0 border-0 student-photo-view-trigger enrollment-list-photo-trigger" data-photo-url="${url}" data-photo-title="${name}" aria-label="View student photo"><img src="${url}" alt="${name}" class="enrollment-list-photo"></button>`;
     }
-    return `<span class="avatar avatar-sm" style="border-radius:.5rem;">${escapeHtml((student?.full_name_en || student?.student_no || "?").charAt(0).toUpperCase())}</span>`;
+    return `<span class="avatar avatar-sm enrollment-list-photo enrollment-list-photo-placeholder">${escapeHtml((student?.full_name_en || student?.student_no || "?").charAt(0).toUpperCase())}</span>`;
 };
 const transferredCampusIcon = (item = {}) => {
     if (!Number(item.was_transferred_from_other_campus || 0)) return "";
@@ -1105,10 +1198,7 @@ const renderDobYears = () => {
     ).join("");
 };
 const toKhmerDigits = (value) =>
-    String(value ?? "").replace(
-        /[0-9]/g,
-        (digit) => "áŸ áŸ¡áŸ¢áŸ£áŸ¤áŸ¥áŸ¦áŸ§áŸ¨áŸ©"[Number(digit)],
-    );
+    String(value ?? "").replace(/[0-9]/g, (digit) => "០១២៣៤៥៦៧៨៩"[Number(digit)]);
 const khmerMonths = [
     "\u1798\u1780\u179a\u17b6",
     "\u1780\u17bb\u1798\u17d2\u1797\u17c8",
@@ -1400,20 +1490,26 @@ const setupSearchableEnrollmentSelect = (id, label) => {
         const gap = 6;
         const viewportPadding = 12;
         const availableRight = window.innerWidth - viewportPadding;
+        const preferredWidth =
+            window.innerWidth <= 576
+                ? window.innerWidth - viewportPadding * 2
+                : Math.max(rect.width, id === "enrollments-filter-student" ? 260 : 190);
         const width = Math.min(
-            Math.max(rect.width, 180),
+            preferredWidth,
             window.innerWidth - viewportPadding * 2,
         );
         const left = Math.min(
             Math.max(rect.left, viewportPadding),
             availableRight - width,
         );
-        menu.style.position = "fixed";
-        menu.style.top = `${rect.bottom + gap}px`;
-        menu.style.left = `${left}px`;
-        menu.style.right = "auto";
-        menu.style.width = `${width}px`;
-        menu.style.zIndex = "1100";
+        menu.style.setProperty("position", "fixed", "important");
+        menu.style.setProperty("top", `${rect.bottom + gap}px`, "important");
+        menu.style.setProperty("left", `${left}px`, "important");
+        menu.style.setProperty("right", "auto", "important");
+        menu.style.setProperty("width", `${width}px`, "important");
+        menu.style.setProperty("min-width", `${width}px`, "important");
+        menu.style.setProperty("max-width", `${width}px`, "important");
+        menu.style.setProperty("z-index", "1100", "important");
     };
     const sync = () => {
         selected.textContent = select.value
@@ -1475,7 +1571,11 @@ const setupSearchableEnrollmentSelect = (id, label) => {
         sync();
         menu.classList.add("d-none");
     });
-    select.addEventListener("change", sync);
+    select.addEventListener("change", () => {
+        sync();
+        if (!menu.classList.contains("d-none")) render();
+    });
+    sync();
 };
 searchableEnrollmentSelects.forEach(([id, label]) =>
     setupSearchableEnrollmentSelect(id, label),
@@ -1799,9 +1899,9 @@ const setupStudentBilingual = (type) => {
     if (type === "gender" && !ui.select.options.length) {
         ui.select.innerHTML =
             '<option value=""></option>' +
-            '<option value="Male" data-en="Male" data-kh="áž”áŸ’ážšáž»ážŸ">Male</option>' +
-            '<option value="Female" data-en="Female" data-kh="ážŸáŸ’ážšáž¸">Female</option>' +
-            '<option value="Other" data-en="Other" data-kh="áž•áŸ’ážŸáŸáž„áž‘áŸ€áž">Other</option>';
+            '<option value="Male" data-en="Male" data-kh="ប្រុស">Male</option>' +
+            '<option value="Female" data-en="Female" data-kh="ស្រី">Female</option>' +
+            '<option value="Other" data-en="Other" data-kh="ផ្សេងៗ">Other</option>';
     }
     ui.select.classList.add("d-none");
     ui.toggle.addEventListener("click", () => {
@@ -2666,9 +2766,17 @@ const filterAddressLocations = (type) => {
 };
 const loadLocationOptions = async () => {
     if (locationOptionsCache) return locationOptionsCache;
-    const response = await fetch("/locations/options");
-    locationOptionsCache = await response.json();
-    return locationOptionsCache;
+    if (locationOptionsPromise) return locationOptionsPromise;
+    locationOptionsPromise = fetch("/locations/options")
+        .then((response) => response.json())
+        .then((data) => {
+            locationOptionsCache = data;
+            return data;
+        })
+        .finally(() => {
+            locationOptionsPromise = null;
+        });
+    return locationOptionsPromise;
 };
 const loadAddressLocations = async () => {
     setupAddressComboboxes();
@@ -2703,8 +2811,8 @@ const syncAddressKhmer = (englishId, khmerId, prefix) => {
         updateCurrentAddress();
     });
 };
-syncAddressKhmer("address_house_no_en", "address_house_no_kh", "áž•áŸ’áž‘áŸ‡áž›áŸáž");
-syncAddressKhmer("address_street_en", "address_street_kh", "áž•áŸ’áž›áž¼ážœ");
+syncAddressKhmer("address_house_no_en", "address_house_no_kh", "ផ្ទះលេខ");
+syncAddressKhmer("address_street_en", "address_street_kh", "ផ្លូវ");
 
 const filterBirthLocations = (type) => {
     const order = birthFields;
@@ -2866,10 +2974,12 @@ const loadOptions = async () => {
     const options = await optionsResponse.json();
     const documentOptions = await documentOptionsResponse.json();
     enrollmentOptionsCache = { options, documentOptions };
-    enrollmentListOptionsCache = {
-        allAcademicYears: options.allAcademicYears || [],
-        enrollmentFilterRows: options.enrollmentFilterRows || [],
-    };
+    if (Array.isArray(options.enrollmentFilterRows)) {
+        enrollmentListOptionsCache = {
+            allAcademicYears: options.allAcademicYears || options.academicYears || [],
+            enrollmentFilterRows: options.enrollmentFilterRows || [],
+        };
+    }
     const documentType = field("enrollment-document-type");
     if (documentType)
         documentType.innerHTML =
@@ -2979,15 +3089,21 @@ const repopulateEnrollmentFilterSelect = (
     items,
     valueGetter,
     labelGetter,
+    selectedValue = null,
 ) => {
     if (!select) return;
-    const selected = select.value;
-    const options = items
+    const selected = selectedValue === null ? select.value : String(selectedValue);
+    const options = (Array.isArray(items) ? items : [])
         .map((item) => ({
             value: String(valueGetter(item) ?? ""),
             label: String(labelGetter(item) ?? ""),
         }))
         .filter((item) => item.value && item.label);
+    if (!options.length && select.options.length > 1) {
+        select.value = selected;
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+        return;
+    }
     select.innerHTML =
         `<option value="">${emptyLabel}</option>` +
         options
@@ -3066,11 +3182,11 @@ const refreshEnrollmentFilterOptions = (changed = "") => {
     }
 
     const academicYearId = enrollmentFilterAcademicYear?.value || "";
-    const academicYearOptions = [
-        ...(enrollmentListOptions?.allAcademicYears ||
-            enrollmentListOptions?.academicYears ||
-            []),
-    ].sort((a, b) =>
+    const academicYearOptions = firstNonEmptyArray(
+        enrollmentListOptions?.allAcademicYears,
+        enrollmentListOptions?.academicYears,
+        existingAcademicYearFilterOptions(),
+    ).sort((a, b) =>
         String(b.academic_year || "").localeCompare(
             String(a.academic_year || ""),
             undefined,
@@ -3083,6 +3199,7 @@ const refreshEnrollmentFilterOptions = (changed = "") => {
         academicYearOptions,
         (item) => item.id,
         (item) => item.academic_year,
+        academicYearId,
     );
 
     const validAcademicYearId = enrollmentFilterAcademicYear?.value || "";
@@ -3209,10 +3326,142 @@ const refreshEnrollmentFilterOptions = (changed = "") => {
     isRefreshingEnrollmentFilters = false;
 };
 let enrollmentListOptions = {};
+const existingAcademicYearFilterOptions = () =>
+    Array.from(enrollmentFilterAcademicYear?.options || [])
+        .map((option) => ({
+            id: option.value,
+            academic_year: option.textContent?.trim() || "",
+        }))
+        .filter((item) => item.id && item.academic_year);
+const firstNonEmptyArray = (...arrays) =>
+    arrays.find((items) => Array.isArray(items) && items.length) || [];
 const populateEnrollmentListFilters = (options = {}) => {
-    enrollmentListOptions = options;
-    enrollmentFilterRows = options.enrollmentFilterRows || [];
+    const currentAcademicYears = existingAcademicYearFilterOptions();
+    const allAcademicYears = firstNonEmptyArray(
+        options.allAcademicYears,
+        options.academicYears,
+        currentAcademicYears,
+    );
+    enrollmentListOptions = {
+        ...options,
+        allAcademicYears,
+        academicYears: firstNonEmptyArray(options.academicYears, allAcademicYears),
+    };
+    enrollmentFilterRows = Array.isArray(options.enrollmentFilterRows)
+        ? options.enrollmentFilterRows
+        : enrollmentFilterRows;
     refreshEnrollmentFilterOptions();
+};
+
+const applyEnrollmentFetchFilterOptions = (options = {}) => {
+    if (!options || typeof options !== "object") return;
+    const wasRefreshing = isRefreshingEnrollmentFilters;
+    isRefreshingEnrollmentFilters = true;
+
+    repopulateEnrollmentFilterSelect(
+        enrollmentFilterCampus,
+        "Campus",
+        options.campuses || [],
+        (item) => item.campus_id,
+        (item) => item.campus_name_en,
+        enrollmentFilterCampus?.value || "",
+    );
+
+    const gradeOptions = (options.grades || []).map((item) => ({
+        ...item,
+        gradeClassLabel: plainGradeClassLabel(
+            { grade: item.grade },
+            { class_name: item.class_name },
+        ),
+    }));
+    repopulateEnrollmentFilterSelect(
+        enrollmentFilterGradeClass,
+        "Grade",
+        gradeOptions,
+        enrollmentGradeClassValue,
+        (item) => item.gradeClassLabel,
+        enrollmentFilterGradeClass?.value || "",
+    );
+
+    repopulateEnrollmentFilterSelect(
+        enrollmentFilterGroup,
+        "Group",
+        options.groups || [],
+        (item) => item.group_id,
+        (item) => item.session_short_name,
+        enrollmentFilterGroup?.value || "",
+    );
+
+    repopulateEnrollmentFilterSelect(
+        enrollmentFilterStudent,
+        "Student Name",
+        options.students || [],
+        (item) => item.student_record_id,
+        enrollmentStudentLabel,
+        enrollmentFilterStudent?.value || "",
+    );
+
+    repopulateEnrollmentFilterSelect(
+        enrollmentFilterStatus,
+        "Status",
+        options.statuses || [],
+        (item) => item.enrollment_status,
+        (item) =>
+            String(item.enrollment_status || "").replace(/\b\w/g, (letter) =>
+                letter.toUpperCase(),
+            ),
+        enrollmentFilterStatus?.value || "",
+    );
+
+    isRefreshingEnrollmentFilters = wasRefreshing;
+};
+
+const currentEnrollmentFilterParams = () =>
+    new URLSearchParams({
+        academic_year_id: enrollmentFilterAcademicYear?.value || "",
+        campus_id: enrollmentFilterCampus?.value || "",
+        grade_class: enrollmentFilterGradeClass?.value || "",
+        group_id: enrollmentFilterGroup?.value || "",
+        student_id: enrollmentFilterStudent?.value || "",
+        enrollment_status: enrollmentFilterStatus?.value || "",
+    });
+
+const formatEnrollmentStatNumber = (value) =>
+    new Intl.NumberFormat("en-US").format(Number(value || 0));
+
+const renderEnrollmentStats = (stats = {}) => {
+    document.querySelectorAll("[data-enrollment-stat]").forEach((element) => {
+        const [group, key] = element.dataset.enrollmentStat.split(".");
+        element.textContent = formatEnrollmentStatNumber(stats?.[group]?.[key]);
+    });
+};
+
+const loadEnrollmentStats = async () => {
+    enrollmentStatsAbort?.abort();
+    enrollmentStatsAbort = new AbortController();
+    const response = await fetch(
+        `/student-enrollments/stats?${currentEnrollmentFilterParams().toString()}`,
+        {
+            headers: { Accept: "application/json" },
+            signal: enrollmentStatsAbort.signal,
+        },
+    );
+    if (!response.ok) throw new Error("Unable to load enrollment stats.");
+    renderEnrollmentStats(await response.json());
+};
+
+const loadEnrollmentDependentFilterOptions = async () => {
+    enrollmentFilterOptionsAbort?.abort();
+    enrollmentFilterOptionsAbort = new AbortController();
+    const response = await fetch(
+        `/student-enrollments/filter-options?${currentEnrollmentFilterParams().toString()}`,
+        {
+            headers: { Accept: "application/json" },
+            signal: enrollmentFilterOptionsAbort.signal,
+        },
+    );
+    if (!response.ok) throw new Error("Unable to load enrollment filter options.");
+    applyEnrollmentFetchFilterOptions(await response.json());
 };
 
 const loadEnrollmentListOptions = async () => {
@@ -3220,14 +3469,32 @@ const loadEnrollmentListOptions = async () => {
         populateEnrollmentListFilters(enrollmentListOptionsCache);
         return enrollmentListOptionsCache;
     }
-    const response = await fetch("/student-enrollments/list-options", {
-        headers: { Accept: "application/json" },
-    });
-    if (!response.ok)
-        throw new Error("Unable to load enrollment list filters.");
-    enrollmentListOptionsCache = await response.json();
-    populateEnrollmentListFilters(enrollmentListOptionsCache);
-    return enrollmentListOptionsCache;
+    if (!enrollmentListOptionsPromise) {
+        enrollmentListOptionsPromise = fetch("/student-enrollments/list-options", {
+            headers: { Accept: "application/json" },
+        })
+            .then((response) => {
+                if (!response.ok)
+                    throw new Error("Unable to load enrollment list filters.");
+                return response.json();
+            })
+            .then((options) => {
+                enrollmentListOptionsCache = options;
+                populateEnrollmentListFilters(enrollmentListOptionsCache);
+                return enrollmentListOptionsCache;
+            })
+            .finally(() => {
+                enrollmentListOptionsPromise = null;
+            });
+    }
+    return enrollmentListOptionsPromise;
+};
+
+const refreshEnrollmentFiltersWithOptions = async (changed = "") => {
+    if (!enrollmentFilterRows.length) {
+        await loadEnrollmentListOptions();
+    }
+    refreshEnrollmentFilterOptions(changed);
 };
 
 const applyQuickEnrollmentOptions = (options = {}) => {
@@ -3312,16 +3579,32 @@ const openCreate = async (forEdit = false) => {
     modal.show();
     refreshPremiumFieldStates();
     loadQuickEnrollmentOptions().catch(() => {});
-    const dataLoad = Promise.allSettled([
-        loadOptions(),
-        loadBirthLocations(),
-        loadAddressLocations(),
-    ]);
-    await dataLoad;
-    field("student_no").value = nextStudentNo;
-    field("existing_family_number").value = "";
-    autoFamilyNumber();
-    refreshPremiumFieldStates();
+
+    const dataLoad = new Promise((resolve) => {
+        window.requestAnimationFrame(() => {
+            resolve(
+                Promise.allSettled([
+                    loadOptions(),
+                    loadBirthLocations(),
+                    loadAddressLocations(),
+                ]),
+            );
+        });
+    });
+
+    if (forEdit) {
+        await dataLoad;
+        refreshPremiumFieldStates();
+        return dataLoad;
+    }
+
+    dataLoad.then(() => {
+        field("student_no").value = nextStudentNo;
+        field("existing_family_number").value = "";
+        autoFamilyNumber();
+        refreshPremiumFieldStates();
+    });
+
     return dataLoad;
 };
 
@@ -3386,7 +3669,7 @@ const openEdit = async (id) => {
     field("gender").value = matchingGender?.value || "";
     field("full_name_en").value = student.full_name_en ?? "";
     field("full_name_kh").value = student.full_name_kh ?? "";
-    field("home_phone_number").value = student.home_phone || "";
+    field("home_phone_number").value = formatCambodiaPhoneDisplay(student.home_phone || "");
     // Populate the shared family contacts immediately. The remaining edit
     // options (locations/documents) may take longer to load.
     field("existing_family_number").value =
@@ -3519,7 +3802,7 @@ const renderEnrollmentDocumentFiles = () => {
             (file, index) => `
         <div class="premium-document-file-item">
             <span class="document-file-icon"><i class="ti ${documentFileIcon(file)}"></i></span>
-            <div class="min-w-0"><div class="document-file-name">${escapeHtml(file.name)}</div><div class="document-file-meta">${formatDocumentFileSize(file.size)} Â· Ready to upload</div></div>
+            <div class="min-w-0"><div class="document-file-name">${escapeHtml(file.name)}</div><div class="document-file-meta">${formatDocumentFileSize(file.size)} &middot; Ready to upload</div></div>
             <button type="button" class="document-file-remove" data-document-file-remove="${index}" aria-label="Remove ${escapeHtml(file.name)}"><i class="ti ti-x"></i></button>
         </div>`,
         )
@@ -3610,6 +3893,10 @@ documentFileList?.addEventListener("click", (event) => {
 const uploadEnrollmentDocuments = async (studentId) => {
     const files = Array.from(field("enrollment-document-file")?.files || []);
     if (!files.length) return;
+    if (!canStudentDocumentCreate)
+        throw new Error(
+            "You do not have permission to upload student documents.",
+        );
     if (!field("enrollment-document-type")?.value)
         throw new Error("Please select a document type for the uploaded file.");
     for (const file of files) {
@@ -3644,21 +3931,82 @@ const uploadEnrollmentDocuments = async (studentId) => {
     }
 };
 
+const deleteEnrollmentDocument = async (documentId, studentId) => {
+    if (!documentId) return;
+    const confirmed = window.Swal
+        ? await window.Swal.fire({
+              title: "Delete this document?",
+              text: "This document file will be removed.",
+              icon: "warning",
+              showCancelButton: true,
+              confirmButtonText: "Delete",
+              cancelButtonText: "Cancel",
+              confirmButtonColor: "#d63939",
+          }).then((result) => result.isConfirmed)
+        : confirm("Delete this document?");
+    if (!confirmed) return;
+
+    try {
+        const response = await fetch("/student-documents/" + documentId, {
+            method: "DELETE",
+            headers: {
+                Accept: "application/json",
+                "X-CSRF-TOKEN": csrf,
+            },
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(result.message || "Unable to delete document.");
+        }
+        if (window.Swal) {
+            await window.Swal.fire({
+                toast: true,
+                position: "top",
+                icon: "success",
+                title: "Document deleted.",
+                showConfirmButton: false,
+                timer: 1800,
+            });
+        }
+        await loadEnrollmentDocuments(studentId);
+    } catch (error) {
+        console.error(error);
+        if (window.Swal) {
+            window.Swal.fire({
+                toast: true,
+                position: "top",
+                icon: "error",
+                title: error.message || "Unable to delete document.",
+                showConfirmButton: false,
+                timer: 2500,
+            });
+        } else {
+            alert(error.message || "Unable to delete document.");
+        }
+    }
+};
+
 const loadEnrollmentDocuments = async (studentId) => {
     const list = field("enrollment-document-list");
     if (!list) return;
 
+    if (!canStudentDocumentView) {
+        list.innerHTML =
+            '<tr><td colspan="6" class="text-center text-secondary py-4">You do not have permission to view submitted documents.</td></tr>';
+        return;
+    }
+
     if (!studentId) {
         list.innerHTML =
-            '<tr><td colspan="4" class="text-center text-secondary py-4">Save or select a student to view submitted documents.</td></tr>';
+            '<tr><td colspan="6" class="text-center text-secondary py-4">Save or select a student to view submitted documents.</td></tr>';
         return;
     }
 
     list.innerHTML =
-        '<tr><td colspan="4" class="text-center text-secondary py-4">Loading documents...</td></tr>';
+        '<tr><td colspan="6" class="text-center text-secondary py-4">Loading documents...</td></tr>';
 
     try {
-        const response = await fetch(`/student-documents/fetch/${studentId}`, {
+        const response = await fetch("/student-documents/fetch/" + studentId, {
             headers: { Accept: "application/json" },
         });
         if (!response.ok)
@@ -3667,30 +4015,58 @@ const loadEnrollmentDocuments = async (studentId) => {
 
         list.innerHTML = documents.length
             ? documents
-                  .map((document) => {
+                  .map((document, index) => {
                       const typeName = document.type
-                          ? `${escapeHtml(document.type.name_kh || "")}<br><small class="text-secondary">${escapeHtml(document.type.name_en || "")}</small>`
+                          ? escapeHtml(document.type.name_kh || "") +
+                            '<br><small class="text-secondary">' +
+                            escapeHtml(document.type.name_en || "") +
+                            "</small>"
                           : escapeHtml(document.document_type || "-");
-                      return `<tr>
-                    <td>${typeName}</td>
-                    <td>${escapeHtml(document.title || "-")}</td>
-                    <td>${escapeHtml(document.document_number || "-")}</td>
-                    <td>
-                        <a href="/student-documents/${document.id}/download" target="_blank" class="btn btn-sm btn-outline-primary" title="Download">
-                            <i class="bi bi-download"></i>
-                        </a>
-                    </td>
-                </tr>`;
+                      const fileName = escapeHtml(document.original_filename || "-");
+                      const viewAction = document.file_path && canStudentDocumentPreview
+                          ? '<a href="/student-documents/' +
+                            document.id +
+                            '/view" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary enrollment-document-action-btn" title="View" aria-label="View document"><i class="ti ti-eye"></i><span>View</span></a>'
+                          : "";
+                      const downloadAction = document.file_path && canStudentDocumentDownload
+                          ? '<a href="/student-documents/' +
+                            document.id +
+                            '/download" class="btn btn-sm btn-outline-success enrollment-document-action-btn" title="Download" aria-label="Download document"><i class="ti ti-download"></i><span>Download</span></a>'
+                          : "";
+                      const deleteAction = canStudentDocumentDelete
+                          ? '<button type="button" class="btn btn-sm btn-outline-danger enrollment-document-action-btn" data-enrollment-document-delete="' +
+                            document.id +
+                            '" data-student-id="' +
+                            studentId +
+                            '" title="Delete" aria-label="Delete document"><i class="ti ti-trash"></i><span>Delete</span></button>'
+                          : "";
+                      const fileActions = viewAction + downloadAction + deleteAction;
+                      return '<tr>' +
+                          "<td>" + String(index + 1).padStart(2, "0") + "</td>" +
+                          "<td>" + typeName + "</td>" +
+                          "<td>" + escapeHtml(document.title || "-") + "</td>" +
+                          "<td>" + escapeHtml(document.document_number || "-") + "</td>" +
+                          "<td>" + fileName + "</td>" +
+                          '<td class="text-center"><div class="enrollment-document-actions">' +
+                          (fileActions || '<span class="text-secondary">-</span>') +
+                          '</div></td></tr>';
                   })
                   .join("")
-            : '<tr><td colspan="4" class="text-center text-secondary py-4">No submitted documents found.</td></tr>';
+            : '<tr><td colspan="6" class="text-center text-secondary py-4">No submitted documents found.</td></tr>';
+        list.querySelectorAll("[data-enrollment-document-delete]").forEach((button) => {
+            button.addEventListener("click", () =>
+                deleteEnrollmentDocument(
+                    button.dataset.enrollmentDocumentDelete,
+                    button.dataset.studentId,
+                ),
+            );
+        });
     } catch (error) {
         console.error(error);
         list.innerHTML =
-            '<tr><td colspan="4" class="text-center text-danger py-4">Unable to load submitted documents.</td></tr>';
+            '<tr><td colspan="6" class="text-center text-danger py-4">Unable to load submitted documents.</td></tr>';
     }
 };
-
 form.addEventListener("submit", async (event) => {
     event.preventDefault();
         if (!form.checkValidity()) {
@@ -3878,35 +4254,73 @@ async function fetchRows(page = 1) {
 
 document.getElementById("newEnrollment").onclick = openCreate;
 perPage.onchange = () => fetchRows();
-search.onkeyup = () => fetchRows();
+search.onkeyup = () => {
+    fetchRows();
+    loadEnrollmentStats().catch((error) => {
+        if (error.name !== "AbortError") console.error(error);
+    });
+};
 enrollmentFilterAcademicYear?.addEventListener("change", () => {
     if (isRefreshingEnrollmentFilters) return;
     refreshEnrollmentFilterOptions("academic_year");
     fetchRows(1);
+    loadEnrollmentDependentFilterOptions().catch((error) => {
+        if (error.name !== "AbortError") console.error(error);
+    });
+    loadEnrollmentStats().catch((error) => {
+        if (error.name !== "AbortError") console.error(error);
+    });
 });
 enrollmentFilterCampus?.addEventListener("change", () => {
     if (isRefreshingEnrollmentFilters) return;
     refreshEnrollmentFilterOptions("campus");
     fetchRows(1);
+    loadEnrollmentDependentFilterOptions().catch((error) => {
+        if (error.name !== "AbortError") console.error(error);
+    });
+    loadEnrollmentStats().catch((error) => {
+        if (error.name !== "AbortError") console.error(error);
+    });
 });
 enrollmentFilterGradeClass?.addEventListener("change", () => {
     if (isRefreshingEnrollmentFilters) return;
     refreshEnrollmentFilterOptions("grade");
     fetchRows(1);
+    loadEnrollmentDependentFilterOptions().catch((error) => {
+        if (error.name !== "AbortError") console.error(error);
+    });
+    loadEnrollmentStats().catch((error) => {
+        if (error.name !== "AbortError") console.error(error);
+    });
 });
 enrollmentFilterGroup?.addEventListener("change", () => {
     if (isRefreshingEnrollmentFilters) return;
     refreshEnrollmentFilterOptions("group");
     fetchRows(1);
+    loadEnrollmentDependentFilterOptions().catch((error) => {
+        if (error.name !== "AbortError") console.error(error);
+    });
+    loadEnrollmentStats().catch((error) => {
+        if (error.name !== "AbortError") console.error(error);
+    });
 });
 enrollmentFilterStudent?.addEventListener("change", () => {
     if (isRefreshingEnrollmentFilters) return;
     refreshEnrollmentFilterOptions("student");
     fetchRows(1);
+    loadEnrollmentDependentFilterOptions().catch((error) => {
+        if (error.name !== "AbortError") console.error(error);
+    });
+    loadEnrollmentStats().catch((error) => {
+        if (error.name !== "AbortError") console.error(error);
+    });
 });
 enrollmentFilterStatus?.addEventListener("change", () => {
     if (isRefreshingEnrollmentFilters) return;
     fetchRows(1);
+    loadEnrollmentStats().catch((error) => {
+        if (error.name !== "AbortError") console.error(error);
+    });
 });
 const updateEnrollmentSortIcons = () => {
     document.querySelectorAll("[data-sort-icon]").forEach((icon) => {
@@ -3947,18 +4361,13 @@ field("date_of_birth")?.addEventListener("change", syncDobDisplay);
 field("date_of_birth_direct")?.addEventListener("change", (event) =>
     setDobValue(event.target.value),
 );
-loadEnrollmentListOptions().catch(() => {});
-loadQuickEnrollmentOptions().catch(() => {});
-// Warm the Edit form's option caches in the background. The first Edit click
-// should not have to wait for the large enrollment and location payloads.
-window.setTimeout(() => {
-    Promise.allSettled([
-        loadOptions(),
-        loadBirthLocations(),
-        loadAddressLocations(),
-    ]).catch(() => {});
-}, 0);
-fetchRows();
+loadEnrollmentDependentFilterOptions().catch((error) => {
+    if (error.name !== "AbortError") console.error(error);
+});
+loadEnrollmentStats().catch((error) => {
+    if (error.name !== "AbortError") console.error(error);
+});
+fetchRows().catch((error) => console.error(error));
 window.enrollmentsPage = {
     edit: openEdit,
     remove,

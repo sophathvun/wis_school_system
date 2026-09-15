@@ -17,12 +17,35 @@
         <div class="card-header">
             <h3 class="card-title">Student Document Records</h3>
         </div>
-        <div class="card-body border-bottom"><label class="form-label">Student *</label><select
-                id="student-document-student" class="form-select"></select></div>
+        <div class="card-body border-bottom">
+            <div class="student-document-filter-grid">
+                <div>
+                    <select id="student-document-filter-year" class="form-select"></select>
+                </div>
+                <div>
+                    <select id="student-document-filter-campus" class="form-select"></select>
+                </div>
+                <div>
+                    <select id="student-document-filter-grade" class="form-select"></select>
+                </div>
+                <div>
+                    <select id="student-document-student" class="form-select"></select>
+                </div>
+                <div>
+                    <div class="input-icon">
+                        <span class="input-icon-addon"><i class="ti ti-search"></i></span>
+                        <input type="search" id="student-document-global-search" class="form-control"
+                            placeholder="Student ID, name, or phone">
+                    </div>
+                </div>
+            </div>
+            <div id="student-document-profile-card" class="student-document-profile-card d-none"></div>
+        </div>
         <div class="table-responsive">
             <table class="table card-table">
                 <thead>
                     <tr>
+                        <th>NO.</th>
                         <th>Document Type</th>
                         <th>Title</th>
                         <th>Number</th>
@@ -32,7 +55,7 @@
                 </thead>
                 <tbody id="student-documents-table">
                     <tr>
-                        <td colspan="5" class="text-center">Select a student.</td>
+                        <td colspan="6" class="text-center">Select a student.</td>
                     </tr>
                 </tbody>
             </table>
@@ -47,25 +70,26 @@
                             data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
-                        <div class="alert alert-danger d-none" id="student-document-error"></div><input type="hidden"
-                            id="document-student-id">
+                        <div class="alert alert-danger d-none" id="student-document-error"></div>
+                        <div id="student-document-upload-student" class="student-document-upload-student d-none"></div>
+                        <input type="hidden" id="document-student-id">
                         <div class="row g-3">
                             <div class="col-md-6"><label class="form-label">Document Type *</label><select
-                                    id="document-type-id" class="form-select" required></select></div>
+                                    id="document-type-id" class="form-select"></select></div>
                             <div class="col-md-6"><label class="form-label">Title</label><input id="document-title"
                                     class="form-control"></div>
                             <div class="col-md-6"><label class="form-label">Document Number</label><input
                                     id="document-number" class="form-control"></div>
                             <div class="col-12"><label class="form-label">File * (PDF, JPG, PNG, DOC, DOCX)</label><input
                                     type="file" id="document-file" class="form-control"
-                                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" required></div>
+                                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"></div>
                             <div class="col-12"><label class="form-label">Description</label>
                                 <textarea id="document-description" class="form-control" rows="3"></textarea>
                             </div>
                         </div>
                     </div>
                     <div class="modal-footer"><button type="button" class="btn me-auto"
-                            data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary">Upload</button></div>
+                            data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary student-document-upload-submit">Upload</button></div>
                 </form>
             </div>
         </div>

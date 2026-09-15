@@ -53,7 +53,7 @@
                 <thead>
                     <tr>
                         <th class="text-secondary">#</th>
-                        <th>Student Photo</th>
+                        <th>PHOTO</th>
                         <th><button type="button" class="table-sort-btn" data-withdrawal-sort="student_id">Student
                                 ID</button></th>
                         <th><button type="button" class="table-sort-btn" data-withdrawal-sort="student_name">Student
@@ -79,6 +79,7 @@
                 </tbody>
             </table>
         </div>
+        <div id="withdrawal-mobile-cards" class="withdrawal-mobile-cards"></div>
         <div class="card-footer">
             <div id="withdrawal-pagination"></div>
         </div>
@@ -86,7 +87,7 @@
     <div class="modal modal-blur fade" id="withdrawalModal" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content">
-                <form id="withdrawalForm">
+                <form id="withdrawalForm" class="withdrawal-type-student" novalidate>
                     <div class="modal-header">
                         <h3 class="modal-title">Withdraw Student</h3><button type="button" class="btn-close"
                             data-bs-dismiss="modal"></button>
@@ -109,9 +110,9 @@
                                         id="withdrawal-campus-search" class="form-control form-control-sm mb-1"
                                         placeholder="Search campus"><select id="withdrawal-campus"
                                         class="form-select"></select></div>
-                                <div class="col-md-6"><label class="form-label">Grade + Class *</label><input
+                                <div class="col-md-6"><label class="form-label">Grade *</label><input
                                         id="withdrawal-grade-class-search" class="form-control form-control-sm mb-1"
-                                        placeholder="Search Grade 1A"><select id="withdrawal-grade-class"
+                                        placeholder="Search Grade"><select id="withdrawal-grade-class"
                                         class="form-select"></select><select id="withdrawal-grade"
                                         class="d-none"></select><select id="withdrawal-class" class="d-none"></select>
                                 </div>
@@ -125,7 +126,7 @@
                                 <div id="withdrawal-students" class="border rounded p-2"
                                     style="max-height:220px;overflow:auto"></div>
                             </div>
-                            <div class="col-md-6"><label class="form-label">Withdrawal Date *</label>
+                            <div class="col-md-6 withdrawal-date-column"><label class="form-label">Withdrawal Date *</label>
                                 <div class="withdrawal-date-picker date-picker" id="withdrawal_date_picker">
                                     <div class="date-picker-input-row"><input type="text" id="withdrawal_date_direct"
                                             class="form-control" inputmode="numeric" placeholder="DD-MM-YYYY"
@@ -161,7 +162,8 @@
                         </div>
                     </div>
                     <div class="modal-footer"><button type="button" class="btn me-auto"
-                            data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary">Confirm
+                            data-bs-dismiss="modal">Cancel</button><button type="button" id="confirmWithdrawalButton"
+                            class="btn btn-primary">Confirm
                             Withdrawal</button></div>
                 </form>
             </div>
@@ -224,7 +226,7 @@
                                     <input id="edit-other-en" class="form-control">
                                 </div>
                                 <div class="col-md-6 edit-other-field d-none">
-                                    <label class="form-label school-profile-khmer">áž˜áž¼áž›áž áŸážáž»áž•áŸ’ážŸáŸáž„áž‘áŸ€áž</label>
+                                    <label class="form-label">Other Reason Khmer</label>
                                     <input id="edit-other-kh" class="form-control school-profile-khmer">
                                 </div>
                                 <div class="col-md-6">
@@ -232,7 +234,7 @@
                                     <input id="edit-reason-en" class="form-control" readonly>
                                 </div>
                                 <div class="col-md-6">
-                                    <label class="form-label school-profile-khmer">áž˜áž¼áž›áž áŸážáž» (ážáŸ’áž˜áŸ‚ážš)</label>
+                                    <label class="form-label">Reason (Khmer)</label>
                                     <input id="edit-reason-kh" class="form-control school-profile-khmer" readonly>
                                 </div>
                             </div>
@@ -312,7 +314,14 @@
                                     </div>
                                     <div class="col-md-4">
                                         <label class="form-label">Requested By Phone *</label>
-                                        <input id="edit-requested-by-phone" class="form-control" required>
+                                        <div class="phone-input-group withdrawal-requested-phone-group">
+                                            <div class="phone-country-wrapper">
+                                                <span class="phone-country-flag flag-cambodia"></span>
+                                                <div class="form-control phone-country">+855</div>
+                                            </div>
+                                            <input id="edit-requested-by-phone" class="form-control" inputmode="numeric"
+                                                autocomplete="tel-national" required>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

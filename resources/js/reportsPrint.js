@@ -1,4 +1,4 @@
-﻿document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', () => {
     const body = document.body;
     const lang = document.documentElement.lang || 'en';
     const reportType = body.dataset.reportType || '';
@@ -18,6 +18,12 @@
 
     const khmerDigits = (value) => String(value ?? '').replace(/[0-9]/g, (digit) => '០១២៣៤៥៦៧៨៩'[digit]);
 
+    const formatEnglishDate = (value) => {
+        const date = new Date(`${value}T00:00:00`);
+        if (Number.isNaN(date.getTime())) return value || '';
+        return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    };
+
     const updateEnglishStudentListHeader = () => {
         document.querySelectorAll('.a4-page .report-header').forEach((header) => {
             const title = header.querySelector('h1');
@@ -26,9 +32,10 @@
             const parts = details.textContent.split('|').map((value) => value.trim());
             const year = parts[0] || academicYear || '';
             const campus = parts[1] || campusEn || '';
-            const className = (parts[2] || '').replace(/^Class\s*/i, '');
-            title.textContent = `List of Student of Grade ${className}`;
+            const className = (parts[2] || '').replace(/^(Class|Grade)\s*/i, '');
+            title.textContent = `${reportType === 'student-contact-list' ? 'Student Contact list' : 'Student List'} for Grade ${className}`;
             details.innerHTML = `Academic Year: ${year}<br>Campus: ${campus}`;
+
         });
     };
 
@@ -39,9 +46,9 @@
             const nameHeader = header.children[2];
             if (!nameHeader) return;
 
-            const hasKhmerNameCells = table.querySelector('.khmer');
+            const hasKhmerNameCells = lang !== 'km' && table.querySelector('.khmer');
             if (hasKhmerNameCells && !header.querySelector('.khmer-name-header')) {
-                nameHeader.textContent = 'Student Name';
+                nameHeader.textContent = 'Full-Name';
                 const khHeader = document.createElement('th');
                 khHeader.textContent = 'នាមត្រកូល និងនាមខ្លួន';
                 khHeader.className = 'khmer-name-header';
@@ -60,9 +67,14 @@
                 return;
             }
 
-            if (nameHeader.textContent.trim() === 'Student Name') return;
-            if (nameHeader.textContent.trim() === 'Full Name') return;
-            nameHeader.textContent = 'Full Name';
+            if (lang === 'km') {
+                nameHeader.textContent = 'នាមត្រកូល-នាមខ្លួន';
+                nameHeader.classList.add('left');
+                return;
+            }
+
+            if (nameHeader.textContent.trim() === 'Full-Name') return;
+            nameHeader.textContent = 'Full-Name';
             nameHeader.classList.remove('left');
         });
     };
@@ -71,8 +83,17 @@
         document.querySelectorAll('.a4-page .report-table').forEach((table) => {
             const header = table.querySelector('thead tr');
             if (!header || header.children.length < 7) return;
+            if (reportType === 'student-list' && lang === 'km') {
+                if (header.children[4]) header.children[4].textContent = 'ថ្នាក់ទី';
+                if (header.children[5]) header.children[5].textContent = 'ក្រុម';
+                return;
+            }
+            if (reportType === 'student-contact-list' && lang === 'km') {
+                if (header.children[4]) header.children[4].textContent = 'ក្រុម';
+                return;
+            }
             if (header.children[5]) header.children[5].textContent = 'Grade';
-            const alreadyHasRemarks = [...header.children].some((cell) => cell.textContent.trim() === 'Remarks');
+            const alreadyHasRemarks = [...header.children].some((cell) => ['Remarks', 'សម្គាល់'].includes(cell.textContent.trim()));
             if (!alreadyHasRemarks) {
                 const remarks = document.createElement('th');
                 remarks.textContent = 'Remarks';
@@ -138,8 +159,9 @@
             const details = [...header.querySelectorAll('p')].find((item) => item.textContent.includes('|'));
             if (!title || !details) return;
             const parts = details.textContent.split('|').map((value) => value.trim());
-            const grade = (parts[1] || '').replace(/^ថ្នាក់\s*/, '').trim();
-            title.textContent = `បញ្ជីឈ្មោះសិស្សថ្នាក់ទី ${grade}`;
+            const grade = (parts[2] || parts[1] || '').replace(/^(ថ្នាក់|Class|Grade)\s*/i, '').trim();
+            details.dataset.gradeClass = grade;
+            title.textContent = `${reportType === 'student-contact-list' ? 'បញ្ជីទំនាក់ទំនងសិស្សថ្នាក់ទី' : 'បញ្ជីឈ្មោះសិស្សថ្នាក់ទី'} ${grade}`;
             title.classList.add('moeys-title');
             details.textContent = parts[0] || '';
         });
@@ -149,10 +171,10 @@
         if (lang !== 'km') return;
         document.querySelectorAll('.a4-page .report-header').forEach((header) => {
             const title = header.querySelector('h1');
-            const details = [...header.querySelectorAll('p')].find((item) => item.textContent.includes('|'));
+            const details = [...header.querySelectorAll('p')].find((item) => item.textContent.includes('|')) || header.querySelector('p[data-grade-class]');
             if (!title || !details) return;
-            const grade = (details.textContent.split('|')[1] || '').replace(/^ថ្នាក់\s*/, '').trim();
-            title.textContent = `បញ្ជីឈ្មោះសិស្សថ្នាក់ទី ${grade}`;
+            const grade = (details.dataset.gradeClass || details.textContent.split('|')[1] || '').replace(/^(ថ្នាក់|Class|Grade)\s*/i, '').trim();
+            title.textContent = `${reportType === 'student-contact-list' ? 'បញ្ជីទំនាក់ទំនងសិស្សថ្នាក់ទី' : 'បញ្ជីឈ្មោះសិស្សថ្នាក់ទី'} ${grade}`;
             title.classList.add('moeys-title');
             details.textContent = `ឆ្នាំសិក្សា៖ ${khmerDigits(academicYear)}`;
             details.classList.add('moeys-academic-year');
@@ -179,29 +201,21 @@
 
     const applyKhmerDateFooter = () => {
         if (lang !== 'km') return;
-        const digits = (value) => String(value ?? '').replace(/[0-9]/g, (d) => '០១២៣៤៥៦៧៨៩'[d]);
-        const weekdays = ['អាទិត្យ','ចន្ទ','អង្គារ','ពុធ','ព្រហស្បតិ៍','សុក្រ','សៅរ៍'];
-        const months = ['មករា','កុម្ភៈ','មីនា','មេសា','ឧសភា','មិថុនា','កក្កដា','សីហា','កញ្ញា','តុលា','វិច្ឆិកា','ធ្នូ'];
+        const digits = (value) => String(value ?? '').replace(/[0-9]/g, (digit) => '០១២៣៤៥៦៧៨៩'[digit]);
         const date = new Date(`${reportDate}T00:00:00`);
-        const day = digits(date.getDate());
-        const year = date.getFullYear();
-        const yearKh = digits(year);
-        const month = months[date.getMonth()] || '';
+        const fallbackMonths = ['មករា','កុម្ភៈ','មីនា','មេសា','ឧសភា','មិថុនា','កក្កដា','សីហា','កញ្ញា','តុលា','វិច្ឆិកា','ធ្នូ'];
         const locationKh = window.resolveMoeysLocation ? window.resolveMoeysLocation(campusKh, campusAddress) : campusKh;
+        const firstLine = window.formatKhmerLunarDate
+            ? window.formatKhmerLunarDate(reportDate)
+            : `ថ្ងៃ${['អាទិត្យ','ចន្ទ','អង្គារ','ពុធ','ព្រហស្បតិ៍','សុក្រ','សៅរ៍'][date.getDay()]} ព.ស.${digits(date.getFullYear() + 544)}`;
+        const secondLine = window.formatKhmerSolarDate
+            ? window.formatKhmerSolarDate(reportDate, locationKh)
+            : `${locationKh} ថ្ងៃទី${digits(date.getDate())} ខែ${fallbackMonths[date.getMonth()] || ''} ឆ្នាំ${digits(date.getFullYear())}`;
 
-        document.querySelectorAll('.print-office-footer').forEach((item) => item.remove());
+        document.querySelectorAll('.print-office-footer, .student-list-date-footer').forEach((item) => item.remove());
         document.querySelectorAll('.a4-page .report-table').forEach((table) => {
             const footer = document.createElement('div');
             footer.className = 'moeys-date-footer';
-            let firstLine;
-            let secondLine;
-            if (reportDate === '2026-08-24') {
-                firstLine = 'ថ្ងៃចន្ទ ១១កើត ខែស្រាពណ៍ ឆ្នាំមមី អដ្ឋស័ក ព.ស.២៥៧០';
-                secondLine = `${locationKh} ថ្ងៃទី${day} ខែ${month} ឆ្នាំ${yearKh}`;
-            } else {
-                firstLine = `ថ្ងៃ${weekdays[date.getDay()]} ព.ស.${digits(year + 544)}`;
-                secondLine = `${locationKh} ថ្ងៃទី${day} ខែ${month} ឆ្នាំ${yearKh}`;
-            }
             footer.innerHTML = `<div>${firstLine}</div><div>${secondLine}</div><div>នាយកសាលា</div>`;
             table.insertAdjacentElement('afterend', footer);
         });

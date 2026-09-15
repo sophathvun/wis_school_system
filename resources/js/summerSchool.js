@@ -479,12 +479,15 @@ const summerAddEnrollmentParityFields = () => {
         picker.className = "date-picker summer-date-picker";
         dobInput.type = "hidden";
         picker.appendChild(dobInput);
-        picker.insertAdjacentHTML("beforeend", '<div class="date-picker-trigger summer-dob-trigger"><i class="ti ti-cake summer-dob-cake"></i><input type="text" class="date-picker-display" inputmode="numeric" autocomplete="off"><i class="ti ti-calendar summer-dob-calendar"></i></div><div class="date-picker-popup d-none"><div class="date-picker-header"><button type="button" class="date-picker-nav" data-dob-nav="prev"><i class="ti ti-chevron-left"></i></button><button type="button" class="date-picker-year-toggle"><span class="date-picker-month-label"></span></button><button type="button" class="date-picker-nav" data-dob-nav="next"><i class="ti ti-chevron-right"></i></button></div><div class="date-picker-grid"><div class="date-picker-weekdays"><span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span></div><div class="date-picker-days"></div></div></div>');
+        picker.insertAdjacentHTML("beforeend", '<div class="date-picker-trigger summer-dob-trigger"><i class="ti ti-cake summer-dob-cake"></i><input type="text" class="date-picker-display" inputmode="numeric" autocomplete="off"><i class="ti ti-calendar summer-dob-calendar"></i></div><div class="date-picker-popup d-none"><div class="date-picker-header"><button type="button" class="date-picker-nav" data-dob-nav="prev"><i class="ti ti-chevron-left"></i></button><button type="button" class="date-picker-year-toggle"><span class="date-picker-month-label"></span></button><button type="button" class="date-picker-nav" data-dob-nav="next"><i class="ti ti-chevron-right"></i></button></div><div class="date-picker-year-popup d-none"><div class="date-picker-years"></div></div><div class="date-picker-grid"><div class="date-picker-weekdays"><span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span></div><div class="date-picker-days"></div></div></div>');
         dobParent?.insertBefore(picker, dobNext);
         const trigger = picker.querySelector(".date-picker-trigger");
         const popup = picker.querySelector(".date-picker-popup");
         const display = picker.querySelector(".date-picker-display");
         const monthLabel = picker.querySelector(".date-picker-month-label");
+        const yearToggle = picker.querySelector(".date-picker-year-toggle");
+        const yearPopup = picker.querySelector(".date-picker-year-popup");
+        const years = picker.querySelector(".date-picker-years");
         const days = picker.querySelector(".date-picker-days");
         const dobKhmer = panel.querySelector('[name="date_of_birth_kh"]');
         if (dobKhmer) {
@@ -515,6 +518,17 @@ const summerAddEnrollmentParityFields = () => {
             }
             dobField?.classList.toggle("has-value", Boolean(date));
         };
+        const renderYears = () => {
+            const current = cursor.getFullYear();
+            const startYear = 1900;
+            const endYear = new Date().getFullYear() + 5;
+            years.innerHTML = Array.from({ length: endYear - startYear + 1 }, (_, index) => {
+                const year = startYear + index;
+                const selectedClass = year === current ? " is-selected" : "";
+                return `<button type="button" class="date-picker-year${selectedClass}" data-dob-year="${year}">${year}</button>`;
+            }).join("");
+            years.querySelector(".is-selected")?.scrollIntoView({ block: "center" });
+        };
         const renderCalendar = () => {
             const year = cursor.getFullYear();
             const month = cursor.getMonth();
@@ -526,6 +540,7 @@ const summerAddEnrollmentParityFields = () => {
             while (cells.length < 42) cells.push(new Date(year, month + 1, cells.length - first.getDay() - new Date(year, month + 1, 0).getDate() + 1));
             const selected = selectedDate();
             days.innerHTML = cells.map((date) => `<button type="button" class="date-picker-day${date.getMonth() !== month ? " is-outside" : ""}${selected && formatIso(date) === dobInput.value ? " is-selected" : ""}" data-dob-date="${formatIso(date)}">${date.getDate()}</button>`).join("");
+            renderYears();
         };
         trigger.addEventListener("click", () => {
             document.querySelectorAll("#summerSchoolModal .date-picker-popup").forEach((other) => { if (other !== popup) other.classList.add("d-none"); });
@@ -551,7 +566,9 @@ const summerAddEnrollmentParityFields = () => {
             dobInput.dispatchEvent(new Event("change", { bubbles: true }));
         });
         display.addEventListener("blur", syncDate);
-        picker.querySelectorAll("[data-dob-nav]").forEach((button) => button.addEventListener("click", () => { cursor.setMonth(cursor.getMonth() + (button.dataset.dobNav === "next" ? 1 : -1)); renderCalendar(); }));
+        picker.querySelectorAll("[data-dob-nav]").forEach((button) => button.addEventListener("click", () => { cursor.setMonth(cursor.getMonth() + (button.dataset.dobNav === "next" ? 1 : -1)); yearPopup.classList.add("d-none"); renderCalendar(); }));
+        yearToggle.addEventListener("click", (event) => { event.preventDefault(); event.stopPropagation(); yearPopup.classList.toggle("d-none"); if (!yearPopup.classList.contains("d-none")) renderYears(); });
+        years.addEventListener("click", (event) => { event.preventDefault(); event.stopPropagation(); const button = event.target.closest("[data-dob-year]"); if (!button) return; cursor = new Date(Number(button.dataset.dobYear), cursor.getMonth(), 1); yearPopup.classList.add("d-none"); renderCalendar(); });
         days.addEventListener("click", (event) => { const button = event.target.closest("[data-dob-date]"); if (!button) return; dobInput.value = button.dataset.dobDate; syncDate(); dobInput.dispatchEvent(new Event("change", { bubbles: true })); popup.classList.add("d-none"); });
         syncDate();
     }

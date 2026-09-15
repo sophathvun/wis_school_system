@@ -41,8 +41,8 @@ document.addEventListener("DOMContentLoaded", () => {
             ? "Flip the form and sign in with your username."
             : "Flip the form and sign in with your email address.";
         switchButton.innerHTML = email
-            ? 'Username Login <i class="ti ti-arrow-left ms-1"></i>'
-            : 'Email Login <i class="ti ti-arrow-right ms-1"></i>';
+            ? 'Login by Username <i class="ti ti-arrow-left ms-1"></i>'
+            : 'Login by Email <i class="ti ti-arrow-right ms-1"></i>';
         (email ? emailInput : usernameInput).focus({ preventScroll: true });
     };
 

@@ -10,6 +10,24 @@
     color: var(--tblr-primary);
 }
 
+#workflowModal .required-star {
+    color: var(--tblr-danger);
+    font-weight: 700;
+}
+
+#workflowModal .location-combobox-toggle.is-invalid,
+#workflowModal .form-control.is-invalid,
+#workflowModal .form-select.is-invalid {
+    border-color: var(--tblr-danger) !important;
+    box-shadow: 0 0 0 0.15rem rgba(var(--tblr-danger-rgb), 0.12);
+}
+
+#workflowModal .workflow-field-error {
+    margin-top: 0.28rem;
+    color: var(--tblr-danger);
+    font-size: 0.76rem;
+}
+
 .workflow-selected-list {
     max-height: 240px;
     overflow: auto;

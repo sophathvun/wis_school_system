@@ -105,53 +105,16 @@ body {
 }
 
 .brand {
-    display: grid;
-    grid-template-columns: 14mm minmax(0, 1fr);
+    display: flex;
     align-items: center;
-    column-gap: 1.5mm;
+    justify-content: flex-start;
     min-height: 15mm;
 }
 
 .brand-logo {
-    width: 14mm;
+    width: 44mm;
     height: 14mm;
     object-fit: contain;
-    justify-self: center;
-}
-
-.brand > div {
-    min-width: 0;
-    width: 100%;
-}
-
-.brand-kh,
-.brand-en {
-    display: block;
-    width: 100%;
-    white-space: nowrap;
-}
-
-.brand-kh {
-    font-family: "Khmer OS Muol Light", "Khmer OS Siemreap", serif;
-    color: var(--blue);
-    font-size: 16px;
-    line-height: 1.05;
-    margin-bottom: 0.6mm;
-    font-weight: 400;
-}
-
-.brand-en {
-    color: var(--red);
-    font-weight: 700;
-    font-size: 7px;
-    letter-spacing: 0.02em;
-}
-
-.brand-tagline {
-    font-family: "Brush Script MT", cursive;
-    font-size: 10px;
-    font-style: italic;
-    margin-top: 0.5mm;
 }
 
 .form-title {

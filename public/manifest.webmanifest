@@ -1,0 +1,24 @@
+{
+    "name": "Western International School System",
+    "short_name": "WIS School",
+    "description": "Western International School management system",
+    "start_url": "/",
+    "scope": "/",
+    "display": "standalone",
+    "background_color": "#f4f7fb",
+    "theme_color": "#206bc4",
+    "orientation": "portrait",
+    "icons": [
+        {
+            "src": "/pwa-icon.svg",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "/favicon.ico",
+            "sizes": "48x48",
+            "type": "image/x-icon"
+        }
+    ]
+}

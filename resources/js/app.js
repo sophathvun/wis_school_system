@@ -25,6 +25,100 @@ const currentPermissions = (() => {
 window.userPermissions = currentPermissions;
 window.currentUserId = body?.dataset.currentUserId || "";
 
+let deferredInstallPrompt = null;
+
+const isStandaloneApp = () =>
+    window.matchMedia("(display-mode: standalone)").matches ||
+    window.navigator.standalone === true;
+
+const isMobileDevice = () =>
+    /Android|iPhone|iPad|iPod/i.test(window.navigator.userAgent) ||
+    window.matchMedia("(max-width: 767.98px)").matches;
+
+const setupInstallShortcut = () => {
+    const button = document.getElementById("installAppShortcut");
+    if (!button || isStandaloneApp() || !isMobileDevice()) return;
+
+    const showButton = () => button.classList.remove("d-none");
+    const hideButton = () => button.classList.add("d-none");
+    const isIos = /iPhone|iPad|iPod/i.test(window.navigator.userAgent);
+
+    if (isIos) showButton();
+
+    window.addEventListener("beforeinstallprompt", (event) => {
+        event.preventDefault();
+        deferredInstallPrompt = event;
+        showButton();
+    });
+
+    window.addEventListener("appinstalled", () => {
+        deferredInstallPrompt = null;
+        hideButton();
+    });
+
+    button.addEventListener("click", async () => {
+        if (deferredInstallPrompt) {
+            deferredInstallPrompt.prompt();
+            await deferredInstallPrompt.userChoice.catch(() => null);
+            deferredInstallPrompt = null;
+            hideButton();
+            return;
+        }
+
+        const message = isIos
+            ? "Tap the Share button in Safari, then choose Add to Home Screen."
+            : "Open this system in Chrome, tap the browser menu, then choose Add to Home screen.";
+
+        if (window.Swal) {
+            window.Swal.fire({
+                icon: "info",
+                title: "Add shortcut to phone",
+                text: message,
+                confirmButtonText: "OK",
+            });
+        } else {
+            window.alert(message);
+        }
+    });
+};
+
+const setupIdleLogout = () => {
+    if (!document.body?.dataset.currentUserId) return;
+
+    const idleLimitMs = 20 * 60 * 1000;
+    let idleTimer;
+    const logoutAfterIdle = async () => {
+        try {
+            await fetch("/logout", {
+                method: "POST",
+                headers: {
+                    "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')?.content || "",
+                    Accept: "application/json",
+                },
+                credentials: "same-origin",
+                keepalive: true,
+            });
+        } finally {
+            window.location.assign("/login");
+        }
+    };
+    const resetIdleTimer = () => {
+        window.clearTimeout(idleTimer);
+        idleTimer = window.setTimeout(logoutAfterIdle, idleLimitMs);
+    };
+
+    ["click", "keydown", "mousemove", "scroll", "touchstart"].forEach((eventName) => {
+        document.addEventListener(eventName, resetIdleTimer, { passive: true });
+    });
+    resetIdleTimer();
+};
+
+if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+        navigator.serviceWorker.register("/sw.js").catch(() => {});
+    });
+}
+
 const navigateWithParams = ({
     pageParam = "page",
     perPage = null,
@@ -62,6 +156,9 @@ document.addEventListener("change", (event) => {
 });
 
 document.addEventListener("DOMContentLoaded", () => {
+    setupInstallShortcut();
+    setupIdleLogout();
+
     const pageHeader = document.querySelector(".page-header");
     const card = document.querySelector(".page-body .card");
     const cardHeader = card?.querySelector(".card-header");

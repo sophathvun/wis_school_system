@@ -40,6 +40,60 @@ use App\Http\Controllers\DashboardTemplateController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ReportsController;
 
+Route::get('/app-icon.svg', function () {
+    $branding = \App\Models\BrandingSetting::current();
+    $iconPath = $branding->shortcut_icon_path ?: $branding->login_logo_path ?: $branding->favicon_path ?: $branding->sidebar_logo_path;
+    $fallback = public_path('pwa-icon.svg');
+    $absolutePath = $iconPath ? storage_path('app/public/' . ltrim($iconPath, '/')) : null;
+
+    if (!$absolutePath || !is_file($absolutePath)) {
+        $absolutePath = is_file($fallback) ? $fallback : null;
+    }
+
+    $mime = $absolutePath ? (mime_content_type($absolutePath) ?: 'image/png') : 'image/svg+xml';
+    $data = $absolutePath ? base64_encode(file_get_contents($absolutePath)) : '';
+    $href = $data ? "data:{$mime};base64,{$data}" : '';
+
+    $svg = <<<SVG
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+    <rect width="512" height="512" rx="112" fill="#ffffff"/>
+    <image href="{$href}" x="86" y="86" width="340" height="340" preserveAspectRatio="xMidYMid meet"/>
+</svg>
+SVG;
+
+    return response($svg, 200, [
+        'Content-Type' => 'image/svg+xml',
+        'Cache-Control' => 'no-cache, no-store, must-revalidate',
+    ]);
+})->name('app.icon');
+
+Route::get('/app.webmanifest', function () {
+    $branding = \App\Models\BrandingSetting::current();
+    $iconPath = $branding->shortcut_icon_path ?: $branding->login_logo_path ?: $branding->favicon_path ?: $branding->sidebar_logo_path;
+    $iconVersion = $iconPath ? substr(md5($iconPath), 0, 10) : 'default';
+    $iconUrl = route('app.icon', ['v' => $iconVersion]);
+
+    return response()->json([
+        'name' => 'Western International School System',
+        'short_name' => 'WIS School',
+        'description' => 'Western International School management system',
+        'start_url' => '/',
+        'scope' => '/',
+        'display' => 'standalone',
+        'background_color' => '#f4f7fb',
+        'theme_color' => '#206bc4',
+        'orientation' => 'portrait',
+        'icons' => [
+            [
+                'src' => $iconUrl,
+                'sizes' => 'any',
+                'type' => 'image/svg+xml',
+                'purpose' => 'any maskable',
+            ],
+        ],
+    ], 200, ['Content-Type' => 'application/manifest+json']);
+})->name('app.manifest');
+
 Route::middleware('guest')->group(function () {
     Route::get('/setup/admin', [AuthController::class, 'setupForm'])->name('setup.admin');
     Route::post('/setup/admin', [AuthController::class, 'setupAdmin']);
@@ -125,9 +179,31 @@ Route::post('/dashboard/customize', [DashboardController::class, 'saveCustomizat
 Route::delete('/dashboard/customize', [DashboardController::class, 'resetCustomization'])->name('dashboard.customize.reset');
 
 Route::middleware(['auth', 'active.user'])->group(function () {
+    Route::view('/attendance', 'academic-module-placeholder', [
+        'title' => 'Attendance',
+        'pretitle' => 'Student Attendance',
+        'icon' => 'ti-calendar-check',
+        'description' => 'Use this module for student attendance records.',
+    ])->middleware('permission:attendance.view')->name('attendance.index');
+
+    Route::view('/schedules', 'academic-module-placeholder', [
+        'title' => 'Schedules',
+        'pretitle' => 'Student and Teacher Schedules',
+        'icon' => 'ti-calendar-time',
+        'description' => 'Use this module to create student and teacher schedules.',
+    ])->middleware('permission:schedules.view')->name('schedules.index');
+
+    Route::view('/grading-system', 'academic-module-placeholder', [
+        'title' => 'Grading System',
+        'pretitle' => 'Student Grading',
+        'icon' => 'ti-report',
+        'description' => 'Use this module for teachers to enter student scores and grading records.',
+    ])->middleware('permission:grading-system.view')->name('grading-system.index');
+
     Route::get('/reports', [ReportsController::class, 'index'])->name('reports.index');
     Route::get('/reports/{type}', [ReportsController::class, 'show'])->name('reports.show');
     Route::get('/reports/{type}/excel', [ReportsController::class, 'excel'])->name('reports.excel');
+    Route::get('/reports/{type}/pdf', [ReportsController::class, 'pdf'])->name('reports.pdf');
 });
 
 Route::middleware(['auth', 'campus.context', 'campus.access'])->prefix('access')->group(function () {
@@ -195,6 +271,8 @@ Route::get('/student-enrollments/list-options', [StudentEnrollmentController::cl
 Route::get('/student-enrollments/quick-options', [StudentEnrollmentController::class, 'quickOptions'])->name('student-enrollments.quick-options');
 Route::get('/student-enrollments/options', [StudentEnrollmentController::class, 'options'])->name('student-enrollments.options');
 Route::get('/student-enrollments/family-details', [StudentEnrollmentController::class, 'familyDetails'])->name('student-enrollments.family-details');
+Route::get('/student-enrollments/filter-options', [StudentEnrollmentController::class, 'filterOptions'])->name('student-enrollments.filter-options');
+Route::get('/student-enrollments/stats', [StudentEnrollmentController::class, 'stats'])->name('student-enrollments.stats');
 Route::get('/student-enrollments/fetch', [StudentEnrollmentController::class, 'fetchData'])->name('student-enrollments.fetch');
 Route::get('/student-enrollments/student/{student}/academic-years', [StudentEnrollmentController::class, 'studentAcademicYears'])->name('student-enrollments.student-academic-years');
 Route::get('/student-enrollments/student/{student}/siblings', [StudentEnrollmentController::class, 'siblings'])->name('student-enrollments.siblings');
@@ -268,12 +346,13 @@ Route::get('/students/update', function () {
 })->name('updateStudent.index');
 
 Route::get('/students/transfer', fn () => app(\App\Http\Controllers\EnrollmentWorkflowController::class)->index('transfer'))->name('studentTransfer.index');
-Route::get('/students/documents', [StudentDocumentController::class, 'index'])->middleware('auth')->name('student-documents.index');
-Route::get('/student-documents/options', [StudentDocumentController::class, 'options'])->middleware('auth')->name('student-documents.options');
-Route::get('/student-documents/fetch/{student}', [StudentDocumentController::class, 'fetch'])->middleware('auth')->name('student-documents.fetch');
-Route::post('/student-documents', [StudentDocumentController::class, 'save'])->middleware('auth')->name('student-documents.save');
-Route::get('/student-documents/{document}/download', [StudentDocumentController::class, 'download'])->middleware('auth')->name('student-documents.download');
-Route::delete('/student-documents/{document}', [StudentDocumentController::class, 'delete'])->middleware('auth')->name('student-documents.delete');
+Route::get('/students/documents', [StudentDocumentController::class, 'index'])->middleware(['auth', 'permission:student-documents.view'])->name('student-documents.index');
+Route::get('/student-documents/options', [StudentDocumentController::class, 'options'])->middleware(['auth', 'permission:student-documents.view'])->name('student-documents.options');
+Route::get('/student-documents/fetch/{student}', [StudentDocumentController::class, 'fetch'])->middleware(['auth', 'permission:student-documents.view'])->name('student-documents.fetch');
+Route::post('/student-documents', [StudentDocumentController::class, 'save'])->middleware(['auth', 'permission:student-documents.create'])->name('student-documents.save');
+Route::get('/student-documents/{document}/view', [StudentDocumentController::class, 'view'])->middleware(['auth', 'permission:student-documents.preview'])->name('student-documents.view');
+Route::get('/student-documents/{document}/download', [StudentDocumentController::class, 'download'])->middleware(['auth', 'permission:student-documents.download'])->name('student-documents.download');
+Route::delete('/student-documents/{document}', [StudentDocumentController::class, 'delete'])->middleware(['auth', 'permission:student-documents.delete'])->name('student-documents.delete');
 
 Route::get('/students/withdraw', [\App\Http\Controllers\StudentWithdrawalController::class, 'index'])->name('withdrawStudent.index');
 Route::get('/student-withdrawals/options', [\App\Http\Controllers\StudentWithdrawalController::class, 'options'])->name('student-withdrawals.options');

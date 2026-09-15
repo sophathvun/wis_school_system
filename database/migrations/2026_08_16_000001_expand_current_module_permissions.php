@@ -34,7 +34,7 @@ return new class extends Migration
             ['students.promotion', 'view', 'View Promotion / Transfer'], ['students.promotion', 'execute', 'Promote or Transfer Students'], ['students.promotion', 'cancel', 'Cancel Promotion or Transfer'], ['students.promotion', 'export', 'Export Promotion History'],
             ['students.graduation', 'view', 'View Graduation'], ['students.graduation', 'execute', 'Graduate Students'], ['students.graduation', 'cancel', 'Cancel Graduation'], ['students.graduation', 'export', 'Export Graduation Records'],
             ['student-reentry', 'view', 'View Student Re-entry'], ['student-reentry', 'create', 'Create Student Re-entry'], ['student-reentry', 'update', 'Update Student Re-entry'], ['student-reentry', 'cancel', 'Cancel Student Re-entry'],
-            ['student-documents', 'view', 'View Student Documents'], ['student-documents', 'create', 'Upload Student Documents'], ['student-documents', 'update', 'Update Student Documents'], ['student-documents', 'delete', 'Delete Student Documents'], ['student-documents', 'download', 'Download Student Documents'],
+            ['student-documents', 'view', 'View Student Documents'], ['student-documents', 'create', 'Upload Student Documents'], ['student-documents', 'update', 'Update Student Documents'], ['student-documents', 'preview', 'View Student Document Files'], ['student-documents', 'download', 'Download Student Documents'], ['student-documents', 'delete', 'Delete Student Documents'],
             ['student-data-transfer', 'view', 'View Import / Export Data'], ['student-data-transfer', 'import', 'Import Student Data'], ['student-data-transfer', 'export', 'Export Student Data'],
         ];
     }

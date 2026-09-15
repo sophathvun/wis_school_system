@@ -104,7 +104,7 @@
                         <tr>
                             <td>{{ $positions->firstItem() + $loop->index }}</td>
                             <td>{{ $position->name }}</td>
-                            <td>{{ $position->department?->name ?? 'â€”' }}</td>
+                            <td>{{ $position->department?->name ?? '—' }}</td>
                             <td>{{ $position->code }}</td>
                             <td><button type="button" class="status-toggle {{ $position->status ? 'is-active' : '' }}"
                                     data-status-toggle data-status-entity="position" data-status-id="{{ $position->id }}"

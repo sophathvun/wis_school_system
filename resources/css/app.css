@@ -6,6 +6,34 @@
 
 @import "./pages/index.css";
 
+.install-app-shortcut {
+    position: fixed;
+    right: 1rem;
+    bottom: 5.25rem;
+    z-index: 1035;
+    display: none;
+    align-items: center;
+    gap: 0.45rem;
+    min-height: 2.65rem;
+    padding: 0.55rem 0.85rem;
+    border: 0;
+    border-radius: 999px;
+    color: #fff;
+    background: var(--tblr-primary);
+    box-shadow: 0 0.75rem 1.75rem rgba(var(--tblr-primary-rgb), 0.32);
+    font-weight: 600;
+}
+
+.install-app-shortcut i {
+    font-size: 1.25rem;
+}
+
+@media (max-width: 767.98px) {
+    .install-app-shortcut:not(.d-none) {
+        display: inline-flex;
+    }
+}
+
 /* Additional base palettes exposed in Settings > Theme base. */
 [data-bs-theme-base="blue-gray"] {
     --tblr-gray-50: #f8fafc;
@@ -434,6 +462,7 @@
     font: inherit;
     font-weight: 700;
 }
+
 
 .date-picker-nav {
     padding: 0 0.25rem;
@@ -1861,6 +1890,10 @@ body {
     z-index: 2000 !important;
 }
 
+.swal2-container {
+    z-index: 2105 !important;
+}
+
 
 /* Reduce space between fixed navbar and page content. */
 @media (min-width: 992px) {
@@ -1935,7 +1968,7 @@ body {
     .page > .page-wrapper:has(.page-body > .container-fluid > .card > .table-responsive) .page-body,
     .page > .page-wrapper:has(.page-body > .container-fluid > .col-12 > .card > .table-responsive) .page-body {
         display: flex;
-        height: calc(100vh - 5.25rem);
+        height: calc(100vh - 5.25rem - var(--wis-footer-height) - 1.25rem);
         min-height: 0;
         overflow: hidden;
     }
@@ -1999,7 +2032,7 @@ body {
     .page > .page-wrapper:has(.page-body > .container-fluid > .card > .table-responsive) .page-body,
     .page > .page-wrapper:has(.page-body > .container-fluid > .col-12 > .card > .table-responsive) .page-body {
         display: flex;
-        height: calc(100dvh - 4.25rem);
+        height: calc(100dvh - 4.25rem - var(--wis-footer-height) - 1.25rem);
         min-height: 0;
         overflow: hidden;
     }
@@ -2044,3 +2077,125 @@ body {
     }
 }
 
+
+
+
+:root {
+    --wis-footer-height: 2.25rem;
+}
+
+.page-wrapper > .footer {
+    flex: 0 0 auto;
+    min-height: var(--wis-footer-height);
+    padding: .35rem 0 calc(.35rem + env(safe-area-inset-bottom));
+}
+
+.page-wrapper > .footer .text-secondary {
+    color: var(--tblr-secondary-color) !important;
+}
+
+[data-bs-theme="dark"] .page-wrapper > .footer {
+    color: #e5edf7;
+    background: var(--tblr-bg-surface, #111827);
+}
+
+[data-bs-theme="dark"] .page-wrapper > .footer .text-secondary {
+    color: #dbe7f6 !important;
+}
+
+/* Keep the system footer visible while list pages scroll only inside their table/card area. */
+@media (min-width: 768px) {
+    .page > .page-wrapper:has(.page-body > .container-fluid > .card > .table-responsive),
+    .page > .page-wrapper:has(.page-body > .container-fluid > .col-12 > .card > .table-responsive) {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        overflow: hidden;
+    }
+
+    .page > .page-wrapper:has(.page-body > .container-fluid > .card > .table-responsive) .page-body,
+    .page > .page-wrapper:has(.page-body > .container-fluid > .col-12 > .card > .table-responsive) .page-body {
+        flex: 1 1 auto;
+        height: auto !important;
+        min-height: 0;
+        overflow: hidden;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .page > .page-wrapper:has(.page-body > .container-fluid > .card > .table-responsive),
+    .page > .page-wrapper:has(.page-body > .container-fluid > .col-12 > .card > .table-responsive) {
+        display: flex;
+        flex-direction: column;
+        height: 100dvh;
+        overflow: hidden;
+    }
+
+    .page > .page-wrapper:has(.page-body > .container-fluid > .card > .table-responsive) .page-body,
+    .page > .page-wrapper:has(.page-body > .container-fluid > .col-12 > .card > .table-responsive) .page-body {
+        flex: 1 1 auto;
+        height: auto !important;
+        min-height: 0;
+        overflow: hidden;
+    }
+}
+
+
+
+
+/* Keep the main system footer visible without covering table pagination. */
+.page-wrapper > .footer {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 1030;
+    height: var(--wis-footer-height);
+    min-height: var(--wis-footer-height);
+    padding: .25rem 0 calc(.25rem + env(safe-area-inset-bottom));
+    border-top: 1px solid rgba(148, 163, 184, .22);
+    background: var(--tblr-bg-surface, #fff);
+}
+
+.page-wrapper > .footer .container-fluid,
+.page-wrapper > .footer .text-center {
+    min-height: 100%;
+}
+
+.page-wrapper > .footer .text-secondary {
+    margin-top: 0 !important;
+    line-height: 1.35;
+}
+
+.page > .page-wrapper .page-body {
+    padding-top: 2.5rem !important;
+    padding-bottom: calc(var(--wis-footer-height) + 1rem) !important;
+}
+
+.school-chat-voice-unavailable,
+.chat-voice-unavailable {
+    opacity: .55;
+    cursor: not-allowed !important;
+    pointer-events: auto;
+}
+
+@media (min-width: 992px) {
+    .page-wrapper > .footer {
+        left: 15rem;
+    }
+}
+
+
+/* Center the system footer content. */
+.page-wrapper > .footer .container-fluid,
+.page-wrapper > .footer .text-center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+.page-wrapper > .footer .text-center {
+    flex-direction: column;
+    width: 100%;
+}

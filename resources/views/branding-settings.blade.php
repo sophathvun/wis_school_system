@@ -18,7 +18,7 @@
                         <div class="alert alert-danger">{{ $errors->first() }}</div>
                     @endif
                     <div class="row g-4">
-                        @foreach ([['sidebar_logo', 'Sidebar Logo', 'sidebar_logo_path', 'image/*,.svg'], ['login_logo', 'Login Logo', 'login_logo_path', 'image/*,.svg'], ['favicon', 'Favicon', 'favicon_path', 'image/*,.ico,.svg'], ['footer_logo', 'Footer Logo', 'footer_logo_path', 'image/*,.svg'], ['report_logo_1', 'School Logo 1', 'report_logo_1_path', 'image/*,.svg'], ['report_logo_2', 'School Logo 2', 'report_logo_2_path', 'image/*,.svg']] as [$field, $label, $path, $accept])
+                        @foreach ([['sidebar_logo', 'Sidebar Logo', 'sidebar_logo_path', 'image/*,.svg'], ['login_logo', 'Login Logo', 'login_logo_path', 'image/*,.svg'], ['shortcut_icon', 'Mobile Shortcut Icon', 'shortcut_icon_path', 'image/*,.svg'], ['favicon', 'Favicon', 'favicon_path', 'image/*,.ico,.svg'], ['footer_logo', 'Footer Logo', 'footer_logo_path', 'image/*,.svg'], ['report_logo_1', 'School Logo 1', 'report_logo_1_path', 'image/*,.svg'], ['report_logo_2', 'School Logo 2', 'report_logo_2_path', 'image/*,.svg']] as [$field, $label, $path, $accept])
                             <div class="col-md-4">
                                 <div class="logo-upload-row d-flex align-items-stretch gap-3">
                                     <div class="logo-dropzone branding-dropzone flex-fill" data-branding-dropzone="{{ $field }}"

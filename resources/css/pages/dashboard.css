@@ -1,3 +1,7 @@
+.dashboard-page-content {
+    margin-top: 1rem;
+}
+
 .dynamic-dashboard {
     --dashboard-blue: #1f3f68;
     --dashboard-chart-empty: #e9eef5;

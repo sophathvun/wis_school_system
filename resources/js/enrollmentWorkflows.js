@@ -361,6 +361,12 @@
                         item.search.focus();
                     };
                     item.search.oninput = () => renderSearchable(id);
+                    select.addEventListener('change', () => {
+                        const visibleControl = searchable[id]?.selected?.closest('.location-combobox')?.querySelector('.location-combobox-toggle');
+                        visibleControl?.classList.remove('is-invalid');
+                        visibleControl?.closest('.location-combobox')?.querySelector('.workflow-field-error')?.remove();
+                        field('workflowError')?.classList.add('d-none');
+                    });
                     if (id === 'enrollment_id') {
                         item.search.oninput = () => {
                             window.clearTimeout(enrollmentSearchTimer);
@@ -394,6 +400,97 @@
                     item.select.closest('.premium-form-field')?.classList.toggle('has-value', Boolean(selected?.value));
                     if (item.info) item.info.textContent = selected?.dataset.info || '';
                 }
+
+                const workflowFieldLabels = {
+                    action_type: 'Action',
+                    student_from_academic_year_id: 'Current Academic Year',
+                    enrollment_id: 'Student Enrollment',
+                    from_academic_year_id: 'Source Academic Year',
+                    from_campus_id: 'Source Campus',
+                    from_grade_id: 'Source Grade',
+                    from_class_id: 'Source Class',
+                    to_academic_year_id: 'Target Academic Year',
+                    to_campus_id: 'Target Campus',
+                    to_grade_id: 'Target Grade',
+                    to_class_id: 'Target Class',
+                    to_session_id: 'Target Group',
+                    effective_on: 'Effective Date',
+                };
+
+                const clearWorkflowValidation = () => {
+                    document.querySelectorAll('#workflowModal .is-invalid').forEach((element) => element.classList.remove('is-invalid'));
+                    document.querySelectorAll('#workflowModal .workflow-field-error').forEach((element) => element.remove());
+                };
+
+                const markWorkflowFieldInvalid = (id, message) => {
+                    const element = field(id);
+                    if (!element) return;
+                    const visibleControl = searchable[id]?.selected?.closest('.location-combobox')?.querySelector('.location-combobox-toggle') || element;
+                    visibleControl.classList.add('is-invalid');
+                    const container = visibleControl.closest('.location-combobox') || visibleControl.parentElement;
+                    if (container && !container.querySelector('.workflow-field-error')) {
+                        const error = document.createElement('div');
+                        error.className = 'workflow-field-error';
+                        error.textContent = message;
+                        container.appendChild(error);
+                    }
+                };
+
+                const requiredWorkflowFields = (action, classAction) => {
+                    const sourceFields = classAction
+                        ? ['from_academic_year_id', 'from_campus_id', 'from_grade_id', 'from_class_id']
+                        : ['student_from_academic_year_id', 'enrollment_id'];
+                    const targetFields = isPromotion
+                        ? ['to_academic_year_id', 'to_grade_id', 'to_class_id']
+                        : ['to_campus_id', 'to_grade_id', 'to_class_id', 'to_session_id'];
+                    return ['action_type', ...sourceFields, ...targetFields, 'effective_on'];
+                };
+
+                const validateWorkflowForm = (action, classAction) => {
+                    clearWorkflowValidation();
+                    const missing = requiredWorkflowFields(action, classAction).filter((id) => !String(field(id)?.value || '').trim());
+
+                    if (['selected_promotion', 'selected_transfer'].includes(action)) {
+                        const selectedCount = document.querySelectorAll('.selected-class-student:checked').length;
+                        if (!selectedCount) missing.push('selected_students');
+                    }
+
+                    if (!missing.length) return true;
+
+                    const uniqueMissing = [...new Set(missing)];
+                    uniqueMissing.forEach((id) => {
+                        if (id !== 'selected_students') markWorkflowFieldInvalid(id, `${workflowFieldLabels[id] || id} is required.`);
+                    });
+
+                    if (uniqueMissing.includes('selected_students')) {
+                        const selectedList = document.getElementById('selected-students-list');
+                        selectedList?.classList.add('is-invalid');
+                        if (selectedList?.parentElement && !selectedList.parentElement.querySelector('.workflow-field-error')) {
+                            const error = document.createElement('div');
+                            error.className = 'workflow-field-error';
+                            error.textContent = 'Please select at least one student.';
+                            selectedList.parentElement.appendChild(error);
+                        }
+                    }
+
+                    const labels = uniqueMissing.map((id) => id === 'selected_students' ? 'Select at least one student' : workflowFieldLabels[id] || id);
+                    const message = `Please fill: ${labels.join(', ')}.`;
+                    field('workflowError').textContent = message;
+                    field('workflowError').classList.remove('d-none');
+
+                    if (window.Swal) {
+                        window.Swal.fire({
+                            icon: 'warning',
+                            title: 'Required Fields Missing',
+                            html: `<div class="text-start">${labels.map((label) => `<div>• ${esc(label)}</div>`).join('')}</div>`,
+                            confirmButtonText: 'OK',
+                        });
+                    } else {
+                        window.alert(message);
+                    }
+
+                    return false;
+                };
 
                 const loadOptions = async () => {
                     const response = await fetch(`/student-enrollment-workflows/options?mode=${mode}`);
@@ -629,6 +726,10 @@
                     document.querySelector('.selected-students-help').textContent = isPromotion ?
                         'Only selected students will be promoted. Unselected students remain in the current class.' :
                         'Only selected students will be transferred. Unselected students remain in the current class.';
+                    field('to_campus_id').required = !isPromotion;
+                    field('to_grade_id').required = true;
+                    field('to_class_id').required = true;
+                    field('to_session_id').required = !isPromotion;
                     setNextTargetAcademicYear(currentSourceAcademicYearId());
                     setTargetGradeOptions();
                     refreshSelectedStudentsIfNeeded();
@@ -687,6 +788,11 @@
                 });
                 field('from_class_id').addEventListener('change', refreshSelectedStudentsIfNeeded);
                 field('to_academic_year_id').addEventListener('change', refreshSelectedStudentsIfNeeded);
+                field('effective_on').addEventListener('input', () => {
+                    field('effective_on').classList.remove('is-invalid');
+                    field('effective_on').parentElement?.querySelector('.workflow-field-error')?.remove();
+                    field('workflowError')?.classList.add('d-none');
+                });
                 document.addEventListener('click', (event) => {
                     if (event.target.id === 'select-all-class-students') {
                         document.querySelectorAll('.selected-class-student').forEach((checkbox) => {
@@ -800,6 +906,7 @@
                     const classAction = ['class_promotion', 'selected_promotion', 'selected_transfer',
                         'class_transfer'
                     ].includes(action);
+                    if (!validateWorkflowForm(action, classAction)) return;
                     const ids = classAction ?
                         ['from_campus_id', 'from_academic_year_id', 'from_grade_id', 'from_class_id',
                             'to_campus_id', 'to_academic_year_id', 'to_grade_id', 'to_class_id',
@@ -838,7 +945,7 @@
                         if (window.Swal) {
                             await window.Swal.fire({
                                 icon: alreadyPromoted ? 'warning' : 'error',
-                                title: alreadyPromoted ? 'Already Promoted' : 'Promotion Failed',
+                                title: alreadyPromoted ? 'Already Promoted' : (isPromotion ? 'Promotion Failed' : 'Transfer Failed'),
                                 text: message,
                                 confirmButtonText: 'OK',
                             });
@@ -848,11 +955,18 @@
                     modal.hide();
                     if (window.Swal) {
                         await window.Swal.fire({
+                            toast: true,
+                            position: 'top-end',
                             icon: 'success',
                             title: isPromotion ? 'Promotion Completed' : 'Transfer Completed',
                             text: result.message || 'The workflow action was completed successfully.',
-                            timer: 1800,
+                            timer: 2600,
+                            timerProgressBar: true,
                             showConfirmButton: false,
+                            didOpen: (toast) => {
+                                toast.addEventListener('mouseenter', window.Swal.stopTimer);
+                                toast.addEventListener('mouseleave', window.Swal.resumeTimer);
+                            },
                         });
                     }
                     await render(currentPage);

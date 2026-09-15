@@ -50,11 +50,14 @@ class ChatController
                 ->count();
         }
 
-        return response()->json($this->availableUsers($request)->map(fn ($user) => [
+        $currentUserId = (int) $request->user()->id;
+
+        return response()->json($this->availableUsers($request, true)->map(fn ($user) => [
             'id' => $user->id,
             'name' => $user->name,
             'department' => $user->department?->name,
-            'online' => $user->last_seen_at?->greaterThan(now()->subMinutes(5)) ?? false,
+            'online' => (int) $user->id === $currentUserId ? true : ($user->last_seen_at?->greaterThan(now()->subMinutes(5)) ?? false),
+            'is_current_user' => (int) $user->id === $currentUserId,
             'photo' => $user->photo_path ? asset('storage/'.$user->photo_path) : null,
             'unread_messages' => $directUnread[$user->id] ?? 0,
         ])->values());
@@ -354,10 +357,14 @@ class ChatController
         return response()->json(['ok' => true]);
     }
 
-    private function availableUsers(Request $request)
+    private function availableUsers(Request $request, bool $includeCurrentUser = false)
     {
         $user = $request->user();
-        $query = User::query()->where('status', 1)->where('id', '!=', $user->id)->with('department');
+        $query = User::query()->where('status', 1)->with('department');
+
+        if (!$includeCurrentUser) {
+            $query->where('id', '!=', $user->id);
+        }
 
         if (!$user->isSuperAdmin()) {
             $campusIds = $user->accessibleCampuses()->pluck('tb_school_info.id');

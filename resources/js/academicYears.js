@@ -536,7 +536,7 @@ const fetchAcademicYears = async (page = 1, perPage = null) => {
                 <td>${year.description ?? ""}</td>
                 <td>${isDeleted ? "<span class='badge bg-orange-lt'>Deleted</span>" : lifecycleBadge(year.lifecycle_status)}</td>
                 <td class="text-center">
-                    ${isDeleted ? "<span class='text-secondary'>â€”</span>" : year.lifecycle_status !== "started" ? `<button onclick="academicYears.setCurrentAcademicYear(${year.id})" class="btn btn-success btn-sm"><i class="ti ti-check icon"></i>Set Started</button>` : "<span class='badge bg-green-lt'>Started</span>"}
+                    ${isDeleted ? "<span class='text-secondary'>—</span>" : year.lifecycle_status !== "started" ? `<button onclick="academicYears.setCurrentAcademicYear(${year.id})" class="btn btn-success btn-sm"><i class="ti ti-check icon"></i>Set Started</button>` : "<span class='badge bg-green-lt'>Started</span>"}
                 </td>
                 <td class="text-center">
                     ${isDeleted ? `<button onclick="academicYears.restoreAcademicYear(${year.id})" class="btn btn-success btn-sm"><i class="ti ti-refresh icon"></i>Restore</button>` : `${year.period_type === "regular" ? `<button onclick="academicYears.createNextAcademicYear(${year.id})" class="btn btn-outline-primary btn-sm" title="Create the next academic year"><i class="ti ti-calendar-plus icon"></i>Next Year</button>` : ""}

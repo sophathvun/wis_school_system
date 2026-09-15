@@ -66,9 +66,11 @@ class AuthController
         if (!$loginErrors) {
             Auth::login($user, $request->boolean('remember'));
             $request->session()->regenerate();
+            $request->session()->forget('url.intended');
+
             return $user->must_change_password
-                ? redirect()->route('profile')->with('warning', 'Please change your temporary password before continuing.')
-                : redirect()->intended(route('dashboard'));
+                ? redirect()->to(route('profile') . '#profile-edit')->with('warning', 'Please change your temporary password before continuing.')
+                : redirect()->route('dashboard');
         }
         return back()->withErrors($loginErrors)->withInput();
     }
@@ -133,17 +135,21 @@ class AuthController
     public function updateProfile(Request $request)
     {
         $user = $request->user();
+        $requiresPasswordChange = (bool) $user->must_change_password;
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'gender' => ['nullable', 'in:male,female,other'],
+            'gender' => ['nullable', 'in:Male,Female,Other,male,female,other'],
             'date_of_birth' => ['nullable', 'date', 'before_or_equal:today'],
             'phone' => ['nullable', 'string', 'max:50'],
             'username' => ['required', 'string', 'max:80', 'unique:users,username,'.$user->id],
             'email' => ['required', 'email', 'unique:users,email,'.$user->id],
             'login_identifier' => ['required', 'in:username,email,both'],
-            'password' => ['nullable', 'min:8', 'confirmed'],
+            'password' => [$requiresPasswordChange ? 'required' : 'nullable', 'min:8', 'confirmed'],
             'photo' => ['nullable', 'image', 'max:2048'],
         ]);
+        if (array_key_exists('gender', $data)) {
+            $data['gender'] = $this->normalizeGender($data['gender'] ?? null);
+        }
         $user->fill(collect($data)->except(['password', 'photo'])->toArray());
         if (!empty($data['password'])) {
             $user->password = $data['password'];
@@ -151,7 +157,22 @@ class AuthController
         }
         if ($request->hasFile('photo')) $user->photo_path = $request->file('photo')->store('users', 'public');
         $user->save();
+
+        if ($requiresPasswordChange && !$user->must_change_password) {
+            return redirect()->route('dashboard')->with('success', 'Password changed successfully.');
+        }
+
         return back()->with('success', 'Profile updated successfully.');
+    }
+
+    private function normalizeGender(?string $value): ?string
+    {
+        return match (strtolower(trim((string) $value))) {
+            'male' => 'Male',
+            'female' => 'Female',
+            'other' => 'Other',
+            default => null,
+        };
     }
 
     public function updateNameCard(Request $request)

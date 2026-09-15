@@ -1,4 +1,5 @@
-﻿import * as bootstrap from "bootstrap";
+import * as bootstrap from "bootstrap";
+import { showWarning } from "./helpers/sweet-alert2.js";
 
 const page = document.getElementById("studentWithdrawalPage");
 const csrf = page?.dataset.csrf || document.querySelector('meta[name="csrf-token"]')?.content || "";
@@ -9,6 +10,22 @@ const routes = {
     enrollmentFamilyUrl: page?.dataset.enrollmentFamilyUrl || "",
     baseUrl: page?.dataset.baseUrl || "",
     studentsUrl: page?.dataset.studentsUrl || "",
+};
+const formatCambodiaPhoneDisplay = (value = "") => {
+    let digits = String(value).replace(/\D/g, "");
+    if (digits.startsWith("855")) digits = digits.slice(3);
+    if (digits.startsWith("0")) digits = digits.slice(1);
+    digits = digits.slice(0, 9);
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 5) return `${digits.slice(0, 2)} ${digits.slice(2)}`;
+    return `${digits.slice(0, 2)} ${digits.slice(2, 5)} ${digits.slice(5)}`;
+};
+const normalizeCambodiaPhoneValue = (value = "") => {
+    let digits = String(value).replace(/\D/g, "");
+    if (digits.startsWith("855")) digits = digits.slice(3);
+    if (digits.startsWith("0")) digits = digits.slice(1);
+    digits = digits.slice(0, 9);
+    return digits ? `+855${digits}` : "";
 };
 const withdrawalReasons = (() => {
     try {
@@ -391,6 +408,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     '"': '&quot;',
                     "'": '&#039;'
                 } [ch]));
+            form?.setAttribute('novalidate', 'novalidate');
             let options = {};
             const reasonPanel = document.createElement('div');
             reasonPanel.className = 'withdrawal-reason-panel mb-3';
@@ -401,7 +419,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     reason.key + '" data-en="' + esc(reason.en) + '" data-kh="' + esc(reason.kh) +
                     '"><span class="form-check-label"><span class="d-block school-profile-khmer">' + esc(reason
                     .kh) + '</span>' + esc(reason.en) + '</span></label></div>').join('') +
-                '<div class="col-md-6"><label class="form-check"><input class="form-check-input" type="checkbox" id="withdrawal-other-check"><span class="form-check-label">Other</span></label></div></div><div class="row g-2 mt-1 d-none" id="withdrawal-other-fields"><div class="col-md-6"><input id="withdrawal-other-en" class="form-control" placeholder="Other reason (English)"></div><div class="col-md-6"><input id="withdrawal-other-kh" class="form-control school-profile-khmer" placeholder="Ã¡Å¾ËœÃ¡Å¾Â¼Ã¡Å¾â€ºÃ¡Å¾Â Ã¡Å¸ÂÃ¡Å¾ÂÃ¡Å¾Â»Ã¡Å¾â€¢Ã¡Å¸â€™Ã¡Å¾Å¸Ã¡Å¸ÂÃ¡Å¾â€žÃ¡Å¾â€˜Ã¡Å¸â‚¬Ã¡Å¾Â (Ã¡Å¾ÂÃ¡Å¸â€™Ã¡Å¾ËœÃ¡Å¸â€šÃ¡Å¾Å¡)"></div></div><div class="row g-2 mt-2"><div class="col-md-6"><label class="form-label">Reason (English)</label><input id="withdrawal-reason-en" class="form-control" readonly></div><div class="col-md-6"><label class="form-label school-profile-khmer">Ã¡Å¾ËœÃ¡Å¾Â¼Ã¡Å¾â€ºÃ¡Å¾Â Ã¡Å¸ÂÃ¡Å¾ÂÃ¡Å¾Â» (Ã¡Å¾ÂÃ¡Å¸â€™Ã¡Å¾ËœÃ¡Å¸â€šÃ¡Å¾Å¡)</label><input id="withdrawal-reason-kh" class="form-control school-profile-khmer" readonly></div></div>';
+                '<div class="col-md-6"><label class="form-check"><input class="form-check-input" type="checkbox" id="withdrawal-other-check"><span class="form-check-label">Other</span></label></div></div><div class="row g-2 mt-1 d-none" id="withdrawal-other-fields"><div class="col-md-6"><input id="withdrawal-other-en" class="form-control" placeholder="Other reason (English)"></div><div class="col-md-6"><input id="withdrawal-other-kh" class="form-control school-profile-khmer" placeholder="Other reason Khmer"></div></div><div class="row g-2 mt-2"><div class="col-md-6"><label class="form-label">Reason (English)</label><input id="withdrawal-reason-en" class="form-control" readonly></div><div class="col-md-6"><label class="form-label">Reason (Khmer)</label><input id="withdrawal-reason-kh" class="form-control school-profile-khmer" readonly></div></div>';
             document.querySelector('#withdrawalForm .modal-body')?.prepend(reasonPanel);
             field('withdrawal-reason')?.classList.add('d-none');
             const syncReasons = () => {
@@ -467,8 +485,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 };
                 const render = () => {
                     const term = searchInput.value.toLowerCase();
-                    const opts = Array.from(select.options).slice(1).filter(option => !term || option
-                        .textContent.toLowerCase().includes(term));
+                    const opts = Array.from(select.options).filter(option => option.value !== '' && (!term || option
+                        .textContent.toLowerCase().includes(term)));
                     results.innerHTML = opts.length ? opts.map(option =>
                             '<button type="button" class="location-combobox-option" data-withdrawal-select="' +
                             id + '" data-value="' + option.value + '">' + esc(option.textContent) +
@@ -534,10 +552,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     class_id: field('withdrawal-class').value,
                     search: field('withdrawal-student-search').value
                 });
-                return 'routes.studentsUrl?' + params.toString();
+                return routes.studentsUrl + '?' + params.toString();
             };
             const updateGradeClasses = (items) => {
-                field('withdrawal-grade-class').innerHTML = '<option value="">Select Grade + Class</option>' + (
+                field('withdrawal-grade-class').innerHTML = '<option value="">Select Grade</option>' + (
                     items || []).map(item => '<option value="' + item.grade_id + '|' + item.class_id +
                     '">' + esc(gradeCode(item.grade) + item.class_name) + '</option>').join('');
                 field('withdrawal-grade').value = '';
@@ -555,7 +573,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     academic_year_id: field('withdrawal-year').value,
                     campus_id: field('withdrawal-campus').value
                 });
-                const result = await fetch('routes.optionsUrl?' + params
+                const result = await fetch(routes.optionsUrl + '?' + params
                 .toString()).then(response => response.json());
                 const currentCampus = field('withdrawal-campus').value;
                 fill('withdrawal-campus', result.campuses || [], 'campus_name_en', 'Select Campus');
@@ -571,7 +589,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 field('withdrawal-enrollment-id').innerHTML = '<option value="">Select Student</option>';
                 field('withdrawal-enrollment-id').dispatchEvent(new Event('change'));
                 field('withdrawal-students').innerHTML =
-                    '<div class="text-secondary small">Select Academic Year, Campus, and Grade + Class first.</div>';
+                    '<div class="text-secondary small">Select Academic Year, Campus, and Grade first.</div>';
             };
             const renderStudents = async () => {
                 if (!hasAllStudentFilters()) {
@@ -605,6 +623,8 @@ document.addEventListener('DOMContentLoaded', function() {
             const updateType = () => {
                 const type = field('withdrawal-type').value,
                     bulk = type !== 'student';
+                form.classList.toggle('withdrawal-type-student', type === 'student');
+                form.classList.toggle('withdrawal-type-bulk', type !== 'student');
                 document.querySelector('.student-withdrawal-field').classList.toggle('d-none', bulk);
                 document.querySelector('.selected-withdrawal-list').classList.toggle('d-none', type !==
                     'selected');
@@ -616,17 +636,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 return value.replace(/^Grade\s+/i, '');
             };
             const loadOptions = async () => {
-                options = await fetch('routes.optionsUrl').then(r => r.json());
+                options = await fetch(routes.optionsUrl).then(r => r.json());
                 fill('withdrawal-campus', [], 'campus_name_en', 'Select Campus');
                 fill('withdrawal-year', options.academicYears || [], 'academic_year',
                     'Select Academic Year');
                 fill('withdrawal-grade', options.grades || [], 'grade', 'Select Grade');
                 fill('withdrawal-class', options.classes || [], 'class_name', 'Select Class');
                 field('withdrawal-grade-class').innerHTML =
-                '<option value="">Select Grade + Class</option>';
+                '<option value="">Select Grade</option>';
                 setupSearchableSelect('withdrawal-year', 'Academic Year');
                 setupSearchableSelect('withdrawal-campus', 'Campus');
-                setupSearchableSelect('withdrawal-grade-class', 'Grade + Class');
+                setupSearchableSelect('withdrawal-grade-class', 'Grade');
                 setupSearchableSelect('withdrawal-enrollment-id', 'Student Name');
                 field('withdrawal-grade-class').onchange = () => {
                     const [gradeId, classId] = field('withdrawal-grade-class').value.split('|');
@@ -656,6 +676,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 updateType();
                 await loadOptions();
                 updateType();
+                resetWithdrawalLabelDropdowns();
             };
             form.onsubmit = async event => {
                 event.preventDefault();
@@ -686,12 +707,12 @@ document.addEventListener('DOMContentLoaded', function() {
                             '.withdrawal-student:checked')).map(input => Number(input.value));
                     } else endpoint = 'withdraw-class';
                 }
-                const response = await fetch('routes.baseUrl/' + endpoint, {
+                const response = await fetch(routes.baseUrl + '/' + endpoint, {
                     method: 'POST',
                     headers: {
                         Accept: 'application/json',
                         'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': 'csrf'
+                        'X-CSRF-TOKEN': csrf
                     },
                     body: JSON.stringify(payload)
                 });
@@ -721,7 +742,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 },
                 {
                     key: 'grade_class',
-                    label: 'Grade + Class',
+                    label: 'Grade',
                     container: 'withdrawal-history-grade-filter',
                     value: item => item.grade_id + '|' + item.class_id,
                     text: item => gradeCode(item.grade) + item.class_name
@@ -822,7 +843,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     params.set('class_id', classId);
                 }
                 if (currentValues.session_id) params.set('session_id', currentValues.session_id);
-                const data = await fetch('routes.historyOptionsUrl?' + params
+                const data = await fetch(routes.historyOptionsUrl + '?' + params
                     .toString()).then(response => response.json());
                 historyFilters.forEach(config => {
                     const value = currentValues[config.key] || '';
@@ -865,17 +886,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (!pagination) return;
                 const current = result.current_page || 1,
                     last = result.last_page || 1;
+                const ellipsis = '...';
                 const pages = last <= 5 ? Array.from({
                     length: last
-                }, (_, index) => index + 1) : current <= 3 ? [1, 2, 3, 'Ã¢â‚¬Â¦', last] : current >= last - 2 ? [
-                    1, 'Ã¢â‚¬Â¦', last - 2, last - 1, last
-                ] : [1, 'Ã¢â‚¬Â¦', current - 1, current, current + 1, 'Ã¢â‚¬Â¦', last];
+                }, (_, index) => index + 1) : current <= 3 ? [1, 2, 3, ellipsis, last] : current >= last - 2 ? [
+                    1, ellipsis, last - 2, last - 1, last
+                ] : [1, ellipsis, current - 1, current, current + 1, ellipsis, last];
                 pagination.innerHTML =
                     '<div class="premium-pagination"><ul class="pagination premium-pagination-list m-0"><li class="page-item ' +
                     (current === 1 ? 'disabled' : '') +
                     '"><a class="page-link withdrawal-page" href="#" data-page="' + (current - 1) +
-                    '"><i class="ti ti-chevron-left"></i></a></li>' + pages.map(page => page === 'Ã¢â‚¬Â¦' ?
-                        '<li class="premium-pagination-ellipsis">Ã¢â‚¬Â¦</li>' : '<li class="page-item ' + (page ===
+                    '"><i class="ti ti-chevron-left"></i></a></li>' + pages.map(page => page === ellipsis ?
+                        '<li class="premium-pagination-ellipsis">...</li>' : '<li class="page-item ' + (page ===
                             current ? 'active' : '') +
                         '"><a class="page-link withdrawal-page" href="#" data-page="' + page + '">' + page +
                         '</a></li>').join('') + '<li class="page-item ' + (current === last ? 'disabled' : '') +
@@ -900,9 +922,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
             };
             const loadHistory = async (page = 1) => {
-                const result = await fetch('routes.fetchUrl?' + historyParams(
+                const result = await fetch(routes.fetchUrl + '?' + historyParams(
                     page).toString()).then(response => response.json());
-                field('withdrawal-table').innerHTML = result.data?.length ? result.data.map((item,
+                const mobileCards = field('withdrawal-mobile-cards');
+                const rows = result.data || [];
+                field('withdrawal-table').innerHTML = rows.length ? rows.map((item,
                     index) => {
                         const student = item.student || {};
                         const nameKh = historyStudentKh(student);
@@ -911,12 +935,12 @@ document.addEventListener('DOMContentLoaded', function() {
                             ?.class_name || '');
                         const track = item.academic_track?.name_en || item.academic_track?.code || '';
                         const requestedName = item.requested_by_name || '-';
-                        const requestedPhone = item.requested_by_phone || '';
+                        const requestedPhone = formatCambodiaPhoneDisplay(item.requested_by_phone || '');
                         const withdrawalStatus = item.withdrawal_status || (item.enrollment_status ===
                             'withdrawn' ? 'approved' : 'pending');
                         const statusLabel = withdrawalStatus === 'principal_approved' ?
                             'Principal Approved' : withdrawalStatus === 'approved' ? 'Withdrawn' :
-                            'Pending Ã‚Â· Active';
+                            'Pending Active';
                         const statusClass = withdrawalStatus === 'approved' ?
                             'bg-success-lt text-success' : withdrawalStatus === 'principal_approved' ?
                             'bg-warning-lt text-warning' : 'bg-secondary-lt text-secondary';
@@ -946,6 +970,34 @@ document.addEventListener('DOMContentLoaded', function() {
                             '" target="_blank" rel="noopener" title="Print"><i class="ti ti-printer"></i></a></div></td></tr>';
                     }).join('') :
                     '<tr><td colspan="12" class="text-center">No withdrawal history found.</td></tr>';
+                if (mobileCards) {
+                    mobileCards.innerHTML = rows.length ? rows.map((item, index) => {
+                        const student = item.student || {};
+                        const nameKh = historyStudentKh(student);
+                        const nameEn = historyStudentEn(student);
+                        const gradeClass = gradeCode(item.grade?.grade) + (item.school_class?.class_name || '');
+                        const group = item.session?.session_short_name || item.session?.session_name || '';
+                        const track = item.academic_track?.name_en || item.academic_track?.code || '';
+                        const requestedPhone = formatCambodiaPhoneDisplay(item.requested_by_phone || '');
+                        const withdrawalStatus = item.withdrawal_status || (item.enrollment_status === 'withdrawn' ? 'approved' : 'pending');
+                        const statusLabel = withdrawalStatus === 'principal_approved' ? 'Principal Approved' : withdrawalStatus === 'approved' ? 'Withdrawn' : 'Pending Active';
+                        const statusClass = withdrawalStatus === 'approved' ? 'bg-success-lt text-success' : withdrawalStatus === 'principal_approved' ? 'bg-warning-lt text-warning' : withdrawalStatus === 'cancelled' ? 'bg-secondary-lt text-secondary' : 'bg-warning-lt text-warning';
+                        return '<article class="withdrawal-mobile-card"><div class="withdrawal-card-number">' +
+                            esc(String((result.from || 1) + index).padStart(2, '0')) +
+                            '</div><div class="withdrawal-card-student">' + historyPhoto(student) +
+                            '<div><div class="withdrawal-card-student-id">STUDENT ID: ' + esc(historyStudentId(student)) +
+                            '</div><div class="school-profile-khmer withdrawal-card-name-kh">' + esc(nameKh || '-') +
+                            '</div><div class="withdrawal-card-name-en">' + esc(nameEn || '-') +
+                            '</div></div></div><div class="withdrawal-card-grid">' +
+                            '<div><span>ACADEMIC YEAR</span><strong>' + esc(item.academic_year?.academic_year || '-') + '</strong></div>' +
+                            '<div><span>GRADE</span><strong>' + esc([gradeClass, group].filter(Boolean).join('-') || '-') + '</strong>' + (track ? '<small>' + esc(track) + '</small>' : '') + '</div>' +
+                            '<div><span>WITHDRAWAL DATE</span><strong>' + esc(historyDate(item.effective_on)) + '</strong></div>' +
+                            '<div><span>REQUESTED BY</span><strong>' + esc(item.requested_by_name || '-') + '</strong>' + (requestedPhone ? '<small>' + esc(requestedPhone) + '</small>' : '') + '</div>' +
+                            '<div><span>WITHDRAWN BY</span><strong>' + esc(item.changed_by?.name || 'System') + '</strong></div>' +
+                            '<div><span>STATUS</span><strong><span class="badge ' + statusClass + '">' + esc(statusLabel) + '</span></strong></div>' +
+                            '</div><div class="withdrawal-card-actions"><button type="button" class="btn btn-outline-secondary edit-withdrawal" data-edit-url="' + esc(item.edit_url || '#') + '" data-update-url="' + esc(item.update_url || '#') + '"><i class="ti ti-edit"></i> Edit</button><a class="btn btn-outline-primary" href="' + esc(item.form_url || '#') + '" target="_blank" rel="noopener"><i class="ti ti-printer"></i> Print</a></div></article>';
+                    }).join('') : '<div class="withdrawal-mobile-empty">No withdrawal history found.</div>';
+                }
                 renderHistoryPagination(result);
             };
             document.querySelectorAll('[data-withdrawal-sort]').forEach(button => button.onclick = () => {
@@ -959,7 +1011,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 clearTimeout(searchTimer);
                 searchTimer = setTimeout(() => loadHistory(1), 300);
             };
-            fetch('routes.historyOptionsUrl').then(response => response.json()).then(
+            fetch(routes.historyOptionsUrl).then(response => response.json()).then(
                 data => {
                     historyFilters.forEach(config => setupHistoryFilter(config, data[config.key ===
                         'academic_year_id' ? 'academicYears' : config.key === 'campus_id' ?
@@ -972,6 +1024,7 @@ document.addEventListener('DOMContentLoaded', function() {
 document.addEventListener('DOMContentLoaded', function() {
             const form = document.getElementById('withdrawalForm');
             if (!form) return;
+            form.setAttribute('novalidate', 'novalidate');
             const field = id => document.getElementById(id);
             const reasonPanel = document.querySelector('.withdrawal-reason-panel');
             const reasonHeading = reasonPanel?.querySelector('.form-label');
@@ -998,27 +1051,39 @@ document.addEventListener('DOMContentLoaded', function() {
                 const select = document.getElementById(id);
                 if (!select) return;
                 let combo = document.getElementById(id + '-combobox');
+                const blankTextUntilSelected = ['withdrawal-type', 'withdrawal-dropout-type'].includes(id);
+                const getSelectedText = () => {
+                    if (blankTextUntilSelected && !select.dataset.withdrawalSearchUserSelected) return '';
+                    return select.value ? select.selectedOptions[0]?.textContent || '' : '';
+                };
+                const syncBlankLabelState = () => {
+                    const wrapper = select.closest('.premium-form-field') || select.parentElement;
+                    wrapper?.classList.toggle('withdrawal-label-inside-blank', blankTextUntilSelected && !select
+                        .dataset.withdrawalSearchUserSelected);
+                };
                 if (!combo) {
+                    const searchPlaceholder = blankTextUntilSelected ? '' : 'Search ' + label;
                     select.classList.add('d-none');
                     select.insertAdjacentHTML('afterend', '<div id="' + id +
                         '-combobox" class="location-combobox withdrawal-search-combobox"><button type="button" id="' +
                         id + '-toggle" class="location-combobox-toggle"><span id="' + id +
-                        '-selected" class="location-combobox-selected">Select ' + label +
+                        '-selected" class="location-combobox-selected">' + (blankTextUntilSelected ? '' : 'Select ' + label) +
                         '</span><i class="ti ti-chevron-down"></i></button><div id="' + id +
                         '-menu" class="location-combobox-menu d-none"><input id="' + id +
-                        '-menu-search" type="search" class="form-control location-combobox-search" placeholder="Search ' +
-                        label + '"><div id="' + id +
+                        '-menu-search" type="search" class="form-control location-combobox-search" placeholder="' +
+                        searchPlaceholder + '"><div id="' + id +
                         '-results" class="location-combobox-results"></div></div></div>');
                     combo = document.getElementById(id + '-combobox');
                 }
                 const search = document.getElementById(id + '-menu-search');
                 const results = document.getElementById(id + '-results');
                 const selectedDisplay = document.getElementById(id + '-selected');
-                if (selectedDisplay && !select.value) selectedDisplay.textContent = '';
+                if (selectedDisplay) selectedDisplay.textContent = getSelectedText();
+                syncBlankLabelState();
                 const render = () => {
                     const term = (search?.value || '').toLowerCase().trim();
-                    const items = Array.from(select.options).slice(1).filter(option => !term || option
-                        .textContent.toLowerCase().includes(term));
+                    const items = Array.from(select.options).filter(option => option.value !== '' && (!term || option
+                        .textContent.toLowerCase().includes(term)));
                     if (results) results.innerHTML = items.length ? items.map(option =>
                             '<button type="button" class="location-combobox-option" data-withdrawal-select="' +
                             id + '" data-value="' + escapeHtml(option.value) + '">' + escapeHtml(option
@@ -1026,7 +1091,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         '<div class="text-secondary px-2 py-2">No options found</div>';
                 };
                 if (search) search.oninput = render;
-                document.getElementById(id + '-toggle')?.addEventListener('click', () => {
+                const toggle = document.getElementById(id + '-toggle');
+                if (!toggle?.dataset.withdrawalSearchToggleReady) {
+                    toggle.dataset.withdrawalSearchToggleReady = '1';
+                    toggle.addEventListener('click', () => {
                     document.querySelectorAll('.withdrawal-search-combobox .location-combobox-menu')
                         .forEach(menu => {
                             if (menu.id !== id + '-menu') menu.classList.add('d-none');
@@ -1034,27 +1102,36 @@ document.addEventListener('DOMContentLoaded', function() {
                     document.getElementById(id + '-menu')?.classList.toggle('d-none');
                     render();
                     search?.focus();
-                });
-                results?.addEventListener('click', event => {
+                    });
+                }
+                if (!results?.dataset.withdrawalSearchResultsReady) {
+                    results.dataset.withdrawalSearchResultsReady = '1';
+                    results?.addEventListener('click', event => {
                     const option = event.target.closest('[data-withdrawal-select]');
                     if (!option) return;
                     select.value = option.dataset.value;
+                    select.dataset.withdrawalSearchUserSelected = '1';
                     select.dispatchEvent(new Event('change', {
                         bubbles: true
                     }));
+                    syncBlankLabelState();
                     document.getElementById(id + '-menu')?.classList.add('d-none');
-                });
-                select.addEventListener('change', () => {
+                    });
+                }
+                if (!select.dataset.withdrawalSearchSelectReady) {
+                    select.dataset.withdrawalSearchSelectReady = '1';
+                    select.addEventListener('change', () => {
                     const selected = document.getElementById(id + '-selected');
-                    if (selected) selected.textContent = select.value ? select.selectedOptions[0]
-                        ?.textContent || '' : '';
+                    if (selected) selected.textContent = getSelectedText();
+                    syncBlankLabelState();
                     render();
-                });
+                    });
+                }
                 render();
             };
-            ['withdrawal-year', 'withdrawal-campus', 'withdrawal-grade-class'].forEach(id => reinforceSearchable(id,
+            ['withdrawal-type', 'withdrawal-year', 'withdrawal-campus', 'withdrawal-grade-class'].forEach(id => reinforceSearchable(id,
                 id));
-            fetch('routes.optionsUrl').then(response => response.json()).then(data => {
+            fetch(routes.optionsUrl).then(response => response.json()).then(data => {
                 const activeReasons = data.reasons || [];
                 const reasonRow = reasonPanel?.querySelector('.row.g-2');
                 if (!reasonRow || !activeReasons.length) return;
@@ -1069,14 +1146,34 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             if (reasonPanel && !field('withdrawal-new-school')) {
                 reasonPanel.insertAdjacentHTML('beforeend',
-                    '<div class="row g-2 mt-3"><div class="col-md-6"><label class="form-label">New School</label><input id="withdrawal-new-school" class="form-control"></div><div class="col-md-6"><label class="form-label">New School Address</label><input id="withdrawal-new-school-address" class="form-control"></div><div class="col-md-6"><label class="form-label">Withdrawal Status * <small class="text-secondary fw-normal">(select one only)</small></label><select id="withdrawal-dropout-type" class="form-select" required><option value="official_leave">Will officially leave</option><option value="dropped_out">Has dropped out</option></select></div><div class="col-md-6"><label class="form-label">Additional Comments</label><input id="withdrawal-additional-comments" class="form-control"></div></div>'
+                    '<div class="row g-2 mt-3"><div class="col-md-6"><label class="form-label">New School</label><input id="withdrawal-new-school" class="form-control"></div><div class="col-md-6"><label class="form-label">New School Address</label><input id="withdrawal-new-school-address" class="form-control"></div><div class="col-md-6"><label class="form-label">Withdrawal Status * <small class="text-secondary fw-normal">(select one only)</small></label><select id="withdrawal-dropout-type" class="form-select" required><option value=""></option><option value="official_leave">Will officially leave</option><option value="dropped_out">Has dropped out</option></select></div><div class="col-md-6"><label class="form-label">Additional Comments</label><input id="withdrawal-additional-comments" class="form-control"></div></div>'
                     );
             }
             if (reasonPanel && !field('withdrawal-requested-by-type')) {
                 reasonPanel.insertAdjacentHTML('beforeend',
-                    '<div class="withdrawal-requested-by mt-3"><h4 class="mb-2 fw-bold">REQUESTED BY</h4><div class="row g-2"><div class="col-md-4"><label class="form-label">Requested By *</label><select id="withdrawal-requested-by-type" class="form-select" required><option value=""></option><option value="mother">Mother</option><option value="father">Father</option><option value="guardian">Guardian</option></select></div><div class="col-md-4"><label class="form-label">Requested By Name *</label><input id="withdrawal-requested-by-name" class="form-control" required></div><div class="col-md-4"><label class="form-label">Requested By Phone *</label><input id="withdrawal-requested-by-phone" class="form-control" required></div></div></div>'
+                    '<div class="withdrawal-requested-by mt-3"><h4 class="mb-2 fw-bold">REQUESTED BY</h4><div class="row g-2"><div class="col-md-4"><label class="form-label">Requested By *</label><select id="withdrawal-requested-by-type" class="form-select" required><option value=""></option><option value="mother">Mother</option><option value="father">Father</option><option value="guardian">Guardian</option></select></div><div class="col-md-4"><label class="form-label">Requested By Name *</label><input id="withdrawal-requested-by-name" class="form-control" required></div><div class="col-md-4"><label class="form-label">Requested By Phone *</label><div class="phone-input-group withdrawal-requested-phone-group"><div class="phone-country-wrapper"><span class="phone-country-flag flag-cambodia"></span><div class="form-control phone-country">+855</div></div><input id="withdrawal-requested-by-phone" class="form-control" inputmode="numeric" autocomplete="tel-national" required></div></div></div></div>'
                     );
             }
+            reinforceSearchable('withdrawal-dropout-type', 'Withdrawal Status');
+            reinforceSearchable('withdrawal-requested-by-type', 'Requested By');
+            const resetWithdrawalLabelDropdowns = () => {
+                ['withdrawal-type', 'withdrawal-dropout-type'].forEach(id => {
+                    const select = field(id);
+                    if (select) delete select.dataset.withdrawalSearchUserSelected;
+                    const selected = field(id + '-selected');
+                    if (selected) selected.textContent = '';
+                    const wrapper = select?.closest('.premium-form-field') || select?.parentElement;
+                    wrapper?.classList.add('withdrawal-label-inside-blank');
+                });
+            };
+            const markRequiredLabels = () => {
+                document.querySelectorAll('#withdrawalForm .form-label').forEach(label => {
+                    if (label.querySelector('.required-star') || !label.textContent.includes('*')) return;
+                    const html = label.innerHTML.replace('*', '<span class="required-star">*</span>');
+                    label.innerHTML = html;
+                });
+            };
+            markRequiredLabels();
             const cleanPhone = value => String(value || '').replace(/\s+/g, '');
             const memberName = member => String(member?.name || '').trim();
             const getRequestedMembers = () => {
@@ -1096,7 +1193,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (!selectedId) return [];
                 const existing = getRequestedMembers();
                 if (existing.length) return existing;
-                const result = await fetch('routes.enrollmentFamilyUrl/' + selectedId +
+                const result = await fetch(routes.enrollmentFamilyUrl + '/' + selectedId +
                     '/family', {
                         headers: {
                             Accept: 'application/json'
@@ -1114,7 +1211,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 ['mother', 'father', 'guardian'].forEach(type => {
                     const member = getRequestedMember(type);
                     const name = memberName(member);
-                    const phone = cleanPhone(member?.phone || '');
+                    const phone = formatCambodiaPhoneDisplay(member?.phone || '');
                     if (field('withdrawal-' + type + '-name')) field('withdrawal-' + type + '-name')
                         .textContent = name || 'No ' + type + ' information';
                     if (field('withdrawal-' + type + '-phone')) field('withdrawal-' + type + '-phone')
@@ -1145,7 +1242,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     phoneInput.value = '';
                 } else {
                     nameInput.value = memberName(member);
-                    phoneInput.value = cleanPhone(member?.phone || '');
+                    phoneInput.value = formatCambodiaPhoneDisplay(member?.phone || '');
                 }
             };
             document.addEventListener('change', event => {
@@ -1167,8 +1264,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     50);
             });
             document.addEventListener('input', event => {
-                if (event.target.matches('#withdrawal-requested-by-phone')) event.target.value = cleanPhone(
-                    event.target.value);
+                if (event.target.matches('#withdrawal-requested-by-phone')) event.target.value =
+                    formatCambodiaPhoneDisplay(event.target.value);
             });
             const syncReasons = () => {
                 const selected = Array.from(document.querySelectorAll('.withdrawal-reason-check:checked'));
@@ -1194,11 +1291,99 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             const originalNew = document.getElementById('newWithdrawal');
             originalNew?.addEventListener('click', () => setTimeout(syncReasons, 0));
-            form.onsubmit = async event => {
-                event.preventDefault();
+            const clearWithdrawalValidation = () => {
+                form.querySelectorAll('.is-invalid').forEach(item => item.classList.remove('is-invalid'));
+                form.querySelectorAll('.withdrawal-validation-error').forEach(item => item.remove());
+                field('withdrawal-error')?.classList.add('d-none');
+            };
+            const invalidTarget = id => field(id + '-toggle') || field(id)?.closest('.withdrawal-date-picker') || field(id)
+                ?.closest('.withdrawal-requested-phone-group') || field(id);
+            const showFieldError = (id, message) => {
+                const target = invalidTarget(id);
+                if (!target) return;
+                target.classList.add('is-invalid');
+                const anchor = target.closest('.withdrawal-search-combobox, .withdrawal-date-picker, .withdrawal-requested-phone-group') || target;
+                if (!anchor.nextElementSibling?.classList.contains('withdrawal-validation-error')) {
+                    anchor.insertAdjacentHTML('afterend', '<div class="invalid-feedback withdrawal-validation-error d-block">' + escapeHtml(message) + '</div>');
+                }
+            };
+            const showGroupError = (selector, message) => {
+                const target = document.querySelector(selector);
+                if (!target) return;
+                target.classList.add('is-invalid');
+                if (!target.querySelector(':scope > .withdrawal-validation-error')) {
+                    target.insertAdjacentHTML('beforeend', '<div class="invalid-feedback withdrawal-validation-error d-block">' + escapeHtml(message) + '</div>');
+                }
+            };
+            const validateWithdrawalForm = type => {
+                clearWithdrawalValidation();
+                const missing = [];
+                const requireField = (id, label) => {
+                    if (String(field(id)?.value || '').trim()) return;
+                    missing.push(label);
+                    showFieldError(id, label + ' is required.');
+                };
+                const requireSearchSelection = (id, label) => {
+                    const select = field(id);
+                    if (String(select?.value || '').trim() && select?.dataset.withdrawalSearchUserSelected) return;
+                    missing.push(label);
+                    showFieldError(id, label + ' is required.');
+                };
+                requireSearchSelection('withdrawal-type', 'Withdrawal Type');
+                requireField('withdrawal-year', 'Academic Year');
+                requireField('withdrawal-campus', 'Campus');
+                requireField('withdrawal-grade-class', 'Grade');
+                requireField('withdrawal-date', 'Withdrawal Date');
+                if (type === 'student') {
+                    requireField('withdrawal-enrollment-id', 'Student Name');
+                }
+                if (type === 'selected') {
+                    const selectedStudents = document.querySelectorAll('.withdrawal-student:checked').length;
+                    if (!selectedStudents) {
+                        missing.push('Select Students');
+                        showGroupError('#withdrawal-students', 'Please select at least one student.');
+                    }
+                }
+                if (!document.querySelectorAll('.withdrawal-reason-check:checked').length && !String(field('withdrawal-other-en')?.value || '').trim() && !String(field('withdrawal-other-kh')?.value || '').trim()) {
+                    missing.push('Reason for Withdrawal');
+                    showGroupError('.withdrawal-reason-panel', 'Please select or enter at least one reason.');
+                }
+                requireSearchSelection('withdrawal-dropout-type', 'Withdrawal Status');
+                requireField('withdrawal-requested-by-type', 'Requested By');
+                requireField('withdrawal-requested-by-name', 'Requested By Name');
+                requireField('withdrawal-requested-by-phone', 'Requested By Phone');
+                if (missing.length) {
+                    const message = 'Please fill in: ' + missing.join(', ');
+                    const error = field('withdrawal-error');
+                    if (error) {
+                        error.textContent = message;
+                        error.classList.remove('d-none');
+                    }
+                    if (window.Swal) {
+                        window.Swal.fire({
+                            toast: true,
+                            position: 'top',
+                            icon: 'warning',
+                            title: 'Required fields missing',
+                            text: message,
+                            showConfirmButton: false,
+                            timer: 4200,
+                            timerProgressBar: true,
+                            target: document.body,
+                        });
+                    } else {
+                        showWarning('Required fields missing', message);
+                    }
+                    return false;
+                }
+                return true;
+            };
+            const submitWithdrawalForm = async event => {
+                event?.preventDefault();
                 syncReasons();
                 const value = id => field(id)?.value || '';
                 const type = value('withdrawal-type');
+                if (!validateWithdrawalForm(type)) return;
                 const common = {
                     withdrawal_date: value('withdrawal-date'),
                     reason: value('withdrawal-reason'),
@@ -1212,7 +1397,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     dropout_type: value('withdrawal-dropout-type'),
                     requested_by_type: value('withdrawal-requested-by-type'),
                     requested_by_name: value('withdrawal-requested-by-name'),
-                    requested_by_phone: cleanPhone(value('withdrawal-requested-by-phone')),
+                    requested_by_phone: normalizeCambodiaPhoneValue(value('withdrawal-requested-by-phone')),
                     additional_comments: value('withdrawal-additional-comments'),
                     notes: value('withdrawal-notes')
                 };
@@ -1237,12 +1422,12 @@ document.addEventListener('DOMContentLoaded', function() {
                             '.withdrawal-student:checked')).map(input => Number(input.value));
                     } else endpoint = 'withdraw-class';
                 }
-                const response = await fetch('routes.baseUrl/' + endpoint, {
+                const response = await fetch(routes.baseUrl + '/' + endpoint, {
                     method: 'POST',
                     headers: {
                         Accept: 'application/json',
                         'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': 'csrf'
+                        'X-CSRF-TOKEN': csrf
                     },
                     body: JSON.stringify(payload)
                 });
@@ -1258,6 +1443,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (result.form_url && type === 'student') window.open(result.form_url, '_blank');
                 window.location.reload();
             };
+            form.onsubmit = submitWithdrawalForm;
+            field('confirmWithdrawalButton')?.addEventListener('click', submitWithdrawalForm);
         });
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -1287,7 +1474,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 phoneInput.readOnly = type !== 'guardian';
                 if (type === 'mother' || type === 'father') {
                     nameInput.value = member?.name || '';
-                    phoneInput.value = cleanPhone(member?.phone || '');
+                    phoneInput.value = formatCambodiaPhoneDisplay(member?.phone || '');
                 } else {
                     nameInput.readOnly = false;
                     phoneInput.readOnly = false;
@@ -1311,6 +1498,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (field('edit-reason-kh')) field('edit-reason-kh').value = data.reason_kh;
                 return data;
             };
+            const editFieldHasValue = wrapper => {
+                const select = wrapper.querySelector(':scope > select');
+                if (select?.value) return true;
+                const input = wrapper.querySelector(':scope > input:not([type="hidden"]):not([type="file"]), :scope > textarea, :scope > .date-picker input[type="text"], :scope > .phone-input-group input');
+                return Boolean(input?.value?.trim());
+            };
+            const syncEditFloatingLabels = () => {
+                form.querySelectorAll('.form-label').forEach(label => {
+                    const wrapper = label.parentElement;
+                    if (!wrapper?.querySelector(':scope > input:not([type="hidden"]):not([type="file"]), :scope > textarea, :scope > select, :scope > .date-picker')) return;
+                    wrapper.classList.add('premium-form-field');
+                    wrapper.classList.toggle('has-value', editFieldHasValue(wrapper));
+                });
+            };
+            form.addEventListener('input', syncEditFloatingLabels);
+            form.addEventListener('change', syncEditFloatingLabels);
+            modalElement.addEventListener('shown.bs.modal', syncEditFloatingLabels);
 
             document.addEventListener('click', async event => {
                 const button = event.target.closest('.edit-withdrawal');
@@ -1390,7 +1594,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 field('edit-new-school').value = data.new_school || '';
                 field('edit-new-school-address').value = data.new_school_address || '';
                 field('edit-requested-by-name').value = data.requested_by_name || '';
-                field('edit-requested-by-phone').value = cleanPhone(data.requested_by_phone || '');
+                field('edit-requested-by-phone').value = formatCambodiaPhoneDisplay(data.requested_by_phone || '');
                 field('edit-additional-comments').value = data.additional_comments || '';
                 field('edit-notes').value = data.notes || '';
 
@@ -1402,6 +1606,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     'd-none', !field('edit-other-check').checked));
                 field('edit-requested-by-type').value = data.requested_by_type || '';
                 syncEditReasons();
+                syncEditFloatingLabels();
+                window.requestAnimationFrame(syncEditFloatingLabels);
 
                 modal.show();
             });
@@ -1421,7 +1627,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     headers: {
                         Accept: 'application/json',
                         'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': 'csrf'
+                        'X-CSRF-TOKEN': csrf
                     },
                     body: JSON.stringify({
                         paper_signed: true
@@ -1450,7 +1656,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     method: 'POST',
                     headers: {
                         Accept: 'application/json',
-                        'X-CSRF-TOKEN': 'csrf'
+                        'X-CSRF-TOKEN': csrf
                     }
                 });
                 const result = await response.json().catch(() => ({}));
@@ -1488,7 +1694,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     headers: {
                         Accept: 'application/json',
                         'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': 'csrf'
+                        'X-CSRF-TOKEN': csrf
                     },
                     body: JSON.stringify({
                         rejection_reason: result.value
@@ -1523,7 +1729,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     headers: {
                         Accept: 'application/json',
                         'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': 'csrf'
+                        'X-CSRF-TOKEN': csrf
                     },
                     body: JSON.stringify({
                         cancellation_reason: result.value
@@ -1546,8 +1752,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
             document.addEventListener('input', event => {
-                if (event.target.matches('#edit-requested-by-phone')) event.target.value = cleanPhone(event
-                    .target.value);
+                if (event.target.matches('#edit-requested-by-phone')) event.target.value =
+                    formatCambodiaPhoneDisplay(event.target.value);
                 if (event.target.matches('#edit-other-en, #edit-other-kh')) syncEditReasons();
             });
 
@@ -1569,7 +1775,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     dropout_type: field('edit-dropout-type').value,
                     requested_by_type: requestedType,
                     requested_by_name: field('edit-requested-by-name').value,
-                    requested_by_phone: cleanPhone(field('edit-requested-by-phone').value),
+                    requested_by_phone: normalizeCambodiaPhoneValue(field('edit-requested-by-phone').value),
                     additional_comments: field('edit-additional-comments').value,
                     notes: field('edit-notes').value,
                 };
@@ -1579,7 +1785,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     headers: {
                         Accept: 'application/json',
                         'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': 'csrf'
+                        'X-CSRF-TOKEN': csrf
                     },
                     body: JSON.stringify(payload),
                 });
@@ -1595,4 +1801,3 @@ document.addEventListener('DOMContentLoaded', () => {
                 window.location.reload();
             });
         });
-

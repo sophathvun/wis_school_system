@@ -1,4 +1,34 @@
-﻿@media (min-width: 768px) {
+.user-header-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: .6rem;
+    flex-wrap: wrap;
+}
+
+.user-header-search {
+    width: min(28rem, 38vw);
+}
+
+.user-header-search .form-control {
+    min-height: 2.625rem;
+}
+
+@media (max-width: 767.98px) {
+    .user-header-toolbar {
+        justify-content: stretch;
+    }
+
+    .user-header-search {
+        width: 100%;
+        order: 1;
+    }
+
+    .user-header-toolbar .btn {
+        flex: 1 1 auto;
+    }
+}
+@media (min-width: 768px) {
     .user-management-list-card .table thead th,
     .user-management-list-card .table thead .table-sort-button {
         border-color: var(--tblr-primary);
@@ -9,6 +39,9 @@
 /* Extracted from resources/views/user-management.blade.php. Keep page-specific styles in this file. */
 
 .table-sort-button {
+    display: inline-flex;
+    align-items: center;
+    gap: .25rem;
     padding: 0;
     border: 0;
     color: inherit;
@@ -20,13 +53,132 @@
 }
 
 .table-sort-button .table-sort-icon {
-    margin-left: .25rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: .95rem;
+    margin-left: .1rem;
     font-size: .85em;
     opacity: .75;
 }
 
 .table-sort-button:hover {
+    color: inherit;
+    text-decoration: none;
+}
+
+.user-list-meta-row {
+    display: flex;
+    align-items: center;
+    gap: .35rem;
+    min-height: 1.25rem;
+}
+
+.user-list-meta-row i {
+    flex: 0 0 1rem;
     color: var(--tblr-primary);
+    font-size: .95rem;
+    text-align: center;
+}
+
+
+.user-management-staff-photo-thumb,
+.user-management-staff-photo-placeholder {
+    width: 58px;
+    height: 58px;
+    border-radius: .65rem;
+    border: 1px solid var(--tblr-border-color);
+}
+
+.user-management-staff-photo-thumb {
+    object-fit: cover;
+}
+
+.user-management-staff-photo-placeholder {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.user-management-staff-photo-placeholder i {
+    font-size: 1.25rem;
+}
+.staff-photo-view-trigger {
+    cursor: zoom-in;
+}
+
+#staffPhotoViewModal .staff-photo-view-dialog {
+    max-width: 460px;
+}
+
+#staffPhotoViewModal .modal-header {
+    padding: .8rem 1rem;
+    border-color: var(--tblr-primary);
+    background: var(--tblr-primary);
+    color: #fff;
+}
+
+#staffPhotoViewModal .modal-header .btn-close {
+    --tblr-btn-close-bg: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23ffffff'%3e%3cpath d='M.293.293a1 1 0 0 1 1.414 0L8 6.586 14.293.293a1 1 0 1 1 1.414 1.414L9.414 8l6.293 6.293a1 1 0 0 1-1.414 1.414L8 9.414l-6.293 6.293A1 1 0 0 1 .293 14.293L6.586 8 .293 1.707A1 1 0 0 1 .293.293z'/%3e%3c/svg%3e");
+    background-image: var(--tblr-btn-close-bg) !important;
+    filter: none !important;
+    opacity: .9;
+}
+
+#staffPhotoViewModal .modal-header .btn-close:hover {
+    opacity: 1;
+}
+
+#staffPhotoViewModal .modal-body {
+    display: grid;
+    place-items: center;
+    min-height: 260px;
+    max-height: 420px;
+    padding: 1rem;
+    background:
+        linear-gradient(45deg, rgba(148, 163, 184, .12) 25%, transparent 25%),
+        linear-gradient(-45deg, rgba(148, 163, 184, .12) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, rgba(148, 163, 184, .12) 75%),
+        linear-gradient(-45deg, transparent 75%, rgba(148, 163, 184, .12) 75%);
+    background-position: 0 0, 0 10px, 10px -10px, -10px 0;
+    background-size: 20px 20px;
+}
+
+#staffPhotoViewImage {
+    max-width: 100%;
+    max-height: 360px;
+    object-fit: contain;
+    transition: transform .2s ease;
+}
+
+#staffPhotoViewModal .modal-footer {
+    gap: .45rem;
+    padding: .75rem 1rem;
+}
+
+#staffPhotoViewModal .modal-footer .btn {
+    min-height: 2.25rem;
+}
+
+#staffPhotoViewZoom {
+    width: 140px !important;
+}
+
+
+@media (max-width: 575.98px) {
+    #staffPhotoViewModal .staff-photo-view-dialog {
+        max-width: calc(100vw - 2rem);
+        margin-inline: auto;
+    }
+
+    #staffPhotoViewModal .modal-body {
+        min-height: 220px;
+        max-height: 340px;
+    }
+
+    #staffPhotoViewImage {
+        max-height: 300px;
+    }
 }
 
 .user-management-mobile-list-wrap {
@@ -528,7 +680,7 @@
 #userModal
     .user-searchable-combobox
     .location-combobox-option.is-selected::after {
-    content: "âœ“";
+    content: "✓";
     float: right;
     color: var(--tblr-primary);
     font-weight: 700;
@@ -1289,4 +1441,3 @@
 [data-bs-theme="dark"] .staff-photo-crop-stage {
     background: #0f172a;
 }
-

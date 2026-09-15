@@ -109,11 +109,17 @@
 }
 
 .auth-form-panel .form-control {
+    width: 100%;
+    height: 50px;
     min-height: 50px;
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
     border: 1px solid var(--tblr-border-color);
     border-radius: 10px;
     color: var(--tblr-body-color);
     background: var(--tblr-bg-forms, var(--tblr-bg-surface, #fff));
+    box-shadow: none;
+    outline: 0;
 }
 
 .auth-input-wrap {
@@ -133,21 +139,6 @@
 
 .auth-input-wrap .form-control {
     padding-left: 2.8rem;
-}
-
-/* Keep the designed envelope icon as the only email-field icon. */
-#emailIdentifier {
-    appearance: none;
-    -webkit-appearance: none;
-    background-image: none !important;
-}
-
-#emailIdentifier::-webkit-contacts-auto-fill-button,
-#emailIdentifier::-webkit-credentials-auto-fill-button,
-#emailIdentifier::-webkit-textfield-decoration-container {
-    display: none !important;
-    visibility: hidden;
-    pointer-events: none;
 }
 
 .auth-input-wrap .auth-password-toggle {
@@ -330,21 +321,59 @@
 @media (max-width: 767.98px) {
     .auth-flip-page {
         min-height: 100vh;
-        padding: 4.5rem 0.5rem 1rem;
+        display: block;
+        padding: 0;
     }
 
     .auth-flip-card {
+        width: 100%;
+        min-height: 100vh;
         display: block;
-        min-height: 0;
-        border-radius: 20px;
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
     }
 
     .auth-panel {
         padding: 2rem 1.25rem;
     }
 
+    .auth-form-panel {
+        min-height: calc(100vh - 6.5rem);
+        padding-top: 7rem;
+        align-items: flex-start;
+    }
+
     .auth-switch-panel {
-        min-height: 210px;
+        min-height: 0;
+        padding: 0.25rem 1.25rem 3rem;
+        color: var(--tblr-body-color);
+        background: var(--tblr-bg-surface, var(--tblr-body-bg, #fff));
+    }
+
+    .auth-switch-panel::before,
+    .auth-switch-panel::after,
+    .auth-switch-content > .ti,
+    .auth-switch-content h2,
+    .auth-switch-content p {
+        display: none;
+    }
+
+    .auth-switch-content {
+        width: 100%;
+    }
+
+    .auth-switch-button {
+        width: 100%;
+        padding: 0.65rem 1rem;
+        border-color: var(--tblr-primary);
+        color: var(--tblr-primary);
+        background: transparent;
+    }
+
+    .auth-switch-button:hover {
+        color: #fff;
+        background: var(--tblr-primary);
     }
 
     .auth-switch-content p {

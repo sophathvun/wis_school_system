@@ -62,7 +62,7 @@ class AccessFoundationSeeder extends Seeder
             'students.promotion' => ['view' => 'View student promotion and transfer', 'manage' => 'Manage student promotion and transfer'],
             'students.graduation' => ['view' => 'View student graduation', 'manage' => 'Manage student graduation'],
             'student-reentry' => ['view' => 'View student re-entry', 'manage' => 'Manage student re-entry'],
-            'student-documents' => ['view' => 'View student documents', 'manage' => 'Manage student documents', 'download' => 'Download student documents', 'delete' => 'Delete student documents'],
+            'student-documents' => ['view' => 'View student documents', 'manage' => 'Manage student documents', 'preview' => 'View student document files', 'download' => 'Download student documents', 'delete' => 'Delete student documents'],
             'student-data-transfer' => ['view' => 'View student data transfer', 'import' => 'Import student data', 'export' => 'Export student data'],
             'student-withdrawals' => ['view' => 'View student withdrawals', 'manage' => 'Manage student withdrawals', 'approve' => 'Approve student withdrawals', 'delete' => 'Delete student withdrawals'],
             'campuses' => ['view' => 'View campuses', 'manage' => 'Manage campuses'],
@@ -86,7 +86,7 @@ class AccessFoundationSeeder extends Seeder
             'students.transfer' => ['view' => 'View Student Transfer', 'manage' => 'Manage Student Transfer', 'execute' => 'Transfer Students', 'cancel' => 'Cancel Student Transfer', 'export' => 'Export Transfer Records'],
             'students.graduation' => ['execute' => 'Graduate Students', 'cancel' => 'Cancel Graduation', 'export' => 'Export Graduation Records'],
             'student-reentry' => ['create' => 'Create Student Re-entry', 'update' => 'Update Student Re-entry', 'cancel' => 'Cancel Student Re-entry'],
-            'student-documents' => ['create' => 'Upload Student Documents', 'update' => 'Update Student Documents'],
+            'student-documents' => ['create' => 'Upload Student Documents', 'update' => 'Update Student Documents', 'preview' => 'View Student Document Files'],
             'student-withdrawals' => ['approve' => 'Approve student withdrawals'],
         ]);
 

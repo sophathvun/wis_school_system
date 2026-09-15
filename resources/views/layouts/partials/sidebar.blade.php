@@ -1,5 +1,8 @@
-﻿<aside class="navbar navbar-vertical navbar-expand-lg" data-bs-theme="dark">
-    @php($canView = fn(string $permission) => auth()->user()->isSuperAdmin() || auth()->user()->hasPermission($permission))
+<aside class="navbar navbar-vertical navbar-expand-lg" data-bs-theme="dark">
+    @php
+    $sidebarPermissionCodes = $permissionCodes ?? [];
+    $canView = fn(string $permission) => in_array('*', $sidebarPermissionCodes, true) || in_array($permission, $sidebarPermissionCodes, true);
+@endphp
     <div class="container-fluid">
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#sidebar-menu"
             aria-controls="sidebar-menu" aria-expanded="false" aria-label="Toggle navigation">
@@ -15,11 +18,11 @@
 
         <div class="navbar-nav flex-row d-lg-none">
             <div class="nav-item">
-                <a href="?theme=dark" class="nav-link px-0 hide-theme-dark" title="Enable dark mode"
+                <a href="{{ request()->fullUrlWithQuery(['theme' => 'dark']) }}" class="nav-link px-0 hide-theme-dark" title="Enable dark mode"
                     data-bs-toggle="tooltip" data-bs-placement="bottom">
                     <i class="ti ti-moon icon"></i>
                 </a>
-                <a href="?theme=light" class="nav-link px-0 hide-theme-light" title="Enable light mode"
+                <a href="{{ request()->fullUrlWithQuery(['theme' => 'light']) }}" class="nav-link px-0 hide-theme-light" title="Enable light mode"
                     data-bs-toggle="tooltip" data-bs-placement="bottom">
                     <i class="ti ti-sun icon"></i>
                 </a>
@@ -387,6 +390,36 @@
                                 </div>
                             </div>
                         </div>
+                    </li>
+                @endif
+                @if ($canView('attendance.view'))
+                    <li class="nav-item {{ request()->routeIs('attendance.*') ? 'active' : '' }}">
+                        <a class="nav-link" href="{{ route('attendance.index') }}">
+                            <span class="nav-link-icon d-md-none d-lg-inline-block">
+                                <i class="ti ti-calendar-check icon"></i>
+                            </span>
+                            <span class="nav-link-title">Attendance</span>
+                        </a>
+                    </li>
+                @endif
+                @if ($canView('schedules.view'))
+                    <li class="nav-item {{ request()->routeIs('schedules.*') ? 'active' : '' }}">
+                        <a class="nav-link" href="{{ route('schedules.index') }}">
+                            <span class="nav-link-icon d-md-none d-lg-inline-block">
+                                <i class="ti ti-calendar-time icon"></i>
+                            </span>
+                            <span class="nav-link-title">Schedules</span>
+                        </a>
+                    </li>
+                @endif
+                @if ($canView('grading-system.view'))
+                    <li class="nav-item {{ request()->routeIs('grading-system.*') ? 'active' : '' }}">
+                        <a class="nav-link" href="{{ route('grading-system.index') }}">
+                            <span class="nav-link-icon d-md-none d-lg-inline-block">
+                                <i class="ti ti-report icon"></i>
+                            </span>
+                            <span class="nav-link-title">Grading System</span>
+                        </a>
                     </li>
                 @endif
                 @if ($canView('reports.view'))

@@ -37,6 +37,7 @@ document.addEventListener("DOMContentLoaded", () => {
         messagesBase: shell.dataset.chatMessagesBase,
     };
     const currentUserId = Number(shell.dataset.chatCurrentUserId || 0);
+    const currentUserName = (shell.dataset.chatCurrentUserName || "").trim().toLowerCase();
     const currentUserPhoto = shell.dataset.chatCurrentUserPhoto || null;
     const esc = (value) =>
         String(value ?? "").replace(/[&<>"']/g, (ch) => ({
@@ -99,6 +100,22 @@ document.addEventListener("DOMContentLoaded", () => {
     let voiceTimer = null;
     let voiceMimeType = "audio/webm";
 
+    const unavailableVoiceTitle = window.isSecureContext
+        ? "Voice recording is unavailable in this browser."
+        : "Voice recording needs HTTPS, localhost, or a trusted secure address.";
+    const supportsVoiceRecording = () => Boolean(window.isSecureContext && navigator.mediaDevices?.getUserMedia && window.MediaRecorder);
+
+    const markVoiceRecordingUnavailable = () => {
+        recordVoiceButton.disabled = true;
+        recordVoiceButton.classList.add("chat-voice-unavailable");
+        recordVoiceButton.title = unavailableVoiceTitle;
+        recordVoiceButton.setAttribute("aria-disabled", "true");
+    };
+
+    if (!supportsVoiceRecording()) {
+        markVoiceRecordingUnavailable();
+    }
+
     const preferredVoiceType = () => {
         const types = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus", "audio/ogg", "audio/mp4"];
         return types.find((type) => MediaRecorder.isTypeSupported?.(type)) || "";
@@ -137,17 +154,24 @@ document.addEventListener("DOMContentLoaded", () => {
     const renderUsers = (term = "") => {
         const q = term.toLowerCase();
         const selected = Array.from(userList.querySelectorAll("input:checked")).map((input) => input.value);
-        const filtered = users.filter((user) => `${user.name} ${user.department || ""}`.toLowerCase().includes(q));
-        userList.innerHTML = filtered.map((user) => `
-            <label class="form-check border rounded p-2 d-flex align-items-center gap-2">
-                <input class="form-check-input m-0" type="checkbox" value="${user.id}" ${selected.includes(String(user.id)) ? "checked" : ""}>
-                ${avatar(user)}
+        const isSelf = (user) => Boolean(user.is_current_user) || Number(user.id) === currentUserId || (currentUserName && String(user.name || "").trim().toLowerCase() === currentUserName);
+        const filtered = users
+            .filter((user) => `${user.name} ${user.department || ""}`.toLowerCase().includes(q))
+            .sort((a, b) => Number(isSelf(b)) - Number(isSelf(a)));
+        userList.innerHTML = filtered.map((user) => {
+            const isCurrentUser = isSelf(user);
+            const isOnline = isCurrentUser || Boolean(user.online);
+            return `
+            <label class="form-check border rounded p-2 d-flex align-items-center gap-2 ${isCurrentUser ? "opacity-75" : ""}">
+                <input class="form-check-input m-0" type="checkbox" value="${user.id}" ${selected.includes(String(user.id)) ? "checked" : ""} ${isCurrentUser ? "disabled" : ""}>
+                ${avatar({ ...user, online: isOnline })}
                 <span class="form-check-label flex-fill min-w-0">
-                    <span class="fw-semibold d-block text-truncate">${esc(user.name)}</span>
-                    <small class="text-secondary">${esc(user.department || "Staff")} &middot; ${user.online ? "Online" : "Offline"}</small>
+                    <span class="fw-semibold d-block text-truncate">${esc(user.name)}${isCurrentUser ? " (You)" : ""}</span>
+                    <small class="text-secondary">${esc(user.department || "Staff")} &middot; ${isOnline ? "Online" : "Offline"}</small>
                 </span>
             </label>
-        `).join("") || '<div class="text-secondary">No users found.</div>';
+        `;
+        }).join("") || '<div class="text-secondary">No users found.</div>';
         groupTitle.classList.toggle("d-none", selected.length < 2);
     };
 
@@ -313,8 +337,8 @@ document.addEventListener("DOMContentLoaded", () => {
         await openChat(activeId);
     };
     const toggleVoiceRecording = async () => {
-        if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
-            alert("Your browser does not support voice recording.");
+        if (!supportsVoiceRecording()) {
+            markVoiceRecordingUnavailable();
             return;
         }
         if (mediaRecorder && mediaRecorder.state === "recording") {
@@ -381,7 +405,10 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     chatEmojiButton.addEventListener("click", () => emojiPicker.classList.toggle("d-none"));
     chatAttachButton.addEventListener("click", () => fileInput.click());
-    recordVoiceButton.addEventListener("click", () => toggleVoiceRecording().catch((error) => alert(error.message || "Unable to record voice message.")));
+    recordVoiceButton.addEventListener("click", () => toggleVoiceRecording().catch((error) => {
+        console.warn(error?.message || "Unable to record voice message.");
+        setVoiceButtonIdle();
+    }));
     fileInput.addEventListener("change", () => {
         const file = fileInput.files?.[0];
         if (!file) return;
@@ -432,6 +459,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (activeId) await openChat(activeId);
         } catch {}
     }, 10000);
+    api(routes.heartbeat, { method: "POST" }).catch(() => {});
     window.setInterval(() => api(routes.heartbeat, { method: "POST" }).catch(() => {}), 60000);
 
     loadUsers().catch(() => {});

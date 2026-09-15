@@ -1,6 +1,7 @@
 param(
     [ValidateRange(1024, 65535)][int]$Port = 8002,
     [string]$PhpPath,
+    [string]$HostAddress = '0.0.0.0',
     [switch]$Check
 )
 
@@ -49,14 +50,23 @@ try {
         Write-Host "Using PHP $($php.Version): $($php.Path)"
         if ($Check) { Write-Host 'Startup checks passed.'; exit 0 }
 
-        $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, $Port)
+        $bindAddress = [System.Net.IPAddress]::Parse($HostAddress)
+        $listener = [System.Net.Sockets.TcpListener]::new($bindAddress, $Port)
         try { $listener.Start() } catch { throw "Port $Port is already in use. Try http://127.0.0.1:$Port/ or run with -Port 8003." } finally { $listener.Stop() }
 
         Write-Host "Site: http://127.0.0.1:$Port/"
+        if ($HostAddress -eq '0.0.0.0') {
+            $lanAddresses = @(Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+                Where-Object { $_.IPAddress -notlike '127.*' -and $_.IPAddress -notlike '169.254.*' } |
+                Select-Object -ExpandProperty IPAddress)
+            foreach ($address in $lanAddresses) {
+                Write-Host "LAN:  http://$address`:$Port/"
+            }
+        }
         Write-Host 'Keep this window open. Press Ctrl+C to stop. MySQL must be running in Laragon.'
         Set-Location (Join-Path $projectRoot 'public')
         $router = Join-Path $projectRoot 'vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php'
-        & $php.Path -S "127.0.0.1:$Port" $router
+        & $php.Path -S "$HostAddress`:$Port" $router
         if ($LASTEXITCODE -ne 0) { throw "PHP server exited with code $LASTEXITCODE." }
     } finally { Pop-Location }
 } catch {

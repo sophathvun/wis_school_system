@@ -1,4 +1,4 @@
-﻿            document.addEventListener('DOMContentLoaded', () => {
+            document.addEventListener('DOMContentLoaded', () => {
                 const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
                 const widget = document.getElementById('school-chat-widget');
                 if (!widget) return;
@@ -47,6 +47,7 @@
                 const remoteAudio = document.getElementById('school-chat-remote-audio');
                 const tabButtons = widget.querySelectorAll('[data-school-chat-tab]');
                 const currentUserId = Number(widget.dataset.currentUserId || 0);
+                const currentUserName = (widget.dataset.currentUserName || '').trim().toLowerCase();
                 const currentUserPhoto = widget.dataset.currentUserPhoto || null;
                 const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({
                     '&': '&amp;',
@@ -76,6 +77,35 @@
                 let suppressLauncherClick = false;
                 let selectedAttachment = null;
                 let voiceMimeType = 'audio/webm';
+
+                const unavailableVoiceTitle = window.isSecureContext
+                    ? 'Voice is unavailable in this browser.'
+                    : 'Voice and call need HTTPS, localhost, or a trusted secure address.';
+                const supportsVoiceRecording = () => Boolean(window.isSecureContext && navigator.mediaDevices?.getUserMedia && window.MediaRecorder);
+                const supportsLiveCall = () => Boolean(window.isSecureContext && navigator.mediaDevices?.getUserMedia && window.RTCPeerConnection);
+
+                const markVoiceRecordingUnavailable = () => {
+                    if (!recordVoiceButton) return;
+                    recordVoiceButton.disabled = true;
+                    recordVoiceButton.classList.add('school-chat-voice-unavailable');
+                    recordVoiceButton.title = unavailableVoiceTitle;
+                    recordVoiceButton.setAttribute('aria-disabled', 'true');
+                };
+
+                const markLiveCallUnavailable = () => {
+                    if (!callStartButton) return;
+                    callStartButton.disabled = true;
+                    callStartButton.classList.add('school-chat-voice-unavailable');
+                    callStartButton.title = unavailableVoiceTitle;
+                    callStartButton.setAttribute('aria-disabled', 'true');
+                };
+
+                if (!supportsVoiceRecording()) {
+                    markVoiceRecordingUnavailable();
+                }
+                if (!supportsLiveCall()) {
+                    markLiveCallUnavailable();
+                }
 
                 const preferredVoiceType = () => {
                     const types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/ogg',
@@ -233,10 +263,18 @@
 
                 const renderPeople = () => {
                     const term = search.value.trim().toLowerCase();
+                    const isSelf = (user) => Boolean(user.is_current_user) || Number(user.id) === currentUserId || (currentUserName && String(user.name || '').trim().toLowerCase() === currentUserName);
                     const html = users
                         .filter((user) => `${user.name} ${user.department || ''}`.toLowerCase().includes(term))
-                        .map((user) => `
-                <div class="chat-mini-item px-3 py-3 border-bottom" data-user-id="${user.id}">
+                        .sort((a, b) => Number(isSelf(b)) - Number(isSelf(a)))
+                        .map((user) => {
+                            const isCurrentUser = isSelf(user);
+                            const isOnline = isCurrentUser || Boolean(user.online);
+                            const chatButton = isCurrentUser
+                                ? '<span class="badge bg-primary-lt text-primary rounded-pill">You</span>'
+                                : `<button type="button" class="btn btn-outline-primary btn-sm" data-user-chat="${user.id}">Chat</button>`;
+                            return `
+                <div class="chat-mini-item px-3 py-3 border-bottom ${isCurrentUser ? 'chat-mini-item-current' : ''}" data-user-id="${user.id}" data-current-user="${isCurrentUser ? 'true' : 'false'}">
                     <div class="d-flex align-items-center gap-3">
                         <div class="avatar avatar-sm chat-mini-avatar ${user.photo ? '' : 'bg-primary-lt text-primary'}">
                             ${user.photo ? `<img src="${esc(user.photo)}" alt="${esc(user.name)}" class="chat-mini-photo">` : '<i class="ti ti-user"></i>'}
@@ -244,21 +282,22 @@
                         <div class="flex-fill min-w-0">
                             <div class="d-flex align-items-center gap-2">
                                 <div class="fw-semibold text-truncate">${esc(user.name)}</div>
-                                <span class="chat-mini-status ${user.online ? 'online' : ''}" title="${user.online ? 'Online' : 'Offline'}"></span>
+                                <span class="chat-mini-status ${isOnline ? 'online' : ''}" title="${isOnline ? 'Online' : 'Offline'}"></span>
                             </div>
-                            <div class="small text-secondary text-truncate">${esc(user.department || 'Staff')} &middot; ${user.online ? 'Online now' : 'Offline'}</div>
+                            <div class="small text-secondary text-truncate">${esc(user.department || 'Staff')} &middot; ${isOnline ? 'Online now' : 'Offline'}</div>
                         </div>
-                        ${user.unread_messages ? `<span class="badge bg-primary rounded-pill">${user.unread_messages > 99 ? '99+' : user.unread_messages}</span>` : ''}
-                        <button type="button" class="btn btn-outline-primary btn-sm" data-user-chat="${user.id}">Chat</button>
+                        ${!isCurrentUser && user.unread_messages ? `<span class="badge bg-primary rounded-pill">${user.unread_messages > 99 ? '99+' : user.unread_messages}</span>` : ''}
+                        ${chatButton}
                     </div>
                 </div>
-            `).join('');
+            `;
+                        }).join('');
 
                     peoplePane.innerHTML = html ||
                         '<div class="chat-mini-empty"><div><i class="ti ti-user-search fs-1"></i><div class="mt-2">No staff found.</div></div></div>';
                     peoplePane.querySelectorAll('[data-user-id]').forEach((item) => {
                         item.addEventListener('click', (event) => {
-                            if (event.target.closest('button[data-user-chat]')) return;
+                            if (item.dataset.currentUser === 'true' || event.target.closest('button[data-user-chat]')) return;
                             startDirectChat(Number(item.dataset.userId)).catch((error) => alert(
                                 error.message || 'Unable to start chat.'));
                         });
@@ -427,8 +466,8 @@
                 };
 
                 const toggleVoiceRecording = async () => {
-                    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
-                        alert('Your browser does not support voice recording.');
+                    if (!supportsVoiceRecording()) {
+                        markVoiceRecordingUnavailable();
                         return;
                     }
 
@@ -618,8 +657,8 @@
                         return;
                     }
 
-                    if (!navigator.mediaDevices?.getUserMedia || !window.RTCPeerConnection) {
-                        alert('Your browser does not support live voice calls.');
+                    if (!supportsLiveCall()) {
+                        markLiveCallUnavailable();
                         return;
                     }
 
@@ -677,6 +716,7 @@
 
                 const refreshData = async () => {
                     try {
+                        await api(routes.heartbeat, { method: 'POST' }).catch(() => {});
                         const [conversationData, usersData, unreadData] = await Promise.all([
                             api(routes.conversations),
                             api(routes.users),
@@ -892,8 +932,10 @@
 
                 callStartButton.addEventListener('click', () => startVoiceCall().catch((error) => alert(error.message ||
                     'Unable to start the voice call.')));
-                recordVoiceButton.addEventListener('click', () => toggleVoiceRecording().catch((error) => alert(error
-                    .message || 'Unable to record voice message.')));
+                recordVoiceButton.addEventListener('click', () => toggleVoiceRecording().catch((error) => {
+                    console.warn(error?.message || 'Unable to record voice message.');
+                    setVoiceButtonIdle();
+                }));
                 callAcceptButton.addEventListener('click', () => acceptIncomingCall().catch((error) => alert(error
                     .message || 'Unable to accept the call.')));
                 callEndButton.addEventListener('click', () => endCurrentCall().catch(() => resetCallState()));
@@ -929,6 +971,7 @@
 
                 window.setInterval(() => refreshActiveCall().catch(() => {}), 2000);
                 window.setInterval(() => checkIncomingCalls().catch(() => {}), 5000);
+                api(routes.heartbeat, { method: 'POST' }).catch(() => {});
                 window.setInterval(() => api(routes.heartbeat, {
                     method: 'POST'
                 }).catch(() => {}), 60000);

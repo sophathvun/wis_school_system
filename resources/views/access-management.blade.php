@@ -365,7 +365,7 @@
                     <div class="card-body border-bottom"><label class="form-label">Select User</label><select
                             class="form-select" name="user_id" data-access-auto-submit>
                             @foreach ($users as $item)
-                                <option value="{{ $item->id }}" @selected($selectedUser?->id === $item->id)>{{ $item->name }} â€”
+                                <option value="{{ $item->id }}" @selected($selectedUser?->id === $item->id)>{{ $item->name }} —
                                     {{ $item->username }}</option>
                             @endforeach
                         </select></div>

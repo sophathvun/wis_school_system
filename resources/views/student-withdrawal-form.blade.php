@@ -66,12 +66,9 @@
             <section class="copy">
                 <div class="copy-label">{{ $copyLabel }}</div>
                 <header class="brand">
+
                     <img class="brand-logo" src="{{ $logoPath }}" alt="Western International School">
-                    <div>
-                        <div class="brand-kh">វេស្ទើនអន្តរជាតិ</div>
-                        <div class="brand-en">WESTERN INTERNATIONAL SCHOOL</div>
-                        <div class="brand-tagline">Start your future today!</div>
-                    </div>
+
                 </header>
 
                 <div class="form-title">

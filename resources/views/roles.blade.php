@@ -113,7 +113,7 @@
                                 <td>{{ $roles->firstItem() + $loop->index }}</td>
                                 <td>{{ $role->name }}</td>
                                 <td>{{ $role->code }}</td>
-                                <td>{{ $role->department?->name ?? 'â€”' }}</td>
+                                <td>{{ $role->department?->name ?? '—' }}</td>
                                 <td>{{ $role->is_global ? 'Global' : 'Campus' }}</td>
                                 <td><span
                                         class="badge bg-{{ $role->status ? 'success' : 'secondary' }}">{{ $role->status ? 'Active' : 'Inactive' }}</span>

@@ -57,25 +57,148 @@
     white-space: nowrap;
 }
 
+.withdrawal-mobile-cards {
+    display: none;
+}
+
+.withdrawal-mobile-card {
+    position: relative;
+    overflow: hidden;
+    margin: 0 0.85rem 0.9rem;
+    padding: 4rem 0.85rem 0.85rem;
+    border: 1px solid var(--tblr-border-color);
+    border-radius: 8px;
+    background: var(--tblr-bg-surface, #fff);
+    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
+}
+
+.withdrawal-mobile-card::after {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    bottom: 0;
+    height: 3px;
+    background: var(--tblr-primary);
+}
+
+.withdrawal-card-number {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: grid;
+    width: 3rem;
+    height: 3rem;
+    place-items: center;
+    color: #fff;
+    background: var(--tblr-primary);
+    font-size: 1.05rem;
+    font-weight: 700;
+}
+
+.withdrawal-card-student {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.85rem;
+    margin-bottom: 1rem;
+}
+
+.withdrawal-card-student .withdrawal-history-photo,
+.withdrawal-card-student .withdrawal-history-photo-placeholder {
+    width: 58px;
+    height: 72px;
+    flex: 0 0 58px;
+}
+
+.withdrawal-card-student-id,
+.withdrawal-card-grid span {
+    color: var(--tblr-secondary);
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.withdrawal-card-name-kh {
+    margin-top: 0.15rem;
+    font-size: 0.95rem;
+    line-height: 1.25;
+}
+
+.withdrawal-card-name-en {
+    font-size: 0.86rem;
+    line-height: 1.25;
+}
+
+.withdrawal-card-grid {
+    display: grid;
+    gap: 0.65rem;
+}
+
+.withdrawal-card-grid > div {
+    display: grid;
+    grid-template-columns: minmax(0, 7.5rem) minmax(0, 1fr);
+    align-items: start;
+    gap: 0.65rem;
+}
+
+.withdrawal-card-grid strong {
+    justify-self: end;
+    color: var(--tblr-body-color);
+    font-size: 0.86rem;
+    font-weight: 500;
+    text-align: right;
+}
+
+.withdrawal-card-grid small {
+    display: block;
+    color: var(--tblr-secondary);
+    font-size: 0.72rem;
+    font-weight: 400;
+}
+
+.withdrawal-card-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.65rem;
+    margin-top: 1rem;
+}
+
+.withdrawal-card-actions .btn {
+    justify-content: center;
+    min-height: 40px;
+}
+
+.withdrawal-mobile-empty {
+    margin: 0.85rem;
+    padding: 1rem;
+    border: 1px dashed var(--tblr-border-color);
+    border-radius: 8px;
+    color: var(--tblr-secondary);
+    text-align: center;
+}
+
 #withdrawalModal .modal-dialog,
 #editWithdrawalModal .modal-dialog {
     width: calc(100% - 2rem);
     max-width: 1100px;
 }
 
+#withdrawalForm .withdrawal-filter-fields {
+    display: contents;
+}
+
 @media (min-width: 768px) {
     #withdrawalForm .withdrawal-filter-fields > .col-md-6 {
-        width: 33.333333%;
+        width: 50%;
         flex: 0 0 auto;
     }
 
     #withdrawalForm .student-withdrawal-field {
-        width: 66.666667%;
+        width: 50%;
         flex: 0 0 auto;
     }
 
     #withdrawalForm .withdrawal-date-column {
-        width: 33.333333%;
+        width: 50%;
         flex: 0 0 auto;
     }
 
@@ -84,6 +207,21 @@
         > .row.g-2:first-of-type
         > .col-md-6 {
         width: 33.333333%;
+        flex: 0 0 auto;
+    }
+}
+
+@media (min-width: 1200px) {
+    #withdrawalForm.withdrawal-type-student .withdrawal-filter-fields > .col-md-6,
+    #withdrawalForm.withdrawal-type-student .student-withdrawal-field,
+    #withdrawalForm.withdrawal-type-student .withdrawal-date-column {
+        width: 20%;
+        flex: 0 0 auto;
+    }
+
+    #withdrawalForm.withdrawal-type-bulk .withdrawal-filter-fields > .col-md-6,
+    #withdrawalForm.withdrawal-type-bulk .withdrawal-date-column {
+        width: 25%;
         flex: 0 0 auto;
     }
 }
@@ -103,6 +241,36 @@
     filter: brightness(0.96);
 }
 
+#withdrawalForm .required-star,
+#editWithdrawalForm .required-star {
+    color: var(--tblr-danger, #d63939);
+}
+
+#withdrawalModal .premium-form-field.withdrawal-label-inside-blank.has-value > .form-label,
+#withdrawalModal .premium-form-field.withdrawal-label-inside-blank:focus-within > .form-label {
+    top: 1rem;
+    left: 2.75rem;
+    padding: 0 0.35rem;
+    color: var(--tblr-secondary-color);
+    background: transparent;
+    font-size: 0.95rem;
+    font-weight: 400;
+}
+
+#withdrawalForm .location-combobox-toggle.is-invalid,
+#withdrawalForm .withdrawal-date-picker.is-invalid,
+#withdrawalForm .withdrawal-requested-phone-group.is-invalid,
+#withdrawalForm .withdrawal-reason-panel.is-invalid,
+#withdrawalForm #withdrawal-students.is-invalid {
+    border-color: var(--tblr-danger, #d63939) !important;
+    box-shadow: 0 0 0 3px rgba(214, 57, 57, 0.12) !important;
+}
+
+#withdrawalForm .withdrawal-validation-error {
+    margin-top: 0.35rem;
+    font-size: 0.78rem;
+}
+
 #withdrawalModal .modal-content {
     overflow: hidden;
 }
@@ -115,6 +283,77 @@
 #editWithdrawalModal .modal-body {
     max-height: calc(100vh - 10rem);
     overflow-y: auto;
+}
+
+#withdrawalModal .withdrawal-requested-phone-group,
+#editWithdrawalModal .withdrawal-requested-phone-group {
+    height: 52px;
+    min-height: 52px;
+    overflow: hidden;
+    border: 1.5px solid #dfe3ea;
+    border-radius: 14px;
+    background: var(--tblr-bg-surface, #fff);
+    box-shadow: 0 2px 7px rgba(31, 41, 55, 0.04);
+}
+
+#withdrawalModal .premium-form-field:has(> .withdrawal-requested-phone-group) > .form-label,
+#editWithdrawalModal .premium-form-field:has(> .withdrawal-requested-phone-group) > .form-label {
+    top: 0.42rem;
+    left: 1rem;
+    padding: 0 0.45rem;
+    color: #5b4bd1;
+    background: var(--tblr-bg-surface, #fff);
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+
+#withdrawalModal .withdrawal-requested-phone-group .phone-country-wrapper,
+#editWithdrawalModal .withdrawal-requested-phone-group .phone-country-wrapper {
+    display: flex;
+    flex: 0 0 5.75rem;
+    align-items: center;
+    gap: 0.35rem;
+    height: 100%;
+    padding: 1.25rem 0.45rem 0.35rem 0.75rem;
+    border-right: 1px solid var(--tblr-border-color);
+}
+
+#withdrawalModal .withdrawal-requested-phone-group .phone-country-flag,
+#editWithdrawalModal .withdrawal-requested-phone-group .phone-country-flag {
+    position: static;
+    flex: 0 0 1.35rem;
+    transform: none;
+}
+
+#withdrawalModal .withdrawal-requested-phone-group .phone-country,
+#editWithdrawalModal .withdrawal-requested-phone-group .phone-country {
+    height: auto;
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent !important;
+    box-shadow: none !important;
+    line-height: 1;
+}
+
+#withdrawalModal .withdrawal-requested-phone-group .form-control,
+#editWithdrawalModal .withdrawal-requested-phone-group .form-control {
+    height: 100%;
+    min-height: 52px;
+    padding-top: 1.25rem;
+    padding-left: 0.75rem;
+    padding-bottom: 0.35rem;
+    border: 0;
+    border-radius: 0;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+#withdrawalModal .premium-form-field:focus-within > .withdrawal-requested-phone-group,
+#editWithdrawalModal .premium-form-field:focus-within > .withdrawal-requested-phone-group {
+    border-color: #6b5bd6;
+    box-shadow: 0 0 0 3px rgba(107, 91, 214, 0.14);
 }
 
 .edit-student-summary {
@@ -195,6 +434,29 @@
     }
 }
 
+@media (max-width: 767.98px) {
+    #studentWithdrawalPage > .card > .card-header {
+        padding: 1rem;
+    }
+
+    #studentWithdrawalPage > .card > .card-body {
+        padding: 0.85rem;
+    }
+
+    #studentWithdrawalPage .table-responsive {
+        display: none;
+    }
+
+    .withdrawal-mobile-cards {
+        display: block;
+        padding-top: 0.85rem;
+    }
+
+    #studentWithdrawalPage .card-footer {
+        padding: 0.75rem 0.85rem 1rem;
+    }
+}
+
 .withdrawal-date-picker {
     position: relative;
     display: block;
@@ -256,6 +518,59 @@
     right: 0;
     width: 21rem;
     max-width: min(21rem, calc(100vw - 2rem));
+}
+
+@media (max-width: 575.98px) {
+    #withdrawalModal .modal-dialog {
+        margin: 0.5rem;
+    }
+
+    #withdrawalModal .modal-body {
+        max-height: calc(100vh - 8.5rem);
+        padding-right: 1rem;
+        padding-left: 1rem;
+    }
+
+    #withdrawalModal .withdrawal-date-picker .date-picker-popup {
+        right: auto;
+        left: 50%;
+        width: min(18.5rem, calc(100vw - 3rem));
+        max-width: calc(100vw - 3rem);
+        transform: translateX(-50%);
+        border-radius: 1rem;
+    }
+
+    #withdrawalModal .withdrawal-date-picker .date-picker-header {
+        padding: 0.75rem 0.9rem;
+    }
+
+    #withdrawalModal .withdrawal-date-picker .date-picker-grid {
+        padding: 0.75rem 0.85rem 0.9rem;
+    }
+
+    #withdrawalModal .withdrawal-date-picker .date-picker-weekdays,
+    #withdrawalModal .withdrawal-date-picker .date-picker-days {
+        gap: 0.15rem 0.2rem;
+    }
+
+    #withdrawalModal .withdrawal-date-picker .date-picker-day {
+        height: 1.85rem;
+        font-size: 0.82rem;
+    }
+
+    #withdrawalModal .withdrawal-date-picker .date-picker-year-popup {
+        max-height: 8.5rem;
+    }
+
+    #withdrawalModal .withdrawal-date-picker .date-picker-years {
+        gap: 0.2rem;
+        padding: 0.65rem 0.75rem;
+    }
+
+    #withdrawalModal .withdrawal-date-picker .date-picker-year {
+        min-height: 1.75rem;
+        font-size: 0.78rem;
+    }
 }
 
 .requested-by-card {

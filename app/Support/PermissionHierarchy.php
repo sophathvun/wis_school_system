@@ -16,7 +16,7 @@ class PermissionHierarchy
             'locations' => 'Locations', 'occupations' => 'Occupations', 'nationalities' => 'Nationalities', 'academic-tracks' => 'Academic Tracks', 'withdrawal-reasons' => 'Withdrawal Reasons',
             'student-document-types' => 'Document Types', 'dashboard-templates' => 'Dashboard Templates', 'branding' => 'Branding', 'database-backups' => 'Database Backups',
             'groups' => 'School Groups', 'terms' => 'Terms', 'campuses' => 'Campuses', 'summer-school' => 'Summer School', 'student-withdrawals' => 'Student Withdrawals',
-            'reports' => 'Reports',
+            'attendance' => 'Attendance', 'schedules' => 'Schedules', 'grading-system' => 'Grading System', 'reports' => 'Reports',
             'students.search' => 'Search Students', 'students.enrollment' => 'Student Enrollment', 'families' => 'Family Management',
             'students.promotion' => 'Student Promotion', 'students.transfer' => 'Student Transfer', 'students.graduation' => 'Student Graduation',
             'student-reentry' => 'Student Re-entry', 'student-documents' => 'Student Documents', 'student-data-transfer' => 'Import / Export Data',
@@ -50,6 +50,21 @@ class PermissionHierarchy
                 'label' => 'Dashboard', 'permission' => 'dashboard.view',
                 'modules' => [],
                 'actions' => ['dashboard.customize', 'dashboard.reset'],
+            ],
+            'attendance' => [
+                'label' => 'Attendance', 'permission' => 'attendance.view',
+                'modules' => [],
+                'actions' => ['attendance.manage'],
+            ],
+            'schedules' => [
+                'label' => 'Schedules', 'permission' => 'schedules.view',
+                'modules' => [],
+                'actions' => ['schedules.manage'],
+            ],
+            'grading-system' => [
+                'label' => 'Grading System', 'permission' => 'grading-system.view',
+                'modules' => [],
+                'actions' => ['grading-system.manage'],
             ],
             'reports' => [
                 'label' => 'Reports', 'permission' => 'reports.view',

@@ -90,7 +90,7 @@ class UserManagementController
         }
         $data = $request->validate([
             'user_id' => ['nullable', 'exists:users,id'], 'staff_id' => ['required', 'string', 'max:50', 'unique:users,staff_id,'.$userId], 'name' => ['required', 'string', 'max:255'],
-            'gender' => ['nullable', 'string', 'max:20'], 'date_of_birth' => ['nullable', 'date'], 'phone' => ['nullable', 'string', 'max:50'], 'position_id' => ['nullable', 'exists:access_positions,id'],
+            'gender' => ['nullable', 'in:Male,Female,Other,male,female,other'], 'date_of_birth' => ['nullable', 'date'], 'phone' => ['nullable', 'string', 'max:50'], 'position_id' => ['nullable', 'exists:access_positions,id'],
             'username' => ['required', 'string', 'max:80', 'unique:users,username,'.$userId],
             'email' => ['required', 'email', 'max:255', 'unique:users,email,'.$userId],
             'password' => ['nullable', 'string', 'min:8', 'confirmed'],
@@ -100,6 +100,9 @@ class UserManagementController
             'status' => ['required', 'in:0,1'], 'login_identifier' => ['required', 'in:username,email,both'],
             'is_global' => ['nullable', 'boolean'], 'photo' => ['nullable', 'image', 'max:2048'],
         ]);
+        $data['phone'] = $this->normalizeCambodiaPhone($data['phone'] ?? null);
+        $data['gender'] = $this->normalizeGender($data['gender'] ?? null);
+
         if ($userId && (int) $userId === (int) $request->user()->id && (string) $data['status'] === '0') {
             return back()->withInput()->withErrors(['status' => 'You cannot deactivate your own account while you are logged in.']);
         }
@@ -129,6 +132,33 @@ class UserManagementController
             foreach ($data['permission_ids'] ?? [] as $permissionId) DB::table('access_user_permission_overrides')->insert(['user_id' => $user->id, 'permission_id' => $permissionId, 'allowed' => true, 'created_at' => now(), 'updated_at' => now()]);
         });
         return redirect()->route('users.index')->with('success', $userId ? 'User updated successfully.' : 'User created successfully.');
+    }
+
+    private function normalizeGender(?string $value): ?string
+    {
+        return match (strtolower(trim((string) $value))) {
+            'male' => 'Male',
+            'female' => 'Female',
+            'other' => 'Other',
+            default => null,
+        };
+    }
+
+    private function normalizeCambodiaPhone(?string $value): ?string
+    {
+        $digits = preg_replace('/\D+/', '', (string) $value);
+        if ($digits === '') {
+            return null;
+        }
+        if (str_starts_with($digits, '855')) {
+            $digits = substr($digits, 3);
+        }
+        if (str_starts_with($digits, '0')) {
+            $digits = substr($digits, 1);
+        }
+        $digits = substr($digits, 0, 9);
+
+        return $digits === '' ? null : '+855'.$digits;
     }
 
     public function delete(Request $request, User $user)

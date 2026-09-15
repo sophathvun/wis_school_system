@@ -11,6 +11,7 @@ use App\Models\Student;
 use App\Models\StudentEnrollment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Rule;
@@ -27,7 +28,10 @@ class StudentEnrollmentController
     public function __construct(private readonly FamilyService $familyService) {}
     public function index()
     {
-        return view('student-enrollment');
+        return view('student-enrollment', [
+            'listAcademicYears' => AcademicYear::orderByDesc('academic_year')
+                ->get(['id', 'academic_year', 'period_type', 'parent_academic_year_id', 'lifecycle_status', 'start_date', 'end_date']),
+        ]);
     }
 
     public function listOptions()
@@ -93,8 +97,8 @@ class StudentEnrollmentController
     public function fetchData(Request $request)
     {
         $search = $request->query('search');
-        $sortBy = (string) $request->query('sortBy', 'id');
-        $sortDir = $request->query('sortDir') === 'asc' ? 'asc' : 'desc';
+        $sortBy = (string) $request->query('sortBy', 'student_name');
+        $sortDir = $request->query('sortDir', 'asc') === 'desc' ? 'desc' : 'asc';
         $gradeClass = (string) $request->query('grade_class', '');
         [$filterGradeId, $filterClassId] = array_pad(explode(':', $gradeClass, 2), 2, null);
         $query = StudentEnrollment::query()
@@ -126,7 +130,10 @@ class StudentEnrollmentController
             // location relationship for every enrollment makes the list and
             // Edit action unnecessarily slow; family members remain eager-loaded.
             ->with([
-                'student.families.members',
+                // Family contacts are loaded only when the profile or edit
+                // form is opened. Loading every member for every table row
+                // makes the initial list request unnecessarily expensive.
+                'student.families',
                 'campus',
                 'academicYear' => fn ($year) => $year->withTrashed(),
                 'grade',
@@ -135,7 +142,6 @@ class StudentEnrollmentController
                 'schoolGroup',
                 'session',
             ])
-            ->when(!$request->filled('enrollment_status'), fn ($q) => $q->whereIn('tb_student_enrollment.enrollment_status', ['active', 'pending']))
             ->when($request->filled('academic_year_id'), fn ($q) => $q->where('tb_student_enrollment.academic_year_id', $request->integer('academic_year_id')))
             ->when($request->filled('campus_id'), fn ($q) => $q->where('tb_student_enrollment.campus_id', $request->integer('campus_id')))
             ->when($filterGradeId && $filterClassId, fn ($q) => $q->where('tb_student_enrollment.grade_id', (int) $filterGradeId)->where('tb_student_enrollment.class_id', (int) $filterClassId))
@@ -159,7 +165,8 @@ class StudentEnrollmentController
 
         match ($sortBy) {
             'student_id' => $query->orderBy('tb_student.student_id', $sortDir),
-            'student_name' => $query->orderByRaw("LOWER(COALESCE(NULLIF(tb_student.full_name_en, ''), tb_student.full_name_kh)) {$sortDir}"),
+            'student_name' => $query->orderByRaw("LOWER(NULLIF(tb_student.full_name_en, '')) {$sortDir}")
+                ->orderBy('tb_student.student_id', $sortDir),
             'student_type' => $query->orderBy('tb_student_enrollment.student_type', $sortDir),
             'academic_year' => $query->orderBy('tb_academic_year.academic_year', $sortDir),
             'campus' => $query->orderBy('tb_school_info.campus_name_en', $sortDir),
@@ -171,6 +178,16 @@ class StudentEnrollmentController
         };
 
         return response()->json($query->paginate($request->query('perPage', 10)));
+    }
+
+    public function filterOptions(Request $request)
+    {
+        return response()->json($this->enrollmentDependentFilterOptions($request));
+    }
+
+    public function stats(Request $request)
+    {
+        return response()->json($this->enrollmentListStats($request));
     }
 
     public function studentAcademicYears(Student $student)
@@ -189,7 +206,6 @@ class StudentEnrollmentController
                     'session',
                 ])
                 ->where('tb_student_enrollment.student_id', $student->id)
-                ->whereIn('tb_student_enrollment.enrollment_status', ['active', 'pending'])
                 ->orderByDesc('tb_academic_year.academic_year')
                 ->orderByDesc('tb_student_enrollment.id')
                 ->get(),
@@ -508,46 +524,167 @@ class StudentEnrollmentController
         return $name . '_' . trim($studentId, '_') . '.' . strtolower($extension);
     }
 
-    private function enrollmentListOptions(): array
+    private function filteredEnrollmentStatsQuery(Request $request)
     {
+        $search = $request->query('search');
+        $gradeClass = (string) $request->query('grade_class', '');
+        [$filterGradeId, $filterClassId] = array_pad(explode(':', $gradeClass, 2), 2, null);
+
+        return StudentEnrollment::query()
+            ->leftJoin('tb_student', 'tb_student.id', '=', 'tb_student_enrollment.student_id')
+            ->when($request->filled('academic_year_id'), fn ($q) => $q->where('tb_student_enrollment.academic_year_id', $request->integer('academic_year_id')))
+            ->when($request->filled('campus_id'), fn ($q) => $q->where('tb_student_enrollment.campus_id', $request->integer('campus_id')))
+            ->when($filterGradeId && $filterClassId, fn ($q) => $q->where('tb_student_enrollment.grade_id', (int) $filterGradeId)->where('tb_student_enrollment.class_id', (int) $filterClassId))
+            ->when($request->filled('group_id'), fn ($q) => $q->where('tb_student_enrollment.session_id', $request->integer('group_id')))
+            ->when($request->filled('student_id'), fn ($q) => $q->where('tb_student_enrollment.student_id', $request->integer('student_id')))
+            ->when($request->filled('enrollment_status'), fn ($q) => $q->where('tb_student_enrollment.enrollment_status', $request->string('enrollment_status')->toString()))
+            ->when($search, function ($q, $term) {
+                $q->where(function ($query) use ($term) {
+                    $query->where('tb_student.student_no', 'like', "%{$term}%")
+                        ->orWhere('tb_student.student_id', 'like', "%{$term}%")
+                        ->orWhere('tb_student.family_number', 'like', "%{$term}%")
+                        ->orWhere('tb_student.full_name_en', 'like', "%{$term}%")
+                        ->orWhere('tb_student.full_name_kh', 'like', "%{$term}%");
+                });
+            });
+    }
+
+    private function enrollmentListStats(Request $request): array
+    {
+        $row = $this->filteredEnrollmentStatsQuery($request)
+            ->selectRaw("
+                COUNT(DISTINCT tb_student_enrollment.student_id) as total_students,
+                COUNT(DISTINCT CASE WHEN LOWER(tb_student.gender) IN ('male', 'm') THEN tb_student_enrollment.student_id END) as total_male,
+                COUNT(DISTINCT CASE WHEN LOWER(tb_student.gender) IN ('female', 'f') THEN tb_student_enrollment.student_id END) as total_female,
+                COUNT(DISTINCT CASE WHEN tb_student_enrollment.enrollment_status = 'active' THEN tb_student_enrollment.student_id END) as active_students,
+                COUNT(DISTINCT CASE WHEN tb_student_enrollment.enrollment_status = 'active' AND LOWER(tb_student.gender) IN ('male', 'm') THEN tb_student_enrollment.student_id END) as active_male,
+                COUNT(DISTINCT CASE WHEN tb_student_enrollment.enrollment_status = 'active' AND LOWER(tb_student.gender) IN ('female', 'f') THEN tb_student_enrollment.student_id END) as active_female,
+                COUNT(DISTINCT CASE WHEN tb_student_enrollment.enrollment_status = 'withdrawn' THEN tb_student_enrollment.student_id END) as withdrawn_students,
+                COUNT(DISTINCT CASE WHEN tb_student_enrollment.enrollment_status = 'withdrawn' AND LOWER(tb_student.gender) IN ('male', 'm') THEN tb_student_enrollment.student_id END) as withdrawn_male,
+                COUNT(DISTINCT CASE WHEN tb_student_enrollment.enrollment_status = 'withdrawn' AND LOWER(tb_student.gender) IN ('female', 'f') THEN tb_student_enrollment.student_id END) as withdrawn_female,
+                COUNT(DISTINCT CASE WHEN tb_student_enrollment.student_type = 'new' THEN tb_student_enrollment.student_id END) as new_students,
+                COUNT(DISTINCT CASE WHEN tb_student_enrollment.student_type = 'new' AND LOWER(tb_student.gender) IN ('male', 'm') THEN tb_student_enrollment.student_id END) as new_male,
+                COUNT(DISTINCT CASE WHEN tb_student_enrollment.student_type = 'new' AND LOWER(tb_student.gender) IN ('female', 'f') THEN tb_student_enrollment.student_id END) as new_female
+            ")
+            ->first();
+
         return [
-            'allAcademicYears' => AcademicYear::orderByDesc('academic_year')
-                ->get(['id', 'academic_year', 'period_type', 'parent_academic_year_id', 'lifecycle_status', 'start_date', 'end_date']),
-            'enrollmentFilterRows' => StudentEnrollment::query()
-                ->join('tb_student', 'tb_student.id', '=', 'tb_student_enrollment.student_id')
-                ->join('tb_academic_year', 'tb_academic_year.id', '=', 'tb_student_enrollment.academic_year_id')
+            'total' => [
+                'count' => (int) ($row->total_students ?? 0),
+                'male' => (int) ($row->total_male ?? 0),
+                'female' => (int) ($row->total_female ?? 0),
+            ],
+            'active' => [
+                'count' => (int) ($row->active_students ?? 0),
+                'male' => (int) ($row->active_male ?? 0),
+                'female' => (int) ($row->active_female ?? 0),
+            ],
+            'withdrawn' => [
+                'count' => (int) ($row->withdrawn_students ?? 0),
+                'male' => (int) ($row->withdrawn_male ?? 0),
+                'female' => (int) ($row->withdrawn_female ?? 0),
+            ],
+            'new' => [
+                'count' => (int) ($row->new_students ?? 0),
+                'male' => (int) ($row->new_male ?? 0),
+                'female' => (int) ($row->new_female ?? 0),
+            ],
+        ];
+    }
+
+    private function enrollmentDependentFilterOptions(Request $request): array
+    {
+        $yearId = $request->integer('academic_year_id') ?: null;
+        $campusId = $request->integer('campus_id') ?: null;
+        $gradeClass = (string) $request->query('grade_class', '');
+        [$gradeId, $classId] = array_pad(explode(':', $gradeClass, 2), 2, null);
+        $groupId = $request->integer('group_id') ?: null;
+        $studentId = $request->integer('student_id') ?: null;
+
+        $base = fn () => StudentEnrollment::query();
+        $applyYear = fn ($query) => $query->when($yearId, fn ($q) => $q->where('tb_student_enrollment.academic_year_id', $yearId));
+        $applyCampus = fn ($query) => $applyYear($query)->when($campusId, fn ($q) => $q->where('tb_student_enrollment.campus_id', $campusId));
+        $applyGrade = fn ($query) => $applyCampus($query)->when($gradeId && $classId, fn ($q) => $q->where('tb_student_enrollment.grade_id', (int) $gradeId)->where('tb_student_enrollment.class_id', (int) $classId));
+        $applyGroup = fn ($query) => $applyGrade($query)->when($groupId, fn ($q) => $q->where('tb_student_enrollment.session_id', $groupId));
+        $applyStudent = fn ($query) => $applyGroup($query)->when($studentId, fn ($q) => $q->where('tb_student_enrollment.student_id', $studentId));
+
+        return [
+            'campuses' => $applyYear($base())
                 ->join('tb_school_info', 'tb_school_info.id', '=', 'tb_student_enrollment.campus_id')
+                ->selectRaw('tb_student_enrollment.campus_id, MAX(tb_school_info.campus_name_en) as campus_name_en')
+                ->groupBy('tb_student_enrollment.campus_id')
+                ->orderBy('tb_school_info.campus_name_en')
+                ->get(),
+            'grades' => $applyCampus($base())
                 ->join('tb_grade', 'tb_grade.id', '=', 'tb_student_enrollment.grade_id')
                 ->join('tb_class', 'tb_class.id', '=', 'tb_student_enrollment.class_id')
-                ->leftJoin('tb_session', 'tb_session.id', '=', 'tb_student_enrollment.session_id')
-                ->select([
-                    'tb_student_enrollment.academic_year_id',
-                    'tb_student_enrollment.campus_id',
-                    'tb_student_enrollment.grade_id',
-                    'tb_student_enrollment.class_id',
-                    'tb_student_enrollment.session_id as group_id',
-                    'tb_student_enrollment.enrollment_status',
-                    'tb_student_enrollment.student_id as student_record_id',
-                    'tb_academic_year.academic_year',
-                    'tb_school_info.campus_name_en',
-                    'tb_grade.grade',
-                    'tb_grade.grade_order',
-                    'tb_class.class_name',
-                    'tb_class.class_order',
-                    'tb_session.session_short_name',
-                    'tb_student.student_id as student_code',
-                    'tb_student.full_name_en',
-                    'tb_student.full_name_kh',
-                ])
-                ->whereIn('tb_student_enrollment.enrollment_status', ['active', 'pending'])
-                ->distinct()
-                ->orderByDesc('tb_academic_year.academic_year')
-                ->orderBy('tb_school_info.campus_name_en')
+                ->selectRaw('tb_student_enrollment.grade_id, tb_student_enrollment.class_id, MAX(tb_grade.grade) as grade, MAX(tb_grade.grade_order) as grade_order, MAX(tb_class.class_name) as class_name, MAX(tb_class.class_order) as class_order')
+                ->groupBy('tb_student_enrollment.grade_id', 'tb_student_enrollment.class_id')
                 ->orderByRaw('CAST(tb_grade.grade_order AS UNSIGNED)')
                 ->orderByRaw('CAST(tb_class.class_order AS UNSIGNED)')
-                ->orderByRaw("COALESCE(NULLIF(tb_student.full_name_en, ''), tb_student.full_name_kh, tb_student.student_id)")
+                ->orderBy('tb_class.class_name')
+                ->get(),
+            'groups' => $applyGrade($base())
+                ->join('tb_session', 'tb_session.id', '=', 'tb_student_enrollment.session_id')
+                ->selectRaw('tb_student_enrollment.session_id as group_id, MAX(tb_session.session_short_name) as session_short_name, MAX(tb_session.session_order) as session_order')
+                ->whereNotNull('tb_student_enrollment.session_id')
+                ->groupBy('tb_student_enrollment.session_id')
+                ->orderByRaw('CAST(tb_session.session_order AS UNSIGNED)')
+                ->orderBy('tb_session.session_short_name')
+                ->get(),
+            'students' => $applyGroup($base())
+                ->join('tb_student', 'tb_student.id', '=', 'tb_student_enrollment.student_id')
+                ->selectRaw('tb_student_enrollment.student_id as student_record_id, MAX(tb_student.student_id) as student_code, MAX(tb_student.full_name_en) as full_name_en, MAX(tb_student.full_name_kh) as full_name_kh')
+                ->groupBy('tb_student_enrollment.student_id')
+                ->orderByRaw("LOWER(COALESCE(NULLIF(tb_student.full_name_en, ''), tb_student.full_name_kh, tb_student.student_id))")
+                ->limit(1000)
+                ->get(),
+            'statuses' => $applyStudent($base())
+                ->select('tb_student_enrollment.enrollment_status')
+                ->whereNotNull('tb_student_enrollment.enrollment_status')
+                ->distinct()
+                ->orderBy('tb_student_enrollment.enrollment_status')
                 ->get(),
         ];
+    }
+
+    private function enrollmentListOptions(): array
+    {
+        return Cache::remember('student-enrollment:list-options', now()->addSeconds(30), function (): array {
+            return [
+                'allAcademicYears' => AcademicYear::orderByDesc('academic_year')
+                    ->get(['id', 'academic_year', 'period_type', 'parent_academic_year_id', 'lifecycle_status', 'start_date', 'end_date']),
+                // Filter rows are normalized in the browser. Avoid DISTINCT and
+                // server-side sorting here; both require a full temporary sort.
+                'enrollmentFilterRows' => StudentEnrollment::query()
+                    ->join('tb_student', 'tb_student.id', '=', 'tb_student_enrollment.student_id')
+                    ->join('tb_academic_year', 'tb_academic_year.id', '=', 'tb_student_enrollment.academic_year_id')
+                    ->join('tb_school_info', 'tb_school_info.id', '=', 'tb_student_enrollment.campus_id')
+                    ->join('tb_grade', 'tb_grade.id', '=', 'tb_student_enrollment.grade_id')
+                    ->join('tb_class', 'tb_class.id', '=', 'tb_student_enrollment.class_id')
+                    ->leftJoin('tb_session', 'tb_session.id', '=', 'tb_student_enrollment.session_id')
+                    ->select([
+                        'tb_student_enrollment.academic_year_id',
+                        'tb_student_enrollment.campus_id',
+                        'tb_student_enrollment.grade_id',
+                        'tb_student_enrollment.class_id',
+                        'tb_student_enrollment.session_id as group_id',
+                        'tb_student_enrollment.enrollment_status',
+                        'tb_student_enrollment.student_id as student_record_id',
+                        'tb_academic_year.academic_year',
+                        'tb_school_info.campus_name_en',
+                        'tb_grade.grade',
+                        'tb_grade.grade_order',
+                        'tb_class.class_name',
+                        'tb_class.class_order',
+                        'tb_session.session_short_name',
+                        'tb_student.student_id as student_code',
+                        'tb_student.full_name_en',
+                        'tb_student.full_name_kh',
+                    ])
+                    ->get(),
+            ];
+        });
     }
 
     private function isGrade12(?Grade $grade): bool

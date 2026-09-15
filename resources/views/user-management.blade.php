@@ -1,4 +1,4 @@
-﻿@extends('layouts.app')
+@extends('layouts.app')
 @section('title', 'Users')
 @section('page-header')
     <div class="container-fluid">
@@ -8,19 +8,50 @@
                 <h2 class="page-title">Users</h2>
             </div>
             <div class="col-auto ms-auto d-print-none">
-                <div class="btn-list">
+                <form class="user-header-toolbar" method="GET">
+                    <input type="hidden" name="sortBy" value="{{ request('sortBy', 'name') }}">
+                    <input type="hidden" name="sortDir" value="{{ request('sortDir', 'asc') }}">
+                    <input type="hidden" name="per_page" value="{{ request('per_page', 10) }}">
+                    <div class="input-icon user-header-search"><span class="input-icon-addon"><i
+                                class="ti ti-search icon"></i></span><input type="text" name="search"
+                            value="{{ request('search') }}" class="form-control" placeholder="Search users"></div>
                     <a class="btn btn-outline-primary" href="{{ route('users.print') }}" target="_blank"
                         rel="noopener"><i class="ti ti-printer icon"></i> Print</a>
                     <a class="btn btn-outline-success" href="{{ route('users.excel') }}"><i
                             class="ti ti-file-spreadsheet icon"></i> Excel</a>
                     <a id="btnNewUser" class="btn btn-primary" href="{{ route('users.index', ['create' => 1]) }}"><i
                             class="ti ti-plus icon"></i> New User</a>
-                </div>
+                </form>
             </div>
         </div>
     </div>
 @endsection
 @section('content')
+    @php
+        $formatCambodiaPhone = function ($value) {
+            $digits = preg_replace('/\D+/', '', (string) $value);
+            if ($digits === '') {
+                return '';
+            }
+            if (str_starts_with($digits, '855')) {
+                $digits = substr($digits, 3);
+            }
+            if (str_starts_with($digits, '0')) {
+                $digits = substr($digits, 1);
+            }
+            $digits = substr($digits, 0, 9);
+            if ($digits === '') {
+                return '';
+            }
+            if (strlen($digits) <= 2) {
+                return '+855 ' . $digits;
+            }
+            if (strlen($digits) <= 5) {
+                return '+855 ' . substr($digits, 0, 2) . ' ' . substr($digits, 2);
+            }
+            return '+855 ' . substr($digits, 0, 2) . ' ' . substr($digits, 2, 3) . ' ' . substr($digits, 5);
+        };
+    @endphp
 
     <div class="modal modal-blur fade" id="userModal" tabindex="-1" aria-hidden="true"
         data-open-on-load="{{ $editUser || ($createUser ?? false) ? '1' : '0' }}">
@@ -71,9 +102,9 @@
                             <div class="col-md-3"><label class="form-label">Gender</label><select class="form-select"
                                     name="gender">
                                     <option value=""></option>
-                                    <option value="male" @selected(old('gender', $editUser?->gender) === 'male')>Male</option>
-                                    <option value="female" @selected(old('gender', $editUser?->gender) === 'female')>Female</option>
-                                    <option value="other" @selected(old('gender', $editUser?->gender) === 'other')>Other</option>
+                                    <option value="Male" @selected(strtolower((string) old('gender', $editUser?->gender)) === 'male')>Male</option>
+                                    <option value="Female" @selected(strtolower((string) old('gender', $editUser?->gender)) === 'female')>Female</option>
+                                    <option value="Other" @selected(strtolower((string) old('gender', $editUser?->gender)) === 'other')>Other</option>
                                 </select></div>
                             <div class="col-md-3"><label class="form-label">Date of Birth</label><input
                                     class="form-control" type="date" name="date_of_birth"
@@ -207,15 +238,14 @@
         </div>
     </div>
     <div class="modal modal-blur fade" id="staffPhotoViewModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-dialog modal-dialog-centered staff-photo-view-dialog">
             <div class="modal-content">
                 <div class="modal-header">
                     <h3 class="modal-title" id="staffPhotoViewTitle">Staff Photo</h3>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body text-center overflow-hidden">
-                    <img id="staffPhotoViewImage" src="#" alt="Staff photo"
-                        style="max-width:100%;max-height:65vh;object-fit:contain;transition:transform .2s ease">
+                    <img id="staffPhotoViewImage" src="#" alt="Staff photo">
                 </div>
                 <div class="modal-footer justify-content-center">
                     <button type="button" class="btn btn-outline-secondary" id="staffPhotoViewZoomOut"><i
@@ -225,6 +255,9 @@
                     <button type="button" class="btn btn-outline-secondary" id="staffPhotoViewZoomIn"><i
                             class="ti ti-zoom-in"></i></button>
                     <button type="button" class="btn btn-outline-secondary" id="staffPhotoViewZoomReset">Reset</button>
+                    <a class="btn btn-primary" id="staffPhotoViewDownload" href="#" download>
+                        <i class="ti ti-download"></i> Download
+                    </a>
                 </div>
             </div>
         </div>
@@ -256,26 +289,21 @@
                 ? '<span class="table-sort-icon" aria-hidden="true">↑</span>'
                 : '<span class="table-sort-icon" aria-hidden="true">↓</span>';
         };
+        $genderIcon = function ($gender) {
+            $gender = strtolower((string) $gender);
+
+            return match ($gender) {
+                'male' => ['ti-gender-male', 'Male'],
+                'female' => ['ti-gender-female', 'Female'],
+                default => ['ti-gender-bigender', $gender ? ucfirst($gender) : 'Gender'],
+            };
+        };
     @endphp
     <div class="card user-management-list-card">
         <div class="card-header">
             <h3 class="card-title">User Lists</h3>
         </div>
-        <form method="GET">
-            <div class="card-body border-bottom py-3">
-                <input type="hidden" name="sortBy" value="{{ request('sortBy', 'name') }}">
-                <input type="hidden" name="sortDir" value="{{ request('sortDir', 'asc') }}">
-                <input type="hidden" name="per_page" value="{{ request('per_page', 10) }}">
-                <div class="row g-2 align-items-center justify-content-end">
-                    <div class="col-md-4">
-                        <div class="input-icon"><span class="input-icon-addon"><i
-                                    class="ti ti-search icon"></i></span><input type="text" name="search"
-                                value="{{ request('search') }}" class="form-control form-control-sm"
-                                placeholder="Search users"></div>
-                    </div>
-                </div>
-            </div>
-        </form>
+
         <div class="user-management-mobile-list-wrap d-md-none">
             <div class="user-management-mobile-scroll-hint user-management-mobile-scroll-hint-left"
                 aria-hidden="true">
@@ -321,7 +349,7 @@
                     <div class="user-management-mobile-grid">
                         <div>
                             <span>Phone</span>
-                            <strong>{{ $user->phone ?: '' }}</strong>
+                            <strong>{{ $formatCambodiaPhone($user->phone) }}</strong>
                         </div>
                         <div>
                             <span>Role</span>
@@ -364,22 +392,22 @@
             <table class="table card-table" data-staff-photo-column="1" data-staff-details-columns="1">
                 <thead>
                     <tr>
-                        <th>No.</th>
-                        <th>Photo</th>
+                        <th>NO.</th>
+                        <th>PHOTO</th>
                         <th><a class="table-sort-button text-uppercase" href="{{ $sortUrl('staff_id') }}">STAFF ID {!! $sortIcon('staff_id') !!}</a></th>
                         <th><a class="table-sort-button text-uppercase" href="{{ $sortUrl('name') }}">STAFF FULL NAME {!! $sortIcon('name') !!}</a></th>
                         <th><a class="table-sort-button text-uppercase" href="{{ $sortUrl('username') }}">USER LOGIN {!! $sortIcon('username') !!}</a></th>
-                        <th><a class="table-sort-button text-uppercase" href="{{ $sortUrl('phone') }}">PHONE NUMBER {!! $sortIcon('phone') !!}</a></th>
                         <th><a class="table-sort-button text-uppercase" href="{{ $sortUrl('position') }}">POSITION {!! $sortIcon('position') !!}</a></th>
                         <th><a class="table-sort-button text-uppercase" href="{{ $sortUrl('campus') }}">CAMPUS ASSIGNMENT {!! $sortIcon('campus') !!}</a></th>
-                        <th><a class="table-sort-button text-uppercase" href="{{ $sortUrl('role') }}">ROLE {!! $sortIcon('role') !!}</a></th>
-                        <th><a class="table-sort-button text-uppercase" href="{{ $sortUrl('login_identifier') }}">LOGIN {!! $sortIcon('login_identifier') !!}</a></th>
                         <th><a class="table-sort-button text-uppercase" href="{{ $sortUrl('status') }}">STATUS {!! $sortIcon('status') !!}</a></th>
-                        <th class="text-center">Actions</th>
+                        <th class="text-center">ACTIONS</th>
                     </tr>
                 </thead>
                 <tbody>
                     @forelse($users as $user)
+                        @php
+                            [$userGenderIcon, $userGenderLabel] = $genderIcon($user->gender);
+                        @endphp
                         <tr>
                             <td>{{ $users->firstItem() + $loop->index }}</td>
                             <td>
@@ -389,28 +417,27 @@
                                         data-photo-title="{{ $user->name ?: 'Staff Photo' }}">
                                         <img src="{{ asset('storage/' . $user->photo_path) }}"
                                             alt="{{ $user->name ?: 'Staff Photo' }}"
-                                            style="width:44px;height:44px;object-fit:cover;border-radius:.5rem;border:1px solid var(--tblr-border-color)">
+                                            class="user-management-staff-photo-thumb" width="58" height="58" style="width:58px;height:58px;object-fit:cover;">
                                     </button>
                                 @else
-                                    <span class="avatar avatar-sm bg-secondary-lt"><i class="ti ti-user"></i></span>
+                                    <span class="avatar bg-secondary-lt user-management-staff-photo-placeholder"><i class="ti ti-user"></i></span>
                                 @endif
                             </td>
                             <td>{{ $user->staff_id ?: '' }}</td>
                             <td>{{ $user->name }}
-                                <div class="text-secondary small">Gender: {{ $user->gender ?: '' }}</div>
-                                <div class="text-secondary small">DOB: {{ $user->date_of_birth?->format('d-M-Y') ?: '' }}</div>
+                                <div class="text-secondary small user-list-meta-row" title="Gender"><i class="ti {{ $userGenderIcon }}"></i><span>{{ $userGenderLabel }}</span></div>
+                                <div class="text-secondary small user-list-meta-row" title="Date of Birth"><i class="ti ti-cake"></i><span>{{ $user->date_of_birth?->format('d-M-Y') ?: '' }}</span></div>
+                                <div class="text-secondary small user-list-meta-row" title="Phone"><i class="ti ti-phone"></i><span>{{ $formatCambodiaPhone($user->phone) }}</span></div>
                             </td>
                             <td>{{ $user->username }}
-                                <div class="text-secondary small">{{ $user->email }}</div>
+                                <div class="text-secondary small user-list-meta-row" title="Email"><i class="ti ti-mail"></i><span>{{ $user->email }}</span></div>
+                                <div class="text-secondary small user-list-meta-row" title="Login"><i class="ti ti-login"></i><span>{{ $user->login_identifier === 'both' ? 'Username / Email' : ucfirst($user->login_identifier) }}</span></div>
+                                <div class="text-secondary small user-list-meta-row" title="Role"><i class="ti ti-shield-check"></i><span>{{ $user->roles->pluck('name')->unique()->join(', ') ?: '' }}</span></div>
                             </td>
-                            <td>{{ $user->phone ?: '' }}</td>
                             <td>{{ $user->position?->name ?: '' }}
                                 <div class="text-secondary small">Dept: {{ $user->department?->name ?: '' }}</div>
                             </td>
                             <td>{{ $user->is_global ? 'All Campuses' : ($user->campuses->pluck('campus_name_en')->filter()->join(', ') ?: '') }}</td>
-                            <td>{{ $user->roles->pluck('name')->unique()->join(', ') ?: '' }}</td>
-                            <td>{{ $user->login_identifier === 'both' ? 'Username / Email' : ucfirst($user->login_identifier) }}
-                            </td>
                             <td><button type="button"
                                     class="status-toggle {{ $user->status ? 'is-active' : '' }}"
                                     data-status-toggle data-status-entity="user"
@@ -428,7 +455,7 @@
                                             class="ti ti-trash"></i></button></form>
                             </td>
                     </tr>@empty<tr>
-                            <td colspan="12" class="text-center text-secondary py-4">No users found.</td>
+                            <td colspan="9" class="text-center text-secondary py-4">No users found.</td>
                         </tr>
                     @endforelse
                 </tbody>
@@ -441,5 +468,3 @@
     @vite('resources/js/userManagement.js')
     @vite('resources/css/pages/user-management.css')
 @endsection
-
-

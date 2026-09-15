@@ -70,25 +70,21 @@ document.addEventListener("DOMContentLoaded", () => {
     const form = document.querySelector('form[action$="/profile"]');
     if (!form || form.dataset.passwordUiReady) return;
     form.dataset.passwordUiReady = "1";
-    const fieldsRow = form.querySelector(".row.g-3");
-    if (fieldsRow && !fieldsRow.dataset.profileColumnsReady) {
-        fieldsRow.dataset.profileColumnsReady = "1";
-        const left = document.createElement("div");
-        const right = document.createElement("div");
-        left.className = "col-md-6 profile-fields-column profile-fields-left";
-        right.className = "col-md-6 profile-fields-column";
-        const moveField = (selector, target) => {
-            const field = fieldsRow.querySelector(selector)?.closest(".col-md-6, .col-12");
-            if (!field) return;
-            target.appendChild(field);
-        };
-        moveField('input[name="name"]', left);
-        moveField('input[name="username"]', left);
-        moveField('input[name="email"]', left);
-        moveField('input[name="password"]', right);
-        moveField('input[name="password_confirmation"]', right);
-        fieldsRow.append(left, right);
-    }
+
+    const syncProfileFloatingFields = () => {
+        form.querySelectorAll(".premium-form-field").forEach((field) => {
+            const control = field.querySelector("input, select, textarea");
+            const hasValue = Boolean(control?.value?.trim?.() ?? control?.value);
+            field.classList.toggle("has-value", hasValue);
+        });
+    };
+
+    form.addEventListener("input", (event) => {
+        event.target.closest?.(".premium-form-field")?.classList.toggle("has-value", Boolean(event.target.value?.trim?.() ?? event.target.value));
+    });
+    form.addEventListener("change", (event) => {
+        event.target.closest?.(".premium-form-field")?.classList.toggle("has-value", Boolean(event.target.value?.trim?.() ?? event.target.value));
+    });
 
     const password = form.querySelector('input[name="password"]');
     const confirmation = form.querySelector('input[name="password_confirmation"]');
@@ -113,6 +109,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     addToggle(password);
     addToggle(confirmation);
+    syncProfileFloatingFields();
 
     if (password) {
         const strength = document.createElement("div");
@@ -120,7 +117,7 @@ document.addEventListener("DOMContentLoaded", () => {
         strength.innerHTML =
             '<div class="profile-password-strength-header"><span>Password Strength</span><span class="profile-password-strength-value">Weak</span></div><div class="profile-password-strength-bar"><span class="profile-password-strength-fill"></span></div><div class="profile-password-rules"><span class="profile-password-rule" data-rule="length">8 Chars</span><span class="profile-password-rule" data-rule="upper">A-Z</span><span class="profile-password-rule" data-rule="lower">a-z</span><span class="profile-password-rule" data-rule="number">123</span><span class="profile-password-rule" data-rule="special">@#$</span></div>';
         password.closest(".premium-password-field")?.after(strength);
-        const note = password.closest(".col-md-6")?.querySelector("small.text-secondary");
+        const note = password.closest(".col-12, .col-md-6")?.querySelector("small.text-secondary");
         const rules = strength.querySelector(".profile-password-rules");
         if (note && rules) {
             const meta = document.createElement("div");

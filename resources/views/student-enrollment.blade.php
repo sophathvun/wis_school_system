@@ -28,8 +28,30 @@
 
     <div class="col-12">
         <div class="card enrollment-list-card">
-            <div class="card-header">
+            <div class="card-header enrollment-list-header">
                 <h3 class="card-title">Student Enrollment Lists</h3>
+                <div class="enrollment-summary-cards" aria-live="polite">
+                    <div class="enrollment-summary-card enrollment-summary-total" data-enrollment-stat-card="total">
+                        <div class="enrollment-summary-label">Total Students</div>
+                        <div class="enrollment-summary-value" data-enrollment-stat="total.count">0</div>
+                        <div class="enrollment-summary-gender"><span>M: <strong data-enrollment-stat="total.male">0</strong></span><span>F: <strong data-enrollment-stat="total.female">0</strong></span></div>
+                    </div>
+                    <div class="enrollment-summary-card enrollment-summary-active" data-enrollment-stat-card="active">
+                        <div class="enrollment-summary-label">Active Students</div>
+                        <div class="enrollment-summary-value" data-enrollment-stat="active.count">0</div>
+                        <div class="enrollment-summary-gender"><span>M: <strong data-enrollment-stat="active.male">0</strong></span><span>F: <strong data-enrollment-stat="active.female">0</strong></span></div>
+                    </div>
+                    <div class="enrollment-summary-card enrollment-summary-withdrawn" data-enrollment-stat-card="withdrawn">
+                        <div class="enrollment-summary-label">Withdrawn Students</div>
+                        <div class="enrollment-summary-value" data-enrollment-stat="withdrawn.count">0</div>
+                        <div class="enrollment-summary-gender"><span>M: <strong data-enrollment-stat="withdrawn.male">0</strong></span><span>F: <strong data-enrollment-stat="withdrawn.female">0</strong></span></div>
+                    </div>
+                    <div class="enrollment-summary-card enrollment-summary-new" data-enrollment-stat-card="new">
+                        <div class="enrollment-summary-label">New Students</div>
+                        <div class="enrollment-summary-value" data-enrollment-stat="new.count">0</div>
+                        <div class="enrollment-summary-gender"><span>M: <strong data-enrollment-stat="new.male">0</strong></span><span>F: <strong data-enrollment-stat="new.female">0</strong></span></div>
+                    </div>
+                </div>
             </div>
             <div class="card-body border-bottom py-3">
                 <div class="d-flex align-items-center gap-3 flex-wrap">
@@ -42,6 +64,9 @@
                         <select id="enrollments-filter-academic-year"
                             class="form-select form-select-sm enrollment-list-filter">
                             <option value="">Academic Year</option>
+                            @foreach (($listAcademicYears ?? []) as $academicYear)
+                                <option value="{{ $academicYear->id }}">{{ $academicYear->academic_year }}</option>
+                            @endforeach
                         </select>
                         <select id="enrollments-filter-campus" class="form-select form-select-sm enrollment-list-filter">
                             <option value="">Campus</option>
@@ -123,9 +148,11 @@
                                     <label class="form-label">Student Photo</label>
                                     <div class="student-photo-upload-row">
                                         <div class="logo-dropzone" id="studentPhotoDropzone" tabindex="0">
-                                            <i class="ti ti-cloud-upload logo-dropzone-icon"></i>
-                                            <div><strong>Drag and drop student photo here</strong></div>
-                                            <div class="text-secondary">or click, paste, or upload a file</div>
+                                            <div class="student-photo-dropzone-content">
+                                                <i class="ti ti-cloud-upload logo-dropzone-icon"></i>
+                                                <div><strong>Drag and drop student photo here</strong></div>
+                                                <div class="text-secondary">or click, paste, or upload a file</div>
+                                            </div>
                                             <input type="file" class="d-none" name="photo" id="student_photo"
                                                 accept="image/jpeg,image/png,image/webp">
                                             <div class="d-none student-photo-preview-wrap"
@@ -208,9 +235,9 @@
                                         class="form-control school-profile-khmer" placeholder=" ">
                                 </div>
                                 <div class="col-md-4 premium-floating-field">
-                                    <label class="form-label school-profile-khmer">ÃƒÂ¡Ã…Â¾Ã‚ÂÃƒÂ¡Ã…Â¸Ã¢â‚¬â„¢ÃƒÂ¡Ã…Â¾Ã¢â‚¬Å¾ÃƒÂ¡Ã…Â¸Ã†â€™ÃƒÂ¡Ã…Â¾Ã‚ÂÃƒÂ¡Ã…Â¸Ã¢â‚¬Å¡ÃƒÂ¡Ã…Â¾Ã¢â‚¬Â ÃƒÂ¡Ã…Â¸Ã¢â‚¬â„¢ÃƒÂ¡Ã…Â¾Ã¢â‚¬Å“ÃƒÂ¡Ã…Â¾Ã‚Â¶ÃƒÂ¡Ã…Â¸Ã¢â‚¬Â ÃƒÂ¡Ã…Â¾Ã¢â€šÂ¬ÃƒÂ¡Ã…Â¸Ã¢â‚¬Â ÃƒÂ¡Ã…Â¾Ã…Â½ÃƒÂ¡Ã…Â¾Ã‚Â¾ÃƒÂ¡Ã…Â¾Ã‚Â (Date of Birth)</label>
+                                    <label class="form-label school-profile-khmer">ថ្ងៃខែឆ្នាំកំណើត (Date of Birth)</label>
                                     <input id="date_of_birth_kh" class="form-control school-profile-khmer" readonly
-                                        placeholder="ÃƒÂ¡Ã…Â¾Ã‚ÂÃƒÂ¡Ã…Â¸Ã¢â‚¬â„¢ÃƒÂ¡Ã…Â¾Ã¢â‚¬Å¾ÃƒÂ¡Ã…Â¸Ã†â€™-ÃƒÂ¡Ã…Â¾Ã‚ÂÃƒÂ¡Ã…Â¸Ã¢â‚¬Å¡-ÃƒÂ¡Ã…Â¾Ã¢â‚¬Â ÃƒÂ¡Ã…Â¸Ã¢â‚¬â„¢ÃƒÂ¡Ã…Â¾Ã¢â‚¬Å“ÃƒÂ¡Ã…Â¾Ã‚Â¶ÃƒÂ¡Ã…Â¸Ã¢â‚¬Â ">
+                                        placeholder=" ">
                                 </div>
                             </div>
 
@@ -674,7 +701,8 @@
                                     class="text-secondary fw-normal fs-5">(Optional)</span></h4>
                             <ul class="nav nav-tabs mb-3" role="tablist">
                                 <li class="nav-item"><button type="button" class="nav-link active" data-bs-toggle="tab"
-                                        data-bs-target="#enrollment-document-upload-tab">Upload Document</button></li>
+                                        data-bs-target="#enrollment-document-upload-tab"
+                                        id="enrollment-document-upload-tab-button">Upload Document</button></li>
                                 <li class="nav-item"><button type="button" class="nav-link" data-bs-toggle="tab"
                                         data-bs-target="#enrollment-document-list-tab"
                                         id="enrollment-document-list-tab-button">Submitted Documents</button></li>
@@ -703,8 +731,7 @@
                                                 <div class="fw-bold fs-3">Drop Files Here</div>
                                                 <div class="mt-1">or <span class="document-browse-link">Browse
                                                         File</span></div>
-                                                <div class="document-upload-hint mt-3">Supports PDF, JPG, PNG, DOC, DOCX Ãƒâ€šÃ‚Â·
-                                                    Maximum 2 MB per file</div>
+                                                <div class="document-upload-hint mt-3">Supports PDF, JPG, PNG, DOC, DOCX &middot; Maximum 2 MB per file</div>
                                                 <div id="enrollmentDocumentFileList" class="premium-document-file-list">
                                                 </div><input type="file" id="enrollment-document-file" class="d-none"
                                                     accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" multiple>
@@ -717,15 +744,17 @@
                                         <table class="table table-vcenter">
                                             <thead>
                                                 <tr>
+                                                    <th>NO.</th>
                                                     <th>Document Type</th>
                                                     <th>Title</th>
                                                     <th>Number</th>
                                                     <th>File</th>
+                                                    <th class="text-center">Actions</th>
                                                 </tr>
                                             </thead>
                                             <tbody id="enrollment-document-list">
                                                 <tr>
-                                                    <td colspan="4" class="text-center text-secondary">Save or select a
+                                                    <td colspan="6" class="text-center text-secondary">Save or select a
                                                         student to view submitted documents.</td>
                                                 </tr>
                                             </tbody>
