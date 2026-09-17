@@ -113,9 +113,56 @@ const setupIdleLogout = () => {
     resetIdleTimer();
 };
 
+const urlBase64ToUint8Array = (base64String) => {
+    const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+    const rawData = window.atob(base64);
+    return Uint8Array.from([...rawData].map((char) => char.charCodeAt(0)));
+};
+
+const postPushSubscription = async (subscription) => {
+    await fetch("/push/subscriptions", {
+        method: "POST",
+        headers: {
+            "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')?.content || "",
+            Accept: "application/json",
+            "Content-Type": "application/json",
+        },
+        credentials: "same-origin",
+        body: JSON.stringify(subscription.toJSON()),
+    });
+};
+
+const setupWebPush = async (registration) => {
+    const publicKey = document.body?.dataset.webPushPublicKey || "";
+    if (!publicKey || !("PushManager" in window) || !("Notification" in window)) return;
+
+    window.schoolEnsurePushSubscription = async () => {
+        if (Notification.permission === "default") {
+            await Notification.requestPermission().catch(() => null);
+        }
+        if (Notification.permission !== "granted") return;
+
+        let subscription = await registration.pushManager.getSubscription();
+        if (!subscription) {
+            subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(publicKey),
+            });
+        }
+        await postPushSubscription(subscription).catch(() => {});
+    };
+
+    if (Notification.permission === "granted") {
+        window.schoolEnsurePushSubscription().catch(() => {});
+    }
+};
+
 if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-        navigator.serviceWorker.register("/sw.js").catch(() => {});
+        navigator.serviceWorker.register("/sw.js")
+            .then((registration) => setupWebPush(registration))
+            .catch(() => {});
     });
 }
 

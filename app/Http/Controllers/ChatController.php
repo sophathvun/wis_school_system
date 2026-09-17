@@ -12,6 +12,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use App\Services\WebPushService;
 
 class ChatController
 {
@@ -175,6 +176,7 @@ class ChatController
         ]);
 
         $conversation->touch();
+        $this->sendChatPush($conversation, $message);
 
         return response()->json($this->messageData($message->load('user')));
     }
@@ -214,6 +216,7 @@ class ChatController
         ]);
 
         $conversation->touch();
+        $this->sendChatPush($conversation, $message);
 
         return response()->json($this->messageData($message->load('user')));
     }
@@ -388,6 +391,22 @@ class ChatController
         }
 
         return $query->orderBy('name')->get();
+    }
+
+    private function sendChatPush(ChatConversation $conversation, ChatMessage $message): void
+    {
+        $message->loadMissing('user');
+        $conversation->loadMissing('users');
+        $recipientIds = $conversation->users
+            ->where('id', '!=', $message->user_id)
+            ->pluck('id');
+
+        app(WebPushService::class)->sendToUsers($recipientIds, [
+            'title' => $conversation->type === 'group' ? ($conversation->title ?: 'Group chat') : ($message->user?->name ?: 'New chat message'),
+            'body' => $message->message_type === 'voice' ? 'Voice message' : Str::limit(strip_tags($message->message), 120),
+            'url' => route('chat.index'),
+            'tag' => 'school-chat-'.$conversation->id,
+        ]);
     }
 
     private function authorizeMember(Request $request, ChatConversation $conversation): void

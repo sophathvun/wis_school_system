@@ -13,7 +13,8 @@
         "bacon/bacon-qr-code": "3.0",
         "barryvdh/laravel-dompdf": "*",
         "laravel/framework": "^13.8",
-        "laravel/tinker": "^3.0"
+        "laravel/tinker": "^3.0",
+        "minishlink/web-push": "*"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",

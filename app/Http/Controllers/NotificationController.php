@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\Department;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use App\Services\WebPushService;
 
 class NotificationController
 {
@@ -74,11 +75,20 @@ class NotificationController
             })->pluck('id');
         if ($recipientIds->isEmpty()) return back()->withErrors(['recipient_ids' => 'Select at least one recipient or choose all active users.'])->withInput();
         $now = now();
-        UserNotification::insert($recipientIds->unique()->map(fn ($userId) => [
+        $recipientIds = $recipientIds->unique();
+        UserNotification::insert($recipientIds->map(fn ($userId) => [
             'user_id' => $userId, 'type' => $data['type'], 'title' => $data['title'],
             'message' => $data['message'], 'action_url' => $data['action_url'] ?? null,
             'created_at' => $now, 'updated_at' => $now,
         ])->all());
+
+        app(WebPushService::class)->sendToUsers($recipientIds, [
+            'title' => $data['title'],
+            'body' => Str::limit(strip_tags($data['message']), 120),
+            'url' => $data['action_url'] ?? route('notifications.index'),
+            'tag' => 'school-notification',
+        ]);
+
         return redirect()->route('notifications.send')->with('success', 'Notification sent successfully.');
     }
 
@@ -102,6 +112,24 @@ class NotificationController
     {
         $notifications = $request->user()->userNotifications()->latest()->paginate(20);
         return view('notifications', compact('notifications'));
+    }
+
+    public function unread(Request $request)
+    {
+        $unread = $request->user()->userNotifications()->whereNull('read_at')->count();
+        $latest = $request->user()->userNotifications()->latest()->first();
+
+        return response()->json([
+            'unread' => $unread,
+            'latest' => $latest ? [
+                'id' => $latest->id,
+                'title' => $latest->title,
+                'message' => Str::limit(strip_tags($latest->message), 120),
+                'url' => $latest->action_url ?: route('notifications.index'),
+                'created_at' => $latest->created_at?->toIso8601String(),
+                'read' => (bool) $latest->read_at,
+            ] : null,
+        ]);
     }
 
     public function read(Request $request, UserNotification $notification)

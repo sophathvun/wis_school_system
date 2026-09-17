@@ -436,7 +436,7 @@
                     conversationTitle.textContent = activeConversation.title || 'Conversation';
                     conversationMembers.textContent = (activeConversation.users || [])
                         .filter((user) => user.id !== currentUserId)
-                        .map((user) => `${user.name} &bull; ${user.online ? 'Online' : 'Offline'}`)
+                        .map((user) => `${user.name} \u2022 ${user.online ? 'Online' : 'Offline'}`)
                         .join(', ');
                     callStartButton.classList.toggle('d-none', activeConversation.type !== 'direct');
                     const avatar = (user, className = 'chat-mini-message-avatar') => {

@@ -45,7 +45,8 @@
 </head>
 
 <body data-user-permissions='@json($permissionCodes ?? [])'
-    data-current-user-id="{{ $permissionUser->id ?? '' }}">
+    data-current-user-id="{{ $permissionUser->id ?? '' }}"
+    data-web-push-public-key="{{ config('webpush.vapid.public_key') }}">
     @if (auth()->check())
         <div class="page">
             @include('layouts.partials.sidebar')
