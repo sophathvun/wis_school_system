@@ -19,6 +19,7 @@
                 const minimize = document.getElementById('school-chat-minimize');
                 const unreadBadge = document.getElementById('school-chat-unread-badge');
                 const search = document.getElementById('school-chat-search');
+                const newGroupButton = document.getElementById('school-chat-new-group');
                 const conversationsPane = document.getElementById('school-chat-conversations-pane');
                 const peoplePane = document.getElementById('school-chat-people-pane');
                 const conversationPane = document.getElementById('school-chat-conversation-pane');
@@ -61,6 +62,9 @@
                 let activeConversationId = null;
                 let activeTab = 'conversations';
                 let activeConversation = null;
+                let groupMode = false;
+                let groupSelectedUserIds = new Set();
+                let groupDraftTitle = '';
                 let loadingConversation = false;
                 let mediaRecorder = null;
                 let voiceChunks = [];
@@ -73,6 +77,7 @@
                 let queuedIceCandidates = [];
                 let callMuted = false;
                 let callAcceptedBySelf = false;
+                let callResetting = false;
                 let launcherDrag = null;
                 let suppressLauncherClick = false;
                 let selectedAttachment = null;
@@ -264,17 +269,35 @@
                 const renderPeople = () => {
                     const term = search.value.trim().toLowerCase();
                     const isSelf = (user) => Boolean(user.is_current_user) || Number(user.id) === currentUserId || (currentUserName && String(user.name || '').trim().toLowerCase() === currentUserName);
-                    const html = users
+                    const visibleUsers = users
                         .filter((user) => `${user.name} ${user.department || ''}`.toLowerCase().includes(term))
-                        .sort((a, b) => Number(isSelf(b)) - Number(isSelf(a)))
-                        .map((user) => {
+                        .sort((a, b) => Number(isSelf(b)) - Number(isSelf(a)));
+                    const composer = groupMode ? `
+                <div class="chat-mini-group-composer border-bottom p-3">
+                    <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                        <div class="fw-semibold"><i class="ti ti-users-plus me-1"></i>New Group Chat</div>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" data-group-cancel>Cancel</button>
+                    </div>
+                    <input type="text" class="form-control form-control-sm mb-2" data-group-title placeholder="Group name (optional)" value="${esc(groupDraftTitle)}">
+                    <div class="small text-secondary mb-2">Select at least 2 staff members.</div>
+                    <button type="button" class="btn btn-primary btn-sm w-100" data-group-create ${groupSelectedUserIds.size < 2 ? 'disabled' : ''}>
+                        Create Group (${groupSelectedUserIds.size})
+                    </button>
+                </div>
+            ` : '';
+                    const html = visibleUsers.map((user) => {
                             const isCurrentUser = isSelf(user);
                             const isOnline = isCurrentUser || Boolean(user.online);
-                            const chatButton = isCurrentUser
-                                ? '<span class="badge bg-primary-lt text-primary rounded-pill">You</span>'
-                                : `<button type="button" class="btn btn-outline-primary btn-sm" data-user-chat="${user.id}">Chat</button>`;
+                            const selected = groupSelectedUserIds.has(Number(user.id));
+                            const action = groupMode
+                                ? (isCurrentUser
+                                    ? '<span class="badge bg-primary-lt text-primary rounded-pill">You</span>'
+                                    : `<label class="form-check m-0"><input class="form-check-input" type="checkbox" data-group-user="${user.id}" ${selected ? 'checked' : ''}></label>`)
+                                : (isCurrentUser
+                                    ? '<span class="badge bg-primary-lt text-primary rounded-pill">You</span>'
+                                    : `<button type="button" class="btn btn-outline-primary btn-sm" data-user-chat="${user.id}">Chat</button>`);
                             return `
-                <div class="chat-mini-item px-3 py-3 border-bottom ${isCurrentUser ? 'chat-mini-item-current' : ''}" data-user-id="${user.id}" data-current-user="${isCurrentUser ? 'true' : 'false'}">
+                <div class="chat-mini-item px-3 py-3 border-bottom ${isCurrentUser ? 'chat-mini-item-current' : ''} ${selected ? 'active' : ''}" data-user-id="${user.id}" data-current-user="${isCurrentUser ? 'true' : 'false'}">
                     <div class="d-flex align-items-center gap-3">
                         <div class="avatar avatar-sm chat-mini-avatar ${user.photo ? '' : 'bg-primary-lt text-primary'}">
                             ${user.photo ? `<img src="${esc(user.photo)}" alt="${esc(user.name)}" class="chat-mini-photo">` : '<i class="ti ti-user"></i>'}
@@ -286,18 +309,44 @@
                             </div>
                             <div class="small text-secondary text-truncate">${esc(user.department || 'Staff')} &middot; ${isOnline ? 'Online now' : 'Offline'}</div>
                         </div>
-                        ${!isCurrentUser && user.unread_messages ? `<span class="badge bg-primary rounded-pill">${user.unread_messages > 99 ? '99+' : user.unread_messages}</span>` : ''}
-                        ${chatButton}
+                        ${!isCurrentUser && !groupMode && user.unread_messages ? `<span class="badge bg-primary rounded-pill">${user.unread_messages > 99 ? '99+' : user.unread_messages}</span>` : ''}
+                        ${action}
                     </div>
                 </div>
             `;
                         }).join('');
 
-                    peoplePane.innerHTML = html ||
-                        '<div class="chat-mini-empty"><div><i class="ti ti-user-search fs-1"></i><div class="mt-2">No staff found.</div></div></div>';
+                    peoplePane.innerHTML = composer + (html || '<div class="chat-mini-empty"><div><i class="ti ti-user-search fs-1"></i><div class="mt-2">No staff found.</div></div></div>');
+                    peoplePane.querySelector('[data-group-cancel]')?.addEventListener('click', () => {
+                        groupMode = false;
+                        groupSelectedUserIds = new Set();
+                        renderPeople();
+                    });
+                    peoplePane.querySelector('[data-group-title]')?.addEventListener('input', (event) => {
+                        groupDraftTitle = event.target.value;
+                    });
+                    peoplePane.querySelector('[data-group-create]')?.addEventListener('click', () => {
+                        const title = peoplePane.querySelector('[data-group-title]')?.value || groupDraftTitle;
+                        startGroupChat(Array.from(groupSelectedUserIds), title).catch((error) => alert(error.message || 'Unable to create group chat.'));
+                    });
+                    peoplePane.querySelectorAll('[data-group-user]').forEach((checkbox) => {
+                        checkbox.addEventListener('change', (event) => {
+                            const id = Number(checkbox.dataset.groupUser);
+                            if (event.target.checked) groupSelectedUserIds.add(id);
+                            else groupSelectedUserIds.delete(id);
+                            renderPeople();
+                        });
+                    });
                     peoplePane.querySelectorAll('[data-user-id]').forEach((item) => {
                         item.addEventListener('click', (event) => {
-                            if (item.dataset.currentUser === 'true' || event.target.closest('button[data-user-chat]')) return;
+                            if (item.dataset.currentUser === 'true' || event.target.closest('button[data-user-chat], input, label, button')) return;
+                            if (groupMode) {
+                                const id = Number(item.dataset.userId);
+                                if (groupSelectedUserIds.has(id)) groupSelectedUserIds.delete(id);
+                                else groupSelectedUserIds.add(id);
+                                renderPeople();
+                                return;
+                            }
                             startDirectChat(Number(item.dataset.userId)).catch((error) => alert(
                                 error.message || 'Unable to start chat.'));
                         });
@@ -311,6 +360,7 @@
                         });
                     });
                 };
+                const isAudioPlaybackActive = () => Array.from(messagesBox.querySelectorAll('audio')).some((audio) => !audio.paused && !audio.ended);
 
                 const renderConversationView = () => {
                     if (!activeConversation) return;
@@ -333,6 +383,10 @@
                     const messageContent = (message) => {
                         if (message.message_type === 'voice' && message.media_url) {
                             return `<div class="fw-semibold mb-1"><i class="ti ti-wave-sine me-1"></i>Voice message</div><audio controls src="${esc(message.media_url)}"></audio>`;
+                        }
+                        if (message.message_type === 'call') {
+                            const icon = /missed|declined/i.test(message.message || '') ? 'ti-phone-off' : 'ti-phone-call';
+                            return `<div class="chat-mini-call-card"><i class="ti ${icon}"></i><span>${esc(message.message || 'Voice call')}</span></div>`;
                         }
 
                         const text = message.message && !(message.message_type !== 'text' && message.message ===
@@ -420,21 +474,25 @@
                     messagesBox.scrollTop = messagesBox.scrollHeight;
                 };
 
-                const openConversation = async (id) => {
+                const openConversation = async (id, options = {}) => {
                     if (loadingConversation) return;
                     loadingConversation = true;
                     try {
                         activeConversationId = id;
                         const data = await api(`${routes.messagesBase}/${id}/messages`);
+                        const nextMessages = data.messages || [];
+                        const previousCount = activeConversation?.messages?.length || 0;
+                        const latestChanged = (activeConversation?.messages?.[previousCount - 1]?.id || null) !== (nextMessages[nextMessages.length - 1]?.id || null);
+                        const skipRender = options.quiet && isAudioPlaybackActive();
                         activeConversation = data.conversation;
-                        activeConversation.messages = data.messages || [];
+                        activeConversation.messages = nextMessages;
                         setTab(activeTab);
                         conversationsPane.classList.add('d-none');
                         peoplePane.classList.add('d-none');
                         conversationPane.classList.remove('d-none');
                         conversationPane.classList.add('d-flex');
                         renderConversations();
-                        renderConversationView();
+                        if (!skipRender) renderConversationView();
                         drawer.classList.remove('d-none');
                         document.body.classList.add('school-chat-drawer-open');
                         launcher.setAttribute('aria-expanded', 'true');
@@ -451,6 +509,27 @@
                         }),
                     });
 
+                    await refreshData();
+                    await openConversation(data.id);
+                };
+
+                const startGroupChat = async (userIds, title = '') => {
+                    if (userIds.length < 2) {
+                        alert('Please select at least 2 staff members for a group chat.');
+                        return;
+                    }
+
+                    const data = await api(routes.create, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            user_ids: userIds,
+                            title
+                        }),
+                    });
+
+                    groupMode = false;
+                    groupSelectedUserIds = new Set();
+                    groupDraftTitle = '';
                     await refreshData();
                     await openConversation(data.id);
                 };
@@ -525,6 +604,8 @@
                 };
 
                 const resetCallState = () => {
+                    if (callResetting) return;
+                    callResetting = true;
                     if (peerConnection) {
                         peerConnection.onicecandidate = null;
                         peerConnection.ontrack = null;
@@ -545,6 +626,7 @@
                     callAcceptButton.classList.add('d-none');
                     callMuteButton.classList.add('d-none');
                     callMuteButton.innerHTML = '<i class="ti ti-microphone me-1"></i> Mute';
+                    callResetting = false;
                 };
 
                 const showCallPanel = (call, mode = 'calling') => {
@@ -586,6 +668,31 @@
                             sendCallSignal('ice', event.candidate.toJSON()).catch(() => {});
                         }
                     };
+                    peerConnection.onconnectionstatechange = () => {
+                        if (!peerConnection || !activeCall) return;
+                        if (peerConnection.connectionState === 'connected') {
+                            callStatus.textContent = 'Connected';
+                            callMuteButton.classList.remove('d-none');
+                            remoteAudio.play?.().catch(() => {});
+                        }
+                        if (peerConnection.connectionState === 'connecting') {
+                            callStatus.textContent = 'Connecting...';
+                        }
+                        if (peerConnection.connectionState === 'failed') {
+                            callStatus.textContent = 'Connection failed. Please end and call again.';
+                        }
+                    };
+                    peerConnection.oniceconnectionstatechange = () => {
+                        if (!peerConnection || !activeCall) return;
+                        if (peerConnection.iceConnectionState === 'connected' || peerConnection.iceConnectionState === 'completed') {
+                            callStatus.textContent = 'Connected';
+                            callMuteButton.classList.remove('d-none');
+                            remoteAudio.play?.().catch(() => {});
+                        }
+                        if (peerConnection.iceConnectionState === 'disconnected') {
+                            callStatus.textContent = 'Reconnecting...';
+                        }
+                    };
                     return peerConnection;
                 };
 
@@ -607,6 +714,11 @@
                     if (signal.signal_type === 'offer' && !callAcceptedBySelf) return;
                     processedSignalIds.add(signal.id);
 
+                    if (signal.signal_type === 'accept') {
+                        callStatus.textContent = 'Connecting...';
+                        callMuteButton.classList.remove('d-none');
+                    }
+
                     if (signal.signal_type === 'offer') {
                         await setupPeerConnection();
                         await peerConnection.setRemoteDescription(new RTCSessionDescription(signal.payload));
@@ -622,6 +734,7 @@
                         await flushQueuedIce();
                         callStatus.textContent = 'Connected';
                         callMuteButton.classList.remove('d-none');
+                        remoteAudio.play?.().catch(() => {});
                     }
 
                     if (signal.signal_type === 'ice') {
@@ -642,7 +755,7 @@
                     if (!activeCall) return;
                     const data = await api(`${routes.callsBase}/${activeCall.id}/signals`);
                     activeCall = data.call;
-                    if (['ended', 'declined'].includes(activeCall.status)) {
+                    if (['ended', 'declined', 'missed'].includes(activeCall.status)) {
                         resetCallState();
                         return;
                     }
@@ -836,6 +949,18 @@
                     }
                 });
 
+                newGroupButton?.addEventListener('click', () => {
+                    groupMode = true;
+                    groupSelectedUserIds = new Set();
+                    groupDraftTitle = '';
+                    activeConversationId = null;
+                    activeConversation = null;
+                    conversationPane.classList.add('d-none');
+                    conversationPane.classList.remove('d-flex');
+                    setTab('people');
+                    renderPeople();
+                });
+
                 tabButtons.forEach((button) => {
                     button.addEventListener('click', () => {
                         setTab(button.dataset.schoolChatTab);
@@ -959,9 +1084,13 @@
                             if (current) {
                                 const data = await api(
                                     `${routes.messagesBase}/${activeConversationId}/messages`);
+                                const nextMessages = data.messages || [];
+                                const previousCount = activeConversation?.messages?.length || 0;
+                                const latestChanged = (activeConversation?.messages?.[previousCount - 1]?.id || null) !== (nextMessages[nextMessages.length - 1]?.id || null);
+                                const skipRender = isAudioPlaybackActive();
                                 activeConversation = data.conversation;
-                                activeConversation.messages = data.messages || [];
-                                renderConversationView();
+                                activeConversation.messages = nextMessages;
+                                if (!skipRender) renderConversationView();
                             }
                         }
                     } catch (error) {

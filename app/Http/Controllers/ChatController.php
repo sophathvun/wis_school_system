@@ -141,6 +141,7 @@ class ChatController
     public function messages(Request $request, ChatConversation $conversation)
     {
         $this->authorizeMember($request, $conversation);
+        $this->ensureCallHistoryMessages($conversation);
         $request->user()->chatConversations()->updateExistingPivot($conversation->id, ['last_read_at' => now()]);
         $conversation->load('users.department');
         $messages = $conversation->messages()->with('user')->oldest()->limit(200)->get();
@@ -262,6 +263,10 @@ class ChatController
                 'payload' => ['call_type' => 'audio'],
             ]);
 
+            $message = $this->createCallHistoryMessage($conversation, $call, 'Voice call started');
+            $call->forceFill(['meta' => array_merge($call->meta ?? [], ['message_id' => $message->id])])->save();
+            $conversation->touch();
+
             return $call;
         });
 
@@ -309,6 +314,8 @@ class ChatController
             'payload' => ['nullable', 'array'],
         ]);
 
+        $previousStatus = $call->status;
+
         $signal = $call->signals()->create([
             'user_id' => $request->user()->id,
             'signal_type' => $data['signal_type'],
@@ -327,6 +334,7 @@ class ChatController
                     'last_seen_at' => now(),
                 ])->save();
             }
+            $this->updateCallHistoryMessage($call, 'Voice call connected');
         }
 
         if ($data['signal_type'] === 'reject') {
@@ -335,14 +343,17 @@ class ChatController
                 'ended_at' => now(),
             ])->save();
             $call->participants()->where('user_id', $request->user()->id)->update(['left_at' => now()]);
+            $this->updateCallHistoryMessage($call, 'Voice call declined');
         }
 
         if ($data['signal_type'] === 'hangup') {
+            $missed = $previousStatus === 'ringing' && !$call->started_at;
             $call->forceFill([
-                'status' => 'ended',
+                'status' => $missed ? 'missed' : 'ended',
                 'ended_at' => now(),
             ])->save();
             $call->participants()->where('user_id', $request->user()->id)->update(['left_at' => now()]);
+            $this->updateCallHistoryMessage($call, $missed ? 'Missed voice call' : 'Voice call ended');
         }
 
         return response()->json([
@@ -469,6 +480,63 @@ class ChatController
             'read_by' => $readBy,
             'unread_by' => $unreadBy,
         ];
+    }
+
+    private function ensureCallHistoryMessages(ChatConversation $conversation): void
+    {
+        $conversation->calls()->oldest()->get()->each(function (ChatCall $call) use ($conversation) {
+            $messageId = $call->meta['message_id'] ?? null;
+            if ($messageId && ChatMessage::query()->whereKey($messageId)->where('conversation_id', $conversation->id)->exists()) {
+                return;
+            }
+
+            $message = new ChatMessage([
+                'user_id' => $call->created_by,
+                'message' => $this->callHistoryText($call),
+                'message_type' => 'call',
+            ]);
+            $message->created_at = $call->created_at;
+            $message->updated_at = $call->updated_at;
+            $conversation->messages()->save($message);
+
+            $call->forceFill(['meta' => array_merge($call->meta ?? [], ['message_id' => $message->id])])->save();
+        });
+    }
+
+    private function callHistoryText(ChatCall $call): string
+    {
+        return match ($call->status) {
+            'active' => 'Voice call connected',
+            'declined' => 'Voice call declined',
+            'missed' => 'Missed voice call',
+            'ended' => $call->started_at ? 'Voice call ended' : 'Missed voice call',
+            default => 'Voice call started',
+        };
+    }
+
+    private function createCallHistoryMessage(ChatConversation $conversation, ChatCall $call, string $message): ChatMessage
+    {
+        return $conversation->messages()->create([
+            'user_id' => $call->created_by,
+            'message' => $message,
+            'message_type' => 'call',
+        ]);
+    }
+
+    private function updateCallHistoryMessage(ChatCall $call, string $message): void
+    {
+        $messageId = $call->meta['message_id'] ?? null;
+        if (!$messageId) return;
+
+        ChatMessage::query()
+            ->whereKey($messageId)
+            ->where('conversation_id', $call->conversation_id)
+            ->update([
+                'message' => $message,
+                'updated_at' => now(),
+            ]);
+
+        $call->conversation?->touch();
     }
 
     private function callData(ChatCall $call, User $viewer): array

@@ -56,6 +56,9 @@
                     <input type="search" id="school-chat-search" class="form-control"
                         placeholder="Search chats or staff">
                 </div>
+                <button type="button" id="school-chat-new-group" class="btn btn-outline-primary btn-sm w-100 mt-2">
+                    <i class="ti ti-users-plus me-1"></i> New Group Chat
+                </button>
             </div>
 
             <div class="flex-fill d-flex flex-column overflow-hidden">

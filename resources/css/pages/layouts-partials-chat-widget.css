@@ -538,3 +538,26 @@
         width: auto;
     }
 }
+
+.chat-mini-call-card {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.48rem 0.65rem;
+    border-radius: 999px;
+    background: rgba(91, 75, 202, 0.12);
+    color: inherit;
+    font-weight: 600;
+}
+
+.chat-mini-call-card .ti-phone-off {
+    color: #d63939;
+}
+
+.chat-mini-group-composer {
+    background: var(--tblr-bg-surface-secondary);
+}
+
+.chat-mini-group-composer .form-control {
+    background: var(--tblr-body-bg);
+}

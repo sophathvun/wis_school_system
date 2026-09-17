@@ -204,6 +204,10 @@ document.addEventListener("DOMContentLoaded", () => {
         if (message.message_type === "voice" && message.media_url) {
             return `<div class="fw-semibold mb-1"><i class="ti ti-wave-sine me-1"></i>Voice message</div><audio controls src="${esc(message.media_url)}"></audio>`;
         }
+        if (message.message_type === "call") {
+            const icon = /missed|declined/i.test(message.message || "") ? "ti-phone-off" : "ti-phone-call";
+            return `<div class="chat-call-card"><i class="ti ${icon}"></i><span>${esc(message.message || "Voice call")}</span></div>`;
+        }
         if (message.message_type === "image" && message.media_url) {
             return `<a href="${esc(message.media_url)}" target="_blank" rel="noopener"><img src="${esc(message.media_url)}" alt="${esc(message.media_name || "Attached image")}" class="chat-image"></a><div class="chat-attachment-actions"><a href="${esc(message.media_url)}" target="_blank" rel="noopener"><i class="ti ti-eye"></i> View</a><a href="${esc(downloadUrl)}"><i class="ti ti-download"></i> Download</a></div>${text}`;
         }
@@ -260,6 +264,8 @@ document.addEventListener("DOMContentLoaded", () => {
         return `<div class="chat-read-receipts">${readBy.slice(0, 5).map((user) => avatar(user, "chat-read-avatar")).join("")}</div>`;
     };
 
+    const isAudioPlaybackActive = () => Array.from(chatMessages.querySelectorAll("audio")).some((audio) => !audio.paused && !audio.ended);
+
     const renderMessages = () => {
         if (!activeConversation) return;
         document.getElementById("chat-title").textContent = activeConversation.title || "Conversation";
@@ -303,17 +309,21 @@ document.addEventListener("DOMContentLoaded", () => {
         chats = await api(routes.conversations);
         renderChats();
     };
-    const openChat = async (id) => {
+    const openChat = async (id, options = {}) => {
         activeId = id;
         renderChats();
         const data = await api(`${routes.messagesBase}/${id}/messages`);
+        const nextMessages = data.messages || [];
+        const previousCount = activeConversation?.messages?.length || 0;
+        const latestChanged = (activeConversation?.messages?.[previousCount - 1]?.id || null) !== (nextMessages[nextMessages.length - 1]?.id || null);
+        const skipRender = options.quiet && isAudioPlaybackActive();
         activeConversation = data.conversation;
-        activeConversation.messages = data.messages || [];
+        activeConversation.messages = nextMessages;
         chatEmpty.classList.add("d-none");
         chatContent.classList.remove("d-none");
         chatContent.classList.add("d-flex");
         shell.classList.add("has-conversation");
-        renderMessages();
+        if (!skipRender) renderMessages();
     };
     const clearAttachment = () => {
         selectedAttachment = null;
@@ -456,7 +466,7 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
             await loadChats();
             users = await api(routes.users);
-            if (activeId) await openChat(activeId);
+            if (activeId) await openChat(activeId, { quiet: true });
         } catch {}
     }, 10000);
     api(routes.heartbeat, { method: "POST" }).catch(() => {});

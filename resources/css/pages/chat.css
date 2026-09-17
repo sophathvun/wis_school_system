@@ -447,3 +447,18 @@ body:has(#chat-shell) .page-header {
         max-width: 82%;
     }
 }
+
+.chat-call-card {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.55rem 0.7rem;
+    border-radius: 999px;
+    background: rgba(91, 75, 202, 0.12);
+    color: inherit;
+    font-weight: 600;
+}
+
+.chat-call-card .ti-phone-off {
+    color: #d63939;
+}

@@ -47,7 +47,7 @@
                                     value="{{ old('login_by') === 'username' ? old('identifier') : '' }}"
                                     autocomplete="username"></div>
                         </div>
-                        <div class="mb-3 d-none" id="emailInputGroup">
+                        <div class="mb-3" id="emailInputGroup">
                             <label class="form-label" for="emailIdentifier">Email address</label>
                             <div class="auth-input-wrap"><i class="ti ti-mail" aria-hidden="true"></i><input
                                     class="form-control" id="emailIdentifier" type="email"
