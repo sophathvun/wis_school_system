@@ -62,6 +62,7 @@
                 let activeConversationId = null;
                 let activeTab = 'conversations';
                 let activeConversation = null;
+                let autoVoicePlayback = false;
                 let groupMode = false;
                 let groupSelectedUserIds = new Set();
                 let groupDraftTitle = '';
@@ -362,6 +363,74 @@
                 };
                 const isAudioPlaybackActive = () => Array.from(messagesBox.querySelectorAll('audio')).some((audio) => !audio.paused && !audio.ended);
 
+                const refreshMessagesForVoicePlayback = async () => {
+                    if (!activeConversationId) return;
+                    const data = await api(`${routes.messagesBase}/${activeConversationId}/messages`);
+                    activeConversation = data.conversation;
+                    activeConversation.messages = data.messages || [];
+                    renderConversationView();
+                };
+
+                const nextVoiceMessageAfter = (messageId) => {
+                    const messages = activeConversation?.messages || [];
+                    const currentIndex = messages.findIndex((message) => Number(message.id) === Number(messageId));
+                    if (currentIndex < 0) return null;
+                    return messages.slice(currentIndex + 1).find((message) => message.message_type === 'voice' && message.media_url) || null;
+                };
+
+                const playNextVoiceMessage = async (messageId) => {
+                    if (!autoVoicePlayback) return;
+                    let next = nextVoiceMessageAfter(messageId);
+                    if (!next) {
+                        await refreshMessagesForVoicePlayback().catch(() => {});
+                        next = nextVoiceMessageAfter(messageId);
+                    }
+                    if (!next) {
+                        autoVoicePlayback = false;
+                        return;
+                    }
+                    let nextAudio = messagesBox.querySelector(`audio[data-voice-message-id="${next.id}"]`);
+                    if (!nextAudio) {
+                        await refreshMessagesForVoicePlayback().catch(() => {});
+                        nextAudio = messagesBox.querySelector(`audio[data-voice-message-id="${next.id}"]`);
+                    }
+                    if (nextAudio) {
+                        nextAudio.play().catch(() => {
+                            autoVoicePlayback = false;
+                        });
+                    } else {
+                        autoVoicePlayback = false;
+                    }
+                };
+
+                const attachVoicePlaybackHandlers = () => {
+                    messagesBox.querySelectorAll('audio[data-voice-message-id]').forEach((audio) => {
+                        audio.addEventListener('play', () => {
+                            autoVoicePlayback = true;
+                            messagesBox.querySelectorAll('audio[data-voice-message-id]').forEach((other) => {
+                                if (other !== audio && !other.paused) other.pause();
+                            });
+                        });
+                        audio.addEventListener('pause', () => {
+                            if (!audio.ended) autoVoicePlayback = false;
+                        });
+                        audio.addEventListener('ended', () => {
+                            playNextVoiceMessage(Number(audio.dataset.voiceMessageId)).catch(() => {
+                                autoVoicePlayback = false;
+                            });
+                        });
+                    });
+                };
+
+                const scrollMessagesToLatest = () => {
+                    const scroll = () => {
+                        messagesBox.scrollTop = messagesBox.scrollHeight;
+                    };
+                    scroll();
+                    requestAnimationFrame(scroll);
+                    setTimeout(scroll, 80);
+                };
+
                 const renderConversationView = () => {
                     if (!activeConversation) return;
                     conversationTitle.textContent = activeConversation.title || 'Conversation';
@@ -382,7 +451,7 @@
                     };
                     const messageContent = (message) => {
                         if (message.message_type === 'voice' && message.media_url) {
-                            return `<div class="fw-semibold mb-1"><i class="ti ti-wave-sine me-1"></i>Voice message</div><audio controls src="${esc(message.media_url)}"></audio>`;
+                            return `<div class="fw-semibold mb-1"><i class="ti ti-wave-sine me-1"></i>Voice message</div><audio controls src="${esc(message.media_url)}" data-voice-message-id="${message.id}"></audio>`;
                         }
                         if (message.message_type === 'call') {
                             const icon = /missed|declined/i.test(message.message || '') ? 'ti-phone-off' : 'ti-phone-call';
@@ -471,7 +540,11 @@
                             if (detail && !wasOpen) detail.classList.add('show');
                         });
                     });
-                    messagesBox.scrollTop = messagesBox.scrollHeight;
+                    attachVoicePlaybackHandlers();
+                    messagesBox.querySelectorAll('img').forEach((image) => {
+                        if (!image.complete) image.addEventListener('load', scrollMessagesToLatest, { once: true });
+                    });
+                    scrollMessagesToLatest();
                 };
 
                 const openConversation = async (id, options = {}) => {

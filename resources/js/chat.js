@@ -93,6 +93,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let users = [];
     let activeId = null;
     let activeConversation = null;
+    let autoVoicePlayback = false;
     let selectedAttachment = null;
     let mediaRecorder = null;
     let voiceChunks = [];
@@ -202,7 +203,7 @@ document.addEventListener("DOMContentLoaded", () => {
             : "";
         const downloadUrl = message.media_download_url || message.media_url;
         if (message.message_type === "voice" && message.media_url) {
-            return `<div class="fw-semibold mb-1"><i class="ti ti-wave-sine me-1"></i>Voice message</div><audio controls src="${esc(message.media_url)}"></audio>`;
+            return `<div class="fw-semibold mb-1"><i class="ti ti-wave-sine me-1"></i>Voice message</div><audio controls src="${esc(message.media_url)}" data-voice-message-id="${message.id}"></audio>`;
         }
         if (message.message_type === "call") {
             const icon = /missed|declined/i.test(message.message || "") ? "ti-phone-off" : "ti-phone-call";
@@ -266,6 +267,65 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const isAudioPlaybackActive = () => Array.from(chatMessages.querySelectorAll("audio")).some((audio) => !audio.paused && !audio.ended);
 
+    const refreshMessagesForVoicePlayback = async () => {
+        if (!activeId) return;
+        const data = await api(`${routes.messagesBase}/${activeId}/messages`);
+        activeConversation = data.conversation;
+        activeConversation.messages = data.messages || [];
+        renderMessages();
+    };
+
+    const nextVoiceMessageAfter = (messageId) => {
+        const messages = activeConversation?.messages || [];
+        const currentIndex = messages.findIndex((message) => Number(message.id) === Number(messageId));
+        if (currentIndex < 0) return null;
+        return messages.slice(currentIndex + 1).find((message) => message.message_type === "voice" && message.media_url) || null;
+    };
+
+    const playNextVoiceMessage = async (messageId) => {
+        if (!autoVoicePlayback) return;
+        let next = nextVoiceMessageAfter(messageId);
+        if (!next) {
+            await refreshMessagesForVoicePlayback().catch(() => {});
+            next = nextVoiceMessageAfter(messageId);
+        }
+        if (!next) {
+            autoVoicePlayback = false;
+            return;
+        }
+        let nextAudio = chatMessages.querySelector(`audio[data-voice-message-id="${next.id}"]`);
+        if (!nextAudio) {
+            await refreshMessagesForVoicePlayback().catch(() => {});
+            nextAudio = chatMessages.querySelector(`audio[data-voice-message-id="${next.id}"]`);
+        }
+        if (nextAudio) {
+            nextAudio.play().catch(() => {
+                autoVoicePlayback = false;
+            });
+        } else {
+            autoVoicePlayback = false;
+        }
+    };
+
+    const attachVoicePlaybackHandlers = () => {
+        chatMessages.querySelectorAll("audio[data-voice-message-id]").forEach((audio) => {
+            audio.addEventListener("play", () => {
+                autoVoicePlayback = true;
+                chatMessages.querySelectorAll("audio[data-voice-message-id]").forEach((other) => {
+                    if (other !== audio && !other.paused) other.pause();
+                });
+            });
+            audio.addEventListener("pause", () => {
+                if (!audio.ended) autoVoicePlayback = false;
+            });
+            audio.addEventListener("ended", () => {
+                playNextVoiceMessage(Number(audio.dataset.voiceMessageId)).catch(() => {
+                    autoVoicePlayback = false;
+                });
+            });
+        });
+    };
+
     const renderMessages = () => {
         if (!activeConversation) return;
         document.getElementById("chat-title").textContent = activeConversation.title || "Conversation";
@@ -295,6 +355,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (detail && !wasOpen) detail.classList.add("show");
             });
         });
+        attachVoicePlaybackHandlers();
         chatMessages.querySelectorAll("img").forEach((image) => {
             if (!image.complete) image.addEventListener("load", scrollMessagesToLatest, { once: true });
         });
