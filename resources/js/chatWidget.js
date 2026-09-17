@@ -368,7 +368,7 @@
                     const data = await api(`${routes.messagesBase}/${activeConversationId}/messages`);
                     activeConversation = data.conversation;
                     activeConversation.messages = data.messages || [];
-                    renderConversationView();
+                    renderConversationView({ scrollToLatest: true });
                 };
 
                 const nextVoiceMessageAfter = (messageId) => {
@@ -431,7 +431,12 @@
                     setTimeout(scroll, 80);
                 };
 
-                const renderConversationView = () => {
+                const isMessagesNearBottom = () => messagesBox.scrollHeight - messagesBox.scrollTop - messagesBox.clientHeight < 80;
+
+                const renderConversationView = (options = {}) => {
+                    const shouldScrollToLatest = options.scrollToLatest ?? isMessagesNearBottom();
+                    const previousScrollTop = messagesBox.scrollTop;
+                    const previousScrollHeight = messagesBox.scrollHeight;
                     if (!activeConversation) return;
                     conversationTitle.textContent = activeConversation.title || 'Conversation';
                     conversationMembers.textContent = (activeConversation.users || [])
@@ -542,9 +547,13 @@
                     });
                     attachVoicePlaybackHandlers();
                     messagesBox.querySelectorAll('img').forEach((image) => {
-                        if (!image.complete) image.addEventListener('load', scrollMessagesToLatest, { once: true });
+                        if (!image.complete && shouldScrollToLatest) image.addEventListener('load', scrollMessagesToLatest, { once: true });
                     });
-                    scrollMessagesToLatest();
+                    if (shouldScrollToLatest) {
+                        scrollMessagesToLatest();
+                    } else {
+                        messagesBox.scrollTop = previousScrollTop + (messagesBox.scrollHeight - previousScrollHeight);
+                    }
                 };
 
                 const openConversation = async (id, options = {}) => {
@@ -565,7 +574,7 @@
                         conversationPane.classList.remove('d-none');
                         conversationPane.classList.add('d-flex');
                         renderConversations();
-                        if (!skipRender) renderConversationView();
+                        if (!skipRender) renderConversationView({ scrollToLatest: options.quiet ? isMessagesNearBottom() : true });
                         drawer.classList.remove('d-none');
                         document.body.classList.add('school-chat-drawer-open');
                         launcher.setAttribute('aria-expanded', 'true');
@@ -706,6 +715,7 @@
                     activeCall = call;
                     callAcceptedBySelf = mode !== 'incoming';
                     callPanel.classList.remove('d-none');
+                    callAcceptButton.disabled = false;
                     callTitle.textContent = call.title || 'Voice Call';
                     callStatus.textContent = mode === 'incoming' ?
                         'Incoming voice call...' :
@@ -864,11 +874,19 @@
                 const acceptIncomingCall = async () => {
                     if (!activeCall) return;
                     callAcceptedBySelf = true;
+                    callAcceptButton.disabled = true;
                     showCallPanel(activeCall, 'active');
-                    await sendCallSignal('accept');
-                    await setupPeerConnection();
-                    await refreshActiveCall();
-                    callStatus.textContent = 'Connecting...';
+                    callStatus.textContent = 'Allow microphone to answer...';
+                    try {
+                        await setupPeerConnection();
+                        callStatus.textContent = 'Connecting...';
+                        await sendCallSignal('accept');
+                        await refreshActiveCall();
+                    } catch (error) {
+                        callAcceptedBySelf = false;
+                        callAcceptButton.disabled = false;
+                        throw error;
+                    }
                 };
 
                 const endCurrentCall = async () => {
@@ -1163,7 +1181,7 @@
                                 const skipRender = isAudioPlaybackActive();
                                 activeConversation = data.conversation;
                                 activeConversation.messages = nextMessages;
-                                if (!skipRender) renderConversationView();
+                                if (!skipRender) renderConversationView({ scrollToLatest: isMessagesNearBottom() });
                             }
                         }
                     } catch (error) {

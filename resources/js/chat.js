@@ -258,6 +258,8 @@ document.addEventListener("DOMContentLoaded", () => {
         setTimeout(scroll, 80);
     };
 
+    const isMessagesNearBottom = () => chatMessages.scrollHeight - chatMessages.scrollTop - chatMessages.clientHeight < 80;
+
     const readReceipts = (message) => {
         if (message.user_id !== currentUserId) return "";
         const readBy = message.read_by || [];
@@ -272,7 +274,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const data = await api(`${routes.messagesBase}/${activeId}/messages`);
         activeConversation = data.conversation;
         activeConversation.messages = data.messages || [];
-        renderMessages();
+        renderMessages({ scrollToLatest: true });
     };
 
     const nextVoiceMessageAfter = (messageId) => {
@@ -326,8 +328,11 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     };
 
-    const renderMessages = () => {
+    const renderMessages = (options = {}) => {
         if (!activeConversation) return;
+        const shouldScrollToLatest = options.scrollToLatest ?? isMessagesNearBottom();
+        const previousScrollTop = chatMessages.scrollTop;
+        const previousScrollHeight = chatMessages.scrollHeight;
         document.getElementById("chat-title").textContent = activeConversation.title || "Conversation";
         document.getElementById("chat-members").textContent = (activeConversation.users || [])
             .filter((user) => user.id !== currentUserId)
@@ -357,9 +362,13 @@ document.addEventListener("DOMContentLoaded", () => {
         });
         attachVoicePlaybackHandlers();
         chatMessages.querySelectorAll("img").forEach((image) => {
-            if (!image.complete) image.addEventListener("load", scrollMessagesToLatest, { once: true });
+            if (!image.complete && shouldScrollToLatest) image.addEventListener("load", scrollMessagesToLatest, { once: true });
         });
-        scrollMessagesToLatest();
+        if (shouldScrollToLatest) {
+            scrollMessagesToLatest();
+        } else {
+            chatMessages.scrollTop = previousScrollTop + (chatMessages.scrollHeight - previousScrollHeight);
+        }
     };
 
     const loadUsers = async () => {
@@ -384,7 +393,7 @@ document.addEventListener("DOMContentLoaded", () => {
         chatContent.classList.remove("d-none");
         chatContent.classList.add("d-flex");
         shell.classList.add("has-conversation");
-        if (!skipRender) renderMessages();
+        if (!skipRender) renderMessages({ scrollToLatest: options.quiet ? isMessagesNearBottom() : true });
     };
     const clearAttachment = () => {
         selectedAttachment = null;
