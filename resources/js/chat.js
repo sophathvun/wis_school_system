@@ -26,13 +26,14 @@ document.addEventListener("DOMContentLoaded", () => {
     const chatAttachButton = document.getElementById("chat-attach");
     const chatEmojiButton = document.getElementById("chat-emoji");
     const groupControls = document.getElementById("chat-group-controls");
+    const groupMenuButton = document.getElementById("chat-group-menu");
     const renameGroupButton = document.getElementById("chat-rename-group");
     const addGroupMembersButton = document.getElementById("chat-add-group-members");
     const groupPhotoButton = document.getElementById("chat-group-photo");
     const groupAdminsButton = document.getElementById("chat-group-admins");
     const groupPhotoFile = document.getElementById("chat-group-photo-file");
 
-    if (!shell || !conversationsBox || !userList || !modal || !chatEmpty || !chatContent || !chatMessages || !messageInput || !fileInput || !attachmentPreview || !emojiPicker || !emojiGrid || !recordVoiceButton || !moreActionsButton || !actionsMenu || !groupTitle || !conversationSearch || !userSearch || !messageForm || !newChatForm || !chatBack || !newChatButton || !newChatSidebarButton || !chatAttachButton || !chatEmojiButton || !groupControls || !renameGroupButton || !addGroupMembersButton || !groupPhotoButton || !groupAdminsButton || !groupPhotoFile) return;
+    if (!shell || !conversationsBox || !userList || !modal || !chatEmpty || !chatContent || !chatMessages || !messageInput || !fileInput || !attachmentPreview || !emojiPicker || !emojiGrid || !recordVoiceButton || !moreActionsButton || !actionsMenu || !groupTitle || !conversationSearch || !userSearch || !messageForm || !newChatForm || !chatBack || !newChatButton || !newChatSidebarButton || !chatAttachButton || !chatEmojiButton || !groupControls || !groupMenuButton || !renameGroupButton || !addGroupMembersButton || !groupPhotoButton || !groupAdminsButton || !groupPhotoFile) return;
 
     const csrf = document.querySelector('meta[name="csrf-token"]')?.content || "";
     const routes = {
@@ -84,6 +85,34 @@ document.addEventListener("DOMContentLoaded", () => {
         const data = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(data.message || "Unable to upload the file.");
         return data;
+    };
+
+    const showChatAlert = async (title, message = "", icon = "info") => {
+        if (window.Swal) {
+            await window.Swal.fire({
+                icon,
+                title,
+                text: message,
+                confirmButtonText: "OK",
+                confirmButtonColor: icon === "error" ? "#d63939" : "#206bc4",
+            });
+            return;
+        }
+        alert(message || title);
+    };
+
+    const showChatSuccess = async (title, message = "") => {
+        if (window.Swal) {
+            await window.Swal.fire({
+                icon: "success",
+                title,
+                text: message,
+                timer: 1600,
+                showConfirmButton: false,
+            });
+            return;
+        }
+        alert(message || title);
     };
 
     const avatar = (user, className = "chat-avatar") => {
@@ -168,6 +197,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const activeMemberIds = new Set((activeConversation?.users || []).map((user) => Number(user.id)));
         const filtered = users
             .filter((user) => `${user.name} ${user.department || ""}`.toLowerCase().includes(q))
+            .filter((user) => modalMode !== "admins" || activeMemberIds.has(Number(user.id)))
             .sort((a, b) => Number(isSelf(b)) - Number(isSelf(a)));
         userList.innerHTML = filtered.map((user) => {
             const isCurrentUser = isSelf(user);
@@ -354,7 +384,8 @@ document.addEventListener("DOMContentLoaded", () => {
             .map((user) => `${user.name} - ${user.online ? "Online" : "Offline"}`)
             .join(", ");
         const canManageGroup = activeConversation.type === "group" && Boolean(activeConversation.can_manage_group);
-        groupControls.classList.toggle("d-none", !canManageGroup);
+        groupControls.classList.add("d-none");
+        groupMenuButton.classList.toggle("d-none", !canManageGroup);
         groupAdminsButton.classList.toggle("d-none", !activeConversation.can_assign_group_admins);
         chatMessages.innerHTML = (activeConversation.messages || []).map((message) => `
             <div class="chat-row ${message.user_id === currentUserId ? "mine" : ""}">
@@ -444,11 +475,25 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     const renameActiveGroup = async () => {
         if (!activeId || activeConversation?.type !== "group") return;
-        const title = window.prompt("Group name", activeConversation.title || "");
-        if (title === null) return;
-        const nextTitle = title.trim();
+        const result = window.Swal
+            ? await window.Swal.fire({
+                icon: "question",
+                title: "Rename group",
+                input: "text",
+                inputLabel: "Group name",
+                inputValue: activeConversation.title || "",
+                inputAttributes: { maxlength: 120 },
+                showCancelButton: true,
+                confirmButtonText: "Save",
+                cancelButtonText: "Cancel",
+                confirmButtonColor: "#206bc4",
+                inputValidator: (value) => (!value || !value.trim() ? "Enter a group name." : undefined),
+            })
+            : { isConfirmed: true, value: window.prompt("Group name", activeConversation.title || "") };
+        if (!result.isConfirmed || result.value === null) return;
+        const nextTitle = String(result.value || "").trim();
         if (!nextTitle) {
-            alert("Enter a group name.");
+            showChatAlert("Group name required", "Enter a group name.", "warning");
             return;
         }
         activeConversation = await api(`${routes.chatBase}/${activeId}`, {
@@ -457,6 +502,42 @@ document.addEventListener("DOMContentLoaded", () => {
         });
         await loadChats();
         await openChat(activeId);
+        await showChatSuccess("Group renamed", "The group name has been updated.");
+    };
+    const showGroupActions = async () => {
+        if (!activeId || activeConversation?.type !== "group" || !activeConversation.can_manage_group) return;
+        if (!window.Swal) {
+            await renameActiveGroup();
+            return;
+        }
+        const adminButton = activeConversation.can_assign_group_admins
+            ? '<button type="button" class="school-chat-group-action" data-group-action="admins"><i class="ti ti-shield-star"></i><span>Admin</span></button>'
+            : "";
+        const result = await window.Swal.fire({
+            title: "Group options",
+            html: `
+                <div class="school-chat-group-action-grid">
+                    <button type="button" class="school-chat-group-action" data-group-action="rename"><i class="ti ti-edit"></i><span>Rename</span></button>
+                    <button type="button" class="school-chat-group-action" data-group-action="members"><i class="ti ti-user-plus"></i><span>Add Member</span></button>
+                    <button type="button" class="school-chat-group-action" data-group-action="photo"><i class="ti ti-photo"></i><span>Photo</span></button>
+                    ${adminButton}
+                </div>
+            `,
+            showConfirmButton: false,
+            showCloseButton: true,
+            didOpen: (popup) => {
+                popup.querySelectorAll("[data-group-action]").forEach((button) => {
+                    button.addEventListener("click", () => {
+                        window.Swal.close({ action: button.dataset.groupAction });
+                    });
+                });
+            },
+        });
+        const action = result.action;
+        if (action === "rename") await renameActiveGroup();
+        if (action === "members") await openAddMembersModal();
+        if (action === "photo") groupPhotoFile.click();
+        if (action === "admins") await openAdminsModal();
     };
     const openAddMembersModal = async () => {
         if (!activeId || activeConversation?.type !== "group") return;
@@ -498,6 +579,7 @@ document.addEventListener("DOMContentLoaded", () => {
         await postForm(`${routes.chatBase}/${activeId}/photo`, formData);
         await loadChats();
         await openChat(activeId);
+        await showChatSuccess("Group photo updated", "The group profile photo has been changed.");
     };
     const showDeleteError = async (message) => {
         if (window.Swal) {
@@ -599,16 +681,17 @@ document.addEventListener("DOMContentLoaded", () => {
         messageInput.selectionStart = messageInput.selectionEnd = start + button.dataset.emoji.length;
     }));
 
-    newChatButton.addEventListener("click", () => openNewChatModal().catch((error) => alert(error.message || "Unable to open chat form.")));
-    newChatSidebarButton.addEventListener("click", () => openNewChatModal().catch((error) => alert(error.message || "Unable to open chat form.")));
-    renameGroupButton.addEventListener("click", () => renameActiveGroup().catch((error) => alert(error.message || "Unable to rename group chat.")));
-    addGroupMembersButton.addEventListener("click", () => openAddMembersModal().catch((error) => alert(error.message || "Unable to open group members.")));
-    groupAdminsButton.addEventListener("click", () => openAdminsModal().catch((error) => alert(error.message || "Unable to open group admins.")));
+    newChatButton.addEventListener("click", () => openNewChatModal().catch((error) => showChatAlert("Unable to open chat form", error.message || "Please try again.", "error")));
+    newChatSidebarButton.addEventListener("click", () => openNewChatModal().catch((error) => showChatAlert("Unable to open chat form", error.message || "Please try again.", "error")));
+    renameGroupButton.addEventListener("click", () => renameActiveGroup().catch((error) => showChatAlert("Unable to rename group chat", error.message || "Please try again.", "error")));
+    groupMenuButton.addEventListener("click", () => showGroupActions().catch((error) => showChatAlert("Unable to open group options", error.message || "Please try again.", "error")));
+    addGroupMembersButton.addEventListener("click", () => openAddMembersModal().catch((error) => showChatAlert("Unable to open group members", error.message || "Please try again.", "error")));
+    groupAdminsButton.addEventListener("click", () => openAdminsModal().catch((error) => showChatAlert("Unable to open group admins", error.message || "Please try again.", "error")));
     groupPhotoButton.addEventListener("click", () => groupPhotoFile.click());
     groupPhotoFile.addEventListener("change", () => {
         const file = groupPhotoFile.files?.[0];
         if (!file) return;
-        uploadGroupPhoto(file).catch((error) => alert(error.message || "Unable to upload group photo.")).finally(() => {
+        uploadGroupPhoto(file).catch((error) => showChatAlert("Unable to upload group photo", error.message || "Please try again.", "error")).finally(() => {
             groupPhotoFile.value = "";
         });
     });
@@ -668,6 +751,10 @@ document.addEventListener("DOMContentLoaded", () => {
         const ids = Array.from(userList.querySelectorAll("input:checked")).map((input) => Number(input.value));
         if (!ids.length) return;
         if (modalMode === "add") {
+            if (!ids.length) {
+                await showChatAlert("Select a member", "Please select at least one staff member.", "warning");
+                return;
+            }
             await api(`${routes.chatBase}/${addMembersConversationId}/members`, {
                 method: "POST",
                 body: JSON.stringify({ user_ids: ids }),
@@ -678,6 +765,7 @@ document.addEventListener("DOMContentLoaded", () => {
             addMembersConversationId = null;
             await loadChats();
             await openChat(conversationId);
+            await showChatSuccess("Members added", "The selected members were added to the group.");
             return;
         }
         if (modalMode === "admins") {
@@ -691,6 +779,11 @@ document.addEventListener("DOMContentLoaded", () => {
             addMembersConversationId = null;
             await loadChats();
             await openChat(conversationId);
+            await showChatSuccess("Admins updated", "The group admins were updated.");
+            return;
+        }
+        if (ids.length > 1 && ids.length < 2) {
+            await showChatAlert("Select more staff", "Please select at least 2 staff members for a group chat.", "warning");
             return;
         }
         const data = await api(routes.create, {
@@ -703,6 +796,7 @@ document.addEventListener("DOMContentLoaded", () => {
         modal.hide();
         await loadChats();
         await openChat(data.id);
+        if (ids.length > 1) await showChatSuccess("Group chat created", "The group chat is ready.");
     });
 
     window.setInterval(async () => {

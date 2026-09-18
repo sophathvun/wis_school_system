@@ -223,6 +223,59 @@
     cursor: pointer;
 }
 
+.chat-mini-group-menu-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 2rem;
+    height: 2rem;
+    border: 1px solid rgba(32, 107, 196, 0.28);
+    border-radius: 999px;
+    background: linear-gradient(135deg, rgba(32, 107, 196, 0.14), rgba(32, 107, 196, 0.04));
+    color: var(--tblr-primary);
+    box-shadow: 0 8px 18px rgba(32, 107, 196, 0.12);
+}
+
+.chat-mini-group-menu-button:hover {
+    background: var(--tblr-primary);
+    color: #fff;
+    box-shadow: 0 10px 22px rgba(32, 107, 196, 0.24);
+}
+
+.school-chat-group-action-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+}
+
+.school-chat-group-action {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    min-height: 5.2rem;
+    border: 1px solid rgba(32, 107, 196, 0.18);
+    border-radius: 1rem;
+    background: linear-gradient(135deg, rgba(32, 107, 196, 0.11), rgba(32, 107, 196, 0.03));
+    color: var(--tblr-body-color);
+    font-weight: 700;
+    box-shadow: 0 10px 28px rgba(27, 46, 76, 0.08);
+}
+
+.school-chat-group-action i {
+    color: var(--tblr-primary);
+    font-size: 1.55rem;
+}
+
+.school-chat-group-action:hover {
+    transform: translateY(-1px);
+    border-color: rgba(32, 107, 196, 0.35);
+    box-shadow: 0 14px 32px rgba(32, 107, 196, 0.16);
+}
+
 .chat-mini-delete-button {
     display: inline-flex;
     align-items: center;

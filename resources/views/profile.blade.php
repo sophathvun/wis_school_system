@@ -51,18 +51,21 @@
         <div class="alert alert-warning">{{ session('warning', 'Please change your temporary password before continuing.') }}
         </div>
     @endif
-    <div class="profile-workspace">
+    <div class="profile-workspace" data-profile-workspace>
         <aside class="profile-workspace-nav" aria-label="Profile sections">
             <div class="profile-workspace-nav-heading">
                 <span class="avatar avatar-md bg-blue-lt"><i class="ti ti-user"></i></span>
-                <div>
+                <div class="profile-workspace-nav-title">
                     <strong>{{ $profileUser->name }}</strong>
                     <span>Personal workspace</span>
                 </div>
+                <button type="button" class="btn btn-icon btn-outline-primary profile-tabs-toggle" aria-expanded="true" title="Minimize profile tabs">
+                    <i class="ti ti-layout-sidebar-left-collapse"></i>
+                </button>
             </div>
             <div class="profile-workspace-tabs" role="tablist" aria-label="Profile sections">
             <button class="profile-workspace-link is-active" type="button" role="tab" aria-selected="true"
-                aria-controls="profile-panel-profile-view" data-profile-panel="profile-view">
+                aria-controls="profile-panel-profile-view" data-profile-panel="profile-view" data-profile-tab-label="My Profile">
                 <span class="profile-workspace-link-icon"><i class="ti ti-user-circle"></i></span>
                 <span class="profile-workspace-link-copy">
                     <strong>My Profile</strong>
@@ -71,7 +74,7 @@
                 <i class="ti ti-chevron-right ms-auto"></i>
             </button>
             <button class="profile-workspace-link" type="button" role="tab" aria-selected="false"
-                aria-controls="profile-panel-profile-edit" data-profile-panel="profile-edit">
+                aria-controls="profile-panel-profile-edit" data-profile-panel="profile-edit" data-profile-tab-label="Edit Profile">
                 <span class="profile-workspace-link-icon"><i class="ti ti-edit"></i></span>
                 <span class="profile-workspace-link-copy">
                     <strong>Edit Profile</strong>
@@ -80,7 +83,7 @@
                 <i class="ti ti-chevron-right ms-auto"></i>
             </button>
             <button class="profile-workspace-link" type="button" role="tab" aria-selected="false"
-                aria-controls="profile-panel-name-card" data-profile-panel="name-card">
+                aria-controls="profile-panel-name-card" data-profile-panel="name-card" data-profile-tab-label="My Name Card">
                 <span class="profile-workspace-link-icon"><i class="ti ti-id-badge-2"></i></span>
                 <span class="profile-workspace-link-copy">
                     <strong>My Name Card</strong>
@@ -89,7 +92,7 @@
                 <i class="ti ti-chevron-right ms-auto"></i>
             </button>
             <button class="profile-workspace-link" type="button" role="tab" aria-selected="false"
-                aria-controls="profile-panel-preferences" data-profile-panel="preferences">
+                aria-controls="profile-panel-preferences" data-profile-panel="preferences" data-profile-tab-label="Preferences">
                 <span class="profile-workspace-link-icon is-green"><i class="ti ti-adjustments-horizontal"></i></span>
                 <span class="profile-workspace-link-copy">
                     <strong>Preferences</strong>

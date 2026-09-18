@@ -28,6 +28,7 @@
                 const conversationTitle = document.getElementById('school-chat-conversation-title');
                 const conversationMembers = document.getElementById('school-chat-conversation-members');
                 const groupControls = document.getElementById('school-chat-group-controls');
+                const groupMenuButton = document.getElementById('school-chat-group-menu');
                 const renameGroupButton = document.getElementById('school-chat-rename-group');
                 const addGroupMembersButton = document.getElementById('school-chat-add-group-members');
                 const groupPhotoButton = document.getElementById('school-chat-group-photo');
@@ -222,6 +223,34 @@
                     return data;
                 };
 
+                const showChatAlert = async (title, message = '', icon = 'info') => {
+                    if (window.Swal) {
+                        await window.Swal.fire({
+                            icon,
+                            title,
+                            text: message,
+                            confirmButtonText: 'OK',
+                            confirmButtonColor: icon === 'error' ? '#d63939' : '#206bc4',
+                        });
+                        return;
+                    }
+                    alert(message || title);
+                };
+
+                const showChatSuccess = async (title, message = '') => {
+                    if (window.Swal) {
+                        await window.Swal.fire({
+                            icon: 'success',
+                            title,
+                            text: message,
+                            timer: 1600,
+                            showConfirmButton: false,
+                        });
+                        return;
+                    }
+                    alert(message || title);
+                };
+
                 const setTab = (tab) => {
                     activeTab = tab;
                     tabButtons.forEach((button) => button.classList.toggle('active', button.dataset
@@ -283,6 +312,7 @@
                     const activeMemberIds = new Set((activeConversation?.users || []).map((user) => Number(user.id)));
                     const visibleUsers = users
                         .filter((user) => `${user.name} ${user.department || ''}`.toLowerCase().includes(term))
+                        .filter((user) => !groupAdminMode || activeMemberIds.has(Number(user.id)))
                         .sort((a, b) => Number(isSelf(b)) - Number(isSelf(a)));
                     const composer = groupMode ? `
                 <div class="chat-mini-group-composer border-bottom p-3">
@@ -378,13 +408,13 @@
                     });
                     peoplePane.querySelector('[data-group-create]')?.addEventListener('click', () => {
                         const title = peoplePane.querySelector('[data-group-title]')?.value || groupDraftTitle;
-                        startGroupChat(Array.from(groupSelectedUserIds), title).catch((error) => alert(error.message || 'Unable to create group chat.'));
+                        startGroupChat(Array.from(groupSelectedUserIds), title).catch((error) => showChatAlert('Unable to create group chat', error.message || 'Please try again.', 'error'));
                     });
                     peoplePane.querySelector('[data-group-add]')?.addEventListener('click', () => {
-                        addMembersToActiveGroup(Array.from(groupSelectedUserIds)).catch((error) => alert(error.message || 'Unable to add members.'));
+                        addMembersToActiveGroup(Array.from(groupSelectedUserIds)).catch((error) => showChatAlert('Unable to add members', error.message || 'Please try again.', 'error'));
                     });
                     peoplePane.querySelector('[data-group-admin-save]')?.addEventListener('click', () => {
-                        saveGroupAdmins(Array.from(groupSelectedUserIds)).catch((error) => alert(error.message || 'Unable to save group admins.'));
+                        saveGroupAdmins(Array.from(groupSelectedUserIds)).catch((error) => showChatAlert('Unable to save group admins', error.message || 'Please try again.', 'error'));
                     });
                     peoplePane.querySelectorAll('[data-group-user]').forEach((checkbox) => {
                         checkbox.addEventListener('change', (event) => {
@@ -503,7 +533,8 @@
                         .join(', ');
                     callStartButton.classList.toggle('d-none', activeConversation.type !== 'direct');
                     const canManageGroup = activeConversation.type === 'group' && Boolean(activeConversation.can_manage_group);
-                    groupControls?.classList.toggle('d-none', !canManageGroup);
+                    groupControls?.classList.add('d-none');
+                    groupMenuButton?.classList.toggle('d-none', !canManageGroup);
                     groupAdminsButton?.classList.toggle('d-none', !activeConversation.can_assign_group_admins);
                     const avatar = (user, className = 'chat-mini-message-avatar') => {
                         const statusDot = user?.online !== undefined ?
@@ -666,7 +697,7 @@
 
                 const startGroupChat = async (userIds, title = '') => {
                     if (userIds.length < 2) {
-                        alert('Please select at least 2 staff members for a group chat.');
+                        showChatAlert('Select more staff', 'Please select at least 2 staff members for a group chat.', 'warning');
                         return;
                     }
 
@@ -683,15 +714,30 @@
                     groupDraftTitle = '';
                     await refreshData();
                     await openConversation(data.id);
+                    await showChatSuccess('Group chat created', 'The group chat is ready.');
                 };
 
                 const renameActiveGroup = async () => {
                     if (!activeConversationId || activeConversation?.type !== 'group') return;
-                    const title = window.prompt('Group name', activeConversation.title || '');
-                    if (title === null) return;
-                    const nextTitle = title.trim();
+                    const result = window.Swal
+                        ? await window.Swal.fire({
+                            icon: 'question',
+                            title: 'Rename group',
+                            input: 'text',
+                            inputLabel: 'Group name',
+                            inputValue: activeConversation.title || '',
+                            inputAttributes: { maxlength: 120 },
+                            showCancelButton: true,
+                            confirmButtonText: 'Save',
+                            cancelButtonText: 'Cancel',
+                            confirmButtonColor: '#206bc4',
+                            inputValidator: (value) => (!value || !value.trim() ? 'Enter a group name.' : undefined),
+                        })
+                        : { isConfirmed: true, value: window.prompt('Group name', activeConversation.title || '') };
+                    if (!result.isConfirmed || result.value === null) return;
+                    const nextTitle = String(result.value || '').trim();
                     if (!nextTitle) {
-                        alert('Enter a group name.');
+                        showChatAlert('Group name required', 'Enter a group name.', 'warning');
                         return;
                     }
 
@@ -701,6 +747,43 @@
                     });
                     await refreshData();
                     await openConversation(activeConversationId);
+                    await showChatSuccess('Group renamed', 'The group name has been updated.');
+                };
+
+                const showGroupActions = async () => {
+                    if (!activeConversationId || activeConversation?.type !== 'group' || !activeConversation.can_manage_group) return;
+                    if (!window.Swal) {
+                        await renameActiveGroup();
+                        return;
+                    }
+                    const adminButton = activeConversation.can_assign_group_admins
+                        ? '<button type="button" class="school-chat-group-action" data-group-action="admins"><i class="ti ti-shield-star"></i><span>Admin</span></button>'
+                        : '';
+                    const result = await window.Swal.fire({
+                        title: 'Group options',
+                        html: `
+                            <div class="school-chat-group-action-grid">
+                                <button type="button" class="school-chat-group-action" data-group-action="rename"><i class="ti ti-edit"></i><span>Rename</span></button>
+                                <button type="button" class="school-chat-group-action" data-group-action="members"><i class="ti ti-user-plus"></i><span>Add Member</span></button>
+                                <button type="button" class="school-chat-group-action" data-group-action="photo"><i class="ti ti-photo"></i><span>Photo</span></button>
+                                ${adminButton}
+                            </div>
+                        `,
+                        showConfirmButton: false,
+                        showCloseButton: true,
+                        didOpen: (popup) => {
+                            popup.querySelectorAll('[data-group-action]').forEach((button) => {
+                                button.addEventListener('click', () => {
+                                    window.Swal.close({ action: button.dataset.groupAction });
+                                });
+                            });
+                        },
+                    });
+                    const action = result.action;
+                    if (action === 'rename') await renameActiveGroup();
+                    if (action === 'members') showAddMembersPanel();
+                    if (action === 'photo') groupPhotoFile?.click();
+                    if (action === 'admins') showAdminsPanel();
                 };
 
                 const showAddMembersPanel = () => {
@@ -720,7 +803,7 @@
 
                 const addMembersToActiveGroup = async (userIds) => {
                     if (!groupAddConversationId || !activeConversationId || userIds.length < 1) {
-                        alert('Please select at least one staff member.');
+                        showChatAlert('Select a member', 'Please select at least one staff member.', 'warning');
                         return;
                     }
 
@@ -735,6 +818,7 @@
                     groupSelectedUserIds = new Set();
                     await refreshData();
                     await openConversation(conversationId);
+                    await showChatSuccess('Members added', 'The selected members were added to the group.');
                 };
 
                 const showAdminsPanel = () => {
@@ -767,6 +851,7 @@
                     groupSelectedUserIds = new Set();
                     await refreshData();
                     await openConversation(conversationId);
+                    await showChatSuccess('Admins updated', 'The group admins were updated.');
                 };
 
                 const uploadGroupPhoto = async (file) => {
@@ -776,6 +861,7 @@
                     await postForm(`${routes.chatBase}/${activeConversationId}/photo`, formData);
                     await refreshData();
                     await openConversation(activeConversationId);
+                    await showChatSuccess('Group photo updated', 'The group profile photo has been changed.');
                 };
 
                 const showDeleteError = async (message) => {
@@ -1288,14 +1374,15 @@
                     });
                 });
 
-                renameGroupButton?.addEventListener('click', () => renameActiveGroup().catch((error) => alert(error.message || 'Unable to rename group chat.')));
+                renameGroupButton?.addEventListener('click', () => renameActiveGroup().catch((error) => showChatAlert('Unable to rename group chat', error.message || 'Please try again.', 'error')));
                 addGroupMembersButton?.addEventListener('click', showAddMembersPanel);
                 groupAdminsButton?.addEventListener('click', showAdminsPanel);
+                groupMenuButton?.addEventListener('click', () => showGroupActions().catch((error) => showChatAlert('Unable to open group options', error.message || 'Please try again.', 'error')));
                 groupPhotoButton?.addEventListener('click', () => groupPhotoFile?.click());
                 groupPhotoFile?.addEventListener('change', () => {
                     const file = groupPhotoFile.files?.[0];
                     if (!file) return;
-                    uploadGroupPhoto(file).catch((error) => alert(error.message || 'Unable to upload group photo.')).finally(() => {
+                    uploadGroupPhoto(file).catch((error) => showChatAlert('Unable to upload group photo', error.message || 'Please try again.', 'error')).finally(() => {
                         groupPhotoFile.value = '';
                     });
                 });

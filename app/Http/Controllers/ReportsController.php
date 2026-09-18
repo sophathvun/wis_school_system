@@ -354,8 +354,8 @@ class ReportsController
                     'xml' => $this->scoreListWorksheetXml(collect(), $payload['filters'] ?? [], $hasLogo),
                     'tacteing_col' => 7,
                     'show_tacteing' => false,
-                    'logo_cx' => 1600000,
-                    'logo_cy' => 1200000,
+                    'logo_cx' => 2880000,
+                    'logo_cy' => 1100000,
                     'logo_row' => 1,
                     'logo_row_off' => 45720,
                     'logo_col_off' => 0,
@@ -369,8 +369,8 @@ class ReportsController
                     'xml' => $this->scoreListWorksheetXml($rows->values(), $payload['filters'] ?? [], $hasLogo),
                     'tacteing_col' => 7,
                     'show_tacteing' => false,
-                    'logo_cx' => 1600000,
-                    'logo_cy' => 1200000,
+                    'logo_cx' => 2880000,
+                    'logo_cy' => 1100000,
                     'logo_row' => 1,
                     'logo_row_off' => 45720,
                     'logo_col_off' => 0,
@@ -603,68 +603,80 @@ class ReportsController
     {
         $enrollments = collect($enrollments)->values();
         $first = $enrollments->first();
-        $lastColumn = 'V';
-        $startRow = 9;
+        $lastColumn = 'U';
+        $startRow = 10;
         $minRows = 25;
-        $bodyCount = max($minRows, $enrollments->count());
+        $bodyCount = max($minRows, $enrollments->count()) + 4;
         $footerRow = $startRow + $bodyCount + 1;
-        $noteRow = $footerRow + 1;
-        $lastRow = $noteRow + 1;
+        $khmerNoteTwoRow = $footerRow + 1;
+        $englishNoteRow = $footerRow + 2;
+        $englishNoteTwoRow = $footerRow + 3;
+        $lastRow = $englishNoteTwoRow;
         $gradeClass = $first ? $this->gradeClassLabel($first) : '-';
         $quarter = $this->scorePrintTypeLabel($filters);
         $date = now('Asia/Phnom_Penh')->format('d-M-y');
+        $kh = static fn (string $value): string => base64_decode($value);
 
         $rows = [
-            $this->xlsxRow(1, [], 18),
-            $this->xlsxRow(2, [['P', 'សៀវភៅពិន្ទុ / Score List', 23]], 24),
-            $this->xlsxRow(3, [['P', 'Teacher Name', 2], ['R', '', 2]], 20),
-            $this->xlsxRow(4, [['P', 'Subject', 2], ['R', '', 2]], 20),
-            $this->xlsxRow(5, [['P', 'Grade', 2], ['R', $gradeClass, 2], ['T', 'For :', 2], ['U', $quarter, 2]], 20),
-            $this->xlsxRow(6, [], 6),
-            $this->xlsxRow(7, [
-                ['A', 'Nº', 3], ['B', 'Name', 3], ['C', 'ឈ្មោះ', 7], ['D', 'Sex', 3], ['E', 'Group', 3], ['F', 'Conduct', 3], ['G', 'C.P.', 3],
-                ['H', 'កិច្ចការផ្ទះ / Homework', 7], ['N', 'តេស្តខ្លី / Quizzes', 7], ['T', "Monthly Test\nតេស្តប្រចាំខែ", 7],
-            ], 28),
+            $this->xlsxRow(1, [['P', $kh('4Z6W4Z+S4Z6a4Z+H4Z6a4Z624Z6H4Z624Z6O4Z624Z6F4Z6A4Z+S4Z6a4Z6A4Z6Y4Z+S4Z6W4Z674Z6H4Z62'), 6]], 22),
+            $this->xlsxRow(2, [['P', $kh('4Z6H4Z624Z6P4Z63IOGen+GetuGen+Gek+GetiDhnpbhn5Lhnprhn4fhnpjhnqDhnrbhnoDhn5Lhnp/hno/hn5Lhnpo='), 6]], 22),
+            $this->xlsxRow(3, [['P', 'KINGDOM OF CAMBODIA', 14]], 18),
+            $this->xlsxRow(4, [['P', 'NATION RELIGION KING', 14]], 18),
+            $this->xlsxRow(5, [], 4),
+            $this->xlsxRow(6, [['A', $kh('4Z6P4Z624Z6a4Z624Z6E4Z6f4Z6Y4Z+S4Z6a4Z6E4Z+L4Z6W4Z634Z6T4Z+S4Z6R4Z67'), 8]], 28),
+            $this->xlsxRow(7, [['A', 'Score List', 1]], 26),
             $this->xlsxRow(8, [
-                ['H', '1', 3], ['I', '2', 3], ['J', '3', 3], ['K', '4', 3], ['L', '5', 3], ['M', '6', 3],
-                ['N', '1', 3], ['O', '2', 3], ['P', '3', 3], ['Q', '4', 3], ['R', '5', 3], ['S', '6', 3],
-                ['T', '1', 3], ['U', '2', 3], ['V', '3', 3],
-            ], 22),
+                ['A', $kh('4Z6I4Z+S4Z6Y4Z+E4Z+H4Z6C4Z+S4Z6a4Z68') . "\nTeacher Name:", 15], ['C', '', 2],
+                ['F', $kh('4Z6Y4Z674Z6B4Z6c4Z634Z6H4Z+S4Z6H4Z62') . "\nSubject:", 15], ['H', '', 2],
+                ['K', $kh('4Z6Q4Z+S4Z6T4Z624Z6A4Z+L4Z6R4Z64') . "\nGrade:", 15], ['L', $gradeClass, 2],
+                ['N', $kh('4Z6f4Z6Y4Z+S4Z6a4Z624Z6U4Z+L') . "\nFor:", 15], ['O', $quarter, 2],
+            ], 30),
+            $this->xlsxRow(9, [
+                ['A', 'No', 24], ['B', $kh('4Z6I4Z+S4Z6Y4Z+E4Z+H') . "\nName", 24], ['C', $kh('4Z6X4Z+B4Z6R') . "\nGender", 24], ['D', $kh('4Z6A4Z+S4Z6a4Z674Z6Y') . "\nGroup", 24], ['E', 'Conduct', 24], ['F', 'C.P.', 24],
+                ['G', $kh('4Z6A4Z634Z6F4Z+S4Z6F4Z6A4Z624Z6a4Z6V4Z+S4Z6R4Z+H') . ' / Homework', 24], ['M', $kh('4Z6P4Z+B4Z6f4Z+S4Z6P4Z6B4Z+S4Z6b4Z64') . ' / Quizzews', 24], ['S', $kh('4Z6P4Z+B4Z6f4Z+S4Z6P4Z6U4Z+S4Z6a4Z6F4Z624Z+G4Z6B4Z+C') . "\nMonthly Test", 24],
+            ], 28),
+            $this->xlsxRow(10, [
+                ['G', '1', 24], ['H', '2', 24], ['I', '3', 24], ['J', '4', 24], ['K', '5', 24], ['L', '6', 24],
+                ['M', '1', 24], ['N', '2', 24], ['O', '3', 24], ['P', '4', 24], ['Q', '5', 24], ['R', '6', 24],
+                ['S', '1', 24], ['T', '2', 24], ['U', '3', 24],
+            ], 20),
         ];
 
         for ($i = 0; $i < $bodyCount; $i++) {
             $row = $enrollments->get($i);
             $style = $i % 2 === 1 ? 21 : 5;
+            $studentName = $row ? trim(($row->student?->full_name_kh ?: '-') . "\n" . ($row->student?->full_name_en ?: '-')) : '';
             $cells = [
                 ['A', $row ? (string) ($i + 1) : '', $style],
-                ['B', $row?->student?->full_name_en ?: '', $style],
-                ['C', $row?->student?->full_name_kh ?: '', $row ? 4 : $style],
-                ['D', $row ? (strtoupper(substr((string) $row->student?->gender, 0, 1)) === 'F' ? 'F' : 'M') : '', $style],
-                ['E', $row?->session?->session_short_name ?: '', $style],
-                ['F', '', $style], ['G', '', $style],
+                ['B', $studentName, $row ? 4 : $style],
+                ['C', $row ? (strtoupper(substr((string) $row->student?->gender, 0, 1)) === 'F' ? 'F' : 'M') : '', $style],
+                ['D', $row?->session?->session_short_name ?: '', $style],
+                ['E', '', $style], ['F', '', $style],
             ];
-            foreach (range(8, 22) as $columnIndex) {
+
+            foreach (range(7, 21) as $columnIndex) {
                 $cells[] = [$this->xlsxColumnName($columnIndex), '', $style];
             }
-            $rows[] = $this->xlsxRow($startRow + $i, $cells, 22);
+
+            $rows[] = $this->xlsxRow($startRow + $i + 1, $cells, 22);
         }
 
-        $rows[] = $this->xlsxRow($footerRow, [['A', 'ចំណាំ៖ ការរៀបចំបញ្ជីពិន្ទុនេះគឺសម្រាប់លោកគ្រូអ្នកគ្រូកត់ត្រាទុក ដើម្បីបញ្ចូលក្នុងសៀវភៅពិន្ទុអេឡិចត្រូនិក (E-Gradebook)។', 4], ['U', 'Date:', 2], ['V', $date, 2]], 20);
-        $rows[] = $this->xlsxRow($noteRow, [['A', '* NOTE: This list is for teachers to keep record of all kinds of scores which is served as hard copies for egrade-book input.', 5]], 18);
-        $rows[] = $this->xlsxRow($noteRow + 1, [['A', 'The list is for teacher personal use. It is not required by the office.', 5]], 18);
+        $rows[] = $this->xlsxRow($footerRow, [['A', $kh('4Z6F4Z+G4Z6O4Z624Z+G4Z+WIOGej+GetuGemuGetuGehOGen+GemOGfkuGemuGehOGfi+GeluGet+Gek+GfkuGekeGeu+Gek+GfgeGfhyDhnoLhnrrhnp/hnpjhn5LhnprhnrbhnpThn4vhnpvhn4ThnoDhnoLhn5LhnprhnrzhnqLhn5LhnpPhnoDhnoLhn5LhnprhnrzhnoDhno/hn4vhnpbhnrfhnpPhn5LhnpHhnrvhnoXhnrzhnpsg4Z6K4Z6+4Z6Y4Z+S4Z6U4Z644Z6E4Z624Z6Z4Z6f4Z+S4Z6a4Z694Z6b4Z6A4Z+S4Z6T4Z674Z6E4Z6A4Z624Z6a4Z6A4Z6P4Z+L4Z6W4Z634Z6T4Z+S4Z6R4Z674Z6F4Z684Z6b4Z6A4Z+S4Z6T4Z674Z6E4Z6P4Z624Z6a4Z624Z6E4Z6f4Z6Y4Z+S4Z6a4Z6E4Z+L4Z6W4Z634Z6T4Z+S4Z6R4Z674Z6i4Z+B4Z6h4Z634Z6F4Z6P4Z+S4Z6a4Z684Z6T4Z634Z6FIChFLUdyYWRlYm9vaynhn5Q='), 12], ['T', 'Date:', 2], ['U', $date, 2]], 16);
+        $rows[] = $this->xlsxRow($khmerNoteTwoRow, [['A', $kh('4Z6P4Z624Z6a4Z624Z6E4Z6f4Z6Y4Z+S4Z6a4Z6E4Z+L4Z6W4Z634Z6T4Z+S4Z6R4Z674Z6T4Z+B4Z+H4Z6C4Z664Z6U4Z+S4Z6a4Z6+4Z6U4Z+S4Z6a4Z624Z6f4Z+L4Z6f4Z6Y4Z+S4Z6a4Z624Z6U4Z+L4Z6S4Z+S4Z6c4Z6+4Z6A4Z624Z6a4Z6A4Z6P4Z+L4Z6P4Z+S4Z6a4Z624Z6V4Z+S4Z6R4Z624Z6b4Z+L4Z6B4Z+S4Z6b4Z694Z6T4Z6a4Z6U4Z6f4Z+L4Z6b4Z+E4Z6A4Z6C4Z+S4Z6a4Z684Z6i4Z+S4Z6T4Z6A4Z6C4Z+S4Z6a4Z684Z6P4Z+C4Z6U4Z+J4Z674Z6O4Z+S4Z6O4Z+E4Z+H4Z+U'), 12]], 16);
+        $rows[] = $this->xlsxRow($englishNoteRow, [['A', '* NOTE: This list is for teachers to keep record of all kinds of scores which is served as hard copies for egrade-book input.', 5]], 16);
+        $rows[] = $this->xlsxRow($englishNoteTwoRow, [['A', 'The list is for teacher personal use. It is not required by the office.', 5]], 16);
 
-        $mergeCells = '<mergeCells count="14"><mergeCell ref="P2:V2"/><mergeCell ref="R3:V3"/><mergeCell ref="R4:V4"/><mergeCell ref="R5:S5"/><mergeCell ref="U5:V5"/><mergeCell ref="A7:A8"/><mergeCell ref="B7:B8"/><mergeCell ref="C7:C8"/><mergeCell ref="D7:D8"/><mergeCell ref="E7:E8"/><mergeCell ref="F7:F8"/><mergeCell ref="G7:G8"/><mergeCell ref="H7:M7"/><mergeCell ref="N7:S7"/><mergeCell ref="T7:V7"/><mergeCell ref="A' . $footerRow . ':T' . $footerRow . '"/><mergeCell ref="A' . $noteRow . ':T' . $noteRow . '"/><mergeCell ref="A' . ($noteRow + 1) . ':T' . ($noteRow + 1) . '"/></mergeCells>';
-        $mergeCells = str_replace('count="14"', 'count="18"', $mergeCells);
+        $mergeCells = '<mergeCells count="22"><mergeCell ref="P1:U1"/><mergeCell ref="P2:U2"/><mergeCell ref="P3:U3"/><mergeCell ref="P4:U4"/><mergeCell ref="A6:U6"/><mergeCell ref="A7:U7"/><mergeCell ref="C8:E8"/><mergeCell ref="H8:J8"/><mergeCell ref="O8:U8"/><mergeCell ref="A9:A10"/><mergeCell ref="B9:B10"/><mergeCell ref="C9:C10"/><mergeCell ref="D9:D10"/><mergeCell ref="E9:E10"/><mergeCell ref="F9:F10"/><mergeCell ref="G9:L9"/><mergeCell ref="M9:R9"/><mergeCell ref="S9:U9"/><mergeCell ref="A' . $footerRow . ':S' . $footerRow . '"/><mergeCell ref="A' . $khmerNoteTwoRow . ':S' . $khmerNoteTwoRow . '"/><mergeCell ref="A' . $englishNoteRow . ':S' . $englishNoteRow . '"/><mergeCell ref="A' . $englishNoteTwoRow . ':S' . $englishNoteTwoRow . '"/></mergeCells>';
 
         return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             . '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
             . '<dimension ref="A1:' . $lastColumn . $lastRow . '"/>'
-            . '<sheetViews><sheetView workbookViewId="0"><pane ySplit="8" topLeftCell="A9" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'
+            . '<sheetViews><sheetView workbookViewId="0"><pane ySplit="10" topLeftCell="A11" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'
             . '<sheetFormatPr defaultRowHeight="18"/>'
-            . '<cols><col min="1" max="1" width="5" customWidth="1"/><col min="2" max="2" width="24" customWidth="1"/><col min="3" max="3" width="24" customWidth="1"/><col min="4" max="7" width="7" customWidth="1"/><col min="8" max="22" width="6" customWidth="1"/></cols>'
+            . '<cols><col min="1" max="1" width="5" customWidth="1"/><col min="2" max="2" width="30" customWidth="1"/><col min="3" max="6" width="7" customWidth="1"/><col min="7" max="21" width="6" customWidth="1"/></cols>'
             . '<sheetData>' . implode('', $rows) . '</sheetData>'
             . $mergeCells
-            . '<pageMargins left="0.2" right="0.2" top="0.35" bottom="0.35" header="0.1" footer="0.1"/>'
+            . '<pageMargins left="0.2" right="0.2" top="0.15" bottom="0.25" header="0.1" footer="0.1"/>'
             . '<pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"/>'
             . ($hasLogo ? '<drawing r:id="rId1"/>' : '')
             . '</worksheet>';
@@ -812,7 +824,7 @@ class ReportsController
             $this->xlsxRow(4, [], 5),
         ];
 
-        $topHeader = [['A', 'No.', 24], ['B', 'Grade', 24]];
+        $topHeader = [['A', 'No', 24], ['B', 'Grade', 24]];
         $secondHeader = [['A', '', 24], ['B', '', 24]];
         $mergeRefs = ['B2:' . $lastColumn . '2', 'B3:' . $this->xlsxColumnName(max(2, $baseColumnCount + ($groups->count() * 2) - 3)) . '3'];
         $columnIndex = 3;
@@ -1846,6 +1858,7 @@ JS;
         return ['groups' => $groups, 'campuses' => $campuses, 'totals' => $totals];
     }
 }
+
 
 
 

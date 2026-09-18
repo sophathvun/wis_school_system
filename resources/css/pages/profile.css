@@ -155,7 +155,174 @@ body.dark .profile-edit-section-header {
     color: #fff;
 }
 
+.profile-workspace-nav {
+    overflow: visible;
+}
+
+.profile-workspace-nav-heading {
+    position: relative;
+}
+
+.profile-workspace-nav-title {
+    min-width: 0;
+}
+
+.profile-tabs-toggle {
+    display: inline-flex;
+    flex: 0 0 auto;
+    margin-left: auto;
+}
+
+@media (min-width: 992px) {
+    .profile-workspace {
+        transition: grid-template-columns 0.2s ease;
+    }
+
+    .profile-workspace.profile-tabs-collapsed {
+        grid-template-columns: 72px minmax(0, 1fr) !important;
+    }
+
+    .profile-workspace.profile-tabs-collapsed .profile-workspace-nav {
+        position: sticky;
+        z-index: 80;
+        overflow: visible;
+        padding: 0.7rem 0.45rem;
+    }
+
+    .profile-workspace.profile-tabs-collapsed .profile-workspace-nav-heading {
+        justify-content: center;
+        gap: 0;
+        padding: 0 0 0.75rem;
+    }
+
+    .profile-workspace.profile-tabs-collapsed .profile-workspace-nav-heading > .avatar,
+    .profile-workspace.profile-tabs-collapsed .profile-workspace-nav-title {
+        display: none;
+    }
+
+    .profile-workspace.profile-tabs-collapsed .profile-tabs-toggle {
+        margin-left: 0;
+    }
+
+    .profile-workspace.profile-tabs-collapsed .profile-workspace-tabs {
+        overflow: visible;
+        gap: 0;
+    }
+
+    .profile-workspace.profile-tabs-collapsed .profile-workspace-link {
+        position: relative;
+        justify-content: center;
+        min-height: 56px;
+        padding: 0.5rem;
+        border-radius: 0;
+        font-size: 0;
+    }
+
+    .profile-workspace.profile-tabs-collapsed .profile-workspace-link:first-child {
+        border-top-left-radius: 12px;
+        border-top-right-radius: 12px;
+    }
+
+    .profile-workspace.profile-tabs-collapsed .profile-workspace-link:last-child {
+        border-bottom-left-radius: 12px;
+        border-bottom-right-radius: 12px;
+    }
+
+    .profile-workspace.profile-tabs-collapsed .profile-workspace-link + .profile-workspace-link {
+        border-top-color: rgba(132, 158, 190, 0.22);
+    }
+
+    .profile-workspace.profile-tabs-collapsed .profile-workspace-link-icon {
+        flex-basis: 40px;
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
+        font-size: 1.15rem;
+    }
+
+    .profile-workspace.profile-tabs-collapsed .profile-workspace-link-copy,
+    .profile-workspace.profile-tabs-collapsed .profile-workspace-link > .ti-chevron-right {
+        display: none;
+    }
+
+    .profile-workspace.profile-tabs-collapsed .profile-workspace-link::after {
+        content: attr(data-profile-tab-label);
+        position: absolute;
+        left: calc(100% + 0.65rem);
+        top: 50%;
+        z-index: 1080;
+        transform: translateY(-50%);
+        display: none;
+        width: max-content;
+        max-width: 240px;
+        padding: 0.45rem 0.65rem;
+        border-radius: 0.45rem;
+        background: #111827;
+        color: #fff;
+        font-size: 0.82rem;
+        font-weight: 400;
+        line-height: 1.2;
+        white-space: nowrap;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.25);
+    }
+
+    .profile-workspace.profile-tabs-collapsed .profile-workspace-link::before {
+        content: "";
+        position: absolute;
+        left: calc(100% + 0.25rem);
+        top: 50%;
+        z-index: 1081;
+        transform: translateY(-50%);
+        display: none;
+        border-width: 0.35rem 0.4rem 0.35rem 0;
+        border-style: solid;
+        border-color: transparent #111827 transparent transparent;
+    }
+
+    .profile-workspace.profile-tabs-collapsed .profile-workspace-link:hover::after,
+    .profile-workspace.profile-tabs-collapsed .profile-workspace-link:focus::after,
+    .profile-workspace.profile-tabs-collapsed .profile-workspace-link:hover::before,
+    .profile-workspace.profile-tabs-collapsed .profile-workspace-link:focus::before {
+        display: block;
+    }
+}
+
 @media (max-width: 991.98px) {
+    .profile-workspace.profile-tabs-collapsed .profile-workspace-nav {
+        padding: 0.75rem;
+    }
+
+    .profile-workspace.profile-tabs-collapsed .profile-workspace-nav-heading {
+        margin-bottom: 0;
+        padding-bottom: 0.75rem;
+    }
+
+    .profile-workspace.profile-tabs-collapsed .profile-workspace-tabs {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0.35rem;
+    }
+
+    .profile-workspace.profile-tabs-collapsed .profile-workspace-link {
+        justify-content: center;
+        min-height: 52px;
+        padding: 0.35rem;
+        border-radius: 12px;
+    }
+
+    .profile-workspace.profile-tabs-collapsed .profile-workspace-link-icon {
+        flex-basis: 38px;
+        width: 38px;
+        height: 38px;
+        border-radius: 12px;
+        font-size: 1.08rem;
+    }
+
+    .profile-workspace.profile-tabs-collapsed .profile-workspace-link-copy,
+    .profile-workspace.profile-tabs-collapsed .profile-workspace-link > .ti-chevron-right {
+        display: none;
+    }
+
     .profile-edit-staff-column,
     .profile-edit-logon-column {
         flex: 0 0 100%;

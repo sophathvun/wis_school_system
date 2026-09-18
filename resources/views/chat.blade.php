@@ -64,7 +64,13 @@
                             <i class="ti ti-arrow-left"></i>
                         </button>
                         <div class="flex-fill min-w-0">
-                            <h3 class="card-title mb-0 text-truncate" id="chat-title">Conversation</h3>
+                            <div class="d-flex align-items-center gap-2 min-w-0">
+                                <h3 class="card-title mb-0 text-truncate flex-fill" id="chat-title">Conversation</h3>
+                                <button type="button" id="chat-group-menu" class="chat-group-menu-button d-none"
+                                    title="Group options">
+                                    <i class="ti ti-settings"></i>
+                                </button>
+                            </div>
                             <div class="text-secondary small text-truncate" id="chat-members"></div>
                             <div id="chat-group-controls" class="chat-group-controls d-none">
                                 <button type="button" id="chat-rename-group" class="btn btn-outline-primary btn-sm">

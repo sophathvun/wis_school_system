@@ -18,6 +18,11 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     };
     profileLinks.forEach((link) => {
+        const tabLabel = link.dataset.profileTabLabel;
+        if (tabLabel) {
+            link.setAttribute("aria-label", tabLabel);
+            link.title = tabLabel;
+        }
         link.addEventListener("click", () => {
             const panelName = link.dataset.profilePanel;
             activateProfilePanel(panelName);
@@ -25,6 +30,45 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
     activateProfilePanel(window.location.hash.replace("#", ""));
+
+    const workspace = document.querySelector("[data-profile-workspace]");
+    const profileTabsToggle = workspace?.querySelector(".profile-tabs-toggle");
+    if (workspace && profileTabsToggle) {
+        const storageKey = "profileTabsCollapsed";
+        const icon = profileTabsToggle.querySelector("i");
+        const syncProfileTabsToggle = () => {
+            const collapsed = workspace.classList.contains("profile-tabs-collapsed");
+            profileTabsToggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
+            profileTabsToggle.title = collapsed ? "Maximize profile tabs" : "Minimize profile tabs";
+            profileTabsToggle.setAttribute(
+                "aria-label",
+                collapsed ? "Maximize profile tabs" : "Minimize profile tabs",
+            );
+            if (icon) {
+                icon.className = collapsed
+                    ? "ti ti-layout-sidebar-left-expand"
+                    : "ti ti-layout-sidebar-left-collapse";
+            }
+        };
+        const applySavedProfileTabsState = () => {
+            if (localStorage.getItem(storageKey) === "1") {
+                workspace.classList.add("profile-tabs-collapsed");
+            } else {
+                workspace.classList.remove("profile-tabs-collapsed");
+            }
+            syncProfileTabsToggle();
+        };
+
+        applySavedProfileTabsState();
+
+        profileTabsToggle.addEventListener("click", () => {
+            const collapsed = workspace.classList.toggle("profile-tabs-collapsed");
+            localStorage.setItem(storageKey, collapsed ? "1" : "0");
+            syncProfileTabsToggle();
+        });
+
+        window.addEventListener("resize", applySavedProfileTabsState);
+    }
 
     const regenerateForm = document.getElementById("regenerateNameCardForm");
     regenerateForm?.addEventListener("submit", async (event) => {

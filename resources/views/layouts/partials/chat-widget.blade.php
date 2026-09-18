@@ -73,7 +73,13 @@
                             <i class="ti ti-arrow-left"></i>
                         </button>
                         <div class="flex-fill min-w-0">
-                            <div class="fw-semibold text-truncate" id="school-chat-conversation-title">Conversation
+                            <div class="d-flex align-items-center gap-2 min-w-0">
+                                <div class="fw-semibold text-truncate flex-fill" id="school-chat-conversation-title">Conversation
+                                </div>
+                                <button type="button" id="school-chat-group-menu" class="chat-mini-group-menu-button d-none"
+                                    title="Group options">
+                                    <i class="ti ti-settings"></i>
+                                </button>
                             </div>
                             <div class="small text-secondary text-truncate" id="school-chat-conversation-members"></div>
                             <div id="school-chat-group-controls" class="chat-mini-group-controls d-none">
