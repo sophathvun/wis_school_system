@@ -118,6 +118,21 @@ class NotificationController
     {
         $unread = $request->user()->userNotifications()->whereNull('read_at')->count();
         $latest = $request->user()->userNotifications()->latest()->first();
+        $items = $request->user()->userNotifications()
+            ->when($unread > 0, fn ($query) => $query->whereNull('read_at'))
+            ->latest()
+            ->limit(5)
+            ->get()
+            ->map(fn ($item) => [
+                'id' => $item->id,
+                'title' => $item->title,
+                'message' => Str::limit(strip_tags($item->message), 120),
+                'url' => $item->action_url ?: route('notifications.index'),
+                'created_at' => $item->created_at?->toIso8601String(),
+                'time' => $item->created_at?->diffForHumans(),
+                'read' => (bool) $item->read_at,
+            ])
+            ->values();
 
         return response()->json([
             'unread' => $unread,
@@ -129,6 +144,7 @@ class NotificationController
                 'created_at' => $latest->created_at?->toIso8601String(),
                 'read' => (bool) $latest->read_at,
             ] : null,
+            'items' => $items,
         ]);
     }
 

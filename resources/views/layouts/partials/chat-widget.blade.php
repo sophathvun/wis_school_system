@@ -7,6 +7,7 @@
         data-unread-url="{{ route('chat.unread') }}"
         data-create-url="{{ route('chat.create') }}"
         data-heartbeat-url="{{ route('chat.heartbeat') }}"
+        data-chat-base-url="{{ url('/communication/chat') }}"
         data-messages-base="{{ url('/communication/chat') }}"
         data-calls-pending-url="{{ route('chat.calls.pending') }}"
         data-calls-base="{{ url('/communication/chat/calls') }}"
@@ -75,6 +76,21 @@
                             <div class="fw-semibold text-truncate" id="school-chat-conversation-title">Conversation
                             </div>
                             <div class="small text-secondary text-truncate" id="school-chat-conversation-members"></div>
+                            <div id="school-chat-group-controls" class="chat-mini-group-controls d-none">
+                                <button type="button" id="school-chat-rename-group" class="btn btn-outline-primary btn-sm">
+                                    <i class="ti ti-edit me-1"></i> Rename
+                                </button>
+                                <button type="button" id="school-chat-add-group-members" class="btn btn-outline-primary btn-sm">
+                                    <i class="ti ti-user-plus me-1"></i> Add members
+                                </button>
+                                <button type="button" id="school-chat-group-photo" class="btn btn-outline-primary btn-sm">
+                                    <i class="ti ti-photo me-1"></i> Photo
+                                </button>
+                                <button type="button" id="school-chat-group-admins" class="btn btn-outline-primary btn-sm">
+                                    <i class="ti ti-shield-star me-1"></i> Admins
+                                </button>
+                                <input type="file" id="school-chat-group-photo-file" class="d-none" accept="image/*">
+                            </div>
                         </div>
                         <button type="button" id="school-chat-call-start" class="btn btn-outline-success btn-sm"
                             title="Start voice call">

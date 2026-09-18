@@ -40,7 +40,7 @@ class ReportsController
             'academicYears' => $this->academicYears($payload['filters']),
             'campuses' => $this->campuses($request, $payload['filters'], $type),
             'grades' => Grade::where('status', 1)->orderByRaw('CAST(grade_order AS UNSIGNED)')->get(['id', 'grade']),
-            'gradeClassOptions' => ($this->isStudentListReport($type) || $this->isStudentContactListReport($type) || $type === 'attendance-list') ? $this->gradeClassOptions($request, $payload['filters']) : collect(),
+            'gradeClassOptions' => ($this->isStudentListReport($type) || $this->isStudentContactListReport($type) || $type === 'attendance-list' || $type === 'score-list') ? $this->gradeClassOptions($request, $payload['filters']) : collect(),
             'groupOptions' => ($this->isStudentListReport($type) || $this->isStudentContactListReport($type)) ? $this->groupOptions($request, $payload['filters']) : collect(),
         ]);
     }
@@ -66,7 +66,7 @@ class ReportsController
         $payload = $this->reportPayload($request, $type);
         $mode = $request->query('pdf_mode', 'combined');
 
-        if (($this->isStudentListReport($type) || $this->isStudentContactListReport($type) || $type === 'attendance-list') && $mode === 'separate') {
+        if (($this->isStudentListReport($type) || $this->isStudentContactListReport($type) || $type === 'attendance-list' || $type === 'score-list') && $mode === 'separate') {
             return $this->separateReportPdfZip($request, $payload, $type);
         }
 
@@ -222,7 +222,7 @@ class ReportsController
         $first = $enrollments instanceof Collection ? $enrollments->first() : null;
         $grade = $classSpecific && $first ? $this->gradeClassLabel($first) : self::TYPES[$type];
         $academicYear = $first?->academicYear?->academic_year ?: 'All-Academic-Years';
-        $reportName = $this->isStudentContactListReport($type) ? 'Student-Contact-List' : ($this->isStudentListReport($type) ? 'Student-List' : ($type === 'attendance-list' ? 'Attendance-List' : self::TYPES[$type]));
+        $reportName = $this->isStudentContactListReport($type) ? 'Student-Contact-List' : ($this->isStudentListReport($type) ? 'Student-List' : ($type === 'attendance-list' ? 'Attendance-List' : ($type === 'score-list' ? 'Score-List' : self::TYPES[$type])));
         $parts = $classSpecific ? [$grade, $academicYear, $reportName] : [$reportName, $academicYear, now('Asia/Phnom_Penh')->format('Ymd-His')];
 
         return $this->safeReportFilename(collect($parts)->filter()->join('-')) . '.pdf';
@@ -346,6 +346,38 @@ class ReportsController
         }
 
         $enrollments = $payload['enrollments'] ?? collect();
+        if ($type === 'score-list') {
+            $groups = $this->classGroups($enrollments);
+            if ($groups->isEmpty()) {
+                return [[
+                    'name' => 'Score List',
+                    'xml' => $this->scoreListWorksheetXml(collect(), $payload['filters'] ?? [], $hasLogo),
+                    'tacteing_col' => 7,
+                    'show_tacteing' => false,
+                    'logo_cx' => 1600000,
+                    'logo_cy' => 1200000,
+                    'logo_row' => 1,
+                    'logo_row_off' => 45720,
+                    'logo_col_off' => 0,
+                ]];
+            }
+            $usedNames = [];
+            return $groups->map(function ($rows) use (&$usedNames, $payload, $hasLogo) {
+                $gradeClass = $this->gradeClassLabel($rows->first()) ?: 'Class';
+                return [
+                    'name' => $this->uniqueSheetName('Score-' . $gradeClass, $usedNames),
+                    'xml' => $this->scoreListWorksheetXml($rows->values(), $payload['filters'] ?? [], $hasLogo),
+                    'tacteing_col' => 7,
+                    'show_tacteing' => false,
+                    'logo_cx' => 1600000,
+                    'logo_cy' => 1200000,
+                    'logo_row' => 1,
+                    'logo_row_off' => 45720,
+                    'logo_col_off' => 0,
+                ];
+            })->values()->all();
+        }
+
         if ($type === 'attendance-list') {
             $attendanceMonth = $payload['filters']['month'] ?? now('Asia/Phnom_Penh')->format('Y-m');
             $monthName = strtoupper(\Carbon\Carbon::createFromFormat('Y-m-d', $attendanceMonth . '-01')->format('M'));
@@ -556,6 +588,86 @@ class ReportsController
         });
 
         return $member?->phone ?: '-';
+    }
+    private function scorePrintTypeLabel(array $filters): string
+    {
+        return match ($filters['print_type'] ?? 'quarter_1') {
+            'quarter_2' => 'Quarter 2',
+            'quarter_3' => 'Quarter 3',
+            'quarter_4' => 'Quarter 4',
+            default => 'Quarter 1',
+        };
+    }
+
+    private function scoreListWorksheetXml($enrollments, array $filters = [], bool $hasLogo = false): string
+    {
+        $enrollments = collect($enrollments)->values();
+        $first = $enrollments->first();
+        $lastColumn = 'V';
+        $startRow = 9;
+        $minRows = 25;
+        $bodyCount = max($minRows, $enrollments->count());
+        $footerRow = $startRow + $bodyCount + 1;
+        $noteRow = $footerRow + 1;
+        $lastRow = $noteRow + 1;
+        $gradeClass = $first ? $this->gradeClassLabel($first) : '-';
+        $quarter = $this->scorePrintTypeLabel($filters);
+        $date = now('Asia/Phnom_Penh')->format('d-M-y');
+
+        $rows = [
+            $this->xlsxRow(1, [], 18),
+            $this->xlsxRow(2, [['P', 'សៀវភៅពិន្ទុ / Score List', 23]], 24),
+            $this->xlsxRow(3, [['P', 'Teacher Name', 2], ['R', '', 2]], 20),
+            $this->xlsxRow(4, [['P', 'Subject', 2], ['R', '', 2]], 20),
+            $this->xlsxRow(5, [['P', 'Grade', 2], ['R', $gradeClass, 2], ['T', 'For :', 2], ['U', $quarter, 2]], 20),
+            $this->xlsxRow(6, [], 6),
+            $this->xlsxRow(7, [
+                ['A', 'Nº', 3], ['B', 'Name', 3], ['C', 'ឈ្មោះ', 7], ['D', 'Sex', 3], ['E', 'Group', 3], ['F', 'Conduct', 3], ['G', 'C.P.', 3],
+                ['H', 'កិច្ចការផ្ទះ / Homework', 7], ['N', 'តេស្តខ្លី / Quizzes', 7], ['T', "Monthly Test\nតេស្តប្រចាំខែ", 7],
+            ], 28),
+            $this->xlsxRow(8, [
+                ['H', '1', 3], ['I', '2', 3], ['J', '3', 3], ['K', '4', 3], ['L', '5', 3], ['M', '6', 3],
+                ['N', '1', 3], ['O', '2', 3], ['P', '3', 3], ['Q', '4', 3], ['R', '5', 3], ['S', '6', 3],
+                ['T', '1', 3], ['U', '2', 3], ['V', '3', 3],
+            ], 22),
+        ];
+
+        for ($i = 0; $i < $bodyCount; $i++) {
+            $row = $enrollments->get($i);
+            $style = $i % 2 === 1 ? 21 : 5;
+            $cells = [
+                ['A', $row ? (string) ($i + 1) : '', $style],
+                ['B', $row?->student?->full_name_en ?: '', $style],
+                ['C', $row?->student?->full_name_kh ?: '', $row ? 4 : $style],
+                ['D', $row ? (strtoupper(substr((string) $row->student?->gender, 0, 1)) === 'F' ? 'F' : 'M') : '', $style],
+                ['E', $row?->session?->session_short_name ?: '', $style],
+                ['F', '', $style], ['G', '', $style],
+            ];
+            foreach (range(8, 22) as $columnIndex) {
+                $cells[] = [$this->xlsxColumnName($columnIndex), '', $style];
+            }
+            $rows[] = $this->xlsxRow($startRow + $i, $cells, 22);
+        }
+
+        $rows[] = $this->xlsxRow($footerRow, [['A', 'ចំណាំ៖ ការរៀបចំបញ្ជីពិន្ទុនេះគឺសម្រាប់លោកគ្រូអ្នកគ្រូកត់ត្រាទុក ដើម្បីបញ្ចូលក្នុងសៀវភៅពិន្ទុអេឡិចត្រូនិក (E-Gradebook)។', 4], ['U', 'Date:', 2], ['V', $date, 2]], 20);
+        $rows[] = $this->xlsxRow($noteRow, [['A', '* NOTE: This list is for teachers to keep record of all kinds of scores which is served as hard copies for egrade-book input.', 5]], 18);
+        $rows[] = $this->xlsxRow($noteRow + 1, [['A', 'The list is for teacher personal use. It is not required by the office.', 5]], 18);
+
+        $mergeCells = '<mergeCells count="14"><mergeCell ref="P2:V2"/><mergeCell ref="R3:V3"/><mergeCell ref="R4:V4"/><mergeCell ref="R5:S5"/><mergeCell ref="U5:V5"/><mergeCell ref="A7:A8"/><mergeCell ref="B7:B8"/><mergeCell ref="C7:C8"/><mergeCell ref="D7:D8"/><mergeCell ref="E7:E8"/><mergeCell ref="F7:F8"/><mergeCell ref="G7:G8"/><mergeCell ref="H7:M7"/><mergeCell ref="N7:S7"/><mergeCell ref="T7:V7"/><mergeCell ref="A' . $footerRow . ':T' . $footerRow . '"/><mergeCell ref="A' . $noteRow . ':T' . $noteRow . '"/><mergeCell ref="A' . ($noteRow + 1) . ':T' . ($noteRow + 1) . '"/></mergeCells>';
+        $mergeCells = str_replace('count="14"', 'count="18"', $mergeCells);
+
+        return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            . '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+            . '<dimension ref="A1:' . $lastColumn . $lastRow . '"/>'
+            . '<sheetViews><sheetView workbookViewId="0"><pane ySplit="8" topLeftCell="A9" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'
+            . '<sheetFormatPr defaultRowHeight="18"/>'
+            . '<cols><col min="1" max="1" width="5" customWidth="1"/><col min="2" max="2" width="24" customWidth="1"/><col min="3" max="3" width="24" customWidth="1"/><col min="4" max="7" width="7" customWidth="1"/><col min="8" max="22" width="6" customWidth="1"/></cols>'
+            . '<sheetData>' . implode('', $rows) . '</sheetData>'
+            . $mergeCells
+            . '<pageMargins left="0.2" right="0.2" top="0.35" bottom="0.35" header="0.1" footer="0.1"/>'
+            . '<pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"/>'
+            . ($hasLogo ? '<drawing r:id="rId1"/>' : '')
+            . '</worksheet>';
     }
     private function statisticsWorksheetXml(array $statistics, bool $hasLogo = false, array $filters = []): string
     {
@@ -1294,10 +1406,12 @@ JS;
             'report_date' => ['nullable', 'date'],
             'month' => ['nullable', 'date_format:Y-m'],
             'score_columns' => ['nullable', 'integer', 'min:1', 'max:12'],
+            'print_type' => ['nullable', 'in:quarter_1,quarter_2,quarter_3,quarter_4'],
         ]);
         $filters['month'] = $filters['month'] ?? now()->format('Y-m');
         $filters['period_type'] = $filters['period_type'] ?? 'all';
         $filters['score_columns'] = (int) ($filters['score_columns'] ?? 5);
+        $filters['print_type'] = $filters['print_type'] ?? 'quarter_1';
         $filters['report_date'] = $filters['report_date'] ?? now()->format('Y-m-d');
         if (!empty($filters['academic_year_id']) && ($filters['period_type'] ?? 'all') !== 'all') {
             $academicYearPeriod = AcademicYear::whereKey($filters['academic_year_id'])->value('period_type');
@@ -1308,12 +1422,12 @@ JS;
         if (!empty($filters['grade_class']) && str_contains($filters['grade_class'], ':')) {
             [$filters['grade_id'], $filters['class_id']] = array_map('intval', explode(':', $filters['grade_class'], 2));
         }
-        if (($this->isStudentListReport($type) || $this->isStudentContactListReport($type) || $type === 'attendance-list') && !empty($filters['print_grade_classes'])) {
+        if (($this->isStudentListReport($type) || $this->isStudentContactListReport($type) || $type === 'attendance-list' || $type === 'score-list') && !empty($filters['print_grade_classes'])) {
             unset($filters['grade_id'], $filters['class_id'], $filters['grade_class']);
-        } elseif (($this->isStudentListReport($type) || $this->isStudentContactListReport($type) || $type === 'attendance-list') && ($filters['print_scope'] ?? null) === 'all_classes') {
+        } elseif (($this->isStudentListReport($type) || $this->isStudentContactListReport($type) || $type === 'attendance-list' || $type === 'score-list') && ($filters['print_scope'] ?? null) === 'all_classes') {
             unset($filters['grade_id'], $filters['class_id'], $filters['grade_class']);
         }
-        if ($type === 'attendance-list') {
+        if (in_array($type, ['attendance-list', 'score-list'], true)) {
             $hasDataFilter = filled($filters['academic_year_id'] ?? null)
                 && filled($filters['campus_id'] ?? null)
                 && (

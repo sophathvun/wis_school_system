@@ -118,7 +118,9 @@
             const data = await response.json();
             const unreadCount = Number(data.unread || 0);
             const latest = data.latest || null;
+            const refreshedItems = Array.isArray(data.items) ? data.items : [];
             renderNotificationBadge(unreadCount);
+            renderNotificationList(refreshedItems);
             if (refreshNotificationsUnread.previousUnread !== null && unreadCount > refreshNotificationsUnread.previousUnread && latest && latest.id !== latestNotificationId) {
                 showBrowserNotification(latest.title || "New notification", {
                     body: latest.message || "You have a new notification.",
@@ -139,6 +141,9 @@
     refreshNotificationsUnread();
     window.setInterval(refreshChatUnread, 5000);
     window.setInterval(refreshNotificationsUnread, 10000);
+    document.querySelector("[data-navbar-notification-toggle]")?.addEventListener("click", () => {
+        refreshNotificationsUnread();
+    });
 
     document.querySelectorAll("[data-clear-dashboard-hero]").forEach((form) => {
         form.addEventListener("submit", () => {

@@ -15,4 +15,5 @@ class ChatMessage extends Model
 
     public function conversation() { return $this->belongsTo(ChatConversation::class, 'conversation_id'); }
     public function user() { return $this->belongsTo(User::class); }
+    public function hiddenByUsers() { return $this->belongsToMany(User::class, 'chat_message_deletions', 'message_id', 'user_id')->withTimestamps(); }
 }

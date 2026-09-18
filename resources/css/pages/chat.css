@@ -161,6 +161,39 @@ body:has(#chat-shell) .page-header {
     color: #fff;
 }
 
+.chat-delete-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.28rem;
+    margin-top: 0.4rem;
+    padding: 0.22rem 0.55rem;
+    border: 1px solid rgba(214, 57, 57, 0.26);
+    border-radius: 999px;
+    background: linear-gradient(135deg, rgba(214, 57, 57, 0.11), rgba(214, 57, 57, 0.04));
+    color: #d63939;
+    font-size: 0.76rem;
+    font-weight: 700;
+    line-height: 1.1;
+    box-shadow: 0 6px 16px rgba(214, 57, 57, 0.08);
+}
+
+.chat-delete-button:hover {
+    background: #d63939;
+    color: #fff;
+    box-shadow: 0 8px 18px rgba(214, 57, 57, 0.22);
+}
+
+.chat-message.mine .chat-delete-button {
+    border-color: rgba(255, 255, 255, 0.42);
+    background: rgba(255, 255, 255, 0.14);
+    color: #fff;
+}
+
+.chat-message.mine .chat-delete-button:hover {
+    background: #fff;
+    color: #d63939;
+}
+
 .chat-avatar {
     width: 2.15rem;
     height: 2.15rem;
@@ -461,4 +494,20 @@ body:has(#chat-shell) .page-header {
 
 .chat-call-card .ti-phone-off {
     color: #d63939;
+}
+
+.chat-group-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-top: 0.45rem;
+}
+
+.chat-group-controls.d-none {
+    display: none !important;
+}
+
+.chat-group-controls .btn {
+    padding: 0.18rem 0.5rem;
+    font-size: 0.75rem;
 }

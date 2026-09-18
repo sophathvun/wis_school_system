@@ -138,6 +138,11 @@ Route::middleware('auth')->group(function () {
     Route::get('/communication/chat/unread', [ChatController::class, 'unread'])->name('chat.unread');
     Route::post('/communication/chat', [ChatController::class, 'create'])->name('chat.create');
     Route::get('/communication/chat/messages/{message}/download', [ChatController::class, 'download'])->name('chat.messages.download');
+    Route::delete('/communication/chat/messages/{message}', [ChatController::class, 'deleteMessage'])->name('chat.messages.delete');
+    Route::patch('/communication/chat/{conversation}', [ChatController::class, 'update'])->name('chat.update');
+    Route::post('/communication/chat/{conversation}/members', [ChatController::class, 'addMembers'])->name('chat.members.add');
+    Route::post('/communication/chat/{conversation}/admins', [ChatController::class, 'setAdmins'])->name('chat.admins.set');
+    Route::post('/communication/chat/{conversation}/photo', [ChatController::class, 'updatePhoto'])->name('chat.photo.update');
     Route::get('/communication/chat/{conversation}/messages', [ChatController::class, 'messages'])->name('chat.messages');
     Route::post('/communication/chat/{conversation}/messages', [ChatController::class, 'send'])->name('chat.messages.send');
     Route::post('/communication/chat/{conversation}/voice', [ChatController::class, 'sendVoice'])->name('chat.voice.send');

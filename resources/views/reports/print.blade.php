@@ -17,6 +17,11 @@
     @include('reports.print-student-list')
 @elseif($type === 'student-contact-list')
     @include('reports.print-student-contact-list')
+@elseif($type === 'score-list')
+<div class="score-list-print-page">
+    @include('reports._score-list-table', ['scorePrintLayout' => true])
+</div>
+<style>@page{size:A4 landscape;margin:7mm}body[data-report-type="score-list"]{background:#fff;color:#000}.score-list-print-page{width:100%;padding:0}.score-list-print-page .score-list-report{min-width:0;width:100%;overflow:visible}.score-list-print-page .score-list-table{font-size:14px}.score-list-print-page .score-list-table th,.score-list-print-page .score-list-table td{border-width:1.2px;height:8.3mm}.score-list-print-page .score-name-en,.score-list-print-page .score-name-kh{font-size:14px}@media print{.score-list-print-page{padding:0}}</style>
 @elseif($type === 'student-statistics-detail')
 <div class="statistics-detail-print-page">
     @include('reports._table')

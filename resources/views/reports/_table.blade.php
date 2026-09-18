@@ -1,3 +1,6 @@
+@if($type === 'score-list')
+    @include('reports._score-list-table')
+@else
 @if($type === 'student-statistics-detail')
 @php
     $detailGroups = $statistics['groups'] ?? [];
@@ -733,3 +736,5 @@
 <style>.student-name-kh{line-height:1.35}.student-name-en{font-family:"Khmer OS Siemreap","Khmer OS Siem Reap",sans-serif;line-height:1.35}.reports-contact-list-table{min-width:900px}.reports-contact-list-table th,.reports-contact-list-table td{white-space:nowrap}.reports-contact-list-table th:nth-child(2),.reports-contact-list-table td:nth-child(2){min-width:74px;max-width:86px}.reports-contact-list-table th:nth-child(3),.reports-contact-list-table td:nth-child(3){white-space:normal;min-width:150px;max-width:175px}.reports-contact-list-table th:nth-child(3) .student-name-en,.reports-contact-list-table td:nth-child(3) .student-name-en{font-size:.75rem;line-height:1.25}.reports-contact-list-table th:nth-child(4),.reports-contact-list-table td:nth-child(4){min-width:54px;max-width:62px;text-align:center}.reports-contact-list-table th:nth-child(6),.reports-contact-list-table td:nth-child(6){min-width:92px;max-width:110px}.reports-contact-list-table th:nth-child(7),.reports-contact-list-table td:nth-child(7),.reports-contact-list-table th:nth-child(8),.reports-contact-list-table td:nth-child(8),.reports-contact-list-table th:nth-child(9),.reports-contact-list-table td:nth-child(9){min-width:105px;max-width:118px}.reports-student-mobile-contact{display:grid;gap:.2rem;margin-top:.55rem;color:#52627a;font-size:.82rem}</style>
 @endif
 <style>.reports-student-list-table .student-name-kh{font-family:"Khmer OS Siemreap","Khmer OS Siem Reap",sans-serif}.reports-student-list-table .student-name-en{font-family:inherit}</style>
+
+@endif

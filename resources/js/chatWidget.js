@@ -9,6 +9,7 @@
                     unread: widget.dataset.unreadUrl || '',
                     create: widget.dataset.createUrl || '',
                     heartbeat: widget.dataset.heartbeatUrl || '',
+                    chatBase: widget.dataset.chatBaseUrl || widget.dataset.messagesBase || '',
                     messagesBase: widget.dataset.messagesBase || '',
                     callsPending: widget.dataset.callsPendingUrl || '',
                     callsBase: widget.dataset.callsBase || '',
@@ -26,6 +27,12 @@
                 const backButton = document.getElementById('school-chat-back');
                 const conversationTitle = document.getElementById('school-chat-conversation-title');
                 const conversationMembers = document.getElementById('school-chat-conversation-members');
+                const groupControls = document.getElementById('school-chat-group-controls');
+                const renameGroupButton = document.getElementById('school-chat-rename-group');
+                const addGroupMembersButton = document.getElementById('school-chat-add-group-members');
+                const groupPhotoButton = document.getElementById('school-chat-group-photo');
+                const groupAdminsButton = document.getElementById('school-chat-group-admins');
+                const groupPhotoFile = document.getElementById('school-chat-group-photo-file');
                 const messagesBox = document.getElementById('school-chat-messages');
                 const form = document.getElementById('school-chat-form');
                 const input = document.getElementById('school-chat-input');
@@ -64,6 +71,9 @@
                 let activeConversation = null;
                 let autoVoicePlayback = false;
                 let groupMode = false;
+                let groupAddMode = false;
+                let groupAdminMode = false;
+                let groupAddConversationId = null;
                 let groupSelectedUserIds = new Set();
                 let groupDraftTitle = '';
                 let loadingConversation = false;
@@ -270,6 +280,7 @@
                 const renderPeople = () => {
                     const term = search.value.trim().toLowerCase();
                     const isSelf = (user) => Boolean(user.is_current_user) || Number(user.id) === currentUserId || (currentUserName && String(user.name || '').trim().toLowerCase() === currentUserName);
+                    const activeMemberIds = new Set((activeConversation?.users || []).map((user) => Number(user.id)));
                     const visibleUsers = users
                         .filter((user) => `${user.name} ${user.department || ''}`.toLowerCase().includes(term))
                         .sort((a, b) => Number(isSelf(b)) - Number(isSelf(a)));
@@ -285,18 +296,48 @@
                         Create Group (${groupSelectedUserIds.size})
                     </button>
                 </div>
-            ` : '';
+            ` : (groupAddMode ? `
+                <div class="chat-mini-group-composer border-bottom p-3">
+                    <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                        <div class="fw-semibold"><i class="ti ti-user-plus me-1"></i>Add Group Members</div>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" data-group-cancel>Cancel</button>
+                    </div>
+                    <div class="small text-secondary mb-2">Select staff members to add to ${esc(activeConversation?.title || 'this group')}.</div>
+                    <button type="button" class="btn btn-primary btn-sm w-100" data-group-add ${groupSelectedUserIds.size < 1 ? 'disabled' : ''}>
+                        Add Members (${groupSelectedUserIds.size})
+                    </button>
+                </div>
+            ` : (groupAdminMode ? `
+                <div class="chat-mini-group-composer border-bottom p-3">
+                    <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                        <div class="fw-semibold"><i class="ti ti-shield-star me-1"></i>Group Admins</div>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" data-group-cancel>Cancel</button>
+                    </div>
+                    <div class="small text-secondary mb-2">Select members who can help manage this group.</div>
+                    <button type="button" class="btn btn-primary btn-sm w-100" data-group-admin-save>
+                        Save Admins (${groupSelectedUserIds.size})
+                    </button>
+                </div>
+            ` : ''));
                     const html = visibleUsers.map((user) => {
                             const isCurrentUser = isSelf(user);
                             const isOnline = isCurrentUser || Boolean(user.online);
+                            const isExistingMember = activeMemberIds.has(Number(user.id));
+                            const memberInfo = (activeConversation?.users || []).find((member) => Number(member.id) === Number(user.id));
+                            const isOwner = Boolean(memberInfo?.is_owner);
                             const selected = groupSelectedUserIds.has(Number(user.id));
-                            const action = groupMode
-                                ? (isCurrentUser
+                            let action = '';
+                            if (groupMode || groupAddMode || groupAdminMode) {
+                                if (isCurrentUser) action = '<span class="badge bg-primary-lt text-primary rounded-pill">You</span>';
+                                else if (groupAdminMode && !isExistingMember) action = '<span class="badge bg-secondary-lt text-secondary rounded-pill">Not member</span>';
+                                else if (groupAdminMode && isOwner) action = '<span class="badge bg-primary-lt text-primary rounded-pill">Owner</span>';
+                                else if (groupAddMode && isExistingMember) action = '<span class="badge bg-secondary-lt text-secondary rounded-pill">Member</span>';
+                                else action = `<label class="form-check m-0"><input class="form-check-input" type="checkbox" data-group-user="${user.id}" ${selected ? 'checked' : ''}></label>`;
+                            } else {
+                                action = isCurrentUser
                                     ? '<span class="badge bg-primary-lt text-primary rounded-pill">You</span>'
-                                    : `<label class="form-check m-0"><input class="form-check-input" type="checkbox" data-group-user="${user.id}" ${selected ? 'checked' : ''}></label>`)
-                                : (isCurrentUser
-                                    ? '<span class="badge bg-primary-lt text-primary rounded-pill">You</span>'
-                                    : `<button type="button" class="btn btn-outline-primary btn-sm" data-user-chat="${user.id}">Chat</button>`);
+                                    : `<button type="button" class="btn btn-outline-primary btn-sm" data-user-chat="${user.id}">Chat</button>`;
+                            }
                             return `
                 <div class="chat-mini-item px-3 py-3 border-bottom ${isCurrentUser ? 'chat-mini-item-current' : ''} ${selected ? 'active' : ''}" data-user-id="${user.id}" data-current-user="${isCurrentUser ? 'true' : 'false'}">
                     <div class="d-flex align-items-center gap-3">
@@ -320,7 +361,16 @@
                     peoplePane.innerHTML = composer + (html || '<div class="chat-mini-empty"><div><i class="ti ti-user-search fs-1"></i><div class="mt-2">No staff found.</div></div></div>');
                     peoplePane.querySelector('[data-group-cancel]')?.addEventListener('click', () => {
                         groupMode = false;
+                        groupAddMode = false;
+                        groupAdminMode = false;
+                        groupAddConversationId = null;
                         groupSelectedUserIds = new Set();
+                        if (activeConversationId) {
+                            setTab('conversations');
+                            conversationPane.classList.remove('d-none');
+                            conversationPane.classList.add('d-flex');
+                            peoplePane.classList.add('d-none');
+                        }
                         renderPeople();
                     });
                     peoplePane.querySelector('[data-group-title]')?.addEventListener('input', (event) => {
@@ -329,6 +379,12 @@
                     peoplePane.querySelector('[data-group-create]')?.addEventListener('click', () => {
                         const title = peoplePane.querySelector('[data-group-title]')?.value || groupDraftTitle;
                         startGroupChat(Array.from(groupSelectedUserIds), title).catch((error) => alert(error.message || 'Unable to create group chat.'));
+                    });
+                    peoplePane.querySelector('[data-group-add]')?.addEventListener('click', () => {
+                        addMembersToActiveGroup(Array.from(groupSelectedUserIds)).catch((error) => alert(error.message || 'Unable to add members.'));
+                    });
+                    peoplePane.querySelector('[data-group-admin-save]')?.addEventListener('click', () => {
+                        saveGroupAdmins(Array.from(groupSelectedUserIds)).catch((error) => alert(error.message || 'Unable to save group admins.'));
                     });
                     peoplePane.querySelectorAll('[data-group-user]').forEach((checkbox) => {
                         checkbox.addEventListener('change', (event) => {
@@ -341,8 +397,10 @@
                     peoplePane.querySelectorAll('[data-user-id]').forEach((item) => {
                         item.addEventListener('click', (event) => {
                             if (item.dataset.currentUser === 'true' || event.target.closest('button[data-user-chat], input, label, button')) return;
-                            if (groupMode) {
+                            if (groupMode || groupAddMode || groupAdminMode) {
                                 const id = Number(item.dataset.userId);
+                                if (groupAddMode && activeMemberIds.has(id)) return;
+                                if (groupAdminMode && (!activeMemberIds.has(id) || (activeConversation?.users || []).find((member) => Number(member.id) === id)?.is_owner)) return;
                                 if (groupSelectedUserIds.has(id)) groupSelectedUserIds.delete(id);
                                 else groupSelectedUserIds.add(id);
                                 renderPeople();
@@ -444,6 +502,9 @@
                         .map((user) => `${user.name} \u2022 ${user.online ? 'Online' : 'Offline'}`)
                         .join(', ');
                     callStartButton.classList.toggle('d-none', activeConversation.type !== 'direct');
+                    const canManageGroup = activeConversation.type === 'group' && Boolean(activeConversation.can_manage_group);
+                    groupControls?.classList.toggle('d-none', !canManageGroup);
+                    groupAdminsButton?.classList.toggle('d-none', !activeConversation.can_assign_group_admins);
                     const avatar = (user, className = 'chat-mini-message-avatar') => {
                         const statusDot = user?.online !== undefined ?
                             `<span class="chat-mini-presence-dot ${user.online ? 'online' : ''}" title="${user.online ? 'Online' : 'Offline'}"></span>` :
@@ -527,6 +588,7 @@
                 <div class="chat-mini-message ${message.user_id === currentUserId ? 'mine' : ''}" data-message-id="${message.id}">
                     <div class="small opacity-75 mb-1">${esc(message.user_name)} &middot; ${esc(message.created_at)}</div>
                     ${messageContent(message)}
+                    ${message.can_delete ? `<button type="button" class="chat-mini-delete-button" data-delete-message="${message.id}" data-delete-everyone="${message.can_delete_for_everyone ? 'true' : 'false'}"><i class="ti ti-trash"></i><span>Delete</span></button>` : ''}
                     ${messageStatus(message)}
                 </div>
                 ${message.user_id === currentUserId ? avatar({ name: 'You', photo: currentUserPhoto, online: true }) : ''}
@@ -536,13 +598,20 @@
         `).join('') || '<div class="chat-mini-empty"><div><i class="ti ti-message-dots fs-1"></i><div class="mt-2">No messages yet. Start the conversation.</div></div></div>';
                     messagesBox.querySelectorAll('[data-message-id]').forEach((bubble) => {
                         bubble.addEventListener('click', (event) => {
-                            if (event.target.closest('audio')) return;
+                            if (event.target.closest('audio, button')) return;
                             const detail = messagesBox.querySelector(
                                 `[data-message-detail="${bubble.dataset.messageId}"]`);
                             const wasOpen = detail?.classList.contains('show');
                             messagesBox.querySelectorAll('.chat-mini-message-detail.show').forEach((
                                 item) => item.classList.remove('show'));
                             if (detail && !wasOpen) detail.classList.add('show');
+                        });
+                    });
+                    messagesBox.querySelectorAll('[data-delete-message]').forEach((button) => {
+                        button.addEventListener('click', (event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            chooseDeleteScope(Number(button.dataset.deleteMessage), button.dataset.deleteEveryone === 'true').catch((error) => showDeleteError(error.message || 'Unable to delete message.'));
                         });
                     });
                     attachVoicePlaybackHandlers();
@@ -614,6 +683,155 @@
                     groupDraftTitle = '';
                     await refreshData();
                     await openConversation(data.id);
+                };
+
+                const renameActiveGroup = async () => {
+                    if (!activeConversationId || activeConversation?.type !== 'group') return;
+                    const title = window.prompt('Group name', activeConversation.title || '');
+                    if (title === null) return;
+                    const nextTitle = title.trim();
+                    if (!nextTitle) {
+                        alert('Enter a group name.');
+                        return;
+                    }
+
+                    activeConversation = await api(`${routes.chatBase}/${activeConversationId}`, {
+                        method: 'PATCH',
+                        body: JSON.stringify({ title: nextTitle }),
+                    });
+                    await refreshData();
+                    await openConversation(activeConversationId);
+                };
+
+                const showAddMembersPanel = () => {
+                    if (!activeConversationId || activeConversation?.type !== 'group') return;
+                    groupMode = false;
+                    groupAddMode = true;
+                    groupAdminMode = false;
+                    groupAddConversationId = activeConversationId;
+                    groupSelectedUserIds = new Set();
+                    setTab('people');
+                    conversationsPane.classList.add('d-none');
+                    conversationPane.classList.add('d-none');
+                    conversationPane.classList.remove('d-flex');
+                    peoplePane.classList.remove('d-none');
+                    renderPeople();
+                };
+
+                const addMembersToActiveGroup = async (userIds) => {
+                    if (!groupAddConversationId || !activeConversationId || userIds.length < 1) {
+                        alert('Please select at least one staff member.');
+                        return;
+                    }
+
+                    await api(`${routes.chatBase}/${groupAddConversationId}/members`, {
+                        method: 'POST',
+                        body: JSON.stringify({ user_ids: userIds }),
+                    });
+
+                    const conversationId = groupAddConversationId;
+                    groupAddMode = false;
+                    groupAddConversationId = null;
+                    groupSelectedUserIds = new Set();
+                    await refreshData();
+                    await openConversation(conversationId);
+                };
+
+                const showAdminsPanel = () => {
+                    if (!activeConversationId || activeConversation?.type !== 'group' || !activeConversation.can_assign_group_admins) return;
+                    groupMode = false;
+                    groupAddMode = false;
+                    groupAdminMode = true;
+                    groupAddConversationId = activeConversationId;
+                    groupSelectedUserIds = new Set((activeConversation.users || [])
+                        .filter((user) => user.is_admin && !user.is_owner)
+                        .map((user) => Number(user.id)));
+                    setTab('people');
+                    conversationsPane.classList.add('d-none');
+                    conversationPane.classList.add('d-none');
+                    conversationPane.classList.remove('d-flex');
+                    peoplePane.classList.remove('d-none');
+                    renderPeople();
+                };
+
+                const saveGroupAdmins = async (userIds) => {
+                    if (!groupAddConversationId || !activeConversationId) return;
+                    await api(`${routes.chatBase}/${groupAddConversationId}/admins`, {
+                        method: 'POST',
+                        body: JSON.stringify({ user_ids: userIds }),
+                    });
+
+                    const conversationId = groupAddConversationId;
+                    groupAdminMode = false;
+                    groupAddConversationId = null;
+                    groupSelectedUserIds = new Set();
+                    await refreshData();
+                    await openConversation(conversationId);
+                };
+
+                const uploadGroupPhoto = async (file) => {
+                    if (!activeConversationId || !file) return;
+                    const formData = new FormData();
+                    formData.append('photo', file, file.name);
+                    await postForm(`${routes.chatBase}/${activeConversationId}/photo`, formData);
+                    await refreshData();
+                    await openConversation(activeConversationId);
+                };
+
+                const showDeleteError = async (message) => {
+                    if (window.Swal) {
+                        await window.Swal.fire({
+                            icon: 'error',
+                            title: 'Unable to delete',
+                            text: message,
+                            confirmButtonText: 'OK',
+                        });
+                        return;
+                    }
+                    alert(message);
+                };
+
+                const chooseDeleteScope = async (messageId, canDeleteForEveryone = false) => {
+                    if (!messageId) return;
+                    if (!window.Swal) {
+                        const confirmed = window.confirm('Delete this message only from your chat?');
+                        if (confirmed) await deleteMessage(messageId, 'me');
+                        return;
+                    }
+
+                    const result = await window.Swal.fire({
+                        icon: 'warning',
+                        title: 'Delete message',
+                        html: canDeleteForEveryone
+                            ? '<div class="text-secondary">Choose how you want to delete this message.</div>'
+                            : '<div class="text-secondary">This will remove the message only from your chat.</div>',
+                        showCancelButton: true,
+                        showDenyButton: canDeleteForEveryone,
+                        confirmButtonText: '<i class="ti ti-trash me-1"></i> Delete only You',
+                        denyButtonText: '<i class="ti ti-trash-x me-1"></i> Delete for everyone',
+                        cancelButtonText: 'Cancel',
+                        confirmButtonColor: '#d63939',
+                        denyButtonColor: '#b42318',
+                        cancelButtonColor: '#6c7a91',
+                        reverseButtons: true,
+                        customClass: {
+                            popup: 'school-chat-delete-swal',
+                            confirmButton: 'school-chat-delete-swal-confirm',
+                            denyButton: 'school-chat-delete-swal-deny',
+                        },
+                    });
+
+                    if (result.isConfirmed) await deleteMessage(messageId, 'me');
+                    if (result.isDenied && canDeleteForEveryone) await deleteMessage(messageId, 'everyone');
+                };
+
+                const deleteMessage = async (messageId, scope = 'me') => {
+                    await api(`${routes.chatBase}/messages/${messageId}`, {
+                        method: 'DELETE',
+                        body: JSON.stringify({ scope }),
+                    });
+                    await openConversation(activeConversationId, { quiet: true });
+                    await refreshData();
                 };
 
                 const uploadVoiceNote = async (blob, durationSeconds, mimeType = 'audio/webm') => {
@@ -1030,6 +1248,9 @@
                 backButton.addEventListener('click', () => {
                     activeConversationId = null;
                     activeConversation = null;
+                    groupAddMode = false;
+                    groupAdminMode = false;
+                    groupAddConversationId = null;
                     conversationPane.classList.add('d-none');
                     conversationPane.classList.remove('d-flex');
                     setTab(activeTab);
@@ -1042,6 +1263,9 @@
 
                 newGroupButton?.addEventListener('click', () => {
                     groupMode = true;
+                    groupAddMode = false;
+                    groupAdminMode = false;
+                    groupAddConversationId = null;
                     groupSelectedUserIds = new Set();
                     groupDraftTitle = '';
                     activeConversationId = null;
@@ -1061,6 +1285,18 @@
                         } else {
                             renderPeople();
                         }
+                    });
+                });
+
+                renameGroupButton?.addEventListener('click', () => renameActiveGroup().catch((error) => alert(error.message || 'Unable to rename group chat.')));
+                addGroupMembersButton?.addEventListener('click', showAddMembersPanel);
+                groupAdminsButton?.addEventListener('click', showAdminsPanel);
+                groupPhotoButton?.addEventListener('click', () => groupPhotoFile?.click());
+                groupPhotoFile?.addEventListener('change', () => {
+                    const file = groupPhotoFile.files?.[0];
+                    if (!file) return;
+                    uploadGroupPhoto(file).catch((error) => alert(error.message || 'Unable to upload group photo.')).finally(() => {
+                        groupPhotoFile.value = '';
                     });
                 });
 

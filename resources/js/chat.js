@@ -25,8 +25,14 @@ document.addEventListener("DOMContentLoaded", () => {
     const newChatSidebarButton = document.getElementById("new-chat-sidebar");
     const chatAttachButton = document.getElementById("chat-attach");
     const chatEmojiButton = document.getElementById("chat-emoji");
+    const groupControls = document.getElementById("chat-group-controls");
+    const renameGroupButton = document.getElementById("chat-rename-group");
+    const addGroupMembersButton = document.getElementById("chat-add-group-members");
+    const groupPhotoButton = document.getElementById("chat-group-photo");
+    const groupAdminsButton = document.getElementById("chat-group-admins");
+    const groupPhotoFile = document.getElementById("chat-group-photo-file");
 
-    if (!shell || !conversationsBox || !userList || !modal || !chatEmpty || !chatContent || !chatMessages || !messageInput || !fileInput || !attachmentPreview || !emojiPicker || !emojiGrid || !recordVoiceButton || !moreActionsButton || !actionsMenu || !groupTitle || !conversationSearch || !userSearch || !messageForm || !newChatForm || !chatBack || !newChatButton || !newChatSidebarButton || !chatAttachButton || !chatEmojiButton) return;
+    if (!shell || !conversationsBox || !userList || !modal || !chatEmpty || !chatContent || !chatMessages || !messageInput || !fileInput || !attachmentPreview || !emojiPicker || !emojiGrid || !recordVoiceButton || !moreActionsButton || !actionsMenu || !groupTitle || !conversationSearch || !userSearch || !messageForm || !newChatForm || !chatBack || !newChatButton || !newChatSidebarButton || !chatAttachButton || !chatEmojiButton || !groupControls || !renameGroupButton || !addGroupMembersButton || !groupPhotoButton || !groupAdminsButton || !groupPhotoFile) return;
 
     const csrf = document.querySelector('meta[name="csrf-token"]')?.content || "";
     const routes = {
@@ -34,6 +40,7 @@ document.addEventListener("DOMContentLoaded", () => {
         conversations: shell.dataset.chatConversationsUrl,
         create: shell.dataset.chatCreateUrl,
         heartbeat: shell.dataset.chatHeartbeatUrl,
+        chatBase: shell.dataset.chatBaseUrl || shell.dataset.chatMessagesBase,
         messagesBase: shell.dataset.chatMessagesBase,
     };
     const currentUserId = Number(shell.dataset.chatCurrentUserId || 0);
@@ -94,6 +101,8 @@ document.addEventListener("DOMContentLoaded", () => {
     let activeId = null;
     let activeConversation = null;
     let autoVoicePlayback = false;
+    let modalMode = "new";
+    let addMembersConversationId = null;
     let selectedAttachment = null;
     let mediaRecorder = null;
     let voiceChunks = [];
@@ -156,24 +165,30 @@ document.addEventListener("DOMContentLoaded", () => {
         const q = term.toLowerCase();
         const selected = Array.from(userList.querySelectorAll("input:checked")).map((input) => input.value);
         const isSelf = (user) => Boolean(user.is_current_user) || Number(user.id) === currentUserId || (currentUserName && String(user.name || "").trim().toLowerCase() === currentUserName);
+        const activeMemberIds = new Set((activeConversation?.users || []).map((user) => Number(user.id)));
         const filtered = users
             .filter((user) => `${user.name} ${user.department || ""}`.toLowerCase().includes(q))
             .sort((a, b) => Number(isSelf(b)) - Number(isSelf(a)));
         userList.innerHTML = filtered.map((user) => {
             const isCurrentUser = isSelf(user);
             const isOnline = isCurrentUser || Boolean(user.online);
+            const memberInfo = (activeConversation?.users || []).find((member) => Number(member.id) === Number(user.id));
+            const isExistingMember = modalMode === "add" && activeMemberIds.has(Number(user.id));
+            const isOwner = Boolean(memberInfo?.is_owner);
+            const isAdminMode = modalMode === "admins";
+            const isUnavailableForAdmin = isAdminMode && (!activeMemberIds.has(Number(user.id)) || isOwner || isCurrentUser);
             return `
-            <label class="form-check border rounded p-2 d-flex align-items-center gap-2 ${isCurrentUser ? "opacity-75" : ""}">
-                <input class="form-check-input m-0" type="checkbox" value="${user.id}" ${selected.includes(String(user.id)) ? "checked" : ""} ${isCurrentUser ? "disabled" : ""}>
+            <label class="form-check border rounded p-2 d-flex align-items-center gap-2 ${isCurrentUser || isExistingMember || isUnavailableForAdmin ? "opacity-75" : ""}">
+                <input class="form-check-input m-0" type="checkbox" value="${user.id}" ${selected.includes(String(user.id)) ? "checked" : ""} ${isCurrentUser || isExistingMember || isUnavailableForAdmin ? "disabled" : ""}>
                 ${avatar({ ...user, online: isOnline })}
                 <span class="form-check-label flex-fill min-w-0">
-                    <span class="fw-semibold d-block text-truncate">${esc(user.name)}${isCurrentUser ? " (You)" : ""}</span>
+                    <span class="fw-semibold d-block text-truncate">${esc(user.name)}${isCurrentUser ? " (You)" : ""}${isExistingMember ? " (Member)" : ""}${isOwner ? " (Owner)" : ""}</span>
                     <small class="text-secondary">${esc(user.department || "Staff")} &middot; ${isOnline ? "Online" : "Offline"}</small>
                 </span>
             </label>
         `;
         }).join("") || '<div class="text-secondary">No users found.</div>';
-        groupTitle.classList.toggle("d-none", selected.length < 2);
+        groupTitle.classList.toggle("d-none", modalMode !== "new" || selected.length < 2);
     };
 
     const renderChats = () => {
@@ -338,12 +353,16 @@ document.addEventListener("DOMContentLoaded", () => {
             .filter((user) => user.id !== currentUserId)
             .map((user) => `${user.name} - ${user.online ? "Online" : "Offline"}`)
             .join(", ");
+        const canManageGroup = activeConversation.type === "group" && Boolean(activeConversation.can_manage_group);
+        groupControls.classList.toggle("d-none", !canManageGroup);
+        groupAdminsButton.classList.toggle("d-none", !activeConversation.can_assign_group_admins);
         chatMessages.innerHTML = (activeConversation.messages || []).map((message) => `
             <div class="chat-row ${message.user_id === currentUserId ? "mine" : ""}">
                 ${message.user_id === currentUserId ? "" : avatar({ name: message.user_name, photo: message.user_photo, online: message.user_online })}
                 <div class="chat-message ${message.user_id === currentUserId ? "mine" : ""}" data-message-id="${message.id}">
                     <div class="small opacity-75 mb-1">${esc(message.user_name)} &middot; ${esc(message.created_at)}</div>
                     ${messageContent(message)}
+                    ${message.can_delete ? `<button type="button" class="chat-delete-button" data-delete-message="${message.id}" data-delete-everyone="${message.can_delete_for_everyone ? "true" : "false"}"><i class="ti ti-trash"></i><span>Delete</span></button>` : ""}
                     ${messageStatus(message)}
                 </div>
                 ${message.user_id === currentUserId ? avatar({ name: "You", photo: currentUserPhoto, online: true }) : ""}
@@ -353,11 +372,18 @@ document.addEventListener("DOMContentLoaded", () => {
         `).join("") || '<div class="text-secondary text-center mt-4">No messages yet. Start the conversation.</div>';
         chatMessages.querySelectorAll("[data-message-id]").forEach((bubble) => {
             bubble.addEventListener("click", (event) => {
-                if (event.target.closest("a, audio")) return;
+                if (event.target.closest("a, audio, button")) return;
                 const detail = chatMessages.querySelector(`[data-message-detail="${bubble.dataset.messageId}"]`);
                 const wasOpen = detail?.classList.contains("show");
                 chatMessages.querySelectorAll(".chat-message-detail.show").forEach((item) => item.classList.remove("show"));
                 if (detail && !wasOpen) detail.classList.add("show");
+            });
+        });
+        chatMessages.querySelectorAll("[data-delete-message]").forEach((button) => {
+            button.addEventListener("click", (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                chooseDeleteScope(Number(button.dataset.deleteMessage), button.dataset.deleteEveryone === "true").catch((error) => showDeleteError(error.message || "Unable to delete message."));
             });
         });
         attachVoicePlaybackHandlers();
@@ -416,6 +442,116 @@ document.addEventListener("DOMContentLoaded", () => {
         await loadChats();
         await openChat(activeId);
     };
+    const renameActiveGroup = async () => {
+        if (!activeId || activeConversation?.type !== "group") return;
+        const title = window.prompt("Group name", activeConversation.title || "");
+        if (title === null) return;
+        const nextTitle = title.trim();
+        if (!nextTitle) {
+            alert("Enter a group name.");
+            return;
+        }
+        activeConversation = await api(`${routes.chatBase}/${activeId}`, {
+            method: "PATCH",
+            body: JSON.stringify({ title: nextTitle }),
+        });
+        await loadChats();
+        await openChat(activeId);
+    };
+    const openAddMembersModal = async () => {
+        if (!activeId || activeConversation?.type !== "group") return;
+        modalMode = "add";
+        addMembersConversationId = activeId;
+        groupTitle.value = "";
+        newChatModalEl.querySelector(".modal-title").innerHTML = '<i class="ti ti-user-plus me-2"></i>Add Group Members';
+        newChatForm.querySelector('button[type="submit"]').innerHTML = '<i class="ti ti-user-plus me-1"></i>Add Members';
+        await loadUsers();
+        modal.show();
+    };
+    const openAdminsModal = async () => {
+        if (!activeId || activeConversation?.type !== "group" || !activeConversation.can_assign_group_admins) return;
+        modalMode = "admins";
+        addMembersConversationId = activeId;
+        groupTitle.value = "";
+        newChatModalEl.querySelector(".modal-title").innerHTML = '<i class="ti ti-shield-star me-2"></i>Group Admins';
+        newChatForm.querySelector('button[type="submit"]').innerHTML = '<i class="ti ti-device-floppy me-1"></i>Save Admins';
+        await loadUsers();
+        (activeConversation.users || []).filter((user) => user.is_admin && !user.is_owner).forEach((user) => {
+            const checkbox = userList.querySelector(`input[value="${user.id}"]`);
+            if (checkbox) checkbox.checked = true;
+        });
+        modal.show();
+    };
+    const openNewChatModal = async () => {
+        modalMode = "new";
+        addMembersConversationId = null;
+        groupTitle.value = "";
+        newChatModalEl.querySelector(".modal-title").innerHTML = '<i class="ti ti-messages me-2"></i>Start New Chat';
+        newChatForm.querySelector('button[type="submit"]').innerHTML = '<i class="ti ti-message-plus me-1"></i>Start Chat';
+        await loadUsers();
+        modal.show();
+    };
+    const uploadGroupPhoto = async (file) => {
+        if (!activeId || !file) return;
+        const formData = new FormData();
+        formData.append("photo", file, file.name);
+        await postForm(`${routes.chatBase}/${activeId}/photo`, formData);
+        await loadChats();
+        await openChat(activeId);
+    };
+    const showDeleteError = async (message) => {
+        if (window.Swal) {
+            await window.Swal.fire({
+                icon: "error",
+                title: "Unable to delete",
+                text: message,
+                confirmButtonText: "OK",
+            });
+            return;
+        }
+        alert(message);
+    };
+    const chooseDeleteScope = async (messageId, canDeleteForEveryone = false) => {
+        if (!messageId) return;
+        if (!window.Swal) {
+            const confirmed = window.confirm("Delete this message only from your chat?");
+            if (confirmed) await deleteMessage(messageId, "me");
+            return;
+        }
+
+        const result = await window.Swal.fire({
+            icon: "warning",
+            title: "Delete message",
+            html: canDeleteForEveryone
+                ? '<div class="text-secondary">Choose how you want to delete this message.</div>'
+                : '<div class="text-secondary">This will remove the message only from your chat.</div>',
+            showCancelButton: true,
+            showDenyButton: canDeleteForEveryone,
+            confirmButtonText: '<i class="ti ti-trash me-1"></i> Delete only You',
+            denyButtonText: '<i class="ti ti-trash-x me-1"></i> Delete for everyone',
+            cancelButtonText: "Cancel",
+            confirmButtonColor: "#d63939",
+            denyButtonColor: "#b42318",
+            cancelButtonColor: "#6c7a91",
+            reverseButtons: true,
+            customClass: {
+                popup: "school-chat-delete-swal",
+                confirmButton: "school-chat-delete-swal-confirm",
+                denyButton: "school-chat-delete-swal-deny",
+            },
+        });
+
+        if (result.isConfirmed) await deleteMessage(messageId, "me");
+        if (result.isDenied && canDeleteForEveryone) await deleteMessage(messageId, "everyone");
+    };
+    const deleteMessage = async (messageId, scope = "me") => {
+        await api(`${routes.chatBase}/messages/${messageId}`, {
+            method: "DELETE",
+            body: JSON.stringify({ scope }),
+        });
+        await loadChats();
+        await openChat(activeId, { quiet: true });
+    };
     const toggleVoiceRecording = async () => {
         if (!supportsVoiceRecording()) {
             markVoiceRecordingUnavailable();
@@ -463,8 +599,19 @@ document.addEventListener("DOMContentLoaded", () => {
         messageInput.selectionStart = messageInput.selectionEnd = start + button.dataset.emoji.length;
     }));
 
-    newChatButton.addEventListener("click", async () => { await loadUsers(); modal.show(); });
-    newChatSidebarButton.addEventListener("click", async () => { await loadUsers(); modal.show(); });
+    newChatButton.addEventListener("click", () => openNewChatModal().catch((error) => alert(error.message || "Unable to open chat form.")));
+    newChatSidebarButton.addEventListener("click", () => openNewChatModal().catch((error) => alert(error.message || "Unable to open chat form.")));
+    renameGroupButton.addEventListener("click", () => renameActiveGroup().catch((error) => alert(error.message || "Unable to rename group chat.")));
+    addGroupMembersButton.addEventListener("click", () => openAddMembersModal().catch((error) => alert(error.message || "Unable to open group members.")));
+    groupAdminsButton.addEventListener("click", () => openAdminsModal().catch((error) => alert(error.message || "Unable to open group admins.")));
+    groupPhotoButton.addEventListener("click", () => groupPhotoFile.click());
+    groupPhotoFile.addEventListener("change", () => {
+        const file = groupPhotoFile.files?.[0];
+        if (!file) return;
+        uploadGroupPhoto(file).catch((error) => alert(error.message || "Unable to upload group photo.")).finally(() => {
+            groupPhotoFile.value = "";
+        });
+    });
     chatBack.addEventListener("click", () => {
         shell.classList.remove("has-conversation");
         activeId = null;
@@ -520,6 +667,32 @@ document.addEventListener("DOMContentLoaded", () => {
         event.preventDefault();
         const ids = Array.from(userList.querySelectorAll("input:checked")).map((input) => Number(input.value));
         if (!ids.length) return;
+        if (modalMode === "add") {
+            await api(`${routes.chatBase}/${addMembersConversationId}/members`, {
+                method: "POST",
+                body: JSON.stringify({ user_ids: ids }),
+            });
+            modal.hide();
+            const conversationId = addMembersConversationId;
+            modalMode = "new";
+            addMembersConversationId = null;
+            await loadChats();
+            await openChat(conversationId);
+            return;
+        }
+        if (modalMode === "admins") {
+            await api(`${routes.chatBase}/${addMembersConversationId}/admins`, {
+                method: "POST",
+                body: JSON.stringify({ user_ids: ids }),
+            });
+            modal.hide();
+            const conversationId = addMembersConversationId;
+            modalMode = "new";
+            addMembersConversationId = null;
+            await loadChats();
+            await openChat(conversationId);
+            return;
+        }
         const data = await api(routes.create, {
             method: "POST",
             body: JSON.stringify({

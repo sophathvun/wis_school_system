@@ -27,6 +27,7 @@
             data-chat-conversations-url="{{ route('chat.conversations') }}"
             data-chat-create-url="{{ route('chat.create') }}"
             data-chat-heartbeat-url="{{ route('chat.heartbeat') }}"
+            data-chat-base-url="{{ url('/communication/chat') }}"
             data-chat-messages-base="{{ url('/communication/chat') }}"
             data-chat-current-user-id="{{ $currentChatUserId }}"
             data-chat-current-user-name="{{ auth()->user()->name }}"
@@ -65,6 +66,21 @@
                         <div class="flex-fill min-w-0">
                             <h3 class="card-title mb-0 text-truncate" id="chat-title">Conversation</h3>
                             <div class="text-secondary small text-truncate" id="chat-members"></div>
+                            <div id="chat-group-controls" class="chat-group-controls d-none">
+                                <button type="button" id="chat-rename-group" class="btn btn-outline-primary btn-sm">
+                                    <i class="ti ti-edit me-1"></i> Rename
+                                </button>
+                                <button type="button" id="chat-add-group-members" class="btn btn-outline-primary btn-sm">
+                                    <i class="ti ti-user-plus me-1"></i> Add members
+                                </button>
+                                <button type="button" id="chat-group-photo" class="btn btn-outline-primary btn-sm">
+                                    <i class="ti ti-photo me-1"></i> Photo
+                                </button>
+                                <button type="button" id="chat-group-admins" class="btn btn-outline-primary btn-sm">
+                                    <i class="ti ti-shield-star me-1"></i> Admins
+                                </button>
+                                <input type="file" id="chat-group-photo-file" class="d-none" accept="image/*">
+                            </div>
                         </div>
                     </div>
                     <div class="chat-messages" id="chat-messages"></div>

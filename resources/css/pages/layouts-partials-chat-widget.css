@@ -223,6 +223,39 @@
     cursor: pointer;
 }
 
+.chat-mini-delete-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    margin-top: 0.35rem;
+    padding: 0.18rem 0.48rem;
+    border: 1px solid rgba(214, 57, 57, 0.26);
+    border-radius: 999px;
+    background: linear-gradient(135deg, rgba(214, 57, 57, 0.11), rgba(214, 57, 57, 0.04));
+    color: #d63939;
+    font-size: 0.72rem;
+    font-weight: 700;
+    line-height: 1.1;
+    box-shadow: 0 6px 16px rgba(214, 57, 57, 0.08);
+}
+
+.chat-mini-delete-button:hover {
+    background: #d63939;
+    color: #fff;
+    box-shadow: 0 8px 18px rgba(214, 57, 57, 0.22);
+}
+
+.chat-mini-message.mine .chat-mini-delete-button {
+    border-color: rgba(255, 255, 255, 0.42);
+    background: rgba(255, 255, 255, 0.14);
+    color: #fff;
+}
+
+.chat-mini-message.mine .chat-mini-delete-button:hover {
+    background: #fff;
+    color: #d63939;
+}
+
 .chat-mini-message-text {
     white-space: pre-wrap;
 }
@@ -560,4 +593,20 @@
 
 .chat-mini-group-composer .form-control {
     background: var(--tblr-body-bg);
+}
+
+.chat-mini-group-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-top: 0.45rem;
+}
+
+.chat-mini-group-controls.d-none {
+    display: none !important;
+}
+
+.chat-mini-group-controls .btn {
+    padding: 0.18rem 0.45rem;
+    font-size: 0.75rem;
 }

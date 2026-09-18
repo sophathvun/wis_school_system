@@ -130,13 +130,141 @@ class ChatController
                     'created_by' => $user->id,
                 ]);
 
-                $conversation->users()->attach($participantIds->all());
+                $conversation->users()->attach($participantIds->mapWithKeys(fn ($participantId) => [
+                    $participantId => ['role' => (int) $participantId === (int) $user->id && $type === 'group' ? 'owner' : 'member'],
+                ])->all());
 
                 return $conversation;
             });
         }
 
         return response()->json(['id' => $conversation->id]);
+    }
+
+    public function update(Request $request, ChatConversation $conversation)
+    {
+        $this->authorizeMember($request, $conversation);
+        abort_if($conversation->type !== 'group', 422, 'Only group chats can be renamed.');
+        $this->authorizeGroupManager($request, $conversation);
+
+        $data = $request->validate([
+            'title' => ['required', 'string', 'max:120'],
+        ]);
+
+        $title = trim($data['title']);
+        abort_if($title === '', 422, 'Enter a group name.');
+
+        $conversation->update(['title' => $title]);
+        $conversation->load(['users.department', 'messages' => fn ($query) => $query->latest()->limit(1)]);
+
+        return response()->json($this->conversationData($conversation, $request->user()));
+    }
+
+    public function addMembers(Request $request, ChatConversation $conversation)
+    {
+        $this->authorizeMember($request, $conversation);
+        abort_if($conversation->type !== 'group', 422, 'Members can only be added to group chats.');
+        $this->authorizeGroupManager($request, $conversation);
+
+        $data = $request->validate([
+            'user_ids' => ['required', 'array', 'min:1'],
+            'user_ids.*' => ['integer', 'distinct', 'exists:users,id'],
+        ]);
+
+        $allowed = $this->availableUsers($request)->pluck('id')->map(fn ($id) => (int) $id);
+        $existing = $conversation->users()->pluck('users.id')->map(fn ($id) => (int) $id);
+        $ids = collect($data['user_ids'])
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->filter(fn ($id) => $allowed->contains($id) && !$existing->contains($id))
+            ->values();
+
+        abort_if($ids->isEmpty(), 422, 'Select at least one new member.');
+
+        $conversation->users()->attach($ids->mapWithKeys(fn ($id) => [$id => ['role' => 'member']])->all());
+        $conversation->touch();
+        $conversation->load(['users.department', 'messages' => fn ($query) => $query->latest()->limit(1)]);
+
+        return response()->json($this->conversationData($conversation, $request->user()));
+    }
+
+    public function setAdmins(Request $request, ChatConversation $conversation)
+    {
+        $this->authorizeMember($request, $conversation);
+        abort_if($conversation->type !== 'group', 422, 'Admins can only be assigned in group chats.');
+        $this->authorizeGroupManager($request, $conversation);
+
+        $data = $request->validate([
+            'user_ids' => ['array'],
+            'user_ids.*' => ['integer', 'distinct', 'exists:users,id'],
+        ]);
+
+        $adminIds = collect($data['user_ids'] ?? [])->map(fn ($id) => (int) $id)->unique();
+        $ownerId = (int) $conversation->created_by;
+        $memberIds = $conversation->users()->pluck('users.id')->map(fn ($id) => (int) $id);
+
+        $memberIds
+            ->filter(fn ($id) => $id !== $ownerId)
+            ->each(fn ($id) => $conversation->users()->updateExistingPivot($id, ['role' => 'member']));
+
+        $adminIds
+            ->filter(fn ($id) => $id !== $ownerId && $memberIds->contains($id))
+            ->each(fn ($id) => $conversation->users()->updateExistingPivot($id, ['role' => 'admin']));
+
+        $conversation->users()->updateExistingPivot($ownerId, ['role' => 'owner']);
+        $conversation->touch();
+        $conversation->load(['users.department', 'messages' => fn ($query) => $query->latest()->limit(1)]);
+
+        return response()->json($this->conversationData($conversation, $request->user()));
+    }
+
+    public function updatePhoto(Request $request, ChatConversation $conversation)
+    {
+        $this->authorizeMember($request, $conversation);
+        abort_if($conversation->type !== 'group', 422, 'Only group chats can have a profile photo.');
+        $this->authorizeGroupManager($request, $conversation);
+
+        $data = $request->validate([
+            'photo' => ['required', 'image', 'mimes:jpg,jpeg,png,webp,gif', 'max:4096'],
+        ]);
+
+        if ($conversation->photo_path && Storage::disk('public')->exists($conversation->photo_path)) {
+            Storage::disk('public')->delete($conversation->photo_path);
+        }
+
+        $file = $data['photo'];
+        $path = $file->storeAs('chat/group-photos', Str::uuid().'.'.($file->getClientOriginalExtension() ?: 'jpg'), 'public');
+        $conversation->update(['photo_path' => $path]);
+        $conversation->load(['users.department', 'messages' => fn ($query) => $query->latest()->limit(1)]);
+
+        return response()->json($this->conversationData($conversation, $request->user()));
+    }
+
+    public function deleteMessage(Request $request, ChatMessage $message)
+    {
+        $conversation = $message->conversation;
+        abort_unless($conversation, 404);
+        $this->authorizeMember($request, $conversation);
+        $data = $request->validate([
+            'scope' => ['nullable', 'string', 'in:me,everyone'],
+        ]);
+        $scope = $data['scope'] ?? 'me';
+
+        $canDeleteOwn = (int) $message->user_id === (int) $request->user()->id;
+        $canDeleteDirectChat = $conversation->type === 'direct';
+        $canModerateGroup = $conversation->type === 'group' && $this->isGroupManager($conversation, $request->user());
+
+        if ($scope === 'everyone') {
+            abort_unless($canDeleteOwn || $canDeleteDirectChat || $canModerateGroup, 403);
+            $message->delete();
+            $conversation->touch();
+
+            return response()->json(['deleted' => true, 'scope' => 'everyone']);
+        }
+
+        $message->hiddenByUsers()->syncWithoutDetaching([$request->user()->id]);
+
+        return response()->json(['deleted' => true, 'scope' => 'me']);
     }
 
     public function messages(Request $request, ChatConversation $conversation)
@@ -146,10 +274,18 @@ class ChatController
         $request->user()->chatConversations()->updateExistingPivot($conversation->id, ['last_read_at' => now()]);
         $conversation->load('users.department');
         $messages = $conversation->messages()->with('user')->oldest()->limit(200)->get();
+        $hiddenMessageIds = DB::table('chat_message_deletions')
+            ->where('user_id', $request->user()->id)
+            ->whereIn('message_id', $messages->pluck('id'))
+            ->pluck('message_id')
+            ->map(fn ($id) => (int) $id);
 
         return response()->json([
             'conversation' => $this->conversationData($conversation, $request->user()),
-            'messages' => $messages->map(fn ($message) => $this->messageData($message, $conversation, $request->user())),
+            'messages' => $messages
+                ->reject(fn ($message) => $hiddenMessageIds->contains((int) $message->id))
+                ->map(fn ($message) => $this->messageData($message, $conversation, $request->user()))
+                ->values(),
         ]);
     }
 
@@ -414,6 +550,27 @@ class ChatController
         abort_unless($conversation->users()->whereKey($request->user()->id)->exists(), 403);
     }
 
+    private function authorizeGroupManager(Request $request, ChatConversation $conversation): void
+    {
+        abort_unless($this->isGroupManager($conversation, $request->user()), 403);
+    }
+
+    private function authorizeGroupOwner(Request $request, ChatConversation $conversation): void
+    {
+        abort_unless((int) $conversation->created_by === (int) $request->user()->id, 403);
+    }
+
+    private function isGroupManager(ChatConversation $conversation, User $user): bool
+    {
+        if ($conversation->type !== 'group') return false;
+        if ((int) $conversation->created_by === (int) $user->id) return true;
+
+        return $conversation->users()
+            ->whereKey($user->id)
+            ->wherePivot('role', 'admin')
+            ->exists();
+    }
+
     private function authorizeCallMember(Request $request, ChatCall $call): void
     {
         abort_unless($call->participants()->where('user_id', $request->user()->id)->exists(), 403);
@@ -439,13 +596,21 @@ class ChatController
             'id' => $conversation->id,
             'type' => $conversation->type,
             'title' => $conversation->type === 'group' ? $conversation->title : ($otherUsers->first()?->name ?? 'Conversation'),
-            'photo' => $conversation->type === 'direct' ? ($otherUsers->first()?->photo_path ? asset('storage/'.$otherUsers->first()->photo_path) : null) : null,
+            'photo' => $conversation->type === 'group'
+                ? ($conversation->photo_path ? asset('storage/'.$conversation->photo_path) : null)
+                : ($otherUsers->first()?->photo_path ? asset('storage/'.$otherUsers->first()->photo_path) : null),
             'online' => $conversation->type === 'direct' ? ($otherUsers->first()?->last_seen_at?->greaterThan(now()->subMinutes(5)) ?? false) : $otherUsers->contains(fn ($member) => $member->last_seen_at?->greaterThan(now()->subMinutes(5)) ?? false),
+            'created_by' => $conversation->created_by,
+            'can_manage_group' => $this->isGroupManager($conversation, $user),
+            'can_assign_group_admins' => $this->isGroupManager($conversation, $user),
             'users' => $conversation->users->map(fn ($member) => [
                 'id' => $member->id,
                 'name' => $member->name,
                 'online' => $member->last_seen_at?->greaterThan(now()->subMinutes(5)) ?? false,
                 'photo' => $member->photo_path ? asset('storage/'.$member->photo_path) : null,
+                'role' => (int) $conversation->created_by === (int) $member->id ? 'owner' : ($member->pivot?->role ?: 'member'),
+                'is_owner' => (int) $conversation->created_by === (int) $member->id,
+                'is_admin' => ($member->pivot?->role ?: 'member') === 'admin',
             ]),
             'last_message' => $conversation->messages->first()?->message,
             'unread_messages' => $unread,
@@ -498,6 +663,13 @@ class ChatController
             'user_online' => $message->user?->last_seen_at?->greaterThan(now()->subMinutes(5)) ?? false,
             'read_by' => $readBy,
             'unread_by' => $unreadBy,
+            'can_delete_for_me' => (bool) $viewer,
+            'can_delete_for_everyone' => $viewer && $conversation && (
+                $conversation->type === 'direct'
+                || $message->user_id === $viewer->id
+                || ($conversation->type === 'group' && $this->isGroupManager($conversation, $viewer))
+            ),
+            'can_delete' => (bool) $viewer,
         ];
     }
 

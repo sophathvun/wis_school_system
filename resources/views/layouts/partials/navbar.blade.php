@@ -1,6 +1,22 @@
 @php
     $headerNotificationPayload = $headerNotificationPayload ?? [];
     $headerUnreadNotifications = $headerUnreadNotifications ?? 0;
+    if (auth()->check()) {
+        $headerNotifications = auth()->user()->userNotifications()->latest()->limit(5)->get();
+        $headerUnreadNotifications = auth()->user()->userNotifications()->whereNull('read_at')->count();
+        $headerNotificationPayload = $headerNotifications
+            ->map(
+                fn($item) => [
+                    'id' => $item->id,
+                    'title' => $item->title,
+                    'message' => \Illuminate\Support\Str::limit(strip_tags($item->message), 90),
+                    'url' => $item->action_url ?: route('notifications.index'),
+                    'read' => (bool) $item->read_at,
+                    'time' => $item->created_at?->diffForHumans(),
+                ],
+            )
+            ->values();
+    }
 @endphp
 
 <header class="navbar navbar-expand-md sticky-top d-none d-lg-flex d-print-none">
@@ -203,23 +219,6 @@
         </div>
     </div>
 </div>
-@auth
-    @php
-        $headerNotifications = auth()->user()->userNotifications()->latest()->limit(5)->get();
-        $headerUnreadNotifications = auth()->user()->userNotifications()->whereNull('read_at')->count();
-        $headerNotificationPayload = $headerNotifications
-            ->map(
-                fn($item) => [
-                    'title' => $item->title,
-                    'message' => \Illuminate\Support\Str::limit(strip_tags($item->message), 90),
-                    'url' => $item->action_url ?: route('notifications.index'),
-                    'read' => (bool) $item->read_at,
-                    'time' => $item->created_at?->diffForHumans(),
-                ],
-            )
-            ->values();
-    @endphp
-@endauth
 <div class="collapse navbar-collapse" id="navbar-menu">
     <!-- BEGIN NAVBAR MENU -->
     @php

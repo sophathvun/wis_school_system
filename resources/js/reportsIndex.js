@@ -6,7 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const reportDate = workspace.dataset.reportDate || '';
     const form = workspace.querySelector('form');
     const periodSelect = form?.querySelector('[data-report-period-select]');
-    const isQuietAttendance = reportType === 'attendance-list';
+    const isQuietAttendance = ['attendance-list', 'score-list'].includes(reportType);
     let quietRefreshController = null;
 
     const quietRefreshAttendance = async () => {
@@ -179,7 +179,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.report-filter-combobox').forEach(bindFilterCombobox);
 
     if (!['student-list', 'student-contact-list'].includes(reportType)) {
-        form?.querySelectorAll('select[name="academic_year_id"], select[name="campus_id"], select[name="grade_id"], input[name="class_id"], input[name="month"], input[name="report_date"], input[name="score_columns"]').forEach((field) => {
+        form?.querySelectorAll('select[name="academic_year_id"], select[name="campus_id"], select[name="grade_id"], input[name="class_id"], input[name="month"], input[name="report_date"], select[name="print_type"]').forEach((field) => {
             field.addEventListener('change', () => isQuietAttendance ? quietRefreshAttendance() : form?.requestSubmit());
         });
     }
@@ -236,7 +236,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    if (!['student-list', 'student-contact-list', 'attendance-list'].includes(reportType)) return;
+    if (!['student-list', 'student-contact-list', 'attendance-list', 'score-list'].includes(reportType)) return;
 
     const select = document.querySelector('select[name="print_grade_classes[]"]');
     const scope = document.querySelector('select[name="print_scope"]');

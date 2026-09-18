@@ -43,7 +43,7 @@ class User extends Authenticatable
     public function chatConversations()
     {
         return $this->belongsToMany(ChatConversation::class, 'chat_conversation_users', 'user_id', 'conversation_id')
-            ->withPivot(['last_read_at'])->withTimestamps();
+            ->withPivot(['last_read_at', 'role'])->withTimestamps();
     }
 
     public function campuses(): BelongsToMany
