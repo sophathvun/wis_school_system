@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\BrandingSetting;
+use App\Models\Feedback;
 use BaconQrCode\Renderer\Image\SvgImageBackEnd;
 use BaconQrCode\Renderer\ImageRenderer;
 use BaconQrCode\Renderer\RendererStyle\RendererStyle;
@@ -124,12 +125,48 @@ class AuthController
 
     public function status(Request $request) { return view('profile-status'); }
 
-    public function feedbackForm() { return view('auth.feedback'); }
+    public function feedbackForm()
+    {
+        return view('auth.feedback');
+    }
 
     public function feedback(Request $request)
     {
-        $request->validate(['subject' => ['required', 'string', 'max:120'], 'message' => ['required', 'string', 'max:2000']]);
+        $data = $request->validate([
+            'subject' => ['required', 'string', 'max:120'],
+            'message' => ['nullable', 'required_without:attachment', 'string', 'max:50000'],
+            'attachment' => ['nullable', 'image', 'max:5120'],
+        ]);
+
+        $attachmentPath = null;
+        if ($request->hasFile('attachment')) {
+            $attachmentPath = $request->file('attachment')->store('feedback', 'public');
+        }
+
+        $message = $this->sanitizeFeedbackMessage($data['message'] ?? '');
+
+        Feedback::create([
+            'user_id' => $request->user()?->id,
+            'subject' => $data['subject'],
+            'message' => $message !== '' ? $message : '<p>No message provided.</p>',
+            'attachment_path' => $attachmentPath,
+            'status' => 'new',
+        ]);
+
         return back()->with('success', 'Thank you. Your feedback has been submitted.');
+    }
+
+    public function feedbackList(Request $request)
+    {
+        $user = $request->user();
+        abort_unless($user?->isSuperAdmin() || $user?->hasPermission('communication.view', $user->active_campus_id) || $user?->hasPermission('feedback.view', $user->active_campus_id), 403);
+
+        $feedbackItems = Feedback::with(['user.department'])
+            ->latest()
+            ->paginate(20)
+            ->withQueryString();
+
+        return view('auth.feedback-list', compact('feedbackItems'));
     }
 
     public function updateProfile(Request $request)
@@ -246,6 +283,62 @@ class AuthController
         ]);
     }
 
+    private function sanitizeFeedbackMessage(?string $html): string
+    {
+        $html = trim((string) $html);
+        if ($html === '') {
+            return '';
+        }
+
+        $html = strip_tags($html, '<p><br><strong><b><em><i><u><ul><ol><li><span><div>');
+        $html = preg_replace('/\s+on\w+\s*=\s*"[^"]*"/i', '', $html) ?? $html;
+        $html = preg_replace("/\s+on\w+\s*=\s*'[^']*'/i", '', $html) ?? $html;
+        $html = preg_replace('/javascript\s*:/i', '', $html) ?? $html;
+        $html = preg_replace('/<span([^>]*)style\s*=\s*"([^"]*)"([^>]*)>/i', function ($matches) {
+            return $this->cleanFeedbackSpan($matches[2]);
+        }, $html) ?? $html;
+        $html = preg_replace("/<span([^>]*)style\s*=\s*'([^']*)'([^>]*)>/i", function ($matches) {
+            return $this->cleanFeedbackSpan($matches[2]);
+        }, $html) ?? $html;
+        $html = preg_replace('/<span(?!\s+style=)[^>]*>/i', '<span>', $html) ?? $html;
+        $html = preg_replace('/<(p|div|ul|ol|li|strong|b|em|i|u)\b[^>]*>/i', '<$1>', $html) ?? $html;
+        $html = preg_replace('/<span>\s*<\/span>/i', '', $html) ?? $html;
+
+        return trim($html);
+    }
+
+    private function cleanFeedbackSpan(string $style): string
+    {
+        $rules = [];
+
+        if (preg_match('/font-family\s*:\s*([^;]+)/i', $style, $family)) {
+            $allowedFonts = [
+                'khmer os siemreap' => 'Khmer OS Siemreap',
+                'khmer os battambang' => 'Khmer OS Battambang',
+                'khmer os muol light' => 'Khmer OS Muol Light',
+                'noto sans khmer' => 'Noto Sans Khmer',
+                'tacteing' => 'Tacteing',
+                'arial' => 'Arial',
+                'times new roman' => 'Times New Roman',
+            ];
+            $fontValue = strtolower(trim(str_replace(['"', "'"], '', $family[1])));
+            if (isset($allowedFonts[$fontValue])) {
+                $rules[] = 'font-family: ' . $allowedFonts[$fontValue];
+            }
+        }
+
+        if (preg_match('/font-size\s*:\s*(12px|14px|16px|18px|20px)/i', $style, $size)) {
+            $rules[] = 'font-size: ' . strtolower($size[1]);
+        }
+
+        if (preg_match('/color\s*:\s*(#[0-9a-f]{6})/i', $style, $color)) {
+            $rules[] = 'color: ' . strtolower($color[1]);
+        } elseif (preg_match('/color\s*:\s*(rgb\(\s*(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\s*,\s*(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\s*,\s*(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\s*\))/i', $style, $color)) {
+            $rules[] = 'color: ' . strtolower($color[1]);
+        }
+
+        return $rules ? '<span style="' . implode('; ', $rules) . '">' : '<span>';
+    }
     private function ensurePublicCardToken(User $user): void
     {
         if ($user->public_card_token) {
@@ -319,3 +412,4 @@ class AuthController
         return str_replace(["\\", "\n", "\r", ',', ';'], ['\\\\', '\\n', '', '\\,', '\\;'], trim((string) $value));
     }
 }
+

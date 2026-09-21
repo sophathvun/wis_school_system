@@ -172,6 +172,36 @@ class NotificationController
 
             return rtrim($tag, '>').' target="_blank" rel="noopener noreferrer">';
         }, $html) ?? '';
+        $html = preg_replace_callback('/<span\b[^>]*>/i', function ($match) {
+            preg_match('/\sstyle\s*=\s*([\'"])(.*?)\1/i', $match[0], $style);
+            $rules = [];
+            if (!empty($style[2]) && preg_match('/font-family\s*:\s*([^;]+)/i', $style[2], $family)) {
+                $allowedFonts = [
+                    'khmer os siemreap' => 'Khmer OS Siemreap',
+                    'khmer os battambang' => 'Khmer OS Battambang',
+                    'khmer os muol light' => 'Khmer OS Muol Light',
+                    'noto sans khmer' => 'Noto Sans Khmer',
+                    'tacteing' => 'Tacteing',
+                    'arial' => 'Arial',
+                    'times new roman' => 'Times New Roman',
+                ];
+                $fontValue = strtolower(trim(str_replace(['"', "'"], '', $family[1])));
+                if (isset($allowedFonts[$fontValue])) {
+                    $rules[] = 'font-family: '.$allowedFonts[$fontValue];
+                }
+            }
+            if (!empty($style[2]) && preg_match('/font-size\s*:\s*(12px|14px|16px|18px|20px)/i', $style[2], $size)) {
+                $rules[] = 'font-size: '.strtolower($size[1]);
+            }
+            if (!empty($style[2]) && preg_match('/color\s*:\s*(#[0-9a-f]{6})/i', $style[2], $color)) {
+                $rules[] = 'color:'.strtolower($color[1]);
+            }
+            if (!empty($style[2]) && preg_match('/color\s*:\s*(rgb\(\s*(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\s*,\s*(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\s*,\s*(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\s*\))/i', $style[2], $color)) {
+                $rules[] = 'color:'.strtolower($color[1]);
+            }
+
+            return $rules ? '<span style="'.implode('; ', $rules).'">' : '<span>';
+        }, $html) ?? '';
         $html = preg_replace_callback('/<img\b[^>]*>/i', function ($match) {
             $tag = $match[0];
             preg_match('/\ssrc\s*=\s*([\'"])(.*?)\1/i', $tag, $src);

@@ -24,15 +24,44 @@ document.addEventListener('DOMContentLoaded', () => {
         const textarea = document.querySelector('[data-notification-message]');
         const fileInput = document.querySelector('[data-notification-image-input]');
         const imageTools = document.querySelector('[data-notification-image-tools]');
+        const fontFamily = document.querySelector('[data-notification-font-family]');
+        const fontSize = document.querySelector('[data-notification-font-size]');
+        const colorPicker = document.querySelector('[data-notification-color-picker]');
+        const colorOpen = document.querySelector('[data-notification-color-open]');
+        const colorNative = document.querySelector('[data-notification-color]');
+        const colorNativeOpen = document.querySelector('[data-notification-native-open]');
+        const colorPalette = document.querySelector('[data-notification-color-palette]');
+        const colorPreview = document.querySelector('[data-notification-color-preview]');
+        const colorSwatches = document.querySelectorAll('[data-notification-color-swatch]');
         if (!editor || !textarea || editor.dataset.enhanced) return;
         editor.dataset.enhanced = '1';
         editor.innerHTML = textarea.value || '';
         let selectedImage = null;
+        let currentFontFamily = '';
+        let currentFontSize = '14px';
         editor.querySelectorAll('img').forEach(image => image.classList.add('is-resizable'));
         const resizeState = { active: false, table: null, colIndex: -1, startX: 0, leftWidth: 0, rightWidth: 0 };
 
         const syncMessage = () => {
             editor.querySelectorAll('.is-selected').forEach(node => node.classList.remove('is-selected'));
+            editor.querySelectorAll('font[color]').forEach(font => {
+                const span = document.createElement('span');
+                span.setAttribute('style', `color:${font.getAttribute('color') || ''}`);
+                span.innerHTML = font.innerHTML;
+                font.replaceWith(span);
+            });
+            editor.querySelectorAll('font[face]').forEach(font => {
+                const span = document.createElement('span');
+                span.setAttribute('style', `font-family:${font.getAttribute('face') || ''}`);
+                span.innerHTML = font.innerHTML;
+                font.replaceWith(span);
+            });
+            editor.querySelectorAll('font[size]').forEach(font => {
+                const span = document.createElement('span');
+                span.setAttribute('style', `font-size:${currentFontSize || '14px'}`);
+                span.innerHTML = font.innerHTML;
+                font.replaceWith(span);
+            });
             textarea.value = editor.innerHTML.trim();
             if (selectedImage) selectedImage.classList.add('is-selected');
         };
@@ -84,6 +113,31 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         const runCommand = (command, value = null) => { editor.focus(); document.execCommand(command, false, value); syncMessage(); };
         const runAlignCommand = command => { editor.focus(); document.execCommand(command, false, null); syncMessage(); };
+        const applyFontFamily = family => {
+            editor.focus();
+            currentFontFamily = family || '';
+            document.execCommand('fontName', false, currentFontFamily || 'Khmer OS Siemreap');
+            syncMessage();
+        };
+        const applyFontSize = size => {
+            editor.focus();
+            currentFontSize = size || '14px';
+            document.execCommand('fontSize', false, '7');
+            syncMessage();
+        };
+        const applyTextColor = color => {
+            if (!color) return;
+            editor.focus();
+            document.execCommand('foreColor', false, color);
+            colorPreview?.style.setProperty('--notification-selected-color', color);
+            if (colorNative) colorNative.value = color;
+            syncMessage();
+        };
+        const closeColorPalette = () => {
+            colorPalette?.classList.remove('is-open');
+            document.body.classList.remove('notification-color-open');
+            colorOpen?.setAttribute('aria-expanded', 'false');
+        };
         const ensureResizableTables = () => {
             editor.querySelectorAll('table[data-resizable-table]').forEach(table => {
                 if (table.dataset.tableEnhanced) return;
@@ -196,6 +250,30 @@ document.addEventListener('DOMContentLoaded', () => {
             if (url) runCommand('createLink', url);
         });
         document.querySelectorAll('[data-editor-align]').forEach(button => button.addEventListener('click', () => runAlignCommand(button.dataset.editorAlign)));
+        fontFamily?.addEventListener('change', () => applyFontFamily(fontFamily.value || ''));
+        fontSize?.addEventListener('change', () => applyFontSize(fontSize.value || '14px'));
+        colorOpen?.addEventListener('click', () => {
+            const isOpen = colorPalette?.classList.toggle('is-open');
+            document.body.classList.toggle('notification-color-open', Boolean(isOpen));
+            colorOpen.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        });
+        colorNativeOpen?.addEventListener('click', () => colorNative?.click());
+        colorNative?.addEventListener('change', () => {
+            applyTextColor(colorNative.value || '#2563eb');
+            closeColorPalette();
+        });
+        colorSwatches.forEach(swatch => swatch.addEventListener('click', () => {
+            applyTextColor(swatch.dataset.notificationColorSwatch || '#2563eb');
+            closeColorPalette();
+        }));
+        document.addEventListener('click', event => {
+            if (!colorPicker || colorPicker.contains(event.target)) return;
+            closeColorPalette();
+        });
+        editor.addEventListener('beforeinput', () => {
+            editor.style.fontFamily = currentFontFamily || '';
+            editor.style.fontSize = currentFontSize || '14px';
+        });
         document.querySelectorAll('[data-editor-template]').forEach(button => button.addEventListener('click', () => insertHtmlAtCursor(templateHtml(button.dataset.editorTemplate))));
         document.querySelector('[data-editor-image]')?.addEventListener('click', () => fileInput?.click());
         document.querySelectorAll('[data-image-size]').forEach(button => button.addEventListener('click', () => setImageSize(button.dataset.imageSize)));
@@ -365,9 +443,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const all = document.getElementById('sendToAll');
     const boxes = [document.getElementById('departmentBox'), document.getElementById('recipientBox')];
     const syncAll = () => boxes.forEach(box => {
-        box?.classList.toggle('opacity-50', all.checked);
+        box?.classList.toggle('opacity-50', Boolean(all?.checked));
         box?.querySelectorAll('select,input,button').forEach(control => {
-            if (control !== all) control.disabled = all.checked;
+            if (control !== all) control.disabled = Boolean(all?.checked);
         });
     });
     all?.addEventListener('change', syncAll);

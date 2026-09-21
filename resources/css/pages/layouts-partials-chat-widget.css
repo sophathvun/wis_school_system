@@ -135,7 +135,7 @@
     background-size: cover;
     color: var(--tblr-primary);
     font-size: 0.72rem;
-    font-weight: 700;
+    font-weight: 500;
     display: grid;
     place-items: center;
 }
@@ -183,7 +183,7 @@
     background-size: cover;
     color: var(--tblr-primary);
     font-size: 0.48rem;
-    font-weight: 700;
+    font-weight: 500;
     line-height: 1;
 }
 
@@ -243,6 +243,10 @@
     box-shadow: 0 10px 22px rgba(32, 107, 196, 0.24);
 }
 
+.chat-mini-group-menu-button:not(.d-none) {
+    display: inline-flex !important;
+}
+
 .school-chat-group-action-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -261,7 +265,7 @@
     border-radius: 1rem;
     background: linear-gradient(135deg, rgba(32, 107, 196, 0.11), rgba(32, 107, 196, 0.03));
     color: var(--tblr-body-color);
-    font-weight: 700;
+    font-weight: 400;
     box-shadow: 0 10px 28px rgba(27, 46, 76, 0.08);
 }
 
@@ -287,7 +291,7 @@
     background: linear-gradient(135deg, rgba(214, 57, 57, 0.11), rgba(214, 57, 57, 0.04));
     color: #d63939;
     font-size: 0.72rem;
-    font-weight: 700;
+    font-weight: 500;
     line-height: 1.1;
     box-shadow: 0 6px 16px rgba(214, 57, 57, 0.08);
 }
@@ -345,7 +349,7 @@
     margin-top: 0.15rem;
     color: var(--tblr-secondary);
     font-size: 0.68rem;
-    font-weight: 700;
+    font-weight: 500;
     text-transform: uppercase;
     letter-spacing: 0.035em;
 }
@@ -649,10 +653,7 @@
 }
 
 .chat-mini-group-controls {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.35rem;
-    margin-top: 0.45rem;
+    display: none !important;
 }
 
 .chat-mini-group-controls.d-none {

@@ -202,7 +202,7 @@
     color: #5b4bd1;
     background: var(--tblr-bg-surface, #fff);
     font-size: 0.72rem;
-    font-weight: 700;
+    font-weight: 500;
 }
 
 .premium-form-field.has-value > .form-control,
@@ -451,7 +451,7 @@
     padding: 1rem 1.1rem;
     color: #fff;
     background: linear-gradient(180deg, #4b82ec 0%, #356fe0 100%);
-    font-weight: 700;
+    font-weight: 500;
 }
 
 .date-picker-year-toggle {
@@ -460,7 +460,7 @@
     color: inherit;
     background: transparent;
     font: inherit;
-    font-weight: 700;
+    font-weight: 500;
 }
 
 
@@ -499,7 +499,7 @@
 .date-picker-year.is-selected {
     color: #fff;
     background: #5e84ea;
-    font-weight: 700;
+    font-weight: 500;
 }
 
 .date-picker-year:hover {
@@ -522,7 +522,7 @@
     margin-bottom: 0.45rem;
     color: #37568f;
     font-size: 0.72rem;
-    font-weight: 700;
+    font-weight: 500;
     letter-spacing: 0.02em;
 }
 
@@ -543,7 +543,7 @@
     color: #fff;
     background: #5e84ea;
     box-shadow: 0 0 0 2px #3359a5 inset;
-    font-weight: 700;
+    font-weight: 500;
 }
 
 .date-picker-day:hover {
@@ -844,7 +844,7 @@
         align-items: flex-start;
         gap: .65rem;
         color: var(--tblr-primary);
-        font-weight: 700;
+        font-weight: 500;
         overflow-wrap: anywhere;
     }
 
@@ -1742,7 +1742,7 @@ body {
     background: #aeb7c2;
     box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.12);
     font-size: 0.68rem;
-    font-weight: 700;
+    font-weight: 500;
     letter-spacing: 0.03em;
     cursor: pointer;
     transition:
@@ -1891,7 +1891,7 @@ body {
 }
 
 .swal2-container {
-    z-index: 2105 !important;
+    z-index: 2147483647 !important;
 }
 
 
@@ -2198,4 +2198,52 @@ body {
 .page-wrapper > .footer .text-center {
     flex-direction: column;
     width: 100%;
+}
+
+.school-chat-group-actions-swal {
+    border-radius: 1.15rem !important;
+    background: var(--tblr-bg-surface, #fff) !important;
+    color: var(--tblr-body-color, #172b4d) !important;
+    box-shadow: 0 24px 70px rgba(15, 23, 42, .24) !important;
+}
+
+.school-chat-group-actions-swal .swal2-title,
+.school-chat-group-actions-swal .swal2-html-container {
+    color: inherit !important;
+}
+
+html[data-bs-theme="dark"] .school-chat-group-actions-swal,
+body[data-bs-theme="dark"] .school-chat-group-actions-swal {
+    border: 1px solid rgba(148, 163, 184, .24) !important;
+    background: #111827 !important;
+    color: #e5edf7 !important;
+    box-shadow: 0 26px 80px rgba(0, 0, 0, .58) !important;
+}
+
+html[data-bs-theme="dark"] .school-chat-group-actions-swal .swal2-close,
+body[data-bs-theme="dark"] .school-chat-group-actions-swal .swal2-close {
+    color: #cbd5e1 !important;
+}
+
+html[data-bs-theme="dark"] .school-chat-group-actions-swal .school-chat-group-action,
+body[data-bs-theme="dark"] .school-chat-group-actions-swal .school-chat-group-action {
+    border-color: rgba(96, 165, 250, .28);
+    background: linear-gradient(135deg, rgba(37, 99, 235, .26), rgba(15, 23, 42, .86));
+    color: #e5edf7;
+    box-shadow: 0 14px 32px rgba(0, 0, 0, .28);
+}
+
+html[data-bs-theme="dark"] .school-chat-group-actions-swal .school-chat-group-action i,
+body[data-bs-theme="dark"] .school-chat-group-actions-swal .school-chat-group-action i {
+    color: #60a5fa;
+}
+
+html[data-bs-theme="dark"] .school-chat-group-actions-swal .school-chat-group-action:hover,
+body[data-bs-theme="dark"] .school-chat-group-actions-swal .school-chat-group-action:hover {
+    border-color: rgba(96, 165, 250, .55);
+    background: linear-gradient(135deg, rgba(37, 99, 235, .38), rgba(30, 41, 59, .94));
+}
+.school-chat-group-actions-swal .school-chat-group-action,
+.school-chat-group-actions-swal .school-chat-group-action span {
+    font-weight: 400 !important;
 }

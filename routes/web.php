@@ -120,6 +120,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile/status', [AuthController::class, 'status'])->name('profile.status');
     Route::get('/feedback', [AuthController::class, 'feedbackForm'])->name('feedback');
     Route::post('/feedback', [AuthController::class, 'feedback'])->name('feedback.save');
+    Route::get('/settings/feedback', [AuthController::class, 'feedbackList'])->name('feedback.admin');
     Route::get('/settings/users', [UserManagementController::class, 'index'])->name('users.index');
     Route::get('/settings/users/print', [UserManagementController::class, 'print'])->name('users.print');
     Route::get('/settings/users/excel', [UserManagementController::class, 'exportExcel'])->name('users.excel');

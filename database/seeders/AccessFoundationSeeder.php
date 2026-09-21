@@ -40,6 +40,7 @@ class AccessFoundationSeeder extends Seeder
             'branding' => ['view' => 'View branding settings', 'manage' => 'Manage branding settings'],
             'chat' => ['view' => 'View chat', 'manage' => 'Manage chat', 'download' => 'Download chat media'],
             'notifications' => ['view' => 'View notifications', 'manage' => 'Manage notifications', 'send' => 'Send notifications', 'delete' => 'Delete notifications'],
+            'feedback' => ['view' => 'View feedback list'],
             'academic-years' => ['view' => 'View academic years', 'manage' => 'Manage academic years', 'export' => 'Export academic years', 'delete' => 'Delete academic years'],
             'grades' => ['view' => 'View grades', 'manage' => 'Manage grades', 'export' => 'Export grades', 'delete' => 'Delete grades'],
             'classes' => ['view' => 'View classes', 'manage' => 'Manage classes', 'export' => 'Export classes', 'delete' => 'Delete classes'],

@@ -206,16 +206,15 @@
             </div>
         </a>
         <div class="dropdown-menu dropdown-menu-end dropdown-menu-arrow">
-            @auth<a href="{{ route('profile.status') }}" class="dropdown-item">Status</a>@endauth
             @auth
+                <a href="{{ route('profile') }}" class="dropdown-item"><i class="ti ti-user me-2"></i>My Profile</a>
+                <a href="{{ route('profile.status') }}" class="dropdown-item"><i class="ti ti-adjustments me-2"></i>Status</a>
+                <a href="{{ route('feedback') }}" class="dropdown-item"><i class="ti ti-message me-2"></i>Feedback</a>
+                <div class="dropdown-divider"></div>
+                <form method="POST" action="{{ route('logout') }}" data-clear-dashboard-hero>@csrf<button class="dropdown-item" type="submit"><i class="ti ti-logout me-2"></i>Logout</button></form>
             @else
-                <a href="{{ route('login') }}" class="dropdown-item">Sign in</a>
+                <a href="{{ route('login') }}" class="dropdown-item"><i class="ti ti-login me-2"></i>Sign in</a>
             @endauth
-            @auth<a href="{{ route('feedback') }}" class="dropdown-item">Feedback</a>@endauth
-            <div class="dropdown-divider"></div>
-            @auth<a href="{{ route('profile') }}" class="dropdown-item">Settings</a>@endauth
-            @auth<form method="POST" action="{{ route('logout') }}" data-clear-dashboard-hero>@csrf<button class="dropdown-item"
-                    type="submit">Logout</button></form>@endauth
         </div>
     </div>
 </div>

@@ -74,6 +74,46 @@
                                     type="button" data-editor-align="justifyRight" title="Align right"><i
                                         class="ti ti-align-right"></i></button><button class="btn btn-outline-secondary"
                                     type="button" data-editor-link title="Insert link"><i class="ti ti-link"></i></button>
+                                <select class="form-select notification-font-family" data-notification-font-family
+                                    aria-label="Font family">
+                                    <option value="">System Font</option>
+                                    <option value="Khmer OS Siemreap">Khmer OS Siemreap</option>
+                                    <option value="Khmer OS Battambang">Khmer OS Battambang</option>
+                                    <option value="Khmer OS Muol Light">Khmer OS Muol Light</option>
+                                    <option value="Noto Sans Khmer">Noto Sans Khmer</option>
+                                    <option value="Tacteing">Tacteing</option>
+                                    <option value="Arial">Arial</option>
+                                    <option value="Times New Roman">Times New Roman</option>
+                                </select>
+                                <select class="form-select notification-font-size" data-notification-font-size
+                                    aria-label="Font size">
+                                    <option value="14px">Normal</option>
+                                    <option value="12px">Small</option>
+                                    <option value="16px">Medium</option>
+                                    <option value="18px">Large</option>
+                                    <option value="20px">Extra Large</option>
+                                </select>
+                                <div class="notification-color-picker" aria-label="Text color" data-notification-color-picker>
+                                    <button class="btn btn-outline-secondary notification-color-trigger" type="button"
+                                        data-notification-color-open title="Choose text color" aria-expanded="false">
+                                        <span class="notification-color-preview" data-notification-color-preview
+                                            style="--notification-selected-color: #2563eb"></span>
+                                        Color
+                                    </button>
+                                    <input class="notification-color-native" type="color" value="#2563eb"
+                                        data-notification-color title="Choose text color">
+                                    <div class="notification-color-palette" data-notification-color-palette>
+                                        <button class="notification-color-picker-button" type="button"
+                                            data-notification-native-open><i class="ti ti-palette me-1"></i>More
+                                            colors</button>
+                                        @foreach (['#e5e7eb' => 'White', '#111827' => 'Black', '#dc2626' => 'Red', '#16a34a' => 'Green', '#2563eb' => 'Blue', '#7c3aed' => 'Purple', '#0891b2' => 'Cyan', '#0d9488' => 'Teal', '#65a30d' => 'Lime', '#ca8a04' => 'Yellow', '#f97316' => 'Orange', '#db2777' => 'Pink', '#be123c' => 'Rose', '#9333ea' => 'Violet', '#64748b' => 'Slate', '#78716c' => 'Stone'] as $color => $label)
+                                            <button class="notification-color-swatch" type="button"
+                                                data-notification-color-swatch="{{ $color }}"
+                                                style="--notification-swatch-color: {{ $color }}"
+                                                title="{{ $label }}"></button>
+                                        @endforeach
+                                    </div>
+                                </div>
                                 <div class="dropdown"><button class="btn btn-outline-secondary dropdown-toggle"
                                         type="button" data-bs-toggle="dropdown" aria-expanded="false"
                                         title="Insert layout"><i class="ti ti-layout-grid"></i></button>
@@ -110,9 +150,13 @@
                                 class="text-secondary">(optional)</span></label><input class="form-control"
                             type="url" name="action_url" value="{{ old('action_url') }}" placeholder="https://...">
                     </div>
-                    <div class="col-12"><label class="form-check"><input class="form-check-input" type="checkbox"
-                                name="send_to_all" value="1" id="sendToAll" @checked(old('send_to_all'))><span
-                                class="form-check-label">Send to all active users</span></label></div>
+                    <div class="col-12 d-flex flex-column gap-2 notification-send-options">
+                        <label class="form-check">
+                            <input class="form-check-input" type="checkbox" name="send_to_all" value="1"
+                                id="sendToAll" @checked(old('send_to_all'))>
+                            <span class="form-check-label">Send to all active users</span>
+                        </label>
+                    </div>
                     <div class="col-md-6" id="departmentBox"><select class="form-select d-none" name="department_ids[]"
                             multiple size="7">
                             @foreach ($departments as $department)

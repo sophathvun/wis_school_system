@@ -513,7 +513,8 @@ document.addEventListener("DOMContentLoaded", () => {
         const adminButton = activeConversation.can_assign_group_admins
             ? '<button type="button" class="school-chat-group-action" data-group-action="admins"><i class="ti ti-shield-star"></i><span>Admin</span></button>'
             : "";
-        const result = await window.Swal.fire({
+        let selectedGroupAction = null;
+        await window.Swal.fire({
             title: "Group options",
             html: `
                 <div class="school-chat-group-action-grid">
@@ -525,15 +526,17 @@ document.addEventListener("DOMContentLoaded", () => {
             `,
             showConfirmButton: false,
             showCloseButton: true,
+            customClass: { popup: 'school-chat-group-actions-swal' },
             didOpen: (popup) => {
                 popup.querySelectorAll("[data-group-action]").forEach((button) => {
                     button.addEventListener("click", () => {
-                        window.Swal.close({ action: button.dataset.groupAction });
+                        selectedGroupAction = button.dataset.groupAction;
+                        window.Swal.close();
                     });
                 });
             },
         });
-        const action = result.action;
+        const action = selectedGroupAction;
         if (action === "rename") await renameActiveGroup();
         if (action === "members") await openAddMembersModal();
         if (action === "photo") groupPhotoFile.click();
@@ -601,7 +604,8 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        const result = await window.Swal.fire({
+        let selectedGroupAction = null;
+        await window.Swal.fire({
             icon: "warning",
             title: "Delete message",
             html: canDeleteForEveryone

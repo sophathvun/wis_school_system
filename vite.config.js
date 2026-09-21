@@ -58,6 +58,7 @@ export default defineConfig({
                 "resources/js/withdrawalReasons.js",
                 "resources/js/profilePhoto.js",
                 "resources/js/khmer-calendar.js",
+                "resources/js/feedback.js",
             ],
             refresh: true,
             fonts: [

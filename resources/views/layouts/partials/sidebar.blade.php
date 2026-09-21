@@ -438,13 +438,13 @@
                     </li>
                 @endif
                 @if ($canView('communication.view'))
-                    <li class="nav-item dropdown {{ request()->routeIs('chat.*') || request()->routeIs('notifications.send*') || request()->routeIs('notifications.manage') ? 'active' : '' }}">
+                    <li class="nav-item dropdown {{ request()->routeIs('chat.*') || request()->routeIs('notifications.send*') || request()->routeIs('notifications.manage') || request()->routeIs('feedback.admin') ? 'active' : '' }}">
                         <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown"
-                            data-bs-auto-close="false" role="button" aria-expanded="{{ request()->routeIs('chat.*') || request()->routeIs('notifications.send*') || request()->routeIs('notifications.manage') ? 'true' : 'false' }}">
+                            data-bs-auto-close="false" role="button" aria-expanded="{{ request()->routeIs('chat.*') || request()->routeIs('notifications.send*') || request()->routeIs('notifications.manage') || request()->routeIs('feedback.admin') ? 'true' : 'false' }}">
                             <span class="nav-link-icon d-md-none d-lg-inline-block"><i class="ti ti-messages icon"></i></span>
                             <span class="nav-link-title">Communication</span>
                         </a>
-                        <div class="dropdown-menu {{ request()->routeIs('chat.*') || request()->routeIs('notifications.send*') || request()->routeIs('notifications.manage') ? 'show' : '' }}">
+                        <div class="dropdown-menu {{ request()->routeIs('chat.*') || request()->routeIs('notifications.send*') || request()->routeIs('notifications.manage') || request()->routeIs('feedback.admin') ? 'show' : '' }}">
                             @if ($canView('chat.view'))
                                 <a class="dropdown-item {{ request()->routeIs('chat.*') ? 'active' : '' }}" href="{{ route('chat.index') }}">
                                     <i class="ti ti-messages me-2"></i> Chat
@@ -458,6 +458,9 @@
                                     <i class="ti ti-list me-2"></i> Notification Management
                                 </a>
                             @endif
+                            <a class="dropdown-item {{ request()->routeIs('feedback.admin') ? 'active' : '' }}" href="{{ route('feedback.admin') }}">
+                                <i class="ti ti-message-report me-2"></i> Feedback List
+                            </a>
                         </div>
                     </li>
                 @endif
