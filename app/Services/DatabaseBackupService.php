@@ -14,6 +14,37 @@ class DatabaseBackupService
         }
         return $directory;
     }
+    public function normalizeMisplacedBackups(): void
+    {
+        $privateDirectory = storage_path('app/private');
+        if (!is_dir($privateDirectory)) {
+            return;
+        }
+
+        foreach (scandir($privateDirectory) ?: [] as $entry) {
+            if (!str_starts_with($entry, 'backups\\') || !str_ends_with(strtolower($entry), '.sql')) {
+                continue;
+            }
+
+            $source = $privateDirectory.DIRECTORY_SEPARATOR.$entry;
+            if (!is_file($source)) {
+                continue;
+            }
+
+            $filename = basename(str_replace('\\', '/', $entry));
+            if (!preg_match('/^[A-Za-z0-9_.-]+\.sql$/', $filename)) {
+                continue;
+            }
+
+            $target = $this->directory().DIRECTORY_SEPARATOR.$filename;
+            if (is_file($target)) {
+                $info = pathinfo($filename);
+                $target = $this->directory().DIRECTORY_SEPARATOR.$info['filename'].'_moved_'.now('Asia/Phnom_Penh')->format('Ymd_His').'.'.$info['extension'];
+            }
+
+            @rename($source, $target);
+        }
+    }
 
     public function create(): array
     {
@@ -24,7 +55,8 @@ class DatabaseBackupService
         }
 
         $filename = ($settings['database'] ?? 'school_system').'_'.now('Asia/Phnom_Penh')->format('Ymd_His').'.sql';
-        $path = $this->directory().'\\'.preg_replace('/[^A-Za-z0-9_.-]/', '_', $filename);
+        $safeFilename = preg_replace('/[^A-Za-z0-9_.-]/', '_', $filename);
+        $path = $this->directory().DIRECTORY_SEPARATOR.$safeFilename;
         $binary = env('DB_DUMP_BINARY') ?: $this->findBinary();
         $arguments = [
             $binary,
@@ -54,3 +86,4 @@ class DatabaseBackupService
         return $candidates[0] ?? 'mysqldump';
     }
 }
+

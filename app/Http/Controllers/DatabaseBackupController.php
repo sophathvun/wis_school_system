@@ -13,6 +13,7 @@ class DatabaseBackupController
     public function index(Request $request)
     {
         $this->authorize($request, 'database-backups.view');
+        $this->backups->normalizeMisplacedBackups();
         $disk = Storage::disk('local');
         $files = collect($disk->files('backups'))
             ->filter(fn ($path) => str_ends_with(strtolower($path), '.sql'))
@@ -58,3 +59,4 @@ class DatabaseBackupController
         abort_unless($user && ($user->isSuperAdmin() || $user->hasPermission('settings.manage') || $user->hasPermission($permission)), 403);
     }
 }
+
