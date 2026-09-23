@@ -299,8 +299,12 @@ body.dark .profile-edit-section-header {
 
     .profile-workspace.profile-tabs-collapsed .profile-workspace-tabs {
         display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 0.35rem;
+    }
+
+    .profile-workspace.profile-tabs-collapsed .profile-workspace-link[data-profile-panel="profile-view"] {
+        display: none;
     }
 
     .profile-workspace.profile-tabs-collapsed .profile-workspace-link {
@@ -1541,3 +1545,4 @@ body[data-bs-theme="dark"] .profile-share-actions .btn {
         display: flex;
     }
 }
+
