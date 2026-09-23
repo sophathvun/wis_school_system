@@ -50,12 +50,12 @@ document.addEventListener("DOMContentLoaded", () => {
                     : "ti ti-layout-sidebar-left-collapse";
             }
         };
+        const mobileProfileTabsQuery = window.matchMedia("(max-width: 991.98px)");
         const applySavedProfileTabsState = () => {
-            if (localStorage.getItem(storageKey) === "1") {
-                workspace.classList.add("profile-tabs-collapsed");
-            } else {
-                workspace.classList.remove("profile-tabs-collapsed");
-            }
+            const savedState = localStorage.getItem(storageKey);
+            const shouldCollapse = mobileProfileTabsQuery.matches || savedState === "1";
+            workspace.classList.toggle("profile-tabs-collapsed", shouldCollapse);
+            workspace.classList.add("profile-tabs-ready");
             syncProfileTabsToggle();
         };
 
@@ -199,3 +199,5 @@ document.addEventListener("DOMContentLoaded", () => {
         control.addEventListener("change", () => control.form?.submit());
     });
 });
+
+

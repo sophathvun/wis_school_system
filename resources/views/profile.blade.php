@@ -34,7 +34,7 @@
         .profile-public-card-preview{padding-top:4px!important}.profile-public-card-brand img{transform:translateY(-32px);margin-bottom:-32px}.profile-public-card-top{display:grid;grid-template-columns:30% minmax(0,1fr);gap:1.25rem}.profile-public-card-photo{width:100%;height:auto;aspect-ratio:3/4;grid-column:1;grid-row:1}.profile-public-card-info{grid-column:2;grid-row:1}.profile-public-card-info h3{font-size:1.3rem!important}.profile-public-card-portrait .profile-public-card-top{grid-template-columns:30% minmax(0,1fr)}
         .profile-public-card-info p{font-size:.85rem!important}.profile-public-card-info h3{text-transform:uppercase}.profile-public-card-tags{gap:3px!important;row-gap:3px!important}.profile-public-card-tags span{justify-content:flex-start;padding:0!important;margin:0!important;line-height:1!important;background:transparent!important;color:#206bc4}.profile-public-card-mini-qr{position:static!important;grid-column:1 / -1;grid-row:2;display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;margin-top:2rem}.profile-public-card-mini-qr img{width:150px!important;height:150px!important;object-fit:contain}
         @keyframes profile-panel-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
-        @media(max-width:767.98px){.profile-workspace{grid-template-columns:1fr}.profile-workspace-nav{position:static}.profile-workspace-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.profile-workspace-link{min-height:62px;padding-inline:.55rem}.profile-workspace-link .ti-chevron-right{display:none}}
+        @media(max-width:767.98px){.profile-workspace{grid-template-columns:1fr}.profile-workspace-nav{position:static}.profile-workspace-tabs{display:grid;grid-template-columns:1fr}.profile-workspace-link{width:100%;min-height:62px;padding-inline:.7rem}.profile-workspace-link .ti-chevron-right{display:none}}
     </style>
     <div class="page-header">
         <div class="row align-items-center">
@@ -423,3 +423,4 @@
     @vite('resources/js/profile.js')
     @vite('resources/css/pages/profile.css')
 @endsection
+

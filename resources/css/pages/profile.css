@@ -172,6 +172,11 @@ body.dark .profile-edit-section-header {
     flex: 0 0 auto;
     margin-left: auto;
 }
+@media (max-width: 991.98px) {
+    .profile-workspace:not(.profile-tabs-ready) .profile-workspace-tabs {
+        display: none !important;
+    }
+}
 
 @media (min-width: 992px) {
     .profile-workspace {
@@ -288,43 +293,30 @@ body.dark .profile-edit-section-header {
 }
 
 @media (max-width: 991.98px) {
+    .profile-workspace .profile-workspace-tabs {
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        width: 100%;
+        gap: 0.5rem;
+    }
+
+    .profile-workspace .profile-workspace-link {
+        width: 100%;
+        min-height: 62px;
+    }
+
     .profile-workspace.profile-tabs-collapsed .profile-workspace-nav {
         padding: 0.75rem;
     }
 
     .profile-workspace.profile-tabs-collapsed .profile-workspace-nav-heading {
         margin-bottom: 0;
-        padding-bottom: 0.75rem;
+        padding-bottom: 0;
+        border-bottom: 0;
     }
 
     .profile-workspace.profile-tabs-collapsed .profile-workspace-tabs {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 0.35rem;
-    }
-
-    .profile-workspace.profile-tabs-collapsed .profile-workspace-link[data-profile-panel="profile-view"] {
-        display: none;
-    }
-
-    .profile-workspace.profile-tabs-collapsed .profile-workspace-link {
-        justify-content: center;
-        min-height: 52px;
-        padding: 0.35rem;
-        border-radius: 12px;
-    }
-
-    .profile-workspace.profile-tabs-collapsed .profile-workspace-link-icon {
-        flex-basis: 38px;
-        width: 38px;
-        height: 38px;
-        border-radius: 12px;
-        font-size: 1.08rem;
-    }
-
-    .profile-workspace.profile-tabs-collapsed .profile-workspace-link-copy,
-    .profile-workspace.profile-tabs-collapsed .profile-workspace-link > .ti-chevron-right {
-        display: none;
+        display: none !important;
     }
 
     .profile-edit-staff-column,
@@ -1508,17 +1500,25 @@ body[data-bs-theme="dark"] .profile-share-actions .btn {
 
     .profile-workspace-nav {
         position: static;
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        display: flex;
+        flex-direction: column;
+        width: 100%;
     }
 
-    .profile-workspace-nav-heading {
-        grid-column: 1 / -1;
+    .profile-workspace-nav-heading,
+    .profile-workspace-tabs,
+    .profile-workspace-link {
+        width: 100%;
+    }
+
+    .profile-workspace-tabs {
+        display: grid !important;
+        grid-template-columns: 1fr !important;
     }
 
     .profile-workspace-link {
         min-height: 62px;
-        padding-inline: 0.55rem;
+        padding-inline: 0.7rem;
     }
 
     .profile-workspace-link .ti-chevron-right {
@@ -1545,4 +1545,7 @@ body[data-bs-theme="dark"] .profile-share-actions .btn {
         display: flex;
     }
 }
+
+
+
 

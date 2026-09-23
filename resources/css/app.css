@@ -1691,6 +1691,20 @@ body {
         font-size: .75rem;
     }
 
+    .navbar-vertical #sidebar-menu > .navbar-nav > .nav-item:not(.dropdown) > .nav-link {
+        display: flex;
+        align-items: center;
+        width: 100%;
+    }
+
+    .navbar-vertical #sidebar-menu > .navbar-nav > .nav-item:not(.dropdown) > .nav-link > .nav-link-title {
+        margin-left: auto;
+        text-align: right;
+    }
+
+    .navbar-vertical #sidebar-menu > .navbar-nav > .nav-item:not(.dropdown) > .nav-link > .sidebar-favorite-toggle {
+        margin-left: .75rem !important;
+    }
     .navbar-vertical .nav-item.dropdown > .nav-link.dropdown-toggle {
         position: relative;
         justify-content: space-between;
@@ -2247,3 +2261,4 @@ body[data-bs-theme="dark"] .school-chat-group-actions-swal .school-chat-group-ac
 .school-chat-group-actions-swal .school-chat-group-action span {
     font-weight: 400 !important;
 }
+
