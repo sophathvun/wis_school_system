@@ -1565,6 +1565,9 @@ body {
         overflow-y: auto;
         overscroll-behavior: contain;
     }
+    .navbar-vertical #sidebar-menu.show {
+        display: block !important;
+    }
 
     /* Form modals must sit above the sticky mobile navigation so their
      * header and first fields are never obscured when editing a record. */
@@ -2261,4 +2264,7 @@ body[data-bs-theme="dark"] .school-chat-group-actions-swal .school-chat-group-ac
 .school-chat-group-actions-swal .school-chat-group-action span {
     font-weight: 400 !important;
 }
+
+
+
 

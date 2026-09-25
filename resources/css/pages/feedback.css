@@ -439,3 +439,10 @@ body.theme-dark .feedback-attachment-preview,
         flex: 1 1 180px;
     }
 }
+/* Hide feedback placeholder on mobile */
+@media (max-width: 991.98px) {
+    .feedback-editor-body:empty::before {
+        content: "";
+    }
+}
+

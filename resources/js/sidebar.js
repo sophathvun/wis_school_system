@@ -13,7 +13,7 @@ document.addEventListener("DOMContentLoaded", function () {
         toggle?.addEventListener("click", () => {
             if (window.innerWidth >= 992) return;
             sidebarMenu.classList.remove("show");
-            sidebarMenu.style.display = "none";
+            sidebarMenu.style.display = "";
             toggler.setAttribute("aria-expanded", "false");
             sidebarMenu.querySelectorAll(".nav-item.dropdown").forEach((item) => item.classList.remove("is-mobile-open", "show"));
         }, true);
@@ -31,7 +31,7 @@ document.addEventListener("DOMContentLoaded", function () {
             sidebarMenu.querySelectorAll(".nav-item.dropdown").forEach((item) => item.classList.remove("is-mobile-open", "show"));
 
             sidebarMenu.classList.remove("show");
-            sidebarMenu.style.display = "none";
+            sidebarMenu.style.display = "";
             toggler.setAttribute("aria-expanded", "false");
 
             // Apply the theme in place. Avoiding a page reload prevents the
@@ -51,25 +51,31 @@ document.addEventListener("DOMContentLoaded", function () {
             // Close the menu
             const collapseInstance =
                 bootstrap.Collapse.getInstance(sidebarMenu) ||
-                new bootstrap.Collapse(sidebarMenu);
+                new bootstrap.Collapse(sidebarMenu, { toggle: false });
             collapseInstance.hide();
         } else {
             // Open the menu
+            sidebarMenu.style.display = "";
             const collapseInstance =
                 bootstrap.Collapse.getInstance(sidebarMenu) ||
-                new bootstrap.Collapse(sidebarMenu);
+                new bootstrap.Collapse(sidebarMenu, { toggle: false });
             collapseInstance.show();
         }
     }
 
-    // Handle toggle button click
+    // Handle toggle button click. Stop Bootstrap's data-api handler so the
+    // menu cannot be toggled twice on mobile.
     toggler.addEventListener("click", function (e) {
+        if (window.innerWidth >= 992) return;
         e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
         toggleSidebar();
-    });
+    }, true);
 
     // Update aria-expanded when collapse state changes
     sidebarMenu.addEventListener("show.bs.collapse", function () {
+        sidebarMenu.style.display = "";
         toggler.setAttribute("aria-expanded", "true");
     });
 
@@ -133,7 +139,7 @@ document.addEventListener("DOMContentLoaded", function () {
             }
             const collapseInstance =
                 bootstrap.Collapse.getInstance(sidebarMenu) ||
-                new bootstrap.Collapse(sidebarMenu);
+                new bootstrap.Collapse(sidebarMenu, { toggle: false });
             collapseInstance.hide();
         });
     });
@@ -489,3 +495,5 @@ document.addEventListener("DOMContentLoaded", function () {
     renderSidebarFavorites();
     prepareFavoriteToggles();
 });
+
+

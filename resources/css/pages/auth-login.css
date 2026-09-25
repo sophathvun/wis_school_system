@@ -340,7 +340,7 @@
 
     .auth-form-panel {
         min-height: calc(100vh - 6.5rem);
-        padding-top: 7rem;
+        padding-top: 4.4rem;
         align-items: flex-start;
     }
 
@@ -380,3 +380,6 @@
         margin: 0.65rem 0 1rem;
     }
 }
+
+
+
