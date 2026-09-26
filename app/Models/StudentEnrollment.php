@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class StudentEnrollment extends Model
 {
     protected $table = 'tb_student_enrollment';
-    protected $fillable = ['student_id', 'campus_id', 'academic_year_id', 'grade_id', 'class_id', 'academic_track_id', 'group_id', 'session_id', 'status', 'student_type', 'enrollment_origin', 'external_student_id', 'previous_school', 'continue_at_western', 'summer_remarks', 'enrollment_status', 'enrolled_on', 'ended_on', 'exit_reason', 'notes'];
+    protected $fillable = ['student_id', 'campus_id', 'academic_year_id', 'grade_id', 'class_id', 'academic_track_id', 'group_id', 'session_id', 'status', 'student_type', 'id_book_list_no', 'enrollment_origin', 'external_student_id', 'previous_school', 'continue_at_western', 'summer_remarks', 'enrollment_status', 'enrolled_on', 'ended_on', 'exit_reason', 'notes'];
 
     protected $casts = ['status' => 'boolean', 'enrolled_on' => 'date', 'ended_on' => 'date'];
 

@@ -213,6 +213,7 @@ Route::middleware(['auth', 'active.user'])->group(function () {
 
     Route::get('/reports', [ReportsController::class, 'index'])->name('reports.index');
     Route::get('/reports/{type}', [ReportsController::class, 'show'])->name('reports.show');
+    Route::post('/reports/{type}/generate-id-book-list-codes', [ReportsController::class, 'generateIdBookListCodes'])->name('reports.id-book-list-codes.generate');
     Route::get('/reports/{type}/excel', [ReportsController::class, 'excel'])->name('reports.excel');
     Route::get('/reports/{type}/pdf', [ReportsController::class, 'pdf'])->name('reports.pdf');
 });

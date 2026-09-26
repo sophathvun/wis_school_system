@@ -1,4 +1,4 @@
-﻿@extends('layouts.app')
+@extends('layouts.app')
 @section('title','Reports')
 @section('page-header')
     <div class="container-fluid">
@@ -12,8 +12,24 @@
     @vite('resources/js/reportsIndex.js')
 @endsection
 @section('content')
-<div class="row g-3 reports-workspace" data-report-type="{{ $type }}" data-report-date="{{ $filters['report_date'] ?? now()->format('Y-m-d') }}"><div class="col-lg-3 report-tabs-column"><div class="card reports-tabs-card"><div class="card-header reports-tabs-header"><h3 class="card-title">Report Types</h3><button type="button" class="btn btn-icon btn-outline-primary reports-tabs-toggle" aria-expanded="true" aria-controls="reportsTypeList" title="Minimize report types"><i class="ti ti-layout-sidebar-left-collapse"></i></button></div><div class="list-group list-group-flush reports-tabs-list" id="reportsTypeList">@foreach($reportTypes as $key=>$label)<a href="{{ route('reports.index',['type'=>$key]) }}" class="list-group-item list-group-item-action {{ $type===$key?'active':'' }}" data-report-tab-label="{{ $label }}"><i class="ti {{ ['student-list'=>'ti-list-details','student-contact-list'=>'ti-address-book','score-list'=>'ti-notes','attendance-list'=>'ti-calendar-check','student-statistics'=>'ti-chart-bar','student-statistics-detail'=>'ti-chart-dots-3'][$key] }} me-2"></i>{{ $label }}</a>@endforeach</div></div></div>
-<div class="col-lg-9 report-content-column"><div class="card mb-3"><div class="card-header {{ $type === 'student-contact-list' ? 'report-title-header-dark' : '' }}"><h3 class="card-title">{{ $type === 'student-statistics-detail' ? 'STUDENT STATISTICS (Details)' : $reportTypes[$type] }}</h3></div><form method="get" action="{{ route('reports.index') }}"><input type="hidden" name="type" value="{{ $type }}"><div class="card-body"><div class="{{ ($type === 'student-list' || $type === 'student-contact-list') ? 'report-student-filter-row' : 'row g-3' }}">
+@php
+    $reportStubTypes = ['withdrawn-students', 'moeys-sikkhakarik-book', 'moeys-id-number-book'];
+    $reportTypeIcons = [
+        'student-list' => 'ti-list-details',
+        'student-contact-list' => 'ti-address-book',
+        'score-list' => 'ti-notes',
+        'attendance-list' => 'ti-calendar-check',
+        'student-statistics' => 'ti-chart-bar',
+        'student-statistics-detail' => 'ti-chart-dots-3',
+        'withdrawn-students' => 'ti-user-minus',
+        'student-id-books-moeys' => 'ti-id-badge-2',
+        'moeys-sikkhakarik-book' => 'ti-book-2',
+        'moeys-id-number-book' => 'ti-address-book',
+    ];
+    $khmerReportTypeTabs = ['moeys-sikkhakarik-book', 'moeys-id-number-book'];
+    $isReportStub = in_array($type, $reportStubTypes, true);
+@endphp
+<div class="row g-3 reports-workspace" data-report-type="{{ $type }}" data-report-date="{{ $filters['report_date'] ?? now()->format('Y-m-d') }}"><div class="col-lg-3 report-tabs-column"><div class="card reports-tabs-card"><div class="card-header reports-tabs-header"><h3 class="card-title">Report Types</h3><button type="button" class="btn btn-icon btn-outline-primary reports-tabs-toggle" aria-expanded="true" aria-controls="reportsTypeList" title="Minimize report types"><i class="ti ti-layout-sidebar-left-collapse"></i></button></div><div class="list-group list-group-flush reports-tabs-list" id="reportsTypeList">@foreach($reportTypes as $key=>$label)<a href="{{ route('reports.index',['type'=>$key]) }}" class="list-group-item list-group-item-action {{ $type===$key?'active':'' }} {{ in_array($key, $khmerReportTypeTabs, true) ? 'report-tab-khmer' : '' }}" data-report-tab-label="{{ $label }}"><i class="ti {{ $reportTypeIcons[$key] ?? 'ti-file-text' }} me-2"></i>{{ $label }}</a>@endforeach</div></div></div><div class="col-lg-9 report-content-column"><div class="card mb-3"><div class="card-header {{ $type === 'student-contact-list' ? 'report-title-header-dark' : '' }}"><h3 class="card-title {{ $type === 'student-id-books-moeys' ? 'student-id-book-title' : '' }}">@if($type === 'student-id-books-moeys')<img src="{{ asset('images/moeys_logo.png') }}" alt="MoEYS" class="student-id-book-title-logo"><span>សៀវភៅចុះអត្តលេខសិស្ស (MoEYS)</span>@else{{ $type === 'student-statistics-detail' ? 'STUDENT STATISTICS (Details)' : $reportTypes[$type] }}@endif</h3></div><form method="get" action="{{ route('reports.index') }}"><input type="hidden" name="type" value="{{ $type }}"><div class="card-body"><div class="{{ ($type === 'student-list' || $type === 'student-contact-list') ? 'report-student-filter-row' : 'row g-3' }}">
 @if(($type === 'student-list' || $type === 'student-contact-list'))
 <div class="report-filter-field"><label class="form-label">Period</label><div class="report-native-select"><select name="period_type" class="form-select report-select-with-arrow" data-report-period-select><option value="all" @selected(($filters['period_type']??'all')==='all')>Regular + Summer</option><option value="regular" @selected(($filters['period_type']??'')==='regular')>Regular</option><option value="summer" @selected(($filters['period_type']??'')==='summer')>Summer</option></select><i class="ti ti-chevron-down report-native-select-arrow"></i></div></div>
 <div class="report-filter-field"><label class="form-label">Academic Year</label><div class="report-filter-combobox" data-target="reportAcademicYearValue"><button type="button" class="report-filter-toggle"><span>{{ $academicYears->firstWhere('id',(int)($filters['academic_year_id']??0))?->academic_year ?: 'All Academic Years' }}</span><i class="ti ti-chevron-down"></i></button><div class="report-filter-menu"><input type="search" class="form-control report-filter-search" placeholder="Search Academic Year"><div class="report-filter-options"><button type="button" data-value="">All Academic Years</button>@foreach($academicYears as $year)<button type="button" data-value="{{ $year->id }}">{{ $year->academic_year }}</button>@endforeach</div></div></div><input type="hidden" name="academic_year_id" id="reportAcademicYearValue" value="{{ $filters['academic_year_id']??'' }}"></div>
@@ -31,6 +47,18 @@
 <div class="col-md-4 report-filter-field"><label class="form-label">Campus</label><div class="report-filter-combobox" data-target="reportCampusValue"><button type="button" class="report-filter-toggle"><span>{{ $campuses->firstWhere('id',(int)($filters['campus_id']??0))?->campus_name_en ?: 'All Campuses' }}</span><i class="ti ti-chevron-down"></i></button><div class="report-filter-menu"><input type="search" class="form-control report-filter-search" placeholder="Search Campus"><div class="report-filter-options"><button type="button" data-value="">All Campuses</button>@foreach($campuses as $campus)<button type="button" data-value="{{ $campus->id }}">{{ $campus->campus_name_en }}</button>@endforeach</div></div></div><input type="hidden" name="campus_id" id="reportCampusValue" value="{{ $filters['campus_id']??'' }}"></div>
 <div class="col-md-4 report-filter-field"><label class="form-label">Grade</label><div class="report-filter-combobox" data-target="reportGradeClassValue"><button type="button" class="report-filter-toggle"><span>{{ data_get(collect($gradeClassOptions)->firstWhere('value',$filters['grade_class']??''), 'label', 'All Grades') }}</span><i class="ti ti-chevron-down"></i></button><div class="report-filter-menu"><input type="search" class="form-control report-filter-search" placeholder="Search Grade"><div class="report-filter-options"><button type="button" data-value="">All Grades</button>@foreach($gradeClassOptions as $option)<button type="button" data-value="{{ $option['value'] }}">{{ $option['label'] }}</button>@endforeach</div></div></div><input type="hidden" name="grade_class" id="reportGradeClassValue" value="{{ $filters['grade_class']??'' }}"></div>
 <div class="col-md-4"><label class="form-label">Month</label><input name="month" type="month" class="form-control" value="{{ $filters['month'] }}"></div>
+@elseif($type === 'student-id-books-moeys')
+<div class="col-md-3 report-filter-field"><label class="form-label">Period</label><div class="report-native-select"><select name="period_type" class="form-select report-select-with-arrow" data-report-period-select><option value="all" @selected(($filters['period_type']??'all')==='all')>Regular + Summer</option><option value="regular" @selected(($filters['period_type']??'')==='regular')>Regular</option><option value="summer" @selected(($filters['period_type']??'')==='summer')>Summer</option></select><i class="ti ti-chevron-down report-native-select-arrow"></i></div></div>
+<div class="col-md-3 report-filter-field"><label class="form-label">Academic Year</label><div class="report-filter-combobox" data-target="reportAcademicYearValue"><button type="button" class="report-filter-toggle"><span>{{ $academicYears->firstWhere('id',(int)($filters['academic_year_id']??0))?->academic_year ?: 'All Academic Years' }}</span><i class="ti ti-chevron-down"></i></button><div class="report-filter-menu"><input type="search" class="form-control report-filter-search" placeholder="Search Academic Year"><div class="report-filter-options"><button type="button" data-value="">All Academic Years</button>@foreach($academicYears as $year)<button type="button" data-value="{{ $year->id }}">{{ $year->academic_year }}</button>@endforeach</div></div></div><input type="hidden" name="academic_year_id" id="reportAcademicYearValue" value="{{ $filters['academic_year_id']??'' }}"></div>
+<div class="col-md-3 report-filter-field"><label class="form-label">Book Level</label><div class="report-filter-combobox" data-target="reportIdBookLevelValue"><button type="button" class="report-filter-toggle"><span>{{ ['kindergarten'=>'Kindergarten', 'primary'=>'Primary', 'secondary'=>'Secondary'][$filters['id_book_level']??''] ?? 'Select Book Level' }}</span><i class="ti ti-chevron-down"></i></button><div class="report-filter-menu"><input type="search" class="form-control report-filter-search" placeholder="Search Book Level"><div class="report-filter-options"><button type="button" data-value="">Select Book Level</button><button type="button" data-value="kindergarten">Kindergarten</button><button type="button" data-value="primary">Primary</button><button type="button" data-value="secondary">Secondary</button></div></div></div><input type="hidden" name="id_book_level" id="reportIdBookLevelValue" value="{{ $filters['id_book_level']??'' }}"></div>
+<div class="col-md-3 report-filter-field"><label class="form-label">Campus</label><div class="report-filter-combobox" data-target="reportCampusValue"><button type="button" class="report-filter-toggle"><span>{{ $campuses->firstWhere('id',(int)($filters['campus_id']??0))?->campus_name_en ?: 'All Campuses' }}</span><i class="ti ti-chevron-down"></i></button><div class="report-filter-menu"><input type="search" class="form-control report-filter-search" placeholder="Search Campus"><div class="report-filter-options"><button type="button" data-value="">All Campuses</button>@foreach($campuses as $campus)<button type="button" data-value="{{ $campus->id }}">{{ $campus->campus_name_en }}</button>@endforeach</div></div></div><input type="hidden" name="campus_id" id="reportCampusValue" value="{{ $filters['campus_id']??'' }}"></div>
+<div class="col-md-4 report-filter-field"><div class="input-group id-book-list-code-group"><div class="id-book-list-code-input"><label class="form-label" for="idBookStartNumber">Start List Code</label><input id="idBookStartNumber" type="number" min="1" max="99999" step="1" class="form-control" name="id_book_start_number" placeholder="00001" data-id-book-start-number></div><button type="button" class="btn btn-primary" data-id-book-generate data-generate-url="{{ route('reports.id-book-list-codes.generate', ['type' => $type]) }}"><i class="ti ti-number me-1"></i>Generate</button></div><div class="form-hint">Generates 5-digit codes for the selected Academic Year, Book Level, and Campus.</div></div>
+@elseif($isReportStub)
+<div class="col-12">
+    <div class="alert alert-info mb-0 report-placeholder-alert {{ in_array($type, $khmerReportTypeTabs, true) ? 'khmer-font-siemreap' : '' }}">
+        {{ $reportTypes[$type] }} report tab is added. The independent report form and print layout can be configured next.
+    </div>
+</div>
 @elseif($type === 'score-list')
 <div class="col-md-3 report-filter-field"><label class="form-label">Period</label><div class="report-native-select"><select name="period_type" class="form-select report-select-with-arrow" data-report-period-select><option value="all" @selected(($filters['period_type']??'all')==='all')>Regular + Summer</option><option value="regular" @selected(($filters['period_type']??'')==='regular')>Regular</option><option value="summer" @selected(($filters['period_type']??'')==='summer')>Summer</option></select><i class="ti ti-chevron-down report-native-select-arrow"></i></div></div>
 <div class="col-md-3 report-filter-field"><label class="form-label">Academic Year</label><div class="report-filter-combobox" data-target="reportAcademicYearValue"><button type="button" class="report-filter-toggle"><span>{{ $academicYears->firstWhere('id',(int)($filters['academic_year_id']??0))?->academic_year ?: 'All Academic Years' }}</span><i class="ti ti-chevron-down"></i></button><div class="report-filter-menu"><input type="search" class="form-control report-filter-search" placeholder="Search Academic Year"><div class="report-filter-options"><button type="button" data-value="">All Academic Years</button>@foreach($academicYears as $year)<button type="button" data-value="{{ $year->id }}">{{ $year->academic_year }}</button>@endforeach</div></div></div><input type="hidden" name="academic_year_id" id="reportAcademicYearValue" value="{{ $filters['academic_year_id']??'' }}"></div>
@@ -41,7 +69,7 @@
 @endif
 @if(in_array($type, ['student-list', 'student-contact-list', 'attendance-list', 'score-list'], true))
     <div class="row g-3 mt-2 report-print-options">
-        @if(!in_array($type, ['attendance-list', 'score-list'], true))
+        @if(!in_array($type, ['attendance-list', 'score-list', 'student-id-books-moeys'], true))
             <div class="col-md-3">
                 <label class="form-label">Print Format</label>
                 <div class="report-native-select">
@@ -78,7 +106,7 @@
                 </div>
             </div>
         @endif
-        @if(!in_array($type, ['attendance-list', 'score-list'], true))
+        @if(!in_array($type, ['attendance-list', 'score-list', 'student-id-books-moeys'], true))
             <div class="col-md-3">
                 <label class="form-label">Report Date</label>
                 <input type="date" name="report_date" class="form-control" value="{{ $filters['report_date'] ?? now()->format('Y-m-d') }}">
@@ -96,9 +124,91 @@
     </div>
 @endif
 </div></div></form></div>
-<div class="card"><div class="card-header d-flex align-items-center justify-content-between gap-2 report-preview-header"><h3 class="card-title mb-0">REPORT PREVIEW</h3>@if(($type === 'student-list' || $type === 'student-contact-list'))<div class="report-summary-card"><div class="report-summary-item report-summary-total"><div class="report-summary-label">Total Students</div><div class="report-summary-number">{{ number_format($studentSummary['total'] ?? 0) }}</div><div class="report-summary-gender">F: {{ number_format($studentSummary['total_female'] ?? 0) }} <span>|</span> M: {{ number_format($studentSummary['total_male'] ?? 0) }}</div></div><div class="report-summary-divider"></div><div class="report-summary-item report-summary-new"><div class="report-summary-label">New Students</div><div class="report-summary-number">{{ number_format($studentSummary['new_total'] ?? 0) }}</div><div class="report-summary-gender">F: {{ number_format($studentSummary['new_female'] ?? 0) }} <span>|</span> M: {{ number_format($studentSummary['new_male'] ?? 0) }}</div></div></div>@endif<div class="report-preview-actions d-flex gap-2 ms-auto"><a class="btn btn-outline-primary report-print-link" target="_blank" href="{{ route('reports.show',$type) . '?' . http_build_query($filters) }}"><i class="ti ti-printer me-1"></i>Print</a><a class="btn btn-outline-success report-excel-link" href="{{ route('reports.excel',$type) . '?' . http_build_query($filters) }}"><i class="ti ti-file-spreadsheet me-1"></i>Excel</a><a class="btn btn-outline-danger report-pdf-link" href="{{ route('reports.pdf',$type) . '?' . http_build_query($filters) }}"><i class="ti ti-file-type-pdf me-1"></i>PDF</a></div></div><div class="card-body report-preview-body">@if(($type === 'student-list' || $type === 'student-contact-list') && ($hasMorePreviewRows ?? false))<div class="alert alert-info mb-3">Showing first {{ $previewLimit }} students for fast preview. Print and Excel include all matching students.</div>@endif<div class="table-responsive">@include('reports._table')</div></div></div></div></div>
+<div class="card">
+    <div class="card-header d-flex align-items-center justify-content-between gap-2 report-preview-header">
+        <div class="report-preview-title-wrap">
+            <h3 class="card-title mb-0">REPORT PREVIEW</h3>
+            @if($type === 'student-id-books-moeys')
+                <div class="report-preview-note">For new students only</div>
+            @endif
+        </div>
+        @if(($type === 'student-list' || $type === 'student-contact-list'))
+            <div class="report-summary-card">
+                <div class="report-summary-item report-summary-total">
+                    <div class="report-summary-label">Total Students</div>
+                    <div class="report-summary-number">{{ number_format($studentSummary['total'] ?? 0) }}</div>
+                    <div class="report-summary-gender">F: {{ number_format($studentSummary['total_female'] ?? 0) }} <span>|</span> M: {{ number_format($studentSummary['total_male'] ?? 0) }}</div>
+                </div>
+                <div class="report-summary-divider"></div>
+                <div class="report-summary-item report-summary-new">
+                    <div class="report-summary-label">New Students</div>
+                    <div class="report-summary-number">{{ number_format($studentSummary['new_total'] ?? 0) }}</div>
+                    <div class="report-summary-gender">F: {{ number_format($studentSummary['new_female'] ?? 0) }} <span>|</span> M: {{ number_format($studentSummary['new_male'] ?? 0) }}</div>
+                </div>
+            </div>
+        @endif
+        @if(!$isReportStub)
+            <div class="report-preview-actions d-flex gap-2 ms-auto">
+                @if($type === 'student-id-books-moeys')
+                    <div class="dropdown">
+                        <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false"><i class="ti ti-printer me-1"></i>Print</button>
+                        <div class="dropdown-menu dropdown-menu-end">
+                            <a class="dropdown-item report-print-link" target="_blank" href="{{ route('reports.show',$type) . '?' . http_build_query($filters) }}"><i class="ti ti-id-badge-2 me-2"></i>Print ID Book</a>
+                            <a class="dropdown-item report-print-link" target="_blank" data-report-print-mode="cover" href="{{ route('reports.show',$type) . '?' . http_build_query($filters + ['print_mode' => 'cover']) }}"><i class="ti ti-book-2 me-2"></i>Print Cover</a>
+                        </div>
+                    </div>
+                    <div class="dropdown">
+                        <button class="btn btn-outline-success dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false"><i class="ti ti-file-spreadsheet me-1"></i>Excel</button>
+                        <div class="dropdown-menu dropdown-menu-end">
+                            <a class="dropdown-item report-excel-link" href="{{ route('reports.excel',$type) . '?' . http_build_query($filters) }}"><i class="ti ti-id-badge-2 me-2"></i>Excel ID Book</a>
+                            <a class="dropdown-item report-excel-link" data-report-print-mode="cover" href="{{ route('reports.excel',$type) . '?' . http_build_query($filters + ['print_mode' => 'cover']) }}"><i class="ti ti-book-2 me-2"></i>Excel Cover</a>
+                        </div>
+                    </div>
+                    <div class="dropdown">
+                        <button class="btn btn-outline-danger dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false"><i class="ti ti-file-type-pdf me-1"></i>PDF</button>
+                        <div class="dropdown-menu dropdown-menu-end">
+                            <a class="dropdown-item report-pdf-link" href="{{ route('reports.pdf',$type) . '?' . http_build_query($filters) }}"><i class="ti ti-id-badge-2 me-2"></i>PDF ID Book</a>
+                            <a class="dropdown-item report-pdf-link" data-report-print-mode="cover" href="{{ route('reports.pdf',$type) . '?' . http_build_query($filters + ['print_mode' => 'cover']) }}"><i class="ti ti-book-2 me-2"></i>PDF Cover</a>
+                        </div>
+                    </div>
+                @else
+                    <a class="btn btn-outline-primary report-print-link" target="_blank" href="{{ route('reports.show',$type) . '?' . http_build_query($filters) }}"><i class="ti ti-printer me-1"></i>Print</a>
+                    <a class="btn btn-outline-success report-excel-link" href="{{ route('reports.excel',$type) . '?' . http_build_query($filters) }}"><i class="ti ti-file-spreadsheet me-1"></i>Excel</a>
+                    <a class="btn btn-outline-danger report-pdf-link" href="{{ route('reports.pdf',$type) . '?' . http_build_query($filters) }}"><i class="ti ti-file-type-pdf me-1"></i>PDF</a>
+                @endif
+            </div>
+        @endif
+    </div>
+    <div class="card-body report-preview-body">
+        @if(($type === 'student-list' || $type === 'student-contact-list') && ($hasMorePreviewRows ?? false))
+            <div class="alert alert-info mb-3">Showing first {{ $previewLimit }} students for fast preview. Print and Excel include all matching students.</div>
+        @endif
+        <div class="table-responsive">@include('reports._table')</div>
+    </div>
+</div></div></div>
     @vite('resources/js/reportsIndex.js')
 <style>
+    .report-tab-khmer,
+    .khmer-font-siemreap {
+        font-family: var(--khmer-font-siemreap), 'Khmer OS Siemreap', 'Khmer OS Siem Reap', sans-serif;
+    }
+    .student-id-book-title {
+        display: inline-flex;
+        align-items: center;
+        gap: .55rem;
+        font-family: var(--khmer-font-muol-light), 'Khmer OS Muol Light', 'Khmer OS Muol', serif;
+        font-weight: 400;
+        letter-spacing: 0;
+    }
+    .student-id-book-title-logo {
+        width: 26px;
+        height: 26px;
+        object-fit: contain;
+        flex: 0 0 auto;
+    }
+    .report-placeholder-alert {
+        border-style: dashed;
+    }
     .reports-tabs-header {
         align-items: center;
         justify-content: space-between;
@@ -329,6 +439,56 @@
         font-size: 1.1rem;
         line-height: 1;
     }
+    .id-book-list-code-group {
+        height: 52px;
+        min-height: 52px;
+        flex-wrap: nowrap;
+        border-radius: 14px;
+        box-shadow: 0 2px 7px rgba(31,41,55,.04);
+    }
+    .id-book-list-code-input {
+        position: relative;
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+    .id-book-list-code-input > .form-label {
+        position: absolute !important;
+        z-index: 6;
+        top: .42rem;
+        left: 1rem;
+        margin: 0 !important;
+        padding: 0 .35rem;
+        color: #5b4bd1;
+        background: transparent;
+        font-size: .72rem;
+        font-weight: 700;
+        line-height: 1.1 !important;
+        pointer-events: none;
+    }
+    .id-book-list-code-input > .form-control {
+        width: 100%;
+        height: 52px;
+        min-height: 52px;
+        padding: 1.25rem 1rem .35rem 1rem;
+        border: 1.5px solid #d9e2ef !important;
+        border-right: 0 !important;
+        border-radius: 14px 0 0 14px !important;
+        background-color: var(--tblr-bg-surface,#fff);
+        color: var(--tblr-body-color);
+        box-shadow: none !important;
+        font-size: 1rem;
+    }
+    .id-book-list-code-group > .btn {
+        height: 52px;
+        min-height: 52px;
+        border-radius: 0 10px 10px 0 !important;
+        padding-inline: 1.35rem;
+        white-space: nowrap;
+        box-shadow: none;
+    }
+    .id-book-list-code-group:focus-within .id-book-list-code-input > .form-control {
+        border-color: #6c5ce7 !important;
+    }
     .report-select-with-arrow {
         appearance: none;
         -webkit-appearance: none;
@@ -476,6 +636,15 @@
         display: grid !important;
         grid-template-columns: minmax(160px, 1fr) auto minmax(160px, 1fr);
         align-items: center;
+    }
+    .report-preview-title-wrap {
+        min-width: 0;
+    }
+    .report-preview-note {
+        margin-top: .2rem;
+        color: var(--tblr-secondary-color);
+        font-size: .82rem;
+        line-height: 1.2;
     }
     .report-preview-header .card-title {
         justify-self: start;
@@ -742,9 +911,3 @@
     }
 </style>
 @endsection
-
-
-
-
-
-

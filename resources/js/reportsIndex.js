@@ -6,7 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const reportDate = workspace.dataset.reportDate || '';
     const form = workspace.querySelector('form');
     const periodSelect = form?.querySelector('[data-report-period-select]');
-    const isQuietAttendance = ['attendance-list', 'score-list'].includes(reportType);
+    const isQuietAttendance = ['attendance-list', 'score-list', 'student-id-books-moeys'].includes(reportType);
     let quietRefreshController = null;
 
     const quietRefreshAttendance = async () => {
@@ -40,7 +40,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 previewBody.innerHTML = nextPreviewBody.innerHTML;
             }
 
-            ['reportAcademicYearValue', 'reportCampusValue', 'reportGradeClassValue'].forEach((id) => {
+            ['reportAcademicYearValue', 'reportIdBookLevelValue', 'reportCampusValue', 'reportGradeClassValue'].forEach((id) => {
                 const currentTarget = document.getElementById(id);
                 const nextTarget = doc.getElementById(id);
                 const currentBox = currentTarget?.closest('.report-filter-field')?.querySelector('.report-filter-combobox');
@@ -114,11 +114,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const academicYearValue = document.getElementById('reportAcademicYearValue');
         const campusValue = document.getElementById('reportCampusValue');
         const gradeClassValue = document.getElementById('reportGradeClassValue');
+        const idBookLevelValue = document.getElementById('reportIdBookLevelValue');
         const groupValue = document.getElementById('reportGroupValue');
 
         if (academicYearValue) academicYearValue.value = '';
         if (campusValue) campusValue.value = '';
         if (gradeClassValue) gradeClassValue.value = '';
+        if (idBookLevelValue) idBookLevelValue.value = '';
         if (groupValue) groupValue.value = '';
 
         quietRefreshAttendance();
@@ -167,7 +169,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 target.dispatchEvent(new Event('change', { bubbles: true }));
                 syncLabel();
                 box.classList.remove('is-open');
-                if (['reportAcademicYearValue', 'reportCampusValue', 'reportGradeClassValue'].includes(target.id)) {
+                if (['reportAcademicYearValue', 'reportIdBookLevelValue', 'reportCampusValue', 'reportGradeClassValue'].includes(target.id)) {
                     setTimeout(() => isQuietAttendance ? quietRefreshAttendance() : form?.requestSubmit(), 0);
                 }
             });
@@ -177,6 +179,70 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     document.querySelectorAll('.report-filter-combobox').forEach(bindFilterCombobox);
+
+    const generateIdBookButton = workspace.querySelector('[data-id-book-generate]');
+    const idBookStartInput = workspace.querySelector('[data-id-book-start-number]');
+    const showIdBookMessage = (icon, title, text) => {
+        if (window.Swal) {
+            return window.Swal.fire({ icon, title, text });
+        }
+        alert(text || title);
+        return Promise.resolve();
+    };
+
+    generateIdBookButton?.addEventListener('click', async () => {
+        if (!form || !idBookStartInput) return;
+
+        const academicYearId = document.getElementById('reportAcademicYearValue')?.value;
+        const level = document.getElementById('reportIdBookLevelValue')?.value;
+        const campusId = document.getElementById('reportCampusValue')?.value;
+        const startNumber = idBookStartInput.value;
+
+        if (!academicYearId || !level || !campusId || !startNumber) {
+            await showIdBookMessage('warning', 'Select filters first', 'Please select Academic Year, Book Level, Campus, and enter a start number.');
+            return;
+        }
+
+        const numericStart = Number.parseInt(startNumber, 10);
+        if (!Number.isInteger(numericStart) || numericStart < 1 || numericStart > 99999) {
+            await showIdBookMessage('warning', 'Invalid start number', 'Please enter a number from 1 to 99999.');
+            return;
+        }
+
+        const url = generateIdBookButton.dataset.generateUrl;
+        const data = new FormData(form);
+        data.set('id_book_start_number', String(numericStart));
+
+        generateIdBookButton.disabled = true;
+        generateIdBookButton.classList.add('disabled');
+
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                },
+                body: data,
+            });
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                const errors = payload.errors ? Object.values(payload.errors).flat() : [];
+                const error = new Error(errors[0] || payload.message || 'Unable to generate list codes.');
+                error.status = response.status;
+                throw error;
+            }
+
+            await showIdBookMessage('success', 'Generated', payload.message || 'Generated list codes.');
+            quietRefreshAttendance();
+        } catch (error) {
+            await showIdBookMessage(error.status === 409 ? 'info' : 'error', error.status === 409 ? 'Already generated' : 'Unable to generate', error.message || 'Unable to generate list codes.');
+        } finally {
+            generateIdBookButton.disabled = false;
+            generateIdBookButton.classList.remove('disabled');
+        }
+    });
 
     if (!['student-list', 'student-contact-list'].includes(reportType)) {
         form?.querySelectorAll('select[name="academic_year_id"], select[name="campus_id"], select[name="grade_id"], input[name="class_id"], input[name="month"], input[name="report_date"], select[name="print_type"]').forEach((field) => {
@@ -194,6 +260,9 @@ document.addEventListener('DOMContentLoaded', () => {
         new FormData(form).forEach((value, key) => {
             if (value !== '') url.searchParams.append(key, value);
         });
+        if (link.dataset.reportPrintMode) {
+            url.searchParams.set('print_mode', link.dataset.reportPrintMode);
+        }
         link.href = url.toString();
     };
 

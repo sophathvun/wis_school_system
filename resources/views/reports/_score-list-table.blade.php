@@ -89,22 +89,65 @@
 @font-face{font-family:'Khmer OS Muol Light';src:url('{{ asset("fonts/khmer/KhmerOSmuollight.ttf") }}') format('truetype');font-weight:400;font-style:normal;font-display:swap}
 
 .score-list-report{color:#000;font-family:Arial,Helvetica,sans-serif;min-width:1180px;overflow-x:auto}.score-list-heading{display:grid;grid-template-columns:80mm 76mm;justify-content:space-between;align-items:start;margin:-3mm 0 -5mm}.score-list-left{text-align:left;width:80mm}.score-list-logo{width:80mm;height:auto;object-fit:contain}.score-list-office{font-family:'Times New Roman',serif;font-size:18px;font-weight:800;line-height:1}.score-list-campus{font-family:'Times New Roman',serif;font-size:18px;font-weight:800}.score-list-right{justify-self:end;width:76mm;padding-top:0}.score-list-motto{text-align:center;margin:0;color:#000}.score-list-motto-kh{font-family:'Khmer OS Muol Light','Khmer OS Muol',serif;font-size:17px;font-weight:400;line-height:1.45}.score-list-motto-en{font-family:Arial,Helvetica,sans-serif;font-size:17px;font-weight:700;line-height:1.22}.score-list-title{background:#173b66;color:#fff;font-size:22px;font-weight:800;text-align:center;padding:2mm 4mm;margin-bottom:3mm;-webkit-print-color-adjust:exact;print-color-adjust:exact}.score-list-title span{font-family:'Khmer OS Muol Light','Khmer OS Muol',serif;font-weight:400}.score-list-info-row{display:grid;grid-template-columns:38mm 1fr;gap:4mm;align-items:end;font-size:19px;margin:1.6mm 0}.score-list-info-row span{border-bottom:1px dotted #000;min-height:6mm}.score-list-grade-row{grid-template-columns:32mm 22mm 12mm minmax(34mm,1fr)}.score-list-grade-row span:last-child{white-space:nowrap;overflow:visible}.score-list-grade-value{text-align:center;border-bottom:1px dotted #000}.score-list-preview-title,.score-list-print-title{text-align:center;margin:0 auto 6px;color:#000;max-width:100%;overflow:visible}.score-list-preview-title-kh,.score-list-print-title-kh{font-family:'Khmer OS Muol Light','Khmer OS Muol',serif;font-size:24px;font-weight:400;line-height:1.55;white-space:normal;overflow:visible;letter-spacing:0}.score-list-preview-title-en,.score-list-print-title-en{font-size:24px;font-weight:700;line-height:1.25;margin-top:2px}.score-list-print-info-row{display:grid;grid-template-columns:auto minmax(28mm,1fr) auto minmax(28mm,1fr) auto 22mm auto 34mm;gap:2.5mm;align-items:end;margin:0 0 3mm;font-size:16px;font-weight:500;color:#000}.score-print-info-line{min-height:5mm;border-bottom:1px dotted #000}.score-print-info-value{text-align:center;font-weight:400;white-space:nowrap}.score-print-info-label{display:block;white-space:nowrap;line-height:1.15}.score-print-info-label-kh{display:block;font-family:'Khmer OS Siemreap','Khmer OS Siem Reap',Arial,sans-serif;font-weight:400;font-size:15px}.score-print-info-label-en{display:block;font-weight:500}.score-list-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:15px}.score-list-table th,.score-list-table td{border:1px solid #707782;text-align:center;vertical-align:middle;height:9mm;padding:2px 3px;line-height:1.08}.score-list-table thead th{background:var(--tblr-primary,#206bc4);color:#fff;font-weight:500;-webkit-print-color-adjust:exact;print-color-adjust:exact}.score-list-table tbody tr:nth-child(even) td{background:#ddebf7;-webkit-print-color-adjust:exact;print-color-adjust:exact}.score-no-col{width:9mm}.score-student-name-col{width:72mm}.score-gender-col{width:16mm}.score-group-col{width:16mm}.score-conduct-col{width:16mm}.score-cp-col{width:11mm}.score-mark-col{width:11.4mm}.score-kh-label,.score-section-col span{display:block;font-family:'Khmer OS Siemreap','Khmer OS Siem Reap',Arial,sans-serif;font-weight:500}.score-section-col{font-family:'Khmer OS Siemreap','Khmer OS Siem Reap',Arial,sans-serif}.score-monthly-test-col{padding:6px 5px!important;line-height:1.25!important}.score-monthly-test-col span{margin-bottom:2px}.score-student-name{text-align:left!important;padding:5px 6px!important}.score-name-en{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.22}.score-name-kh{font-family:'Khmer OS Siemreap','Khmer OS Siem Reap',serif;font-size:15px;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;line-height:1.3;margin-bottom:4px}.score-list-footer{display:grid;grid-template-columns:1fr 42mm;gap:0mm;margin-top:3mm;font-size:12px;line-height:1.25}.score-list-note-kh{display:block;font-family:'Khmer OS Siemreap',var(--khmer-font-siemreap),sans-serif!important;font-weight:400!important;line-height:1.18;margin:0}.score-list-note-kh-secondary{margin-top:0!important;margin-left:34px!important}.score-list-note-en{grid-column:1;font-size:12px}.score-list-note-en-secondary{margin-left:43px}.score-list-date{grid-column:2;grid-row:1 / span 2;align-self:start;text-align:right;font-size:18px}@media screen and (max-width:767px){.score-list-report{min-width:1180px;transform:scale(.34);transform-origin:top left;width:294%;margin-bottom:-60%}.score-list-table{font-size:12px}.score-name-en,.score-name-kh{font-size:12px}}
+@media screen{
+    [data-bs-theme="dark"] .report-preview-body .score-list-report,
+    body.dark-mode .report-preview-body .score-list-report{
+        color:#eaf2ff;
+    }
+
+    [data-bs-theme="dark"] .report-preview-body .score-list-motto,
+    body.dark-mode .report-preview-body .score-list-motto,
+    [data-bs-theme="dark"] .report-preview-body .score-list-preview-title,
+    body.dark-mode .report-preview-body .score-list-preview-title,
+    [data-bs-theme="dark"] .report-preview-body .score-list-print-title,
+    body.dark-mode .report-preview-body .score-list-print-title,
+    [data-bs-theme="dark"] .report-preview-body .score-list-print-info-row,
+    body.dark-mode .report-preview-body .score-list-print-info-row{
+        color:#f8fbff;
+    }
+
+    [data-bs-theme="dark"] .report-preview-body .score-print-info-line,
+    body.dark-mode .report-preview-body .score-print-info-line,
+    [data-bs-theme="dark"] .report-preview-body .score-list-info-row span,
+    body.dark-mode .report-preview-body .score-list-info-row span,
+    [data-bs-theme="dark"] .report-preview-body .score-list-grade-value,
+    body.dark-mode .report-preview-body .score-list-grade-value{
+        border-bottom-color:#8fa3bd;
+    }
+
+    [data-bs-theme="dark"] .report-preview-body .score-list-table,
+    body.dark-mode .report-preview-body .score-list-table{
+        color:#eaf2ff;
+    }
+
+    [data-bs-theme="dark"] .report-preview-body .score-list-table th,
+    body.dark-mode .report-preview-body .score-list-table th,
+    [data-bs-theme="dark"] .report-preview-body .score-list-table td,
+    body.dark-mode .report-preview-body .score-list-table td{
+        border-color:#52627a;
+    }
+
+    [data-bs-theme="dark"] .report-preview-body .score-list-table thead th,
+    body.dark-mode .report-preview-body .score-list-table thead th{
+        background:var(--tblr-primary,#206bc4)!important;
+        color:#fff!important;
+    }
+
+    [data-bs-theme="dark"] .report-preview-body .score-list-table tbody td,
+    body.dark-mode .report-preview-body .score-list-table tbody td{
+        background:#182235;
+        color:#eaf2ff;
+    }
+
+    [data-bs-theme="dark"] .report-preview-body .score-list-table tbody tr:nth-child(even) td,
+    body.dark-mode .report-preview-body .score-list-table tbody tr:nth-child(even) td{
+        background:#24364d;
+    }
+
+    [data-bs-theme="dark"] .report-preview-body .score-list-table tbody td[colspan],
+    body.dark-mode .report-preview-body .score-list-table tbody td[colspan]{
+        color:#c9d7e8;
+    }
+}
 </style>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

@@ -26,6 +26,10 @@ class ReportsController
         'attendance-list' => 'Attendance List',
         'student-statistics' => 'Student Statistics (Summary)',
         'student-statistics-detail' => 'Student Statistics (Details)',
+        'withdrawn-students' => 'Withdrawn Students',
+        'student-id-books-moeys' => 'Student ID Books (MoEYS)',
+        'moeys-sikkhakarik-book' => 'សៀវភៅសិក្ខាគារិក (MoEYS)',
+        'moeys-id-number-book' => 'សៀវភៅអត្តលេខ (MoEYS)',
     ];
 
     public function index(Request $request)
@@ -50,8 +54,15 @@ class ReportsController
         abort_unless(isset(self::TYPES[$type]), 404);
 
         $payload = $this->reportPayload($request, $type);
-        $filename = str_replace(' ', '-', strtolower(self::TYPES[$type])) . '-' . now('Asia/Phnom_Penh')->format('Ymd-His') . '.xlsx';
-        $path = $this->reportExcelPath($payload, $type);
+        if ($type === 'student-id-books-moeys' && $request->query('print_mode') === 'cover') {
+            $academicYear = $request->filled('academic_year_id') ? AcademicYear::find($request->integer('academic_year_id')) : null;
+            $campus = $request->filled('campus_id') ? SchoolInfo::find($request->integer('campus_id')) : null;
+            $filename = 'student-id-book-cover-' . now('Asia/Phnom_Penh')->format('Ymd-His') . '.xlsx';
+            $path = $this->studentIdBookCoverExcelPath($this->studentIdBookCoverData($payload, $academicYear, $campus));
+        } else {
+            $filename = str_replace(' ', '-', strtolower(self::TYPES[$type])) . '-' . now('Asia/Phnom_Penh')->format('Ymd-His') . '.xlsx';
+            $path = $this->reportExcelPath($payload, $type);
+        }
 
         return response()
             ->download($path, $filename, [
@@ -70,7 +81,9 @@ class ReportsController
             return $this->separateReportPdfZip($request, $payload, $type);
         }
 
-        $filename = $this->reportPdfFilename($payload['enrollments'] ?? collect(), $type, false);
+        $filename = $type === 'student-id-books-moeys' && $request->query('print_mode') === 'cover'
+            ? 'student-id-book-cover-' . now('Asia/Phnom_Penh')->format('Ymd-His') . '.pdf'
+            : $this->reportPdfFilename($payload['enrollments'] ?? collect(), $type, false);
         $path = $this->makeReportPdfPath($request, $payload, $type);
 
         return response()
@@ -82,31 +95,116 @@ class ReportsController
     {
         abort_unless(isset(self::TYPES[$type]), 404);
         $payload = $this->reportPayload($request, $type);
+        $academicYear = $request->filled('academic_year_id') ? AcademicYear::find($request->integer('academic_year_id')) : null;
+        $campus = $request->filled('campus_id') ? SchoolInfo::find($request->integer('campus_id')) : null;
+
+        if ($type === 'student-id-books-moeys' && $request->query('print_mode') === 'cover') {
+            return view('reports.student-id-book-cover', $payload + [
+                'type' => $type,
+                'title' => 'Student ID Book Cover',
+                'academicYear' => $academicYear,
+                'campus' => $campus,
+                'cover' => $this->studentIdBookCoverData($payload, $academicYear, $campus),
+            ]);
+        }
 
         return view('reports.print', $payload + [
             'type' => $type,
             'title' => self::TYPES[$type],
             'academicYears' => $this->academicYears($payload['filters'] ?? []),
-            'academicYear' => $request->filled('academic_year_id') ? AcademicYear::find($request->integer('academic_year_id')) : null,
-            'campus' => $request->filled('campus_id') ? SchoolInfo::find($request->integer('campus_id')) : null,
+            'academicYear' => $academicYear,
+            'campus' => $campus,
         ]);
+    }
+
+    public function generateIdBookListCodes(Request $request, string $type)
+    {
+        abort_unless($type === 'student-id-books-moeys', 404);
+
+        $filters = $request->validate([
+            'academic_year_id' => ['required', 'integer', 'exists:tb_academic_year,id'],
+            'period_type' => ['nullable', 'in:all,regular,summer'],
+            'campus_id' => ['required', 'integer', 'exists:tb_school_info,id'],
+            'id_book_level' => ['required', 'in:kindergarten,primary,secondary'],
+            'id_book_start_number' => ['required', 'integer', 'min:1', 'max:99999'],
+        ]);
+        $filters['period_type'] = $filters['period_type'] ?? 'all';
+
+        $rows = $this->enrollments($request, $filters, 'student-id-books-moeys')->get();
+        $codedCount = $rows->filter(fn ($row) => filled($row->id_book_list_no))->count();
+        if ($codedCount > 0) {
+            $message = "List codes already generated for this Academic Year, Book Level, and Campus.";
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => $message,
+                    'count' => $codedCount,
+                ], 409);
+            }
+
+            return redirect()
+                ->route('reports.index', ['type' => $type] + $request->only(['period_type', 'academic_year_id', 'id_book_level', 'campus_id']))
+                ->with('error', $message);
+        }
+
+        $updated = DB::transaction(function () use ($rows, $filters) {
+            $number = (int) $filters['id_book_start_number'];
+
+            foreach ($rows as $row) {
+                if ($number > 99999) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'id_book_start_number' => 'The generated number cannot be more than 99999.',
+                    ]);
+                }
+
+                StudentEnrollment::whereKey($row->id)->update([
+                    'id_book_list_no' => str_pad((string) $number, 5, '0', STR_PAD_LEFT),
+                ]);
+                $number++;
+            }
+
+            return $rows->count();
+        });
+
+        $message = "Generated {$updated} list codes.";
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => $message,
+                'count' => $updated,
+            ]);
+        }
+
+        return redirect()
+            ->route('reports.index', ['type' => $type] + $request->only(['period_type', 'academic_year_id', 'id_book_level', 'campus_id']))
+            ->with('success', $message);
     }
 
     private function makeReportPdfPath(Request $request, array $payload, string $type): string
     {
         $first = ($payload['enrollments'] ?? collect())->first();
         [$pdfKhmerLunarDate, $pdfKhmerSolarDate] = $this->moeysKhmerDateLines($payload['filters']['report_date'] ?? null, $first?->campus);
-        $html = view('reports.print', $payload + [
-            'type' => $type,
-            'title' => self::TYPES[$type],
-            'academicYears' => $this->academicYears($payload['filters'] ?? []),
-            'academicYear' => $request->filled('academic_year_id') ? AcademicYear::find($request->integer('academic_year_id')) : null,
-            'campus' => $request->filled('campus_id') ? SchoolInfo::find($request->integer('campus_id')) : null,
-            'pdfMode' => true,
-            'pdfLogoSrc' => $this->reportPdfLogoDataUri(),
-            'pdfKhmerLunarDate' => $pdfKhmerLunarDate,
-            'pdfKhmerSolarDate' => $pdfKhmerSolarDate,
-        ])->render();
+        $academicYear = $request->filled('academic_year_id') ? AcademicYear::find($request->integer('academic_year_id')) : null;
+        $campus = $request->filled('campus_id') ? SchoolInfo::find($request->integer('campus_id')) : null;
+        $html = ($type === 'student-id-books-moeys' && $request->query('print_mode') === 'cover'
+            ? view('reports.student-id-book-cover', $payload + [
+                'type' => $type,
+                'title' => 'Student ID Book Cover',
+                'academicYear' => $academicYear,
+                'campus' => $campus,
+                'cover' => $this->studentIdBookCoverData($payload, $academicYear, $campus),
+                'pdfMode' => true,
+            ])
+            : view('reports.print', $payload + [
+                'type' => $type,
+                'title' => self::TYPES[$type],
+                'academicYears' => $this->academicYears($payload['filters'] ?? []),
+                'academicYear' => $academicYear,
+                'campus' => $campus,
+                'pdfMode' => true,
+                'pdfLogoSrc' => $this->reportPdfLogoDataUri(),
+                'pdfKhmerLunarDate' => $pdfKhmerLunarDate,
+                'pdfKhmerSolarDate' => $pdfKhmerSolarDate,
+            ]))->render();
 
         $htmlPath = tempnam(sys_get_temp_dir(), 'report-pdf-html-') . '.html';
         $pdfPath = tempnam(sys_get_temp_dir(), 'report-pdf-') . '.pdf';
@@ -268,6 +366,11 @@ class ReportsController
         return in_array($type, ['student-statistics', 'student-statistics-detail'], true);
     }
 
+    private function isReportStub(string $type): bool
+    {
+        return in_array($type, ['withdrawn-students', 'moeys-sikkhakarik-book', 'moeys-id-number-book'], true);
+    }
+
     private function classGroups($enrollments): Collection
     {
         return collect($enrollments)
@@ -291,6 +394,9 @@ class ReportsController
         rename($path, $xlsxPath);
 
         $logoPath = $this->reportExcelLogoPath($type);
+        if ($type === 'student-id-books-moeys') {
+            $logoPath = null;
+        }
         $logoExtension = $logoPath ? $this->xlsxImageExtension($logoPath) : null;
         $sheets = $this->reportExcelSheets($payload, $type, (bool) $logoPath);
         $entries = [
@@ -314,6 +420,30 @@ class ReportsController
         if ($logoPath && $logoExtension) {
             $entries['xl/media/report-logo.' . $logoExtension] = file_get_contents($logoPath);
         }
+
+        $this->writeZipArchive($xlsxPath, $entries);
+
+        return $xlsxPath;
+    }
+
+    private function studentIdBookCoverExcelPath(array $cover): string
+    {
+        $path = tempnam(sys_get_temp_dir(), 'student-id-book-cover-');
+        $xlsxPath = $path . '.xlsx';
+        rename($path, $xlsxPath);
+
+        $sheets = [[
+            'name' => 'Cover',
+            'xml' => $this->studentIdBookCoverWorksheetXml($cover),
+        ]];
+        $entries = [
+            '[Content_Types].xml' => $this->xlsxContentTypes(1, null),
+            '_rels/.rels' => $this->xlsxRootRels(),
+            'xl/workbook.xml' => $this->xlsxWorkbook($sheets),
+            'xl/_rels/workbook.xml.rels' => $this->xlsxWorkbookRels(1),
+            'xl/styles.xml' => $this->xlsxStyles(),
+            'xl/worksheets/sheet1.xml' => $sheets[0]['xml'],
+        ];
 
         $this->writeZipArchive($xlsxPath, $entries);
 
@@ -346,6 +476,28 @@ class ReportsController
         }
 
         $enrollments = $payload['enrollments'] ?? collect();
+        if ($type === 'student-id-books-moeys') {
+            $groups = $this->classGroups($enrollments);
+            if ($groups->isEmpty()) {
+                return [[
+                    'name' => 'Student ID Book',
+                    'xml' => $this->studentIdBookWorksheetXml(collect()),
+                    'tacteing_col' => 7,
+                    'show_tacteing' => false,
+                ]];
+            }
+
+            $usedNames = [];
+            return $groups->map(function ($rows) use (&$usedNames) {
+                $gradeClass = $this->gradeClassLabel($rows->first()) ?: 'Class';
+                return [
+                    'name' => $this->uniqueSheetName($gradeClass, $usedNames),
+                    'xml' => $this->studentIdBookWorksheetXml($rows->values()),
+                    'tacteing_col' => 7,
+                    'show_tacteing' => false,
+                ];
+            })->values()->all();
+        }
         if ($type === 'score-list') {
             $groups = $this->classGroups($enrollments);
             if ($groups->isEmpty()) {
@@ -597,6 +749,209 @@ class ReportsController
             'quarter_4' => 'Quarter 4',
             default => 'Quarter 1',
         };
+    }
+
+    private function studentIdBookWorksheetXml($enrollments): string
+    {
+        $enrollments = collect($enrollments)->values();
+        $lastRow = max(2, ($enrollments->count() * 6) + 1);
+        $rows = [
+            $this->xlsxRow(1, [
+                ['A', "លេខកូដក្នុង\nបញ្ជី", 10],
+                ['B', "អត្តលេខ\nនៅWIS", 10],
+                ['C', "ឈ្មោះសិស្ស\nរូបថត", 10],
+                ['D', 'ភេទ', 10],
+                ['E', 'ថ្នាក់', 10],
+                ['F', "ថ្ងៃ ខែ ឆ្នាំ\nនិងទីកន្លែងកំណើត", 10],
+                ['G', "ឈ្មោះ ឪពុកម្តាយ\nមុខរបរ និង ទីលំនៅ", 10],
+                ['H', "ទីលំនៅបច្ចុប្បន្នរបស់\nអាណាព្យាបាលសិស្ស", 10],
+                ['I', 'រយះពេលសិក្សា', 10],
+                ['J', 'សេចក្តីផ្សេងៗ', 10],
+            ], 33),
+        ];
+        $mergeRefs = [];
+
+        foreach ($enrollments as $index => $row) {
+            $student = $row->student;
+            $start = ($index * 6) + 2;
+            $end = $start + 5;
+            foreach (['A', 'B', 'D', 'E', 'J'] as $column) {
+                $mergeRefs[] = $column . $start . ':' . $column . $end;
+            }
+            $mergeRefs[] = 'C' . $start . ':C' . $end;
+
+            $father = $this->studentIdBookFamilyMember($student, 'father');
+            $mother = $this->studentIdBookFamilyMember($student, 'mother');
+            $birthRows = $this->studentIdBookBirthRows($student);
+            $addressRows = $this->studentIdBookAddressRows($student);
+            $gradeName = trim((string) ($row->grade?->grade_short_name ?: $row->grade?->grade ?? ''));
+            $sectionName = trim((string) ($row->schoolClass?->class_name ?? ''));
+            $className = $sectionName && $gradeName && !str_starts_with($sectionName, $gradeName)
+                ? $gradeName . $sectionName
+                : ($sectionName ?: $gradeName);
+            $enrolledOn = $row->enrolled_on ?: $row->created_at;
+            $trueAddress = $student?->current_address_kh ?: '';
+            $previousSchool = trim((string) $student?->previous_school);
+
+            $rows[] = $this->xlsxRow($start, [
+                ['A', $row->id_book_list_no ?: '', 32],
+                ['B', $student?->student_id ?: '', 32],
+                ['C', $student?->full_name_kh ?: $student?->full_name_en ?: '', 31],
+                ['D', $this->studentIdBookGender($student), 10],
+                ['E', $className, 10],
+                ['F', 'កើតថ្ងៃទី ' . $this->studentIdBookKhmerDate($student?->date_of_birth), 27],
+                ['G', 'ឈ្មោះឪពុក ' . trim((string) ($father?->full_name_kh ?: $father?->full_name_en)), 27],
+                ['H', $addressRows[0], 27],
+                ['I', 'ចូលថ្ងៃទី ' . str_replace('-', ' ', $this->studentIdBookKhmerDate($enrolledOn)), 27],
+                ['J', '', 10],
+            ], 28);
+            $rows[] = $this->xlsxRow($start + 1, [
+                ['F', $birthRows[0], 28],
+                ['G', 'មុខរបរ ' . trim((string) ($father?->occupation_kh ?: $father?->occupation_en ?: $father?->occupation)), 28],
+                ['H', $addressRows[1], 28],
+                ['I', 'មកពីសាលា ' . $previousSchool, 28],
+            ], 28);
+            $rows[] = $this->xlsxRow($start + 2, [
+                ['F', $birthRows[1], 28],
+                ['G', 'ឈ្មោះម្តាយ ' . trim((string) ($mother?->full_name_kh ?: $mother?->full_name_en)), 28],
+                ['H', $addressRows[2], 28],
+                ['I', 'ចេញថ្ងៃទី', 28],
+            ], 28);
+            $rows[] = $this->xlsxRow($start + 3, [
+                ['F', $birthRows[2], 28],
+                ['G', 'មុខរបរ ' . trim((string) ($mother?->occupation_kh ?: $mother?->occupation_en ?: $mother?->occupation)), 28],
+                ['H', $addressRows[3], 28],
+                ['I', '........................................', 28],
+            ], 28);
+            $rows[] = $this->xlsxRow($start + 4, [
+                ['F', $birthRows[3], 28],
+                ['G', 'ទីលំនៅពិតប្រាកដ ' . $trueAddress, 28],
+                ['H', '', 28],
+                ['I', '........................................', 28],
+            ], 28);
+            $rows[] = $this->xlsxRow($start + 5, [
+                ['F', $birthRows[4], 29],
+                ['G', '', 29],
+                ['H', '', 29],
+                ['I', '', 29],
+            ], 28);
+        }
+
+        if ($enrollments->isEmpty()) {
+            $rows[] = $this->xlsxRow(2, [['A', 'No students found.', 5]], 28);
+            $mergeRefs[] = 'A2:J2';
+        }
+
+        $mergeCells = $mergeRefs
+            ? '<mergeCells count="' . count($mergeRefs) . '">' . collect($mergeRefs)->map(fn ($ref) => '<mergeCell ref="' . $ref . '"/>')->implode('') . '</mergeCells>'
+            : '';
+
+        return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            . '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+            . '<dimension ref="A1:J' . $lastRow . '"/>'
+            . '<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'
+            . '<sheetFormatPr defaultRowHeight="25.5"/>'
+            . '<cols><col min="1" max="2" width="7.85546875" customWidth="1"/><col min="3" max="3" width="20.42578125" customWidth="1"/><col min="4" max="4" width="5.140625" customWidth="1"/><col min="5" max="5" width="6.28515625" customWidth="1"/><col min="6" max="6" width="25" customWidth="1"/><col min="7" max="7" width="32.5703125" customWidth="1"/><col min="8" max="8" width="26.7109375" customWidth="1"/><col min="9" max="9" width="25.28515625" customWidth="1"/><col min="10" max="10" width="18.7109375" customWidth="1"/></cols>'
+            . '<sheetData>' . implode('', $rows) . '</sheetData>'
+            . $mergeCells
+            . '<pageMargins left="0.7" right="0.12" top="0.25" bottom="0.12" header="0.1" footer="0.1"/>'
+            . '<pageSetup paperSize="9" orientation="landscape" fitToHeight="0"/>'
+            . '</worksheet>';
+    }
+
+    private function studentIdBookCoverWorksheetXml(array $cover): string
+    {
+        $rows = [
+            $this->xlsxRow(1, [['A', '', 2]], 18),
+            $this->xlsxRow(2, [['A', 'ព្រះរាជាណាចក្រកម្ពុជា', 13]], 32),
+            $this->xlsxRow(3, [['A', 'ជាតិ សាសនា ព្រះមហាក្សត្រ', 13]], 30),
+            $this->xlsxRow(4, [['A', '5', 14]], 20),
+            $this->xlsxRow(5, [], 24),
+            $this->xlsxRow(6, [['A', $cover['educationOffice'] ?? '', 13]], 30),
+            $this->xlsxRow(7, [['A', $cover['schoolName'] ?? '', 13]], 30),
+            $this->xlsxRow(8, [], 32),
+            $this->xlsxRow(9, [['A', 'សៀវភៅចុះអត្តលេខសិស្ស', 8]], 54),
+            $this->xlsxRow(10, [['A', $cover['gradeRange'] ?? '', 13]], 34),
+            $this->xlsxRow(11, [['A', $cover['codeRange'] ?? '', 13]], 32),
+            $this->xlsxRow(12, [['A', $cover['academicYear'] ?? '', 13]], 32),
+        ];
+        $mergeRefs = [
+            'A1:J1', 'A2:J2', 'A3:J3', 'A4:J4', 'A5:J5',
+            'A6:E6', 'A7:E7', 'A8:J8', 'A9:J9', 'A10:J10', 'A11:J11', 'A12:J12',
+        ];
+        $mergeCells = '<mergeCells count="' . count($mergeRefs) . '">' . collect($mergeRefs)->map(fn ($ref) => '<mergeCell ref="' . $ref . '"/>')->implode('') . '</mergeCells>';
+
+        return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            . '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+            . '<dimension ref="A1:J12"/>'
+            . '<sheetViews><sheetView workbookViewId="0"/></sheetViews>'
+            . '<sheetFormatPr defaultRowHeight="24"/>'
+            . '<cols><col min="1" max="10" width="13" customWidth="1"/></cols>'
+            . '<sheetData>' . implode('', $rows) . '</sheetData>'
+            . $mergeCells
+            . '<pageMargins left="0.35" right="0.35" top="0.35" bottom="0.35" header="0.1" footer="0.1"/>'
+            . '<pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="1"/>'
+            . '</worksheet>';
+    }
+
+    private function studentIdBookFamilyMember($student, string $relationship)
+    {
+        return $student?->familyMembers?->first(fn ($member) => ($member->relationship_type ?? $member->pivot?->relationship_type) === $relationship);
+    }
+
+    private function studentIdBookLevelGrades(?string $level): array
+    {
+        return match ($level) {
+            'kindergarten' => ['N-', 'K1-', 'K2-', 'K3-'],
+            'primary' => ['1', '2', '3', '4', '5', '6'],
+            'secondary' => ['7', '8', '9', '10', '11', '12'],
+            default => [],
+        };
+    }
+
+    private function studentIdBookGender($student): string
+    {
+        $gender = mb_strtolower(trim((string) ($student?->gender_kh ?: $student?->gender)));
+        return str_contains($gender, 'f') || str_contains($gender, 'ស្រី') ? 'ស' : 'ប';
+    }
+
+    private function studentIdBookKhmerDate($date): string
+    {
+        if (!$date) return '';
+        $date = $date instanceof \Carbon\Carbon ? $date : \Carbon\Carbon::parse($date);
+        $months = ['Jan'=>'មករា','Feb'=>'កុម្ភៈ','Mar'=>'មីនា','Apr'=>'មេសា','May'=>'ឧសភា','Jun'=>'មិថុនា','Jul'=>'កក្កដា','Aug'=>'សីហា','Sep'=>'កញ្ញា','Oct'=>'តុលា','Nov'=>'វិច្ឆិកា','Dec'=>'ធ្នូ'];
+        return $this->khmerDigits($date->format('d')) . '-' . ($months[$date->format('M')] ?? $date->format('M')) . '-' . $this->khmerDigits($date->format('Y'));
+    }
+
+    private function studentIdBookLocationName($model, string $english, string $khmer): string
+    {
+        return trim((string) ($model?->{$khmer} ?: $model?->{$english} ?: ''));
+    }
+
+    private function studentIdBookBirthRows($student): array
+    {
+        $province = $this->studentIdBookLocationName($student?->birthProvince, 'province_name_en', 'province_name_kh');
+        return [
+            'ភូមិ​ ' . $this->studentIdBookLocationName($student?->birthVillage, 'village_name_en', 'village_name_kh'),
+            'ឃុំ ' . $this->studentIdBookLocationName($student?->birthCommune, 'commune_name_en', 'commune_name_kh'),
+            'ស្រុក ' . $this->studentIdBookLocationName($student?->birthDistrict, 'district_name_en', 'district_name_kh'),
+            'ខេត្ត-ក្រុង ' . $province,
+            '',
+        ];
+    }
+
+    private function studentIdBookAddressRows($student): array
+    {
+        $house = trim('ផ្ទះលេខ ' . trim((string) $student?->address_house_no_kh)
+            . '     ផ្លូវ ' . trim((string) $student?->address_street_kh)
+            . '     ក្រុម');
+
+        return [
+            $house,
+            'សង្កាត់ ' . trim((string) $student?->addressCommune?->commune_name_kh),
+            'ខណ្ឌ-ស្រុក ' . trim((string) $student?->addressDistrict?->district_name_kh),
+            'ខេត្តក្រុង ' . trim((string) $student?->addressProvince?->province_name_kh),
+        ];
     }
 
     private function scoreListWorksheetXml($enrollments, array $filters = [], bool $hasLogo = false): string
@@ -1259,6 +1614,48 @@ JS;
         return strtr($value, ['0' => '០', '1' => '១', '2' => '២', '3' => '៣', '4' => '៤', '5' => '៥', '6' => '៦', '7' => '៧', '8' => '៨', '9' => '៩']);
     }
 
+    private function studentIdBookCoverData(array $payload, ?AcademicYear $academicYear, ?SchoolInfo $campus): array
+    {
+        $filters = $payload['filters'] ?? [];
+        $enrollments = collect($payload['enrollments'] ?? []);
+        $codes = $enrollments
+            ->pluck('id_book_list_no')
+            ->filter(fn ($code) => filled($code))
+            ->map(fn ($code) => (string) $code)
+            ->sort()
+            ->values();
+
+        $level = $filters['id_book_level'] ?? '';
+        $gradeRange = match ($level) {
+            'kindergarten' => 'ថ្នាក់មត្តេយ្យ',
+            'secondary' => 'ថ្នាក់ទី' . $this->khmerDigits('7') . ' ដល់ ថ្នាក់ទី' . $this->khmerDigits('12'),
+            default => 'ថ្នាក់ទី' . $this->khmerDigits('1') . ' ដល់ ថ្នាក់ទី' . $this->khmerDigits('6'),
+        };
+
+        $startCode = $codes->first();
+        $endCode = $codes->last();
+        $codeRange = $startCode && $endCode
+            ? 'អត្តលេខពី ' . $this->khmerDigits($startCode) . ' ដល់' . $this->khmerDigits($endCode)
+            : 'អត្តលេខពី ........................ ដល់........................';
+
+        $academicYearText = $academicYear?->academic_year
+            ? 'ឆ្នាំសិក្សា ' . $this->khmerDigits($academicYear->academic_year)
+            : 'ឆ្នាំសិក្សា ........................';
+
+        $schoolName = trim((string) ($campus?->school_name_kh ?: $campus?->campus_name_kh ?: 'វេស្ទើនអន្តរជាតិ'));
+        if (!str_starts_with($schoolName, 'សាលា')) {
+            $schoolName = 'សាលា' . $schoolName;
+        }
+
+        return [
+            'educationOffice' => 'មន្ទីរអប់រំ យុវជន និង កីឡា ' . $this->moeysLocation($campus),
+            'schoolName' => $schoolName,
+            'gradeRange' => $gradeRange,
+            'codeRange' => $codeRange,
+            'academicYear' => $academicYearText,
+        ];
+    }
+
     private function moeysLocation(?SchoolInfo $campus): string
     {
         $value = mb_strtolower(($campus?->campus_name_kh ?? '') . ' ' . ($campus?->campus_name_en ?? '') . ' ' . ($campus?->address ?? ''));
@@ -1302,9 +1699,9 @@ JS;
             . '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
             . '<fonts count="11"><font><sz val="11"/><name val="Arial"/></font><font><b/><sz val="16"/><name val="Arial"/><color rgb="FF1F3A5F"/></font><font><b/><sz val="11"/><name val="Arial"/></font><font><sz val="12"/><name val="Khmer OS Siemreap"/></font><font><b/><sz val="11"/><name val="Khmer OS Muol Light"/></font><font><sz val="16"/><color rgb="FF1F3A5F"/><name val="Khmer OS Muol Light"/></font><font><b/><sz val="12"/><name val="Khmer OS Siemreap"/></font><font><sz val="12"/><name val="Arial"/></font><font><sz val="14"/><name val="Khmer OS Siemreap"/></font><font><sz val="12"/><name val="Khmer OS Muol Light"/></font><font><b/><sz val="12"/><name val="Arial"/><color rgb="FFFFFFFF"/></font></fonts>'
             . '<fills count="13"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF1F3F5"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFD9EDF2"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFD9D7E3"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE2F0D9"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFCE4D6"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFB4C7E7"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF2F2F2"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FF203864"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FF3B73C9"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FF3B73C9"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFFF99"/><bgColor indexed="64"/></patternFill></fill></fills>'
-            . '<borders count="3"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FF9AA8BA"/></left><right style="thin"><color rgb="FF9AA8BA"/></right><top style="thin"><color rgb="FF9AA8BA"/></top><bottom style="thin"><color rgb="FF9AA8BA"/></bottom><diagonal/></border><border><left style="thin"><color rgb="FF222222"/></left><right style="thin"><color rgb="FF222222"/></right><top style="thin"><color rgb="FF222222"/></top><bottom style="thin"><color rgb="FF222222"/></bottom><diagonal/></border></borders>'
+            . '<borders count="6"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FF9AA8BA"/></left><right style="thin"><color rgb="FF9AA8BA"/></right><top style="thin"><color rgb="FF9AA8BA"/></top><bottom style="thin"><color rgb="FF9AA8BA"/></bottom><diagonal/></border><border><left style="thin"><color rgb="FF222222"/></left><right style="thin"><color rgb="FF222222"/></right><top style="thin"><color rgb="FF222222"/></top><bottom style="thin"><color rgb="FF222222"/></bottom><diagonal/></border><border><left style="thin"><color rgb="FF9AA8BA"/></left><right style="thin"><color rgb="FF9AA8BA"/></right><top style="thin"><color rgb="FF9AA8BA"/></top><bottom/><diagonal/></border><border><left style="thin"><color rgb="FF9AA8BA"/></left><right style="thin"><color rgb="FF9AA8BA"/></right><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FF9AA8BA"/></left><right style="thin"><color rgb="FF9AA8BA"/></right><top/><bottom style="thin"><color rgb="FF9AA8BA"/></bottom><diagonal/></border></borders>'
             . '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
-            . '<cellXfs count="27"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="2" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="3" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="4" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="6" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="5" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="top" wrapText="1"/></xf><xf numFmtId="0" fontId="7" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="3" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="8" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="9" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="7" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="2" fillId="3" borderId="2" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="2" fillId="4" borderId="2" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="2" fillId="5" borderId="2" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="2" fillId="6" borderId="2" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="2" fillId="7" borderId="2" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="8" borderId="2" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="8" borderId="2" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="10" fillId="9" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="10" fillId="10" borderId="2" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="10" fillId="11" borderId="2" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="2" fillId="12" borderId="2" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf></cellXfs>'
+            . '<cellXfs count="33"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="2" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="3" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="4" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="6" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="5" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="top" wrapText="1"/></xf><xf numFmtId="0" fontId="7" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="3" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="8" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="9" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="7" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="2" fillId="3" borderId="2" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="2" fillId="4" borderId="2" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="2" fillId="5" borderId="2" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="2" fillId="6" borderId="2" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="2" fillId="7" borderId="2" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="8" borderId="2" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="8" borderId="2" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="10" fillId="9" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="10" fillId="10" borderId="2" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="10" fillId="11" borderId="2" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="2" fillId="12" borderId="2" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="3" fillId="0" borderId="3" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="3" fillId="0" borderId="4" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="3" fillId="0" borderId="5" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="3" fillId="0" borderId="5" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="3" fillId="0" borderId="3" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="3" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" textRotation="90" wrapText="1"/></xf></cellXfs>'
             . '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
     }
     private function xlsxWorksheetRels(int $sheetNumber): string
@@ -1407,6 +1804,7 @@ JS;
             'academic_year_id' => ['nullable', 'integer'],
             'period_type' => ['nullable', 'in:all,regular,summer'],
             'campus_id' => ['nullable', 'integer'],
+            'id_book_level' => ['nullable', 'in:kindergarten,primary,secondary'],
             'grade_id' => ['nullable', 'integer'],
             'class_id' => ['nullable', 'integer'],
             'grade_class' => ['nullable', 'string'],
@@ -1425,6 +1823,17 @@ JS;
         $filters['score_columns'] = (int) ($filters['score_columns'] ?? 5);
         $filters['print_type'] = $filters['print_type'] ?? 'quarter_1';
         $filters['report_date'] = $filters['report_date'] ?? now()->format('Y-m-d');
+        if ($this->isReportStub($type)) {
+            return [
+                'filters' => $filters,
+                'enrollments' => collect(),
+                'previewLimit' => null,
+                'hasMorePreviewRows' => false,
+                'studentSummary' => $this->emptyStudentListSummary(),
+                'statistics' => null,
+                'hasDataFilter' => false,
+            ];
+        }
         if (!empty($filters['academic_year_id']) && ($filters['period_type'] ?? 'all') !== 'all') {
             $academicYearPeriod = AcademicYear::whereKey($filters['academic_year_id'])->value('period_type');
             if ($academicYearPeriod !== $filters['period_type']) {
@@ -1439,7 +1848,12 @@ JS;
         } elseif (($this->isStudentListReport($type) || $this->isStudentContactListReport($type) || $type === 'attendance-list' || $type === 'score-list') && ($filters['print_scope'] ?? null) === 'all_classes') {
             unset($filters['grade_id'], $filters['class_id'], $filters['grade_class']);
         }
-        if (in_array($type, ['attendance-list', 'score-list'], true)) {
+        if ($type === 'student-id-books-moeys') {
+            unset($filters['grade_id'], $filters['class_id'], $filters['grade_class'], $filters['print_scope'], $filters['print_grade_classes']);
+            $hasDataFilter = filled($filters['academic_year_id'] ?? null)
+                && filled($filters['id_book_level'] ?? null)
+                && filled($filters['campus_id'] ?? null);
+        } elseif (in_array($type, ['attendance-list', 'score-list'], true)) {
             $hasDataFilter = filled($filters['academic_year_id'] ?? null)
                 && filled($filters['campus_id'] ?? null)
                 && (
@@ -1518,8 +1932,11 @@ JS;
 
     private function enrollments(Request $request, array $filters, string $type = 'student-list')
     {
+        $studentRelation = $type === 'student-id-books-moeys'
+            ? 'student:id,student_no,student_id,photo_path,full_name_en,full_name_kh,gender,gender_kh,date_of_birth,birth_country_id,birth_province_id,birth_district_id,birth_commune_id,birth_village_id,address_country_id,address_province_id,address_district_id,address_commune_id,address_village_id,address_house_no_en,address_house_no_kh,address_street_en,address_street_kh,current_address_en,current_address_kh,previous_school'
+            : 'student:id,student_id,full_name_en,full_name_kh,gender,home_phone,email,current_address_en';
         $relations = [
-            'student:id,student_id,full_name_en,full_name_kh,gender,home_phone,email,current_address_en',
+            $studentRelation,
             'academicYear:id,academic_year,period_type',
             'campus:id,campus_name_en,campus_name_kh,school_name_en,school_name_kh,logo_path',
             'grade:id,grade,grade_short_name,grade_order',
@@ -1532,16 +1949,37 @@ JS;
             $relations[] = 'student.contacts';
             $relations[] = 'student.familyMembers:id,phone,relationship_type';
         }
+        if ($type === 'student-id-books-moeys') {
+            $relations[] = 'student.familyMembers:id,full_name_en,full_name_kh,relationship_type,occupation,occupation_en,occupation_kh';
+            $relations[] = 'student.birthCountry:id,country_name_en,country_name_kh';
+            $relations[] = 'student.birthProvince:id,province_name_en,province_name_kh';
+            $relations[] = 'student.birthDistrict:id,district_name_en,district_name_kh';
+            $relations[] = 'student.birthCommune:id,commune_name_en,commune_name_kh';
+            $relations[] = 'student.birthVillage:id,village_name_en,village_name_kh';
+            $relations[] = 'student.addressProvince:id,province_name_en,province_name_kh';
+            $relations[] = 'student.addressDistrict:id,district_name_en,district_name_kh';
+            $relations[] = 'student.addressCommune:id,commune_name_en,commune_name_kh';
+            $relations[] = 'student.addressVillage:id,village_name_en,village_name_kh';
+        }
 
         return StudentEnrollment::with($relations)
             ->join('tb_student', 'tb_student.id', '=', 'tb_student_enrollment.student_id')
             ->where('tb_student_enrollment.status', 1)
             ->whereIn('tb_student_enrollment.enrollment_status', ['active', 'completed'])
+            ->when($type === 'student-id-books-moeys', fn ($q) => $q->whereRaw("LOWER(COALESCE(tb_student_enrollment.student_type, '')) = 'new'"))
             ->where('tb_student.status', 1)
             ->when(($filters['period_type'] ?? 'all') !== 'all', fn ($q) => $q->whereHas('academicYear', fn ($year) => $year->where('period_type', $filters['period_type'])))
             ->when(!$request->user()->isSuperAdmin(), fn ($q) => $q->whereIn('tb_student_enrollment.campus_id', $request->user()->accessibleCampuses()->pluck('tb_school_info.id')))
             ->when($filters['academic_year_id'] ?? null, fn ($q, $id) => $q->where('tb_student_enrollment.academic_year_id', $id))
             ->when($filters['campus_id'] ?? null, fn ($q, $id) => $q->where('tb_student_enrollment.campus_id', $id))
+            ->when($type === 'student-id-books-moeys' && filled($filters['id_book_level'] ?? null), function ($q) use ($filters) {
+                $q->whereHas('grade', function ($gradeQuery) use ($filters) {
+                    $gradeQuery->whereIn(
+                        DB::raw("UPPER(COALESCE(NULLIF(TRIM(grade_short_name), ''), REPLACE(grade, 'Grade ', '')))"),
+                        $this->studentIdBookLevelGrades($filters['id_book_level'])
+                    );
+                });
+            })
             ->when($filters['grade_id'] ?? null, fn ($q, $id) => $q->where('tb_student_enrollment.grade_id', $id))
             ->when($filters['class_id'] ?? null, fn ($q, $id) => $q->where('tb_student_enrollment.class_id', $id))
             ->when($filters['session_id'] ?? null, fn ($q, $id) => $q->where('session_id', $id))
@@ -1553,9 +1991,17 @@ JS;
             })
             ->select('tb_student_enrollment.*')
             ->when(
-                ($this->isStudentListReport($type) || $this->isStudentContactListReport($type)) && ($filters['print_format'] ?? 'internal') === 'moeys',
-                fn ($q) => $q->orderByRaw("COALESCE(NULLIF(TRIM(tb_student.full_name_kh), ''), tb_student.full_name_en, '') ASC"),
-                fn ($q) => $q->orderByRaw("LOWER(COALESCE(tb_student.full_name_en, '')) ASC"),
+                $type === 'student-id-books-moeys',
+                fn ($q) => $q
+                    ->orderByRaw('CAST(COALESCE((SELECT grade_order FROM tb_grade WHERE tb_grade.id = tb_student_enrollment.grade_id), 999) AS UNSIGNED) ASC')
+                    ->orderByRaw('CAST(COALESCE((SELECT class_order FROM tb_class WHERE tb_class.id = tb_student_enrollment.class_id), 999) AS UNSIGNED) ASC')
+                    ->orderByRaw("COALESCE((SELECT class_name FROM tb_class WHERE tb_class.id = tb_student_enrollment.class_id), '') ASC")
+                    ->orderByRaw("COALESCE(NULLIF(TRIM(tb_student.full_name_kh), ''), tb_student.full_name_en, '') ASC"),
+                fn ($q) => $q->when(
+                    (($this->isStudentListReport($type) || $this->isStudentContactListReport($type)) && ($filters['print_format'] ?? 'internal') === 'moeys'),
+                    fn ($moeysQuery) => $moeysQuery->orderByRaw("COALESCE(NULLIF(TRIM(tb_student.full_name_kh), ''), tb_student.full_name_en, '') ASC"),
+                    fn ($defaultQuery) => $defaultQuery->orderByRaw("LOWER(COALESCE(tb_student.full_name_en, '')) ASC"),
+                ),
             )
             ->orderBy('tb_student_enrollment.student_id');
     }

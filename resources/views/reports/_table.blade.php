@@ -1,4 +1,15 @@
-@if($type === 'score-list')
+@php
+    $tableReportStubTypes = ['withdrawn-students', 'moeys-sikkhakarik-book', 'moeys-id-number-book'];
+@endphp
+@if($type === 'student-id-books-moeys')
+    @include('reports._student-id-book-moeys')
+@elseif(in_array($type, $tableReportStubTypes, true))
+    <div class="report-placeholder-preview {{ in_array($type, ['moeys-sikkhakarik-book', 'moeys-id-number-book'], true) ? 'khmer-font-siemreap' : '' }}">
+        <div class="report-placeholder-preview-icon"><i class="ti ti-file-description"></i></div>
+        <div class="report-placeholder-preview-title">{{ $reportTypes[$type] ?? 'Report' }}</div>
+        <div class="report-placeholder-preview-text">This report tab has been added independently. Report columns, filters, print, Excel, and PDF format can be built in the next step.</div>
+    </div>
+@elseif($type === 'score-list')
     @include('reports._score-list-table')
 @else
 @if($type === 'student-statistics-detail')
@@ -738,3 +749,6 @@
 <style>.reports-student-list-table .student-name-kh{font-family:"Khmer OS Siemreap","Khmer OS Siem Reap",sans-serif}.reports-student-list-table .student-name-en{font-family:inherit}</style>
 
 @endif
+<style>
+.report-placeholder-preview{display:grid;place-items:center;text-align:center;gap:.6rem;min-height:260px;border:1px dashed rgba(32,107,196,.45);border-radius:16px;background:rgba(32,107,196,.06);color:var(--tblr-body-color,#1f2937);padding:2rem}.report-placeholder-preview-icon{width:56px;height:56px;border-radius:18px;display:grid;place-items:center;background:rgba(32,107,196,.12);color:var(--tblr-primary,#206bc4);font-size:1.75rem}.report-placeholder-preview-title{font-size:1.15rem;font-weight:600}.report-placeholder-preview-text{max-width:520px;color:var(--tblr-secondary,#667085)}body.dark-mode .report-placeholder-preview,[data-bs-theme="dark"] .report-placeholder-preview{background:rgba(32,107,196,.12);border-color:rgba(120,164,230,.45);color:#eaf2ff}body.dark-mode .report-placeholder-preview-text,[data-bs-theme="dark"] .report-placeholder-preview-text{color:#b8c7dc}
+</style>

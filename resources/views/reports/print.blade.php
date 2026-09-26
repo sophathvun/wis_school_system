@@ -22,6 +22,11 @@
     @include('reports._score-list-table', ['scorePrintLayout' => true])
 </div>
 <style>@page{size:A4 landscape;margin:3mm 6mm 6mm}body[data-report-type="score-list"]{background:#fff;color:#000}.score-list-print-page{width:100%;padding:0}.score-list-print-page .score-list-report{min-width:0;width:100%;overflow:visible}.score-list-print-page .score-list-table{font-size:12px}.score-list-print-page .score-list-table th,.score-list-print-page .score-list-table td{border-width:1.2px;height:8.3mm}.score-list-print-page .score-name-en,.score-list-print-page .score-name-kh{font-size:12px}@media print{.score-list-print-page{padding:0}}</style>
+@elseif($type === 'student-id-books-moeys')
+<div class="id-book-print-page">
+    @include('reports._student-id-book-moeys')
+</div>
+<style>@page{size:A4 landscape;margin:5mm 3mm 5mm}body[data-report-type="student-id-books-moeys"]{background:#fff;color:#000}.id-book-print-page .id-book-report{min-width:0;width:100%;overflow:visible}.id-book-print-page .id-book-table{font-size:11px}.id-book-print-page .id-book-table th,.id-book-print-page .id-book-table td{border:.7px solid #222;padding:2px 3px;height:6.8mm}.id-book-print-page .id-book-table th{height:8.8mm}.id-book-print-page .id-book-photo-cell img{max-width:25mm;max-height:25mm}@media print{.id-book-print-page{padding:0}.id-book-table tr{break-inside:avoid}}</style>
 @elseif($type === 'student-statistics-detail')
 <div class="statistics-detail-print-page">
     @include('reports._table')
