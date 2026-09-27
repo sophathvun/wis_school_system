@@ -69,13 +69,15 @@
                     $gradeClass = $className && $gradeName && !str_starts_with($className, $gradeName)
                         ? $gradeName . $className
                         : ($className ?: $gradeName);
+                    $isNewStudent = strtolower(trim((string) $row->student_type)) === 'new';
+                    $isOldStudent = strtolower(trim((string) $row->student_type)) === 'old';
                 @endphp
                 <tr class="id-book-record-start">
                     <td class="id-book-vertical-value" rowspan="6">{{ $row->id_book_list_no }}</td>
                     <td class="id-book-vertical-value" rowspan="6">{{ $student?->student_id }}</td>
                     <td class="id-book-photo-cell" rowspan="6">
                         @if($photoUrl)<img src="{{ $photoUrl }}" alt="">@endif
-                        <div class="id-book-name">{{ $student?->full_name_kh ?: $student?->full_name_en }} <span class="id-book-status-badge">New</span></div>
+                        <div class="id-book-name">{{ $student?->full_name_kh ?: $student?->full_name_en }} @if($isNewStudent)<span class="id-book-status-badge">New</span>@elseif($isOldStudent)<span class="id-book-status-badge id-book-status-badge-old">Old</span>@endif</div>
                     </td>
                     <td rowspan="6">{{ $khGender($student) }}</td>
                     <td rowspan="6">{{ $gradeClass }}</td>
@@ -144,6 +146,7 @@
     .id-book-photo-cell img{width:38mm;height:42mm;max-width:100%;object-fit:cover;border-radius:8px}
     .id-book-name{text-align:center!important;vertical-align:middle!important;font-weight:600;margin-top:8px}
     .id-book-status-badge{display:inline-block;margin-left:4px;padding:1px 6px;border-radius:999px;background:var(--tblr-primary,#3b73c9);color:#fff;font-size:10px;font-weight:400;line-height:1.3}
+    .id-book-status-badge-old{background:var(--tblr-secondary,#667085)}
     .id-book-print-page .id-book-status-badge,body.is-pdf-export .id-book-status-badge{display:none!important}
     .id-book-birth-cell{text-align:left!important}
     .id-book-parent-cell{text-align:left!important}

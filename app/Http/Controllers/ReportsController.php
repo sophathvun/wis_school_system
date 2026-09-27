@@ -9,6 +9,7 @@ use App\Models\SchoolClass;
 use App\Models\SchoolInfo;
 use App\Models\Session;
 use App\Models\StudentEnrollment;
+use App\Models\StudentEnrollmentHistory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -26,7 +27,7 @@ class ReportsController
         'attendance-list' => 'Attendance List',
         'student-statistics' => 'Student Statistics (Summary)',
         'student-statistics-detail' => 'Student Statistics (Details)',
-        'withdrawn-students' => 'Withdrawn Students',
+        'withdrawn-students' => 'List of Withdrawn Students',
         'student-id-books-moeys' => 'Student ID Books (MoEYS)',
         'moeys-sikkhakarik-book' => 'សៀវភៅសិក្ខាគារិក (MoEYS)',
         'moeys-id-number-book' => 'សៀវភៅអត្តលេខ (MoEYS)',
@@ -44,8 +45,8 @@ class ReportsController
             'academicYears' => $this->academicYears($payload['filters']),
             'campuses' => $this->campuses($request, $payload['filters'], $type),
             'grades' => Grade::where('status', 1)->orderByRaw('CAST(grade_order AS UNSIGNED)')->get(['id', 'grade']),
-            'gradeClassOptions' => ($this->isStudentListReport($type) || $this->isStudentContactListReport($type) || $type === 'attendance-list' || $type === 'score-list') ? $this->gradeClassOptions($request, $payload['filters']) : collect(),
-            'groupOptions' => ($this->isStudentListReport($type) || $this->isStudentContactListReport($type)) ? $this->groupOptions($request, $payload['filters']) : collect(),
+            'gradeClassOptions' => ($this->isStudentListReport($type) || $this->isStudentContactListReport($type) || $type === 'attendance-list' || $type === 'score-list') ? $this->gradeClassOptions($request, $payload['filters']) : ($type === 'withdrawn-students' ? $this->withdrawalGradeClassOptions($request, $payload['filters']) : collect()),
+            'groupOptions' => ($this->isStudentListReport($type) || $this->isStudentContactListReport($type)) ? $this->groupOptions($request, $payload['filters']) : ($type === 'withdrawn-students' ? $this->withdrawalGroupOptions($request, $payload['filters']) : collect()),
         ]);
     }
 
@@ -368,7 +369,7 @@ class ReportsController
 
     private function isReportStub(string $type): bool
     {
-        return in_array($type, ['withdrawn-students', 'moeys-sikkhakarik-book', 'moeys-id-number-book'], true);
+        return in_array($type, ['moeys-sikkhakarik-book', 'moeys-id-number-book'], true);
     }
 
     private function classGroups($enrollments): Collection
@@ -470,6 +471,15 @@ class ReportsController
             return [[
                 'name' => self::TYPES[$type],
                 'xml' => $this->statisticsWorksheetXml($payload['statistics'] ?? $this->emptyStatistics(), $hasLogo, $payload['filters'] ?? []),
+                'tacteing_col' => 7,
+                'show_tacteing' => false,
+            ]];
+        }
+
+        if ($type === 'withdrawn-students') {
+            return [[
+                'name' => 'List of Withdrawn Students',
+                'xml' => $this->withdrawnStudentsWorksheetXml($payload['withdrawals'] ?? collect(), $payload['filters'] ?? []),
                 'tacteing_col' => 7,
                 'show_tacteing' => false,
             ]];
@@ -751,6 +761,53 @@ class ReportsController
         };
     }
 
+    private function withdrawnStudentsWorksheetXml($withdrawals, array $filters = []): string
+    {
+        $withdrawals = collect($withdrawals)->values();
+        $headers = ['No.', 'Photo', 'Student Name', 'Grade', 'Withdrawal Date', 'Requested By', 'Reason', 'Status'];
+        $lastColumn = $this->xlsxColumnName(count($headers));
+        $lastRow = max(6, $withdrawals->count() + 5);
+        $rows = [
+            $this->xlsxRow(1, [['A', 'List of Withdrawn Students', 1]], 24),
+            $this->xlsxRow(2, [['A', 'Status: ' . $this->withdrawalStatusLabel($filters['withdrawal_status'] ?? 'approved'), 2]], 18),
+            $this->xlsxRow(3, [['A', 'Report Date: ' . \Carbon\Carbon::parse($filters['report_date'] ?? now()->format('Y-m-d'))->format('F j, Y'), 2]], 18),
+            $this->xlsxRow(4, [], 6),
+            $this->xlsxRow(5, collect($headers)->map(fn ($header, $index) => [$this->xlsxColumnName($index + 1), $header, $index === 2 ? 7 : 3])->all(), 24),
+        ];
+
+        foreach ($withdrawals as $index => $row) {
+            $rows[] = $this->xlsxRow($index + 6, [
+                ['A', (string) ($index + 1), 5],
+                ['B', $row->student?->photo_path ? asset('storage/' . ltrim($row->student->photo_path, '/')) : '', 5],
+                ['C', trim('ID: ' . ($row->student?->student_id ?: $row->student?->student_no ?: '-') . "\n" . ($row->student?->full_name_kh ?: '-') . "\n" . ($row->student?->full_name_en ?: '-') . "\nGender: " . $this->shortGender($row->student?->gender)), 4],
+                ['D', $this->withdrawalGradeGroupLabel($row), 5],
+                ['E', $this->displayDate($row->effective_on), 5],
+                ['F', trim(($row->requested_by_name ?: '-') . "\n" . ($row->requested_by_phone ?: '-')), 5],
+                ['G', $this->withdrawalReasonText($row), 4],
+                ['H', $this->withdrawalStatusLabel($row->withdrawal_status), 5],
+            ], 28);
+        }
+
+        $mergeRefs = ['A1:' . $lastColumn . '1', 'A2:' . $lastColumn . '2', 'A3:' . $lastColumn . '3'];
+        if ($withdrawals->isEmpty()) {
+            $rows[] = $this->xlsxRow(6, [['A', 'No withdrawn students found.', 5]], 28);
+            $mergeRefs[] = 'A6:' . $lastColumn . '6';
+        }
+        $mergeCells = '<mergeCells count="' . count($mergeRefs) . '">' . collect($mergeRefs)->map(fn ($ref) => '<mergeCell ref="' . $ref . '"/>')->implode('') . '</mergeCells>';
+
+        return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            . '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+            . '<dimension ref="A1:' . $lastColumn . $lastRow . '"/>'
+            . '<sheetViews><sheetView workbookViewId="0"><pane ySplit="5" topLeftCell="A6" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'
+            . '<sheetFormatPr defaultRowHeight="18"/>'
+            . '<cols><col min="1" max="1" width="5" customWidth="1"/><col min="2" max="2" width="18" customWidth="1"/><col min="3" max="3" width="30" customWidth="1"/><col min="4" max="4" width="22" customWidth="1"/><col min="5" max="6" width="14" customWidth="1"/><col min="7" max="7" width="54" customWidth="1"/><col min="8" max="8" width="14" customWidth="1"/></cols>'
+            . '<sheetData>' . implode('', $rows) . '</sheetData>'
+            . $mergeCells
+            . '<pageMargins left="0.25" right="0.25" top="0.35" bottom="0.35" header="0.1" footer="0.1"/>'
+            . '<pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"/>'
+            . '</worksheet>';
+    }
+
     private function studentIdBookWorksheetXml($enrollments): string
     {
         $enrollments = collect($enrollments)->values();
@@ -906,6 +963,16 @@ class ReportsController
             'primary' => ['1', '2', '3', '4', '5', '6'],
             'secondary' => ['7', '8', '9', '10', '11', '12'],
             default => [],
+        };
+    }
+
+    private function studentIdBookLevelEntryGrade(?string $level): ?string
+    {
+        return match ($level) {
+            'kindergarten' => 'N-',
+            'primary' => '1',
+            'secondary' => '7',
+            default => null,
         };
     }
 
@@ -1405,6 +1472,49 @@ class ReportsController
         })->implode('') . '</row>';
     }
 
+    private function shortGender(?string $gender): string
+    {
+        $gender = mb_strtolower(trim((string) $gender));
+
+        return str_starts_with($gender, 'f') || str_contains($gender, 'ស្រី') ? 'F' : (str_starts_with($gender, 'm') || str_contains($gender, 'ប្រុស') ? 'M' : '-');
+    }
+
+    private function displayDate($date, string $format = 'd-M-Y'): string
+    {
+        if (!$date) return '-';
+
+        return ($date instanceof \Carbon\Carbon ? $date : \Carbon\Carbon::parse($date))->format($format);
+    }
+
+    private function withdrawalStatusLabel(?string $status): string
+    {
+        return match ($status) {
+            'pending' => 'Pending',
+            'principal_approved' => 'Principal Approved',
+            'approved' => 'Approved',
+            'rejected' => 'Rejected',
+            'cancelled' => 'Cancelled',
+            'all' => 'All Statuses',
+            default => $status ? Str::headline($status) : '-',
+        };
+    }
+
+    private function withdrawalReasonText($row): string
+    {
+        $khmer = collect([
+            $row->reason_kh,
+            $row->other_reason_kh,
+        ])->filter(fn ($value) => filled(trim((string) $value)))->map(fn ($value) => trim((string) $value))->unique()->join(' / ');
+        $english = collect([
+            $row->reason,
+            $row->other_reason_en,
+            $row->new_school ? 'New school: ' . $row->new_school : null,
+        ])->filter(fn ($value) => filled(trim((string) $value)))->map(fn ($value) => trim((string) $value))->unique()->join(' / ');
+        $lines = collect([$khmer, $english])->filter(fn ($value) => filled(trim((string) $value)))->values();
+
+        return $lines->isEmpty() ? '-' : $lines->join("\n");
+    }
+
     private function xlsxStatisticValue(int $total, int $newTotal, bool $emphasized = false): array
     {
         return [
@@ -1735,7 +1845,7 @@ JS;
     {
         $branding = BrandingSetting::current();
         $school = SchoolInfo::latest('id')->first();
-        $candidates = in_array($type, ['student-statistics', 'student-statistics-detail', 'attendance-list'], true)
+        $candidates = in_array($type, ['student-statistics', 'student-statistics-detail', 'attendance-list', 'withdrawn-students'], true)
             ? array_filter([
                 $branding?->report_logo_1_path ? storage_path('app/public/' . ltrim($branding->report_logo_1_path, '/')) : null,
                 $branding?->report_logo_2_path ? storage_path('app/public/' . ltrim($branding->report_logo_2_path, '/')) : null,
@@ -1805,6 +1915,7 @@ JS;
             'period_type' => ['nullable', 'in:all,regular,summer'],
             'campus_id' => ['nullable', 'integer'],
             'id_book_level' => ['nullable', 'in:kindergarten,primary,secondary'],
+            'withdrawal_status' => ['nullable', 'in:all,pending,principal_approved,approved,rejected,cancelled'],
             'grade_id' => ['nullable', 'integer'],
             'class_id' => ['nullable', 'integer'],
             'grade_class' => ['nullable', 'string'],
@@ -1823,6 +1934,9 @@ JS;
         $filters['score_columns'] = (int) ($filters['score_columns'] ?? 5);
         $filters['print_type'] = $filters['print_type'] ?? 'quarter_1';
         $filters['report_date'] = $filters['report_date'] ?? now()->format('Y-m-d');
+        if ($type === 'withdrawn-students') {
+            $filters['withdrawal_status'] = $filters['withdrawal_status'] ?? 'approved';
+        }
         if ($this->isReportStub($type)) {
             return [
                 'filters' => $filters,
@@ -1853,6 +1967,10 @@ JS;
             $hasDataFilter = filled($filters['academic_year_id'] ?? null)
                 && filled($filters['id_book_level'] ?? null)
                 && filled($filters['campus_id'] ?? null);
+        } elseif ($type === 'withdrawn-students') {
+            $hasDataFilter = collect(['academic_year_id', 'campus_id', 'grade_id', 'class_id', 'session_id'])
+                ->contains(fn ($key) => filled($filters[$key] ?? null));
+            $hasDataFilter = $hasDataFilter || (($filters['withdrawal_status'] ?? 'approved') !== 'all');
         } elseif (in_array($type, ['attendance-list', 'score-list'], true)) {
             $hasDataFilter = filled($filters['academic_year_id'] ?? null)
                 && filled($filters['campus_id'] ?? null)
@@ -1866,7 +1984,9 @@ JS;
                 ->contains(fn ($key) => filled($filters[$key] ?? null));
             $hasDataFilter = $hasDataFilter || !empty($filters['print_grade_classes']);
         }
-        $enrollmentQuery = $hasDataFilter ? $this->enrollments($request, $filters, $type) : null;
+        $withdrawalQuery = $type === 'withdrawn-students' && $hasDataFilter ? $this->withdrawals($request, $filters) : null;
+        $withdrawals = $withdrawalQuery ? $withdrawalQuery->get() : collect();
+        $enrollmentQuery = $hasDataFilter && $type !== 'withdrawn-students' ? $this->enrollments($request, $filters, $type) : null;
         $enrollments = $enrollmentQuery
             ? ($preview && ($this->isStudentListReport($type) || $this->isStudentContactListReport($type))
                 ? $enrollmentQuery->limit(self::PREVIEW_LIMIT + 1)->get()
@@ -1883,6 +2003,7 @@ JS;
         return [
             'filters' => $filters,
             'enrollments' => $enrollments,
+            'withdrawals' => $withdrawals,
             'previewLimit' => $preview && ($this->isStudentListReport($type) || $this->isStudentContactListReport($type)) ? self::PREVIEW_LIMIT : null,
             'hasMorePreviewRows' => $hasMorePreviewRows,
             'studentSummary' => $studentSummary,
@@ -1920,7 +2041,14 @@ JS;
             return collect();
         }
 
-        if (!empty($filters['academic_year_id'])) {
+        if ($type === 'withdrawn-students' && !empty($filters['academic_year_id'])) {
+            $ids = $this->withdrawalOptionBaseQuery($request, [
+                'period_type' => $filters['period_type'] ?? 'all',
+                'academic_year_id' => $filters['academic_year_id'],
+                'withdrawal_status' => $filters['withdrawal_status'] ?? 'approved',
+            ])->pluck('tb_student_enrollment_history.campus_id')->unique();
+            $campuses = $campuses->whereIn('id', $ids)->values();
+        } elseif (!empty($filters['academic_year_id'])) {
             $ids = $this->reportOptionEnrollments($request, [
                 'period_type' => $filters['period_type'] ?? 'all',
                 'academic_year_id' => $filters['academic_year_id'],
@@ -1928,6 +2056,34 @@ JS;
             $campuses = $campuses->whereIn('id', $ids)->values();
         }
         return $campuses;
+    }
+
+    private function withdrawals(Request $request, array $filters)
+    {
+        return StudentEnrollmentHistory::with([
+                'student:id,student_no,student_id,photo_path,full_name_en,full_name_kh,gender,home_phone',
+                'academicYear:id,academic_year,period_type',
+                'campus:id,campus_name_en,campus_name_kh',
+                'grade:id,grade,grade_short_name,grade_order',
+                'schoolClass:id,class_name,class_order',
+                'session:id,session_name,session_short_name',
+                'changedBy:id,name',
+            ])
+            ->join('tb_student', 'tb_student.id', '=', 'tb_student_enrollment_history.student_id')
+            ->where('tb_student_enrollment_history.action_type', 'withdrawal')
+            ->when(($filters['period_type'] ?? 'all') !== 'all', fn ($q) => $q->whereHas('academicYear', fn ($year) => $year->where('period_type', $filters['period_type'])))
+            ->when(!$request->user()->isSuperAdmin(), fn ($q) => $q->whereIn('tb_student_enrollment_history.campus_id', $request->user()->accessibleCampuses()->pluck('tb_school_info.id')))
+            ->when($filters['academic_year_id'] ?? null, fn ($q, $id) => $q->where('tb_student_enrollment_history.academic_year_id', $id))
+            ->when($filters['campus_id'] ?? null, fn ($q, $id) => $q->where('tb_student_enrollment_history.campus_id', $id))
+            ->when($filters['grade_id'] ?? null, fn ($q, $id) => $q->where('tb_student_enrollment_history.grade_id', $id))
+            ->when($filters['class_id'] ?? null, fn ($q, $id) => $q->where('tb_student_enrollment_history.class_id', $id))
+            ->when($filters['session_id'] ?? null, fn ($q, $id) => $q->where('tb_student_enrollment_history.session_id', $id))
+            ->when(($filters['withdrawal_status'] ?? 'approved') !== 'all', fn ($q) => $q->where('tb_student_enrollment_history.withdrawal_status', $filters['withdrawal_status'] ?? 'approved'))
+            ->select('tb_student_enrollment_history.*')
+            ->orderByRaw('CAST(COALESCE((SELECT grade_order FROM tb_grade WHERE tb_grade.id = tb_student_enrollment_history.grade_id), 999) AS UNSIGNED) ASC')
+            ->orderByRaw('CAST(COALESCE((SELECT class_order FROM tb_class WHERE tb_class.id = tb_student_enrollment_history.class_id), 999) AS UNSIGNED) ASC')
+            ->orderByRaw("COALESCE(NULLIF(TRIM(tb_student.full_name_kh), ''), tb_student.full_name_en, '') ASC")
+            ->orderBy('tb_student_enrollment_history.effective_on');
     }
 
     private function enrollments(Request $request, array $filters, string $type = 'student-list')
@@ -1966,18 +2122,35 @@ JS;
             ->join('tb_student', 'tb_student.id', '=', 'tb_student_enrollment.student_id')
             ->where('tb_student_enrollment.status', 1)
             ->whereIn('tb_student_enrollment.enrollment_status', ['active', 'completed'])
-            ->when($type === 'student-id-books-moeys', fn ($q) => $q->whereRaw("LOWER(COALESCE(tb_student_enrollment.student_type, '')) = 'new'"))
             ->where('tb_student.status', 1)
             ->when(($filters['period_type'] ?? 'all') !== 'all', fn ($q) => $q->whereHas('academicYear', fn ($year) => $year->where('period_type', $filters['period_type'])))
             ->when(!$request->user()->isSuperAdmin(), fn ($q) => $q->whereIn('tb_student_enrollment.campus_id', $request->user()->accessibleCampuses()->pluck('tb_school_info.id')))
             ->when($filters['academic_year_id'] ?? null, fn ($q, $id) => $q->where('tb_student_enrollment.academic_year_id', $id))
             ->when($filters['campus_id'] ?? null, fn ($q, $id) => $q->where('tb_student_enrollment.campus_id', $id))
             ->when($type === 'student-id-books-moeys' && filled($filters['id_book_level'] ?? null), function ($q) use ($filters) {
+                $grades = $this->studentIdBookLevelGrades($filters['id_book_level']);
+                $entryGrade = $this->studentIdBookLevelEntryGrade($filters['id_book_level']);
+                $gradeExpression = "UPPER(COALESCE(NULLIF(TRIM(grade_short_name), ''), REPLACE(grade, 'Grade ', '')))";
+
                 $q->whereHas('grade', function ($gradeQuery) use ($filters) {
                     $gradeQuery->whereIn(
                         DB::raw("UPPER(COALESCE(NULLIF(TRIM(grade_short_name), ''), REPLACE(grade, 'Grade ', '')))"),
                         $this->studentIdBookLevelGrades($filters['id_book_level'])
                     );
+                })->where(function ($studentTypeQuery) use ($grades, $entryGrade, $gradeExpression) {
+                    if ($entryGrade) {
+                        $studentTypeQuery->whereHas('grade', fn ($gradeQuery) => $gradeQuery->whereRaw($gradeExpression . ' = ?', [$entryGrade]));
+                    }
+
+                    $studentTypeQuery->orWhere(function ($newOnlyQuery) use ($grades, $entryGrade, $gradeExpression) {
+                        $newOnlyGrades = array_values(array_diff($grades, array_filter([$entryGrade])));
+                        if ($newOnlyGrades) {
+                            $newOnlyQuery->whereHas('grade', fn ($gradeQuery) => $gradeQuery->whereIn(DB::raw($gradeExpression), $newOnlyGrades))
+                                ->whereRaw("LOWER(COALESCE(tb_student_enrollment.student_type, '')) = 'new'");
+                        } else {
+                            $newOnlyQuery->whereRaw('1 = 0');
+                        }
+                    });
                 });
             })
             ->when($filters['grade_id'] ?? null, fn ($q, $id) => $q->where('tb_student_enrollment.grade_id', $id))
@@ -2116,6 +2289,74 @@ JS;
         }
 
         return preg_match('/^[A-Za-z]/', $grade) ? $grade . '-' . $class : $grade . $class;
+    }
+
+    private function withdrawalGradeClassLabel(StudentEnrollmentHistory $withdrawal): string
+    {
+        return $this->gradeClassOptionLabel($withdrawal->grade?->grade_short_name ?: $withdrawal->grade?->grade, $withdrawal->schoolClass?->class_name);
+    }
+
+    private function withdrawalCampusGradeGroupLabel(StudentEnrollmentHistory $withdrawal): string
+    {
+        return collect([
+            $withdrawal->campus?->campus_name_en,
+            $this->withdrawalGradeClassLabel($withdrawal),
+            $withdrawal->session?->session_short_name ?: $withdrawal->session?->session_name,
+        ])->filter(fn ($value) => filled(trim((string) $value)) && trim((string) $value) !== '-')->join('-') ?: '-';
+    }
+
+    private function withdrawalGradeGroupLabel(StudentEnrollmentHistory $withdrawal): string
+    {
+        return collect([
+            $this->withdrawalGradeClassLabel($withdrawal),
+            $withdrawal->session?->session_short_name ?: $withdrawal->session?->session_name,
+        ])->filter(fn ($value) => filled(trim((string) $value)) && trim((string) $value) !== '-')->join('-') ?: '-';
+    }
+
+    private function withdrawalOptionBaseQuery(Request $request, array $filters)
+    {
+        return StudentEnrollmentHistory::query()
+            ->where('tb_student_enrollment_history.action_type', 'withdrawal')
+            ->when(($filters['period_type'] ?? 'all') !== 'all', fn ($q) => $q->whereHas('academicYear', fn ($year) => $year->where('period_type', $filters['period_type'])))
+            ->when(!$request->user()->isSuperAdmin(), fn ($q) => $q->whereIn('tb_student_enrollment_history.campus_id', $request->user()->accessibleCampuses()->pluck('tb_school_info.id')))
+            ->when($filters['academic_year_id'] ?? null, fn ($q, $id) => $q->where('tb_student_enrollment_history.academic_year_id', $id))
+            ->when($filters['campus_id'] ?? null, fn ($q, $id) => $q->where('tb_student_enrollment_history.campus_id', $id))
+            ->when(($filters['withdrawal_status'] ?? 'approved') !== 'all', fn ($q) => $q->where('tb_student_enrollment_history.withdrawal_status', $filters['withdrawal_status'] ?? 'approved'));
+    }
+
+    private function withdrawalGradeClassOptions(Request $request, array $filters): Collection
+    {
+        if (empty($filters['academic_year_id']) && empty($filters['campus_id'])) {
+            return collect();
+        }
+
+        return $this->withdrawalOptionBaseQuery($request, array_diff_key($filters, array_flip(['grade_id', 'class_id', 'grade_class'])))
+            ->join('tb_grade', 'tb_grade.id', '=', 'tb_student_enrollment_history.grade_id')
+            ->join('tb_class', 'tb_class.id', '=', 'tb_student_enrollment_history.class_id')
+            ->select('tb_student_enrollment_history.grade_id', 'tb_student_enrollment_history.class_id', 'tb_grade.grade', 'tb_grade.grade_short_name', 'tb_class.class_name', 'tb_grade.grade_order', 'tb_class.class_order')
+            ->distinct()
+            ->orderByRaw('CAST(tb_grade.grade_order AS UNSIGNED)')
+            ->orderByRaw('CAST(tb_class.class_order AS UNSIGNED)')
+            ->get()
+            ->map(fn ($row) => [
+                'value' => $row->grade_id . ':' . $row->class_id,
+                'label' => $this->gradeClassOptionLabel($row->grade_short_name ?: $row->grade, $row->class_name),
+            ]);
+    }
+
+    private function withdrawalGroupOptions(Request $request, array $filters): Collection
+    {
+        if (empty($filters['academic_year_id']) && empty($filters['campus_id'])) {
+            return collect();
+        }
+
+        return $this->withdrawalOptionBaseQuery($request, $filters)
+            ->whereNotNull('tb_student_enrollment_history.session_id')
+            ->join('tb_session', 'tb_session.id', '=', 'tb_student_enrollment_history.session_id')
+            ->select('tb_student_enrollment_history.session_id', 'tb_session.session_short_name', 'tb_session.session_order')
+            ->distinct()
+            ->orderBy('tb_session.session_order')
+            ->get();
     }
 
     private function groupOptions(Request $request, array $filters): Collection
@@ -2304,7 +2545,3 @@ JS;
         return ['groups' => $groups, 'campuses' => $campuses, 'totals' => $totals];
     }
 }
-
-
-
-

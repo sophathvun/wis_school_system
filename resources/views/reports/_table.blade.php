@@ -1,8 +1,227 @@
 @php
-    $tableReportStubTypes = ['withdrawn-students', 'moeys-sikkhakarik-book', 'moeys-id-number-book'];
+    $tableReportStubTypes = ['moeys-sikkhakarik-book', 'moeys-id-number-book'];
 @endphp
 @if($type === 'student-id-books-moeys')
     @include('reports._student-id-book-moeys')
+@elseif($type === 'withdrawn-students')
+@php
+    $withdrawalRows = collect($withdrawals ?? []);
+    $statusLabel = static fn ($status) => match ($status) {
+        'pending' => 'Pending',
+        'principal_approved' => 'Principal Approved',
+        'approved' => 'Approved',
+        'rejected' => 'Rejected',
+        'cancelled' => 'Cancelled',
+        default => $status ? \Illuminate\Support\Str::headline($status) : '-',
+    };
+    $reasonLines = static function ($row): array {
+        $khmer = collect([$row->reason_kh, $row->other_reason_kh])
+            ->filter(fn ($value) => filled(trim((string) $value)))
+            ->map(fn ($value) => trim((string) $value))
+            ->unique()
+            ->join(' / ');
+        $english = collect([$row->reason, $row->other_reason_en, $row->new_school ? 'New school: ' . $row->new_school : null])
+            ->filter(fn ($value) => filled(trim((string) $value)))
+            ->map(fn ($value) => trim((string) $value))
+            ->unique()
+            ->join(' / ');
+        return ['khmer' => $khmer ?: '-', 'english' => $english ?: '-'];
+    };
+    $gradeClassText = static function ($row): string {
+        $grade = trim((string) ($row->grade?->grade_short_name ?: $row->grade?->grade));
+        $class = trim((string) ($row->schoolClass?->class_name ?? ''));
+        if ($grade === '') return $class ?: '-';
+        if ($class === '') return $grade;
+        return preg_match('/^[A-Za-z]/', $grade) ? $grade . '-' . $class : $grade . $class;
+    };
+    $campusGradeGroupText = static function ($row) use ($gradeClassText): string {
+        return collect([
+            $row->campus?->campus_name_en,
+            $gradeClassText($row),
+            $row->session?->session_short_name ?: $row->session?->session_name,
+        ])->filter(fn ($value) => filled(trim((string) $value)) && trim((string) $value) !== '-')->join('-') ?: '-';
+    };
+    $gradeGroupText = static function ($row) use ($gradeClassText): string {
+        return collect([
+            $gradeClassText($row),
+            $row->session?->session_short_name ?: $row->session?->session_name,
+        ])->filter(fn ($value) => filled(trim((string) $value)) && trim((string) $value) !== '-')->join('-') ?: '-';
+    };
+    $genderText = static function ($gender): string {
+        $gender = mb_strtolower(trim((string) $gender));
+        return str_starts_with($gender, 'f') || str_contains($gender, 'ស្រី') ? 'F' : (str_starts_with($gender, 'm') || str_contains($gender, 'ប្រុស') ? 'M' : '-');
+    };
+@endphp
+<table class="table table-vcenter reports-withdrawn-table">
+    <thead>
+        <tr>
+            <th>No.</th>
+            <th>Photo</th>
+            <th class="left">Student Name</th>
+            <th>Grade</th>
+            <th>Withdrawal Date</th>
+            <th class="left">Requested By</th>
+            <th class="left">Reason</th>
+            <th>Status</th>
+        </tr>
+    </thead>
+    <tbody>
+        @forelse($withdrawalRows as $index => $row)
+            @php
+                $photoUrl = $row->student?->photo_path ? asset('storage/' . ltrim($row->student->photo_path, '/')) : null;
+            @endphp
+            <tr>
+                <td>{{ $index + 1 }}</td>
+                <td class="withdrawn-photo-cell">
+                    @if($photoUrl)
+                        <img src="{{ $photoUrl }}" alt="Student photo">
+                    @else
+                        <span class="withdrawn-photo-empty">No Photo</span>
+                    @endif
+                </td>
+                <td class="left">
+                    <div class="student-id-line">ID: {{ $row->student?->student_id ?: $row->student?->student_no ?: '-' }}</div>
+                    <div class="khmer-name">{{ $row->student?->full_name_kh ?: '-' }}</div>
+                    <div class="english-name">{{ $row->student?->full_name_en ?: '-' }}</div>
+                    <div class="gender-line">Gender: {{ $genderText($row->student?->gender) }}</div>
+                </td>
+                <td>
+                    <div class="campus-grade-group-line">{{ $gradeGroupText($row) }}</div>
+                </td>
+                <td>{{ $row->effective_on ? $row->effective_on->format('d-M-Y') : '-' }}</td>
+                <td class="left">
+                    <div>{{ $row->requested_by_name ?: '-' }}</div>
+                    <div class="requested-phone">{{ $row->requested_by_phone ?: '-' }}</div>
+                </td>
+                @php
+                    $reason = $reasonLines($row);
+                @endphp
+                <td class="left">
+                    <div class="reason-khmer">{{ $reason['khmer'] }}</div>
+                    <div class="reason-english">{{ $reason['english'] }}</div>
+                </td>
+                <td><span class="badge bg-blue-lt">{{ $statusLabel($row->withdrawal_status) }}</span></td>
+            </tr>
+        @empty
+            <tr><td colspan="8" class="text-center text-secondary">No withdrawn students found.</td></tr>
+        @endforelse
+    </tbody>
+</table>
+<style>
+    @font-face {
+        font-family: "Khmer OS Siemreap";
+        src: url("{{ asset('fonts/khmer/KhmerOSsiemreap.ttf') }}") format("truetype");
+        font-weight: 400;
+        font-style: normal;
+        font-display: swap;
+    }
+    .reports-withdrawn-table {
+        min-width: 1120px;
+        color: var(--tblr-body-color);
+    }
+    .reports-withdrawn-table th,
+    .reports-withdrawn-table td {
+        border: 1px solid var(--tblr-border-color) !important;
+        text-align: center;
+        vertical-align: middle;
+        font-size: .82rem;
+    }
+    .reports-withdrawn-table thead th {
+        background: var(--tblr-primary);
+        color: #fff;
+        font-weight: 500;
+    }
+    .reports-withdrawn-table .left {
+        text-align: left;
+    }
+    .reports-withdrawn-table .withdrawn-photo-cell {
+        width: 78px;
+        text-align: center;
+    }
+    .reports-withdrawn-table .withdrawn-photo-cell img {
+        max-width: 54px;
+        max-height: 64px;
+        width: auto;
+        height: auto;
+        object-fit: contain;
+        border-radius: 4px;
+        border: 1px solid var(--tblr-border-color);
+        background: #fff;
+    }
+    .reports-withdrawn-table .withdrawn-photo-empty {
+        color: var(--tblr-secondary);
+        font-size: .72rem;
+    }
+    .reports-withdrawn-table .student-id-line {
+        color: var(--tblr-body-color);
+        font-size: .78rem;
+        line-height: 1.2;
+        margin-bottom: .16rem;
+    }
+    .reports-withdrawn-table .khmer-name {
+        font-family: "Khmer OS Siemreap", var(--khmer-font-siemreap), "Khmer OS Siem Reap", sans-serif !important;
+        font-size: .86rem;
+        line-height: 1.25;
+    }
+    .reports-withdrawn-table .english-name {
+        color: var(--tblr-secondary);
+        font-size: .75rem;
+        margin-top: .15rem;
+    }
+    .reports-withdrawn-table .gender-line {
+        color: var(--tblr-secondary);
+        font-size: .72rem;
+        margin-top: .12rem;
+    }
+    .reports-withdrawn-table .requested-phone {
+        color: var(--tblr-secondary);
+        font-size: .74rem;
+        line-height: 1.25;
+        margin-top: .15rem;
+    }
+    .reports-withdrawn-table .campus-grade-group-line {
+        color: var(--tblr-secondary);
+        font-size: .74rem;
+        margin-top: .15rem;
+        white-space: nowrap;
+    }
+    .reports-withdrawn-table .reason-khmer {
+        font-family: "Khmer OS Siemreap", var(--khmer-font-siemreap), "Khmer OS Siem Reap", sans-serif !important;
+        line-height: 1.3;
+    }
+    .reports-withdrawn-table .reason-english {
+        color: var(--tblr-secondary);
+        font-size: .76rem;
+        line-height: 1.25;
+        margin-top: .15rem;
+    }
+    .reports-withdrawn-table th:nth-child(3),
+    .reports-withdrawn-table td:nth-child(3) {
+        width: 18%;
+    }
+    .reports-withdrawn-table th:nth-child(7),
+    .reports-withdrawn-table td:nth-child(7) {
+        width: 42%;
+    }
+    @media print {
+        .reports-withdrawn-table {
+            min-width: 0;
+            width: 100%;
+        }
+        .reports-withdrawn-table th,
+        .reports-withdrawn-table td {
+            color: #000;
+            font-size: 9px;
+            padding: 3px 4px;
+        }
+        .reports-withdrawn-table thead th {
+            background: #d9eaf7 !important;
+            color: #000 !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+    }
+</style>
 @elseif(in_array($type, $tableReportStubTypes, true))
     <div class="report-placeholder-preview {{ in_array($type, ['moeys-sikkhakarik-book', 'moeys-id-number-book'], true) ? 'khmer-font-siemreap' : '' }}">
         <div class="report-placeholder-preview-icon"><i class="ti ti-file-description"></i></div>

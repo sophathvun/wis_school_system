@@ -27,6 +27,21 @@
     @include('reports._student-id-book-moeys')
 </div>
 <style>@page{size:A4 landscape;margin:5mm 3mm 5mm}body[data-report-type="student-id-books-moeys"]{background:#fff;color:#000}.id-book-print-page .id-book-report{min-width:0;width:100%;overflow:visible}.id-book-print-page .id-book-table{font-size:11px}.id-book-print-page .id-book-table th,.id-book-print-page .id-book-table td{border:.7px solid #222;padding:2px 3px;height:6.8mm}.id-book-print-page .id-book-table th{height:8.8mm}.id-book-print-page .id-book-photo-cell img{max-width:25mm;max-height:25mm}@media print{.id-book-print-page{padding:0}.id-book-table tr{break-inside:avoid}}</style>
+@elseif($type === 'withdrawn-students')
+<header class="withdrawn-report-header">
+    @if($branding?->report_logo_1_path)
+        <img class="withdrawn-report-logo" src="{{ asset('storage/'.$branding->report_logo_1_path) }}" alt="School Logo 1">
+    @endif
+    <div class="withdrawn-report-title">
+        <h1>List of Withdrawn Students</h1>
+        <p>Academic Year: {{ $academicYear?->academic_year ?? 'All Academic Years' }}</p>
+        <p>Campus: {{ $campus?->campus_name_en ?? 'All Campuses' }}</p>
+    </div>
+</header>
+<div class="withdrawn-print-page">
+    @include('reports._table')
+</div>
+<style>@page{size:A4 landscape;margin:7mm}body[data-report-type="withdrawn-students"]{background:#fff;color:#000}.withdrawn-report-header{position:relative;min-height:42mm;margin:0 0 2mm;padding:0;text-align:center;border:0}.withdrawn-report-logo{position:absolute;left:0;top:0;width:64mm;height:auto;object-fit:contain}.withdrawn-report-title{padding-top:29mm;text-align:center;color:#000}.withdrawn-report-title h1{margin:0 0 1mm;font-size:20px;line-height:1.1;font-weight:700}.withdrawn-report-title p{margin:0;font-size:11px;line-height:1.25}.withdrawn-print-page{width:100%;padding:0}.withdrawn-print-page .table-responsive{overflow:visible}.withdrawn-print-page .reports-withdrawn-table{min-width:0;width:100%;font-size:9px;border-collapse:collapse!important;border-spacing:0!important}.withdrawn-print-page .reports-withdrawn-table th,.withdrawn-print-page .reports-withdrawn-table td{border:.65px solid #000!important;padding:3px 4px;font-size:9px;line-height:1.15}.withdrawn-print-page .reports-withdrawn-table thead th{background:#d9eaf7!important;color:#000!important;text-align:center!important;vertical-align:middle!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}.withdrawn-print-page .reports-withdrawn-table .withdrawn-photo-cell{width:18mm}.withdrawn-print-page .reports-withdrawn-table .withdrawn-photo-cell img{max-width:13mm;max-height:16mm;width:auto;height:auto;object-fit:contain;border-radius:2px}.withdrawn-print-page .reports-withdrawn-table .khmer-name,.withdrawn-print-page .reports-withdrawn-table .reason-khmer{font-family:'Khmer OS Siemreap','Khmer OS Siem Reap',sans-serif!important}.withdrawn-print-page .reports-withdrawn-table .badge{background:transparent!important;color:#000!important;border:0;padding:0}@media print{.withdrawn-print-page .reports-withdrawn-table tr{break-inside:avoid;break-after:auto}}</style>
 @elseif($type === 'student-statistics-detail')
 <div class="statistics-detail-print-page">
     @include('reports._table')
