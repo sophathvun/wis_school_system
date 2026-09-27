@@ -190,6 +190,19 @@ Route::post('/dashboard/customize', [DashboardController::class, 'saveCustomizat
 Route::delete('/dashboard/customize', [DashboardController::class, 'resetCustomization'])->name('dashboard.customize.reset');
 
 Route::middleware(['auth', 'active.user'])->group(function () {
+    Route::view('/students/skipping-grade', 'academic-module-placeholder', [
+        'title' => 'Student Skipping Grade',
+        'pretitle' => 'Students',
+        'icon' => 'ti-stairs-up',
+        'description' => 'Use this module to manage student skipping grade requests and records.',
+    ])->name('student-skipping-grade.index');
+    Route::view('/students/western-scholarship', 'academic-module-placeholder', [
+        'title' => 'WESTERN Scholarship',
+        'pretitle' => 'Students',
+        'icon' => 'ti-award',
+        'description' => 'Use this module to manage WESTERN scholarship students and records.',
+    ])->name('western-scholarship.index');
+
     Route::view('/attendance', 'academic-module-placeholder', [
         'title' => 'Attendance',
         'pretitle' => 'Student Attendance',
@@ -211,7 +224,98 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         'description' => 'Use this module for teachers to enter student scores and grading records.',
     ])->middleware('permission:grading-system.view')->name('grading-system.index');
 
+    Route::view('/g9-national-exams', 'academic-module-placeholder', [
+        'title' => 'G9 National Exams',
+        'pretitle' => 'National Exams',
+        'icon' => 'ti-certificate',
+        'description' => 'Use this module to manage Grade 9 national exam records.',
+    ])->name('g9-national-exams.index');
+    Route::view('/g12-national-exams', 'academic-module-placeholder', [
+        'title' => 'G12 National Exams',
+        'pretitle' => 'National Exams',
+        'icon' => 'ti-certificate',
+        'description' => 'Use this module to manage Grade 12 national exam records.',
+    ])->name('g12-national-exams.index');
+    Route::view('/wmi-management', 'academic-module-placeholder', [
+        'title' => 'WMI Management',
+        'pretitle' => 'Management',
+        'icon' => 'ti-building-skyscraper',
+        'iconImage' => 'images/wmi_logo.png',
+        'description' => 'Use this module to manage WMI records and workflows.',
+    ])->name('wmi-management.index');
+
+    Route::redirect('/hrm/staff-management', '/settings/users')->name('hrm.staff-management');
+    Route::view('/hrm/staff-attendance', 'academic-module-placeholder', [
+        'title' => 'Staff Attendance',
+        'pretitle' => 'HRM',
+        'icon' => 'ti-user-check',
+        'description' => 'Use this module to manage staff attendance records.',
+    ])->name('hrm.staff-attendance');
+    Route::redirect('/hrm/departments', '/settings/departments')->name('hrm.departments');
+    Route::redirect('/hrm/positions', '/settings/positions')->name('hrm.positions');
+    Route::view('/hrm/payroll', 'academic-module-placeholder', [
+        'title' => 'Payroll',
+        'pretitle' => 'HRM',
+        'icon' => 'ti-cash-banknote',
+        'description' => 'Use this module to manage staff salary, allowances, deductions, and payroll records.',
+    ])->name('hrm.payroll');
+    Route::view('/hrm/leave-requests', 'academic-module-placeholder', [
+        'title' => 'Leave Requests',
+        'pretitle' => 'HRM',
+        'icon' => 'ti-calendar-minus',
+        'description' => 'Use this module to submit, approve, and review staff leave requests.',
+    ])->name('hrm.leave-requests');
+    Route::view('/hrm/performance-reviews', 'academic-module-placeholder', [
+        'title' => 'Performance Reviews',
+        'pretitle' => 'HRM',
+        'icon' => 'ti-chart-bar',
+        'description' => 'Use this module to record staff evaluations and performance reviews.',
+    ])->name('hrm.performance-reviews');
+    Route::view('/hrm/staff-reports', 'academic-module-placeholder', [
+        'title' => 'Staff Reports',
+        'pretitle' => 'HRM',
+        'icon' => 'ti-report-analytics',
+        'description' => 'Use this module to review and print HRM staff reports.',
+    ])->name('hrm.staff-reports');
+
+    Route::view('/financial-management/school-fee', 'academic-module-placeholder', [
+        'title' => 'School Fee',
+        'pretitle' => 'Financial Management',
+        'icon' => 'ti-cash',
+        'description' => 'Use this module to manage school fee setup and payment records.',
+    ])->name('financial-management.school-fee');
+    Route::view('/financial-management/invoices', 'academic-module-placeholder', [
+        'title' => 'Invoices',
+        'pretitle' => 'Financial Management',
+        'icon' => 'ti-file-invoice',
+        'description' => 'Use this module to create and manage student invoices.',
+    ])->name('financial-management.invoices');
+    Route::view('/financial-management/payments', 'academic-module-placeholder', [
+        'title' => 'Payments',
+        'pretitle' => 'Financial Management',
+        'icon' => 'ti-credit-card-pay',
+        'description' => 'Use this module to record and review fee payments.',
+    ])->name('financial-management.payments');
+    Route::view('/financial-management/expenses', 'academic-module-placeholder', [
+        'title' => 'Expenses',
+        'pretitle' => 'Financial Management',
+        'icon' => 'ti-receipt-2',
+        'description' => 'Use this module to record and track school expenses.',
+    ])->name('financial-management.expenses');
+
     Route::get('/reports', [ReportsController::class, 'index'])->name('reports.index');
+    Route::view('/reports/hrm-reports', 'academic-module-placeholder', [
+        'title' => 'HRM Reports',
+        'pretitle' => 'Reports',
+        'icon' => 'ti-users-group',
+        'description' => 'Use this module to review, print, and export HRM reports.',
+    ])->name('reports.hrm');
+    Route::view('/reports/financial-reports', 'academic-module-placeholder', [
+        'title' => 'Financial Reports',
+        'pretitle' => 'Reports',
+        'icon' => 'ti-report-money',
+        'description' => 'Use this module to review, print, and export financial reports.',
+    ])->name('reports.financial');
     Route::get('/reports/{type}', [ReportsController::class, 'show'])->name('reports.show');
     Route::post('/reports/{type}/generate-id-book-list-codes', [ReportsController::class, 'generateIdBookListCodes'])->name('reports.id-book-list-codes.generate');
     Route::get('/reports/{type}/excel', [ReportsController::class, 'excel'])->name('reports.excel');

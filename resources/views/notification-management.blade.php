@@ -85,7 +85,7 @@
         </div>
         <div class="modal modal-blur fade" id="notificationEditModal" tabindex="-1"
             data-auto-open="{{ $editNotification ? 'true' : 'false' }}">
-            <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-dialog modal-dialog-centered notification-edit-dialog">
                 <div class="modal-content">
                     <form method="POST"
                         action="{{ $editNotification ? route('notifications.update', $editNotification) : '#' }}">@csrf<div
@@ -109,5 +109,6 @@
                 </div>
             </div>
         </div>
+    @vite('resources/css/pages/notification-management.css')
     @vite('resources/js/notificationManagement.js')
 @endsection

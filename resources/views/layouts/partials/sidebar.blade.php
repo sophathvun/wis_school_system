@@ -2,6 +2,8 @@
     @php
     $sidebarPermissionCodes = $permissionCodes ?? [];
     $canView = fn(string $permission) => in_array('*', $sidebarPermissionCodes, true) || in_array($permission, $sidebarPermissionCodes, true);
+    $moeysMenuIcon = asset('images/moeys_logo.png') . '?v=' . filemtime(public_path('images/moeys_logo.png'));
+    $wmiMenuIcon = asset('images/wmi_logo.png') . '?v=' . filemtime(public_path('images/wmi_logo.png'));
 @endphp
     <div class="container-fluid">
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#sidebar-menu"
@@ -295,6 +297,8 @@
                         request()->routeIs('withdrawStudent.*') ||
                         request()->routeIs('student-reentry.*') ||
                         request()->routeIs('student-documents.*') ||
+                        request()->routeIs('student-skipping-grade.*') ||
+                        request()->routeIs('western-scholarship.*') ||
                         request()->routeIs('student-data-transfer.*')
                             ? 'active'
                             : '' }}">
@@ -316,6 +320,8 @@
                             request()->routeIs('withdrawStudent.*') ||
                             request()->routeIs('student-reentry.*') ||
                             request()->routeIs('student-documents.*') ||
+                            request()->routeIs('student-skipping-grade.*') ||
+                            request()->routeIs('western-scholarship.*') ||
                             request()->routeIs('student-data-transfer.*')
                                 ? 'show'
                                 : '' }}">
@@ -381,6 +387,14 @@
                                             <i class="ti ti-files me-2"></i> Student Documents
                                         </a>
                                     @endif
+                                    <a class="dropdown-item {{ request()->routeIs('student-skipping-grade.*') ? 'active' : '' }}"
+                                        href="{{ route('student-skipping-grade.index') }}">
+                                        <i class="ti ti-stairs-up me-2"></i> Student Skipping Grade
+                                    </a>
+                                    <a class="dropdown-item {{ request()->routeIs('western-scholarship.*') ? 'active' : '' }}"
+                                        href="{{ route('western-scholarship.index') }}">
+                                        <i class="ti ti-award me-2"></i> WESTERN Scholarship
+                                    </a>
                                     @if ($canView('student-data-transfer.view'))
                                         <a class="dropdown-item {{ request()->routeIs('student-data-transfer.*') ? 'active' : '' }}"
                                             href="{{ route('student-data-transfer.index') }}">
@@ -422,6 +436,88 @@
                         </a>
                     </li>
                 @endif
+                <li class="nav-item {{ request()->routeIs('g9-national-exams.*') ? 'active' : '' }}">
+                    <a class="nav-link" href="{{ route('g9-national-exams.index') }}">
+                        <span class="nav-link-icon d-md-none d-lg-inline-block">
+                            <img src="{{ $moeysMenuIcon }}" alt="MoEYS" style="display:block;width:1.25rem;height:1.25rem;object-fit:contain;background:transparent;border:0;border-radius:0;box-shadow:none;">
+                        </span>
+                        <span class="nav-link-title">G9 National Exams</span>
+                    </a>
+                </li>
+                <li class="nav-item {{ request()->routeIs('g12-national-exams.*') ? 'active' : '' }}">
+                    <a class="nav-link" href="{{ route('g12-national-exams.index') }}">
+                        <span class="nav-link-icon d-md-none d-lg-inline-block">
+                            <img src="{{ $moeysMenuIcon }}" alt="MoEYS" style="display:block;width:1.25rem;height:1.25rem;object-fit:contain;background:transparent;border:0;border-radius:0;box-shadow:none;">
+                        </span>
+                        <span class="nav-link-title">G12 National Exams</span>
+                    </a>
+                </li>
+                <li class="nav-item {{ request()->routeIs('wmi-management.*') ? 'active' : '' }}">
+                    <a class="nav-link" href="{{ route('wmi-management.index') }}">
+                        <span class="nav-link-icon d-md-none d-lg-inline-block">
+                            <img src="{{ $wmiMenuIcon }}" alt="WMI" style="display:block;width:1.25rem;height:1.25rem;object-fit:contain;background:transparent;border:0;border-radius:0;box-shadow:none;">
+                        </span>
+                        <span class="nav-link-title">WMI Management</span>
+                    </a>
+                </li>
+                @if ($canView('users.view') || $canView('attendance.view'))
+                    <li class="nav-item dropdown {{ request()->routeIs('hrm.*') || request()->routeIs('users.*') ? 'active' : '' }}">
+                        <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown"
+                            data-bs-auto-close="false" role="button" aria-expanded="{{ request()->routeIs('hrm.*') || request()->routeIs('users.*') ? 'true' : 'false' }}">
+                            <span class="nav-link-icon d-md-none d-lg-inline-block"><i class="ti ti-users-group icon"></i></span>
+                            <span class="nav-link-title">HRM</span>
+                        </a>
+                        <div class="dropdown-menu {{ request()->routeIs('hrm.*') || request()->routeIs('users.*') ? 'show' : '' }}">
+                            <a class="dropdown-item {{ request()->routeIs('users.*') ? 'active' : '' }}" href="{{ route('users.index') }}">
+                                <i class="ti ti-id-badge-2 me-2"></i> Staff Management
+                            </a>
+                            <a class="dropdown-item {{ request()->routeIs('hrm.staff-attendance') ? 'active' : '' }}" href="{{ route('hrm.staff-attendance') }}">
+                                <i class="ti ti-user-check me-2"></i> Staff Attendance
+                            </a>
+                            <a class="dropdown-item {{ request()->routeIs('departments.*') ? 'active' : '' }}" href="{{ route('departments.index') }}">
+                                <i class="ti ti-building-community me-2"></i> Departments
+                            </a>
+                            <a class="dropdown-item {{ request()->routeIs('positions.*') ? 'active' : '' }}" href="{{ route('positions.index') }}">
+                                <i class="ti ti-briefcase me-2"></i> Positions
+                            </a>
+                            <a class="dropdown-item {{ request()->routeIs('hrm.payroll') ? 'active' : '' }}" href="{{ route('hrm.payroll') }}">
+                                <i class="ti ti-cash-banknote me-2"></i> Payroll
+                            </a>
+                            <a class="dropdown-item {{ request()->routeIs('hrm.leave-requests') ? 'active' : '' }}" href="{{ route('hrm.leave-requests') }}">
+                                <i class="ti ti-calendar-minus me-2"></i> Leave Requests
+                            </a>
+                            <a class="dropdown-item {{ request()->routeIs('hrm.performance-reviews') ? 'active' : '' }}" href="{{ route('hrm.performance-reviews') }}">
+                                <i class="ti ti-chart-bar me-2"></i> Performance Reviews
+                            </a>
+                            <a class="dropdown-item {{ request()->routeIs('hrm.staff-reports') ? 'active' : '' }}" href="{{ route('hrm.staff-reports') }}">
+                                <i class="ti ti-report-analytics me-2"></i> Staff Reports
+                            </a>
+                        </div>
+                    </li>
+                @endif
+                @if ($canView('administrator.view') || $canView('settings.view') || $canView('reports.view'))
+                    <li class="nav-item dropdown {{ request()->routeIs('financial-management.*') ? 'active' : '' }}">
+                        <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown"
+                            data-bs-auto-close="false" role="button" aria-expanded="{{ request()->routeIs('financial-management.*') ? 'true' : 'false' }}">
+                            <span class="nav-link-icon d-md-none d-lg-inline-block"><i class="ti ti-building-bank icon"></i></span>
+                            <span class="nav-link-title">Financial Management</span>
+                        </a>
+                        <div class="dropdown-menu {{ request()->routeIs('financial-management.*') ? 'show' : '' }}">
+                            <a class="dropdown-item {{ request()->routeIs('financial-management.school-fee') ? 'active' : '' }}" href="{{ route('financial-management.school-fee') }}">
+                                <i class="ti ti-cash me-2"></i> School Fee
+                            </a>
+                            <a class="dropdown-item {{ request()->routeIs('financial-management.invoices') ? 'active' : '' }}" href="{{ route('financial-management.invoices') }}">
+                                <i class="ti ti-file-invoice me-2"></i> Invoices
+                            </a>
+                            <a class="dropdown-item {{ request()->routeIs('financial-management.payments') ? 'active' : '' }}" href="{{ route('financial-management.payments') }}">
+                                <i class="ti ti-credit-card-pay me-2"></i> Payments
+                            </a>
+                            <a class="dropdown-item {{ request()->routeIs('financial-management.expenses') ? 'active' : '' }}" href="{{ route('financial-management.expenses') }}">
+                                <i class="ti ti-receipt-2 me-2"></i> Expenses
+                            </a>
+                        </div>
+                    </li>
+                @endif
                 @if ($canView('reports.view'))
                     <li class="nav-item dropdown {{ request()->routeIs('reports.*') ? 'active' : '' }}">
                         <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown"
@@ -430,9 +526,17 @@
                             <span class="nav-link-title">Reports</span>
                         </a>
                         <div class="dropdown-menu {{ request()->routeIs('reports.*') ? 'show' : '' }}">
-                            <a class="dropdown-item {{ request()->routeIs('reports.*') ? 'active' : '' }}"
+                            <a class="dropdown-item {{ request()->routeIs('reports.index') || request()->routeIs('reports.show') || request()->routeIs('reports.excel') || request()->routeIs('reports.pdf') || request()->routeIs('reports.id-book-list-codes.generate') ? 'active' : '' }}"
                                 href="{{ route('reports.index') }}">
                                 <i class="ti ti-school me-2"></i> Academic Reports
+                            </a>
+                            <a class="dropdown-item {{ request()->routeIs('reports.hrm') ? 'active' : '' }}"
+                                href="{{ route('reports.hrm') }}">
+                                <i class="ti ti-users-group me-2"></i> HRM Reports
+                            </a>
+                            <a class="dropdown-item {{ request()->routeIs('reports.financial') ? 'active' : '' }}"
+                                href="{{ route('reports.financial') }}">
+                                <i class="ti ti-report-money me-2"></i> Financial Reports
                             </a>
                         </div>
                     </li>

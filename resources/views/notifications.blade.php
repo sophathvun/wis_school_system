@@ -19,7 +19,7 @@
         <div class="alert alert-success">{{ session('success') }}</div>
     @endif
 
-    <div class="card">
+    <div class="card notifications-page-card">
         <div class="list-group list-group-flush">
             @forelse($notifications as $notification)
                 <div class="list-group-item {{ $notification->read_at ? '' : 'bg-blue-lt' }}">

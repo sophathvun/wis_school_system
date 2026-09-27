@@ -1,0 +1,40 @@
+/* Page-specific styles for Notification Management. */
+
+#notificationEditModal .notification-edit-dialog {
+    width: min(620px, calc(100% - 2rem));
+    max-width: 620px;
+}
+
+#notificationEditModal .modal-content {
+    border-radius: 0.75rem;
+}
+
+#notificationEditModal .modal-header,
+#notificationEditModal .modal-footer {
+    padding: 0.85rem 1rem;
+}
+
+#notificationEditModal .modal-body {
+    padding: 1rem;
+}
+
+#notificationEditModal .form-label {
+    margin-bottom: 0.25rem;
+}
+
+#notificationEditModal .form-control {
+    min-height: 2.5rem;
+}
+
+#notificationEditModal textarea.form-control {
+    min-height: 5rem;
+    max-height: 9rem;
+}
+
+@media (max-width: 575.98px) {
+    #notificationEditModal .notification-edit-dialog {
+        width: calc(100% - 1rem);
+        margin-left: 0.5rem;
+        margin-right: 0.5rem;
+    }
+}

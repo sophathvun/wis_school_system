@@ -27,7 +27,7 @@ class ReportsController
         'attendance-list' => 'Attendance List',
         'student-statistics' => 'Student Statistics (Summary)',
         'student-statistics-detail' => 'Student Statistics (Details)',
-        'withdrawn-students' => 'List of Withdrawn Students',
+        'withdrawn-students' => 'Withdrawn Students',
         'student-id-books-moeys' => 'Student ID Books (MoEYS)',
         'moeys-sikkhakarik-book' => 'សៀវភៅសិក្ខាគារិក (MoEYS)',
         'moeys-id-number-book' => 'សៀវភៅអត្តលេខ (MoEYS)',

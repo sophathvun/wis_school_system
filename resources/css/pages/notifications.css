@@ -1,5 +1,9 @@
 /* Extracted from resources/views/notifications.blade.php. Keep page-specific styles in this file. */
 
+.notifications-page-card {
+    margin-top: 1.25rem;
+}
+
 .notification-message-content {
     line-height: 1.6;
 }
