@@ -93,24 +93,50 @@ const init = () => {
               })
             : null;
     };
+    const firstImageFile = (files) =>
+        Array.from(files || []).find((file) =>
+            (file.type || "").startsWith("image/"),
+        );
+    const chooseFile = (file) => {
+        if (!file) return;
+        open(file);
+    };
     input.addEventListener("click", (event) => event.stopPropagation());
     input.addEventListener("change", () => {
-        const file = input.files?.[0];
+        const file = firstImageFile(input.files);
         input.value = "";
-        open(file);
+        chooseFile(file);
     });
+    zone.addEventListener("click", (event) => {
+        if (event.target === input) return;
+        input.click();
+    });
+    zone.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        input.click();
+    });
+    ["dragenter", "dragover"].forEach((type) =>
+        zone.addEventListener(type, (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+            zone.classList.add("is-dragging");
+        }),
+    );
+    ["dragleave", "dragend"].forEach((type) =>
+        zone.addEventListener(type, (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            zone.classList.remove("is-dragging");
+        }),
+    );
     zone.addEventListener("drop", (event) => {
         event.preventDefault();
+        event.stopPropagation();
         zone.classList.remove("is-dragging");
-        open(event.dataTransfer?.files?.[0]);
+        chooseFile(firstImageFile(event.dataTransfer?.files));
     });
-    zone.addEventListener("dragover", (event) => {
-        event.preventDefault();
-        zone.classList.add("is-dragging");
-    });
-    zone.addEventListener("dragleave", () =>
-        zone.classList.remove("is-dragging"),
-    );
     zone.addEventListener("paste", (event) => {
         const file = imageFileFromPasteEvent(event);
         if (!file) return;
