@@ -19,6 +19,8 @@ use Illuminate\Support\Str;
 class ReportsController
 {
     private const PREVIEW_LIMIT = 500;
+    private const GET_STUDENT_LIST_PREVIEW_DEFAULT_SIZE = 25;
+    private const GET_STUDENT_LIST_PREVIEW_SIZES = ['all', '25', '50', '75', '100'];
 
     private const TYPES = [
         'student-list' => 'Student List',
@@ -29,7 +31,7 @@ class ReportsController
         'student-statistics-detail' => 'Stu. Statistics (Detail)',
         'withdrawn-students' => 'Withdrawn Students',
         'student-id-books-moeys' => 'Stu. ID Book (MoEYS)',
-        'moeys-sikkhakarik-book' => 'សៀវភៅសិក្ខាគារិក (MoEYS)',
+        'moeys-sikkhakarik-book' => 'សៀវភៅសិក្ាគារិក (MoEYS)',
         'moeys-id-number-book' => 'Get Student List',
         'student-profile-label' => 'Stu. Profile Label',
     ];
@@ -46,8 +48,8 @@ class ReportsController
             'academicYears' => $this->academicYears($payload['filters']),
             'campuses' => $this->campuses($request, $payload['filters'], $type),
             'grades' => Grade::where('status', 1)->orderByRaw('CAST(grade_order AS UNSIGNED)')->get(['id', 'grade']),
-            'gradeClassOptions' => ($this->isStudentListReport($type) || $this->isStudentContactListReport($type) || $type === 'attendance-list' || $type === 'score-list') ? $this->gradeClassOptions($request, $payload['filters']) : ($type === 'withdrawn-students' ? $this->withdrawalGradeClassOptions($request, $payload['filters']) : collect()),
-            'groupOptions' => ($this->isStudentListReport($type) || $this->isStudentContactListReport($type)) ? $this->groupOptions($request, $payload['filters']) : ($type === 'withdrawn-students' ? $this->withdrawalGroupOptions($request, $payload['filters']) : collect()),
+            'gradeClassOptions' => ($this->isStudentListReport($type) || $this->isStudentContactListReport($type) || $type === 'attendance-list' || $type === 'score-list' || $type === 'moeys-id-number-book' || $type === 'moeys-sikkhakarik-book') ? $this->gradeClassOptions($request, $payload['filters'], $type) : ($type === 'withdrawn-students' ? $this->withdrawalGradeClassOptions($request, $payload['filters']) : collect()),
+            'groupOptions' => ($this->isStudentListReport($type) || $this->isStudentContactListReport($type) || $type === 'moeys-sikkhakarik-book') ? $this->groupOptions($request, $payload['filters']) : ($type === 'withdrawn-students' ? $this->withdrawalGroupOptions($request, $payload['filters']) : collect()),
         ]);
     }
 
@@ -322,7 +324,7 @@ class ReportsController
         $first = $enrollments instanceof Collection ? $enrollments->first() : null;
         $grade = $classSpecific && $first ? $this->gradeClassLabel($first) : self::TYPES[$type];
         $academicYear = $first?->academicYear?->academic_year ?: 'All-Academic-Years';
-        $reportName = $this->isStudentContactListReport($type) ? 'Student-Contact-List' : ($this->isStudentListReport($type) ? 'Student-List' : ($type === 'attendance-list' ? 'Attendance-List' : ($type === 'score-list' ? 'Score-List' : self::TYPES[$type])));
+        $reportName = $this->isStudentContactListReport($type) ? 'Student-Contact-List' : ($type === 'student-profile-label' ? 'Student-Profile-Label' : ($this->isStudentListReport($type) ? 'Student-List' : ($type === 'attendance-list' ? 'Attendance-List' : ($type === 'score-list' ? 'Score-List' : self::TYPES[$type]))));
         $parts = $classSpecific ? [$grade, $academicYear, $reportName] : [$reportName, $academicYear, now('Asia/Phnom_Penh')->format('Ymd-His')];
 
         return $this->safeReportFilename(collect($parts)->filter()->join('-')) . '.pdf';
@@ -355,7 +357,7 @@ class ReportsController
     }
     private function isStudentListReport(string $type): bool
     {
-        return $type === 'student-list';
+        return in_array($type, ['student-list', 'student-profile-label'], true);
     }
 
     private function isStudentContactListReport(string $type): bool
@@ -370,7 +372,7 @@ class ReportsController
 
     private function isReportStub(string $type): bool
     {
-        return in_array($type, ['moeys-sikkhakarik-book', 'moeys-id-number-book', 'student-profile-label'], true);
+        return false;
     }
 
     private function classGroups($enrollments): Collection
@@ -514,6 +516,30 @@ class ReportsController
         }
 
         $enrollments = $payload['enrollments'] ?? collect();
+        if ($type === 'moeys-sikkhakarik-book') {
+            return [[
+                'name' => 'MoEYS Transcript Book',
+                'xml' => $this->enrollmentsWorksheetXml($enrollments, self::TYPES[$type], $hasLogo, false, $payload['filters']['report_date'] ?? null, $type),
+                'tacteing_col' => 7,
+                'show_tacteing' => false,
+            ]];
+        }
+        if ($type === 'moeys-id-number-book') {
+            return [[
+                'name' => 'Get Student List',
+                'xml' => $this->getStudentListWorksheetXml($enrollments, $payload['selectedColumns'] ?? []),
+                'tacteing_col' => 7,
+                'show_tacteing' => false,
+            ]];
+        }
+        if ($type === 'student-profile-label') {
+            return [[
+                'name' => 'Profile Labels',
+                'xml' => $this->studentProfileLabelWorksheetXml($enrollments, $payload['filters'] ?? []),
+                'tacteing_col' => 7,
+                'show_tacteing' => false,
+            ]];
+        }
         if ($type === 'student-id-books-moeys') {
             $groups = $this->classGroups($enrollments);
             if ($groups->isEmpty()) {
@@ -635,7 +661,7 @@ class ReportsController
                 'name' => $sheetName,
                 'xml' => $this->enrollmentsWorksheetXml(
                     $rows->values(),
-                    $isMoeys ? (($this->isStudentContactListReport($type) ? 'បញ្ជីទំនាក់ទំនងសិស្សថ្នាក់ទី ' : 'បញ្ជីឈ្មោះសិស្សថ្នាក់ទី ') . $gradeClass) : (self::TYPES[$type] . ' for Grade ' . $gradeClass),
+                    $isMoeys ? (($this->isStudentContactListReport($type) ? 'បញ្ជីទំនាក់ទំនងសិស្ស្នាក់ទី ' : 'បញ្ជីឈ្មោះសិស្ស្នាក់ទី ') . $gradeClass) : (self::TYPES[$type] . ' for Grade ' . $gradeClass),
                     $hasLogo,
                     $isMoeys,
                     $payload['filters']['report_date'] ?? null,
@@ -646,16 +672,244 @@ class ReportsController
         })->values()->all();
     }
 
+    private function studentProfileLabelWorksheetXml($enrollments, array $filters = []): string
+    {
+        $rows = [];
+        $rowNumber = 1;
+        $chunks = collect($enrollments)->values()->chunk(3);
+        foreach ($chunks as $chunk) {
+            $nameCells = [];
+            $idCells = [];
+            foreach ([0, 1, 2] as $index) {
+                $column = $this->xlsxColumnName(($index * 2) + 1);
+                $row = $chunk->get($index);
+                $nameCells[] = [$column, $row?->student?->full_name_en ? strtoupper($row->student->full_name_en) : '', 3];
+                $idCells[] = [$column, $row?->student?->student_id ?: '', 3];
+            }
+            $rows[] = $this->xlsxRow($rowNumber, $nameCells, 24);
+            $rows[] = $this->xlsxRow($rowNumber + 1, $idCells, 22);
+            $rows[] = $this->xlsxRow($rowNumber + 2, [], 8);
+            $rowNumber += 3;
+        }
+
+        $first = collect($enrollments)->first();
+        $footerStart = max($rowNumber + 1, 4);
+        $rows[] = $this->xlsxRow($footerStart, [['A', 'Grade', 2], ['B', ':  ' . ($first ? $this->gradeClassLabel($first) : ''), 3]], 18);
+        $rows[] = $this->xlsxRow($footerStart + 1, [['A', 'Campus', 2], ['B', ':  ' . ($first?->campus?->campus_name_en ?: ''), 3]], 18);
+
+        $lastRow = $footerStart + 1;
+        return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            . '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+            . '<dimension ref="A1:F' . $lastRow . '"/>'
+            . '<sheetViews><sheetView workbookViewId="0"/></sheetViews>'
+            . '<sheetFormatPr defaultRowHeight="20"/>'
+            . '<cols><col min="1" max="6" width="18" customWidth="1"/></cols>'
+            . '<sheetData>' . implode('', $rows) . '</sheetData>'
+            . '<pageMargins left="0.25" right="0.25" top="0.25" bottom="0.25" header="0.1" footer="0.1"/>'
+            . '<pageSetup paperSize="9" orientation="portrait" fitToWidth="1" fitToHeight="0"/>'
+            . '</worksheet>';
+    }
+    private function getStudentListColumnDefinitions(): array
+    {
+        return [
+            'student_id' => ['key' => 'student_id', 'label' => 'Student ID', 'group' => 'Student Information'],
+            'student_no' => ['key' => 'student_no', 'label' => 'Student No.', 'group' => 'Student Information'],
+            'family_number' => ['key' => 'family_number', 'label' => 'Family Number', 'group' => 'Student Information'],
+            'full_name_en' => ['key' => 'full_name_en', 'label' => 'Student Name English', 'group' => 'Student Information'],
+            'full_name_kh' => ['key' => 'full_name_kh', 'label' => 'Student Name Khmer', 'group' => 'Student Information'],
+            'gender' => ['key' => 'gender', 'label' => 'Gender English', 'group' => 'Student Information'],
+            'gender_kh' => ['key' => 'gender_kh', 'label' => 'Gender Khmer', 'group' => 'Student Information'],
+            'date_of_birth' => ['key' => 'date_of_birth', 'label' => 'Date of Birth', 'group' => 'Student Information'],
+            'nationality' => ['key' => 'nationality', 'label' => 'Nationality', 'group' => 'Student Information'],
+            'home_phone' => ['key' => 'home_phone', 'label' => 'Home Phone', 'group' => 'Student Information'],
+            'email' => ['key' => 'email', 'label' => 'Email', 'group' => 'Student Information'],
+            'birth_place_en' => ['key' => 'birth_place_en', 'label' => 'Birth Place English', 'group' => 'Student Information'],
+            'birth_place_kh' => ['key' => 'birth_place_kh', 'label' => 'Birth Place Khmer', 'group' => 'Student Information'],
+            'current_address_en' => ['key' => 'current_address_en', 'label' => 'Current Address English', 'group' => 'Student Information'],
+            'current_address_kh' => ['key' => 'current_address_kh', 'label' => 'Current Address Khmer', 'group' => 'Student Information'],
+            'previous_school' => ['key' => 'previous_school', 'label' => 'Previous School', 'group' => 'Student Information'],
+            'experienced_english' => ['key' => 'experienced_english', 'label' => 'Experienced English', 'group' => 'Student Information'],
+            'test_result' => ['key' => 'test_result', 'label' => 'Test Result', 'group' => 'Student Information'],
+            'tested_by' => ['key' => 'tested_by', 'label' => 'Tested By', 'group' => 'Student Information'],
+            'remarks' => ['key' => 'remarks', 'label' => 'Remarks', 'group' => 'Student Information'],
+            'academic_year' => ['key' => 'academic_year', 'label' => 'Academic Year', 'group' => 'Enrollment'],
+            'period_type' => ['key' => 'period_type', 'label' => 'Period', 'group' => 'Enrollment'],
+            'campus' => ['key' => 'campus', 'label' => 'Campus', 'group' => 'Enrollment'],
+            'grade_class' => ['key' => 'grade_class', 'label' => 'Grade/Class', 'group' => 'Enrollment'],
+            'grade' => ['key' => 'grade', 'label' => 'Grade', 'group' => 'Enrollment'],
+            'class' => ['key' => 'class', 'label' => 'Class', 'group' => 'Enrollment'],
+            'group' => ['key' => 'group', 'label' => 'Group', 'group' => 'Enrollment'],
+            'academic_track' => ['key' => 'academic_track', 'label' => 'Academic Track', 'group' => 'Enrollment'],
+            'student_type' => ['key' => 'student_type', 'label' => 'Student Type', 'group' => 'Enrollment'],
+            'enrollment_status' => ['key' => 'enrollment_status', 'label' => 'Enrollment Status', 'group' => 'Enrollment'],
+            'enrolled_on' => ['key' => 'enrolled_on', 'label' => 'Enrolled On', 'group' => 'Enrollment'],
+            'ended_on' => ['key' => 'ended_on', 'label' => 'Ended On', 'group' => 'Enrollment'],
+            'id_book_list_no' => ['key' => 'id_book_list_no', 'label' => 'List Code', 'group' => 'Enrollment'],
+            'mother_name_en' => ['key' => 'mother_name_en', 'label' => 'Mother Name English', 'group' => 'Family'],
+            'mother_name_kh' => ['key' => 'mother_name_kh', 'label' => 'Mother Name Khmer', 'group' => 'Family'],
+            'mother_phone' => ['key' => 'mother_phone', 'label' => 'Mother Phone', 'group' => 'Family'],
+            'mother_email' => ['key' => 'mother_email', 'label' => 'Mother Email', 'group' => 'Family'],
+            'mother_occupation' => ['key' => 'mother_occupation', 'label' => 'Mother Occupation', 'group' => 'Family'],
+            'mother_workplace' => ['key' => 'mother_workplace', 'label' => 'Mother Workplace', 'group' => 'Family'],
+            'father_name_en' => ['key' => 'father_name_en', 'label' => 'Father Name English', 'group' => 'Family'],
+            'father_name_kh' => ['key' => 'father_name_kh', 'label' => 'Father Name Khmer', 'group' => 'Family'],
+            'father_phone' => ['key' => 'father_phone', 'label' => 'Father Phone', 'group' => 'Family'],
+            'father_email' => ['key' => 'father_email', 'label' => 'Father Email', 'group' => 'Family'],
+            'father_occupation' => ['key' => 'father_occupation', 'label' => 'Father Occupation', 'group' => 'Family'],
+            'father_workplace' => ['key' => 'father_workplace', 'label' => 'Father Workplace', 'group' => 'Family'],
+            'guardian_name_en' => ['key' => 'guardian_name_en', 'label' => 'Guardian Name English', 'group' => 'Family'],
+            'guardian_name_kh' => ['key' => 'guardian_name_kh', 'label' => 'Guardian Name Khmer', 'group' => 'Family'],
+            'guardian_phone' => ['key' => 'guardian_phone', 'label' => 'Guardian Phone', 'group' => 'Family'],
+            'guardian_email' => ['key' => 'guardian_email', 'label' => 'Guardian Email', 'group' => 'Family'],
+            'guardian_occupation' => ['key' => 'guardian_occupation', 'label' => 'Guardian Occupation', 'group' => 'Family'],
+            'guardian_workplace' => ['key' => 'guardian_workplace', 'label' => 'Guardian Workplace', 'group' => 'Family'],
+        ];
+    }
+
+    private function getStudentListFamilyMember($student, string $relationship)
+    {
+        return $student?->familyMembers?->first(fn ($member) => ($member->relationship_type ?? $member->pivot?->relationship_type) === $relationship);
+    }
+
+    private function getStudentListLocation($student, string $type, string $language = 'en'): string
+    {
+        $suffix = $language === 'kh' ? 'kh' : 'en';
+        $parts = $type === 'birth'
+            ? [$student?->birthVillage?->{'village_name_' . $suffix}, $student?->birthCommune?->{'commune_name_' . $suffix}, $student?->birthDistrict?->{'district_name_' . $suffix}, $student?->birthProvince?->{'province_name_' . $suffix}, $student?->birthCountry?->{'country_name_' . $suffix}]
+            : [$language === 'kh' ? $student?->address_house_no_kh : $student?->address_house_no_en, $language === 'kh' ? $student?->address_street_kh : $student?->address_street_en, $student?->addressVillage?->{'village_name_' . $suffix}, $student?->addressCommune?->{'commune_name_' . $suffix}, $student?->addressDistrict?->{'district_name_' . $suffix}, $student?->addressProvince?->{'province_name_' . $suffix}, $student?->addressCountry?->{'country_name_' . $suffix}];
+
+        return collect($parts)->map(fn ($value) => trim((string) $value))->filter()->join(', ');
+    }
+
+    private function getStudentListColumnValue($row, string $key): string
+    {
+        $student = $row->student;
+        $mother = $this->getStudentListFamilyMember($student, 'mother');
+        $father = $this->getStudentListFamilyMember($student, 'father');
+        $guardian = $this->getStudentListFamilyMember($student, 'guardian');
+        $occupation = static fn ($member) => trim((string) ($member?->occupation_en ?: $member?->occupation_kh ?: $member?->occupation));
+
+        $value = match ($key) {
+            'student_id' => $student?->student_id,
+            'student_no' => $student?->student_no,
+            'family_number' => $student?->family_number,
+            'full_name_en' => $student?->full_name_en,
+            'full_name_kh' => $student?->full_name_kh,
+            'gender' => $student?->gender,
+            'gender_kh' => $student?->gender_kh,
+            'date_of_birth' => $this->displayDate($student?->date_of_birth, 'd-M-Y'),
+            'nationality' => $student?->nationalityCountry?->nationality_name_en ?: $student?->nationalityCountry?->country_name_en,
+            'home_phone' => $student?->home_phone,
+            'email' => $student?->email,
+            'birth_place_en' => $this->getStudentListLocation($student, 'birth', 'en'),
+            'birth_place_kh' => $this->getStudentListLocation($student, 'birth', 'kh'),
+            'current_address_en' => $student?->current_address_en ?: $this->getStudentListLocation($student, 'address', 'en'),
+            'current_address_kh' => $student?->current_address_kh ?: $this->getStudentListLocation($student, 'address', 'kh'),
+            'previous_school' => $student?->previous_school ?: $row->previous_school,
+            'experienced_english' => $student?->experienced_english,
+            'test_result' => $student?->test_result,
+            'tested_by' => $student?->tested_by,
+            'remarks' => $student?->remarks ?: $row->notes,
+            'academic_year' => $row->academicYear?->academic_year,
+            'period_type' => $row->academicYear?->period_type ? Str::headline($row->academicYear->period_type) : null,
+            'campus' => $row->campus?->campus_name_en,
+            'grade_class' => $this->gradeClassLabel($row),
+            'grade' => $row->grade?->grade_short_name ?: $row->grade?->grade,
+            'class' => $row->schoolClass?->class_name,
+            'group' => $row->session?->session_short_name ?: $row->session?->session_name,
+            'academic_track' => $row->academicTrack?->name_en,
+            'student_type' => $row->student_type ? Str::headline($row->student_type) : null,
+            'enrollment_status' => $row->enrollment_status ? Str::headline($row->enrollment_status) : null,
+            'enrolled_on' => $this->displayDate($row->enrolled_on, 'd-M-Y'),
+            'ended_on' => $this->displayDate($row->ended_on, 'd-M-Y'),
+            'id_book_list_no' => $row->id_book_list_no,
+            'mother_name_en' => $mother?->full_name_en,
+            'mother_name_kh' => $mother?->full_name_kh,
+            'mother_phone' => $mother?->phone,
+            'mother_email' => $mother?->email,
+            'mother_occupation' => $occupation($mother),
+            'mother_workplace' => $mother?->workplace,
+            'father_name_en' => $father?->full_name_en,
+            'father_name_kh' => $father?->full_name_kh,
+            'father_phone' => $father?->phone,
+            'father_email' => $father?->email,
+            'father_occupation' => $occupation($father),
+            'father_workplace' => $father?->workplace,
+            'guardian_name_en' => $guardian?->full_name_en,
+            'guardian_name_kh' => $guardian?->full_name_kh,
+            'guardian_phone' => $guardian?->phone,
+            'guardian_email' => $guardian?->email,
+            'guardian_occupation' => $occupation($guardian),
+            'guardian_workplace' => $guardian?->workplace,
+            default => null,
+        };
+
+        $value = trim((string) $value);
+        return $value === '' ? '-' : $value;
+    }
+
+    private function getStudentListWorksheetXml($enrollments, array $columns): string
+    {
+        $enrollments = collect($enrollments)->values();
+        if (empty($columns)) {
+            $columns = collect($this->getStudentListColumnDefinitions())->take(8)->values()->all();
+        }
+
+        $headers = collect($columns)->map(fn ($column) => $column['label'] ?? $column['key'] ?? 'Column')->values();
+        $lastColumn = $this->xlsxColumnName(max(1, $headers->count() + 1));
+        $lastRow = max(5, $enrollments->count() + 4);
+        $rows = [
+            $this->xlsxRow(1, [['A', 'Get Student List', 1]], 24),
+            $this->xlsxRow(2, [['A', 'Generated: ' . now('Asia/Phnom_Penh')->format('d-M-Y H:i'), 2]], 18),
+            $this->xlsxRow(3, [], 6),
+        ];
+        $headerCells = [['A', 'No.', 3]];
+        foreach ($headers as $index => $header) {
+            $headerCells[] = [$this->xlsxColumnName($index + 2), $header, 3];
+        }
+        $rows[] = $this->xlsxRow(4, $headerCells, 24);
+
+        foreach ($enrollments as $index => $row) {
+            $cells = [['A', (string) ($index + 1), 5]];
+            foreach ($columns as $columnIndex => $column) {
+                $cells[] = [$this->xlsxColumnName($columnIndex + 2), $this->getStudentListColumnValue($row, (string) ($column['key'] ?? '')), 5];
+            }
+            $rows[] = $this->xlsxRow($index + 5, $cells, 22);
+        }
+
+        if ($enrollments->isEmpty()) {
+            $rows[] = $this->xlsxRow(5, [['A', 'No students found.', 5]], 26);
+        }
+
+        $mergeRefs = ['A1:' . $lastColumn . '1', 'A2:' . $lastColumn . '2'];
+        if ($enrollments->isEmpty()) {
+            $mergeRefs[] = 'A5:' . $lastColumn . '5';
+        }
+        $mergeCells = '<mergeCells count="' . count($mergeRefs) . '">' . collect($mergeRefs)->map(fn ($ref) => '<mergeCell ref="' . $ref . '"/>')->implode('') . '</mergeCells>';
+
+        return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            . '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+            . '<dimension ref="A1:' . $lastColumn . $lastRow . '"/>'
+            . '<sheetViews><sheetView workbookViewId="0"><pane ySplit="4" topLeftCell="A5" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'
+            . '<sheetFormatPr defaultRowHeight="18"/>'
+            . '<cols><col min="1" max="1" width="6" customWidth="1"/><col min="2" max="' . max(2, $headers->count() + 1) . '" width="22" customWidth="1"/></cols>'
+            . '<sheetData>' . implode('', $rows) . '</sheetData>'
+            . $mergeCells
+            . '<pageMargins left="0.25" right="0.25" top="0.35" bottom="0.35" header="0.1" footer="0.1"/>'
+            . '<pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"/>'
+            . '</worksheet>';
+    }
+
     private function enrollmentsWorksheetXml($enrollments, string $title, bool $hasLogo = false, bool $isMoeys = false, ?string $reportDate = null, string $type = 'student-list'): string
     {
         $isContactList = $this->isStudentContactListReport($type);
         $headers = $isMoeys
             ? ($isContactList
-                ? ['ល.រ', 'អត្តលេខសិស្ស', 'នាមត្រកូល-នាមខ្លួន', 'ភេទ', 'ក្រុម', 'លេខទូរស័ព្ទផ្ទះ', 'លេខទូរស័ព្ទម្ដាយ', 'លេខទូរស័ព្ទឪពុក']
-                : ['ល.រ', 'អត្តលេខសិស្ស', 'នាមត្រកូល-នាមខ្លួន', 'ភេទ', 'ថ្នាក់ទី', 'ក្រុម', 'ផ្សេងៗ'])
+                ? ['ល.រ', 'អ្លសិស្ស', 'នាម្រកូល-នាម្លួន', 'ភទ', 'ក្រុម', 'លទូរសព្ទផ្ទះ', 'លទូរសព្ទម្ដាយ', 'លទូរសព្ទឪពុក']
+                : ['ល.រ', 'អ្លសិស្ស', 'នាម្រកូល-នាម្លួន', 'ភទ', '្នាក់ទី', 'ក្រុម', 'ផ្សងៗ'])
             : ($isContactList
-                ? ['No.', 'Student ID', 'នាមត្រកូល-នាមខ្លួន', 'Full-Name', 'Gender', 'Campus', 'Grade', 'Group', 'Home Phone', "Mother's Phone", "Father's Phone"]
-                : ['No.', 'Student ID', 'នាមត្រកូល-នាមខ្លួន', 'Full-Name', 'Gender', 'Campus', 'Grade', 'Group', 'Remarks']);
+                ? ['No.', 'Student ID', 'នាម្រកូល-នាម្លួន', 'Full-Name', 'Gender', 'Campus', 'Grade', 'Group', 'Home Phone', "Mother's Phone", "Father's Phone"]
+                : ['No.', 'Student ID', 'នាម្រកូល-នាម្លួន', 'Full-Name', 'Gender', 'Campus', 'Grade', 'Group', 'Remarks']);
         $lastColumn = $this->xlsxColumnName(count($headers));
         $first = $enrollments->first();
         $academicYear = $first?->academicYear?->academic_year ?: '-';
@@ -669,12 +923,12 @@ class ReportsController
         $titleMergeStart = $isMoeys ? ($isContactList ? 'F' : 'E') : ($isContactList ? 'I' : 'G');
         $rows = [
             $this->xlsxRow(1, [[$titleMergeStart, 'ព្រះរាជាណាចក្រកម្ពុជា', 6]], $isMoeys ? 22.05 : 22),
-            $this->xlsxRow(2, [[$titleMergeStart, 'ជាតិ សាសនា ព្រះមហាក្សត្រ', 6]], $isMoeys ? 19.8 : 22),
+            $this->xlsxRow(2, [[$titleMergeStart, 'ជាិ សាសនា ព្រះមហាក្ស្រ', 6]], $isMoeys ? 19.8 : 22),
             $this->xlsxRow(3, [[$titleMergeStart, 'KINGDOM OF CAMBODIA', 6]], $isMoeys ? 15.6 : 18),
             $this->xlsxRow(4, [[$titleMergeStart, 'NATION RELIGION KING', 6]], $isMoeys ? 15.6 : 18),
             $this->xlsxRow(5, [['A', $title, $titleStyle]], $isMoeys ? 31.8 : 23),
             $this->xlsxRow(6, [['A', ($isMoeys ? 'ឆ្នាំសិក្សា៖ ' : 'Academic Year: ') . $academicYear, $isMoeys ? 11 : 2]], $isMoeys ? 16.5 : 20),
-            $this->xlsxRow(7, [['A', ($isMoeys ? 'សាខា៖ ' : 'Campus: ') . $campus, $isMoeys ? 11 : 2]], $isMoeys ? 16.5 : 18),
+            $this->xlsxRow(7, [['A', ($isMoeys ? 'សាា៖ ' : 'Campus: ') . $campus, $isMoeys ? 11 : 2]], $isMoeys ? 16.5 : 18),
             $this->xlsxRow(8, [], $isMoeys ? 3 : 8),
             $this->xlsxRow(9, collect($headers)->map(fn ($header, $index) => [
                 $this->xlsxColumnName($index + 1),
@@ -846,16 +1100,16 @@ class ReportsController
         $lastRow = max(2, ($enrollments->count() * 6) + 1);
         $rows = [
             $this->xlsxRow(1, [
-                ['A', "លេខកូដក្នុង\nបញ្ជី", 10],
-                ['B', "អត្តលេខ\nនៅWIS", 10],
-                ['C', "ឈ្មោះសិស្ស\nរូបថត", 10],
-                ['D', 'ភេទ', 10],
-                ['E', 'ថ្នាក់', 10],
-                ['F', "ថ្ងៃ ខែ ឆ្នាំ\nនិងទីកន្លែងកំណើត", 10],
-                ['G', "ឈ្មោះ ឪពុកម្តាយ\nមុខរបរ និង ទីលំនៅ", 10],
+                ['A', "លកូដក្នុង\nបញ្ជី", 10],
+                ['B', "អ្ល\nនៅWIS", 10],
+                ['C', "ឈ្មោះសិស្ស\nរូប", 10],
+                ['D', 'ភទ', 10],
+                ['E', '្នាក់', 10],
+                ['F', "្ងៃ ែ ឆ្នាំ\nនិងទីកន្លែងកំណើ", 10],
+                ['G', "ឈ្មោះ ឪពុកម្ាយ\nមុរបរ និង ទីលំនៅ", 10],
                 ['H', "ទីលំនៅបច្ចុប្បន្នរបស់\nអាណាព្យាបាលសិស្ស", 10],
-                ['I', 'រយះពេលសិក្សា', 10],
-                ['J', 'សេចក្តីផ្សេងៗ', 10],
+                ['I', 'រយះពលសិក្សា', 10],
+                ['J', 'សចក្ីផ្សងៗ', 10],
             ], 33),
         ];
         $mergeRefs = [];
@@ -888,33 +1142,33 @@ class ReportsController
                 ['C', $student?->full_name_kh ?: $student?->full_name_en ?: '', 31],
                 ['D', $this->studentIdBookGender($student), 10],
                 ['E', $className, 10],
-                ['F', 'កើតថ្ងៃទី ' . $this->studentIdBookKhmerDate($student?->date_of_birth), 27],
+                ['F', 'កើ្ងៃទី ' . $this->studentIdBookKhmerDate($student?->date_of_birth), 27],
                 ['G', 'ឈ្មោះឪពុក ' . trim((string) ($father?->full_name_kh ?: $father?->full_name_en)), 27],
                 ['H', $addressRows[0], 27],
-                ['I', 'ចូលថ្ងៃទី ' . str_replace('-', ' ', $this->studentIdBookKhmerDate($enrolledOn)), 27],
+                ['I', 'ចូល្ងៃទី ' . str_replace('-', ' ', $this->studentIdBookKhmerDate($enrolledOn)), 27],
                 ['J', '', 10],
             ], 28);
             $rows[] = $this->xlsxRow($start + 1, [
                 ['F', $birthRows[0], 28],
-                ['G', 'មុខរបរ ' . trim((string) ($father?->occupation_kh ?: $father?->occupation_en ?: $father?->occupation)), 28],
+                ['G', 'មុរបរ ' . trim((string) ($father?->occupation_kh ?: $father?->occupation_en ?: $father?->occupation)), 28],
                 ['H', $addressRows[1], 28],
                 ['I', 'មកពីសាលា ' . $previousSchool, 28],
             ], 28);
             $rows[] = $this->xlsxRow($start + 2, [
                 ['F', $birthRows[1], 28],
-                ['G', 'ឈ្មោះម្តាយ ' . trim((string) ($mother?->full_name_kh ?: $mother?->full_name_en)), 28],
+                ['G', 'ឈ្មោះម្ាយ ' . trim((string) ($mother?->full_name_kh ?: $mother?->full_name_en)), 28],
                 ['H', $addressRows[2], 28],
-                ['I', 'ចេញថ្ងៃទី', 28],
+                ['I', 'ចញ្ងៃទី', 28],
             ], 28);
             $rows[] = $this->xlsxRow($start + 3, [
                 ['F', $birthRows[2], 28],
-                ['G', 'មុខរបរ ' . trim((string) ($mother?->occupation_kh ?: $mother?->occupation_en ?: $mother?->occupation)), 28],
+                ['G', 'មុរបរ ' . trim((string) ($mother?->occupation_kh ?: $mother?->occupation_en ?: $mother?->occupation)), 28],
                 ['H', $addressRows[3], 28],
                 ['I', '........................................', 28],
             ], 28);
             $rows[] = $this->xlsxRow($start + 4, [
                 ['F', $birthRows[3], 28],
-                ['G', 'ទីលំនៅពិតប្រាកដ ' . $trueAddress, 28],
+                ['G', 'ទីលំនៅពិប្រាកដ ' . $trueAddress, 28],
                 ['H', '', 28],
                 ['I', '........................................', 28],
             ], 28);
@@ -994,7 +1248,7 @@ class ReportsController
         $rows = [
             $this->xlsxRow(1, [['A', '', 2]], 18),
             $this->xlsxRow(2, [['A', 'ព្រះរាជាណាចក្រកម្ពុជា', 13]], 32),
-            $this->xlsxRow(3, [['A', 'ជាតិ សាសនា ព្រះមហាក្សត្រ', 13]], 30),
+            $this->xlsxRow(3, [['A', 'ជាិ សាសនា ព្រះមហាក្ស្រ', 13]], 30),
             $this->xlsxRow(4, [['A', '5', 14]], 20),
             $this->xlsxRow(5, [], 12),
             $this->xlsxRow(6, [['A', $cover['educationOffice'] ?? '', 13]], 30),
@@ -1002,7 +1256,7 @@ class ReportsController
             $this->xlsxRow(8, [['A', $cover['campusNameKh'] ?? '', 13]], 26),
             $this->xlsxRow(9, [], 26),
             $this->xlsxRow(10, [], 18),
-            $this->xlsxRow(11, [['A', 'សៀវភៅចុះអត្តលេខសិស្ស', 8]], 54),
+            $this->xlsxRow(11, [['A', 'សៀវភៅចុះអ្លសិស្ស', 8]], 54),
             $this->xlsxRow(12, [], 24),
             $this->xlsxRow(13, [['A', $cover['gradeRange'] ?? '', 13]], 44),
             $this->xlsxRow(14, [['A', $cover['codeRange'] ?? '', 13]], 42),
@@ -1052,6 +1306,15 @@ class ReportsController
         };
     }
 
+    private function transcriptBookLevelGrades(?string $level): array
+    {
+        return match ($level) {
+            'primary' => ['4', '5', '6'],
+            'secondary' => ['7', '8', '9', '10', '11', '12'],
+            default => [],
+        };
+    }
+
     private function studentIdBookGender($student): string
     {
         $gender = mb_strtolower(trim((string) ($student?->gender_kh ?: $student?->gender)));
@@ -1062,7 +1325,7 @@ class ReportsController
     {
         if (!$date) return '';
         $date = $date instanceof \Carbon\Carbon ? $date : \Carbon\Carbon::parse($date);
-        $months = ['Jan'=>'មករា','Feb'=>'កុម្ភៈ','Mar'=>'មីនា','Apr'=>'មេសា','May'=>'ឧសភា','Jun'=>'មិថុនា','Jul'=>'កក្កដា','Aug'=>'សីហា','Sep'=>'កញ្ញា','Oct'=>'តុលា','Nov'=>'វិច្ឆិកា','Dec'=>'ធ្នូ'];
+        $months = ['Jan'=>'មករា','Feb'=>'កុម្ភៈ','Mar'=>'មីនា','Apr'=>'មសា','May'=>'ឧសភា','Jun'=>'មិុនា','Jul'=>'កក្កដា','Aug'=>'សីហា','Sep'=>'កញ្ញា','Oct'=>'ុលា','Nov'=>'វិច្ឆិកា','Dec'=>'ធ្នូ'];
         return $this->khmerDigits($date->format('d')) . '-' . ($months[$date->format('M')] ?? $date->format('M')) . '-' . $this->khmerDigits($date->format('Y'));
     }
 
@@ -1078,7 +1341,7 @@ class ReportsController
             'ភូមិ​ ' . $this->studentIdBookLocationName($student?->birthVillage, 'village_name_en', 'village_name_kh'),
             'ឃុំ ' . $this->studentIdBookLocationName($student?->birthCommune, 'commune_name_en', 'commune_name_kh'),
             'ស្រុក ' . $this->studentIdBookLocationName($student?->birthDistrict, 'district_name_en', 'district_name_kh'),
-            'ខេត្ត-ក្រុង ' . $province,
+            '្-ក្រុង ' . $province,
             '',
         ];
     }
@@ -1087,9 +1350,9 @@ class ReportsController
     {
         return [
             trim(trim((string) $student?->address_house_no_kh) . '     ' . trim((string) $student?->address_street_kh)),
-            'សង្កាត់ ' . trim((string) $student?->addressCommune?->commune_name_kh),
-            'ខណ្ឌ-ស្រុក ' . trim((string) $student?->addressDistrict?->district_name_kh),
-            'ខេត្តក្រុង ' . trim((string) $student?->addressProvince?->province_name_kh),
+            'សង្កា់ ' . trim((string) $student?->addressCommune?->commune_name_kh),
+            'ណ្ឌ-ស្រុក ' . trim((string) $student?->addressDistrict?->district_name_kh),
+            '្ក្រុង ' . trim((string) $student?->addressProvince?->province_name_kh),
         ];
     }
 
@@ -1448,7 +1711,7 @@ class ReportsController
         $classLabel = $first ? ($this->gradeClassLabel($first) ?: 'Selected Class') : 'Selected Class';
         $sessionLabel = $first?->session?->session_name ?: ($first?->session?->session_short_name ?: '');
         $printedAt = now('Asia/Phnom_Penh')->format('n/j/Y g:i:s A');
-        $footerKhmerNote = 'ប្រសិនបើសិស្សគ្មានឈ្មោះក្នុងបញ្ជី ឬគ្មានក្រដាសអនុញ្ញាតឱ្យចូលថ្នាក់ ឬរៀនខុសក្រុម ឬថ្នាក់ មិនអនុញ្ញាតឱ្យចូលក្នុងថ្នាក់ឡើយ ត្រូវបញ្ជូនសិស្សទាំងនោះមកករិយាល័យសិក្សា។';
+        $footerKhmerNote = 'ប្រសិនបើសិស្សគ្មានឈ្មោះក្នុងបញ្ជី ឬគ្មានក្រដាសអនុញ្ញាឱ្យចូល្នាក់ ឬរៀនុសក្រុម ឬ្នាក់ មិនអនុញ្ញាឱ្យចូលក្នុង្នាក់ឡើយ ្រូវបញ្ជូនសិស្សទាំងនោះមកករិយាលយសិក្សា។';
         $footerEnglishNote = "If student's name is not listed, he/she doesn't have an Admission Slip or he/she is in the wrong group, he/she must not be admitted to class.";
         $dateEnd = $this->xlsxColumnName($days + 5);
         $totalStart = $this->xlsxColumnName($days + 6);
@@ -1457,14 +1720,14 @@ class ReportsController
         $rows = [
             $this->xlsxRow(1, [], 12),
             $this->xlsxRow(2, [['AB', 'ព្រះរាជាណាចក្រកម្ពុជា', 13]], 22.8),
-            $this->xlsxRow(3, [['AB', 'ជាតិ សាសនា ព្រះមហាក្សត្រ', 13]], 22.8),
+            $this->xlsxRow(3, [['AB', 'ជាិ សាសនា ព្រះមហាក្ស្រ', 13]], 22.8),
             $this->xlsxRow(4, [['AB', 'KINGDOM OF CAMBODIA', 15]], 15),
             $this->xlsxRow(5, [['AB', 'NATION RELIGION KING', 15]], 15),
-            $this->xlsxRow(6, [['A', 'បញ្ជីសម្រង់វត្តមានសិស្ស', 8]], 36.6),
+            $this->xlsxRow(6, [['A', 'បញ្ជីសម្រង់វ្មានសិស្ស', 8]], 36.6),
             $this->xlsxRow(7, [['A', 'Class Attendance List Grade ' . $classLabel . ' for ' . $reportDate->format('F'), 14]], 23.4),
-            $this->xlsxRow(8, [['B', 'ឈ្មោះគ្រូ', 12], ['H', 'មុខវិជ្ជា', 12], ['R', 'បន្ទប់', 12], ['Z', 'ពេលសិក្សា', 12]], 23.4),
+            $this->xlsxRow(8, [['B', 'ឈ្មោះគ្រូ', 12], ['H', 'មុវិជ្ជា', 12], ['R', 'បន្ទប់', 12], ['Z', 'ពលសិក្សា', 12]], 23.4),
             $this->xlsxRow(9, [['B', 'Teacher : ______________________', 15], ['H', 'Subject : ______________________', 15], ['R', 'Room : ______________________', 15], ['Z', 'Session : ' . ($sessionLabel ?: '-'), 15]], 21.6),
-            $this->xlsxRow(10, [['A', '*ចំណាំ/Note : ✓ = វត្តមាន/Present , T = មកយឺត/Tardy , E = អវត្តមានមានច្បាប់/Excused Absence , U = អវត្តមានគ្មានច្បាប់/Unexcused Absence', 12]], 19.95),
+            $this->xlsxRow(10, [['A', '*ចំណាំ/Note : ✓ = វ្មាន/Present , T = មកយឺ/Tardy , E = អវ្មានមានច្បាប់/Excused Absence , U = អវ្មានគ្មានច្បាប់/Unexcused Absence', 12]], 19.95),
         ];
 
         $headerRow1 = [['A', 'Nº', 26], ['B', 'Name', 26], ['C', 'ID', 26], ['D', 'Gender', 26], ['E', 'Group', 26]];
@@ -1726,13 +1989,13 @@ class ReportsController
     {
         $date = \Carbon\Carbon::parse($reportDate ?: now('Asia/Phnom_Penh')->format('Y-m-d'));
         $digits = fn ($value) => $this->khmerDigits((string) $value);
-        $weekdays = ['អាទិត្យ', 'ចន្ទ', 'អង្គារ', 'ពុធ', 'ព្រហស្បតិ៍', 'សុក្រ', 'សៅរ៍'];
-        $months = ['មករា', 'កុម្ភៈ', 'មីនា', 'មេសា', 'ឧសភា', 'មិថុនា', 'កក្កដា', 'សីហា', 'កញ្ញា', 'តុលា', 'វិច្ឆិកា', 'ធ្នូ'];
+        $weekdays = ['អាទិ្យ', 'ចន្ទ', 'អង្គារ', 'ពុធ', 'ព្រហស្បិ', 'សុក្រ', 'សៅរ'];
+        $months = ['មករា', 'កុម្ភៈ', 'មីនា', 'មសា', 'ឧសភា', 'មិុនា', 'កក្កដា', 'សីហា', 'កញ្ញា', 'ុលា', 'វិច្ឆិកា', 'ធ្នូ'];
         $location = $this->moeysLocation($campus);
 
         return [
-            $this->moeysKhmerLunarDate($date) ?: ('ថ្ងៃ' . $weekdays[$date->dayOfWeek] . ' ព.ស.' . $digits($date->year + 544)),
-            $location . ' ថ្ងៃទី' . $digits($date->day) . ' ខែ' . $months[$date->month - 1] . ' ឆ្នាំ' . $digits($date->year),
+            $this->moeysKhmerLunarDate($date) ?: ('្ងៃ' . $weekdays[$date->dayOfWeek] . ' ព.ស.' . $digits($date->year + 544)),
+            $location . ' ្ងៃទី' . $digits($date->day) . ' ែ' . $months[$date->month - 1] . ' ឆ្នាំ' . $digits($date->year),
         ];
     }
 
@@ -1756,7 +2019,7 @@ const day = Number(process.argv[4]);
 const khmerDigits = (value) => String(value).replace(/[0-9]/g, (digit) => '០១២៣៤៥៦៧៨៩'[digit]);
 const result = momentkh.fromGregorian(year, month, day);
 const lunar = result.khmer;
-process.stdout.write(`ថ្ងៃ${lunar.dayOfWeekName} ${khmerDigits(lunar.day)}${lunar.moonPhaseName} ខែ${lunar.monthName} ឆ្នាំ${lunar.animalYearName} ${lunar.sakName} ព.ស.${khmerDigits(lunar.beYear)}`);
+process.stdout.write(`្ងៃ${lunar.dayOfWeekName} ${khmerDigits(lunar.day)}${lunar.moonPhaseName} ែ${lunar.monthName} ឆ្នាំ${lunar.animalYearName} ${lunar.sakName} ព.ស.${khmerDigits(lunar.beYear)}`);
 JS;
 
         try {
@@ -1817,28 +2080,28 @@ JS;
 
         $level = $filters['id_book_level'] ?? '';
         $gradeRange = match ($level) {
-            'kindergarten' => 'ថ្នាក់មត្តេយ្យ',
-            'secondary' => 'ថ្នាក់ទី' . $this->khmerDigits('7') . ' ដល់ ថ្នាក់ទី' . $this->khmerDigits('12'),
-            default => 'ថ្នាក់ទី' . $this->khmerDigits('1') . ' ដល់ ថ្នាក់ទី' . $this->khmerDigits('6'),
+            'kindergarten' => '្នាក់ម្យ្យ',
+            'secondary' => '្នាក់ទី' . $this->khmerDigits('7') . ' ដល់ ្នាក់ទី' . $this->khmerDigits('12'),
+            default => '្នាក់ទី' . $this->khmerDigits('1') . ' ដល់ ្នាក់ទី' . $this->khmerDigits('6'),
         };
         $schoolLevelPrefix = match ($level) {
-            'kindergarten' => 'សាលាមត្តេយ្យ',
-            'secondary' => 'វិទ្យាល័យ',
+            'kindergarten' => 'សាលាម្យ្យ',
+            'secondary' => 'វិទ្យាលយ',
             default => 'សាលាបឋមសិក្សា',
         };
 
         $startCode = $codes->first();
         $endCode = $codes->last();
         $codeRange = $startCode && $endCode
-            ? 'អត្តលេខពី ' . $this->khmerDigits($startCode) . ' ដល់' . $this->khmerDigits($endCode)
-            : 'អត្តលេខពី ........................ ដល់........................';
+            ? 'អ្លពី ' . $this->khmerDigits($startCode) . ' ដល់' . $this->khmerDigits($endCode)
+            : 'អ្លពី ........................ ដល់........................';
 
         $academicYearText = $academicYear?->academic_year
             ? 'ឆ្នាំសិក្សា ' . $this->khmerDigits($academicYear->academic_year)
             : 'ឆ្នាំសិក្សា ........................';
 
-        $schoolName = trim((string) ($campus?->school_name_kh ?: 'វេស្ទើនអន្តរជាតិ'));
-        $schoolName = trim(preg_replace('/^សាលា/u', '', $schoolName)) ?: 'វេស្ទើនអន្តរជាតិ';
+        $schoolName = trim((string) ($campus?->school_name_kh ?: 'វស្ទើនអន្រជាិ'));
+        $schoolName = trim(preg_replace('/^សាលា/u', '', $schoolName)) ?: 'វស្ទើនអន្រជាិ';
         $campusNameKh = trim((string) ($campus?->campus_name_kh ?: ''));
 
         return [
@@ -1856,30 +2119,30 @@ JS;
     {
         $value = mb_strtolower(($campus?->campus_name_kh ?? '') . ' ' . ($campus?->campus_name_en ?? '') . ' ' . ($campus?->address ?? ''));
         $locations = [
-            ['កំពង់ចាម|kampong cham', 'ខេត្តកំពង់ចាម'],
-            ['ព្រះសីហនុ|sihanoukville|preah sihanouk', 'ខេត្តព្រះសីហនុ'],
-            ['កំពង់ស្ពឺ|kampong speu', 'ខេត្តកំពង់ស្ពឺ'],
-            ['កំពង់ឆ្នាំង|kampong chhnang', 'ខេត្តកំពង់ឆ្នាំង'],
-            ['កំពង់ធំ|kampong thom', 'ខេត្តកំពង់ធំ'],
-            ['កណ្ដាល|កណ្តាល|kandal', 'ខេត្តកណ្ដាល'],
-            ['កោះកុង|koh kong', 'ខេត្តកោះកុង'],
-            ['ក្រចេះ|kratie', 'ខេត្តក្រចេះ'],
-            ['តាកែវ|takeo', 'ខេត្តតាកែវ'],
-            ['បាត់ដំបង|battambang', 'ខេត្តបាត់ដំបង'],
-            ['បន្ទាយមានជ័យ|banteay meanchey', 'ខេត្តបន្ទាយមានជ័យ'],
-            ['ពោធិ៍សាត់|pursat', 'ខេត្តពោធិ៍សាត់'],
-            ['ព្រៃវែង|prey veng', 'ខេត្តព្រៃវែង'],
-            ['សៀមរាប|siem reap', 'ខេត្តសៀមរាប'],
-            ['ស្វាយរៀង|svay rieng', 'ខេត្តស្វាយរៀង'],
-            ['ស្ទឹងត្រែង|stung treng', 'ខេត្តស្ទឹងត្រែង'],
-            ['កំពត|kampot', 'ខេត្តកំពត'],
-            ['ប៉ៃលិន|pailin', 'ខេត្តប៉ៃលិន'],
-            ['ឧត្តរមានជ័យ|oddar meanchey', 'ខេត្តឧត្តរមានជ័យ'],
-            ['មណ្ឌលគិរី|mondulkiri', 'ខេត្តមណ្ឌលគិរី'],
-            ['រតនគិរី|ratanakiri', 'ខេត្តរតនគិរី'],
-            ['ត្បូងឃ្មុំ|tboung khmum', 'ខេត្តត្បូងឃ្មុំ'],
-            ['បឹងឈូក|bch', 'រាជធានីភ្នំពេញ'],
-            ['ភ្នំពេញ|phnom penh|រាជធានី', 'រាជធានីភ្នំពេញ'],
+            ['កំពង់ចាម|kampong cham', '្កំពង់ចាម'],
+            ['ព្រះសីហនុ|sihanoukville|preah sihanouk', '្ព្រះសីហនុ'],
+            ['កំពង់ស្ពឺ|kampong speu', '្កំពង់ស្ពឺ'],
+            ['កំពង់ឆ្នាំង|kampong chhnang', '្កំពង់ឆ្នាំង'],
+            ['កំពង់ធំ|kampong thom', '្កំពង់ធំ'],
+            ['កណ្ដាល|កណ្ាល|kandal', '្កណ្ដាល'],
+            ['កោះកុង|koh kong', '្កោះកុង'],
+            ['ក្រចះ|kratie', '្ក្រចះ'],
+            ['ាកែវ|takeo', '្ាកែវ'],
+            ['បា់ដំបង|battambang', '្បា់ដំបង'],
+            ['បន្ទាយមានជយ|banteay meanchey', '្បន្ទាយមានជយ'],
+            ['ពោធិសា់|pursat', '្ពោធិសា់'],
+            ['ព្រៃវែង|prey veng', '្ព្រៃវែង'],
+            ['សៀមរាប|siem reap', '្សៀមរាប'],
+            ['ស្វាយរៀង|svay rieng', '្ស្វាយរៀង'],
+            ['ស្ទឹង្រែង|stung treng', '្ស្ទឹង្រែង'],
+            ['កំព|kampot', '្កំព'],
+            ['ប៉ៃលិន|pailin', '្ប៉ៃលិន'],
+            ['ឧ្រមានជយ|oddar meanchey', '្ឧ្រមានជយ'],
+            ['មណ្ឌលគិរី|mondulkiri', '្មណ្ឌលគិរី'],
+            ['រនគិរី|ratanakiri', '្រនគិរី'],
+            ['្បូងឃ្មុំ|tboung khmum', '្្បូងឃ្មុំ'],
+            ['បឹងឈូក|bch', 'រាជធានីភ្នំពញ'],
+            ['ភ្នំពញ|phnom penh|រាជធានី', 'រាជធានីភ្នំពញ'],
         ];
         foreach ($locations as [$pattern, $location]) {
             if (preg_match('/' . $pattern . '/iu', $value)) {
@@ -1887,7 +2150,7 @@ JS;
             }
         }
 
-        return 'រាជធានីភ្នំពេញ';
+        return 'រាជធានីភ្នំពញ';
     }
     private function xlsxStyles(): string
     {
@@ -2033,6 +2296,7 @@ JS;
             'period_type' => ['nullable', 'in:all,regular,summer'],
             'campus_id' => ['nullable', 'integer'],
             'id_book_level' => ['nullable', 'in:kindergarten,primary,secondary'],
+            'transcript_level' => ['nullable', 'in:primary,secondary'],
             'withdrawal_status' => ['nullable', 'in:all,pending,principal_approved,approved,rejected,cancelled'],
             'grade_id' => ['nullable', 'integer'],
             'class_id' => ['nullable', 'integer'],
@@ -2042,6 +2306,11 @@ JS;
             'print_format' => ['nullable', 'in:internal,moeys'],
             'print_grade_classes' => ['nullable', 'array'],
             'print_grade_classes.*' => ['string'],
+            'selected_columns_submitted' => ['nullable', 'string'],
+            'selected_columns' => ['nullable', 'array'],
+            'selected_columns.*' => ['string'],
+            'preview_page_size' => ['nullable', 'in:all,25,50,75,100'],
+            'preview_page' => ['nullable', 'integer', 'min:1'],
             'report_date' => ['nullable', 'date'],
             'month' => ['nullable', 'date_format:Y-m'],
             'score_columns' => ['nullable', 'integer', 'min:1', 'max:12'],
@@ -2052,6 +2321,17 @@ JS;
         $filters['score_columns'] = (int) ($filters['score_columns'] ?? 5);
         $filters['print_type'] = $filters['print_type'] ?? 'quarter_1';
         $filters['report_date'] = $filters['report_date'] ?? now()->format('Y-m-d');
+        if ($type === 'moeys-id-number-book') {
+            $availableColumns = array_keys($this->getStudentListColumnDefinitions());
+            $defaultColumns = ['student_id', 'full_name_en', 'gender', 'date_of_birth', 'academic_year', 'campus', 'grade_class', 'group', 'student_type', 'mother_name_en', 'mother_phone', 'father_name_en', 'father_phone'];
+            $submittedColumns = $request->has('selected_columns_submitted') || $request->has('selected_columns');
+            $filters['selected_columns'] = collect($submittedColumns ? ($filters['selected_columns'] ?? []) : $defaultColumns)->intersect($availableColumns)->values()->all();
+            $filters['preview_page_size'] = $filters['preview_page_size'] ?? (string) self::GET_STUDENT_LIST_PREVIEW_DEFAULT_SIZE;
+            $filters['preview_page'] = max(1, (int) ($filters['preview_page'] ?? 1));
+        }
+        if ($type === 'moeys-sikkhakarik-book') {
+            $filters['transcript_level'] = $filters['transcript_level'] ?? '';
+        }
         if ($type === 'withdrawn-students') {
             $filters['withdrawal_status'] = $filters['withdrawal_status'] ?? 'approved';
         }
@@ -2061,6 +2341,7 @@ JS;
                 'enrollments' => collect(),
                 'previewLimit' => null,
                 'hasMorePreviewRows' => false,
+                'studentListPagination' => null,
                 'studentSummary' => $this->emptyStudentListSummary(),
                 'statistics' => null,
                 'hasDataFilter' => false,
@@ -2080,7 +2361,12 @@ JS;
         } elseif (($this->isStudentListReport($type) || $this->isStudentContactListReport($type) || $type === 'attendance-list' || $type === 'score-list') && ($filters['print_scope'] ?? null) === 'all_classes') {
             unset($filters['grade_id'], $filters['class_id'], $filters['grade_class']);
         }
-        if ($type === 'student-id-books-moeys') {
+        if ($type === 'moeys-id-number-book') {
+            $hasDataFilter = filled($filters['academic_year_id'] ?? null);
+        } elseif ($type === 'moeys-sikkhakarik-book') {
+            $hasDataFilter = filled($filters['academic_year_id'] ?? null)
+                && filled($filters['transcript_level'] ?? null);
+        } elseif ($type === 'student-id-books-moeys') {
             unset($filters['grade_id'], $filters['class_id'], $filters['grade_class'], $filters['print_scope'], $filters['print_grade_classes']);
             $hasDataFilter = filled($filters['academic_year_id'] ?? null)
                 && filled($filters['id_book_level'] ?? null)
@@ -2105,14 +2391,48 @@ JS;
         $withdrawalQuery = $type === 'withdrawn-students' && $hasDataFilter ? $this->withdrawals($request, $filters) : null;
         $withdrawals = $withdrawalQuery ? $withdrawalQuery->get() : collect();
         $enrollmentQuery = $hasDataFilter && $type !== 'withdrawn-students' ? $this->enrollments($request, $filters, $type) : null;
-        $enrollments = $enrollmentQuery
-            ? ($preview && ($this->isStudentListReport($type) || $this->isStudentContactListReport($type))
-                ? $enrollmentQuery->limit(self::PREVIEW_LIMIT + 1)->get()
-                : $enrollmentQuery->get())
-            : collect();
-        $hasMorePreviewRows = $preview && ($this->isStudentListReport($type) || $this->isStudentContactListReport($type)) && $enrollments->count() > self::PREVIEW_LIMIT;
-        if ($hasMorePreviewRows) {
-            $enrollments = $enrollments->take(self::PREVIEW_LIMIT);
+        $usesLimitedPreview = $preview && ($this->isStudentListReport($type) || $this->isStudentContactListReport($type));
+        $currentPreviewLimit = self::PREVIEW_LIMIT;
+        $studentListPagination = null;
+        if ($preview && $type === 'moeys-id-number-book' && $enrollmentQuery) {
+            $pageSize = in_array((string) ($filters['preview_page_size'] ?? ''), self::GET_STUDENT_LIST_PREVIEW_SIZES, true)
+                ? (string) $filters['preview_page_size']
+                : (string) self::GET_STUDENT_LIST_PREVIEW_DEFAULT_SIZE;
+            $page = max(1, (int) ($filters['preview_page'] ?? 1));
+            $totalRows = (clone $enrollmentQuery)->count();
+            if ($pageSize === 'all') {
+                $lastPage = 1;
+                $page = 1;
+                $enrollments = $enrollmentQuery->get();
+            } else {
+                $perPage = (int) $pageSize;
+                $lastPage = max(1, (int) ceil($totalRows / $perPage));
+                $page = min($page, $lastPage);
+                $enrollments = $enrollmentQuery->skip(($page - 1) * $perPage)->take($perPage)->get();
+            }
+            $filters['preview_page_size'] = $pageSize;
+            $filters['preview_page'] = $page;
+            $studentListPagination = [
+                'page' => $page,
+                'pageSize' => $pageSize,
+                'perPage' => $pageSize === 'all' ? $totalRows : (int) $pageSize,
+                'total' => $totalRows,
+                'lastPage' => $lastPage,
+                'from' => $totalRows === 0 ? 0 : ($pageSize === 'all' ? 1 : (($page - 1) * (int) $pageSize) + 1),
+                'to' => $totalRows === 0 ? 0 : ($pageSize === 'all' ? $totalRows : min($totalRows, $page * (int) $pageSize)),
+                'sizes' => self::GET_STUDENT_LIST_PREVIEW_SIZES,
+            ];
+            $hasMorePreviewRows = false;
+        } else {
+            $enrollments = $enrollmentQuery
+                ? ($usesLimitedPreview
+                    ? $enrollmentQuery->limit($currentPreviewLimit + 1)->get()
+                    : $enrollmentQuery->get())
+                : collect();
+            $hasMorePreviewRows = $usesLimitedPreview && $enrollments->count() > $currentPreviewLimit;
+            if ($hasMorePreviewRows) {
+                $enrollments = $enrollments->take($currentPreviewLimit);
+            }
         }
         $studentSummary = ($this->isStudentListReport($type) || $this->isStudentContactListReport($type)) && $hasDataFilter
             ? $this->studentListSummary($request, $filters)
@@ -2122,11 +2442,14 @@ JS;
             'filters' => $filters,
             'enrollments' => $enrollments,
             'withdrawals' => $withdrawals,
-            'previewLimit' => $preview && ($this->isStudentListReport($type) || $this->isStudentContactListReport($type)) ? self::PREVIEW_LIMIT : null,
+            'previewLimit' => $usesLimitedPreview ? $currentPreviewLimit : null,
             'hasMorePreviewRows' => $hasMorePreviewRows,
+            'studentListPagination' => $studentListPagination,
             'studentSummary' => $studentSummary,
             'statistics' => $this->isStudentStatisticsReport($type) ? ($hasDataFilter ? ($type === 'student-statistics-detail' ? $this->statisticsDetail($request, $filters) : $this->statistics($request, $filters)) : ($type === 'student-statistics-detail' ? $this->emptyStatisticsDetail() : $this->emptyStatistics())) : null,
             'hasDataFilter' => $hasDataFilter,
+            'selectedColumns' => $type === 'moeys-id-number-book' ? collect($filters['selected_columns'] ?? [])->map(fn ($key) => $this->getStudentListColumnDefinitions()[$key] ?? null)->filter()->values()->all() : [],
+            'studentListColumns' => $type === 'moeys-id-number-book' ? collect($this->getStudentListColumnDefinitions())->groupBy('group')->all() : [],
         ];
     }
 
@@ -2206,8 +2529,8 @@ JS;
 
     private function enrollments(Request $request, array $filters, string $type = 'student-list')
     {
-        $studentRelation = $type === 'student-id-books-moeys'
-            ? 'student:id,student_no,student_id,photo_path,full_name_en,full_name_kh,gender,gender_kh,date_of_birth,birth_country_id,birth_province_id,birth_district_id,birth_commune_id,birth_village_id,address_country_id,address_province_id,address_district_id,address_commune_id,address_village_id,address_house_no_en,address_house_no_kh,address_street_en,address_street_kh,current_address_en,current_address_kh,previous_school'
+        $studentRelation = in_array($type, ['student-id-books-moeys', 'moeys-id-number-book', 'moeys-sikkhakarik-book'], true)
+            ? 'student:id,student_no,student_id,photo_path,family_number,full_name_en,full_name_kh,gender,gender_kh,date_of_birth,nationality_country_id,birth_country_id,birth_province_id,birth_district_id,birth_commune_id,birth_village_id,address_country_id,address_province_id,address_district_id,address_commune_id,address_village_id,address_house_no_en,address_house_no_kh,address_street_en,address_street_kh,current_address_en,current_address_kh,home_phone,email,previous_school,experienced_english,test_result,tested_by,remarks'
             : 'student:id,student_id,full_name_en,full_name_kh,gender,home_phone,email,current_address_en';
         $relations = [
             $studentRelation,
@@ -2222,6 +2545,20 @@ JS;
         if ($type === 'student-contact-list') {
             $relations[] = 'student.contacts';
             $relations[] = 'student.familyMembers:id,phone,relationship_type';
+        }
+        if ($type === 'moeys-id-number-book' || $type === 'moeys-sikkhakarik-book') {
+            $relations[] = 'student.familyMembers:id,full_name_en,full_name_kh,relationship_type,phone,email,occupation,occupation_en,occupation_kh,workplace,nationality_en,nationality_kh';
+            $relations[] = 'student.nationalityCountry:id,country_name_en,country_name_kh,nationality_name_en,nationality_name_kh';
+            $relations[] = 'student.birthCountry:id,country_name_en,country_name_kh';
+            $relations[] = 'student.birthProvince:id,province_name_en,province_name_kh';
+            $relations[] = 'student.birthDistrict:id,district_name_en,district_name_kh';
+            $relations[] = 'student.birthCommune:id,commune_name_en,commune_name_kh';
+            $relations[] = 'student.birthVillage:id,village_name_en,village_name_kh';
+            $relations[] = 'student.addressCountry:id,country_name_en,country_name_kh';
+            $relations[] = 'student.addressProvince:id,province_name_en,province_name_kh';
+            $relations[] = 'student.addressDistrict:id,district_name_en,district_name_kh';
+            $relations[] = 'student.addressCommune:id,commune_name_en,commune_name_kh';
+            $relations[] = 'student.addressVillage:id,village_name_en,village_name_kh';
         }
         if ($type === 'student-id-books-moeys') {
             $relations[] = 'student.familyMembers:id,full_name_en,full_name_kh,relationship_type,occupation,occupation_en,occupation_kh';
@@ -2271,6 +2608,19 @@ JS;
                     });
                 });
             })
+            ->when($type === 'moeys-sikkhakarik-book' && filled($filters['transcript_level'] ?? null), function ($q) use ($filters) {
+                $grades = $this->transcriptBookLevelGrades($filters['transcript_level']);
+                if (!$grades) {
+                    $q->whereRaw('1 = 0');
+                    return;
+                }
+                $q->whereHas('grade', function ($gradeQuery) use ($grades) {
+                    $gradeQuery->whereIn(
+                        DB::raw("UPPER(TRIM(REPLACE(REPLACE(COALESCE(NULLIF(TRIM(grade_short_name), ''), grade), 'Grade', ''), '-', '')))"),
+                        $grades
+                    );
+                });
+            })
             ->when($filters['grade_id'] ?? null, fn ($q, $id) => $q->where('tb_student_enrollment.grade_id', $id))
             ->when($filters['class_id'] ?? null, fn ($q, $id) => $q->where('tb_student_enrollment.class_id', $id))
             ->when($filters['session_id'] ?? null, fn ($q, $id) => $q->where('session_id', $id))
@@ -2282,12 +2632,12 @@ JS;
             })
             ->select('tb_student_enrollment.*')
             ->when(
-                $type === 'student-id-books-moeys',
+                in_array($type, ['student-id-books-moeys', 'student-profile-label', 'moeys-id-number-book', 'moeys-sikkhakarik-book'], true),
                 fn ($q) => $q
                     ->orderByRaw('CAST(COALESCE((SELECT grade_order FROM tb_grade WHERE tb_grade.id = tb_student_enrollment.grade_id), 999) AS UNSIGNED) ASC')
                     ->orderByRaw('CAST(COALESCE((SELECT class_order FROM tb_class WHERE tb_class.id = tb_student_enrollment.class_id), 999) AS UNSIGNED) ASC')
                     ->orderByRaw("COALESCE((SELECT class_name FROM tb_class WHERE tb_class.id = tb_student_enrollment.class_id), '') ASC")
-                    ->orderByRaw("COALESCE(NULLIF(TRIM(tb_student.full_name_kh), ''), tb_student.full_name_en, '') ASC"),
+                    ->orderByRaw(in_array($type, ['student-id-books-moeys', 'moeys-id-number-book', 'moeys-sikkhakarik-book'], true) ? "COALESCE(NULLIF(TRIM(tb_student.full_name_kh), ''), tb_student.full_name_en, '') ASC" : "LOWER(COALESCE(tb_student.full_name_en, '')) ASC"),
                 fn ($q) => $q->when(
                     (($this->isStudentListReport($type) || $this->isStudentContactListReport($type)) && ($filters['print_format'] ?? 'internal') === 'moeys'),
                     fn ($moeysQuery) => $moeysQuery->orderByRaw("COALESCE(NULLIF(TRIM(tb_student.full_name_kh), ''), tb_student.full_name_en, '') ASC"),
@@ -2377,7 +2727,7 @@ JS;
             ->when($filters['class_id'] ?? null, fn ($q, $id) => $q->where('tb_student_enrollment.class_id', $id));
     }
 
-    private function gradeClassOptions(Request $request, array $filters): Collection
+    private function gradeClassOptions(Request $request, array $filters, string $type = 'student-list'): Collection
     {
         if (empty($filters['academic_year_id']) && empty($filters['campus_id'])) {
             return collect();
@@ -2387,6 +2737,17 @@ JS;
         return $this->reportOptionEnrollments($request, $filters)
             ->join('tb_grade', 'tb_grade.id', '=', 'tb_student_enrollment.grade_id')
             ->join('tb_class', 'tb_class.id', '=', 'tb_student_enrollment.class_id')
+            ->when($type === 'moeys-sikkhakarik-book' && filled($filters['transcript_level'] ?? null), function ($query) use ($filters) {
+                $grades = $this->transcriptBookLevelGrades($filters['transcript_level']);
+                if (!$grades) {
+                    $query->whereRaw('1 = 0');
+                    return;
+                }
+                $query->whereIn(
+                    DB::raw("UPPER(TRIM(REPLACE(REPLACE(COALESCE(NULLIF(TRIM(tb_grade.grade_short_name), ''), tb_grade.grade), 'Grade', ''), '-', '')))"),
+                    $grades
+                );
+            })
             ->select('tb_student_enrollment.grade_id', 'tb_student_enrollment.class_id', 'tb_grade.grade', 'tb_grade.grade_short_name', 'tb_class.class_name', 'tb_grade.grade_order', 'tb_class.class_order')
             ->distinct()->orderByRaw('CAST(tb_grade.grade_order AS UNSIGNED)')->orderByRaw('CAST(tb_class.class_order AS UNSIGNED)')->get()
             ->map(fn ($row) => [
@@ -2404,6 +2765,10 @@ JS;
         }
         if ($class === '') {
             return $grade;
+        }
+
+        if (str_ends_with($grade, '-')) {
+            return $grade . $class;
         }
 
         return preg_match('/^[A-Za-z]/', $grade) ? $grade . '-' . $class : $grade . $class;
@@ -2663,3 +3028,4 @@ JS;
         return ['groups' => $groups, 'campuses' => $campuses, 'totals' => $totals];
     }
 }
+

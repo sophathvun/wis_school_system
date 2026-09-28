@@ -6,7 +6,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const reportDate = workspace.dataset.reportDate || '';
     const form = workspace.querySelector('form');
     const periodSelect = form?.querySelector('[data-report-period-select]');
-    const isQuietAttendance = ['attendance-list', 'score-list', 'student-id-books-moeys'].includes(reportType);
+    const isQuietAttendance = ['attendance-list', 'score-list', 'student-id-books-moeys', 'moeys-sikkhakarik-book'].includes(reportType);
+    const requiresManualApply = ['moeys-id-number-book'].includes(reportType);
     let quietRefreshController = null;
 
     const quietRefreshAttendance = async () => {
@@ -40,7 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 previewBody.innerHTML = nextPreviewBody.innerHTML;
             }
 
-            ['reportAcademicYearValue', 'reportIdBookLevelValue', 'reportCampusValue', 'reportGradeClassValue'].forEach((id) => {
+            ['reportAcademicYearValue', 'reportIdBookLevelValue', 'reportTranscriptLevelValue', 'reportCampusValue', 'reportGradeClassValue', 'reportGroupValue'].forEach((id) => {
                 const currentTarget = document.getElementById(id);
                 const nextTarget = doc.getElementById(id);
                 const currentBox = currentTarget?.closest('.report-filter-field')?.querySelector('.report-filter-combobox');
@@ -115,15 +116,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const campusValue = document.getElementById('reportCampusValue');
         const gradeClassValue = document.getElementById('reportGradeClassValue');
         const idBookLevelValue = document.getElementById('reportIdBookLevelValue');
+        const transcriptLevelValue = document.getElementById('reportTranscriptLevelValue');
         const groupValue = document.getElementById('reportGroupValue');
 
         if (academicYearValue) academicYearValue.value = '';
         if (campusValue) campusValue.value = '';
         if (gradeClassValue) gradeClassValue.value = '';
         if (idBookLevelValue) idBookLevelValue.value = '';
+        if (transcriptLevelValue) transcriptLevelValue.value = '';
         if (groupValue) groupValue.value = '';
 
-        quietRefreshAttendance();
+        if (!requiresManualApply) quietRefreshAttendance();
     });
 
     const closeComboboxes = () => document.querySelectorAll('.report-filter-combobox.is-open, .report-class-picker.is-open')
@@ -167,9 +170,13 @@ document.addEventListener('DOMContentLoaded', () => {
             option.addEventListener('click', () => {
                 target.value = option.dataset.value || '';
                 target.dispatchEvent(new Event('change', { bubbles: true }));
+                if (target.id === 'reportTranscriptLevelValue') {
+                    const gradeClassValue = document.getElementById('reportGradeClassValue');
+                    if (gradeClassValue) gradeClassValue.value = '';
+                }
                 syncLabel();
                 box.classList.remove('is-open');
-                if (['reportAcademicYearValue', 'reportIdBookLevelValue', 'reportCampusValue', 'reportGradeClassValue'].includes(target.id)) {
+                if (!requiresManualApply && ['reportAcademicYearValue', 'reportIdBookLevelValue', 'reportTranscriptLevelValue', 'reportCampusValue', 'reportGradeClassValue', 'reportGroupValue'].includes(target.id)) {
                     setTimeout(() => isQuietAttendance ? quietRefreshAttendance() : form?.requestSubmit(), 0);
                 }
             });
@@ -244,7 +251,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    if (!['student-list', 'student-contact-list'].includes(reportType)) {
+    if (!requiresManualApply && !['student-list', 'student-contact-list'].includes(reportType)) {
         form?.querySelectorAll('select[name="academic_year_id"], select[name="campus_id"], select[name="grade_id"], input[name="class_id"], input[name="month"], input[name="report_date"], select[name="print_type"]').forEach((field) => {
             field.addEventListener('change', () => isQuietAttendance ? quietRefreshAttendance() : form?.requestSubmit());
         });
@@ -252,12 +259,105 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.addEventListener('click', () => closeComboboxes());
 
+    let getStudentListFormData = null;
+    if (reportType === 'moeys-id-number-book' && form) {
+        const orderList = form.querySelector('[data-selected-column-order-list]');
+        const columnCheckboxes = [...form.querySelectorAll('input[name="selected_columns[]"]')];
+        const columnLabels = new Map(columnCheckboxes.map((checkbox) => [checkbox.value, checkbox.closest('label')?.textContent.trim() || checkbox.value]));
+        let columnOrder = columnCheckboxes.filter((checkbox) => checkbox.checked).map((checkbox) => checkbox.value);
+        let draggedColumn = null;
+
+        const normalizeColumnOrder = () => {
+            const checkedValues = columnCheckboxes.filter((checkbox) => checkbox.checked).map((checkbox) => checkbox.value);
+            columnOrder = columnOrder.filter((value) => checkedValues.includes(value));
+            checkedValues.forEach((value) => {
+                if (!columnOrder.includes(value)) columnOrder.push(value);
+            });
+        };
+
+        const renderColumnOrder = () => {
+            normalizeColumnOrder();
+            if (!orderList) return;
+            orderList.innerHTML = '';
+            if (columnOrder.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'selected-column-order-empty';
+                empty.textContent = 'No columns selected.';
+                orderList.append(empty);
+                return;
+            }
+
+            columnOrder.forEach((value, index) => {
+                const item = document.createElement('button');
+                item.type = 'button';
+                item.className = 'selected-column-order-item';
+                item.draggable = true;
+                item.dataset.column = value;
+                item.innerHTML = `<span class="selected-column-order-number">${index + 1}</span><i class="ti ti-grip-vertical"></i><span>${columnLabels.get(value) || value}</span>`;
+                item.addEventListener('dragstart', () => {
+                    draggedColumn = value;
+                    item.classList.add('is-dragging');
+                });
+                item.addEventListener('dragend', () => {
+                    draggedColumn = null;
+                    item.classList.remove('is-dragging');
+                });
+                item.addEventListener('dragover', (event) => event.preventDefault());
+                item.addEventListener('drop', (event) => {
+                    event.preventDefault();
+                    if (!draggedColumn || draggedColumn === value) return;
+                    columnOrder = columnOrder.filter((column) => column !== draggedColumn);
+                    const dropIndex = columnOrder.indexOf(value);
+                    columnOrder.splice(dropIndex, 0, draggedColumn);
+                    renderColumnOrder();
+                });
+                orderList.append(item);
+            });
+        };
+
+        getStudentListFormData = () => {
+            normalizeColumnOrder();
+            const data = new FormData(form);
+            data.delete('selected_columns[]');
+            data.set('selected_columns_submitted', '1');
+            columnOrder.forEach((value) => data.append('selected_columns[]', value));
+            return data;
+        };
+
+        columnCheckboxes.forEach((checkbox) => {
+            checkbox.addEventListener('change', renderColumnOrder);
+        });
+
+        form.querySelectorAll('[data-column-search]').forEach((search) => {
+            const card = search.closest('.get-student-list-field-card');
+            const options = [...(card?.querySelectorAll('[data-column-option]') || [])];
+            search.addEventListener('input', () => {
+                const term = search.value.trim().toLowerCase();
+                options.forEach((option) => {
+                    option.hidden = term !== '' && !option.textContent.toLowerCase().includes(term);
+                });
+            });
+        });
+
+        form.addEventListener('submit', (event) => {
+            event.preventDefault();
+            const url = new URL(form.action, window.location.origin);
+            getStudentListFormData().forEach((value, key) => {
+                if (value !== '') url.searchParams.append(key, value);
+            });
+            window.location.href = url.toString();
+        });
+
+        renderColumnOrder();
+    }
+
     const syncActionLink = (link) => {
         if (!link || !form) return;
 
         const url = new URL(link.href);
         url.search = '';
-        new FormData(form).forEach((value, key) => {
+        const data = getStudentListFormData ? getStudentListFormData() : new FormData(form);
+        data.forEach((value, key) => {
             if (value !== '') url.searchParams.append(key, value);
         });
         if (link.dataset.reportPrintMode) {
@@ -268,6 +368,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.querySelectorAll('.report-print-link, .report-excel-link, .report-pdf-link').forEach((link) => {
         link.addEventListener('click', () => syncActionLink(link));
+    });
+
+    document.querySelectorAll('[data-preview-page-size]').forEach((select) => {
+        select.addEventListener('change', () => {
+            const url = select.selectedOptions[0]?.dataset.url;
+            if (url) window.location.href = url;
+        });
+    });
+
+    document.querySelectorAll('[data-preview-goto]').forEach((input) => {
+        input.addEventListener('change', () => {
+            const min = Number(input.min || 1);
+            const max = Number(input.max || 1);
+            const page = Math.min(max, Math.max(min, Number(input.value) || min));
+            input.value = String(page);
+            const template = input.dataset.previewGotoUrl || '';
+            if (template) window.location.href = template.replace('__page__', String(page));
+        });
     });
 
     document.querySelectorAll('.report-pdf-link').forEach((link) => {
@@ -305,7 +423,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    if (!['student-list', 'student-contact-list', 'attendance-list', 'score-list'].includes(reportType)) return;
+    if (!['student-list', 'student-contact-list', 'student-profile-label', 'attendance-list', 'score-list'].includes(reportType)) return;
 
     const select = document.querySelector('select[name="print_grade_classes[]"]');
     const scope = document.querySelector('select[name="print_scope"]');

@@ -13,7 +13,23 @@
 </style></head>
 <body class="{{ $isPdfMode ? 'is-pdf-export' : '' }}" data-report-type="{{ $type }}" data-report-print-format="{{ $filters['print_format'] ?? 'internal' }}" data-report-date="{{ $filters['report_date'] ?? now()->format('Y-m-d') }}" data-report-academic-year="{{ $academicYear?->academic_year ?? '' }}" data-report-campus-kh="{{ $enrollments->first()?->campus?->campus_name_kh ?? $campus?->campus_name_kh ?? '' }}" data-report-campus-en="{{ $enrollments->first()?->campus?->campus_name_en ?? $campus?->campus_name_en ?? '' }}" data-report-campus-address="{{ $enrollments->first()?->campus?->address ?? $campus?->address ?? '' }}">
 @unless($isPdfMode)<div class="toolbar"><button type="button" data-report-action="print">Print</button><button type="button" data-report-action="close">Close</button></div>@endunless
-@if($type === 'student-list')
+@if($type === 'student-profile-label')
+@php
+    $profileLabelGroups = collect($enrollments ?? [])->groupBy(fn ($row) => ($row->grade_id ?: 0) . ':' . ($row->class_id ?: 0));
+@endphp
+@if($profileLabelGroups->isEmpty())
+    <div class="profile-label-print-page">
+        @include('reports._student-profile-label', ['enrollments' => collect()])
+    </div>
+@else
+    @foreach($profileLabelGroups as $profileLabelGroupRows)
+        <div class="profile-label-print-page">
+            @include('reports._student-profile-label', ['enrollments' => $profileLabelGroupRows->values()])
+        </div>
+    @endforeach
+@endif
+<style>@page{size:A4 portrait;margin:8mm}body[data-report-type="student-profile-label"]{background:#fff;color:#000}.profile-label-print-page{page-break-after:always}.profile-label-print-page:last-of-type{page-break-after:auto}.profile-label-print-page .student-profile-label-report{min-width:0;width:100%;padding:0}.profile-label-print-page .profile-label-grid{gap:3.4mm 7mm}.profile-label-print-page .profile-label-item{width:55mm;height:18.5mm;border:1px solid #000}.profile-label-print-page .profile-label-header{margin:0 0 5mm}@media print{.profile-label-print-page{break-after:page}.profile-label-print-page:last-of-type{break-after:auto}.profile-label-item{break-inside:avoid}}</style>
+@elseif($type === 'student-list')
     @include('reports.print-student-list')
 @elseif($type === 'student-contact-list')
     @include('reports.print-student-contact-list')
@@ -27,6 +43,11 @@
     @include('reports._student-id-book-moeys')
 </div>
 <style>@page{size:A4 landscape;margin:5mm 3mm 5mm}body[data-report-type="student-id-books-moeys"]{background:#fff;color:#000}.id-book-print-page .id-book-report{min-width:0;width:100%;overflow:visible}.id-book-print-page .id-book-table{font-size:11px}.id-book-print-page .id-book-table th,.id-book-print-page .id-book-table td{border:.7px solid #222;padding:2px 3px;height:6.8mm}.id-book-print-page .id-book-table th{height:8.8mm}.id-book-print-page .id-book-photo-cell img{width:19mm;height:25.33mm;max-width:100%;aspect-ratio:3/4;object-fit:cover}@media print{.id-book-print-page{padding:0}.id-book-table tr{break-inside:avoid}}</style>
+@elseif($type === 'moeys-sikkhakarik-book')
+<div class="sikkhakarik-print-page">
+    @include('reports._moeys-sikkhakarik-book')
+</div>
+<style>@page{size:A4 landscape;margin:0}body[data-report-type="moeys-sikkhakarik-book"]{background:#fff;color:#000}.sikkhakarik-print-page .sikkhakarik-report{background:#fff;padding:0;gap:0;min-width:0}.sikkhakarik-print-page .sikkhakarik-page{box-shadow:none;width:297mm;height:210mm;min-height:210mm;margin:0;padding:10mm 12mm;break-after:page}.sikkhakarik-print-page .sikkhakarik-page:last-child{break-after:auto}@media print{.sikkhakarik-print-page .sikkhakarik-page{page-break-after:always}.sikkhakarik-print-page .sikkhakarik-page:last-child{page-break-after:auto}}</style>
 @elseif($type === 'withdrawn-students')
 <header class="withdrawn-report-header">
     @if($branding?->report_logo_1_path)

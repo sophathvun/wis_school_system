@@ -1,8 +1,14 @@
 @php
-    $tableReportStubTypes = ['moeys-sikkhakarik-book', 'moeys-id-number-book', 'student-profile-label'];
+    $tableReportStubTypes = ['moeys-sikkhakarik-book'];
 @endphp
 @if($type === 'student-id-books-moeys')
     @include('reports._student-id-book-moeys')
+@elseif($type === 'student-profile-label')
+    @include('reports._student-profile-label')
+@elseif($type === 'moeys-id-number-book')
+    @include('reports._get-student-list')
+@elseif($type === 'moeys-sikkhakarik-book')
+    @include('reports._moeys-sikkhakarik-book')
 @elseif($type === 'withdrawn-students')
 @php
     $withdrawalRows = collect($withdrawals ?? []);
