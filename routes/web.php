@@ -243,6 +243,18 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         'iconImage' => 'images/wmi_logo.png',
         'description' => 'Use this module to manage WMI records and workflows.',
     ])->name('wmi-management.index');
+    Route::view('/student-discipline', 'academic-module-placeholder', [
+        'title' => 'Student Discipline',
+        'pretitle' => 'Student Affairs',
+        'icon' => 'ti-shield-checkered',
+        'description' => 'Use this module to manage student discipline records, actions, and follow-up activities.',
+    ])->name('student-discipline.index');
+    Route::view('/homeroom-activities', 'academic-module-placeholder', [
+        'title' => 'Homeroom Activities',
+        'pretitle' => 'Student Affairs',
+        'icon' => 'ti-home-star',
+        'description' => 'Use this module to manage homeroom activities, student support, and classroom engagement records.',
+    ])->name('homeroom-activities.index');
 
     Route::redirect('/hrm/staff-management', '/settings/users')->name('hrm.staff-management');
     Route::view('/hrm/staff-attendance', 'academic-module-placeholder', [

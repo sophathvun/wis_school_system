@@ -460,6 +460,18 @@
                         <span class="nav-link-title">WMI Management</span>
                     </a>
                 </li>
+                <li class="nav-item {{ request()->routeIs('student-discipline.*') ? 'active' : '' }}">
+                    <a class="nav-link" href="{{ route('student-discipline.index') }}">
+                        <span class="nav-link-icon d-md-none d-lg-inline-block"><i class="ti ti-shield-checkered icon"></i></span>
+                        <span class="nav-link-title">Student Discipline</span>
+                    </a>
+                </li>
+                <li class="nav-item {{ request()->routeIs('homeroom-activities.*') ? 'active' : '' }}">
+                    <a class="nav-link" href="{{ route('homeroom-activities.index') }}">
+                        <span class="nav-link-icon d-md-none d-lg-inline-block"><i class="ti ti-home-star icon"></i></span>
+                        <span class="nav-link-title">Homeroom Activities</span>
+                    </a>
+                </li>
                 @if ($canView('users.view') || $canView('attendance.view'))
                     <li class="nav-item dropdown {{ request()->routeIs('hrm.*') || request()->routeIs('users.*') ? 'active' : '' }}">
                         <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown"
