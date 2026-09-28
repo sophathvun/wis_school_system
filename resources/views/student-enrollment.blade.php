@@ -403,23 +403,23 @@
                                 <div class="col-md-4 premium-floating-field"><label
                                         class="form-label">Village</label><select id="address_village_id"
                                         name="address_village_id" class="form-select"></select></div>
-                                <div class="col-md-3 premium-floating-field"><label class="form-label">House No.
+                                <div class="col-md-4 premium-floating-field"><label class="form-label">House No.
                                         (English)</label><input id="address_house_no_en" name="address_house_no_en"
                                         class="form-control" placeholder=" "></div>
-                                <div class="col-md-3 premium-floating-field"><label class="form-label">House No.
-                                        (Khmer)</label><input id="address_house_no_kh" name="address_house_no_kh"
-                                        class="form-control school-profile-khmer" placeholder=" "></div>
-                                <div class="col-md-3 premium-floating-field"><label class="form-label">Street
+                                <div class="col-md-4 premium-floating-field"><label class="form-label">Street
                                         (English)</label><input id="address_street_en" name="address_street_en"
                                         class="form-control" placeholder=" "></div>
-                                <div class="col-md-3 premium-floating-field"><label class="form-label">Street
-                                        (Khmer)</label><input id="address_street_kh" name="address_street_kh"
-                                        class="form-control school-profile-khmer" placeholder=" "></div>
-                                <div class="col-md-6 premium-floating-field"><label class="form-label">Current Address
+                                <div class="col-md-4 premium-floating-field"><label class="form-label">Current Address
                                         (English)</label>
                                     <textarea id="current_address_en" name="current_address_en" class="form-control" rows="1" readonly></textarea>
                                 </div>
-                                <div class="col-md-6 premium-floating-field"><label class="form-label">Current Address
+                                <div class="col-md-4 premium-floating-field"><label class="form-label">House No.
+                                        (Khmer)</label><input id="address_house_no_kh" name="address_house_no_kh"
+                                        class="form-control school-profile-khmer" placeholder=" "></div>
+                                <div class="col-md-4 premium-floating-field"><label class="form-label">Street
+                                        (Khmer)</label><input id="address_street_kh" name="address_street_kh"
+                                        class="form-control school-profile-khmer" placeholder=" "></div>
+                                <div class="col-md-4 premium-floating-field"><label class="form-label">Current Address
                                         (Khmer)</label>
                                     <textarea id="current_address_kh" name="current_address_kh" class="form-control school-profile-khmer" rows="1"
                                         readonly></textarea>

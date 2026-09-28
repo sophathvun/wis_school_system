@@ -13,7 +13,7 @@
 @endsection
 @section('content')
 @php
-    $reportStubTypes = ['moeys-sikkhakarik-book', 'moeys-id-number-book'];
+    $reportStubTypes = ['moeys-sikkhakarik-book', 'moeys-id-number-book', 'student-profile-label'];
     $reportTypeIcons = [
         'student-list' => 'ti-list-details',
         'student-contact-list' => 'ti-address-book',
@@ -25,8 +25,9 @@
         'student-id-books-moeys' => 'ti-id-badge-2',
         'moeys-sikkhakarik-book' => 'ti-book-2',
         'moeys-id-number-book' => 'ti-address-book',
+        'student-profile-label' => 'ti-tags',
     ];
-    $khmerReportTypeTabs = ['moeys-sikkhakarik-book', 'moeys-id-number-book'];
+    $khmerReportTypeTabs = ['moeys-sikkhakarik-book'];
     $isReportStub = in_array($type, $reportStubTypes, true);
 @endphp
 <div class="row g-3 reports-workspace" data-report-type="{{ $type }}" data-report-date="{{ $filters['report_date'] ?? now()->format('Y-m-d') }}"><div class="col-lg-2 report-tabs-column"><div class="card reports-tabs-card"><div class="card-header reports-tabs-header"><h3 class="card-title">Report Types</h3><button type="button" class="btn btn-icon btn-outline-primary reports-tabs-toggle" aria-expanded="true" aria-controls="reportsTypeList" title="Minimize report types"><i class="ti ti-layout-sidebar-left-collapse"></i></button></div><div class="list-group list-group-flush reports-tabs-list" id="reportsTypeList">@foreach($reportTypes as $key=>$label)<a href="{{ route('reports.index',['type'=>$key]) }}" class="list-group-item list-group-item-action {{ $type===$key?'active':'' }} {{ in_array($key, $khmerReportTypeTabs, true) ? 'report-tab-khmer' : '' }}" data-report-tab-label="{{ $label }}"><i class="ti {{ $reportTypeIcons[$key] ?? 'ti-file-text' }} me-2"></i>{{ $label }}</a>@endforeach</div></div></div><div class="col-lg-10 report-content-column"><div class="card mb-3"><div class="card-header {{ $type === 'student-contact-list' ? 'report-title-header-dark' : '' }}"><h3 class="card-title {{ $type === 'student-id-books-moeys' ? 'student-id-book-title' : '' }}">@if($type === 'student-id-books-moeys')<img src="{{ asset('images/moeys_logo.png') }}" alt="MoEYS" class="student-id-book-title-logo"><span>សៀវភៅចុះអត្តលេខសិស្ស (MoEYS)</span>@else{{ $type === 'student-statistics-detail' ? 'STUDENT STATISTICS (Details)' : $reportTypes[$type] }}@endif</h3></div><form method="get" action="{{ route('reports.index') }}"><input type="hidden" name="type" value="{{ $type }}"><div class="card-body"><div class="{{ ($type === 'student-list' || $type === 'student-contact-list') ? 'report-student-filter-row' : 'row g-3' }}">

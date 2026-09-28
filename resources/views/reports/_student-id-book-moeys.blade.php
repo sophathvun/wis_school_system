@@ -15,14 +15,9 @@
     $familyMember = static function ($student, string $relationship) {
         return $student?->familyMembers?->first(fn ($member) => ($member->relationship_type ?? $member->pivot?->relationship_type) === $relationship);
     };
-    $addressLine = static function ($student) {
-        return trim('ផ្ទះលេខ ' . trim((string) $student?->address_house_no_kh)
-            . '     ផ្លូវ ' . trim((string) $student?->address_street_kh)
-            . '     ក្រុម');
-    };
-    $addressRows = static function ($student) use ($locationName, $addressLine) {
+    $addressRows = static function ($student) use ($locationName) {
         return [
-            'house' => $addressLine($student),
+            'house' => trim(trim((string) $student?->address_house_no_kh) . '     ' . trim((string) $student?->address_street_kh)),
             'commune' => 'សង្កាត់ ' . trim((string) $student?->addressCommune?->commune_name_kh),
             'district' => 'ខណ្ឌ-ស្រុក ' . trim((string) $student?->addressDistrict?->district_name_kh),
             'province' => 'ខេត្តក្រុង ' . trim((string) $student?->addressProvince?->province_name_kh),
@@ -143,7 +138,7 @@
     .id-book-table th:nth-child(10){width:18.7%}
     .id-book-table td:nth-child(1),.id-book-table td:nth-child(2),.id-book-table td:nth-child(4),.id-book-table td:nth-child(5),.id-book-table td:nth-child(10){text-align:center;vertical-align:middle}
     .id-book-photo-cell{text-align:center;vertical-align:middle!important}
-    .id-book-photo-cell img{width:38mm;height:42mm;max-width:100%;object-fit:cover;border-radius:8px}
+    .id-book-photo-cell img{width:36mm;height:48mm;max-width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:8px}
     .id-book-name{text-align:center!important;vertical-align:middle!important;font-weight:600;margin-top:8px}
     .id-book-status-badge{display:inline-block;margin-left:4px;padding:1px 6px;border-radius:999px;background:var(--tblr-primary,#3b73c9);color:#fff;font-size:10px;font-weight:400;line-height:1.3}
     .id-book-status-badge-old{background:var(--tblr-secondary,#667085)}

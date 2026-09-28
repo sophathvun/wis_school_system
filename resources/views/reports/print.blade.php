@@ -26,7 +26,7 @@
 <div class="id-book-print-page">
     @include('reports._student-id-book-moeys')
 </div>
-<style>@page{size:A4 landscape;margin:5mm 3mm 5mm}body[data-report-type="student-id-books-moeys"]{background:#fff;color:#000}.id-book-print-page .id-book-report{min-width:0;width:100%;overflow:visible}.id-book-print-page .id-book-table{font-size:11px}.id-book-print-page .id-book-table th,.id-book-print-page .id-book-table td{border:.7px solid #222;padding:2px 3px;height:6.8mm}.id-book-print-page .id-book-table th{height:8.8mm}.id-book-print-page .id-book-photo-cell img{max-width:25mm;max-height:25mm}@media print{.id-book-print-page{padding:0}.id-book-table tr{break-inside:avoid}}</style>
+<style>@page{size:A4 landscape;margin:5mm 3mm 5mm}body[data-report-type="student-id-books-moeys"]{background:#fff;color:#000}.id-book-print-page .id-book-report{min-width:0;width:100%;overflow:visible}.id-book-print-page .id-book-table{font-size:11px}.id-book-print-page .id-book-table th,.id-book-print-page .id-book-table td{border:.7px solid #222;padding:2px 3px;height:6.8mm}.id-book-print-page .id-book-table th{height:8.8mm}.id-book-print-page .id-book-photo-cell img{width:19mm;height:25.33mm;max-width:100%;aspect-ratio:3/4;object-fit:cover}@media print{.id-book-print-page{padding:0}.id-book-table tr{break-inside:avoid}}</style>
 @elseif($type === 'withdrawn-students')
 <header class="withdrawn-report-header">
     @if($branding?->report_logo_1_path)

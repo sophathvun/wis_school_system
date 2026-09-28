@@ -22,15 +22,16 @@ class ReportsController
 
     private const TYPES = [
         'student-list' => 'Student List',
-        'student-contact-list' => 'Student Contact List',
+        'student-contact-list' => 'Stu. Contact List',
         'score-list' => 'Score List',
         'attendance-list' => 'Attendance List',
-        'student-statistics' => 'Student Statistics (Summary)',
-        'student-statistics-detail' => 'Student Statistics (Details)',
+        'student-statistics' => 'Stu. Statistics (Summary)',
+        'student-statistics-detail' => 'Stu. Statistics (Detail)',
         'withdrawn-students' => 'Withdrawn Students',
-        'student-id-books-moeys' => 'Student ID Books (MoEYS)',
+        'student-id-books-moeys' => 'Stu. ID Book (MoEYS)',
         'moeys-sikkhakarik-book' => 'សៀវភៅសិក្ខាគារិក (MoEYS)',
-        'moeys-id-number-book' => 'សៀវភៅអត្តលេខ (MoEYS)',
+        'moeys-id-number-book' => 'Get Student List',
+        'student-profile-label' => 'Stu. Profile Label',
     ];
 
     public function index(Request $request)
@@ -369,7 +370,7 @@ class ReportsController
 
     private function isReportStub(string $type): bool
     {
-        return in_array($type, ['moeys-sikkhakarik-book', 'moeys-id-number-book'], true);
+        return in_array($type, ['moeys-sikkhakarik-book', 'moeys-id-number-book', 'student-profile-label'], true);
     }
 
     private function classGroups($enrollments): Collection
@@ -398,10 +399,29 @@ class ReportsController
         if ($type === 'student-id-books-moeys') {
             $logoPath = null;
         }
-        $logoExtension = $logoPath ? $this->xlsxImageExtension($logoPath) : null;
         $sheets = $this->reportExcelSheets($payload, $type, (bool) $logoPath);
+        $logoExtension = $logoPath ? $this->xlsxImageExtension($logoPath) : null;
+        $drawingSheetNumbers = [];
+        $imageExtensions = [];
+
+        if ($logoExtension) {
+            $imageExtensions[] = $logoExtension;
+            $drawingSheetNumbers = range(1, max(1, count($sheets)));
+        }
+
+        foreach ($sheets as $index => $sheet) {
+            if (!empty($sheet['photos'])) {
+                $drawingSheetNumbers[] = $index + 1;
+                foreach ($sheet['photos'] as $photo) {
+                    $imageExtensions[] = $photo['extension'] ?? 'png';
+                }
+            }
+        }
+
+        $drawingSheetNumbers = collect($drawingSheetNumbers)->unique()->values()->all();
+        $imageExtensions = collect($imageExtensions)->filter()->unique()->values()->all();
         $entries = [
-            '[Content_Types].xml' => $this->xlsxContentTypes(count($sheets), $logoExtension),
+            '[Content_Types].xml' => $this->xlsxContentTypes(count($sheets), $drawingSheetNumbers, $imageExtensions),
             '_rels/.rels' => $this->xlsxRootRels(),
             'xl/workbook.xml' => $this->xlsxWorkbook($sheets),
             'xl/_rels/workbook.xml.rels' => $this->xlsxWorkbookRels(count($sheets)),
@@ -415,6 +435,14 @@ class ReportsController
                 $entries['xl/worksheets/_rels/sheet' . $sheetNumber . '.xml.rels'] = $this->xlsxWorksheetRels($sheetNumber);
                 $entries['xl/drawings/drawing' . $sheetNumber . '.xml'] = $this->xlsxLogoDrawing($sheetNumber, $sheet['tacteing_col'] ?? 4, $sheet['show_tacteing'] ?? true, $sheet['logo_cx'] ?? 931560, $sheet['logo_cy'] ?? 950000, $sheet['logo_row'] ?? 0, $sheet['logo_row_off'] ?? 217160, $sheet['logo_col_off'] ?? 97140);
                 $entries['xl/drawings/_rels/drawing' . $sheetNumber . '.xml.rels'] = $this->xlsxLogoDrawingRels($logoExtension);
+            } elseif (!empty($sheet['photos'])) {
+                $entries['xl/worksheets/_rels/sheet' . $sheetNumber . '.xml.rels'] = $this->xlsxWorksheetRels($sheetNumber);
+                $entries['xl/drawings/drawing' . $sheetNumber . '.xml'] = $this->xlsxStudentIdBookPhotoDrawing($sheetNumber, $sheet['photos']);
+                $entries['xl/drawings/_rels/drawing' . $sheetNumber . '.xml.rels'] = $this->xlsxStudentIdBookPhotoDrawingRels($sheetNumber, $sheet['photos']);
+
+                foreach ($sheet['photos'] as $photoIndex => $photo) {
+                    $entries['xl/media/' . $this->studentIdBookPhotoMediaName($sheetNumber, $photoIndex, $photo['extension'] ?? 'png')] = file_get_contents($photo['path']);
+                }
             }
         }
 
@@ -438,7 +466,7 @@ class ReportsController
             'xml' => $this->studentIdBookCoverWorksheetXml($cover),
         ]];
         $entries = [
-            '[Content_Types].xml' => $this->xlsxContentTypes(1, null),
+            '[Content_Types].xml' => $this->xlsxContentTypes(1),
             '_rels/.rels' => $this->xlsxRootRels(),
             'xl/workbook.xml' => $this->xlsxWorkbook($sheets),
             'xl/_rels/workbook.xml.rels' => $this->xlsxWorkbookRels(1),
@@ -492,6 +520,7 @@ class ReportsController
                 return [[
                     'name' => 'Student ID Book',
                     'xml' => $this->studentIdBookWorksheetXml(collect()),
+                    'photos' => [],
                     'tacteing_col' => 7,
                     'show_tacteing' => false,
                 ]];
@@ -499,10 +528,13 @@ class ReportsController
 
             $usedNames = [];
             return $groups->map(function ($rows) use (&$usedNames) {
+                $rows = $rows->values();
+                $photos = $this->studentIdBookExcelPhotos($rows);
                 $gradeClass = $this->gradeClassLabel($rows->first()) ?: 'Class';
                 return [
                     'name' => $this->uniqueSheetName($gradeClass, $usedNames),
-                    'xml' => $this->studentIdBookWorksheetXml($rows->values()),
+                    'xml' => $this->studentIdBookWorksheetXml($rows, $photos->isNotEmpty()),
+                    'photos' => $photos->all(),
                     'tacteing_col' => 7,
                     'show_tacteing' => false,
                 ];
@@ -808,7 +840,7 @@ class ReportsController
             . '</worksheet>';
     }
 
-    private function studentIdBookWorksheetXml($enrollments): string
+    private function studentIdBookWorksheetXml($enrollments, bool $hasPhotos = false): string
     {
         $enrollments = collect($enrollments)->values();
         $lastRow = max(2, ($enrollments->count() * 6) + 1);
@@ -913,7 +945,48 @@ class ReportsController
             . $mergeCells
             . '<pageMargins left="0.7" right="0.12" top="0.25" bottom="0.12" header="0.1" footer="0.1"/>'
             . '<pageSetup paperSize="9" orientation="landscape" fitToHeight="0"/>'
+            . ($hasPhotos ? '<drawing r:id="rId1"/>' : '')
             . '</worksheet>';
+    }
+
+    private function studentIdBookExcelPhotos($enrollments): Collection
+    {
+        return collect($enrollments)->values()->map(function ($row, int $index) {
+            $path = $this->studentPhotoLocalPath($row->student?->photo_path);
+
+            if (!$path) {
+                return null;
+            }
+
+            return [
+                'path' => $path,
+                'extension' => $this->xlsxImageExtension($path),
+                'row' => ($index * 6) + 2,
+            ];
+        })->filter()->values();
+    }
+
+    private function studentPhotoLocalPath(?string $photoPath): ?string
+    {
+        $photoPath = trim((string) $photoPath);
+        if ($photoPath === '') {
+            return null;
+        }
+
+        $relativePath = ltrim($photoPath, '/\\');
+        $candidates = [
+            storage_path('app/public/' . $relativePath),
+            public_path('storage/' . $relativePath),
+            public_path($relativePath),
+        ];
+
+        foreach ($candidates as $candidate) {
+            if (is_file($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return null;
     }
 
     private function studentIdBookCoverWorksheetXml(array $cover): string
@@ -923,24 +996,27 @@ class ReportsController
             $this->xlsxRow(2, [['A', 'ព្រះរាជាណាចក្រកម្ពុជា', 13]], 32),
             $this->xlsxRow(3, [['A', 'ជាតិ សាសនា ព្រះមហាក្សត្រ', 13]], 30),
             $this->xlsxRow(4, [['A', '5', 14]], 20),
-            $this->xlsxRow(5, [], 24),
+            $this->xlsxRow(5, [], 12),
             $this->xlsxRow(6, [['A', $cover['educationOffice'] ?? '', 13]], 30),
-            $this->xlsxRow(7, [['A', $cover['schoolName'] ?? '', 13]], 30),
-            $this->xlsxRow(8, [], 32),
-            $this->xlsxRow(9, [['A', 'សៀវភៅចុះអត្តលេខសិស្ស', 8]], 54),
-            $this->xlsxRow(10, [['A', $cover['gradeRange'] ?? '', 13]], 34),
-            $this->xlsxRow(11, [['A', $cover['codeRange'] ?? '', 13]], 32),
-            $this->xlsxRow(12, [['A', $cover['academicYear'] ?? '', 13]], 32),
+            $this->xlsxRow(7, [['A', trim(($cover['schoolLevelPrefix'] ?? '') . ' ' . ($cover['schoolName'] ?? '')), 13]], 26),
+            $this->xlsxRow(8, [['A', $cover['campusNameKh'] ?? '', 13]], 26),
+            $this->xlsxRow(9, [], 26),
+            $this->xlsxRow(10, [], 18),
+            $this->xlsxRow(11, [['A', 'សៀវភៅចុះអត្តលេខសិស្ស', 8]], 54),
+            $this->xlsxRow(12, [], 24),
+            $this->xlsxRow(13, [['A', $cover['gradeRange'] ?? '', 13]], 44),
+            $this->xlsxRow(14, [['A', $cover['codeRange'] ?? '', 13]], 42),
+            $this->xlsxRow(15, [['A', $cover['academicYear'] ?? '', 13]], 38),
         ];
         $mergeRefs = [
             'A1:J1', 'A2:J2', 'A3:J3', 'A4:J4', 'A5:J5',
-            'A6:E6', 'A7:E7', 'A8:J8', 'A9:J9', 'A10:J10', 'A11:J11', 'A12:J12',
+            'A6:E6', 'A7:E7', 'A8:E8', 'A9:J9', 'A10:J10', 'A11:J11', 'A12:J12', 'A13:J13', 'A14:J14', 'A15:J15',
         ];
         $mergeCells = '<mergeCells count="' . count($mergeRefs) . '">' . collect($mergeRefs)->map(fn ($ref) => '<mergeCell ref="' . $ref . '"/>')->implode('') . '</mergeCells>';
 
         return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             . '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
-            . '<dimension ref="A1:J12"/>'
+            . '<dimension ref="A1:J15"/>'
             . '<sheetViews><sheetView workbookViewId="0"/></sheetViews>'
             . '<sheetFormatPr defaultRowHeight="24"/>'
             . '<cols><col min="1" max="10" width="13" customWidth="1"/></cols>'
@@ -1009,12 +1085,8 @@ class ReportsController
 
     private function studentIdBookAddressRows($student): array
     {
-        $house = trim('ផ្ទះលេខ ' . trim((string) $student?->address_house_no_kh)
-            . '     ផ្លូវ ' . trim((string) $student?->address_street_kh)
-            . '     ក្រុម');
-
         return [
-            $house,
+            trim(trim((string) $student?->address_house_no_kh) . '     ' . trim((string) $student?->address_street_kh)),
             'សង្កាត់ ' . trim((string) $student?->addressCommune?->commune_name_kh),
             'ខណ្ឌ-ស្រុក ' . trim((string) $student?->addressDistrict?->district_name_kh),
             'ខេត្តក្រុង ' . trim((string) $student?->addressProvince?->province_name_kh),
@@ -1566,21 +1638,29 @@ class ReportsController
         return $name;
     }
 
-    private function xlsxContentTypes(int $sheetCount = 1, ?string $logoExtension = null): string
+    private function xlsxContentTypes(int $sheetCount = 1, array $drawingSheetNumbers = [], array $imageExtensions = []): string
     {
         $worksheetOverrides = collect(range(1, max(1, $sheetCount)))
             ->map(fn ($index) => '<Override PartName="/xl/worksheets/sheet' . $index . '.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>')
             ->implode('');
-        $drawingOverrides = $logoExtension
-            ? collect(range(1, max(1, $sheetCount)))
+        $drawingOverrides = $drawingSheetNumbers
+            ? collect($drawingSheetNumbers)
                 ->map(fn ($index) => '<Override PartName="/xl/drawings/drawing' . $index . '.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>')
                 ->implode('')
             : '';
-        $imageDefault = match ($logoExtension) {
-            'jpg', 'jpeg' => '<Default Extension="jpeg" ContentType="image/jpeg"/><Default Extension="jpg" ContentType="image/jpeg"/>',
-            'gif' => '<Default Extension="gif" ContentType="image/gif"/>',
-            default => $logoExtension ? '<Default Extension="png" ContentType="image/png"/>' : '',
-        };
+        $imageDefault = collect($imageExtensions)
+            ->flatMap(function ($extension) {
+                return match (strtolower((string) $extension)) {
+                    'jpg', 'jpeg' => [
+                        '<Default Extension="jpeg" ContentType="image/jpeg"/>',
+                        '<Default Extension="jpg" ContentType="image/jpeg"/>',
+                    ],
+                    'gif' => ['<Default Extension="gif" ContentType="image/gif"/>'],
+                    default => ['<Default Extension="png" ContentType="image/png"/>'],
+                };
+            })
+            ->unique()
+            ->implode('');
 
         return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             . '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
@@ -1741,6 +1821,11 @@ JS;
             'secondary' => 'ថ្នាក់ទី' . $this->khmerDigits('7') . ' ដល់ ថ្នាក់ទី' . $this->khmerDigits('12'),
             default => 'ថ្នាក់ទី' . $this->khmerDigits('1') . ' ដល់ ថ្នាក់ទី' . $this->khmerDigits('6'),
         };
+        $schoolLevelPrefix = match ($level) {
+            'kindergarten' => 'សាលាមត្តេយ្យ',
+            'secondary' => 'វិទ្យាល័យ',
+            default => 'សាលាបឋមសិក្សា',
+        };
 
         $startCode = $codes->first();
         $endCode = $codes->last();
@@ -1752,14 +1837,15 @@ JS;
             ? 'ឆ្នាំសិក្សា ' . $this->khmerDigits($academicYear->academic_year)
             : 'ឆ្នាំសិក្សា ........................';
 
-        $schoolName = trim((string) ($campus?->school_name_kh ?: $campus?->campus_name_kh ?: 'វេស្ទើនអន្តរជាតិ'));
-        if (!str_starts_with($schoolName, 'សាលា')) {
-            $schoolName = 'សាលា' . $schoolName;
-        }
+        $schoolName = trim((string) ($campus?->school_name_kh ?: 'វេស្ទើនអន្តរជាតិ'));
+        $schoolName = trim(preg_replace('/^សាលា/u', '', $schoolName)) ?: 'វេស្ទើនអន្តរជាតិ';
+        $campusNameKh = trim((string) ($campus?->campus_name_kh ?: ''));
 
         return [
             'educationOffice' => 'មន្ទីរអប់រំ យុវជន និង កីឡា ' . $this->moeysLocation($campus),
+            'schoolLevelPrefix' => $schoolLevelPrefix,
             'schoolName' => $schoolName,
+            'campusNameKh' => $campusNameKh,
             'gradeRange' => $gradeRange,
             'codeRange' => $codeRange,
             'academicYear' => $academicYearText,
@@ -1830,6 +1916,38 @@ JS;
     private function xlsxLogoDrawingRels(string $logoExtension): string
     {
         return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/report-logo.' . $logoExtension . '"/></Relationships>';
+    }
+
+    private function xlsxStudentIdBookPhotoDrawing(int $sheetNumber, array $photos): string
+    {
+        $anchors = collect($photos)->map(function ($photo, int $index) use ($sheetNumber) {
+            $row = max(1, (int) ($photo['row'] ?? 2)) - 1;
+            $relationshipId = 'rId' . ($index + 1);
+            $pictureId = ($sheetNumber * 1000) + $index + 1;
+
+            return '<xdr:oneCellAnchor>'
+                . '<xdr:from><xdr:col>2</xdr:col><xdr:colOff>365760</xdr:colOff><xdr:row>' . $row . '</xdr:row><xdr:rowOff>91440</xdr:rowOff></xdr:from>'
+                . '<xdr:ext cx="960120" cy="1280160"/>'
+                . '<xdr:pic><xdr:nvPicPr><xdr:cNvPr id="' . $pictureId . '" name="Student Photo ' . ($index + 1) . '"/><xdr:cNvPicPr/></xdr:nvPicPr>'
+                . '<xdr:blipFill><a:blip xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:embed="' . $relationshipId . '"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill>'
+                . '<xdr:spPr><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:oneCellAnchor>';
+        })->implode('');
+
+        return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">' . $anchors . '</xdr:wsDr>';
+    }
+
+    private function xlsxStudentIdBookPhotoDrawingRels(int $sheetNumber, array $photos): string
+    {
+        $relationships = collect($photos)->map(function ($photo, int $index) use ($sheetNumber) {
+            return '<Relationship Id="rId' . ($index + 1) . '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/' . $this->studentIdBookPhotoMediaName($sheetNumber, $index, $photo['extension'] ?? 'png') . '"/>';
+        })->implode('');
+
+        return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' . $relationships . '</Relationships>';
+    }
+
+    private function studentIdBookPhotoMediaName(int $sheetNumber, int $photoIndex, string $extension): string
+    {
+        return 'student-id-book-photo-' . $sheetNumber . '-' . ($photoIndex + 1) . '.' . strtolower($extension ?: 'png');
     }
 
     private function xlsxImageExtension(string $path): string

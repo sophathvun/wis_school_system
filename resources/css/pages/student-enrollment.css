@@ -1928,14 +1928,19 @@
 }
 
 @media (min-width: 992px) {
-    #addressFields > :nth-child(-n + 5) {
+    #addressFields > :nth-child(-n + 5),
+    #addressFields > :nth-child(6),
+    #addressFields > :nth-child(7),
+    #addressFields > :nth-child(9),
+    #addressFields > :nth-child(10) {
         flex: 0 0 20%;
         max-width: 20%;
     }
 
-    #addressFields > :nth-child(n + 6):nth-child(-n + 9) {
-        flex: 0 0 20%;
-        max-width: 20%;
+    #addressFields > :nth-child(8),
+    #addressFields > :nth-child(11) {
+        flex: 0 0 60%;
+        max-width: 60%;
     }
 }
 /* Student enrollment list: keep filters/search and table headers tidy on desktop. */
