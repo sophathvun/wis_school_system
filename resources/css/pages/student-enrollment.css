@@ -2142,3 +2142,21 @@
     }
 }
 
+
+#enrollmentModal .enrollment-invalid-control,
+#enrollmentModal .is-invalid.location-combobox-toggle,
+#enrollmentModal .is-invalid.phone-input-group {
+    border-color: var(--tblr-danger) !important;
+    box-shadow: 0 0 0 3px rgba(var(--tblr-danger-rgb), .14) !important;
+}
+
+#enrollmentModal .phone-input-group.enrollment-invalid-control .iti,
+#enrollmentModal .phone-input-group.is-invalid .iti {
+    border-color: var(--tblr-danger) !important;
+}
+
+#enrollmentModal .enrollment-field-error {
+    width: 100%;
+    font-weight: 600;
+    line-height: 1.35;
+}

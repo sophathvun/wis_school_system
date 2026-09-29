@@ -1157,6 +1157,10 @@
     grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.summer-address-wide-field {
+    grid-column: span 3;
+}
+
 .summer-family-grid {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1340,6 +1344,10 @@
     .summer-five-column-row,
     .summer-four-column-row {
         grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .summer-address-wide-field {
+        grid-column: 1 / -1;
     }
 
     .summer-family-grid {

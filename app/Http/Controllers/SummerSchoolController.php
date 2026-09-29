@@ -78,6 +78,33 @@ class SummerSchoolController
         return str_pad((string) ($max + 1), 8, '0', STR_PAD_LEFT);
     }
 
+    private function nextSummerStudentId(AcademicYear $academicYear, int $gradeId): string
+    {
+        $yearText = (string) $academicYear->academic_year;
+        preg_match('/(20\d{2}|\d{4})/', $yearText, $yearMatches);
+        $year = $yearMatches[1] ?? now('Asia/Phnom_Penh')->format('Y');
+        $yearCode = substr($year, -2);
+
+        $grade = Grade::findOrFail($gradeId);
+        $gradeText = trim((string) ($grade->grade_short_name ?? $grade->grade));
+        preg_match('/\d+/', $gradeText, $gradeMatches);
+        $gradeNumber = (int) ($gradeMatches[0] ?? $grade->grade_order ?? $gradeId);
+        $gradeCode = str_pad((string) $gradeNumber, 2, '0', STR_PAD_LEFT);
+        $prefix = 'S' . $yearCode . $gradeCode;
+
+        $maxSequence = (int) Student::query()
+            ->where('student_id', 'like', $prefix . '%')
+            ->lockForUpdate()
+            ->selectRaw('MAX(CAST(SUBSTRING(student_id, ?) AS UNSIGNED)) as max_sequence', [strlen($prefix) + 1])
+            ->value('max_sequence');
+
+        do {
+            $studentId = $prefix . str_pad((string) (++$maxSequence), 3, '0', STR_PAD_LEFT);
+        } while (Student::where('student_id', $studentId)->exists());
+
+        return $studentId;
+    }
+
     public function studentOptions()
     {
         return response()->json(StudentEnrollment::with([
@@ -196,7 +223,7 @@ class SummerSchoolController
             'student_record_id' => ['nullable', 'exists:tb_student,id', 'required_if:enrollment_origin,internal'],
             'external_student_id' => ['nullable', 'string', 'max:60'],
             'student_no' => ['nullable', 'string', 'max:60'],
-            'student_id' => ['required_if:enrollment_origin,external', 'nullable', 'string', 'max:60', Rule::unique('tb_student', 'student_id')],
+            'student_id' => ['nullable', 'string', 'max:60'],
             'existing_family_number' => ['nullable', 'string', 'max:80'],
             'family_number' => ['nullable', 'string', 'max:80'],
             'full_name_en' => ['required_if:enrollment_origin,external', 'nullable', 'string', 'max:160'],
@@ -275,9 +302,10 @@ class SummerSchoolController
             if ($data['enrollment_origin'] === 'internal') {
                 $student = Student::findOrFail($data['student_record_id']);
             } else {
+                $summerStudentId = $this->nextSummerStudentId($academicYear, (int) $data['grade_id']);
                 $student = Student::create([
                     'student_no' => $this->nextStudentNumber(),
-                    'student_id' => $data['student_id'],
+                    'student_id' => $summerStudentId,
                     'full_name_en' => $data['full_name_en'],
                     'full_name_kh' => $data['full_name_kh'] ?? null,
                     'gender' => $data['gender'] ?? null,
@@ -309,7 +337,7 @@ class SummerSchoolController
                     'address_street_kh' => $data['address_street_kh'] ?? null,
                     'current_address_en' => $data['current_address_en'] ?? null,
                     'current_address_kh' => $data['current_address_kh'] ?? null,
-                    'family_number' => $data['existing_family_number'] ?: ($data['family_number'] ?: 'F' . $data['student_id']),
+                    'family_number' => $data['existing_family_number'] ?: ($data['family_number'] ?: 'F' . $summerStudentId),
                     'status' => 1,
                 ]);
                 if ($request->hasFile('photo')) {

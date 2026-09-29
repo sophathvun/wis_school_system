@@ -1466,10 +1466,181 @@ const populateSelectedFamily = () => {
 
 const alertError = (message) => {
     const alert = form.querySelector("[data-alert]");
-    alert.textContent = message || "Please correct the errors below.";
+    const text = message || "Please correct the errors below.";
+    alert.textContent = text;
     alert.classList.remove("d-none");
+    showError("Unable to create enrollment", text);
 };
 
+const enrollmentRequiredFields = [
+    { name: "student_id", label: "Student ID" },
+    { name: "full_name_en", label: "Full Name (English)" },
+    { name: "academic_year_id", label: "Academic Year" },
+    { name: "campus_id", label: "Campus" },
+    { name: "grade_id", label: "Grade" },
+    { name: "class_id", label: "Class" },
+    {
+        name: "academic_track_id",
+        label: "Academic Track",
+        when: () => !field("academic_track_field")?.classList.contains("d-none"),
+    },
+    { name: "session_id", label: "Group" },
+    { name: "mother_name_en", label: "Mother Full Name (English)" },
+    { name: "mother_phone", visibleId: "mother_phone_number", label: "Mother Phone Number" },
+    { name: "father_name_en", label: "Father Full Name (English)" },
+    { name: "father_phone", visibleId: "father_phone_number", label: "Father Phone Number" },
+];
+
+const enrollmentFieldLabelMap = Object.fromEntries(
+    enrollmentRequiredFields.map((item) => [item.name, item.label]),
+);
+enrollmentFieldLabelMap.student_no = "Student No.";
+enrollmentFieldLabelMap.enrollment_id = "Enrollment";
+
+const enrollmentValidationWrapper = (control) =>
+    control?.closest(".premium-floating-field, [class*='col-']") || control?.parentElement;
+
+const enrollmentVisualControl = (control) => {
+    if (!control) return null;
+    const wrapper = enrollmentValidationWrapper(control);
+    if (control.classList.contains("d-none")) {
+        return wrapper?.querySelector(".location-combobox-toggle") || wrapper?.querySelector(".location-combobox") || control;
+    }
+    return wrapper?.querySelector(".phone-input-group") || control;
+};
+const applyEnrollmentInvalidStyle = (element) => {
+    if (!element) return;
+    element.style.setProperty("border-color", "#d63939", "important");
+    element.style.setProperty("box-shadow", "0 0 0 3px rgba(214, 57, 57, .18)", "important");
+    element.querySelectorAll(".iti, .form-control, .location-combobox-toggle").forEach((child) => {
+        child.style.setProperty("border-color", "#d63939", "important");
+        child.style.setProperty("box-shadow", "0 0 0 3px rgba(214, 57, 57, .18)", "important");
+    });
+};
+
+const clearEnrollmentInvalidStyle = (element) => {
+    if (!element) return;
+    element.style.removeProperty("border-color");
+    element.style.removeProperty("box-shadow");
+    element.querySelectorAll(".iti, .form-control, .location-combobox-toggle").forEach((child) => {
+        child.style.removeProperty("border-color");
+        child.style.removeProperty("box-shadow");
+    });
+};
+
+
+const clearEnrollmentValidation = () => {
+    form.querySelectorAll(".enrollment-field-error").forEach((node) => node.remove());
+    form.querySelectorAll(".is-invalid, .enrollment-invalid-control").forEach((node) => {
+        node.classList.remove("is-invalid", "enrollment-invalid-control");
+        node.removeAttribute("aria-invalid");
+        clearEnrollmentInvalidStyle(node);
+    });
+    const alert = form.querySelector("[data-alert]");
+    alert?.classList.add("d-none");
+    if (alert) alert.textContent = "";
+};
+
+const showEnrollmentFieldError = (name, message) => {
+    const visibleId = enrollmentRequiredFields.find((item) => item.name === name)?.visibleId;
+    const control = visibleId ? field(visibleId) : form.elements[name] || field(name);
+    if (!control) return;
+    const wrapper = enrollmentValidationWrapper(control);
+    const visual = enrollmentVisualControl(control);
+    visual?.classList.add("is-invalid", "enrollment-invalid-control");
+    visual?.setAttribute("aria-invalid", "true");
+    applyEnrollmentInvalidStyle(visual);
+    if (control !== visual) {
+        control.classList.add("is-invalid");
+        control.setAttribute("aria-invalid", "true");
+    }
+    if (!wrapper?.querySelector(`.enrollment-field-error[data-error-for="${name}"]`)) {
+        const error = document.createElement("div");
+        error.className = "enrollment-field-error text-danger small mt-1";
+        error.dataset.errorFor = name;
+        error.textContent = message;
+        wrapper?.appendChild(error);
+    }
+};
+
+const focusEnrollmentValidationField = (name) => {
+    const visibleId = enrollmentRequiredFields.find((item) => item.name === name)?.visibleId;
+    const control = visibleId ? field(visibleId) : form.elements[name] || field(name);
+    const visual = enrollmentVisualControl(control) || control;
+    visual?.scrollIntoView({ behavior: "smooth", block: "center" });
+    setTimeout(() => {
+        if (visual?.matches("button")) visual.focus();
+        else control?.focus?.({ preventScroll: true });
+    }, 250);
+};
+
+const showEnrollmentValidationSummary = (missingLabels, title = "Please fill required fields") => {
+    const uniqueLabels = [...new Set(missingLabels.filter(Boolean))];
+    const html = uniqueLabels.length
+        ? `<div class="text-start"><div class="mb-2">Please complete these fields:</div><ul class="mb-0 ps-3">${uniqueLabels.map((label) => `<li>${escapeHtml(label)}</li>`).join("")}</ul></div>`
+        : "Please correct the highlighted fields.";
+    if (window.Swal) {
+        window.Swal.fire({
+            icon: "warning",
+            title,
+            html,
+            confirmButtonText: "OK",
+            customClass: { popup: "school-swal school-swal-sm" },
+        });
+    } else {
+        showError(title, uniqueLabels.join(", ") || "Please correct the highlighted fields.");
+    }
+};
+
+const displayEnrollmentValidationErrors = (errors = {}, fallbackMessage = "Please correct the errors below.") => {
+    clearEnrollmentValidation();
+    const entries = Object.entries(errors || {});
+    if (!entries.length) {
+        alertError(fallbackMessage);
+        return false;
+    }
+    const labels = [];
+    let firstName = null;
+    entries.forEach(([name, messages]) => {
+        const message = Array.isArray(messages) ? messages[0] : messages;
+        const label = enrollmentFieldLabelMap[name] || name.replace(/_/g, " ");
+        labels.push(label);
+        if (!firstName) firstName = name;
+        showEnrollmentFieldError(name, message || `${label} is required.`);
+    });
+    const alert = form.querySelector("[data-alert]");
+    if (alert) {
+        alert.textContent = fallbackMessage;
+        alert.classList.remove("d-none");
+    }
+    showEnrollmentValidationSummary(labels);
+    if (firstName) focusEnrollmentValidationField(firstName);
+    return false;
+};
+
+const validateEnrollmentRequiredFields = () => {
+    clearEnrollmentValidation();
+    syncFamilyPhoneValues();
+    syncHomePhoneValue();
+    const missing = [];
+    enrollmentRequiredFields.forEach((item) => {
+        if (item.when && !item.when()) return;
+        const visibleControl = item.visibleId ? field(item.visibleId) : null;
+        const value = (visibleControl?.value || form.elements[item.name]?.value || field(item.name)?.value || "").trim();
+        if (value) return;
+        missing.push(item);
+        showEnrollmentFieldError(item.name, `${item.label} is required.`);
+    });
+    if (!missing.length) return true;
+    const alert = form.querySelector("[data-alert]");
+    if (alert) {
+        alert.textContent = "Please fill in all required fields.";
+        alert.classList.remove("d-none");
+    }
+    showEnrollmentValidationSummary(missing.map((item) => item.label));
+    focusEnrollmentValidationField(missing[0].name);
+    return false;
+};
 const setOptions = (id, list, label, empty) => {
     const select = field(id);
     if (!select) return;
@@ -2878,6 +3049,70 @@ const setAddressOptions = (type, items) => {
     setAddressSelectedText(type);
 };
 const updateCurrentAddress = () => {
+    const selectedAddressOption = (id) => field(id)?.selectedOptions?.[0];
+    const selectedAddressText = (id, language = "en") => selectedAddressOption(id)?.dataset?.[language] || "";
+    const selectedProvinceEn = selectedAddressText("address_province_id", "en");
+    const selectedProvinceKh = selectedAddressText("address_province_id", "kh");
+    const isPhnomPenhAddress = /phnom\s*penh/i.test(selectedProvinceEn) || /ភ្នំពេញ|រាជធានី/.test(selectedProvinceKh);
+    const cleanEnglishLocationName = (value, prefixes = []) => {
+        let text = String(value || "").trim();
+        prefixes.forEach((prefix) => {
+            text = text.replace(new RegExp(`^${prefix}\\.?\\s*`, "i"), "").trim();
+        });
+        return text;
+    };
+    const cleanKhmerLocationName = (value, prefixes = []) => {
+        let text = String(value || "").trim();
+        prefixes.forEach((prefix) => {
+            text = text.replace(new RegExp(`^${prefix}\\s*`), "").trim();
+        });
+        return text;
+    };
+    const withEnglishHouseLabel = (value) => {
+        const text = cleanEnglishLocationName(value, ["House No", "House", "No", "#"]);
+        return text ? `#${text}` : "";
+    };
+    const withEnglishStreetLabel = (value) => {
+        const text = cleanEnglishLocationName(value, ["Street", "St"]);
+        return text ? `St. ${text}` : "";
+    };
+    const withEnglishLocationLabel = (type, value) => {
+        const text = cleanEnglishLocationName(value, [
+            "Phum",
+            "Village",
+            "Khum",
+            "Commune",
+            "SK",
+            "Sangkat",
+            "Sruk",
+            "Srok",
+            "District",
+            "Khan",
+        ]);
+        if (!text) return "";
+        if (type === "village") return `Phum ${text}`;
+        if (type === "commune") return `${isPhnomPenhAddress ? "SK." : "Khum"} ${text}`;
+        if (type === "district") return `${isPhnomPenhAddress ? "Khan" : "Sruk"} ${text}`;
+        return text;
+    };
+    const withKhmerLocationLabel = (type, value) => {
+        const text = cleanKhmerLocationName(value, [
+            "ភូមិ",
+            "ឃុំ",
+            "សង្កាត់",
+            "ស្រុក",
+            "ខណ្ឌ",
+            "ក្រុង",
+            "ខេត្ត",
+            "រាជធានី",
+        ]);
+        if (!text) return "";
+        if (type === "village") return `ភូមិ${text}`;
+        if (type === "commune") return `${isPhnomPenhAddress ? "សង្កាត់" : "ឃុំ"}${text}`;
+        if (type === "district") return `${isPhnomPenhAddress ? "ខណ្ឌ" : "ស្រុក"}${text}`;
+        if (type === "province") return `${isPhnomPenhAddress ? "រាជធានី" : "ខេត្ត"}${text}`;
+        return text;
+    };
     const enParts = [
         "address_house_no_en",
         "address_street_en",
@@ -2887,11 +3122,17 @@ const updateCurrentAddress = () => {
         "address_province_id",
         "address_country_id",
     ]
-        .map((id) =>
-            field(id)?.tagName === "SELECT"
-                ? field(id)?.selectedOptions?.[0]?.dataset.en
-                : field(id)?.value,
-        )
+        .map((id) => {
+            if (field(id)?.tagName !== "SELECT") {
+                if (id === "address_house_no_en") return withEnglishHouseLabel(field(id)?.value);
+                if (id === "address_street_en") return withEnglishStreetLabel(field(id)?.value);
+                return field(id)?.value;
+            }
+            if (id === "address_village_id") return withEnglishLocationLabel("village", selectedAddressText(id, "en"));
+            if (id === "address_commune_id") return withEnglishLocationLabel("commune", selectedAddressText(id, "en"));
+            if (id === "address_district_id") return withEnglishLocationLabel("district", selectedAddressText(id, "en"));
+            return selectedAddressText(id, "en");
+        })
         .filter(Boolean);
     const khParts = [
         "address_house_no_kh",
@@ -2902,14 +3143,17 @@ const updateCurrentAddress = () => {
         "address_province_id",
         "address_country_id",
     ]
-        .map((id) =>
-            field(id)?.tagName === "SELECT"
-                ? field(id)?.selectedOptions?.[0]?.dataset.kh
-                : field(id)?.value,
-        )
+        .map((id) => {
+            if (field(id)?.tagName !== "SELECT") return field(id)?.value;
+            if (id === "address_village_id") return withKhmerLocationLabel("village", selectedAddressText(id, "kh"));
+            if (id === "address_commune_id") return withKhmerLocationLabel("commune", selectedAddressText(id, "kh"));
+            if (id === "address_district_id") return withKhmerLocationLabel("district", selectedAddressText(id, "kh"));
+            if (id === "address_province_id") return withKhmerLocationLabel("province", selectedAddressText(id, "kh"));
+            return selectedAddressText(id, "kh");
+        })
         .filter(Boolean);
     field("current_address_en").value = enParts.join(", ");
-    field("current_address_kh").value = khParts.join(", ");
+    field("current_address_kh").value = khParts.join(" ");
 };
 const filterAddressLocations = (type) => {
     const index = addressFields.indexOf(type);
@@ -4234,12 +4478,32 @@ const loadEnrollmentDocuments = async (studentId) => {
             '<tr><td colspan="6" class="text-center text-danger py-4">Unable to load submitted documents.</td></tr>';
     }
 };
+form.addEventListener("input", (event) => {
+    if (!event.target.closest("#enrollmentModal")) return;
+    const wrapper = enrollmentValidationWrapper(event.target);
+    wrapper?.querySelectorAll(".enrollment-field-error").forEach((node) => node.remove());
+    const visual = enrollmentVisualControl(event.target);
+    visual?.classList.remove("is-invalid", "enrollment-invalid-control");
+    clearEnrollmentInvalidStyle(visual);
+    event.target.classList.remove("is-invalid", "enrollment-invalid-control");
+    clearEnrollmentInvalidStyle(event.target);
+    event.target.removeAttribute("aria-invalid");
+});
+
+form.addEventListener("change", (event) => {
+    if (!event.target.closest("#enrollmentModal")) return;
+    const wrapper = enrollmentValidationWrapper(event.target);
+    wrapper?.querySelectorAll(".enrollment-field-error").forEach((node) => node.remove());
+    const visual = enrollmentVisualControl(event.target);
+    visual?.classList.remove("is-invalid", "enrollment-invalid-control");
+    clearEnrollmentInvalidStyle(visual);
+    event.target.classList.remove("is-invalid", "enrollment-invalid-control");
+    clearEnrollmentInvalidStyle(event.target);
+    event.target.removeAttribute("aria-invalid");
+});
 form.addEventListener("submit", async (event) => {
     event.preventDefault();
-        if (!form.checkValidity()) {
-        form.reportValidity();
-        return;
-    }
+    if (!validateEnrollmentRequiredFields()) return;
     syncFamilyPhoneValues();
     syncHomePhoneValue();
     submit.disabled = true;
@@ -4263,7 +4527,8 @@ form.addEventListener("submit", async (event) => {
             );
         }
         if (response.status === 422)
-            return alertError(
+            return displayEnrollmentValidationErrors(
+                result.errors || {},
                 result.message || Object.values(result.errors || {})[0]?.[0],
             );
         if (!response.ok)

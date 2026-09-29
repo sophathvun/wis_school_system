@@ -354,6 +354,9 @@ class StudentEnrollmentController
             'guardian_nationality_country_id' => ['nullable', 'exists:tb_country,id'],
             'guardian_occupation_id' => ['nullable', 'exists:tb_occupation,id'],
             'guardian_phone' => ['nullable', 'string', 'max:50'],
+        ], [
+            'student_id.required' => 'Student ID is required.',
+            'student_id.unique' => 'This Student ID already exists. Please enter a different Student ID.',
         ]);
 
         $grade = Grade::find($validated['grade_id']);

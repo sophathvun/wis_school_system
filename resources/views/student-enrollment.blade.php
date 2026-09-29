@@ -452,11 +452,11 @@
                         </div>
                         <div class="row g-3" id="enrollmentInformationFields">
                             <div class="col-md-4 premium-floating-field">
-                                <label class="form-label">Academic Year *</label>
+                                <label class="form-label">Academic Year <span class="text-danger">*</span></label>
                                 <select id="academic_year_id" name="academic_year_id" class="form-select"></select>
                             </div>
                             <div class="col-md-4 premium-floating-field">
-                                <label class="form-label">Campus *</label>
+                                <label class="form-label">Campus <span class="text-danger">*</span></label>
                                 <select id="campus_id" name="campus_id" class="form-select d-none"></select>
                                 <div id="campus-combobox" class="location-combobox">
                                     <button type="button" id="campus-toggle" class="location-combobox-toggle">
@@ -471,11 +471,11 @@
                                 </div>
                             </div>
                             <div class="col-md-4 premium-floating-field">
-                                <label class="form-label">Grade *</label>
+                                <label class="form-label">Grade <span class="text-danger">*</span></label>
                                 <select id="grade_id" name="grade_id" class="form-select"></select>
                             </div>
                             <div class="col-md-4 premium-floating-field">
-                                <label class="form-label">Class *</label>
+                                <label class="form-label">Class <span class="text-danger">*</span></label>
                                 <select id="class_id" name="class_id" class="form-select"></select>
                             </div>
                             <div class="col-md-4 premium-floating-field d-none" id="academic_track_field">
