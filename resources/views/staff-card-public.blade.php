@@ -25,7 +25,7 @@
             .staff-card-brand img{width:min(70%,210px)!important;height:auto!important;max-height:100%!important;transform:none!important;margin:0!important;object-fit:contain!important}
             .staff-card-photo{width:100%!important;height:auto!important;align-self:center;aspect-ratio:3/4;border-radius:18px}
             .staff-card-info{align-self:center;justify-content:center!important;min-width:0}
-            .staff-card h1{font-size:clamp(1.25rem,8vw,1.75rem)!important;line-height:1.02!important}
+            .staff-card h1{font-size:clamp(1.05rem,6vw,1.35rem)!important;line-height:1.04!important;letter-spacing:-.02em!important}
             .staff-card-position{font-size:clamp(.86rem,4.2vw,1.05rem)!important;line-height:1.12!important}
             .staff-card-contact-meta div{gap:.35rem!important;font-size:clamp(.82rem,3.8vw,1rem)!important;line-height:1.12!important}
             .staff-card-contact-meta svg{width:16px!important;height:16px!important;flex-basis:16px!important;margin-top:.02rem}
@@ -129,9 +129,6 @@
 
                 <div class="staff-card-info" style="grid-column: 2; grid-row: 2;">
                     <h1>{{ $staff->name }}</h1>
-                    @if ($staff->staff_id)
-                        <p class="staff-card-position">Staff ID: {{ $staff->staff_id }}</p>
-                    @endif
                     <p class="staff-card-position">{{ $staff->position?->name ?: $staff->department?->name ?: 'Staff / Teacher' }}</p>
 
                     <div class="staff-card-meta" style="display: none !important;">

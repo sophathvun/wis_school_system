@@ -442,8 +442,9 @@ a {
     }
 
     .staff-card h1 {
-        font-size: clamp(1.25rem, 8vw, 1.75rem);
-        line-height: 1.02;
+        font-size: clamp(1.05rem, 6vw, 1.35rem);
+        line-height: 1.04;
+        letter-spacing: -0.02em;
     }
 
     .staff-card-position {
