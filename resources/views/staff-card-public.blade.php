@@ -5,6 +5,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ $staff->name }} - Staff Name Card</title>
+    <meta name="description" content="{{ $staff->name }} - {{ $staff->position?->name ?: $staff->department?->name ?: 'Western International School' }}">
+    <meta property="og:type" content="profile">
+    <meta property="og:title" content="{{ $staff->name }} - Name Card">
+    <meta property="og:description" content="{{ $staff->position?->name ?: $staff->department?->name ?: 'Western International School' }}">
+    <meta property="og:url" content="{{ $publicCardUrl }}">
+    <meta property="og:image" content="{{ $publicCardShareImageUrl }}">
+    <meta property="og:image:secure_url" content="{{ $publicCardShareImageUrl }}">
+    <meta property="og:image:type" content="image/png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="1600">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{{ $staff->name }} - Name Card">
+    <meta name="twitter:description" content="{{ $staff->position?->name ?: $staff->department?->name ?: 'Western International School' }}">
+    <meta name="twitter:image" content="{{ $publicCardShareImageUrl }}">
     @vite('resources/css/pages/staff-card.css')
     <style>
         .staff-card-actions button,.staff-card-actions a,.staff-card-share button,.staff-card-share a{display:inline-flex;align-items:center;justify-content:center;min-height:42px;padding:.65rem .9rem;border:1px solid #dbe5f0;border-radius:13px;background:#fff;color:#203a5f;font:inherit;font-weight:700;cursor:pointer;appearance:none}

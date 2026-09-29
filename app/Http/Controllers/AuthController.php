@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\BrandingSetting;
 use App\Models\Feedback;
+use BaconQrCode\Renderer\GDLibRenderer;
 use BaconQrCode\Renderer\Image\SvgImageBackEnd;
 use BaconQrCode\Renderer\ImageRenderer;
 use BaconQrCode\Renderer\RendererStyle\RendererStyle;
@@ -262,6 +263,17 @@ class AuthController
             'publicCardUrl' => route('staff-card.public', $staff->public_card_token),
             'publicCardVcardUrl' => route('staff-card.vcard', $staff->public_card_token),
             'publicCardQrUrl' => route('staff-card.qr', $staff->public_card_token),
+            'publicCardShareImageUrl' => route('staff-card.share-image', $staff->public_card_token),
+        ]);
+    }
+
+    public function staffCardShareImage(string $token)
+    {
+        $staff = $this->publicStaffByToken($token);
+
+        return response($this->staffCardPng($staff, BrandingSetting::current()), 200, [
+            'Content-Type' => 'image/png',
+            'Cache-Control' => 'public, max-age=3600',
         ]);
     }
 
@@ -380,6 +392,230 @@ class AuthController
         );
 
         return (new Writer($renderer))->writeString($value);
+    }
+
+    private function qrPng(string $value, int $size = 330): string
+    {
+        return (new Writer(new GDLibRenderer($size, 2, 'png', 6)))->writeString($value);
+    }
+
+    private function staffCardPng(User $staff, BrandingSetting $branding): string
+    {
+        $width = 1200;
+        $height = 1600;
+        $image = imagecreatetruecolor($width, $height);
+        imagealphablending($image, true);
+        imagesavealpha($image, true);
+
+        $this->fillGradient($image, $width, $height, [230, 242, 251], [222, 240, 232]);
+
+        $cardX = 82;
+        $cardY = 70;
+        $cardW = 1036;
+        $cardH = 1370;
+        $navy = $this->gdColor($image, 32, 58, 95);
+        $muted = $this->gdColor($image, 91, 112, 137);
+        $blue = $this->gdColor($image, 32, 107, 196);
+        $white = $this->gdColor($image, 255, 255, 255);
+        $soft = $this->gdColor($image, 247, 250, 253);
+
+        $this->roundedRectangle($image, $cardX, $cardY, $cardX + $cardW, $cardY + $cardH, 66, $white);
+
+        $font = public_path('fonts/khmer/KhmerOSsiemreap.ttf');
+        $logoPath = $this->publicStoragePath($branding->report_logo_1_path ?? $branding->login_logo_path ?? $branding->sidebar_logo_path ?? null);
+        if ($logoPath) {
+            $logo = $this->loadGdImage($logoPath);
+            if ($logo) {
+                $this->copyContain($image, $logo, $cardX + 285, $cardY + 100, 470, 150);
+                imagedestroy($logo);
+            }
+        }
+
+        $photoX = $cardX + 145;
+        $photoY = $cardY + 360;
+        $photoW = 220;
+        $photoH = 285;
+        $this->roundedRectangle($image, $photoX, $photoY, $photoX + $photoW, $photoY + $photoH, 38, $soft);
+        $photoPath = $this->publicStoragePath($staff->photo_path);
+        if ($photoPath) {
+            $photo = $this->loadGdImage($photoPath);
+            if ($photo) {
+                $this->copyCover($image, $photo, $photoX, $photoY, $photoW, $photoH);
+                imagedestroy($photo);
+            }
+        } else {
+            $this->drawCenteredText($image, mb_substr($staff->name ?: 'S', 0, 1), $photoX, $photoY + 92, $photoW, $font, 88, $navy);
+        }
+
+        $textX = $cardX + 430;
+        $textY = $cardY + 330;
+        $name = mb_strtoupper($staff->name ?: 'Staff Name');
+        $nameLines = $this->wrapText($name, $font, 72, 500);
+        foreach (array_slice($nameLines, 0, 2) as $line) {
+            $this->drawText($image, $line, $textX, $textY, $font, 72, $navy);
+            $textY += 80;
+        }
+
+        $position = $staff->position?->name ?: $staff->department?->name ?: 'Staff / Teacher';
+        $this->drawText($image, $position, $textX, $textY + 8, $font, 38, $muted);
+        $textY += 88;
+
+        if ($staff->phone) {
+            $this->drawText($image, '☏  ' . $staff->phone, $textX, $textY, $font, 34, $blue);
+            $textY += 50;
+        }
+
+        if ($staff->email) {
+            foreach (array_slice($this->wrapText('✉  ' . $staff->email, $font, 34, 560), 0, 2) as $line) {
+                $this->drawText($image, $line, $textX, $textY, $font, 34, $blue);
+                $textY += 44;
+            }
+        }
+
+        $qrPng = $this->qrPng(route('staff-card.public', $staff->public_card_token), 420);
+        $qr = imagecreatefromstring($qrPng);
+        if ($qr) {
+            imagecopyresampled($image, $qr, $cardX + 330, $cardY + 790, 0, 0, 380, 380, imagesx($qr), imagesy($qr));
+            imagedestroy($qr);
+        }
+
+        $this->drawCenteredText($image, 'Scan', $cardX, $cardY + 1240, $cardW, $font, 38, $navy);
+        $link = route('staff-card.public', $staff->public_card_token);
+        $this->drawCenteredText($image, $link, $cardX + 90, $cardY + 1315, $cardW - 180, $font, 24, $muted);
+
+        ob_start();
+        imagepng($image, null, 6);
+        imagedestroy($image);
+
+        return (string) ob_get_clean();
+    }
+
+    private function gdColor($image, int $red, int $green, int $blue, int $alpha = 0): int
+    {
+        return imagecolorallocatealpha($image, $red, $green, $blue, $alpha);
+    }
+
+    private function fillGradient($image, int $width, int $height, array $from, array $to): void
+    {
+        for ($y = 0; $y < $height; $y++) {
+            $ratio = $y / max(1, $height - 1);
+            $red = (int) round($from[0] + ($to[0] - $from[0]) * $ratio);
+            $green = (int) round($from[1] + ($to[1] - $from[1]) * $ratio);
+            $blue = (int) round($from[2] + ($to[2] - $from[2]) * $ratio);
+            imageline($image, 0, $y, $width, $y, $this->gdColor($image, $red, $green, $blue));
+        }
+    }
+
+    private function roundedRectangle($image, int $x1, int $y1, int $x2, int $y2, int $radius, int $color): void
+    {
+        imagefilledrectangle($image, $x1 + $radius, $y1, $x2 - $radius, $y2, $color);
+        imagefilledrectangle($image, $x1, $y1 + $radius, $x2, $y2 - $radius, $color);
+        imagefilledellipse($image, $x1 + $radius, $y1 + $radius, $radius * 2, $radius * 2, $color);
+        imagefilledellipse($image, $x2 - $radius, $y1 + $radius, $radius * 2, $radius * 2, $color);
+        imagefilledellipse($image, $x1 + $radius, $y2 - $radius, $radius * 2, $radius * 2, $color);
+        imagefilledellipse($image, $x2 - $radius, $y2 - $radius, $radius * 2, $radius * 2, $color);
+    }
+
+    private function publicStoragePath(?string $path): ?string
+    {
+        $path = trim((string) $path);
+        if ($path === '') {
+            return null;
+        }
+
+        $fullPath = storage_path('app/public/' . ltrim($path, '/\\'));
+
+        return is_file($fullPath) ? $fullPath : null;
+    }
+
+    private function loadGdImage(string $path)
+    {
+        $contents = @file_get_contents($path);
+        if ($contents === false) {
+            return null;
+        }
+
+        return @imagecreatefromstring($contents) ?: null;
+    }
+
+    private function copyContain($canvas, $source, int $x, int $y, int $w, int $h): void
+    {
+        $sourceW = imagesx($source);
+        $sourceH = imagesy($source);
+        $scale = min($w / $sourceW, $h / $sourceH);
+        $targetW = (int) round($sourceW * $scale);
+        $targetH = (int) round($sourceH * $scale);
+        $targetX = $x + (int) (($w - $targetW) / 2);
+        $targetY = $y + (int) (($h - $targetH) / 2);
+        imagecopyresampled($canvas, $source, $targetX, $targetY, 0, 0, $targetW, $targetH, $sourceW, $sourceH);
+    }
+
+    private function copyCover($canvas, $source, int $x, int $y, int $w, int $h): void
+    {
+        $sourceW = imagesx($source);
+        $sourceH = imagesy($source);
+        $scale = max($w / $sourceW, $h / $sourceH);
+        $cropW = (int) round($w / $scale);
+        $cropH = (int) round($h / $scale);
+        $cropX = max(0, (int) (($sourceW - $cropW) / 2));
+        $cropY = max(0, (int) (($sourceH - $cropH) / 2));
+        imagecopyresampled($canvas, $source, $x, $y, $cropX, $cropY, $w, $h, $cropW, $cropH);
+    }
+
+    private function drawText($image, string $text, int $x, int $y, string $font, int $size, int $color): void
+    {
+        if (is_file($font)) {
+            imagettftext($image, $size, 0, $x, $y, $color, $font, $text);
+            return;
+        }
+
+        imagestring($image, 5, $x, $y - 16, $text, $color);
+    }
+
+    private function drawCenteredText($image, string $text, int $x, int $y, int $width, string $font, int $size, int $color): void
+    {
+        if (is_file($font)) {
+            $box = imagettfbbox($size, 0, $font, $text);
+            $textWidth = $box ? abs($box[2] - $box[0]) : 0;
+            imagettftext($image, $size, 0, $x + (int) (($width - $textWidth) / 2), $y, $color, $font, $text);
+            return;
+        }
+
+        imagestring($image, 5, $x + (int) (($width - strlen($text) * 9) / 2), $y - 16, $text, $color);
+    }
+
+    private function wrapText(string $text, string $font, int $size, int $maxWidth): array
+    {
+        $words = preg_split('/\s+/', trim($text)) ?: [];
+        $lines = [];
+        $line = '';
+
+        foreach ($words as $word) {
+            $test = trim($line . ' ' . $word);
+            if ($line !== '' && $this->textWidth($test, $font, $size) > $maxWidth) {
+                $lines[] = $line;
+                $line = $word;
+            } else {
+                $line = $test;
+            }
+        }
+
+        if ($line !== '') {
+            $lines[] = $line;
+        }
+
+        return $lines ?: [$text];
+    }
+
+    private function textWidth(string $text, string $font, int $size): int
+    {
+        if (is_file($font)) {
+            $box = imagettfbbox($size, 0, $font, $text);
+
+            return $box ? abs($box[2] - $box[0]) : strlen($text) * $size;
+        }
+
+        return strlen($text) * 9;
     }
 
     private function staffVcard(User $staff): string

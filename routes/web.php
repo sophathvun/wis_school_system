@@ -107,6 +107,7 @@ Route::middleware('guest')->group(function () {
 });
 
 Route::get('/staff-card/{token}', [AuthController::class, 'publicStaffCard'])->name('staff-card.public');
+Route::get('/staff-card/{token}/share.png', [AuthController::class, 'staffCardShareImage'])->name('staff-card.share-image');
 Route::get('/staff-card/{token}/qr.svg', [AuthController::class, 'staffCardQr'])->name('staff-card.qr');
 Route::get('/staff-card/{token}/vcard', [AuthController::class, 'staffCardVcard'])->name('staff-card.vcard');
 
