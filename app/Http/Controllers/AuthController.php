@@ -461,11 +461,12 @@ class AuthController
         $textX = $cardX + 430;
         $textY = $cardY + 330;
         $name = mb_strtoupper($staff->name ?: 'Staff Name');
-        $nameLines = $this->wrapText($name, $font, 72, 500);
-        foreach (array_slice($nameLines, 0, 2) as $line) {
-            $this->drawText($image, $line, $textX, $textY, $font, 72, $navy);
-            $textY += 80;
+        $nameBlock = $this->responsiveTextBlock($name, $font, 54, 30, 560, 2);
+        foreach ($nameBlock['lines'] as $line) {
+            $this->drawText($image, $line, $textX, $textY, $font, $nameBlock['size'], $navy);
+            $textY += (int) round($nameBlock['size'] * 1.12);
         }
+        $textY += max(14, 58 - $nameBlock['size']);
 
         $position = $staff->position?->name ?: $staff->department?->name ?: 'Staff / Teacher';
         $this->drawText($image, $position, $textX, $textY + 8, $font, 38, $muted);
@@ -616,6 +617,34 @@ class AuthController
         }
 
         return $lines ?: [$text];
+    }
+
+    private function responsiveTextBlock(string $text, string $font, int $maxSize, int $minSize, int $maxWidth, int $maxLines): array
+    {
+        for ($size = $maxSize; $size >= $minSize; $size -= 2) {
+            $lines = $this->wrapText($text, $font, $size, $maxWidth);
+            $fits = true;
+            foreach ($lines as $line) {
+                if ($this->textWidth($line, $font, $size) > $maxWidth) {
+                    $fits = false;
+                    break;
+                }
+            }
+            if (count($lines) <= $maxLines && $fits) {
+                return ['size' => $size, 'lines' => $lines];
+            }
+        }
+
+        $lines = array_slice($this->wrapText($text, $font, $minSize, $maxWidth), 0, $maxLines);
+        if (count($lines) === $maxLines) {
+            $last = $lines[$maxLines - 1];
+            while ($last !== '' && $this->textWidth($last . '...', $font, $minSize) > $maxWidth) {
+                $last = mb_substr($last, 0, -1);
+            }
+            $lines[$maxLines - 1] = rtrim($last) . '...';
+        }
+
+        return ['size' => $minSize, 'lines' => $lines ?: [$text]];
     }
 
     private function textWidth(string $text, string $font, int $size): int
