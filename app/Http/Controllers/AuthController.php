@@ -121,6 +121,10 @@ class AuthController
             'profileUser' => $user,
             'branding' => BrandingSetting::current(),
             'publicCardUrl' => route('staff-card.public', $user->public_card_token),
+            'publicCardShareUrl' => route('staff-card.public', [
+                'token' => $user->public_card_token,
+                'v' => $user->updated_at?->timestamp ?: time(),
+            ]),
             'publicCardQrUrl' => route('staff-card.qr', $user->public_card_token),
             'publicCardVcardUrl' => route('staff-card.vcard', $user->public_card_token),
             'canCustomizeDashboard' => $user->hasPermission('dashboard.customize', $dashboardPermissionCampusId),

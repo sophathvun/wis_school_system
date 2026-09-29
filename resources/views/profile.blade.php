@@ -10,7 +10,7 @@
         $cardRgb = sscanf(ltrim($cardBackground, '#'), '%02x%02x%02x') ?: [32, 107, 196];
         $isLightCard = (($cardRgb[0] * 299) + ($cardRgb[1] * 587) + ($cardRgb[2] * 114)) > 180000;
         $shareTitle = trim(($profileUser->name ?: 'Staff Name Card') . ' - Western International School');
-        $shareMessage = $shareTitle . ' ' . $publicCardUrl;
+        $shareMessage = $shareTitle . ' ' . ($publicCardShareUrl ?? $publicCardUrl);
     @endphp
     <style>
         .profile-workspace{display:grid;grid-template-columns:250px minmax(0,1fr);gap:1rem;align-items:start}
@@ -191,7 +191,7 @@
                                 <i class="ti ti-printer"></i>
                             </a>
                             <a class="btn btn-outline-info" target="_blank" rel="noopener"
-                                href="https://t.me/share/url?url={{ urlencode($publicCardUrl) }}&text={{ urlencode($shareTitle) }}">
+                                href="https://t.me/share/url?url={{ urlencode($publicCardShareUrl ?? $publicCardUrl) }}&text={{ urlencode($shareTitle) }}">
                                 <i class="ti ti-brand-telegram"></i>
                             </a>
                             <a class="btn btn-outline-success" target="_blank" rel="noopener"
@@ -199,8 +199,8 @@
                                 <i class="ti ti-brand-whatsapp"></i>
                             </a>
                             <a class="btn btn-outline-primary" target="_blank" rel="noopener"
-                                href="https://www.facebook.com/sharer/sharer.php?u={{ urlencode($publicCardUrl) }}">
-                                <i class="ti ti-brand-facebook"></i>
+                                href="https://www.facebook.com/sharer/sharer.php?u={{ urlencode($publicCardShareUrl ?? $publicCardUrl) }}" title="Share on Facebook Messenger" aria-label="Share on Facebook Messenger">
+                                <i class="ti ti-brand-messenger"></i>
                             </a>
                         </div>
                         <div class="profile-card-settings">
