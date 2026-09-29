@@ -1,6 +1,19 @@
 ﻿import * as bootstrap from "bootstrap";
 
 document.addEventListener("DOMContentLoaded", () => {
+    const successMessage = document.querySelector("[data-access-success-message]")?.dataset.accessSuccessMessage;
+    if (successMessage && window.Swal) {
+        window.Swal.fire({
+            icon: "success",
+            title: successMessage,
+            toast: true,
+            position: "top-end",
+            timer: 1800,
+            timerProgressBar: true,
+            showConfirmButton: false,
+        });
+    }
+
     const nav = document.querySelector(".card-tabs .nav-tabs");
     const content = document.querySelector(".card-tabs .tab-content");
     const departmentLink = nav?.querySelector(

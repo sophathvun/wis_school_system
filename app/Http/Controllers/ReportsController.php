@@ -13,6 +13,7 @@ use App\Models\StudentEnrollmentHistory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Barryvdh\DomPDF\Facade\Pdf;
 use RuntimeException;
 use Illuminate\Support\Str;
 
@@ -215,6 +216,10 @@ class ReportsController
         file_put_contents($htmlPath, $html);
 
         $chrome = $this->chromeExecutablePath();
+        if ($chrome === null) {
+            @unlink($htmlPath);
+            return $this->makeDomPdfPath($html, $type);
+        }
         $fileUrl = 'file:///' . str_replace('\\', '/', $htmlPath);
         $command = [
             $chrome,
@@ -245,26 +250,62 @@ class ReportsController
 
         if ($exitCode !== 0 || !is_file($pdfPath) || filesize($pdfPath) < 1000) {
             @unlink($pdfPath);
-            throw new RuntimeException(trim($stderr ?: $stdout) ?: 'Chrome PDF export failed.');
+            return $this->makeDomPdfPath($html, $type);
         }
 
         return $pdfPath;
     }
 
-    private function chromeExecutablePath(): string
+    private function makeDomPdfPath(string $html, string $type): string
+    {
+        $paper = in_array($type, ['student-list', 'student-contact-list', 'attendance-list', 'score-list', 'student-id-books-moeys', 'moeys-sikkhakarik-book'], true)
+            ? 'landscape'
+            : 'portrait';
+        $pdfPath = tempnam(sys_get_temp_dir(), 'report-pdf-dompdf-') . '.pdf';
+        Pdf::loadHTML($html)
+            ->setPaper('a4', $paper)
+            ->save($pdfPath);
+
+        if (!is_file($pdfPath) || filesize($pdfPath) < 1000) {
+            @unlink($pdfPath);
+            throw new RuntimeException('PDF export failed.');
+        }
+
+        return $pdfPath;
+    }
+
+    private function chromeExecutablePath(): ?string
     {
         $candidates = [
+            env('CHROME_PATH'),
+            env('CHROMIUM_PATH'),
+            env('PUPPETEER_EXECUTABLE_PATH'),
             'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
             'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
             'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
             'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+            '/usr/bin/google-chrome',
+            '/usr/bin/google-chrome-stable',
+            '/usr/bin/chromium',
+            '/usr/bin/chromium-browser',
+            '/snap/bin/chromium',
+            '/opt/google/chrome/chrome',
+            '/opt/chromium.org/chromium/chromium',
         ];
 
         foreach ($candidates as $path) {
-            if (is_file($path)) return $path;
+            if ($path && is_file($path)) return $path;
         }
 
-        throw new RuntimeException('Chrome or Edge was not found on this server.');
+        foreach (['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser'] as $binary) {
+            $path = trim((string) @shell_exec(PHP_OS_FAMILY === 'Windows' ? "where {$binary} 2>NUL" : "command -v {$binary} 2>/dev/null"));
+            if ($path !== '') {
+                $firstPath = strtok($path, PHP_EOL);
+                if ($firstPath && is_file($firstPath)) return $firstPath;
+            }
+        }
+
+        return null;
     }
 
     private function reportPdfLogoDataUri(): ?string

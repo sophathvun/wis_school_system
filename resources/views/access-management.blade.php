@@ -41,7 +41,7 @@
         </div>
     </div>
     @if (session('success'))
-        <div class="alert alert-success">{{ session('success') }}</div>
+        <div class="d-none" data-access-success-message="{{ session('success') }}"></div>
     @endif
     @if ($errors->any())
         <div class="alert alert-danger">{{ $errors->first() }}</div>
@@ -313,7 +313,7 @@
                         </div>@include('partials.permission-tree', [
                             'assignedPermissions' => $role?->permissions ?? collect(),
                             'permissionPrefix' => 'role',
-                            'fullAccess' => $role?->code === 'super-admin',
+                            'fullAccess' => $roleFullAccess,
                             'fullAccessLocked' => $role?->code === 'super-admin',
                         ])
                     </div>

@@ -203,7 +203,30 @@ const initStaffPhotoUploader = () => {
         select.previousElementSibling?.classList?.contains("form-label") &&
             select.previousElementSibling.classList.add("d-none");
         select.parentElement.insertBefore(wrapper, select);
+        const portalHost = select.closest(".modal") || document.body;
 
+        const normalizeSearchText = (value = "") =>
+            value
+                .toString()
+                .toLowerCase()
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                .replace(/\s+/g, " ")
+                .trim();
+        const optionSearchText = (option) =>
+            normalizeSearchText(
+                [
+                    option.textContent,
+                    option.value,
+                    option.dataset.search,
+                    option.dataset.code,
+                    option.dataset.name,
+                ]
+                    .filter(Boolean)
+                    .join(" "),
+            );
+        const findOptionByValue = (value) =>
+            [...select.options].find((option) => option.value === value);
         const selectedText = () =>
             [...select.selectedOptions]
                 .map((option) => option.textContent.trim())
@@ -214,9 +237,7 @@ const initStaffPhotoUploader = () => {
                 selectedText();
             wrapper.classList.toggle("has-value", Boolean(selectedText()));
             results.querySelectorAll("button").forEach((button) => {
-                const option = select.querySelector(
-                    `option[value="${CSS.escape(button.dataset.value)}"]`,
-                );
+                const option = findOptionByValue(button.dataset.value);
                 button.classList.toggle(
                     "is-selected",
                     Boolean(option?.selected),
@@ -224,11 +245,9 @@ const initStaffPhotoUploader = () => {
             });
         };
         const render = () => {
-            const term = search.value.trim().toLowerCase();
+            const term = normalizeSearchText(search.value);
             const options = [...select.options].filter(
-                (option) =>
-                    option.value &&
-                    option.textContent.toLowerCase().includes(term),
+                (option) => option.value && optionSearchText(option).includes(term),
             );
             results.innerHTML = options.length
                 ? options
@@ -240,6 +259,8 @@ const initStaffPhotoUploader = () => {
                       })
                       .join("")
                 : '<div class="text-secondary px-2 py-2">No options found</div>';
+            sync();
+            positionMenu();
         };
         let menuPortaled = false;
         const clearMenuPosition = () => {
@@ -303,7 +324,7 @@ const initStaffPhotoUploader = () => {
             wrapper.classList.add("is-open");
             menu.classList.remove("d-none");
             if (!menuPortaled) {
-                document.body.appendChild(menu);
+                portalHost.appendChild(menu);
                 menuPortaled = true;
             }
             menu.classList.add("is-portaled");
@@ -324,16 +345,18 @@ const initStaffPhotoUploader = () => {
             if (wrapper.classList.contains("is-open")) closeMenu();
             else openMenu();
         });
-        search.addEventListener("input", render);
+        ["input", "keyup", "search", "change", "compositionend"].forEach(
+            (eventName) => search.addEventListener(eventName, render),
+        );
+        search.addEventListener("paste", () => window.setTimeout(render, 0));
+        search.addEventListener("mousedown", (event) => event.stopPropagation());
         search.addEventListener("click", (event) => event.stopPropagation());
         results.addEventListener("click", (event) => {
             const button = event.target.closest("button[data-value]");
             if (!button) return;
             event.preventDefault();
             event.stopPropagation();
-            const option = select.querySelector(
-                `option[value="${CSS.escape(button.dataset.value)}"]`,
-            );
+            const option = findOptionByValue(button.dataset.value);
             if (!option) return;
             if (multiple) {
                 option.selected = !option.selected;
@@ -342,7 +365,7 @@ const initStaffPhotoUploader = () => {
                 wrapper.classList.add("is-open");
                 menu.classList.remove("d-none");
                 if (!menuPortaled) {
-                    document.body.appendChild(menu);
+                    portalHost.appendChild(menu);
                     menuPortaled = true;
                 }
                 menu.classList.add("is-portaled");
