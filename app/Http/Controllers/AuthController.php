@@ -261,9 +261,16 @@ class AuthController
             'staff' => $staff,
             'branding' => BrandingSetting::current(),
             'publicCardUrl' => route('staff-card.public', $staff->public_card_token),
+            'publicCardShareUrl' => route('staff-card.public', [
+                'token' => $staff->public_card_token,
+                'v' => $staff->updated_at?->timestamp ?: time(),
+            ]),
             'publicCardVcardUrl' => route('staff-card.vcard', $staff->public_card_token),
             'publicCardQrUrl' => route('staff-card.qr', $staff->public_card_token),
-            'publicCardShareImageUrl' => route('staff-card.share-image', $staff->public_card_token),
+            'publicCardShareImageUrl' => route('staff-card.share-image', [
+                'token' => $staff->public_card_token,
+                'v' => $staff->updated_at?->timestamp ?: time(),
+            ]),
         ]);
     }
 

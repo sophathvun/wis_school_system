@@ -9,7 +9,7 @@
     <meta property="og:type" content="profile">
     <meta property="og:title" content="{{ $staff->name }} - Name Card">
     <meta property="og:description" content="{{ $staff->position?->name ?: $staff->department?->name ?: 'Western International School' }}">
-    <meta property="og:url" content="{{ $publicCardUrl }}">
+    <meta property="og:url" content="{{ $publicCardShareUrl }}">
     <meta property="og:image" content="{{ $publicCardShareImageUrl }}">
     <meta property="og:image:secure_url" content="{{ $publicCardShareImageUrl }}">
     <meta property="og:image:type" content="image/png">
@@ -19,6 +19,7 @@
     <meta name="twitter:title" content="{{ $staff->name }} - Name Card">
     <meta name="twitter:description" content="{{ $staff->position?->name ?: $staff->department?->name ?: 'Western International School' }}">
     <meta name="twitter:image" content="{{ $publicCardShareImageUrl }}">
+    <link rel="image_src" href="{{ $publicCardShareImageUrl }}">
     @vite('resources/css/pages/staff-card.css')
     <style>
         .staff-card-actions button,.staff-card-actions a,.staff-card-share button,.staff-card-share a{display:inline-flex;align-items:center;justify-content:center;min-height:42px;padding:.65rem .9rem;border:1px solid #dbe5f0;border-radius:13px;background:#fff;color:#203a5f;font:inherit;font-weight:700;cursor:pointer;appearance:none}
@@ -27,7 +28,7 @@
         .staff-card{width:min(100%,520px)!important;height:auto!important;min-height:0!important;aspect-ratio:90/54!important;grid-template-columns:30% minmax(0,1fr)!important}.staff-card-page.is-portrait{--staff-card-width:54mm;--staff-card-height:90mm}.staff-card-page.is-portrait .staff-card{width:min(100%,320px)!important;height:auto!important;min-height:0!important;grid-template-columns:30% minmax(0,1fr)!important;grid-template-rows:auto 1fr;aspect-ratio:54/90!important}.staff-card-photo,.staff-card-page.is-portrait .staff-card-photo{width:100%;height:auto;aspect-ratio:3/4}
         .staff-card-icon-button svg,.staff-card-share-icon svg,.staff-card-share>span svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round;stroke-width:1.8}
         .staff-card-share>span{display:inline-flex;align-items:center;gap:.45rem}.staff-card-share>span svg{width:17px;height:17px}
-        .staff-card-share-icon.telegram{color:#168acd}.staff-card-share-icon.whatsapp{color:#18a957}.staff-card-share-icon.facebook{color:#4267b2}.staff-card-share-icon.copy{color:#64748b}
+        .staff-card-share-icon.telegram{color:#168acd}.staff-card-share-icon.whatsapp{color:#18a957}.staff-card-share-icon.messenger{color:#0084ff}.staff-card-share-icon.copy{color:#64748b}
         .staff-card{padding-top:4px!important}.staff-card-meta{display:none!important}.staff-card-photo{grid-column:1;grid-row:2}.staff-card-info{grid-column:2;grid-row:2;justify-content:flex-start!important}.staff-card h1{font-size:1.3rem!important;text-transform:uppercase}.staff-card-position{font-size:.85rem!important;margin:.25rem 0 .4rem!important}.staff-card-contact-meta div{justify-content:flex-start;align-items:flex-start;max-width:100%;min-width:0;padding-inline:0;background:transparent!important;color:#206bc4;overflow-wrap:anywhere;white-space:normal;word-break:break-word}.staff-card-qr-inline{display:flex!important;grid-column:1 / -1;grid-row:3;flex-direction:column;align-items:center;justify-content:center;gap:.2rem;margin-top:2rem}.staff-card-qr-inline img{width:150px!important;height:150px!important;display:block;transform:none;object-fit:contain}.staff-card-shell>.staff-card-qr{display:none!important}.staff-card-page.is-portrait .staff-card{grid-template-columns:30% minmax(0,1fr)!important}.staff-card-brand img{transform:translateY(-32px);margin-bottom:-32px}
         .staff-card-page.is-light .staff-card{color:#203a5f}.staff-card-page.is-light .staff-card-eyebrow,.staff-card-page.is-light .staff-card-position{color:rgba(32,58,95,.72)}.staff-card-page.is-light .staff-card-contact-meta div{background:rgba(32,58,95,.1)}
         @media screen and (max-width:520px){
@@ -74,7 +75,7 @@
         $logoPath = $branding->report_logo_1_path ?? $branding->login_logo_path ?? $branding->sidebar_logo_path ?? null;
         $campusNames = $staff->campuses->pluck('campus_name_en')->filter()->join(', ');
         $shareTitle = trim(($staff->name ?: 'Staff Name Card') . ' - Western International School');
-        $shareMessage = $shareTitle . ' ' . $publicCardUrl;
+        $shareMessage = $shareTitle . ' ' . $publicCardShareUrl;
         $orientation = in_array($staff->public_card_orientation ?: 'landscape', ['portrait', 'landscape'], true)
             ? ($staff->public_card_orientation ?: 'landscape')
             : 'landscape';
@@ -196,11 +197,11 @@
                 <span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.7 13.5 6.6 4M8.7 10.5l6.6-4"/></svg> Share name card</span>
                 <div>
                     <a class="staff-card-share-icon telegram" target="_blank" rel="noopener" title="Share on Telegram" aria-label="Share on Telegram"
-                        href="https://t.me/share/url?url={{ urlencode($publicCardUrl) }}&text={{ urlencode($shareTitle) }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 3-3 18-7-5-4 3 1-6L3 9zM8 15l8-7-9 5"/></svg></a>
+                        href="https://t.me/share/url?url={{ urlencode($publicCardShareUrl) }}&text={{ urlencode($shareTitle) }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 3-3 18-7-5-4 3 1-6L3 9zM8 15l8-7-9 5"/></svg></a>
                     <a class="staff-card-share-icon whatsapp" target="_blank" rel="noopener" title="Share on WhatsApp" aria-label="Share on WhatsApp"
                         href="https://wa.me/?text={{ urlencode($shareMessage) }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a8 8 0 0 1-12 7L4 20l1.5-4A8 8 0 1 1 20 11.5zM8 8c.3 3 2 5 5 6l1-1-1-1-1 .4c-1-.5-1.7-1.2-2.2-2.2l.4-1-1-1z"/></svg></a>
-                    <a class="staff-card-share-icon facebook" target="_blank" rel="noopener" title="Share on Facebook" aria-label="Share on Facebook"
-                        href="https://www.facebook.com/sharer/sharer.php?u={{ urlencode($publicCardUrl) }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 21v-8h3l.5-3H14V8c0-1 .4-2 2-2h1.7V3.2C17 3.1 16.1 3 15 3c-3 0-5 1.8-5 5v2H7v3h3v8z"/></svg></a>
+                    <a class="staff-card-share-icon messenger" target="_blank" rel="noopener" title="Share on Facebook Messenger" aria-label="Share on Facebook Messenger"
+                        href="https://www.facebook.com/sharer/sharer.php?u={{ urlencode($publicCardShareUrl) }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3C6.9 3 3 6.7 3 11.7c0 2.7 1.1 5 3 6.6V22l3.4-1.9c.8.2 1.7.3 2.6.3 5.1 0 9-3.7 9-8.7S17.1 3 12 3z"/><path d="m7.2 14.2 3.2-3.4 2.6 2.6 3.8-4.1-3.4 5.9-2.7-2.6z"/></svg></a>
                     <button class="staff-card-share-icon copy" type="button" id="copyStaffCardLink" data-url="{{ $publicCardUrl }}" title="Copy link" aria-label="Copy link"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h3"/></svg></button>
                 </div>
             </div>
