@@ -214,6 +214,7 @@ class ReportsController
         $htmlPath = tempnam(sys_get_temp_dir(), 'report-pdf-html-') . '.html';
         $pdfPath = tempnam(sys_get_temp_dir(), 'report-pdf-') . '.pdf';
         file_put_contents($htmlPath, $html);
+        @unlink($pdfPath);
 
         $chrome = $this->chromeExecutablePath();
         if ($chrome === null) {
@@ -230,7 +231,7 @@ class ReportsController
         $fileUrl = 'file:///' . str_replace('\\', '/', $htmlPath);
         $command = [
             $chrome,
-            '--headless=new',
+            '--headless',
             '--disable-gpu',
             '--no-sandbox',
             '--allow-file-access-from-files',
@@ -713,7 +714,7 @@ class ReportsController
                 'name' => $sheetName,
                 'xml' => $this->enrollmentsWorksheetXml(
                     $rows->values(),
-                    $isMoeys ? (($this->isStudentContactListReport($type) ? 'បញ្ជីទំនាក់ទំនងសិស្ស្នាក់ទី ' : 'បញ្ជីឈ្មោះសិស្ស្នាក់ទី ') . $gradeClass) : (self::TYPES[$type] . ' for Grade ' . $gradeClass),
+                    $isMoeys ? (($this->isStudentContactListReport($type) ? 'បញ្ជីទំនាក់ទំនងសិស្សថ្នាក់ទី ' : 'បញ្ជីឈ្មោះសិស្សថ្នាក់ទី ') . $gradeClass) : (self::TYPES[$type] . ' for Grade ' . $gradeClass),
                     $hasLogo,
                     $isMoeys,
                     $payload['filters']['report_date'] ?? null,
@@ -1036,8 +1037,8 @@ class ReportsController
         $isContactList = $this->isStudentContactListReport($type);
         $headers = $isMoeys
             ? ($isContactList
-                ? ['ល.រ', 'អ្លសិស្ស', 'នាមត្រកូល-នាមខ្លួន', 'ភទ', 'ក្រុម', 'លទូរសព្ទផ្ទះ', 'លទូរសព្ទម្ដាយ', 'លទូរសព្ទឪពុក']
-                : ['ល.រ', 'អ្លសិស្ស', 'នាមត្រកូល-នាមខ្លួន', 'ភទ', '្នាក់ទី', 'ក្រុម', 'ផ្សងៗ'])
+                ? ['ល.រ', 'អត្តលេខសិស្ស', 'នាមត្រកូល-នាមខ្លួន', 'ភេទ', 'ក្រុម', 'លទូរសព្ទផ្ទះ', 'លទូរសព្ទម្ដាយ', 'លទូរសព្ទឪពុក']
+                : ['ល.រ', 'អត្តលេខសិស្ស', 'នាមត្រកូល-នាមខ្លួន', 'ភេទ', 'ថ្នាក់ទី', 'ក្រុម', 'ផ្សងៗ'])
             : ($isContactList
                 ? ['No.', 'Student ID', 'នាមត្រកូល-នាមខ្លួន', 'Full-Name', 'Gender', 'Campus', 'Grade', 'Group', 'Home Phone', "Mother's Phone", "Father's Phone"]
                 : ['No.', 'Student ID', 'នាមត្រកូល-នាមខ្លួន', 'Full-Name', 'Gender', 'Campus', 'Grade', 'Group', 'Remarks']);
@@ -1059,7 +1060,7 @@ class ReportsController
             $this->xlsxRow(4, [[$titleMergeStart, 'NATION RELIGION KING', 6]], $isMoeys ? 15.6 : 18),
             $this->xlsxRow(5, [['A', $title, $titleStyle]], $isMoeys ? 31.8 : 23),
             $this->xlsxRow(6, [['A', ($isMoeys ? 'ឆ្នាំសិក្សា៖ ' : 'Academic Year: ') . $academicYear, $isMoeys ? 11 : 2]], $isMoeys ? 16.5 : 20),
-            $this->xlsxRow(7, [['A', ($isMoeys ? 'សាា៖ ' : 'Campus: ') . $campus, $isMoeys ? 11 : 2]], $isMoeys ? 16.5 : 18),
+            $this->xlsxRow(7, [['A', $isMoeys ? $campus : ('Campus: ' . $campus), $isMoeys ? 11 : 2]], $isMoeys ? 16.5 : 18),
             $this->xlsxRow(8, [], $isMoeys ? 3 : 8),
             $this->xlsxRow(9, collect($headers)->map(fn ($header, $index) => [
                 $this->xlsxColumnName($index + 1),
@@ -1234,7 +1235,7 @@ class ReportsController
                 ['A', "លកូដក្នុង\nបញ្ជី", 10],
                 ['B', "អ្ល\nនៅWIS", 10],
                 ['C', "ឈ្មោះសិស្ស\nរូប", 10],
-                ['D', 'ភទ', 10],
+                ['D', 'ភេទ', 10],
                 ['E', '្នាក់', 10],
                 ['F', "្ងៃ ែ ឆ្នាំ\nនិងទីកន្លែងកំណើ", 10],
                 ['G', "ឈ្មោះ ឪពុកម្ាយ\nមុរបរ និង ទីលំនៅ", 10],
@@ -1387,7 +1388,7 @@ class ReportsController
             $this->xlsxRow(8, [['A', $cover['campusNameKh'] ?? '', 13]], 26),
             $this->xlsxRow(9, [], 26),
             $this->xlsxRow(10, [], 18),
-            $this->xlsxRow(11, [['A', 'សៀវភៅចុះអ្លសិស្ស', 8]], 54),
+            $this->xlsxRow(11, [['A', 'សៀវភៅចុះអត្តលេខសិស្ស', 8]], 54),
             $this->xlsxRow(12, [], 24),
             $this->xlsxRow(13, [['A', $cover['gradeRange'] ?? '', 13]], 44),
             $this->xlsxRow(14, [['A', $cover['codeRange'] ?? '', 13]], 42),
@@ -2212,8 +2213,8 @@ JS;
         $level = $filters['id_book_level'] ?? '';
         $gradeRange = match ($level) {
             'kindergarten' => '្នាក់ម្យ្យ',
-            'secondary' => '្នាក់ទី' . $this->khmerDigits('7') . ' ដល់ ្នាក់ទី' . $this->khmerDigits('12'),
-            default => '្នាក់ទី' . $this->khmerDigits('1') . ' ដល់ ្នាក់ទី' . $this->khmerDigits('6'),
+            'secondary' => 'ថ្នាក់ទី' . $this->khmerDigits('7') . ' ដល់ ថ្នាក់ទី' . $this->khmerDigits('12'),
+            default => 'ថ្នាក់ទី' . $this->khmerDigits('1') . ' ដល់ ថ្នាក់ទី' . $this->khmerDigits('6'),
         };
         $schoolLevelPrefix = match ($level) {
             'kindergarten' => 'សាលាម្យ្យ',
