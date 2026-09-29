@@ -113,6 +113,8 @@ class AuthController
     {
         $user = $request->user()->load(['department', 'position', 'campuses', 'roles']);
         $this->ensurePublicCardToken($user);
+        $dashboardPermissionCampusId = $user->active_campus_id
+            ?: $user->accessibleCampuses()->value('tb_school_info.id');
 
         return view('profile', [
             'profileUser' => $user,
@@ -120,6 +122,7 @@ class AuthController
             'publicCardUrl' => route('staff-card.public', $user->public_card_token),
             'publicCardQrUrl' => route('staff-card.qr', $user->public_card_token),
             'publicCardVcardUrl' => route('staff-card.vcard', $user->public_card_token),
+            'canCustomizeDashboard' => $user->hasPermission('dashboard.customize', $dashboardPermissionCampusId),
         ]);
     }
 

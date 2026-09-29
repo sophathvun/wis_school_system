@@ -2,6 +2,8 @@
     const notificationMenu = document.querySelector("[data-navbar-notification-menu]");
     const notificationList = document.querySelector("[data-navbar-notification-list]");
     const notificationBadge = document.querySelector("[data-navbar-notification-badge]");
+    const notificationToggle = document.querySelector("[data-navbar-notification-toggle]");
+    const notificationClose = document.querySelector("[data-navbar-notification-close]");
     const chatBadge = document.getElementById("chat-unread-badge");
     const chatLink = document.querySelector("[data-navbar-chat-link]");
     const appIconUrl = document.querySelector('link[rel="apple-touch-icon"]')?.href || "/app-icon.svg";
@@ -56,32 +58,43 @@
         notificationBadge.classList.toggle("d-none", !count);
     };
 
+    const escapeHtml = (value = "") =>
+        String(value ?? "").replace(/[&<>"']/g, (char) => ({
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            '"': "&quot;",
+            "'": "&#039;",
+        })[char]);
+
+    const escapeAttribute = (value = "") => escapeHtml(value);
+
     const renderNotificationList = (list) => {
         if (!notificationList) return;
         notificationList.innerHTML = list.length
             ? `${list
                   .map(
                       (item) => `
-                        <div class="list-group-item">
+                        <a class="list-group-item navbar-notification-card" href="${escapeAttribute(item.url || "/notifications")}" target="_blank" rel="noopener noreferrer">
                             <div class="row align-items-center">
                                 <div class="col-auto"><span class="status-dot ${item.read ? "" : "status-dot-animated bg-red"} d-block"></span></div>
                                 <div class="col text-truncate">
-                                    <a href="${item.url}" class="text-body d-block" target="_blank" rel="noopener noreferrer">${item.title}</a>
-                                    <div class="d-block text-secondary text-truncate mt-n1">${item.message || ""}</div>
-                                    <small class="text-secondary">${item.time || ""}</small>
+                                    <div class="navbar-notification-title">${escapeHtml(item.title || "Notification")}</div>
+                                    <div class="navbar-notification-message text-truncate mt-n1">${escapeHtml(item.message || "")}</div>
+                                    <small class="navbar-notification-time">${escapeHtml(item.time || "")}</small>
                                 </div>
                             </div>
-                        </div>`,
+                        </a>`,
                   )
                   .join("")}
-                <div class="list-group-item text-center"><a href="/notifications">View all notifications</a></div>`
+                <div class="list-group-item navbar-notification-footer"><a class="btn btn-primary w-100" href="/notifications">View all notifications</a></div>`
             : '<div class="list-group-item text-center text-secondary py-4">No notifications.</div>';
     };
 
     renderNotificationBadge(notificationUnread);
     renderNotificationList(items);
 
-    [chatLink, document.querySelector("[data-navbar-notification-toggle]"), document.getElementById("installAppShortcut")].forEach((element) => {
+    [chatLink, notificationToggle, document.getElementById("installAppShortcut")].forEach((element) => {
         element?.addEventListener("click", requestNotificationPermission, { once: true });
     });
 
@@ -141,8 +154,19 @@
     refreshNotificationsUnread();
     window.setInterval(refreshChatUnread, 5000);
     window.setInterval(refreshNotificationsUnread, 10000);
-    document.querySelector("[data-navbar-notification-toggle]")?.addEventListener("click", () => {
+    notificationToggle?.addEventListener("click", () => {
         refreshNotificationsUnread();
+    });
+    notificationClose?.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (window.bootstrap?.Dropdown && notificationToggle) {
+            window.bootstrap.Dropdown.getOrCreateInstance(notificationToggle).hide();
+            return;
+        }
+        notificationMenu?.classList.remove("show");
+        notificationToggle?.classList.remove("show");
+        notificationToggle?.setAttribute("aria-expanded", "false");
     });
 
     document.querySelectorAll("[data-clear-dashboard-hero]").forEach((form) => {

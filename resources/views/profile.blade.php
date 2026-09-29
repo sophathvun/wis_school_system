@@ -100,6 +100,16 @@
                 </span>
                 <i class="ti ti-chevron-right ms-auto"></i>
             </button>
+            @if ($canCustomizeDashboard ?? false)
+                <a class="profile-workspace-link text-decoration-none" href="{{ route('dashboard.customize') }}" data-profile-tab-label="My Dashboard">
+                    <span class="profile-workspace-link-icon is-purple"><i class="ti ti-layout-dashboard"></i></span>
+                    <span class="profile-workspace-link-copy">
+                        <strong>My Dashboard</strong>
+                        <small>Customize dashboard widgets</small>
+                    </span>
+                    <i class="ti ti-chevron-right ms-auto"></i>
+                </a>
+            @endif
             </div>
         </aside>
 

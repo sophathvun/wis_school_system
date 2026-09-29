@@ -71,7 +71,8 @@
                         <div class="card">
                             <div class="card-header d-flex">
                                 <h3 class="card-title">Notifications</h3>
-                                <div class="btn-close ms-auto" data-bs-dismiss="dropdown"></div>
+                                <button type="button" class="btn-close ms-auto" aria-label="Close notifications"
+                                    data-navbar-notification-close></button>
                             </div>
                             <div class="list-group list-group-flush list-group-hoverable"
                                 data-navbar-notification-list>

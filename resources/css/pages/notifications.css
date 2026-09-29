@@ -1,5 +1,14 @@
 /* Extracted from resources/views/notifications.blade.php. Keep page-specific styles in this file. */
 
+.page-wrapper:has(.notifications-page-card) > .page-header {
+    margin-top: 1.75rem;
+    padding-top: 1rem;
+}
+
+.page-wrapper:has(.notifications-page-card) > .page-body {
+    padding-top: 1.75rem !important;
+}
+
 .notifications-page-card {
     margin-top: 1.25rem;
 }

@@ -255,9 +255,10 @@ body.dark .profile-edit-section-header {
         position: absolute;
         left: calc(100% + 0.65rem);
         top: 50%;
-        z-index: 1080;
+        z-index: 2147483646;
         transform: translateY(-50%);
         display: none;
+        min-width: max-content;
         width: max-content;
         max-width: 240px;
         padding: 0.45rem 0.65rem;
@@ -276,7 +277,7 @@ body.dark .profile-edit-section-header {
         position: absolute;
         left: calc(100% + 0.25rem);
         top: 50%;
-        z-index: 1081;
+        z-index: 2147483647;
         transform: translateY(-50%);
         display: none;
         border-width: 0.35rem 0.4rem 0.35rem 0;
@@ -284,10 +285,10 @@ body.dark .profile-edit-section-header {
         border-color: transparent #111827 transparent transparent;
     }
 
-    .profile-workspace.profile-tabs-collapsed .profile-workspace-link:hover::after,
-    .profile-workspace.profile-tabs-collapsed .profile-workspace-link:focus::after,
-    .profile-workspace.profile-tabs-collapsed .profile-workspace-link:hover::before,
-    .profile-workspace.profile-tabs-collapsed .profile-workspace-link:focus::before {
+    .profile-workspace.profile-tabs-collapsed .profile-workspace-link[data-profile-tab-label]:hover::after,
+    .profile-workspace.profile-tabs-collapsed .profile-workspace-link[data-profile-tab-label]:focus::after,
+    .profile-workspace.profile-tabs-collapsed .profile-workspace-link[data-profile-tab-label]:hover::before,
+    .profile-workspace.profile-tabs-collapsed .profile-workspace-link[data-profile-tab-label]:focus::before {
         display: block;
     }
 }
