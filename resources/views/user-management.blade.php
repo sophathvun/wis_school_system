@@ -465,6 +465,22 @@
             <div class="d-flex justify-content-center">@include('partials.user-pagination')</div>
         </div>
     </div>
+    <script>
+        (() => {
+            const keepUserComboboxMenuInsideModal = (target) => {
+                const menu = target?.closest?.('.location-combobox-menu');
+                if (!menu || menu.closest('#userModal')) return;
+                const modal = document.getElementById('userModal');
+                const openCombobox = modal?.querySelector('.user-searchable-combobox.is-open');
+                if (!modal || !openCombobox || !menu.querySelector('.location-combobox-search')) return;
+                modal.appendChild(menu);
+            };
+
+            ['pointerdown', 'mousedown', 'focusin', 'click', 'keydown'].forEach((eventName) => {
+                document.addEventListener(eventName, (event) => keepUserComboboxMenuInsideModal(event.target), true);
+            });
+        })();
+    </script>
     @vite('resources/js/userManagement.js')
     @vite('resources/css/pages/user-management.css')
 @endsection
