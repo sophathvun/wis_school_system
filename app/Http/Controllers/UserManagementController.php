@@ -7,6 +7,7 @@ use App\Models\Permission;
 use App\Models\Position;
 use App\Models\Role;
 use App\Models\SchoolInfo;
+use App\Models\Staff;
 use App\Models\User;
 use App\Models\BrandingSetting;
 use Illuminate\Http\Request;
@@ -23,7 +24,7 @@ class UserManagementController
         $perPage = min(max($request->integer('per_page', 10), 10), 100);
         $sortBy = $request->query('sortBy', 'name');
         $sortDir = strtolower($request->query('sortDir', 'asc')) === 'desc' ? 'desc' : 'asc';
-        $usersQuery = User::with(['department', 'position', 'roles', 'campuses'])->when($search, fn ($query) => $query->where(function ($query) use ($search) {
+        $usersQuery = User::with(['department', 'position', 'roles', 'campuses', 'staffProfile'])->when($search, fn ($query) => $query->where(function ($query) use ($search) {
             $query->where('name', 'like', "%{$search}%")
                 ->orWhere('staff_id', 'like', "%{$search}%")
                 ->orWhere('username', 'like', "%{$search}%")
@@ -32,7 +33,8 @@ class UserManagementController
                 ->orWhereHas('department', fn ($department) => $department->where('name', 'like', "%{$search}%"))
                 ->orWhereHas('position', fn ($position) => $position->where('name', 'like', "%{$search}%"))
                 ->orWhereHas('roles', fn ($role) => $role->where('name', 'like', "%{$search}%"))
-                ->orWhereHas('campuses', fn ($campus) => $campus->where('campus_name_en', 'like', "%{$search}%"));
+                ->orWhereHas('campuses', fn ($campus) => $campus->where('campus_name_en', 'like', "%{$search}%"))
+                ->orWhereHas('staffProfile', fn ($staff) => $staff->where('staff_code', 'like', "%{$search}%")->orWhere('name_en', 'like', "%{$search}%"));
         }));
         $this->applyUserSort($usersQuery, $sortBy, $sortDir);
         $users = $usersQuery->paginate($perPage)->withQueryString();
@@ -46,8 +48,9 @@ class UserManagementController
         ])->values();
         return view('user-management', [
             'users' => $users,
-            'editUser' => $request->integer('edit') ? User::with(['campuses', 'position', 'roles', 'permissionOverrides'])->find($request->integer('edit')) : null,
+            'editUser' => $request->integer('edit') ? User::with(['campuses', 'position', 'roles', 'permissionOverrides', 'staffProfile'])->find($request->integer('edit')) : null,
             'createUser' => $request->boolean('create'),
+            'staffProfiles' => Staff::with('campuses')->where('status', 1)->orderBy('name_en')->get(),
             'departments' => Department::where('status', 1)->orderBy('name')->get(),
             'positions' => Position::with('department')->where('status', 1)->orderBy('name')->get(),
             'roles' => Role::where('status', 1)->orderBy('name')->get(),
@@ -89,7 +92,7 @@ class UserManagementController
             $request->merge(['status' => '1']);
         }
         $data = $request->validate([
-            'user_id' => ['nullable', 'exists:users,id'], 'staff_id' => ['required', 'string', 'max:50', 'unique:users,staff_id,'.$userId], 'name' => ['required', 'string', 'max:255'],
+            'user_id' => ['nullable', 'exists:users,id'], 'staff_profile_id' => ['nullable', 'exists:hrm_staff,id', 'unique:users,staff_profile_id,'.$userId], 'staff_id' => ['required', 'string', 'max:50', 'unique:users,staff_id,'.$userId], 'name' => ['required', 'string', 'max:255'],
             'gender' => ['nullable', 'in:Male,Female,Other,male,female,other'], 'date_of_birth' => ['nullable', 'date'], 'phone' => ['nullable', 'string', 'max:50'], 'position_id' => ['nullable', 'exists:access_positions,id'],
             'username' => ['required', 'string', 'max:80', 'unique:users,username,'.$userId],
             'email' => ['required', 'email', 'max:255', 'unique:users,email,'.$userId],

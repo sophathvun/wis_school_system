@@ -466,23 +466,27 @@
                         <span class="nav-link-title">Student Discipline</span>
                     </a>
                 </li>
-                <li class="nav-item {{ request()->routeIs('homeroom-activities.*') ? 'active' : '' }}">
-                    <a class="nav-link" href="{{ route('homeroom-activities.index') }}">
-                        <span class="nav-link-icon d-md-none d-lg-inline-block"><i class="ti ti-home-star icon"></i></span>
-                        <span class="nav-link-title">Homeroom Activities</span>
-                    </a>
-                </li>
-                @if ($canView('users.view') || $canView('attendance.view'))
-                    <li class="nav-item dropdown {{ request()->routeIs('hrm.*') || request()->routeIs('users.*') ? 'active' : '' }}">
+                @if ($canView('homeroom.view'))
+                    <li class="nav-item {{ request()->routeIs('homeroom-activities.*') ? 'active' : '' }}">
+                        <a class="nav-link" href="{{ route('homeroom-activities.index') }}">
+                            <span class="nav-link-icon d-md-none d-lg-inline-block"><i class="ti ti-home-star icon"></i></span>
+                            <span class="nav-link-title">Homeroom Activities</span>
+                        </a>
+                    </li>
+                @endif
+                @if ($canView('staff.view') || $canView('attendance.view'))
+                    <li class="nav-item dropdown {{ request()->routeIs('hrm.*') || request()->routeIs('staff-management.*') ? 'active' : '' }}">
                         <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown"
-                            data-bs-auto-close="false" role="button" aria-expanded="{{ request()->routeIs('hrm.*') || request()->routeIs('users.*') ? 'true' : 'false' }}">
+                            data-bs-auto-close="false" role="button" aria-expanded="{{ request()->routeIs('hrm.*') || request()->routeIs('staff-management.*') ? 'true' : 'false' }}">
                             <span class="nav-link-icon d-md-none d-lg-inline-block"><i class="ti ti-users-group icon"></i></span>
                             <span class="nav-link-title">HRM</span>
                         </a>
-                        <div class="dropdown-menu {{ request()->routeIs('hrm.*') || request()->routeIs('users.*') ? 'show' : '' }}">
-                            <a class="dropdown-item {{ request()->routeIs('users.*') ? 'active' : '' }}" href="{{ route('users.index') }}">
-                                <i class="ti ti-id-badge-2 me-2"></i> Staff Management
-                            </a>
+                        <div class="dropdown-menu {{ request()->routeIs('hrm.*') || request()->routeIs('staff-management.*') ? 'show' : '' }}">
+                            @if ($canView('staff.view'))
+                                <a class="dropdown-item {{ request()->routeIs('staff-management.*') ? 'active' : '' }}" href="{{ route('staff-management.index') }}">
+                                    <i class="ti ti-id-badge-2 me-2"></i> Staff Management
+                                </a>
+                            @endif
                             <a class="dropdown-item {{ request()->routeIs('hrm.staff-attendance') ? 'active' : '' }}" href="{{ route('hrm.staff-attendance') }}">
                                 <i class="ti ti-user-check me-2"></i> Staff Attendance
                             </a>

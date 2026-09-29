@@ -220,6 +220,13 @@ class ReportsController
             @unlink($htmlPath);
             return $this->makeDomPdfPath($html, $type);
         }
+
+        if (!function_exists('proc_open')) {
+            @unlink($htmlPath);
+            @unlink($pdfPath);
+            return $this->makeDomPdfPath($html, $type);
+        }
+
         $fileUrl = 'file:///' . str_replace('\\', '/', $htmlPath);
         $command = [
             $chrome,
@@ -295,6 +302,10 @@ class ReportsController
 
         foreach ($candidates as $path) {
             if ($path && is_file($path)) return $path;
+        }
+
+        if (!function_exists('shell_exec')) {
+            return null;
         }
 
         foreach (['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser'] as $binary) {

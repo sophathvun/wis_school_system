@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 
 <head>
@@ -151,7 +151,9 @@
         </tbody>
     </table>
     <p class="generated-date">Generated: {{ now()->format('d-M-Y h:i A') }}</p>
-    @vite('resources/js/pdfPrint.js')
+    @if (!empty($printMode) && file_exists(public_path('build/manifest.json')))
+        @vite('resources/js/pdfPrint.js')
+    @endif
 </body>
 
 </html>

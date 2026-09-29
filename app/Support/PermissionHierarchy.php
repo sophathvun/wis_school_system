@@ -19,7 +19,8 @@ class PermissionHierarchy
             'attendance' => 'Attendance', 'schedules' => 'Schedules', 'grading-system' => 'Grading System', 'reports' => 'Reports',
             'students.search' => 'Search Students', 'students.enrollment' => 'Student Enrollment', 'families' => 'Family Management',
             'students.promotion' => 'Student Promotion', 'students.transfer' => 'Student Transfer', 'students.graduation' => 'Student Graduation',
-            'student-reentry' => 'Student Re-entry', 'student-documents' => 'Student Documents', 'student-data-transfer' => 'Import / Export Data',
+            'student-reentry' => 'Student Re-entry', 'student-documents' => 'Student Documents', 'student-data-transfer' => 'Import / Export Data', 'homeroom' => 'Homeroom Activities',
+            'staff' => 'Staff Management',
         ];
     }
 
@@ -43,7 +44,7 @@ class PermissionHierarchy
             ],
             'students' => [
                 'label' => 'Students', 'permission' => 'students.view',
-                'modules' => ['students.search', 'students.enrollment', 'summer-school', 'families', 'students.promotion', 'students.transfer', 'students.graduation', 'student-withdrawals', 'student-reentry', 'student-documents', 'student-data-transfer'],
+                'modules' => ['students.search', 'students.enrollment', 'summer-school', 'families', 'students.promotion', 'students.transfer', 'students.graduation', 'student-withdrawals', 'student-reentry', 'student-documents', 'homeroom', 'student-data-transfer'],
                 'actions' => ['students.manage'],
             ],
             'dashboard' => [
@@ -65,6 +66,11 @@ class PermissionHierarchy
                 'label' => 'Grading System', 'permission' => 'grading-system.view',
                 'modules' => [],
                 'actions' => ['grading-system.manage'],
+            ],
+            'hrm' => [
+                'label' => 'HRM', 'permission' => 'staff.view',
+                'modules' => [],
+                'actions' => ['staff.create', 'staff.edit', 'staff.delete'],
             ],
             'reports' => [
                 'label' => 'Reports', 'permission' => 'reports.view',

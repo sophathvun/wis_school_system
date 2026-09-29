@@ -40,6 +40,8 @@ use App\Http\Controllers\AcademicTrackController;
 use App\Http\Controllers\DashboardTemplateController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ReportsController;
+use App\Http\Controllers\HomeroomController;
+use App\Http\Controllers\StaffManagementController;
 
 Route::get('/app-icon.svg', function () {
     $branding = \App\Models\BrandingSetting::current();
@@ -250,14 +252,16 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         'icon' => 'ti-shield-checkered',
         'description' => 'Use this module to manage student discipline records, actions, and follow-up activities.',
     ])->name('student-discipline.index');
-    Route::view('/homeroom-activities', 'academic-module-placeholder', [
-        'title' => 'Homeroom Activities',
-        'pretitle' => 'Student Affairs',
-        'icon' => 'ti-home-star',
-        'description' => 'Use this module to manage homeroom activities, student support, and classroom engagement records.',
-    ])->name('homeroom-activities.index');
+    Route::get('/homeroom-activities', [HomeroomController::class, 'index'])->middleware('permission:homeroom.view')->name('homeroom-activities.index');
+    Route::post('/homeroom-activities/assignments', [HomeroomController::class, 'storeAssignment'])->middleware('permission:homeroom.manage-assignments')->name('homeroom-activities.assignments.store');
+    Route::patch('/homeroom-activities/assignments/{assignment}', [HomeroomController::class, 'updateAssignment'])->middleware('permission:homeroom.manage-assignments')->name('homeroom-activities.assignments.update');
+    Route::delete('/homeroom-activities/assignments/{assignment}', [HomeroomController::class, 'destroyAssignment'])->middleware('permission:homeroom.manage-assignments')->name('homeroom-activities.assignments.destroy');
+    Route::post('/homeroom-activities/records', [HomeroomController::class, 'storeRecord'])->middleware('permission:homeroom.view')->name('homeroom-activities.records.store');
+    Route::patch('/homeroom-activities/records/{record}', [HomeroomController::class, 'updateRecord'])->middleware('permission:homeroom.view')->name('homeroom-activities.records.update');
 
-    Route::redirect('/hrm/staff-management', '/settings/users')->name('hrm.staff-management');
+    Route::get('/hrm/staff-management', [StaffManagementController::class, 'index'])->middleware('permission:staff.view')->name('staff-management.index');
+    Route::post('/hrm/staff-management', [StaffManagementController::class, 'save'])->middleware('permission:staff.view')->name('staff-management.save');
+    Route::delete('/hrm/staff-management/{staff}', [StaffManagementController::class, 'delete'])->middleware('permission:staff.delete')->name('staff-management.delete');
     Route::view('/hrm/staff-attendance', 'academic-module-placeholder', [
         'title' => 'Staff Attendance',
         'pretitle' => 'HRM',

@@ -85,6 +85,26 @@
                                             class="student-photo-preview"></div>
                                 </div>
                             </div>
+                            <div class="col-md-12"><label class="form-label">Linked Staff Profile</label><select class="form-select"
+                                    name="staff_profile_id" id="linked_staff_profile">
+                                    <option value="">No linked staff profile</option>
+                                    @foreach ($staffProfiles as $staffProfile)
+                                        <option value="{{ $staffProfile->id }}"
+                                            data-staff-code="{{ $staffProfile->staff_code }}"
+                                            data-name="{{ $staffProfile->name_en }}"
+                                            data-gender="{{ $staffProfile->gender }}"
+                                            data-date-of-birth="{{ $staffProfile->date_of_birth?->format('Y-m-d') }}"
+                                            data-phone="{{ $staffProfile->phone }}"
+                                            data-email="{{ $staffProfile->email }}"
+                                            data-position-id="{{ $staffProfile->position_id }}"
+                                            data-department-id="{{ $staffProfile->department_id }}"
+                                            @selected(old('staff_profile_id', $editUser?->staff_profile_id) == $staffProfile->id)>
+                                            {{ $staffProfile->staff_code }} - {{ $staffProfile->name_en }}{{ $staffProfile->campuses->isNotEmpty() ? ' - '.$staffProfile->campuses->pluck('campus_name_en')->join(', ') : '' }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                                <div class="form-hint">User account is only for login and permissions. Staff information is managed in HRM > Staff Management.</div>
+                            </div>
                             <div class="col-md-3"><label class="form-label">Staff ID</label><input class="form-control"
                                     name="staff_id" value="{{ old('staff_id', $editUser?->staff_id) }}" required></div>
                             <div class="col-md-3"><label class="form-label">Staff Name</label><input class="form-control"
@@ -467,6 +487,35 @@
     </div>
     <script>
         (() => {
+            const staffSelect = document.getElementById('linked_staff_profile');
+            staffSelect?.addEventListener('change', () => {
+                const option = staffSelect.selectedOptions[0];
+                if (!option || !option.value) return;
+
+                const setValue = (selector, value) => {
+                    const field = document.querySelector(selector);
+                    if (field && value !== undefined && value !== null && value !== '') {
+                        field.value = value;
+                        field.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                };
+
+                setValue('input[name="staff_id"]', option.dataset.staffCode);
+                setValue('input[name="name"]', option.dataset.name);
+                setValue('select[name="gender"]', option.dataset.gender);
+                setValue('input[name="date_of_birth"]', option.dataset.dateOfBirth);
+                setValue('input[name="email"]', option.dataset.email);
+                setValue('select[name="position_id"]', option.dataset.positionId);
+                setValue('select[name="department_id"]', option.dataset.departmentId);
+
+                const visiblePhone = document.getElementById('user_phone_number');
+                const hiddenPhone = document.getElementById('user_phone');
+                if (option.dataset.phone && visiblePhone && hiddenPhone) {
+                    visiblePhone.value = option.dataset.phone;
+                    hiddenPhone.value = option.dataset.phone;
+                }
+            });
+
             const keepUserComboboxMenuInsideModal = (target) => {
                 const menu = target?.closest?.('.location-combobox-menu');
                 if (!menu || menu.closest('#userModal')) return;

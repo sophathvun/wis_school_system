@@ -49,7 +49,9 @@
         </tbody>
     </table>
     <p>Generated: {{ now()->format('F j, Y H:i') }}</p>
-    @vite('resources/js/pdfPrint.js')
+    @if (!empty($printMode) && file_exists(public_path('build/manifest.json')))
+        @vite('resources/js/pdfPrint.js')
+    @endif
 </body>
 
 </html>

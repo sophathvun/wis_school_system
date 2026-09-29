@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
 
 <head>
@@ -150,7 +150,9 @@
     </table>
 
     <div class="report-footer">{{ now('Asia/Phnom_Penh')->format('d-M-Y h:i A') }}</div>
-    @vite('resources/js/pdfPrint.js')
+    @if (!empty($printMode) && file_exists(public_path('build/manifest.json')))
+        @vite('resources/js/pdfPrint.js')
+    @endif
 </body>
 
 </html>
