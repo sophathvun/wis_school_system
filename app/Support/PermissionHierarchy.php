@@ -95,6 +95,37 @@ class PermissionHierarchy
         return $tree;
     }
 
+    public static function visibleIds(Collection $permissions): Collection
+    {
+        $byCode = $permissions->keyBy('code');
+        $ids = collect();
+
+        foreach (self::groups() as $group) {
+            if ($permission = $byCode->get($group['permission'])) {
+                $ids->push($permission->id);
+            }
+
+            foreach ($group['actions'] as $actionCode) {
+                if ($permission = $byCode->get($actionCode)) {
+                    $ids->push($permission->id);
+                }
+            }
+
+            foreach ($group['modules'] as $module) {
+                $viewCode = "{$module}.view";
+                if ($permission = $byCode->get($viewCode)) {
+                    $ids->push($permission->id);
+                }
+
+                $permissions
+                    ->filter(fn (Permission $permission) => str_starts_with($permission->code, "{$module}.") && $permission->code !== $viewCode)
+                    ->each(fn (Permission $permission) => $ids->push($permission->id));
+            }
+        }
+
+        return $ids->unique()->values();
+    }
+
     public static function normalizeIds(array $ids, Collection $permissions): array
     {
         $byId = $permissions->keyBy('id');

@@ -19,15 +19,18 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     const urlParams = new URLSearchParams(window.location.search);
-    const shouldShowPermissionList =
-        window.location.hash === "#permission-list-tab" ||
-        ["permissionSortBy", "permissionSortDir", "permission_page", "permission_search"].some((name) =>
-            urlParams.has(name),
-        );
-
-    if (shouldShowPermissionList) {
-        activateTab("permission-list-tab");
-    }
+    const hashTabId = window.location.hash ? window.location.hash.slice(1) : "";
+    const queryTabId = urlParams.has("role_id")
+        ? "role-permissions-tab"
+        : urlParams.has("department_id")
+          ? "department-permissions-tab"
+          : ["permissionSortBy", "permissionSortDir", "permission_page", "permission_search"].some((name) =>
+                urlParams.has(name),
+            )
+            ? "permission-list-tab"
+            : "";
+    const activeTabId = hashTabId || queryTabId;
+    if (activeTabId) activateTab(activeTabId);
 
     const setToggle = (button, active) => {
         if (!button) return;
@@ -180,7 +183,17 @@ document.addEventListener("DOMContentLoaded", () => {
         const toggle = picker.querySelector("[data-department-picker-toggle]"), menu = picker.querySelector("[data-department-picker-menu]"), search = picker.querySelector("[data-department-picker-search]"), value = picker.querySelector("[data-department-picker-value]"), label = picker.querySelector("[data-department-picker-label]");
         toggle?.addEventListener("click", () => { const open = menu.classList.toggle("d-none"); toggle.setAttribute("aria-expanded", String(!open)); if (!open) search?.focus(); });
         search?.addEventListener("input", () => { const term = search.value.toLowerCase().trim(); picker.querySelectorAll("[data-department-id]").forEach((option) => option.classList.toggle("d-none", Boolean(term) && !option.textContent.toLowerCase().includes(term))); });
-        picker.querySelectorAll("[data-department-id]").forEach((option) => option.addEventListener("click", () => { value.value = option.dataset.departmentId; label.textContent = option.textContent.trim(); menu.classList.add("d-none"); picker.closest("form")?.submit(); }));
+        picker.querySelectorAll("[data-department-id]").forEach((option) => option.addEventListener("click", () => {
+            value.value = option.dataset.departmentId;
+            label.textContent = option.textContent.trim();
+            menu.classList.add("d-none");
+            const form = picker.closest("form");
+            const tab = picker.closest(".tab-pane");
+            if (form && tab?.id) {
+                form.action = `${form.action.split("#")[0]}#${tab.id}`;
+            }
+            form?.submit();
+        }));
     });
 
     document.addEventListener("click", (event) => {
@@ -197,7 +210,13 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     document.querySelectorAll("[data-access-auto-submit]").forEach((select) => {
-        select.addEventListener("change", () => select.form?.submit());
+        select.addEventListener("change", () => {
+            const tab = select.closest(".tab-pane");
+            if (tab?.id) {
+                select.form.action = `${select.form.action.split("#")[0]}#${tab.id}`;
+            }
+            select.form?.submit();
+        });
     });
 
 

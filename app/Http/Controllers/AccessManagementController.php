@@ -39,7 +39,8 @@ class AccessManagementController
             ->orderBy('action')
             ->paginate(10, ['*'], 'permission_page')
             ->withQueryString();
-        $hasAllPermissions = fn ($assigned) => $permissionList->isNotEmpty() && $permissionList->every(fn ($permission) => $assigned?->contains('id', $permission->id));
+        $fullAccessPermissionIds = PermissionHierarchy::visibleIds($permissionList);
+        $hasAllPermissions = fn ($assigned) => $fullAccessPermissionIds->isNotEmpty() && $fullAccessPermissionIds->every(fn ($permissionId) => $assigned?->contains('id', $permissionId));
         $userSearch = trim((string) $request->input('user_search', ''));
         $userPerPage = min(max($request->integer('per_page', 10), 10), 100);
         $userList = User::with(['department', 'roles', 'campuses', 'permissionOverrides'])
