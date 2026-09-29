@@ -13,6 +13,7 @@ use App\Models\StudentEnrollmentHistory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Barryvdh\DomPDF\Facade\Pdf;
 use RuntimeException;
 use Illuminate\Support\Str;
@@ -211,8 +212,8 @@ class ReportsController
                 'pdfKhmerSolarDate' => $pdfKhmerSolarDate,
             ]))->render();
 
-        $htmlPath = tempnam(sys_get_temp_dir(), 'report-pdf-html-') . '.html';
-        $pdfPath = tempnam(sys_get_temp_dir(), 'report-pdf-') . '.pdf';
+        $htmlPath = $this->reportTempPath('html-', '.html');
+        $pdfPath = $this->reportTempPath('pdf-', '.pdf');
         file_put_contents($htmlPath, $html);
         @unlink($pdfPath);
 
@@ -228,14 +229,22 @@ class ReportsController
             return $this->makeDomPdfPath($html, $type);
         }
 
-        $fileUrl = 'file:///' . str_replace('\\', '/', $htmlPath);
+        $chromeProfilePath = $this->reportTempDirectory('chrome-profile-' . (string) Str::uuid());
+        $chromeCrashPath = $this->reportTempDirectory('chrome-crashes');
+        $fileUrl = $this->localFileUrl($htmlPath);
         $command = [
             $chrome,
             '--headless',
             '--disable-gpu',
             '--no-sandbox',
+            '--disable-setuid-sandbox',
             '--allow-file-access-from-files',
             '--disable-dev-shm-usage',
+            '--no-zygote',
+            '--disable-software-rasterizer',
+            '--font-render-hinting=none',
+            '--user-data-dir=' . $chromeProfilePath,
+            '--crash-dumps-dir=' . $chromeCrashPath,
             '--run-all-compositor-stages-before-draw',
             '--virtual-time-budget=1000',
             '--print-to-pdf=' . $pdfPath,
@@ -243,10 +252,26 @@ class ReportsController
             '--print-to-pdf-no-header',
             $fileUrl,
         ];
-        $process = proc_open($command, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, base_path());
-        if (!is_resource($process)) {
+        try {
+            $process = proc_open($command, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, base_path());
+        } catch (\Throwable $exception) {
+            Log::warning('Chrome PDF export could not start.', [
+                'type' => $type,
+                'message' => $exception->getMessage(),
+            ]);
             @unlink($htmlPath);
-            throw new RuntimeException('Unable to start Chrome for PDF export.');
+            @unlink($pdfPath);
+            $this->removeDirectory($chromeProfilePath);
+
+            return $this->makeDomPdfPath($html, $type);
+        }
+        if (!is_resource($process)) {
+            Log::warning('Chrome PDF export returned no process resource.', ['type' => $type]);
+            @unlink($htmlPath);
+            @unlink($pdfPath);
+            $this->removeDirectory($chromeProfilePath);
+
+            return $this->makeDomPdfPath($html, $type);
         }
 
         $stdout = stream_get_contents($pipes[1]);
@@ -255,8 +280,17 @@ class ReportsController
         fclose($pipes[2]);
         $exitCode = proc_close($process);
         @unlink($htmlPath);
+        $this->removeDirectory($chromeProfilePath);
 
         if ($exitCode !== 0 || !is_file($pdfPath) || filesize($pdfPath) < 1000) {
+            Log::warning('Chrome PDF export failed, falling back to DomPDF.', [
+                'type' => $type,
+                'exit_code' => $exitCode,
+                'stdout' => Str::limit(trim($stdout), 1000),
+                'stderr' => Str::limit(trim($stderr), 1000),
+                'pdf_exists' => is_file($pdfPath),
+                'pdf_size' => is_file($pdfPath) ? filesize($pdfPath) : 0,
+            ]);
             @unlink($pdfPath);
             return $this->makeDomPdfPath($html, $type);
         }
@@ -269,10 +303,36 @@ class ReportsController
         $paper = in_array($type, ['student-list', 'student-contact-list', 'attendance-list', 'score-list', 'student-id-books-moeys', 'moeys-sikkhakarik-book'], true)
             ? 'landscape'
             : 'portrait';
-        $pdfPath = tempnam(sys_get_temp_dir(), 'report-pdf-dompdf-') . '.pdf';
-        Pdf::loadHTML($html)
-            ->setPaper('a4', $paper)
-            ->save($pdfPath);
+        $pdfPath = $this->reportTempPath('dompdf-', '.pdf');
+        $domPdfTempPath = $this->reportTempDirectory('dompdf-temp');
+        $domPdfFontPath = $this->reportTempDirectory('dompdf-fonts');
+
+        try {
+            Pdf::loadHTML($html)
+                ->setPaper('a4', $paper)
+                ->setOptions([
+                    'isRemoteEnabled' => true,
+                    'isHtml5ParserEnabled' => true,
+                    'isFontSubsettingEnabled' => true,
+                    'tempDir' => $domPdfTempPath,
+                    'fontDir' => $domPdfFontPath,
+                    'fontCache' => $domPdfFontPath,
+                    'chroot' => [
+                        public_path(),
+                        storage_path('app/public'),
+                        storage_path('app/report-pdf-temp'),
+                    ],
+                ])
+                ->save($pdfPath);
+        } catch (\Throwable $exception) {
+            @unlink($pdfPath);
+            Log::error('DomPDF report export failed.', [
+                'type' => $type,
+                'message' => $exception->getMessage(),
+            ]);
+
+            throw $exception;
+        }
 
         if (!is_file($pdfPath) || filesize($pdfPath) < 1000) {
             @unlink($pdfPath);
@@ -280,6 +340,64 @@ class ReportsController
         }
 
         return $pdfPath;
+    }
+
+    private function reportTempDirectory(?string $subdirectory = null): string
+    {
+        $path = storage_path('app/report-pdf-temp' . ($subdirectory ? DIRECTORY_SEPARATOR . $subdirectory : ''));
+        if (!is_dir($path) && !mkdir($path, 0775, true) && !is_dir($path)) {
+            throw new RuntimeException('Unable to create report PDF temporary directory.');
+        }
+
+        return $path;
+    }
+
+    private function reportTempPath(string $prefix, string $extension = ''): string
+    {
+        $path = tempnam($this->reportTempDirectory(), $prefix);
+        if ($path === false) {
+            throw new RuntimeException('Unable to create report PDF temporary file.');
+        }
+
+        if ($extension === '') {
+            return $path;
+        }
+
+        $target = $path . $extension;
+        if (!rename($path, $target)) {
+            @unlink($path);
+            throw new RuntimeException('Unable to prepare report PDF temporary file.');
+        }
+
+        return $target;
+    }
+
+    private function localFileUrl(string $path): string
+    {
+        $path = str_replace('\\', '/', $path);
+
+        return preg_match('/^[A-Za-z]:\//', $path) ? 'file:///' . $path : 'file://' . $path;
+    }
+
+    private function removeDirectory(string $path): void
+    {
+        if (!is_dir($path)) return;
+
+        $items = scandir($path);
+        if ($items === false) return;
+
+        foreach ($items as $item) {
+            if ($item === '.' || $item === '..') continue;
+
+            $itemPath = $path . DIRECTORY_SEPARATOR . $item;
+            if (is_dir($itemPath) && !is_link($itemPath)) {
+                $this->removeDirectory($itemPath);
+            } else {
+                @unlink($itemPath);
+            }
+        }
+
+        @rmdir($path);
     }
 
     private function chromeExecutablePath(): ?string
@@ -345,7 +463,7 @@ class ReportsController
                 );
             });
 
-        $zipPath = tempnam(sys_get_temp_dir(), 'report-pdf-zip-');
+        $zipPath = $this->reportTempPath('zip-', '.zip');
         $entries = [];
         $usedNames = [];
 

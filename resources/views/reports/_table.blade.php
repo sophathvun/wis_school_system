@@ -239,6 +239,7 @@
 @else
 @if($type === 'student-statistics-detail')
 @php
+    $academicYears = $academicYears ?? collect();
     $detailGroups = $statistics['groups'] ?? [];
     $detailValue = static fn ($value) => (int) $value === 0 ? '' : number_format((int) $value);
     $detailTotalValue = static fn ($value) => number_format((int) $value);
@@ -677,6 +678,8 @@
 </style>
 @elseif($type === 'attendance-list')
 @php
+    $academicYears = $academicYears ?? collect();
+    $campuses = $campuses ?? collect();
     $attendanceMonth = $filters['month'] ?? now('Asia/Phnom_Penh')->format('Y-m');
     try {
         $attendanceDate = \Carbon\Carbon::createFromFormat('Y-m-d', $attendanceMonth . '-01');

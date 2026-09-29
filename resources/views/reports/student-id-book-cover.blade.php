@@ -1,6 +1,10 @@
 @php
     $isPdfMode = $pdfMode ?? false;
-    $fontPath = static fn ($file) => str_replace('\\', '/', public_path('fonts/khmer/' . $file));
+    $toLocalFileUrl = static function ($path) {
+        $path = str_replace('\\', '/', $path);
+        return preg_match('/^[A-Za-z]:\//', $path) ? 'file:///' . $path : 'file://' . $path;
+    };
+    $fontPath = static fn ($file) => $toLocalFileUrl(public_path('fonts/khmer/' . $file));
 @endphp
 <!doctype html>
 <html lang="km">
