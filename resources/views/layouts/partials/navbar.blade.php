@@ -186,7 +186,7 @@
                     title="Chat" data-navbar-chat-link>
                     <i class="ti ti-messages icon"></i>
                     <span id="chat-unread-badge"
-                        class="badge bg-red position-absolute top-0 start-100 translate-middle d-none">0</span>
+                        class="navbar-notification-badge navbar-chat-badge d-none">0</span>
                 </a>
             </div>
             <div class="nav-item dropdown">

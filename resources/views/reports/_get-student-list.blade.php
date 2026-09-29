@@ -27,7 +27,32 @@
         if (!$date) return '-';
         return ($date instanceof \Carbon\Carbon ? $date : \Carbon\Carbon::parse($date))->format('d-M-Y');
     };
-    $cellValue = static function ($row, string $key) use ($familyMember, $locationText, $gradeClassText, $dateText): string {
+    $khmerDateText = static function ($date): string {
+        if (!$date) return '-';
+        $date = $date instanceof \Carbon\Carbon ? $date : \Carbon\Carbon::parse($date);
+        $digits = static fn ($value) => strtr((string) $value, ['0'=>'០','1'=>'១','2'=>'២','3'=>'៣','4'=>'៤','5'=>'៥','6'=>'៦','7'=>'៧','8'=>'៨','9'=>'៩']);
+        $months = ['Jan'=>'មករា','Feb'=>'កុម្ភៈ','Mar'=>'មីនា','Apr'=>'មេសា','May'=>'ឧសភា','Jun'=>'មិថុនា','Jul'=>'កក្កដា','Aug'=>'សីហា','Sep'=>'កញ្ញា','Oct'=>'តុលា','Nov'=>'វិច្ឆិកា','Dec'=>'ធ្នូ'];
+        return $digits($date->format('d')) . '-' . ($months[$date->format('M')] ?? $date->format('M')) . '-' . $digits($date->format('Y'));
+    };
+    $locationPart = static function ($student, string $type, string $part, string $language = 'en'): string {
+        $suffix = $language === 'kh' ? 'kh' : 'en';
+        return match ($type . '_' . $part) {
+            'birth_village' => (string) $student?->birthVillage?->{'village_name_' . $suffix},
+            'birth_commune' => (string) $student?->birthCommune?->{'commune_name_' . $suffix},
+            'birth_district' => (string) $student?->birthDistrict?->{'district_name_' . $suffix},
+            'birth_province' => (string) $student?->birthProvince?->{'province_name_' . $suffix},
+            'birth_country' => (string) $student?->birthCountry?->{'country_name_' . $suffix},
+            'address_house_no' => (string) ($language === 'kh' ? $student?->address_house_no_kh : $student?->address_house_no_en),
+            'address_street' => (string) ($language === 'kh' ? $student?->address_street_kh : $student?->address_street_en),
+            'address_village' => (string) $student?->addressVillage?->{'village_name_' . $suffix},
+            'address_commune' => (string) $student?->addressCommune?->{'commune_name_' . $suffix},
+            'address_district' => (string) $student?->addressDistrict?->{'district_name_' . $suffix},
+            'address_province' => (string) $student?->addressProvince?->{'province_name_' . $suffix},
+            'address_country' => (string) $student?->addressCountry?->{'country_name_' . $suffix},
+            default => '',
+        };
+    };
+    $cellValue = static function ($row, string $key) use ($familyMember, $locationText, $locationPart, $gradeClassText, $dateText, $khmerDateText): string {
         $student = $row->student;
         $mother = $familyMember($student, 'mother');
         $father = $familyMember($student, 'father');
@@ -42,13 +67,40 @@
             'gender' => $student?->gender,
             'gender_kh' => $student?->gender_kh,
             'date_of_birth' => $dateText($student?->date_of_birth),
+            'date_of_birth_kh' => $khmerDateText($student?->date_of_birth),
             'nationality' => $student?->nationalityCountry?->nationality_name_en ?: $student?->nationalityCountry?->country_name_en,
+            'nationality_en' => $student?->nationalityCountry?->nationality_name_en ?: $student?->nationalityCountry?->country_name_en,
+            'nationality_kh' => $student?->nationalityCountry?->nationality_name_kh ?: $student?->nationalityCountry?->country_name_kh,
             'home_phone' => $student?->home_phone,
             'email' => $student?->email,
             'birth_place_en' => $locationText($student, 'birth', 'en'),
             'birth_place_kh' => $locationText($student, 'birth', 'kh'),
+            'birth_village_en' => $locationPart($student, 'birth', 'village', 'en'),
+            'birth_village_kh' => $locationPart($student, 'birth', 'village', 'kh'),
+            'birth_commune_en' => $locationPart($student, 'birth', 'commune', 'en'),
+            'birth_commune_kh' => $locationPart($student, 'birth', 'commune', 'kh'),
+            'birth_district_en' => $locationPart($student, 'birth', 'district', 'en'),
+            'birth_district_kh' => $locationPart($student, 'birth', 'district', 'kh'),
+            'birth_province_en' => $locationPart($student, 'birth', 'province', 'en'),
+            'birth_province_kh' => $locationPart($student, 'birth', 'province', 'kh'),
+            'birth_country_en' => $locationPart($student, 'birth', 'country', 'en'),
+            'birth_country_kh' => $locationPart($student, 'birth', 'country', 'kh'),
             'current_address_en' => $student?->current_address_en ?: $locationText($student, 'address', 'en'),
             'current_address_kh' => $student?->current_address_kh ?: $locationText($student, 'address', 'kh'),
+            'address_house_no_en' => $locationPart($student, 'address', 'house_no', 'en'),
+            'address_house_no_kh' => $locationPart($student, 'address', 'house_no', 'kh'),
+            'address_street_en' => $locationPart($student, 'address', 'street', 'en'),
+            'address_street_kh' => $locationPart($student, 'address', 'street', 'kh'),
+            'address_village_en' => $locationPart($student, 'address', 'village', 'en'),
+            'address_village_kh' => $locationPart($student, 'address', 'village', 'kh'),
+            'address_commune_en' => $locationPart($student, 'address', 'commune', 'en'),
+            'address_commune_kh' => $locationPart($student, 'address', 'commune', 'kh'),
+            'address_district_en' => $locationPart($student, 'address', 'district', 'en'),
+            'address_district_kh' => $locationPart($student, 'address', 'district', 'kh'),
+            'address_province_en' => $locationPart($student, 'address', 'province', 'en'),
+            'address_province_kh' => $locationPart($student, 'address', 'province', 'kh'),
+            'address_country_en' => $locationPart($student, 'address', 'country', 'en'),
+            'address_country_kh' => $locationPart($student, 'address', 'country', 'kh'),
             'previous_school' => $student?->previous_school ?: $row->previous_school,
             'experienced_english' => $student?->experienced_english,
             'test_result' => $student?->test_result,

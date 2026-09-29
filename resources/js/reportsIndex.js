@@ -189,6 +189,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const generateIdBookButton = workspace.querySelector('[data-id-book-generate]');
     const idBookStartInput = workspace.querySelector('[data-id-book-start-number]');
+    const showReportToast = (icon, title, text = '') => {
+        if (!window.Swal) return Promise.resolve();
+
+        return window.Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon,
+            title,
+            text,
+            showConfirmButton: false,
+            timer: 900,
+            timerProgressBar: true,
+            width: 'auto',
+        });
+    };
     const showIdBookMessage = (icon, title, text) => {
         if (window.Swal) {
             return window.Swal.fire({ icon, title, text });
@@ -288,12 +303,23 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             columnOrder.forEach((value, index) => {
-                const item = document.createElement('button');
-                item.type = 'button';
+                const item = document.createElement('div');
                 item.className = 'selected-column-order-item';
                 item.draggable = true;
                 item.dataset.column = value;
-                item.innerHTML = `<span class="selected-column-order-number">${index + 1}</span><i class="ti ti-grip-vertical"></i><span>${columnLabels.get(value) || value}</span>`;
+                item.innerHTML = `<span class="selected-column-order-number">${index + 1}</span><i class="ti ti-grip-vertical"></i><span>${columnLabels.get(value) || value}</span><button type="button" class="selected-column-order-remove" aria-label="Remove ${columnLabels.get(value) || value}" data-remove-column="${value}"><i class="ti ti-x"></i></button>`;
+                item.querySelector('[data-remove-column]')?.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    const checkbox = columnCheckboxes.find((field) => field.value === value);
+                    if (checkbox) {
+                        checkbox.checked = false;
+                        checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+                    } else {
+                        columnOrder = columnOrder.filter((column) => column !== value);
+                        renderColumnOrder();
+                    }
+                });
                 item.addEventListener('dragstart', () => {
                     draggedColumn = value;
                     item.classList.add('is-dragging');
@@ -345,7 +371,17 @@ document.addEventListener('DOMContentLoaded', () => {
             getStudentListFormData().forEach((value, key) => {
                 if (value !== '') url.searchParams.append(key, value);
             });
-            window.location.href = url.toString();
+            showReportToast('success', 'Applied', 'Customize student list filters updated.').finally(() => {
+                window.location.href = url.toString();
+            });
+        });
+
+        form.querySelector('[data-get-student-list-clear]')?.addEventListener('click', (event) => {
+            event.preventDefault();
+            const url = event.currentTarget.href;
+            showReportToast('info', 'Cleared', 'Filters and selected information cleared.').finally(() => {
+                window.location.href = url;
+            });
         });
 
         renderColumnOrder();

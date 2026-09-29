@@ -142,7 +142,9 @@
                         <div class="alert alert-danger d-none" data-alert></div>
 
                         <div class="enrollment-profile-card">
-                            <h4 class="mb-3">Student Information</h4>
+                            <div class="enrollment-section-header enrollment-section-header-dark">
+                                <h4 class="mb-0">Student Information</h4>
+                            </div>
                             <div class="row g-3 mb-4" id="studentInformationFields">
                                 <div class="col-12">
                                     <label class="form-label">Student Photo</label>
@@ -427,7 +429,9 @@
                             </div>
                         </div>
 
-                        <h4 class="mb-3">Previous School and Assessment</h4>
+                        <div class="enrollment-section-header enrollment-section-header-dark">
+                            <h4 class="mb-0">Previous School and Assessment</h4>
+                        </div>
                         <div class="row g-3 mb-4">
                             <div class="col-md-3 premium-floating-field"><label class="form-label">Previous
                                     School</label><input id="previous_school" name="previous_school" class="form-control"
@@ -443,7 +447,9 @@
                             </div>
                         </div>
 
-                        <h4 class="mb-3">Enrollment Information</h4>
+                        <div class="enrollment-section-header enrollment-section-header-dark">
+                            <h4 class="mb-0">Enrollment Information</h4>
+                        </div>
                         <div class="row g-3" id="enrollmentInformationFields">
                             <div class="col-md-4 premium-floating-field">
                                 <label class="form-label">Academic Year *</label>
@@ -528,8 +534,9 @@
                             </div>
                             <input type="hidden" id="status" name="status" value="1">
                         </div>
-                        <h4 class="mb-3 mt-4">Family Information <span
-                                class="text-secondary fw-normal fs-5">(Optional)</span></h4>
+                        <div class="enrollment-section-header enrollment-section-header-dark mt-4">
+                            <h4 class="mb-0">Family Information <span class="enrollment-section-subtitle">(Optional)</span></h4>
+                        </div>
                         <div class="row g-3 mb-4 family-information" id="familyInformationFields">
                             <div class="family-member-row">
                                 <div class="family-member-heading">Mother</div>
@@ -697,8 +704,9 @@
                         </div>
 
                         <div class="enrollment-document-card">
-                            <h4 class="mb-3">Student Documents <span
-                                    class="text-secondary fw-normal fs-5">(Optional)</span></h4>
+                            <div class="enrollment-section-header enrollment-section-header-dark">
+                                <h4 class="mb-0">Student Documents <span class="enrollment-section-subtitle">(Optional)</span></h4>
+                            </div>
                             <ul class="nav nav-tabs mb-3" role="tablist">
                                 <li class="nav-item"><button type="button" class="nav-link active" data-bs-toggle="tab"
                                         data-bs-target="#enrollment-document-upload-tab"

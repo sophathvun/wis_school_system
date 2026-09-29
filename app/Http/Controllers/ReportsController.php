@@ -33,7 +33,7 @@ class ReportsController
         'withdrawn-students' => 'Withdrawn Students',
         'student-id-books-moeys' => 'Stu. ID Book (MoEYS)',
         'moeys-sikkhakarik-book' => 'សៀវភៅសិក្ាគារិក (MoEYS)',
-        'moeys-id-number-book' => 'Get Student List',
+        'moeys-id-number-book' => 'Customize Stu. List',
         'student-profile-label' => 'Stu. Profile Label',
     ];
 
@@ -771,14 +771,41 @@ class ReportsController
             'full_name_kh' => ['key' => 'full_name_kh', 'label' => 'Student Name Khmer', 'group' => 'Student Information'],
             'gender' => ['key' => 'gender', 'label' => 'Gender English', 'group' => 'Student Information'],
             'gender_kh' => ['key' => 'gender_kh', 'label' => 'Gender Khmer', 'group' => 'Student Information'],
-            'date_of_birth' => ['key' => 'date_of_birth', 'label' => 'Date of Birth', 'group' => 'Student Information'],
+            'date_of_birth' => ['key' => 'date_of_birth', 'label' => 'Date of Birth English', 'group' => 'Student Information'],
+            'date_of_birth_kh' => ['key' => 'date_of_birth_kh', 'label' => 'Date of Birth Khmer', 'group' => 'Student Information'],
             'nationality' => ['key' => 'nationality', 'label' => 'Nationality', 'group' => 'Student Information'],
+            'nationality_en' => ['key' => 'nationality_en', 'label' => 'Nationality English', 'group' => 'Student Information'],
+            'nationality_kh' => ['key' => 'nationality_kh', 'label' => 'Nationality Khmer', 'group' => 'Student Information'],
             'home_phone' => ['key' => 'home_phone', 'label' => 'Home Phone', 'group' => 'Student Information'],
             'email' => ['key' => 'email', 'label' => 'Email', 'group' => 'Student Information'],
             'birth_place_en' => ['key' => 'birth_place_en', 'label' => 'Birth Place English', 'group' => 'Student Information'],
             'birth_place_kh' => ['key' => 'birth_place_kh', 'label' => 'Birth Place Khmer', 'group' => 'Student Information'],
+            'birth_village_en' => ['key' => 'birth_village_en', 'label' => 'Birth Village English', 'group' => 'Student Information'],
+            'birth_village_kh' => ['key' => 'birth_village_kh', 'label' => 'Birth Village Khmer', 'group' => 'Student Information'],
+            'birth_commune_en' => ['key' => 'birth_commune_en', 'label' => 'Birth Commune English', 'group' => 'Student Information'],
+            'birth_commune_kh' => ['key' => 'birth_commune_kh', 'label' => 'Birth Commune Khmer', 'group' => 'Student Information'],
+            'birth_district_en' => ['key' => 'birth_district_en', 'label' => 'Birth District/Khan English', 'group' => 'Student Information'],
+            'birth_district_kh' => ['key' => 'birth_district_kh', 'label' => 'Birth District/Khan Khmer', 'group' => 'Student Information'],
+            'birth_province_en' => ['key' => 'birth_province_en', 'label' => 'Birth Province/City English', 'group' => 'Student Information'],
+            'birth_province_kh' => ['key' => 'birth_province_kh', 'label' => 'Birth Province/City Khmer', 'group' => 'Student Information'],
+            'birth_country_en' => ['key' => 'birth_country_en', 'label' => 'Birth Country English', 'group' => 'Student Information'],
+            'birth_country_kh' => ['key' => 'birth_country_kh', 'label' => 'Birth Country Khmer', 'group' => 'Student Information'],
             'current_address_en' => ['key' => 'current_address_en', 'label' => 'Current Address English', 'group' => 'Student Information'],
             'current_address_kh' => ['key' => 'current_address_kh', 'label' => 'Current Address Khmer', 'group' => 'Student Information'],
+            'address_house_no_en' => ['key' => 'address_house_no_en', 'label' => 'House No. English', 'group' => 'Student Information'],
+            'address_house_no_kh' => ['key' => 'address_house_no_kh', 'label' => 'House No. Khmer', 'group' => 'Student Information'],
+            'address_street_en' => ['key' => 'address_street_en', 'label' => 'Street English', 'group' => 'Student Information'],
+            'address_street_kh' => ['key' => 'address_street_kh', 'label' => 'Street Khmer', 'group' => 'Student Information'],
+            'address_village_en' => ['key' => 'address_village_en', 'label' => 'Address Village English', 'group' => 'Student Information'],
+            'address_village_kh' => ['key' => 'address_village_kh', 'label' => 'Address Village Khmer', 'group' => 'Student Information'],
+            'address_commune_en' => ['key' => 'address_commune_en', 'label' => 'Address Commune English', 'group' => 'Student Information'],
+            'address_commune_kh' => ['key' => 'address_commune_kh', 'label' => 'Address Commune Khmer', 'group' => 'Student Information'],
+            'address_district_en' => ['key' => 'address_district_en', 'label' => 'Address District/Khan English', 'group' => 'Student Information'],
+            'address_district_kh' => ['key' => 'address_district_kh', 'label' => 'Address District/Khan Khmer', 'group' => 'Student Information'],
+            'address_province_en' => ['key' => 'address_province_en', 'label' => 'Address Province/City English', 'group' => 'Student Information'],
+            'address_province_kh' => ['key' => 'address_province_kh', 'label' => 'Address Province/City Khmer', 'group' => 'Student Information'],
+            'address_country_en' => ['key' => 'address_country_en', 'label' => 'Address Country English', 'group' => 'Student Information'],
+            'address_country_kh' => ['key' => 'address_country_kh', 'label' => 'Address Country Khmer', 'group' => 'Student Information'],
             'previous_school' => ['key' => 'previous_school', 'label' => 'Previous School', 'group' => 'Student Information'],
             'experienced_english' => ['key' => 'experienced_english', 'label' => 'Experienced English', 'group' => 'Student Information'],
             'test_result' => ['key' => 'test_result', 'label' => 'Test Result', 'group' => 'Student Information'],
@@ -833,6 +860,31 @@ class ReportsController
         return collect($parts)->map(fn ($value) => trim((string) $value))->filter()->join(', ');
     }
 
+    private function getStudentListLocationPart($student, string $type, string $part, string $language = 'en'): string
+    {
+        $suffix = $language === 'kh' ? 'kh' : 'en';
+        return match ($type . '_' . $part) {
+            'birth_village' => (string) $student?->birthVillage?->{'village_name_' . $suffix},
+            'birth_commune' => (string) $student?->birthCommune?->{'commune_name_' . $suffix},
+            'birth_district' => (string) $student?->birthDistrict?->{'district_name_' . $suffix},
+            'birth_province' => (string) $student?->birthProvince?->{'province_name_' . $suffix},
+            'birth_country' => (string) $student?->birthCountry?->{'country_name_' . $suffix},
+            'address_house_no' => (string) ($language === 'kh' ? $student?->address_house_no_kh : $student?->address_house_no_en),
+            'address_street' => (string) ($language === 'kh' ? $student?->address_street_kh : $student?->address_street_en),
+            'address_village' => (string) $student?->addressVillage?->{'village_name_' . $suffix},
+            'address_commune' => (string) $student?->addressCommune?->{'commune_name_' . $suffix},
+            'address_district' => (string) $student?->addressDistrict?->{'district_name_' . $suffix},
+            'address_province' => (string) $student?->addressProvince?->{'province_name_' . $suffix},
+            'address_country' => (string) $student?->addressCountry?->{'country_name_' . $suffix},
+            default => '',
+        };
+    }
+
+    private function getStudentListKhmerDate($date): string
+    {
+        return $this->studentIdBookKhmerDate($date);
+    }
+
     private function getStudentListColumnValue($row, string $key): string
     {
         $student = $row->student;
@@ -850,13 +902,40 @@ class ReportsController
             'gender' => $student?->gender,
             'gender_kh' => $student?->gender_kh,
             'date_of_birth' => $this->displayDate($student?->date_of_birth, 'd-M-Y'),
+            'date_of_birth_kh' => $this->getStudentListKhmerDate($student?->date_of_birth),
             'nationality' => $student?->nationalityCountry?->nationality_name_en ?: $student?->nationalityCountry?->country_name_en,
+            'nationality_en' => $student?->nationalityCountry?->nationality_name_en ?: $student?->nationalityCountry?->country_name_en,
+            'nationality_kh' => $student?->nationalityCountry?->nationality_name_kh ?: $student?->nationalityCountry?->country_name_kh,
             'home_phone' => $student?->home_phone,
             'email' => $student?->email,
             'birth_place_en' => $this->getStudentListLocation($student, 'birth', 'en'),
             'birth_place_kh' => $this->getStudentListLocation($student, 'birth', 'kh'),
+            'birth_village_en' => $this->getStudentListLocationPart($student, 'birth', 'village', 'en'),
+            'birth_village_kh' => $this->getStudentListLocationPart($student, 'birth', 'village', 'kh'),
+            'birth_commune_en' => $this->getStudentListLocationPart($student, 'birth', 'commune', 'en'),
+            'birth_commune_kh' => $this->getStudentListLocationPart($student, 'birth', 'commune', 'kh'),
+            'birth_district_en' => $this->getStudentListLocationPart($student, 'birth', 'district', 'en'),
+            'birth_district_kh' => $this->getStudentListLocationPart($student, 'birth', 'district', 'kh'),
+            'birth_province_en' => $this->getStudentListLocationPart($student, 'birth', 'province', 'en'),
+            'birth_province_kh' => $this->getStudentListLocationPart($student, 'birth', 'province', 'kh'),
+            'birth_country_en' => $this->getStudentListLocationPart($student, 'birth', 'country', 'en'),
+            'birth_country_kh' => $this->getStudentListLocationPart($student, 'birth', 'country', 'kh'),
             'current_address_en' => $student?->current_address_en ?: $this->getStudentListLocation($student, 'address', 'en'),
             'current_address_kh' => $student?->current_address_kh ?: $this->getStudentListLocation($student, 'address', 'kh'),
+            'address_house_no_en' => $this->getStudentListLocationPart($student, 'address', 'house_no', 'en'),
+            'address_house_no_kh' => $this->getStudentListLocationPart($student, 'address', 'house_no', 'kh'),
+            'address_street_en' => $this->getStudentListLocationPart($student, 'address', 'street', 'en'),
+            'address_street_kh' => $this->getStudentListLocationPart($student, 'address', 'street', 'kh'),
+            'address_village_en' => $this->getStudentListLocationPart($student, 'address', 'village', 'en'),
+            'address_village_kh' => $this->getStudentListLocationPart($student, 'address', 'village', 'kh'),
+            'address_commune_en' => $this->getStudentListLocationPart($student, 'address', 'commune', 'en'),
+            'address_commune_kh' => $this->getStudentListLocationPart($student, 'address', 'commune', 'kh'),
+            'address_district_en' => $this->getStudentListLocationPart($student, 'address', 'district', 'en'),
+            'address_district_kh' => $this->getStudentListLocationPart($student, 'address', 'district', 'kh'),
+            'address_province_en' => $this->getStudentListLocationPart($student, 'address', 'province', 'en'),
+            'address_province_kh' => $this->getStudentListLocationPart($student, 'address', 'province', 'kh'),
+            'address_country_en' => $this->getStudentListLocationPart($student, 'address', 'country', 'en'),
+            'address_country_kh' => $this->getStudentListLocationPart($student, 'address', 'country', 'kh'),
             'previous_school' => $student?->previous_school ?: $row->previous_school,
             'experienced_english' => $student?->experienced_english,
             'test_result' => $student?->test_result,
@@ -957,11 +1036,11 @@ class ReportsController
         $isContactList = $this->isStudentContactListReport($type);
         $headers = $isMoeys
             ? ($isContactList
-                ? ['ល.រ', 'អ្លសិស្ស', 'នាម្រកូល-នាម្លួន', 'ភទ', 'ក្រុម', 'លទូរសព្ទផ្ទះ', 'លទូរសព្ទម្ដាយ', 'លទូរសព្ទឪពុក']
-                : ['ល.រ', 'អ្លសិស្ស', 'នាម្រកូល-នាម្លួន', 'ភទ', '្នាក់ទី', 'ក្រុម', 'ផ្សងៗ'])
+                ? ['ល.រ', 'អ្លសិស្ស', 'នាមត្រកូល-នាមខ្លួន', 'ភទ', 'ក្រុម', 'លទូរសព្ទផ្ទះ', 'លទូរសព្ទម្ដាយ', 'លទូរសព្ទឪពុក']
+                : ['ល.រ', 'អ្លសិស្ស', 'នាមត្រកូល-នាមខ្លួន', 'ភទ', '្នាក់ទី', 'ក្រុម', 'ផ្សងៗ'])
             : ($isContactList
-                ? ['No.', 'Student ID', 'នាម្រកូល-នាម្លួន', 'Full-Name', 'Gender', 'Campus', 'Grade', 'Group', 'Home Phone', "Mother's Phone", "Father's Phone"]
-                : ['No.', 'Student ID', 'នាម្រកូល-នាម្លួន', 'Full-Name', 'Gender', 'Campus', 'Grade', 'Group', 'Remarks']);
+                ? ['No.', 'Student ID', 'នាមត្រកូល-នាមខ្លួន', 'Full-Name', 'Gender', 'Campus', 'Grade', 'Group', 'Home Phone', "Mother's Phone", "Father's Phone"]
+                : ['No.', 'Student ID', 'នាមត្រកូល-នាមខ្លួន', 'Full-Name', 'Gender', 'Campus', 'Grade', 'Group', 'Remarks']);
         $lastColumn = $this->xlsxColumnName(count($headers));
         $first = $enrollments->first();
         $academicYear = $first?->academicYear?->academic_year ?: '-';
@@ -975,7 +1054,7 @@ class ReportsController
         $titleMergeStart = $isMoeys ? ($isContactList ? 'F' : 'E') : ($isContactList ? 'I' : 'G');
         $rows = [
             $this->xlsxRow(1, [[$titleMergeStart, 'ព្រះរាជាណាចក្រកម្ពុជា', 6]], $isMoeys ? 22.05 : 22),
-            $this->xlsxRow(2, [[$titleMergeStart, 'ជាិ សាសនា ព្រះមហាក្ស្រ', 6]], $isMoeys ? 19.8 : 22),
+            $this->xlsxRow(2, [[$titleMergeStart, 'ជាតិ សាសនា ព្រះមហាក្សត្រ', 6]], $isMoeys ? 19.8 : 22),
             $this->xlsxRow(3, [[$titleMergeStart, 'KINGDOM OF CAMBODIA', 6]], $isMoeys ? 15.6 : 18),
             $this->xlsxRow(4, [[$titleMergeStart, 'NATION RELIGION KING', 6]], $isMoeys ? 15.6 : 18),
             $this->xlsxRow(5, [['A', $title, $titleStyle]], $isMoeys ? 31.8 : 23),
@@ -3080,4 +3159,5 @@ JS;
         return ['groups' => $groups, 'campuses' => $campuses, 'totals' => $totals];
     }
 }
+
 

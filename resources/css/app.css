@@ -1937,6 +1937,11 @@ body {
     display: none !important;
 }
 
+.navbar-chat-badge {
+    top: .3rem;
+    right: -.55rem;
+}
+
 [data-bs-theme="dark"] .navbar-notification-badge {
     border-color: #111827;
     box-shadow: 0 .35rem 1rem rgba(239, 68, 68, .34), 0 0 0 1px rgba(248, 113, 113, .22);

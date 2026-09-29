@@ -1436,6 +1436,28 @@
     height: 52px;
 }
 
+.enrollment-section-header {
+    margin: 0 0 1rem;
+    padding: 1rem 1.25rem;
+    border-radius: 0.75rem 0.75rem 0 0;
+}
+
+.enrollment-section-header-dark {
+    background: #1e3a5f;
+    color: #fff;
+}
+
+.enrollment-section-header-dark h4 {
+    color: inherit;
+    font-weight: 700;
+}
+
+.enrollment-section-subtitle {
+    color: rgba(255, 255, 255, 0.78);
+    font-size: 1rem;
+    font-weight: 400;
+}
+
 #date_of_birth_picker,
 #enrolled_on_picker {
     display: block;
@@ -1540,6 +1562,26 @@
     background: var(--tblr-bg-surface);
     overflow: hidden;
     box-shadow: 0 1px 2px rgba(32, 41, 56, 0.04);
+}
+
+#enrollmentModal .student-profile-section-card,
+#enrollmentModal .student-profile-section-card-body {
+    overflow: visible;
+}
+
+#enrollmentModal .combobox-column-open,
+#enrollmentModal .combobox-field-open,
+#enrollmentModal .location-combobox.is-open {
+    position: relative;
+    z-index: 4000;
+}
+
+#enrollmentModal .location-combobox.is-open .location-combobox-menu {
+    z-index: 4001;
+}
+
+#enrollmentModal .location-combobox-menu-floating {
+    overflow: hidden;
 }
 
 .student-profile-section-card + .student-profile-section-card {

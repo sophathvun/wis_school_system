@@ -133,6 +133,76 @@ const applyEnrollmentDocumentPermissions = () => {
     }
 };
 applyEnrollmentDocumentPermissions();
+const setLocationComboboxOpenState = (menu, isOpen) => {
+    const combo = menu?.closest(".location-combobox");
+    combo?.classList.toggle("is-open", isOpen);
+    combo?.closest(".premium-floating-field")?.classList.toggle(
+        "combobox-field-open",
+        isOpen,
+    );
+    combo?.closest("[class*='col-']")?.classList.toggle(
+        "combobox-column-open",
+        isOpen,
+    );
+};
+const positionFloatingLocationComboboxMenu = (menu) => {
+    const combo = menu?.closest(".location-combobox");
+    const toggle = combo?.querySelector(".location-combobox-toggle");
+    if (!menu || !toggle || !menu.closest("#enrollmentModal")) return;
+
+    const rect = toggle.getBoundingClientRect();
+    const gap = 8;
+    const viewportPadding = 12;
+    const spaceBelow = window.innerHeight - rect.bottom - viewportPadding;
+    const spaceAbove = rect.top - viewportPadding;
+    const openAbove = spaceBelow < 220 && spaceAbove > spaceBelow;
+    const maxHeight = Math.max(
+        180,
+        Math.min(420, (openAbove ? spaceAbove : spaceBelow) - gap),
+    );
+    const top = openAbove
+        ? Math.max(viewportPadding, rect.top - maxHeight - gap)
+        : Math.min(window.innerHeight - viewportPadding, rect.bottom + gap);
+    const left = Math.max(
+        viewportPadding,
+        Math.min(rect.left, window.innerWidth - rect.width - viewportPadding),
+    );
+
+    menu.classList.add("location-combobox-menu-floating");
+    menu.style.position = "fixed";
+    menu.style.top = `${top}px`;
+    menu.style.left = `${left}px`;
+    menu.style.right = "auto";
+    menu.style.width = `${rect.width}px`;
+    menu.style.maxHeight = `${maxHeight}px`;
+    menu.style.zIndex = "5000";
+
+    const results = menu.querySelector(".location-combobox-results");
+    if (results) {
+        const search = menu.querySelector(".location-combobox-search");
+        const reservedHeight = search ? search.offsetHeight + 24 : 18;
+        results.style.maxHeight = `${Math.max(120, maxHeight - reservedHeight)}px`;
+    }
+};
+const clearFloatingLocationComboboxMenu = (menu) => {
+    if (!menu) return;
+    menu.classList.remove("location-combobox-menu-floating");
+    menu.style.position = "";
+    menu.style.top = "";
+    menu.style.left = "";
+    menu.style.right = "";
+    menu.style.width = "";
+    menu.style.maxHeight = "";
+    menu.style.zIndex = "";
+    const results = menu.querySelector(".location-combobox-results");
+    if (results) results.style.maxHeight = "";
+};
+const hideLocationComboboxMenu = (menu) => {
+    if (!menu) return;
+    menu.classList.add("d-none");
+    clearFloatingLocationComboboxMenu(menu);
+    setLocationComboboxOpenState(menu, false);
+};
 document.addEventListener(
     "click",
     (event) => {
@@ -140,11 +210,24 @@ document.addEventListener(
         if (!toggle) return;
         document.querySelectorAll(".location-combobox-menu").forEach((menu) => {
             const parent = menu.closest(".location-combobox");
-            if (!parent?.contains(toggle)) menu.classList.add("d-none");
+            if (!parent?.contains(toggle)) hideLocationComboboxMenu(menu);
         });
     },
     true,
 );
+const repositionOpenEnrollmentComboboxMenus = () => {
+    document
+        .querySelectorAll(
+            "#enrollmentModal .location-combobox-menu:not(.d-none)",
+        )
+        .forEach((menu) => positionFloatingLocationComboboxMenu(menu));
+};
+window.addEventListener("resize", repositionOpenEnrollmentComboboxMenus);
+document
+    .querySelector("#enrollmentModal .modal-body")
+    ?.addEventListener("scroll", repositionOpenEnrollmentComboboxMenus, {
+        passive: true,
+    });
 const familyPhoneInputTypes = ["mother", "father", "guardian"];
 let familyPhoneInputs = [];
 const homePhoneVisible = field("home_phone_number");
@@ -533,11 +616,11 @@ const enrollmentStatusBadgeClass = (item = {}) =>
 const enrollmentStatusLabel = (item = {}) =>
     item.enrollment_status || (item.status ? "active" : "inactive");
 const enrollmentActionButtons = (item = {}) => {
-    const studentNameArg = JSON.stringify(item.student?.full_name_en ?? "");
+    const studentName = item.student?.full_name_en || item.student?.full_name_kh || "";
     return `
     <div class="enrollment-action-grid">
         <button class="btn btn-outline-primary btn-sm" type="button" onclick="enrollmentsPage.viewProfile(${item.id})" title="View student profile"><i class="ti ti-user me-1"></i>Profile</button>
-        <button class="btn btn-info btn-sm" type="button" onclick="enrollmentsPage.history(${item.id}, ${studentNameArg})">History</button>
+        <button class="btn btn-info btn-sm enrollment-history-button" type="button" data-enrollment-history-id="${escapeHtml(item.id)}" data-enrollment-history-student="${escapeHtml(studentName)}">History</button>
         <button class="btn btn-primary btn-sm" type="button" onclick="enrollmentsPage.edit(${item.id})"><i class="ti ti-edit me-1"></i>Edit</button>
         <button class="btn btn-danger btn-sm" type="button" onclick="enrollmentsPage.remove(${item.id})"><i class="ti ti-trash me-1"></i>Delete</button>
     </div>`;
@@ -1398,6 +1481,59 @@ const setOptions = (id, list, label, empty) => {
                     `<option value="${item.id}">${escapeHtml(item[label] ?? "")}</option>`,
             )
             .join("");
+};
+const isCambodiaOption = (option) => {
+    if (!option?.value) return false;
+    const haystack = [
+        option.textContent,
+        option.dataset?.en,
+        option.dataset?.kh,
+        option.dataset?.flag,
+    ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+    return (
+        haystack.includes("cambodia") ||
+        haystack.includes("cambodian") ||
+        haystack.includes("cambodge") ||
+        haystack.includes("khmer") ||
+        haystack.includes("cambodia.svg")
+    );
+};
+const cambodiaValueFromSelect = (select) =>
+    Array.from(select?.options || []).find(isCambodiaOption)?.value || "";
+const setSelectToCambodiaIfEmpty = (id) => {
+    const select = field(id);
+    if (!select || select.value) return false;
+    const cambodiaValue = cambodiaValueFromSelect(select);
+    if (!cambodiaValue) return false;
+    select.value = cambodiaValue;
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    return true;
+};
+const applyNewEnrollmentCambodiaDefaults = () => {
+    setSelectToCambodiaIfEmpty("nationality_country_id");
+    setStudentBilingualText("nationality");
+
+    ["mother", "father", "guardian"].forEach((type) => {
+        setSelectToCambodiaIfEmpty(`${type}_nationality_country_id`);
+        setFamilyNationalitySelected(type);
+    });
+
+    if (setSelectToCambodiaIfEmpty("birth_country_id")) {
+        setBirthSelectedText("country");
+        filterBirthLocations("country");
+    }
+
+    if (setSelectToCambodiaIfEmpty("address_country_id")) {
+        setAddressSelectedText("country");
+        filterAddressLocations("country");
+        updateCurrentAddress();
+    }
+
+    refreshPremiumFieldStates();
 };
 const academicTrackLabel = (item) =>
     [item.name_kh, item.name_en].filter(Boolean).join(" / ");
@@ -2542,14 +2678,21 @@ const renderBirthResults = (type) => {
 const openBirthMenu = (type) => {
     const ui = birthUi(type);
     if (!ui.menu || !ui.search) return;
+    document
+        .querySelectorAll("#enrollmentModal .location-combobox-menu")
+        .forEach((menu) => {
+            if (menu !== ui.menu) hideLocationComboboxMenu(menu);
+        });
     ui.menu.classList.remove("d-none");
+    setLocationComboboxOpenState(ui.menu, true);
     ui.search.value = "";
     renderBirthResults(type);
+    positionFloatingLocationComboboxMenu(ui.menu);
     ui.search.focus();
 };
 
 const closeBirthMenu = (type) => {
-    birthUi(type).menu?.classList.add("d-none");
+    hideLocationComboboxMenu(birthUi(type).menu);
 };
 
 const setBirthSelect = (type, items) => {
@@ -2684,20 +2827,40 @@ setupAddressComboboxes();
 addressFields.forEach((type) => {
     const ui = addressUi(type);
     ui.toggle?.addEventListener("click", () => {
-        ui.menu.classList.toggle("d-none");
+        const shouldOpen = ui.menu.classList.contains("d-none");
+        document
+            .querySelectorAll("#enrollmentModal .location-combobox-menu")
+            .forEach((menu) => {
+                if (menu !== ui.menu) hideLocationComboboxMenu(menu);
+            });
+        ui.menu.classList.toggle("d-none", !shouldOpen);
+        setLocationComboboxOpenState(ui.menu, shouldOpen);
         if (!ui.menu.classList.contains("d-none")) {
             ui.search.value = "";
             renderAddressResults(type);
+            positionFloatingLocationComboboxMenu(ui.menu);
             ui.search.focus();
         }
     });
-    ui.search?.addEventListener("input", () => renderAddressResults(type));
+    ui.search?.addEventListener("input", () => {
+        renderAddressResults(type);
+        positionFloatingLocationComboboxMenu(ui.menu);
+    });
     ui.results?.addEventListener("click", (event) => {
         const option = event.target.closest("[data-address-id]");
         if (!option) return;
         ui.select.value = option.dataset.addressId;
         ui.select.dispatchEvent(new Event("change", { bubbles: true }));
-        ui.menu.classList.add("d-none");
+        hideLocationComboboxMenu(ui.menu);
+    });
+});
+document.addEventListener("click", (event) => {
+    addressFields.forEach((type) => {
+        const wrapper = field(`address-${type}-combobox`);
+        const ui = addressUi(type);
+        if (wrapper && !wrapper.contains(event.target)) {
+            hideLocationComboboxMenu(ui.menu);
+        }
     });
 });
 const setAddressOptions = (type, items) => {
@@ -2847,7 +3010,10 @@ birthFields.forEach((type) => {
             ? openBirthMenu(type)
             : closeBirthMenu(type);
     });
-    ui.search?.addEventListener("input", () => renderBirthResults(type));
+    ui.search?.addEventListener("input", () => {
+        renderBirthResults(type);
+        positionFloatingLocationComboboxMenu(ui.menu);
+    });
     ui.results?.addEventListener("click", (event) => {
         const option = event.target.closest("[data-birth-id]");
         if (!option || !ui.select) return;
@@ -3602,6 +3768,7 @@ const openCreate = async (forEdit = false) => {
         field("student_no").value = nextStudentNo;
         field("existing_family_number").value = "";
         autoFamilyNumber();
+        applyNewEnrollmentCambodiaDefaults();
         refreshPremiumFieldStates();
     });
 
@@ -4154,13 +4321,22 @@ const remove = async (id) => {
 
 const showEnrollmentHistory = async (id, studentName) => {
     document.getElementById("enrollmentHistoryTitle").textContent =
-        `Enrollment History - ${studentName}`;
+        `Enrollment History${studentName ? ` - ${studentName}` : ""}`;
     enrollmentHistoryTable.innerHTML = `<tr><td colspan="11" class="text-center">Loading...</td></tr>`;
     historyModal.show();
-    const response = await fetch(`/student-enrollments/${id}/history`, {
-        headers: { Accept: "application/json" },
-    });
-    const result = await response.json();
+    let result = {};
+    try {
+        const response = await fetch(`/student-enrollments/${id}/history`, {
+            headers: { Accept: "application/json" },
+        });
+        result = await response.json();
+        if (!response.ok) {
+            throw new Error(result.message || "Unable to load enrollment history.");
+        }
+    } catch (error) {
+        enrollmentHistoryTable.innerHTML = `<tr><td colspan="11" class="text-center text-danger">${escapeHtml(error.message || "Unable to load enrollment history.")}</td></tr>`;
+        return;
+    }
     const history = result.history || [];
     const changed = (item, index, key) =>
         index < history.length - 1 &&
@@ -4198,6 +4374,15 @@ const showEnrollmentHistory = async (id, studentName) => {
               .join("")
         : `<tr><td colspan="11" class="text-center">No enrollment history found.</td></tr>`;
 };
+
+document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-enrollment-history-id]");
+    if (!button) return;
+    showEnrollmentHistory(
+        button.dataset.enrollmentHistoryId,
+        button.dataset.enrollmentHistoryStudent || "",
+    );
+});
 
 async function fetchRows(page = 1) {
     currentEnrollmentPage = page;
@@ -4252,7 +4437,7 @@ async function fetchRows(page = 1) {
     updateEnrollmentSortIcons();
 }
 
-document.getElementById("newEnrollment").onclick = openCreate;
+document.getElementById("newEnrollment").onclick = () => openCreate(false);
 perPage.onchange = () => fetchRows();
 search.onkeyup = () => {
     fetchRows();
