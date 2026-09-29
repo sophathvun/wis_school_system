@@ -70,22 +70,28 @@ a {
     display: grid;
     gap: 3px !important;
     row-gap: 3px !important;
+    min-width: 0;
+    max-width: 100%;
 }
 
 .staff-card-contact-meta div {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 0.45rem;
     min-width: 0;
+    max-width: 100%;
     padding: 0 !important;
     margin: 0 !important;
-    line-height: 1 !important;
+    line-height: 1.15 !important;
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.14);
     justify-content: flex-start;
     padding-inline: 0;
     background: transparent !important;
     color: #206bc4;
+    overflow-wrap: anywhere;
+    white-space: normal;
+    word-break: break-word;
 }
 
 .staff-card-page.is-light .staff-card {
@@ -375,13 +381,113 @@ a {
 }
 
 @media (max-width: 520px) {
-    .staff-card {
-        grid-template-columns: 1fr;
+    body {
+        min-height: 100dvh;
+    }
+
+    .staff-card-page {
+        min-height: 100dvh;
+        align-items: start;
+        padding: 1rem 0.7rem 1.25rem;
+    }
+
+    .staff-card-shell {
+        width: min(100%, 430px);
+        padding: 1rem;
+        border-radius: 30px;
+    }
+
+    .staff-card,
+    .staff-card-page.is-portrait .staff-card,
+    .staff-card-page.is-landscape .staff-card {
+        width: min(100%, 360px) !important;
+        max-width: 100%;
+        height: auto !important;
+        min-height: 0 !important;
+        margin-inline: auto;
+        aspect-ratio: 54 / 90 !important;
+        grid-template-columns: 30% minmax(0, 1fr) !important;
+        grid-template-rows: 25% 31% 44% !important;
+        gap: 0.8rem !important;
+        padding: 6px 1.25rem 1.25rem !important;
+        border-radius: 30px;
+    }
+
+    .staff-card-brand {
+        justify-content: end !important;
+        padding: 0 !important;
+    }
+
+    .staff-card-brand img {
+        width: min(70%, 210px) !important;
+        height: auto !important;
+        max-height: 100% !important;
+        transform: none !important;
+        margin: 0 !important;
+        object-fit: contain !important;
     }
 
     .staff-card-photo {
-        width: 120px;
-        height: 154px;
+        width: 100% !important;
+        height: auto !important;
+        align-self: center;
+        aspect-ratio: 3 / 4;
+        border-radius: 18px;
+    }
+
+    .staff-card-info {
+        align-self: center;
+        justify-content: center;
+        min-width: 0;
+    }
+
+    .staff-card h1 {
+        font-size: clamp(1.25rem, 8vw, 1.75rem);
+        line-height: 1.02;
+    }
+
+    .staff-card-position {
+        font-size: clamp(0.86rem, 4.2vw, 1.05rem);
+        line-height: 1.12;
+    }
+
+    .staff-card-contact-meta div {
+        gap: 0.35rem;
+        font-size: clamp(0.82rem, 3.8vw, 1rem);
+        line-height: 1.12 !important;
+    }
+
+    .staff-card-contact-meta svg {
+        width: 16px;
+        height: 16px;
+        flex-basis: 16px;
+        margin-top: 0.02rem;
+    }
+
+    .staff-card-qr-inline {
+        margin-top: 0 !important;
+        gap: 0.25rem;
+        align-self: center;
+        justify-content: center;
+    }
+
+    .staff-card-qr-inline img {
+        width: min(46vw, 170px) !important;
+        height: auto !important;
+        max-height: 90% !important;
+    }
+
+    .staff-card-actions {
+        justify-content: center;
+        margin-top: 1.05rem;
+    }
+
+    .staff-card-share {
+        margin-top: 1rem;
+    }
+
+    .staff-card-share div {
+        justify-content: center;
     }
 }
 

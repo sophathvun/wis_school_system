@@ -1252,6 +1252,7 @@ body[data-bs-theme="dark"] .profile-share-actions .btn {
 .profile-public-card-info {
     grid-column: 2;
     grid-row: 1;
+    min-width: 0;
 }
 
 .profile-public-card-info p {
@@ -1266,6 +1267,8 @@ body[data-bs-theme="dark"] .profile-share-actions .btn {
     gap: 3px !important;
     row-gap: 3px !important;
     margin-top: 1rem;
+    min-width: 0;
+    max-width: 100%;
 }
 
 .profile-public-card-tags span,
@@ -1280,12 +1283,23 @@ body[data-bs-theme="dark"] .profile-share-actions .btn {
 }
 
 .profile-public-card-tags span {
+    max-width: 100%;
+    min-width: 0;
     justify-content: flex-start;
+    align-items: flex-start;
     padding: 0 !important;
     margin: 0 !important;
-    line-height: 1 !important;
+    line-height: 1.15 !important;
     background: transparent;
     color: #206bc4;
+    overflow-wrap: anywhere;
+    white-space: normal;
+    word-break: break-word;
+}
+
+.profile-public-card-tags span .ti,
+.profile-public-card-tags span i {
+    flex: 0 0 auto;
 }
 
 .profile-public-card-details {
