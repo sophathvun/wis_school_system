@@ -1911,6 +1911,37 @@ body {
     z-index: 2147483647 !important;
 }
 
+.navbar-notification-badge {
+    position: absolute;
+    top: .35rem;
+    right: -.35rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.25rem;
+    height: 1.25rem;
+    padding: 0 .35rem;
+    border: 2px solid var(--tblr-bg-surface, #fff);
+    border-radius: 999px;
+    background: linear-gradient(135deg, #ff5b5b 0%, #dc2626 52%, #991b1b 100%);
+    color: #fff !important;
+    font-size: .68rem;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: .01em;
+    box-shadow: 0 .35rem .9rem rgba(220, 38, 38, .32), 0 .08rem .18rem rgba(15, 23, 42, .16);
+    text-shadow: 0 1px 1px rgba(127, 29, 29, .45);
+}
+
+.navbar-notification-badge.d-none {
+    display: none !important;
+}
+
+[data-bs-theme="dark"] .navbar-notification-badge {
+    border-color: #111827;
+    box-shadow: 0 .35rem 1rem rgba(239, 68, 68, .34), 0 0 0 1px rgba(248, 113, 113, .22);
+}
+
 
 /* Reduce space between fixed navbar and page content. */
 @media (min-width: 992px) {

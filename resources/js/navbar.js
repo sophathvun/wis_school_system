@@ -52,7 +52,7 @@
 
     const renderNotificationBadge = (count) => {
         if (!notificationBadge) return;
-        notificationBadge.textContent = count || "";
+        notificationBadge.textContent = count > 99 ? "99+" : count || "";
         notificationBadge.classList.toggle("d-none", !count);
     };
 

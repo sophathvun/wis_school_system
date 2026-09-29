@@ -1,7 +1,13 @@
+import { showSuccess } from "./helpers/sweet-alert2.js";
+
 document.addEventListener('DOMContentLoaded', () => {
     const page = document.querySelector('[data-notification-send-page]');
     if (!page || page.dataset.enhanced === '1') return;
     page.dataset.enhanced = '1';
+
+    if (page.dataset.successMessage) {
+        showSuccess(page.dataset.successMessage);
+    }
 
     const staffProfiles = JSON.parse(page.dataset.staffProfiles || '{}');
     const notificationImageUploadUrl = page.dataset.uploadUrl || '/settings/notifications/upload-image';

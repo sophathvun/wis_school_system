@@ -32,13 +32,11 @@
             ],
         );
     @endphp
-    @if (session('success'))
-        <div class="alert alert-success">{{ session('success') }}</div>
-    @endif
     @if ($errors->any())
         <div class="alert alert-danger">{{ $errors->first() }}</div>
     @endif
     <div class="card" data-notification-send-page data-staff-profiles='@json($staffProfiles)'
+        data-success-message="{{ session('success') }}"
         data-upload-url="{{ url('/settings/notifications/upload-image') }}" data-csrf="{{ csrf_token() }}">
         <div class="card-header">
             <h3 class="card-title">Create Notification</h3>
