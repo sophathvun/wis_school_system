@@ -595,7 +595,9 @@
 
 .student-id-public-body {
     min-height: 100vh;
+    min-height: 100dvh;
     margin: 0;
+    overflow: hidden;
     background:
         radial-gradient(circle at top left, rgba(32, 107, 196, .18), transparent 32rem),
         linear-gradient(135deg, #eaf4fb 0%, #f8fbff 48%, #e6f5ed 100%);
@@ -605,18 +607,23 @@
 .student-id-public-page {
     display: grid;
     min-height: 100vh;
-    padding: clamp(1rem, 4vw, 2.5rem);
+    min-height: 100dvh;
+    padding: clamp(.35rem, 1.8vw, 1rem);
     place-items: center;
 }
 
 .student-id-public-card-wrap {
     display: grid;
-    width: min(100%, 460px);
+    width: 100%;
+    height: 100%;
     place-items: center;
 }
 
 .student-id-public-card.student-id-card-preview {
-    width: min(100%, 340px, calc(100vh * .56));
+    width: min(96vw, calc((100dvh - 1rem) * .6));
+    max-width: 420px;
+    min-width: min(92vw, 300px);
+    max-height: calc(100dvh - .7rem);
 }
 .student-id-qr-box {
     display: grid;

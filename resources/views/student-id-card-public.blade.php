@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
     <meta charset="utf-8">
@@ -30,18 +30,18 @@
                     @if ($student->photo_path)
                         <img class="student-id-card-photo" src="{{ asset('storage/' . $student->photo_path) }}" alt="{{ $studentName }}">
                     @else
-                        <div class="student-id-card-photo student-id-card-photo-empty">👤</div>
+                        <div class="student-id-card-photo student-id-card-photo-empty">&#128100;</div>
                     @endif
                 </div>
 
                 <div class="student-id-card-info">
                     <div class="student-id-card-name">{{ $studentName }}</div>
                     <div class="student-id-card-code">{{ $studentCode }}</div>
-                    <div class="student-id-card-phone">☎ {{ $studentPhone }}</div>
+                    <div class="student-id-card-phone">&#9742; {{ $studentPhone }}</div>
                 </div>
 
                 <div class="student-id-card-qr">
-                    <img src="{{ route('student-id-card-qr.qr', $student) }}?v=public-{{ urlencode($student->id_card_qr_code ?? 'qr') }}" alt="Student QR code">
+                    <img src="{{ route('student-id-card.public.qr', $student->id_card_qr_code) }}?v=public-{{ urlencode($student->id_card_qr_code ?? 'qr') }}" alt="Student QR code">
                     <span>SCAN</span>
                 </div>
             </div>
@@ -49,3 +49,4 @@
     </main>
 </body>
 </html>
+

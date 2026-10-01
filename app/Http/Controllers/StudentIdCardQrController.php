@@ -33,6 +33,22 @@ class StudentIdCardQrController
         ]);
     }
 
+    public function publicQr(string $qr)
+    {
+        abort_unless(Schema::hasColumn((new Student())->getTable(), 'id_card_qr_code'), 404);
+
+        Student::query()
+            ->where('id_card_qr_code', $qr)
+            ->firstOrFail(['id']);
+
+        $renderer = new ImageRenderer(new RendererStyle(360, 1), new SvgImageBackEnd());
+
+        return response((new Writer($renderer))->writeString(route('student-id-card.public', ['qr' => $qr])), 200, [
+            'Content-Type' => 'image/svg+xml',
+            'Cache-Control' => 'public, max-age=86400',
+        ]);
+    }
+
     public function index(Request $request)
     {
         [$gradeId, $classId] = array_pad(explode(':', (string) $request->input('grade_class'), 2), 2, null);
