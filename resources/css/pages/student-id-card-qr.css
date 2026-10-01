@@ -592,6 +592,32 @@
     font-weight: 800;
     letter-spacing: .04em;
 }
+
+.student-id-public-body {
+    min-height: 100vh;
+    margin: 0;
+    background:
+        radial-gradient(circle at top left, rgba(32, 107, 196, .18), transparent 32rem),
+        linear-gradient(135deg, #eaf4fb 0%, #f8fbff 48%, #e6f5ed 100%);
+    font-family: "Instrument Sans", "Noto Sans Khmer", Arial, sans-serif;
+}
+
+.student-id-public-page {
+    display: grid;
+    min-height: 100vh;
+    padding: clamp(1rem, 4vw, 2.5rem);
+    place-items: center;
+}
+
+.student-id-public-card-wrap {
+    display: grid;
+    width: min(100%, 460px);
+    place-items: center;
+}
+
+.student-id-public-card.student-id-card-preview {
+    width: min(100%, 340px, calc(100vh * .56));
+}
 .student-id-qr-box {
     display: grid;
     min-height: 310px;

@@ -187,7 +187,7 @@
 
                         @if ($selectedStudent)
                             <div class="student-id-card-qr">
-                                <img src="{{ route('student-id-card-qr.qr', $selectedStudent) }}?v={{ urlencode($selectedStudent->id_card_qr_code ?? 'compact-qr') }}" alt="Student QR code">
+                                <img src="{{ route('student-id-card-qr.qr', $selectedStudent) }}?v=public-{{ urlencode($selectedStudent->id_card_qr_code ?? 'compact-qr') }}" alt="Student QR code">
                                 <span>SCAN</span>
                             </div>
                         @endif
@@ -240,7 +240,7 @@
                             </div>
 
                             <div class="student-id-card-qr">
-                                <img src="{{ route('student-id-card-qr.qr', $printStudent) }}?v={{ urlencode($printStudent->id_card_qr_code ?? 'compact-qr') }}" alt="Student QR code">
+                                <img src="{{ route('student-id-card-qr.qr', $printStudent) }}?v=public-{{ urlencode($printStudent->id_card_qr_code ?? 'compact-qr') }}" alt="Student QR code">
                                 <span>SCAN</span>
                             </div>
                         </div>

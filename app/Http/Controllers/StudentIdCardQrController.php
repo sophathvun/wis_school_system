@@ -18,6 +18,21 @@ use Illuminate\Support\Facades\Schema;
 
 class StudentIdCardQrController
 {
+    public function publicCard(string $qr)
+    {
+        abort_unless(Schema::hasColumn((new Student())->getTable(), 'id_card_qr_code'), 404);
+
+        $student = Student::query()
+            ->select(['id', 'student_id', 'student_no', 'id_card_qr_code', 'full_name_en', 'full_name_kh', 'photo_path', 'home_phone'])
+            ->where('id_card_qr_code', $qr)
+            ->firstOrFail();
+
+        return view('student-id-card-public', [
+            'branding' => BrandingSetting::current(),
+            'student' => $student,
+        ]);
+    }
+
     public function index(Request $request)
     {
         [$gradeId, $classId] = array_pad(explode(':', (string) $request->input('grade_class'), 2), 2, null);
@@ -147,7 +162,7 @@ class StudentIdCardQrController
     {
         $hasStoredQrCode = Schema::hasColumn($student->getTable(), 'id_card_qr_code');
         $value = $hasStoredQrCode
-            ? route('student-id-card-qr.index', ['qr' => $student->ensureIdCardQrCode()])
+            ? route('student-id-card.public', ['qr' => $student->ensureIdCardQrCode()])
             : route('student-id-card-qr.index', ['student_id' => $student->id]);
         $renderer = new ImageRenderer(new RendererStyle(360, 1), new SvgImageBackEnd());
 
