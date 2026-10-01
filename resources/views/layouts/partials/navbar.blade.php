@@ -269,6 +269,14 @@
                 'icon' => 'ti-user-check',
                 'url' => route('student-reentry.index'),
             ],
+            request()->routeIs('student-id-card-qr.*') => [
+                'parent' => 'Student',
+                'parentIcon' => 'ti-user',
+                'parentUrl' => route('studentEnrollment.index'),
+                'label' => 'Stu. ID Card (QR)',
+                'icon' => 'ti-qrcode',
+                'url' => route('student-id-card-qr.index'),
+            ],
             request()->routeIs('families.*') => [
                 'parent' => 'Student',
                 'parentIcon' => 'ti-user',

@@ -42,6 +42,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ReportsController;
 use App\Http\Controllers\HomeroomController;
 use App\Http\Controllers\StaffManagementController;
+use App\Http\Controllers\StudentIdCardQrController;
 
 Route::get('/app-icon.svg', function () {
     $branding = \App\Models\BrandingSetting::current();
@@ -205,6 +206,8 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         'icon' => 'ti-award',
         'description' => 'Use this module to manage WESTERN scholarship students and records.',
     ])->name('western-scholarship.index');
+    Route::get('/students/id-card-qr', [StudentIdCardQrController::class, 'index'])->name('student-id-card-qr.index');
+    Route::get('/students/id-card-qr/{student}/qr.svg', [StudentIdCardQrController::class, 'qr'])->name('student-id-card-qr.qr');
 
     Route::view('/attendance', 'academic-module-placeholder', [
         'title' => 'Attendance',

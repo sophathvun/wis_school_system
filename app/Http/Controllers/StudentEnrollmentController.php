@@ -406,6 +406,7 @@ class StudentEnrollmentController
             }
             $student->status = $validated['status'];
             $student->save();
+            $student->ensureIdCardQrCode();
 
             $family = $this->familyService->syncStudentFamily($student, $validated['family_number']);
             $this->familyService->syncEnrollmentMember($family, 'mother', [

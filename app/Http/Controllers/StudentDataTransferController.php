@@ -123,6 +123,7 @@ class StudentDataTransferController
             $values['status'] = $this->boolean($data['status'] ?? '1');
             $student = Student::updateOrCreate(['student_id' => trim($data['student_id'])], $values);
             if (!$student->student_no) $student->update(['student_no' => 'S'.str_pad((string) $student->id, 6, '0', STR_PAD_LEFT)]);
+            $student->ensureIdCardQrCode();
             return;
         }
         if ($type === 'enrollments') {

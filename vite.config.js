@@ -49,6 +49,7 @@ export default defineConfig({
                 "resources/js/studentGraduation.js",
                 "resources/js/studentReentry.js",
                 "resources/js/studentSearch.js",
+                "resources/js/studentIdCardQr.js",
                 "resources/js/studentWithdrawal.js",
                 "resources/js/notificationManagement.js",
                 "resources/js/notificationSend.js",

@@ -19,7 +19,7 @@ class PermissionHierarchy
             'attendance' => 'Attendance', 'schedules' => 'Schedules', 'grading-system' => 'Grading System', 'reports' => 'Reports',
             'students.search' => 'Search Students', 'students.enrollment' => 'Student Enrollment', 'families' => 'Family Management',
             'students.promotion' => 'Student Promotion', 'students.transfer' => 'Student Transfer', 'students.graduation' => 'Student Graduation',
-            'student-reentry' => 'Student Re-entry', 'student-documents' => 'Student Documents', 'student-data-transfer' => 'Import / Export Data', 'homeroom' => 'Homeroom Activities',
+            'student-reentry' => 'Student Re-entry', 'student-id-card-qr' => 'Stu. ID Card (QR)', 'student-documents' => 'Student Documents', 'student-data-transfer' => 'Import / Export Data', 'homeroom' => 'Homeroom Activities',
             'staff' => 'Staff Management',
         ];
     }
@@ -44,7 +44,7 @@ class PermissionHierarchy
             ],
             'students' => [
                 'label' => 'Students', 'permission' => 'students.view',
-                'modules' => ['students.search', 'students.enrollment', 'summer-school', 'families', 'students.promotion', 'students.transfer', 'students.graduation', 'student-withdrawals', 'student-reentry', 'student-documents', 'homeroom', 'student-data-transfer'],
+                'modules' => ['students.search', 'students.enrollment', 'summer-school', 'families', 'students.promotion', 'students.transfer', 'students.graduation', 'student-withdrawals', 'student-reentry', 'student-id-card-qr', 'student-documents', 'homeroom', 'student-data-transfer'],
                 'actions' => ['students.manage'],
             ],
             'dashboard' => [

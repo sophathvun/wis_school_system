@@ -63,6 +63,7 @@ class ImportLegacyStudentWorkbooks extends Command
                     'remarks' => $this->nullable($row['remarks'] ?? null),
                     'status' => 1,
                 ]);
+                $student->ensureIdCardQrCode();
                 $studentMap[$studentId] = $student;
                 $counts['students']++;
             }

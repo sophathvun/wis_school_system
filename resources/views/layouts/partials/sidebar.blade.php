@@ -296,6 +296,7 @@
                         request()->routeIs('studentGraduation.*') ||
                         request()->routeIs('withdrawStudent.*') ||
                         request()->routeIs('student-reentry.*') ||
+                        request()->routeIs('student-id-card-qr.*') ||
                         request()->routeIs('student-documents.*') ||
                         request()->routeIs('student-skipping-grade.*') ||
                         request()->routeIs('western-scholarship.*') ||
@@ -319,6 +320,7 @@
                             request()->routeIs('studentGraduation.*') ||
                             request()->routeIs('withdrawStudent.*') ||
                             request()->routeIs('student-reentry.*') ||
+                            request()->routeIs('student-id-card-qr.*') ||
                             request()->routeIs('student-documents.*') ||
                             request()->routeIs('student-skipping-grade.*') ||
                             request()->routeIs('western-scholarship.*') ||
@@ -379,6 +381,12 @@
                                         <a class="dropdown-item {{ request()->routeIs('student-reentry.*') ? 'active' : '' }}"
                                             href="{{ route('student-reentry.index') }}">
                                             <i class="ti ti-user-check me-2"></i> Student Re-entry
+                                        </a>
+                                    @endif
+                                    @if ($canView('students.view'))
+                                        <a class="dropdown-item {{ request()->routeIs('student-id-card-qr.*') ? 'active' : '' }}"
+                                            href="{{ route('student-id-card-qr.index') }}">
+                                            <i class="ti ti-qrcode me-2"></i> Stu. ID Card (QR)
                                         </a>
                                     @endif
                                     @if ($canView('student-documents.view'))

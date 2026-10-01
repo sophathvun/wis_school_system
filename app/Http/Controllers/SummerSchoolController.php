@@ -301,6 +301,7 @@ class SummerSchoolController
             $academicYear = AcademicYear::findOrFail($data['academic_year_id']);
             if ($data['enrollment_origin'] === 'internal') {
                 $student = Student::findOrFail($data['student_record_id']);
+                $student->ensureIdCardQrCode();
             } else {
                 $summerStudentId = $this->nextSummerStudentId($academicYear, (int) $data['grade_id']);
                 $student = Student::create([
