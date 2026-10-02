@@ -78,7 +78,7 @@ class SummerSchoolController
         return str_pad((string) ($max + 1), 8, '0', STR_PAD_LEFT);
     }
 
-    private function nextSummerStudentId(AcademicYear $academicYear, int $gradeId): string
+    private function nextSummerStudentId(AcademicYear $academicYear, int $gradeId, bool $lock = true): string
     {
         $yearText = (string) $academicYear->academic_year;
         preg_match('/(20\d{2}|\d{4})/', $yearText, $yearMatches);
@@ -92,9 +92,14 @@ class SummerSchoolController
         $gradeCode = str_pad((string) $gradeNumber, 2, '0', STR_PAD_LEFT);
         $prefix = 'S' . $yearCode . $gradeCode;
 
-        $maxSequence = (int) Student::query()
-            ->where('student_id', 'like', $prefix . '%')
-            ->lockForUpdate()
+        $sequenceQuery = Student::query()
+            ->where('student_id', 'like', $prefix . '%');
+
+        if ($lock) {
+            $sequenceQuery->lockForUpdate();
+        }
+
+        $maxSequence = (int) $sequenceQuery
             ->selectRaw('MAX(CAST(SUBSTRING(student_id, ?) AS UNSIGNED)) as max_sequence', [strlen($prefix) + 1])
             ->value('max_sequence');
 
@@ -103,6 +108,20 @@ class SummerSchoolController
         } while (Student::where('student_id', $studentId)->exists());
 
         return $studentId;
+    }
+
+    public function nextStudentId(Request $request)
+    {
+        $data = $request->validate([
+            'academic_year_id' => ['required', Rule::exists('tb_academic_year', 'id')->where(fn ($query) => $query->where('period_type', 'summer'))],
+            'grade_id' => ['required', 'exists:tb_grade,id'],
+        ]);
+
+        $academicYear = AcademicYear::findOrFail($data['academic_year_id']);
+
+        return response()->json([
+            'student_id' => $this->nextSummerStudentId($academicYear, (int) $data['grade_id'], false),
+        ]);
     }
 
     public function studentOptions()

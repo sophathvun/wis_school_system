@@ -134,6 +134,9 @@ let summerSort = { key: null, direction: "asc" };
 let summerStudentEnrollments = [];
 const summerRowCache = new Map();
 const summerPhoneSyncs = [];
+let summerEditingOrigin = null;
+let summerPreferredInternalStudentId = "";
+let summerRefreshExternalStudentIdPreview = () => {};
 const summerExternalPhotoInput = summerField("summerExternalPhoto");
 const summerExternalPhotoDropzone = summerField("summerExternalPhotoDropzone");
 const summerExternalPhotoPreview = summerField("summerExternalPhotoPreview");
@@ -142,6 +145,60 @@ const summerShowExternalPhoto = (file) => {
     if (!file || !file.type?.startsWith("image/")) return;
     summerExternalPhotoPreview.src = URL.createObjectURL(file);
     summerExternalPhotoPreviewWrap.classList.remove("d-none");
+};
+const summerClearNewStudentFields = () => {
+    const panel = summerField("summerExternalComplete");
+    if (!panel) return;
+
+    panel.querySelectorAll("input, select, textarea").forEach((field) => {
+        if (field.name === "student_no") {
+            field.value = summerOptions.nextStudentNo || "";
+        } else if (field.name === "student_id") {
+            field.value = "Select Summer Year and Grade";
+        } else if (field.type === "file") {
+            field.value = "";
+        } else if (field.tagName === "SELECT") {
+            field.value = "";
+            field._summerRenderSelected?.();
+        } else {
+            field.value = "";
+        }
+
+        field.classList.remove("is-invalid");
+        field.nextElementSibling?.classList.remove("is-invalid");
+        const floatingField = field.closest(".premium-floating-field");
+        floatingField?.classList.toggle("has-value", Boolean(String(field.value || "").trim()));
+        floatingField?.querySelector(".summer-field-error")?.remove();
+    });
+
+    panel.querySelectorAll(".phone-input-group").forEach((group) => {
+        const visible = group.querySelector('input:not([type="hidden"])');
+        const hidden = group.querySelector('input[type="hidden"]');
+        if (visible) visible.value = "";
+        if (hidden) hidden.value = "";
+        group.closest(".premium-floating-field")?.classList.remove("has-value");
+    });
+
+    panel.querySelectorAll(".summer-dob-picker .date-picker-display, .summer-date-picker .date-picker-display").forEach((display) => {
+        display.value = "";
+    });
+
+    panel.querySelector("#summerExternalPhotoPreviewWrap")?.classList.add("d-none");
+    panel.querySelector("#summerExternalPhotoPreview")?.removeAttribute("src");
+    panel.querySelector("#summerDocumentFileList")?.replaceChildren();
+    ["summerNationality", "summerBirthCountry", "summerAddressCountry", "summerMotherNationality", "summerFatherNationality", "summerGuardianNationality"].forEach((id) => {
+        const select = summerField(id);
+        const cambodia = Array.from(select?.options || []).find((option) =>
+            /cambodia|កម្ពុជា/i.test(`${option.dataset.en || ""} ${option.dataset.kh || ""} ${option.textContent || ""}`),
+        );
+        if (select && cambodia) {
+            select.value = cambodia.value;
+            select.dispatchEvent(new Event("change", { bubbles: true }));
+            select._summerRenderSelected?.();
+        }
+    });
+    summerRefreshSearchableFilters();
+    summerRefreshExternalStudentIdPreview();
 };
 summerExternalPhotoDropzone?.addEventListener("click", () => summerExternalPhotoInput?.click());
 summerExternalPhotoInput?.addEventListener("change", () => summerShowExternalPhoto(summerExternalPhotoInput.files?.[0]));
@@ -299,7 +356,7 @@ const summerAddEnrollmentParityFields = () => {
     const panel = document.createElement("div");
     panel.id = "summerExternalComplete";
     panel.className = "summer-external-field d-none summer-external-complete";
-    panel.innerHTML = `<div class="enrollment-profile-card summer-form-card"><h4>Student Information</h4><div class="row g-3"><div class="col-md-3 premium-floating-field"><label class="form-label">Student No. (Auto)</label><input name="student_no" class="form-control" readonly></div><div class="col-md-3 premium-floating-field"><label class="form-label">Student ID (Auto)</label><input name="student_id" class="form-control" readonly placeholder="Auto: S + Year + Grade + 001"></div><div class="col-md-3 premium-floating-field"><label class="form-label">Existing Family / Sibling</label><input name="existing_family_number" class="form-control"></div><div class="col-md-3 premium-floating-field"><label class="form-label">Family Number</label><input name="family_number" class="form-control"></div></div><div class="row g-3"><div class="col-md-3 premium-floating-field"><label class="form-label">Full Name (English) *</label><input name="full_name_en" class="form-control"></div><div class="col-md-3 premium-floating-field"><label class="form-label">Full Name (Khmer)</label><input name="full_name_kh" class="form-control school-profile-khmer"></div><div class="col-md-3 premium-floating-field"><label class="form-label">Gender (English)</label><select name="gender" class="form-select"><option value=""></option><option value="Male">Male</option><option value="Female">Female</option><option value="Other">Other</option></select></div><div class="col-md-3 premium-floating-field"><label class="form-label">Gender (Khmer)</label><input name="gender_kh" class="form-control school-profile-khmer"></div></div><div class="row g-3"><div class="col-md-3 premium-floating-field"><label class="form-label">Nationality (English)</label><select name="nationality_country_id" id="summerNationality" class="form-select"></select></div><div class="col-md-3 premium-floating-field"><label class="form-label">Nationality (Khmer)</label><input name="nationality_kh" class="form-control school-profile-khmer" readonly></div><div class="col-md-3 premium-floating-field"><label class="form-label">Date of Birth (English)</label><input type="date" name="date_of_birth" class="form-control"></div><div class="col-md-3 premium-floating-field"><label class="form-label">Date of Birth (Khmer)</label><input name="date_of_birth_kh" class="form-control school-profile-khmer" readonly></div></div><div class="row g-3"><div class="col-md-3 premium-floating-field"><label class="form-label">Home Phone</label><input name="home_phone" class="form-control"></div><div class="col-md-3 premium-floating-field"><label class="form-label">Email</label><input type="email" name="email" class="form-control"></div><div class="col-12 premium-floating-field"><label class="form-label">Remarks</label><textarea name="summer_remarks" class="form-control" rows="2"></textarea></div></div><div class="summer-photo-field"><label class="form-label summer-photo-label">Student Photo</label><div class="summer-student-photo-upload"><div class="logo-dropzone summer-external-photo-dropzone" id="summerExternalPhotoDropzone" tabindex="0"><i class="ti ti-cloud-upload logo-dropzone-icon"></i><div><strong>Drag and drop student photo here</strong></div><div class="text-secondary">or click, paste, or upload a file</div><input type="file" name="photo" id="summerExternalPhoto" class="d-none" accept="image/jpeg,image/png,image/webp"><div class="d-none summer-external-photo-preview-wrap" id="summerExternalPhotoPreviewWrap"><img id="summerExternalPhotoPreview" class="summer-external-photo-preview" alt="Student photo preview"></div></div><small class="form-hint">JPG, PNG, or WEBP. Maximum size: 2 MB.</small></div></div></div><div class="enrollment-profile-card summer-form-card"><h4>Place of Birth</h4><div class="row g-3 summer-five-column-row"><div class="premium-floating-field"><label class="form-label">Country (English)</label><select name="birth_country_id" id="summerBirthCountry" class="form-select"></select></div><div class="premium-floating-field"><label class="form-label">Country (Khmer)</label><input name="birth_country_kh" class="form-control school-profile-khmer" readonly></div><div class="premium-floating-field"><label class="form-label">Province / City</label><select name="birth_province_id" id="summerBirthProvince" class="form-select"></select></div><div class="premium-floating-field"><label class="form-label">District / Khan</label><select name="birth_district_id" id="summerBirthDistrict" class="form-select"></select></div><div class="premium-floating-field"><label class="form-label">Commune</label><select name="birth_commune_id" id="summerBirthCommune" class="form-select"></select></div><div class="premium-floating-field"><label class="form-label">Village</label><select name="birth_village_id" id="summerBirthVillage" class="form-select"></select></div></div></div><div class="enrollment-profile-card summer-form-card"><h4>Home Address</h4><div class="row g-3 summer-five-column-row"><div class="premium-floating-field"><label class="form-label">Country (English)</label><select name="address_country_id" id="summerAddressCountry" class="form-select"></select></div><div class="premium-floating-field"><label class="form-label">Country (Khmer)</label><input name="address_country_kh" class="form-control school-profile-khmer" readonly></div><div class="premium-floating-field"><label class="form-label">Province / City</label><select name="address_province_id" id="summerAddressProvince" class="form-select"></select></div><div class="premium-floating-field"><label class="form-label">District / Khan</label><select name="address_district_id" id="summerAddressDistrict" class="form-select"></select></div><div class="premium-floating-field"><label class="form-label">Commune</label><select name="address_commune_id" id="summerAddressCommune" class="form-select"></select></div><div class="premium-floating-field"><label class="form-label">Village</label><select name="address_village_id" id="summerAddressVillage" class="form-select"></select></div></div><div class="row g-3 summer-five-column-row summer-address-detail-row"><div class="premium-floating-field"><label class="form-label">House No. (English)</label><input name="address_house_no_en" class="form-control"></div><div class="premium-floating-field"><label class="form-label">Street No. (English)</label><input name="address_street_en" class="form-control"></div><div class="premium-floating-field summer-address-wide-field"><label class="form-label">Current Address (English)</label><textarea name="current_address_en" class="form-control" rows="1"></textarea></div><div class="premium-floating-field"><label class="form-label">House No. (Khmer)</label><input name="address_house_no_kh" class="form-control school-profile-khmer" readonly></div><div class="premium-floating-field"><label class="form-label">Street No. (Khmer)</label><input name="address_street_kh" class="form-control school-profile-khmer" readonly></div><div class="premium-floating-field summer-address-wide-field"><label class="form-label">Current Address (Khmer)</label><textarea name="current_address_kh" class="form-control school-profile-khmer" rows="1"></textarea></div></div></div><div class="enrollment-profile-card summer-form-card"><h4>Previous School and Assessment</h4><div class="row g-3 summer-four-column-row"><div class="premium-floating-field"><label class="form-label">Previous School *</label><input name="previous_school" class="form-control"></div><div class="premium-floating-field"><label class="form-label">Tested By</label><input name="tested_by" class="form-control"></div><div class="premium-floating-field"><label class="form-label">Experience English</label><textarea name="experienced_english" class="form-control" rows="1"></textarea></div><div class="premium-floating-field"><label class="form-label">Test Result</label><textarea name="test_result" class="form-control" rows="1"></textarea></div></div><div class="row g-3"><div class="col-md-6 premium-floating-field"><label class="form-label">Continue at Western?</label><select name="continue_at_western" class="form-select"><option value="pending">Pending Decision</option><option value="yes">Yes</option><option value="no">No</option></select></div></div></div><div class="enrollment-profile-card summer-form-card"><h4>Family Information</h4><div class="summer-family-subsection"><h5>Mother</h5><div class="row g-3 summer-family-grid"><div class="premium-floating-field"><label class="form-label">Mother Name (English) *</label><input name="mother_name_en" class="form-control"></div><div class="premium-floating-field"><label class="form-label">Mother Name (Khmer)</label><input name="mother_name_kh" class="form-control school-profile-khmer"></div><div class="premium-floating-field"><label class="form-label">Occupation (English)</label><input name="mother_occupation_en" class="form-control"></div><div class="premium-floating-field"><label class="form-label">Occupation (Khmer)</label><input name="mother_occupation_kh" class="form-control school-profile-khmer"></div><div class="premium-floating-field"><label class="form-label">Nationality (English)</label><input name="mother_nationality_en" class="form-control"></div><div class="premium-floating-field"><label class="form-label">Phone Number</label><input name="mother_phone" class="form-control"></div><div class="premium-floating-field"><label class="form-label">Work Place</label><input name="mother_workplace" class="form-control"></div></div></div><div class="summer-family-subsection"><h5>Father</h5><div class="row g-3 summer-family-grid"><div class="premium-floating-field"><label class="form-label">Father Name (English) *</label><input name="father_name_en" class="form-control"></div><div class="premium-floating-field"><label class="form-label">Father Name (Khmer)</label><input name="father_name_kh" class="form-control school-profile-khmer"></div><div class="premium-floating-field"><label class="form-label">Occupation (English)</label><input name="father_occupation_en" class="form-control"></div><div class="premium-floating-field"><label class="form-label">Occupation (Khmer)</label><input name="father_occupation_kh" class="form-control school-profile-khmer"></div><div class="premium-floating-field"><label class="form-label">Nationality (English)</label><input name="father_nationality_en" class="form-control"></div><div class="premium-floating-field"><label class="form-label">Phone Number</label><input name="father_phone" class="form-control"></div><div class="premium-floating-field"><label class="form-label">Work Place</label><input name="father_workplace" class="form-control"></div></div></div><div class="summer-family-subsection"><h5>Guardian</h5><div class="row g-3 summer-family-grid"><div class="premium-floating-field"><label class="form-label">Guardian Name (English)</label><input name="guardian_name_en" class="form-control"></div><div class="premium-floating-field"><label class="form-label">Guardian Name (Khmer)</label><input name="guardian_name_kh" class="form-control school-profile-khmer"></div><div class="premium-floating-field"><label class="form-label">Occupation (English)</label><input name="guardian_occupation_en" class="form-control"></div><div class="premium-floating-field"><label class="form-label">Occupation (Khmer)</label><input name="guardian_occupation_kh" class="form-control school-profile-khmer"></div><div class="premium-floating-field"><label class="form-label">Nationality (English)</label><input name="guardian_nationality_en" class="form-control"></div><div class="premium-floating-field"><label class="form-label">Phone Number</label><input name="guardian_phone" class="form-control"></div><div class="premium-floating-field"><label class="form-label">Work Place</label><input name="guardian_workplace" class="form-control"></div></div></div></div><div class="enrollment-document-card summer-form-card"><h4>Student Documents <span class="text-secondary fw-normal fs-5">(Optional)</span></h4><div class="row g-3"><div class="col-md-3 premium-floating-field"><label class="form-label">Document Type</label><select name="document_type_id" id="summerDocumentType" class="form-select"></select></div><div class="col-md-3 premium-floating-field"><label class="form-label">Document Title</label><input name="document_title" class="form-control"></div><div class="col-md-3 premium-floating-field"><label class="form-label">Document Number</label><input name="document_number" class="form-control"></div><div class="col-md-3 premium-floating-field"><label class="form-label">Document File</label><input type="file" name="document_file" class="form-control" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"></div><div class="col-12 premium-floating-field"><label class="form-label">Description</label><textarea name="document_description" class="form-control" rows="2"></textarea></div></div></div>`;
+    panel.innerHTML = `<div class="enrollment-profile-card summer-form-card"><h4>Student Information</h4><div class="row g-3"><div class="col-md-3 premium-floating-field"><label class="form-label">Student No. (Auto)</label><input name="student_no" class="form-control" readonly></div><div class="col-md-3 premium-floating-field"><label class="form-label">Student ID (Auto)</label><input name="student_id" class="form-control" readonly placeholder="Auto: S + Year + Grade + 001"></div><div class="col-md-3 premium-floating-field"><label class="form-label">Existing Family / Sibling</label><input name="existing_family_number" class="form-control"></div><div class="col-md-3 premium-floating-field"><label class="form-label">Family Number</label><input name="family_number" class="form-control"></div></div><div class="row g-3"><div class="col-md-3 premium-floating-field"><label class="form-label">Full Name (English) *</label><input name="full_name_en" class="form-control"></div><div class="col-md-3 premium-floating-field"><label class="form-label">Full Name (Khmer)</label><input name="full_name_kh" class="form-control school-profile-khmer"></div><div class="col-md-3 premium-floating-field"><label class="form-label">Gender (English)</label><select name="gender" class="form-select"><option value=""></option><option value="Male">Male</option><option value="Female">Female</option><option value="Other">Other</option></select></div><div class="col-md-3 premium-floating-field"><label class="form-label">Gender (Khmer)</label><input name="gender_kh" class="form-control school-profile-khmer"></div></div><div class="row g-3"><div class="col-md-3 premium-floating-field"><label class="form-label">Nationality (English)</label><select name="nationality_country_id" id="summerNationality" class="form-select"></select></div><div class="col-md-3 premium-floating-field"><label class="form-label">Nationality (Khmer)</label><input name="nationality_kh" class="form-control school-profile-khmer" readonly></div><div class="col-md-3 premium-floating-field"><label class="form-label">Date of Birth (English) <span class="summer-dob-format-note">DD-MM-YYYY</span></label><input type="date" name="date_of_birth" class="form-control"></div><div class="col-md-3 premium-floating-field"><label class="form-label">Date of Birth (Khmer)</label><input name="date_of_birth_kh" class="form-control school-profile-khmer" readonly></div></div><div class="row g-3"><div class="col-md-3 premium-floating-field"><label class="form-label">Home Phone</label><input name="home_phone" class="form-control"></div><div class="col-md-3 premium-floating-field"><label class="form-label">Email</label><input type="email" name="email" class="form-control"></div><div class="col-12 premium-floating-field"><label class="form-label">Remarks</label><textarea name="summer_remarks" class="form-control" rows="2"></textarea></div></div><div class="summer-photo-field"><label class="form-label summer-photo-label">Student Photo</label><div class="summer-student-photo-upload"><div class="logo-dropzone summer-external-photo-dropzone" id="summerExternalPhotoDropzone" tabindex="0"><i class="ti ti-cloud-upload logo-dropzone-icon"></i><div><strong>Drag and drop student photo here</strong></div><div class="text-secondary">or click, paste, or upload a file</div><input type="file" name="photo" id="summerExternalPhoto" class="d-none" accept="image/jpeg,image/png,image/webp"><div class="d-none summer-external-photo-preview-wrap" id="summerExternalPhotoPreviewWrap"><img id="summerExternalPhotoPreview" class="summer-external-photo-preview" alt="Student photo preview"></div></div><small class="form-hint">JPG, PNG, or WEBP. Maximum size: 2 MB.</small></div></div></div><div class="enrollment-profile-card summer-form-card"><h4>Place of Birth</h4><div class="row g-3 summer-five-column-row"><div class="premium-floating-field"><label class="form-label">Country (English)</label><select name="birth_country_id" id="summerBirthCountry" class="form-select"></select></div><div class="premium-floating-field"><label class="form-label">Country (Khmer)</label><input name="birth_country_kh" class="form-control school-profile-khmer" readonly></div><div class="premium-floating-field"><label class="form-label">Province / City</label><select name="birth_province_id" id="summerBirthProvince" class="form-select"></select></div><div class="premium-floating-field"><label class="form-label">District / Khan</label><select name="birth_district_id" id="summerBirthDistrict" class="form-select"></select></div><div class="premium-floating-field"><label class="form-label">Commune</label><select name="birth_commune_id" id="summerBirthCommune" class="form-select"></select></div><div class="premium-floating-field"><label class="form-label">Village</label><select name="birth_village_id" id="summerBirthVillage" class="form-select"></select></div></div></div><div class="enrollment-profile-card summer-form-card"><h4>Home Address</h4><div class="row g-3 summer-five-column-row"><div class="premium-floating-field"><label class="form-label">Country (English)</label><select name="address_country_id" id="summerAddressCountry" class="form-select"></select></div><div class="premium-floating-field"><label class="form-label">Country (Khmer)</label><input name="address_country_kh" class="form-control school-profile-khmer" readonly></div><div class="premium-floating-field"><label class="form-label">Province / City</label><select name="address_province_id" id="summerAddressProvince" class="form-select"></select></div><div class="premium-floating-field"><label class="form-label">District / Khan</label><select name="address_district_id" id="summerAddressDistrict" class="form-select"></select></div><div class="premium-floating-field"><label class="form-label">Commune</label><select name="address_commune_id" id="summerAddressCommune" class="form-select"></select></div><div class="premium-floating-field"><label class="form-label">Village</label><select name="address_village_id" id="summerAddressVillage" class="form-select"></select></div></div><div class="row g-3 summer-five-column-row summer-address-detail-row"><div class="premium-floating-field"><label class="form-label">House No. (English)</label><input name="address_house_no_en" class="form-control"></div><div class="premium-floating-field"><label class="form-label">Street No. (English)</label><input name="address_street_en" class="form-control"></div><div class="premium-floating-field summer-address-wide-field"><label class="form-label">Current Address (English)</label><textarea name="current_address_en" class="form-control" rows="1"></textarea></div><div class="premium-floating-field"><label class="form-label">House No. (Khmer)</label><input name="address_house_no_kh" class="form-control school-profile-khmer" readonly></div><div class="premium-floating-field"><label class="form-label">Street No. (Khmer)</label><input name="address_street_kh" class="form-control school-profile-khmer" readonly></div><div class="premium-floating-field summer-address-wide-field"><label class="form-label">Current Address (Khmer)</label><textarea name="current_address_kh" class="form-control school-profile-khmer" rows="1"></textarea></div></div></div><div class="enrollment-profile-card summer-form-card"><h4>Previous School and Assessment</h4><div class="row g-3 summer-four-column-row"><div class="premium-floating-field"><label class="form-label">Previous School *</label><input name="previous_school" class="form-control"></div><div class="premium-floating-field"><label class="form-label">Tested By</label><input name="tested_by" class="form-control"></div><div class="premium-floating-field"><label class="form-label">Experience English</label><textarea name="experienced_english" class="form-control" rows="1"></textarea></div><div class="premium-floating-field"><label class="form-label">Test Result</label><textarea name="test_result" class="form-control" rows="1"></textarea></div></div><div class="row g-3"><div class="col-md-6 premium-floating-field"><label class="form-label">Continue at Western?</label><select name="continue_at_western" class="form-select"><option value="pending">Pending Decision</option><option value="yes">Yes</option><option value="no">No</option></select></div></div></div><div class="enrollment-profile-card summer-form-card"><h4>Family Information</h4><div class="summer-family-subsection"><h5>Mother</h5><div class="row g-3 summer-family-grid"><div class="premium-floating-field"><label class="form-label">Mother Name (English) *</label><input name="mother_name_en" class="form-control"></div><div class="premium-floating-field"><label class="form-label">Mother Name (Khmer)</label><input name="mother_name_kh" class="form-control school-profile-khmer"></div><div class="premium-floating-field"><label class="form-label">Occupation (English)</label><input name="mother_occupation_en" class="form-control"></div><div class="premium-floating-field"><label class="form-label">Occupation (Khmer)</label><input name="mother_occupation_kh" class="form-control school-profile-khmer"></div><div class="premium-floating-field"><label class="form-label">Nationality (English)</label><input name="mother_nationality_en" class="form-control"></div><div class="premium-floating-field"><label class="form-label">Phone Number</label><input name="mother_phone" class="form-control"></div><div class="premium-floating-field"><label class="form-label">Work Place</label><input name="mother_workplace" class="form-control"></div></div></div><div class="summer-family-subsection"><h5>Father</h5><div class="row g-3 summer-family-grid"><div class="premium-floating-field"><label class="form-label">Father Name (English) *</label><input name="father_name_en" class="form-control"></div><div class="premium-floating-field"><label class="form-label">Father Name (Khmer)</label><input name="father_name_kh" class="form-control school-profile-khmer"></div><div class="premium-floating-field"><label class="form-label">Occupation (English)</label><input name="father_occupation_en" class="form-control"></div><div class="premium-floating-field"><label class="form-label">Occupation (Khmer)</label><input name="father_occupation_kh" class="form-control school-profile-khmer"></div><div class="premium-floating-field"><label class="form-label">Nationality (English)</label><input name="father_nationality_en" class="form-control"></div><div class="premium-floating-field"><label class="form-label">Phone Number</label><input name="father_phone" class="form-control"></div><div class="premium-floating-field"><label class="form-label">Work Place</label><input name="father_workplace" class="form-control"></div></div></div><div class="summer-family-subsection"><h5>Guardian</h5><div class="row g-3 summer-family-grid"><div class="premium-floating-field"><label class="form-label">Guardian Name (English)</label><input name="guardian_name_en" class="form-control"></div><div class="premium-floating-field"><label class="form-label">Guardian Name (Khmer)</label><input name="guardian_name_kh" class="form-control school-profile-khmer"></div><div class="premium-floating-field"><label class="form-label">Occupation (English)</label><input name="guardian_occupation_en" class="form-control"></div><div class="premium-floating-field"><label class="form-label">Occupation (Khmer)</label><input name="guardian_occupation_kh" class="form-control school-profile-khmer"></div><div class="premium-floating-field"><label class="form-label">Nationality (English)</label><input name="guardian_nationality_en" class="form-control"></div><div class="premium-floating-field"><label class="form-label">Phone Number</label><input name="guardian_phone" class="form-control"></div><div class="premium-floating-field"><label class="form-label">Work Place</label><input name="guardian_workplace" class="form-control"></div></div></div></div><div class="enrollment-document-card summer-form-card"><h4>Student Documents <span class="text-secondary fw-normal fs-5">(Optional)</span></h4><div class="row g-3"><div class="col-md-3 premium-floating-field"><label class="form-label">Document Type</label><select name="document_type_id" id="summerDocumentType" class="form-select"></select></div><div class="col-md-3 premium-floating-field"><label class="form-label">Document Title</label><input name="document_title" class="form-control"></div><div class="col-md-3 premium-floating-field"><label class="form-label">Document Number</label><input name="document_number" class="form-control"></div><div class="col-md-3 premium-floating-field"><label class="form-label">Document File</label><input type="file" name="document_file" class="form-control" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"></div><div class="col-12 premium-floating-field"><label class="form-label">Description</label><textarea name="document_description" class="form-control" rows="2"></textarea></div></div></div>`;
     summerEnhanceDocumentSection(panel);
     ["mother", "father", "guardian"].forEach((type) => {
         const subsection = panel
@@ -396,9 +453,42 @@ const summerAddEnrollmentParityFields = () => {
     }
     const studentIdInput = panel.querySelector('[name="student_id"]');
     if (studentIdInput) {
-        studentIdInput.value = "Auto generated after create";
+        studentIdInput.value = "Select Summer Year and Grade";
         studentIdInput.closest(".premium-floating-field")?.classList.add("has-value");
     }
+    summerRefreshExternalStudentIdPreview = async () => {
+        const studentId = panel.querySelector('[name="student_id"]');
+        if (!studentId) return;
+
+        if (summerField("summerOrigin")?.value !== "external") {
+            return;
+        }
+
+        const yearId = summerField("summerAcademicYear")?.value || "";
+        const gradeId = summerField("summerGrade")?.value || "";
+        studentId.closest(".premium-floating-field")?.classList.add("has-value");
+
+        if (!yearId || !gradeId) {
+            studentId.value = "Select Summer Year and Grade";
+            return;
+        }
+
+        studentId.value = "Generating...";
+        try {
+            const params = new URLSearchParams({ academic_year_id: yearId, grade_id: gradeId });
+            const response = await fetch(`/summer-school/next-student-id?${params.toString()}`, {
+                headers: { Accept: "application/json" },
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message || "Unable to generate Student ID preview.");
+            studentId.value = result.student_id || "Auto generated after create";
+        } catch (error) {
+            studentId.value = "Auto generated after create";
+        }
+    };
+    ["summerAcademicYear", "summerGrade"].forEach((id) =>
+        summerField(id)?.addEventListener("change", summerRefreshExternalStudentIdPreview),
+    );
     const fullNameEnglishInput = panel.querySelector('[name="full_name_en"]');
     fullNameEnglishInput?.addEventListener("input", () => {
         const start = fullNameEnglishInput.selectionStart;
@@ -881,7 +971,7 @@ const summerRenderInternalStudents = () => {
             .filter(([id, student]) => id && student),
     );
     const select = summerField("summerInternalStudent");
-    const current = select.value;
+    const current = select.value || summerPreferredInternalStudentId;
     select.innerHTML =
         '<option value=""></option>' +
         Array.from(unique.values())
@@ -891,8 +981,10 @@ const summerRenderInternalStudents = () => {
                     `<option value="${student.id}">${summerEsc(`${student.student_id || "-"} - ${student.full_name_en || student.full_name_kh || "-"}`)}</option>`,
             )
             .join("");
-    if (Array.from(select.options).some((option) => option.value === current))
+    if (Array.from(select.options).some((option) => option.value === current)) {
         select.value = current;
+        summerPreferredInternalStudentId = "";
+    }
     summerSearchableFilters.summerInternalStudent?.sync();
     summerSearchableFilters.summerInternalStudent?.render();
     const info = summerField("summerWesternStudentInfo");
@@ -914,7 +1006,10 @@ const summerRenderInternalStudents = () => {
         } else info.innerHTML = "";
     }
 };
-const summerSetupStudentFilters = () => {
+const summerSetupStudentFilters = (preferredStudentId = "") => {
+    if (preferredStudentId) {
+        summerPreferredInternalStudentId = String(preferredStudentId);
+    }
     summerStudentEnrollments = summerOptions.studentEnrollments || [];
     summerSetupSearchableFilter("summerStudentYearFilter", "Academic Year");
     summerSetupSearchableFilter("summerStudentCampusFilter", "Campus");
@@ -1101,7 +1196,7 @@ const summerLoadOptions = async () => {
         const grade = summerField("summerStudentGradeClassFilter")?.value?.split(":")[0];
         fetch(`/summer-school/student-options?academic_year_id=${encodeURIComponent(year)}&campus_id=${encodeURIComponent(campus || "")}&grade_id=${encodeURIComponent(grade || "")}`, { headers: { Accept: "application/json" } })
             .then((response) => response.json())
-            .then((students) => { summerOptions.studentEnrollments = students; summerSetupStudentFilters(); })
+            .then((students) => { const selectedStudentId = summerField("summerInternalStudent")?.value || ""; summerOptions.studentEnrollments = students; summerSetupStudentFilters(selectedStudentId); })
             .catch(() => {});
     });
 };
@@ -1210,6 +1305,16 @@ const summerLoadRows = async (page = 1, perPage = null) => {
 document.querySelectorAll("[data-summer-sort]").forEach((button) => button.addEventListener("click", () => { const key = button.dataset.summerSort; summerSort = { key, direction: summerSort.key === key && summerSort.direction === "asc" ? "desc" : "asc" }; summerLoadRows(1); }));
 const summerToggleOrigin = () => {
     const external = summerField("summerOrigin").value === "external";
+    const shouldClearWesternStudentEdit = external && summerEditingOrigin === "internal";
+    if (shouldClearWesternStudentEdit) {
+        summerEditingOrigin = null;
+        setSummerEnrollmentAssignmentLocked(false);
+        const internalStudent = summerField("summerInternalStudent");
+        if (internalStudent) {
+            internalStudent.value = "";
+            internalStudent.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+    }
     document
         .querySelectorAll("#summerSchoolForm .summer-external-field .form-label")
         .forEach((label) =>
@@ -1230,6 +1335,9 @@ const summerToggleOrigin = () => {
         .forEach((field) => field.classList.toggle("d-none", !external));
     summerField("summerAcademicYear")?.closest(".summer-enrollment-section")?.querySelectorAll("select, input, textarea").forEach((field) => { field.disabled = !external && !summerField("summerInternalStudent")?.value; });
     summerField("summerInternalStudent").required = !external;
+    if (shouldClearWesternStudentEdit) {
+        summerClearNewStudentFields();
+    }
 };
 document.querySelectorAll("[data-summer-origin]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -1237,31 +1345,166 @@ document.querySelectorAll("[data-summer-origin]").forEach((button) => {
         if (!origin) return;
         origin.value = button.dataset.summerOrigin || "internal";
         origin.dispatchEvent(new Event("change", { bubbles: true }));
-        summerToggleOrigin();
         summerSearchableFilters.summerOrigin?.sync();
     });
 });
 // Student Type is static, so initialize its searchable control immediately;
 // it must not depend on the slower Summer options request.
 summerSetupSearchableFilter("summerOrigin", "Student Type", false);
-summerField("summerOrigin")?.addEventListener("change", summerToggleOrigin);
+const summerFormatIsoDate = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+const summerFormatDirectDate = (value) => {
+    if (!value) return "";
+    const date = new Date(`${value}T00:00:00`);
+    if (Number.isNaN(date.getTime())) return "";
+    return `${String(date.getDate()).padStart(2, "0")}-${String(date.getMonth() + 1).padStart(2, "0")}-${date.getFullYear()}`;
+};
+const summerParseDirectDate = (value) => {
+    const match = String(value || "").trim().match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/);
+    if (!match) return null;
+    const day = Number(match[1]);
+    const month = Number(match[2]);
+    const year = Number(match[3]);
+    const date = new Date(year, month - 1, day);
+    if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
+    return date;
+};
+const summerSyncEnrolledOnDate = () => {
+    const hidden = summerField("summerSchoolForm")?.querySelector('[name="enrolled_on"]');
+    const display = summerField("summerEnrolledOnDisplay");
+    if (!hidden || !display) return;
+    display.value = summerFormatDirectDate(hidden.value);
+    hidden.closest(".premium-floating-field")?.classList.toggle("has-value", Boolean(hidden.value));
+};
+const summerSetEnrolledOnDate = (value) => {
+    const hidden = summerField("summerSchoolForm")?.querySelector('[name="enrolled_on"]');
+    if (!hidden) return;
+    const date = value instanceof Date ? value : new Date(`${value}T00:00:00`);
+    hidden.value = Number.isNaN(date.getTime()) ? "" : summerFormatIsoDate(date);
+    summerSyncEnrolledOnDate();
+    hidden.dispatchEvent(new Event("change", { bubbles: true }));
+};
+const summerInitEnrolledOnPicker = () => {
+    const hidden = summerField("summerSchoolForm")?.querySelector('[name="enrolled_on"]');
+    const display = summerField("summerEnrolledOnDisplay");
+    const trigger = summerField("summerEnrolledOnTrigger");
+    const popup = summerField("summerEnrolledOnPopup");
+    const monthLabel = summerField("summerEnrolledOnMonthLabel");
+    const yearToggle = summerField("summerEnrolledOnYearToggle");
+    const yearPopup = summerField("summerEnrolledOnYearPopup");
+    const years = summerField("summerEnrolledOnYears");
+    const days = summerField("summerEnrolledOnDays");
+    if (!hidden || !display || !trigger || !popup || !monthLabel || !yearToggle || !yearPopup || !years || !days || trigger.dataset.ready === "1") return;
+    display.removeAttribute("readonly");
+    display.removeAttribute("disabled");
+    display.readOnly = false;
+    display.disabled = false;
+    display.autocomplete = "off";
+    display.addEventListener("click", (event) => {
+        event.stopPropagation();
+        display.focus();
+    });
+    trigger.dataset.ready = "1";
+    let cursor = new Date();
+    const selectedDate = () => hidden.value ? new Date(`${hidden.value}T00:00:00`) : null;
+    const renderYears = () => {
+        const current = cursor.getFullYear();
+        const startYear = 1900;
+        const endYear = new Date().getFullYear() + 5;
+        years.innerHTML = Array.from({ length: endYear - startYear + 1 }, (_, index) => {
+            const year = startYear + index;
+            return `<button type="button" class="date-picker-year${year === current ? " is-selected" : ""}" data-summer-enrolled-year="${year}">${year}</button>`;
+        }).join("");
+        years.querySelector(".is-selected")?.scrollIntoView({ block: "center" });
+    };
+    const renderCalendar = () => {
+        const year = cursor.getFullYear();
+        const month = cursor.getMonth();
+        monthLabel.textContent = cursor.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+        const first = new Date(year, month, 1);
+        const cells = [];
+        for (let index = first.getDay() - 1; index >= 0; index -= 1) cells.push(new Date(year, month - 1, new Date(year, month, 0).getDate() - index));
+        for (let day = 1; day <= new Date(year, month + 1, 0).getDate(); day += 1) cells.push(new Date(year, month, day));
+        while (cells.length < 42) cells.push(new Date(year, month + 1, cells.length - first.getDay() - new Date(year, month + 1, 0).getDate() + 1));
+        const selected = selectedDate();
+        days.innerHTML = cells.map((date) => {
+            const iso = summerFormatIsoDate(date);
+            return `<button type="button" class="date-picker-day${date.getMonth() !== month ? " is-outside" : ""}${selected && iso === hidden.value ? " is-selected" : ""}" data-summer-enrolled-date="${iso}">${date.getDate()}</button>`;
+        }).join("");
+        renderYears();
+    };
+    trigger.addEventListener("click", () => {
+        document.querySelectorAll("#summerSchoolModal .date-picker-popup").forEach((other) => { if (other !== popup) other.classList.add("d-none"); });
+        const selected = selectedDate();
+        cursor = selected && !Number.isNaN(selected.getTime()) ? new Date(selected.getFullYear(), selected.getMonth(), 1) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+        popup.classList.toggle("d-none");
+        if (!popup.classList.contains("d-none")) renderCalendar();
+    });
+    display.addEventListener("input", () => {
+        const date = summerParseDirectDate(display.value);
+        if (!date) return;
+        hidden.value = summerFormatIsoDate(date);
+        cursor = new Date(date.getFullYear(), date.getMonth(), 1);
+        hidden.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    display.addEventListener("blur", summerSyncEnrolledOnDate);
+    hidden.addEventListener("change", summerSyncEnrolledOnDate);
+    popup.addEventListener("click", (event) => event.stopPropagation());
+    popup.querySelectorAll("[data-summer-enrolled-nav]").forEach((button) => button.addEventListener("click", () => {
+        cursor.setMonth(cursor.getMonth() + (button.dataset.summerEnrolledNav === "next" ? 1 : -1));
+        yearPopup.classList.add("d-none");
+        renderCalendar();
+    }));
+    yearToggle.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        yearPopup.classList.toggle("d-none");
+        if (!yearPopup.classList.contains("d-none")) renderYears();
+    });
+    years.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const button = event.target.closest("[data-summer-enrolled-year]");
+        if (!button) return;
+        cursor = new Date(Number(button.dataset.summerEnrolledYear), cursor.getMonth(), 1);
+        yearPopup.classList.add("d-none");
+        renderCalendar();
+    });
+    days.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-summer-enrolled-date]");
+        if (!button) return;
+        summerSetEnrolledOnDate(button.dataset.summerEnrolledDate);
+        popup.classList.add("d-none");
+    });
+    document.addEventListener("click", (event) => {
+        if (!event.target.closest(".summer-enrolled-date-picker")) popup.classList.add("d-none");
+    });
+    summerSyncEnrolledOnDate();
+};
+
+summerField("summerOrigin")?.addEventListener("change", () => {
+    summerToggleOrigin();
+    summerRefreshExternalStudentIdPreview();
+});
 summerField("summerFilterYear")?.addEventListener("change", summerLoadRows);
 ["summerFilterCampus", "summerFilterGrade", "summerFilterGroup", "summerFilterStudent", "summerFilterStatus"].forEach((id) => summerField(id)?.addEventListener("change", summerLoadRows));
 summerField("summerFilterSearch")?.addEventListener("input", (() => { let timer; return () => { clearTimeout(timer); timer = setTimeout(summerLoadRows, 250); }; })());
 summerField("summerSchoolNew")?.addEventListener("click", () => {
     setSummerEnrollmentAssignmentLocked(false);
+    summerEditingOrigin = null;
     summerField("summerSchoolForm").reset();
     const internalStudent = summerField("summerInternalStudent");
     if (internalStudent) { internalStudent.value = ""; internalStudent.dispatchEvent(new Event("change", { bubbles: true })); }
     summerRenderInternalStudents();
     summerRefreshSearchableFilters();
     const enrolledOn = summerField("summerSchoolForm").querySelector('[name="enrolled_on"]');
-    if (enrolledOn) enrolledOn.value = new Date().toISOString().slice(0, 10);
+    if (enrolledOn) summerSetEnrolledOnDate(new Date());
     const status = summerField("summerSchoolForm").querySelector('[name="enrollment_status"]');
     if (status) status.value = "active";
     summerToggleOrigin();
     summerRefreshSearchableFilters();
     summerClearRegistrationPlaceholders();
+    summerRefreshExternalStudentIdPreview();
+    summerInitEnrolledOnPicker();
     summerModal?.show();
 });
 [
@@ -1290,6 +1533,7 @@ const handleSummerListAction = async (event) => {
     if (editButton) {
         setSummerEnrollmentAssignmentLocked(true);
         const origin = editButton.dataset.summerEditOrigin || "internal";
+        summerEditingOrigin = origin;
         const record = summerRowCache.get(String(editButton.dataset.summerEdit));
         const originField = summerField("summerOrigin");
         if (originField) {
@@ -1366,12 +1610,7 @@ const handleSummerListAction = async (event) => {
                 const date = new Date(`${record.student.date_of_birth}T00:00:00`);
                 if (!Number.isNaN(date.getTime())) dobDisplay.value = date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }).replace(/ /g, "-");
             }
-            const enrolledOn = form?.querySelector('[name="enrolled_on"]');
-            const enrolledDisplay = enrolledOn?.closest(".date-picker")?.querySelector(".date-picker-display");
-            if (enrolledDisplay && record.enrolled_on) {
-                const date = new Date(`${record.enrolled_on}T00:00:00`);
-                if (!Number.isNaN(date.getTime())) enrolledDisplay.value = date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }).replace(/ /g, "-");
-            }
+            summerSyncEnrolledOnDate();
             const familyMembers = [...(record.family_contacts || []), ...(record.student?.family_members || record.student?.familyMembers || [])];
             (record.student?.families || []).forEach((family) => (family.members || []).forEach((member) => familyMembers.push(member)));
             familyMembers.forEach((member) => {
@@ -1398,6 +1637,17 @@ const handleSummerListAction = async (event) => {
                     field.closest(".premium-floating-field")?.classList.add("has-value");
                 });
             });
+            if (origin === "internal" && record.academic_year_id && record.campus_id && record.grade_id && record.student_id) {
+                summerPreferredInternalStudentId = String(record.student_id);
+                fetch(`/summer-school/student-options?academic_year_id=${encodeURIComponent(record.academic_year_id)}&campus_id=${encodeURIComponent(record.campus_id)}&grade_id=${encodeURIComponent(record.grade_id)}`, { headers: { Accept: "application/json" } })
+                    .then((response) => response.json())
+                    .then((students) => {
+                        summerOptions.studentEnrollments = students;
+                        summerSetupStudentFilters(record.student_id);
+                        summerRenderInternalStudents();
+                    })
+                    .catch(() => summerRenderInternalStudents());
+            }
         }
         return;
     }
@@ -1844,6 +2094,7 @@ summerLoadOptions()
         summerSetupSearchableFilter("summerOrigin", "Student Type", false);
         summerSearchableFilters.summerOrigin?.sync();
         summerClearRegistrationPlaceholders();
+        summerRefreshExternalStudentIdPreview();
         const session = summerField("summerConvertSession");
         if (session && !summerField("summerConvertTrack")) {
             const column = document.createElement("div");
@@ -1865,6 +2116,7 @@ summerLoadOptions()
             .then((locations) => {
                 Object.assign(summerOptions, locations);
                 summerPopulateParityOptions();
+                summerRefreshExternalStudentIdPreview();
             })
             .catch(() => {});
     })
@@ -1881,3 +2133,5 @@ summerDocumentListObserver.observe(document.body, { childList: true, subtree: tr
 document.addEventListener("change", (event) => {
     if (event.target?.id === "summerDocumentFile") setTimeout(summerDecorateDocumentFileList, 0);
 });
+
+summerInitEnrolledOnPicker();

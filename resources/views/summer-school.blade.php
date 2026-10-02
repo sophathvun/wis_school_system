@@ -166,7 +166,29 @@
                             <div class="col-md-4"><label class="form-label">Group *</label><select name="session_id" 
                                     id="summerSession" class="form-select"></select></div>
                             <div class="col-md-4"><label class="form-label">Enrollment Status</label><select name="enrollment_status" id="summerEnrollmentStatus" class="form-select"><option value="active">Active</option><option value="pending">Pending</option><option value="completed">Completed</option><option value="withdrawn">Withdrawn</option></select></div>
-                            <div class="col-md-4"><label class="form-label">Enrolled On</label><input type="date" name="enrolled_on" class="form-control"></div>
+                            <div class="col-md-4 premium-floating-field summer-enrolled-on-field">
+                                <div class="date-picker summer-date-picker summer-enrolled-date-picker">
+                                    <label class="form-label" for="summerEnrolledOnDisplay">Enrolled On <span class="summer-date-format-note">DD-MM-YYYY</span></label>
+                                    <input type="hidden" name="enrolled_on" id="summerEnrolledOn">
+                                    <input type="text" id="summerEnrolledOnDisplay" class="form-control summer-enrolled-date-input"
+                                        inputmode="numeric" placeholder=" " title="Type date as DD-MM-YYYY, for example 02-10-2026"
+                                        aria-label="Enter enrolled date directly in DD-MM-YYYY format">
+                                    <button type="button" id="summerEnrolledOnTrigger" class="date-picker-trigger date-picker-calendar-button"
+                                        aria-label="Select enrolled date"><i class="ti ti-calendar"></i></button>
+                                    <div id="summerEnrolledOnPopup" class="date-picker-popup d-none">
+                                        <div class="date-picker-header">
+                                            <button type="button" class="date-picker-nav" data-summer-enrolled-nav="prev" aria-label="Previous month"><i class="ti ti-chevron-left"></i></button>
+                                            <button type="button" id="summerEnrolledOnYearToggle" class="date-picker-year-toggle"><span id="summerEnrolledOnMonthLabel">October 2026</span></button>
+                                            <button type="button" class="date-picker-nav" data-summer-enrolled-nav="next" aria-label="Next month"><i class="ti ti-chevron-right"></i></button>
+                                        </div>
+                                        <div id="summerEnrolledOnYearPopup" class="date-picker-year-popup d-none"><div id="summerEnrolledOnYears" class="date-picker-years"></div></div>
+                                        <div class="date-picker-grid">
+                                            <div class="date-picker-weekdays"><span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span></div>
+                                            <div id="summerEnrolledOnDays" class="date-picker-days"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                             </div></div></div>
                             <div class="col-12 summer-external-field d-none">
                                 <h4 class="summer-form-section-title">Family Information</h4>

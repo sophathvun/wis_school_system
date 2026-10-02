@@ -400,6 +400,7 @@ Route::get('/summer-school/western-grade-options', [SummerSchoolController::clas
 Route::get('/summer-school/family-options', [SummerSchoolController::class, 'familyOptions'])->name('summer-school.family-options');
 Route::get('/summer-school/period-options', [SummerSchoolController::class, 'periodOptions'])->name('summer-school.period-options');
 Route::get('/summer-school/location-options', [SummerSchoolController::class, 'locationOptions'])->name('summer-school.location-options');
+Route::get('/summer-school/next-student-id', [SummerSchoolController::class, 'nextStudentId'])->name('summer-school.next-student-id');
 Route::get('/summer-school/fetch', [SummerSchoolController::class, 'fetch'])->name('summer-school.fetch');
 Route::get('/summer-school/{enrollment}/details', [SummerSchoolController::class, 'details'])->name('summer-school.details');
 Route::post('/summer-school/save', [SummerSchoolController::class, 'save'])->name('summer-school.save');

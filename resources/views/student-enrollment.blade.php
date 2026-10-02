@@ -203,7 +203,10 @@
                                         <input type="hidden" id="date_of_birth" name="date_of_birth">
                                         <input type="text" id="date_of_birth_direct" class="form-control"
                                             inputmode="numeric" placeholder="DD-MM-YYYY"
-                                            aria-label="Enter date of birth directly">
+                                            title="Type date as DD-MM-YYYY, for example 02-10-2026"
+                                            aria-describedby="date_of_birth_format_help"
+                                            aria-label="Enter date of birth directly in DD-MM-YYYY format">
+                                        <span id="date_of_birth_format_help" class="date-format-help">DD-MM-YYYY</span>
                                         <div id="date_of_birth_popup" class="date-picker-popup d-none">
                                             <div class="date-picker-header">
                                                 <button type="button" id="date_of_birth_prev" class="date-picker-nav"
@@ -502,16 +505,18 @@
                                 <label class="form-label">Enrolled On</label>
                                 <div class="date-picker" id="enrolled_on_picker">
                                     <div class="date-picker-input-row">
-                                        <input type="text" id="enrolled_on_direct" class="form-control"
-                                            inputmode="numeric" placeholder="DD-MM-YYYY"
-                                            aria-label="Enter enrollment date directly">
+                                            <input type="text" id="enrolled_on_direct" class="form-control"
+                                                inputmode="numeric" placeholder="DD-MM-YYYY"
+                                                value="{{ now()->format('d-m-Y') }}"
+                                                aria-label="Enter enrollment date directly">
                                         <button type="button" id="enrolled_on_trigger"
                                             class="date-picker-trigger date-picker-calendar-button"><i
                                                 class="ti ti-calendar"></i><span
                                                 class="date-picker-display d-none"></span><i
                                                 class="ti ti-chevron-down d-none"></i></button>
                                     </div>
-                                    <input type="hidden" id="enrolled_on" name="enrolled_on">
+                                            <input type="hidden" id="enrolled_on" name="enrolled_on"
+                                                value="{{ now()->toDateString() }}">
                                     <div id="enrolled_on_popup" class="date-picker-popup d-none">
                                         <div class="date-picker-header"><button type="button" id="enrolled_on_prev"
                                                 class="date-picker-nav"><i class="ti ti-chevron-left"></i></button><button

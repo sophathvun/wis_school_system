@@ -2160,3 +2160,18 @@
     font-weight: 600;
     line-height: 1.35;
 }
+#enrollmentModal .date-format-help {
+    position: absolute;
+    top: .42rem;
+    left: 7rem;
+    z-index: 2;
+    color: #94a3b8;
+    font-size: .64rem;
+    font-weight: 500;
+    line-height: 1;
+    pointer-events: none;
+}
+
+#enrollmentModal #date_of_birth_picker {
+    position: relative;
+}

@@ -41,6 +41,17 @@ class StudentIdCardQrController
             ->latest('id')
             ->first();
 
+        $activeAcademicYearIds = AcademicYear::query()
+            ->where('lifecycle_status', 'started')
+            ->pluck('id');
+
+        $hasActiveAcademicYearEnrollment = $activeAcademicYearIds->isNotEmpty()
+            && $student->enrollments()
+                ->whereIn('academic_year_id', $activeAcademicYearIds)
+                ->where('status', 1)
+                ->where('enrollment_status', 'active')
+                ->exists();
+
         $grade = $latestEnrollment?->grade;
         $schoolClass = $latestEnrollment?->schoolClass;
         $gradeText = trim((string) ($grade?->grade_short_name ?: $grade?->grade));
@@ -51,6 +62,7 @@ class StudentIdCardQrController
             : trim($gradeNumber . $className);
         $enrollmentStatus = strtolower((string) ($latestEnrollment?->enrollment_status ?? ''));
         $isWithdrawn = $enrollmentStatus === 'withdrawn';
+        $isInactive = ! $isWithdrawn && ! $hasActiveAcademicYearEnrollment;
         $withdrawnDate = $latestEnrollment?->ended_on;
         if ($isWithdrawn && ! $withdrawnDate && $latestEnrollment) {
             $withdrawnDate = $latestEnrollment->history()
@@ -64,6 +76,7 @@ class StudentIdCardQrController
             'student' => $student,
             'latestEnrollment' => $latestEnrollment,
             'isWithdrawn' => $isWithdrawn,
+            'isInactive' => $isInactive,
             'withdrawnDateText' => $withdrawnDate ? \Illuminate\Support\Carbon::parse($withdrawnDate)->format('d-M-Y') : '—',
             'academicYearText' => $latestEnrollment?->academicYear?->academic_year ?: '—',
             'campusText' => $latestEnrollment?->campus?->campus_name_en ?: $latestEnrollment?->campus?->campus_name_kh ?: '—',

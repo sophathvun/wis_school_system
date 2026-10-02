@@ -445,6 +445,7 @@ const refreshPremiumFieldStates = () => {
 document
     .getElementById("enrollmentModal")
     ?.addEventListener("shown.bs.modal", () => {
+        ensureNewEnrollmentDate();
         initPhoneInputs();
         refreshPremiumFieldStates();
         window.setTimeout(refreshPremiumFieldStates, 50);
@@ -1618,6 +1619,50 @@ const displayEnrollmentValidationErrors = (errors = {}, fallbackMessage = "Pleas
     return false;
 };
 
+const isDuplicateStudentIdMessage = (message = "") => {
+    const text = String(message || "").toLowerCase();
+    return (
+        text.includes("duplicate") ||
+        text.includes("already exists") ||
+        text.includes("integrity constraint") ||
+        text.includes("1062") ||
+        text.includes("unique")
+    ) && (text.includes("student_id") || text.includes("student id") || text.includes("tb_student"));
+};
+
+const showDuplicateStudentIdError = () => {
+    const studentId = (field("student_id")?.value || "").trim();
+    const safeStudentId = escapeHtml(studentId);
+    const detail = studentId
+        ? `Student ID <strong>${safeStudentId}</strong> already exists. Please enter a different Student ID.`
+        : "This Student ID already exists. Please enter a different Student ID.";
+    clearEnrollmentValidation();
+    showEnrollmentFieldError("student_id", studentId
+        ? `Student ID ${studentId} already exists.`
+        : "This Student ID already exists.");
+    const alert = form.querySelector("[data-alert]");
+    if (alert) {
+        alert.textContent = studentId
+            ? `Duplicate Student ID: ${studentId} already exists.`
+            : "Duplicate Student ID.";
+        alert.classList.remove("d-none");
+    }
+    if (window.Swal) {
+        window.Swal.fire({
+            icon: "warning",
+            title: "Duplicate Student ID",
+            html: detail,
+            confirmButtonText: "OK",
+            customClass: { popup: "school-swal school-swal-sm" },
+        });
+    } else {
+        showError("Duplicate Student ID", studentId
+            ? `Student ID ${studentId} already exists. Please enter a different Student ID.`
+            : "This Student ID already exists. Please enter a different Student ID.");
+    }
+    focusEnrollmentValidationField("student_id");
+    return false;
+};
 const validateEnrollmentRequiredFields = () => {
     clearEnrollmentValidation();
     syncFamilyPhoneValues();
@@ -2592,6 +2637,24 @@ const setEnrollmentDate = (value) => {
     field("enrolled_on_direct").value = formatDobDirect(iso);
     refreshPremiumFieldStates();
 };
+const todayEnrollmentDate = () => formatDobIso(new Date());
+
+const ensureNewEnrollmentDate = () => {
+    if (field("enrollment_id")?.value) return;
+    const hiddenValue = field("enrolled_on")?.value?.trim();
+    const directValue = field("enrolled_on_direct")?.value?.trim();
+    if (!hiddenValue || !directValue) {
+        setEnrollmentDate(hiddenValue || todayEnrollmentDate());
+    }
+};
+
+document
+    .getElementById("enrollmentModal")
+    ?.addEventListener("shown.bs.modal", () => {
+        ensureNewEnrollmentDate();
+        window.setTimeout(ensureNewEnrollmentDate, 50);
+        window.setTimeout(ensureNewEnrollmentDate, 250);
+    });
 const renderEnrollmentYears = () => {
     if (!enrollmentDateYears) return;
     const current = enrollmentDateCursor.getFullYear();
@@ -3974,6 +4037,7 @@ const openCreate = async (forEdit = false) => {
     if (!forEdit) {
         field("existing_family_number").value = "";
         autoFamilyNumber();
+        setEnrollmentDate(todayEnrollmentDate());
     }
     resetStudentPhotoPreview();
     form.querySelector("[data-alert]").classList.add("d-none");
@@ -4012,6 +4076,7 @@ const openCreate = async (forEdit = false) => {
         field("student_no").value = nextStudentNo;
         field("existing_family_number").value = "";
         autoFamilyNumber();
+        setEnrollmentDate(todayEnrollmentDate());
         applyNewEnrollmentCambodiaDefaults();
         refreshPremiumFieldStates();
     });
@@ -4522,19 +4587,33 @@ form.addEventListener("submit", async (event) => {
         try {
             result = responseText ? JSON.parse(responseText) : {};
         } catch {
+            if (isDuplicateStudentIdMessage(responseText)) {
+                return showDuplicateStudentIdError();
+            }
             throw new Error(
                 "The server returned an unexpected response. Please try again or check the enrollment information.",
             );
         }
-        if (response.status === 422)
+        if (response.status === 422) {
+            const validationMessage = result.message || Object.values(result.errors || {})[0]?.[0] || "";
+            const studentIdMessages = result.errors?.student_id || result.errors?.["student.student_id"] || [];
+            if (
+                studentIdMessages.length ||
+                isDuplicateStudentIdMessage(validationMessage) ||
+                isDuplicateStudentIdMessage(String(studentIdMessages))
+            ) {
+                return showDuplicateStudentIdError();
+            }
             return displayEnrollmentValidationErrors(
                 result.errors || {},
-                result.message || Object.values(result.errors || {})[0]?.[0],
+                validationMessage,
             );
-        if (!response.ok)
-            throw new Error(
-                result.message || "Unable to save student enrollment.",
-            );
+        }
+        if (!response.ok) {
+            const message = result.message || "Unable to save student enrollment.";
+            if (isDuplicateStudentIdMessage(message)) return showDuplicateStudentIdError();
+            throw new Error(message);
+        }
         await uploadEnrollmentDocuments(result.data?.student_id);
         await loadEnrollmentDocuments(result.data?.student_id);
         modal.hide();
@@ -4543,7 +4622,11 @@ form.addEventListener("submit", async (event) => {
         loadEnrollmentListOptions().catch(() => {});
         fetchRows();
     } catch (error) {
-        alertError(error.message);
+        if (isDuplicateStudentIdMessage(error.message)) {
+            showDuplicateStudentIdError();
+        } else {
+            alertError(error.message);
+        }
     } finally {
         lockedAssignmentFields.forEach((element) => (element.disabled = true));
         submit.disabled = false;

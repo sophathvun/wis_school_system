@@ -283,6 +283,23 @@ class StudentEnrollmentController
     public function save(Request $request)
     {
         $id = $request->input('enrollment_id');
+        $studentId = trim((string) $request->input('student_id', ''));
+        $studentRecordId = $request->input('student_record_id');
+        if ($studentId !== '') {
+            $duplicateStudent = Student::query()
+                ->where('student_id', $studentId)
+                ->when($studentRecordId, fn ($query) => $query->where('id', '!=', $studentRecordId))
+                ->exists();
+            if ($duplicateStudent) {
+                $message = "Student ID {$studentId} already exists. Please enter a different Student ID.";
+                return response()->json([
+                    'message' => $message,
+                    'errors' => [
+                        'student_id' => [$message],
+                    ],
+                ], 422);
+            }
+        }
         $validated = $request->validate([
             'student_no' => ['nullable', 'string', 'max:30'],
             'student_id' => ['required', 'string', 'max:30', Rule::unique('tb_student', 'student_id')->ignore($request->input('student_record_id'))],

@@ -12,15 +12,22 @@
         $studentName = $student->full_name_en ?: $student->full_name_kh ?: 'Student Name';
         $studentCode = $student->student_id ?: $student->student_no ?: 'Student ID';
         $homePhone = $student->home_phone ?: '—';
+        $isInactive = $isInactive ?? false;
+        $cardStatusClass = $isWithdrawn ? 'is-withdrawn' : ($isInactive ? 'is-inactive' : '');
     @endphp
 
     <main class="student-id-public-page">
         <section class="student-id-public-card-wrap" aria-label="Student ID card information">
-            <div class="student-id-public-info-card {{ $isWithdrawn ? 'is-withdrawn' : '' }}">
+            <div class="student-id-public-info-card {{ $cardStatusClass }}">
                 @if ($isWithdrawn)
                     <div class="student-id-public-stamp" aria-label="Withdrawn status">
                         <strong>WITHDRAWN</strong>
                         <span>{{ $withdrawnDateText }}</span>
+                    </div>
+                @elseif ($isInactive)
+                    <div class="student-id-public-stamp" aria-label="Inactive status">
+                        <strong>NOT ACTIVE</strong>
+                        <span>Not enrolled in active academic year</span>
                     </div>
                 @endif
 
@@ -48,20 +55,18 @@
                         <span class="student-id-public-value">{{ $studentCode }}</span>
                     </div>
 
-                    @if (! $isWithdrawn)
-                        <div class="student-id-public-phone-list">
-                            <div class="student-id-public-phone-row">
-                                <span class="student-id-public-phone-number">{{ $homePhone }}</span>
-                                <span class="student-id-public-badge">Home</span>
-                            </div>
-                            <div class="student-id-public-phone-row">
-                                <span class="student-id-public-phone-number">{{ $motherPhone }}</span>
-                                <span class="student-id-public-badge">Mother</span>
-                            </div>
-                            <div class="student-id-public-phone-row">
-                                <span class="student-id-public-phone-number">{{ $fatherPhone }}</span>
-                                <span class="student-id-public-badge">Father</span>
-                            </div>
+                    @if (! $isWithdrawn && ! $isInactive)
+                        <div class="student-id-public-row">
+                            <span class="student-id-public-label">Home Phone</span>
+                            <span class="student-id-public-value">{{ $homePhone }}</span>
+                        </div>
+                        <div class="student-id-public-row">
+                            <span class="student-id-public-label">Mother Phone</span>
+                            <span class="student-id-public-value">{{ $motherPhone }}</span>
+                        </div>
+                        <div class="student-id-public-row">
+                            <span class="student-id-public-label">Father Phone</span>
+                            <span class="student-id-public-value">{{ $fatherPhone }}</span>
                         </div>
                     @endif
 
@@ -81,6 +86,10 @@
                     @if ($isWithdrawn)
                         <div class="student-id-public-status-note">
                             This student ID card is no longer active. Please contact Western International School for verification.
+                        </div>
+                    @elseif ($isInactive)
+                        <div class="student-id-public-status-note">
+                            This student is not enrolled in the active academic year. Please contact Western International School for verification.
                         </div>
                     @endif
                 </div>
