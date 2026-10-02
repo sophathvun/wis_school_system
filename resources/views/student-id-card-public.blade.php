@@ -8,17 +8,23 @@
 </head>
 <body class="student-id-public-body">
     @php
-        $logoPath = $branding?->report_logo_1_path ?: $branding?->report_logo_2_path ?: $branding?->login_logo_path ?: $branding?->sidebar_logo_path;
+        $logoPath = $branding?->report_logo_2_path ?: $branding?->report_logo_1_path ?: $branding?->login_logo_path ?: $branding?->sidebar_logo_path;
         $studentName = $student->full_name_en ?: $student->full_name_kh ?: 'Student Name';
         $studentCode = $student->student_id ?: $student->student_no ?: 'Student ID';
-        $studentPhone = $student->home_phone ?: 'Home Phone';
+        $homePhone = $student->home_phone ?: '—';
     @endphp
 
     <main class="student-id-public-page">
-        <section class="student-id-public-card-wrap" aria-label="Student ID card">
-            <div class="student-id-card student-id-card-preview student-id-public-card">
-                <div class="student-id-card-bg"></div>
-                <div class="student-id-card-logo">
+        <section class="student-id-public-card-wrap" aria-label="Student ID card information">
+            <div class="student-id-public-info-card {{ $isWithdrawn ? 'is-withdrawn' : '' }}">
+                @if ($isWithdrawn)
+                    <div class="student-id-public-stamp" aria-label="Withdrawn status">
+                        <strong>WITHDRAWN</strong>
+                        <span>{{ $withdrawnDateText }}</span>
+                    </div>
+                @endif
+
+                <div class="student-id-public-logo">
                     @if ($logoPath)
                         <img src="{{ asset('storage/' . $logoPath) }}" alt="School logo">
                     @else
@@ -26,27 +32,60 @@
                     @endif
                 </div>
 
-                <div class="student-id-card-photo-wrap">
+                <div class="student-id-public-photo-wrap">
                     @if ($student->photo_path)
-                        <img class="student-id-card-photo" src="{{ asset('storage/' . $student->photo_path) }}" alt="{{ $studentName }}">
+                        <img class="student-id-public-photo" src="{{ asset('storage/' . $student->photo_path) }}" alt="{{ $studentName }}">
                     @else
-                        <div class="student-id-card-photo student-id-card-photo-empty">&#128100;</div>
+                        <div class="student-id-public-photo student-id-public-photo-empty">&#128100;</div>
                     @endif
                 </div>
 
-                <div class="student-id-card-info">
-                    <div class="student-id-card-name">{{ $studentName }}</div>
-                    <div class="student-id-card-code">{{ $studentCode }}</div>
-                    <div class="student-id-card-phone">&#9742; {{ $studentPhone }}</div>
-                </div>
+                <h1 class="student-id-public-name">{{ $studentName }}</h1>
 
-                <div class="student-id-card-qr">
-                    <img src="{{ route('student-id-card.public.qr', $student->id_card_qr_code) }}?v=public-{{ urlencode($student->id_card_qr_code ?? 'qr') }}" alt="Student QR code">
-                    <span>SCAN</span>
+                <div class="student-id-public-details">
+                    <div class="student-id-public-row">
+                        <span class="student-id-public-label">Student ID</span>
+                        <span class="student-id-public-value">{{ $studentCode }}</span>
+                    </div>
+
+                    @if (! $isWithdrawn)
+                        <div class="student-id-public-phone-list">
+                            <div class="student-id-public-phone-row">
+                                <span class="student-id-public-phone-number">{{ $homePhone }}</span>
+                                <span class="student-id-public-badge">Home</span>
+                            </div>
+                            <div class="student-id-public-phone-row">
+                                <span class="student-id-public-phone-number">{{ $motherPhone }}</span>
+                                <span class="student-id-public-badge">Mother</span>
+                            </div>
+                            <div class="student-id-public-phone-row">
+                                <span class="student-id-public-phone-number">{{ $fatherPhone }}</span>
+                                <span class="student-id-public-badge">Father</span>
+                            </div>
+                        </div>
+                    @endif
+
+                    <div class="student-id-public-row">
+                        <span class="student-id-public-label">Academic Year</span>
+                        <span class="student-id-public-value">{{ $academicYearText }}</span>
+                    </div>
+                    <div class="student-id-public-row">
+                        <span class="student-id-public-label">Campus</span>
+                        <span class="student-id-public-value">{{ $campusText }}</span>
+                    </div>
+                    <div class="student-id-public-row">
+                        <span class="student-id-public-label">Grade</span>
+                        <span class="student-id-public-value">{{ $gradeText }}</span>
+                    </div>
+
+                    @if ($isWithdrawn)
+                        <div class="student-id-public-status-note">
+                            This student ID card is no longer active. Please contact Western International School for verification.
+                        </div>
+                    @endif
                 </div>
             </div>
         </section>
     </main>
 </body>
 </html>
-

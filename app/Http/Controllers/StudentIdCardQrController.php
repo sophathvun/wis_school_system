@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\BrandingSetting;
 use App\Models\AcademicYear;
 use App\Models\Grade;
+use App\Models\FamilyMember;
 use App\Models\SchoolClass;
 use App\Models\SchoolInfo;
 use App\Models\Student;
@@ -24,12 +25,55 @@ class StudentIdCardQrController
 
         $student = Student::query()
             ->select(['id', 'student_id', 'student_no', 'id_card_qr_code', 'full_name_en', 'full_name_kh', 'photo_path', 'home_phone'])
+            ->with([
+                'familyMembers:id,full_name_en,relationship_type,phone',
+            ])
             ->where('id_card_qr_code', $qr)
             ->firstOrFail();
+
+        $latestEnrollment = $student->enrollments()
+            ->with([
+                'academicYear:id,academic_year,period_type',
+                'campus:id,campus_name_en,campus_name_kh',
+                'grade:id,grade,grade_short_name,grade_order',
+                'schoolClass:id,class_name,class_order',
+            ])
+            ->latest('id')
+            ->first();
+
+        $grade = $latestEnrollment?->grade;
+        $schoolClass = $latestEnrollment?->schoolClass;
+        $gradeText = trim((string) ($grade?->grade_short_name ?: $grade?->grade));
+        $gradeNumber = preg_match('/\d+/', $gradeText, $matches) ? $matches[0] : $gradeText;
+        $className = trim((string) ($schoolClass?->class_name ?? ''));
+        $gradeClassLabel = $className !== '' && $gradeNumber !== '' && str_starts_with($className, $gradeNumber)
+            ? $className
+            : trim($gradeNumber . $className);
+        $enrollmentStatus = strtolower((string) ($latestEnrollment?->enrollment_status ?? ''));
+        $isWithdrawn = $enrollmentStatus === 'withdrawn';
+        $withdrawnDate = $latestEnrollment?->ended_on;
+        if ($isWithdrawn && ! $withdrawnDate && $latestEnrollment) {
+            $withdrawnDate = $latestEnrollment->history()
+                ->where('action_type', 'withdrawal')
+                ->latest('effective_on')
+                ->value('effective_on');
+        }
 
         return view('student-id-card-public', [
             'branding' => BrandingSetting::current(),
             'student' => $student,
+            'latestEnrollment' => $latestEnrollment,
+            'isWithdrawn' => $isWithdrawn,
+            'withdrawnDateText' => $withdrawnDate ? \Illuminate\Support\Carbon::parse($withdrawnDate)->format('d-M-Y') : '—',
+            'academicYearText' => $latestEnrollment?->academicYear?->academic_year ?: '—',
+            'campusText' => $latestEnrollment?->campus?->campus_name_en ?: $latestEnrollment?->campus?->campus_name_kh ?: '—',
+            'gradeText' => $gradeClassLabel ?: '—',
+            'motherPhone' => $student->familyMembers->firstWhere('pivot.relationship_type', FamilyMember::RELATIONSHIP_MOTHER)?->phone
+                ?: $student->familyMembers->firstWhere('relationship_type', FamilyMember::RELATIONSHIP_MOTHER)?->phone
+                ?: '—',
+            'fatherPhone' => $student->familyMembers->firstWhere('pivot.relationship_type', FamilyMember::RELATIONSHIP_FATHER)?->phone
+                ?: $student->familyMembers->firstWhere('relationship_type', FamilyMember::RELATIONSHIP_FATHER)?->phone
+                ?: '—',
         ]);
     }
 
