@@ -19,6 +19,16 @@ use Illuminate\Support\Facades\Schema;
 
 class StudentIdCardQrController
 {
+    private function publicQrUrl(string $qr): string
+    {
+        $baseUrl = rtrim((string) config('services.public_qr_base_url', config('app.url')), '/');
+        if ($baseUrl !== '') {
+            return $baseUrl . route('student-id-card.public', ['qr' => $qr], false);
+        }
+
+        return route('student-id-card.public', ['qr' => $qr]);
+    }
+
     public function publicCard(string $qr)
     {
         abort_unless(Schema::hasColumn((new Student())->getTable(), 'id_card_qr_code'), 404);
@@ -100,7 +110,7 @@ class StudentIdCardQrController
 
         $renderer = new ImageRenderer(new RendererStyle(360, 1), new SvgImageBackEnd());
 
-        return response((new Writer($renderer))->writeString(route('student-id-card.public', ['qr' => $qr])), 200, [
+        return response((new Writer($renderer))->writeString($this->publicQrUrl($qr)), 200, [
             'Content-Type' => 'image/svg+xml',
             'Cache-Control' => 'public, max-age=86400',
         ]);

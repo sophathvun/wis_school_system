@@ -35,4 +35,6 @@ return [
         ],
     ],
 
+    'public_qr_base_url' => env('PUBLIC_QR_BASE_URL', env('APP_URL', 'http://localhost')),
+
 ];
