@@ -33,7 +33,7 @@ class ReportsController
         'student-statistics-detail' => 'Stu. Statistics (Detail)',
         'withdrawn-students' => 'Withdrawn Students',
         'student-id-books-moeys' => 'Stu. ID Book (MoEYS)',
-        'moeys-sikkhakarik-book' => 'សៀវភៅសិក្ាគារិក (MoEYS)',
+        'moeys-sikkhakarik-book' => 'Stu. ID Book (MoEYS)',
         'moeys-id-number-book' => 'Customize Stu. List',
         'student-profile-label' => 'Stu. Profile Label',
     ];
