@@ -10,7 +10,9 @@
     $khmerDate = static function ($date): string {
         if (!$date) return '................................';
         $date = $date instanceof \Carbon\Carbon ? $date : \Carbon\Carbon::parse($date);
-        return $date->format('d-m-Y');
+        $digits = static fn ($value) => strtr((string) $value, ['0'=>'០','1'=>'១','2'=>'២','3'=>'៣','4'=>'៤','5'=>'៥','6'=>'៦','7'=>'៧','8'=>'៨','9'=>'៩']);
+        $months = ['Jan'=>'មករា','Feb'=>'កុម្ភៈ','Mar'=>'មីនា','Apr'=>'មេសា','May'=>'ឧសភា','Jun'=>'មិថុនា','Jul'=>'កក្កដា','Aug'=>'សីហា','Sep'=>'កញ្ញា','Oct'=>'តុលា','Nov'=>'វិច្ឆិកា','Dec'=>'ធ្នូ'];
+        return $digits($date->format('d')) . ' ' . ($months[$date->format('M')] ?? $date->format('M')) . ' ' . $digits($date->format('Y'));
     };
     $gradeClassText = static function ($row): string {
         $grade = trim((string) ($row->grade?->grade_short_name ?: $row->grade?->grade));
@@ -23,6 +25,15 @@
     $familyMember = static function ($student, string $relationship) {
         return $student?->familyMembers?->first(fn ($member) => ($member->relationship_type ?? $member->pivot?->relationship_type) === $relationship);
     };
+    $genderKh = static function ($student): string {
+        $gender = trim((string) ($student?->gender_kh ?? ''));
+        if ($gender !== '') return $gender;
+        return match (strtolower(trim((string) ($student?->gender ?? '')))) {
+            'male', 'm' => 'ប្រុស',
+            'female', 'f' => 'ស្រី',
+            default => trim((string) ($student?->gender ?? '')) ?: '................................',
+        };
+    };
     $locationText = static function ($student, string $type): string {
         $parts = $type === 'birth'
             ? [$student?->birthVillage?->village_name_kh, $student?->birthCommune?->commune_name_kh, $student?->birthDistrict?->district_name_kh, $student?->birthProvince?->province_name_kh]
@@ -34,13 +45,60 @@
 @if(!$hasDataFilter)
     <div class="report-placeholder-preview khmer-font-siemreap">
         <div class="report-placeholder-preview-icon"><i class="ti ti-book-2"></i></div>
-        <div class="report-placeholder-preview-title">សៀវភៅសិក្ខាគារិក (MoEYS)</div>
-        <div class="report-placeholder-preview-text">Please select Academic Year and Transcript Level to preview the transcript books.</div>
+        <div class="report-placeholder-preview-title">Stu. Transcript Book</div>
+        <div class="report-placeholder-preview-text">Please select Academic Year, Campus, Transcript Level, and Grade to preview the student transcript list.</div>
     </div>
 @elseif($rows->isEmpty())
     <div class="empty text-muted py-4 text-center khmer-font-siemreap">No students found.</div>
 @else
-    <div class="sikkhakarik-report">
+    <div class="sikkhakarik-report moeys-transcript-preview">
+        <div class="sikkhakarik-student-info-page">
+            <table class="table table-vcenter table-bordered get-student-list-preview-table sikkhakarik-student-info-table">
+                <thead>
+                    <tr>
+                        <th>ល.រ</th>
+                        <th>រូបថតសិស្ស</th>
+                        <th>ព័ត៌មានសិស្ស</th>
+                        <th>សាខា និងថ្នាក់</th>
+                        <th>Family Informations</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($rows as $infoIndex => $infoRow)
+                        @php
+                            $infoStudent = $infoRow->student;
+                            $infoMother = $familyMember($infoStudent, 'mother');
+                            $infoFather = $familyMember($infoStudent, 'father');
+                            $infoPhotoUrl = $infoStudent?->photo_path ? asset('storage/' . ltrim($infoStudent->photo_path, '/')) : null;
+                        @endphp
+                        <tr>
+                            <td class="sikkhakarik-student-info-number">{{ $infoIndex + 1 }}</td>
+                            <td class="sikkhakarik-student-info-photo">
+                                @if($infoPhotoUrl)<img src="{{ $infoPhotoUrl }}" alt="Student photo">@else — @endif
+                            </td>
+                            <td>
+                                <div class="sikkhakarik-student-info-name">{{ $infoStudent?->full_name_kh ?: '................................' }}</div>
+                                <div>{{ $infoStudent?->full_name_en ?: '................................' }}</div>
+                                <div>ភេទ ៖ {{ $genderKh($infoStudent) }}</div>
+                                <div>ថ្ងៃខែឆ្នាំកំណើត៖ {{ $khmerDate($infoStudent?->date_of_birth) }}</div>
+                            </td>
+                            <td>
+                                <div>{{ $infoRow->campus?->campus_name_kh ?: $infoRow->campus?->campus_name_en ?: '................................' }}</div>
+                                <div>ឆ្នាំសិក្សា៖ {{ $infoRow->academicYear?->academic_year ?: '................................' }}</div>
+                                <div>ថ្នាក់ទី៖ {{ $gradeClassText($infoRow) }}</div>
+                            </td>
+                            <td>
+                                <div><strong>ម្តាយ៖</strong> {{ $infoMother?->full_name_kh ?: '................................' }}</div>
+                                <div><strong>មុខរបរ៖</strong> {{ $infoMother?->occupation_kh ?: $infoMother?->occupation ?: '................................' }}</div>
+                                <div><strong>ឪពុក៖</strong> {{ $infoFather?->full_name_kh ?: '................................' }}</div>
+                                <div><strong>មុខរបរ៖</strong> {{ $infoFather?->occupation_kh ?: $infoFather?->occupation ?: '................................' }}</div>
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+        @if(false)
         @foreach($rows as $row)
             @php
                 $student = $row->student;
@@ -124,13 +182,21 @@
                 </div>
             </section>
         @endforeach
+        @endif
     </div>
 @endif
 
 <style>
-    @font-face{font-family:"Khmer OS Siemreap";src:url("{{ asset('fonts/khmer/KhmerOSsiemreap.ttf') }}") format("truetype")}
-    @font-face{font-family:"Khmer OS Muol Light";src:url("{{ asset('fonts/khmer/KhmerOSmuollight.ttf') }}") format("truetype")}
     .sikkhakarik-report{display:flex;flex-direction:column;gap:14px;align-items:center;background:#f1f5f9;padding:12px;min-width:1120px}
+    .sikkhakarik-student-info-page{width:297mm;min-height:210mm;background:#fff;color:#000;font-family:"Khmer OS Siemreap","Khmer OS Siem Reap",sans-serif;padding:10mm 12mm;box-shadow:0 1px 8px rgba(0,0,0,.12);page-break-after:always}
+    .sikkhakarik-student-info-page h2{text-align:center;font-family:"Khmer OS Muol Light","Khmer OS Muol",serif;font-size:20px;font-weight:400;margin:0 0 8mm}
+    .sikkhakarik-student-info-table{width:100%;border-collapse:collapse;font-size:11px;line-height:1.55}
+    .sikkhakarik-student-info-table th,.sikkhakarik-student-info-table td{border:1px solid #000;padding:2.5mm;vertical-align:top}
+    .sikkhakarik-student-info-table th{text-align:center;font-family:"Khmer OS Muol Light","Khmer OS Muol",serif;font-weight:400}
+    .sikkhakarik-student-info-number{text-align:center;width:10mm}
+    .sikkhakarik-student-info-photo{width:25mm;text-align:center;vertical-align:middle!important}
+    .sikkhakarik-student-info-photo img{display:block;width:20mm;height:26mm;object-fit:cover;margin:auto}
+    .sikkhakarik-student-info-name{font-weight:700}
     .sikkhakarik-page{width:297mm;min-height:210mm;height:210mm;background:#fff;color:#000;font-family:"Khmer OS Siemreap","Khmer OS Siem Reap",sans-serif;page-break-after:always;padding:10mm 12mm;box-shadow:0 1px 8px rgba(0,0,0,.12);position:relative;overflow:hidden}
     .sikkhakarik-page:last-child{page-break-after:auto}.sikkhakarik-cover-frame{width:125mm;height:188mm;margin-left:auto;border:3px double #16365f;border-radius:14px;padding:13mm 10mm;display:flex;flex-direction:column;text-align:center}
     .sikkhakarik-top-title,.sikkhakarik-ministry,.sikkhakarik-cover-page h1,.sikkhakarik-cover-page h2,.sikkhakarik-profile-page h1,.sikkhakarik-rules-page h2{font-family:"Khmer OS Muol Light","Khmer OS Muol",serif;font-weight:400}
@@ -141,5 +207,15 @@
     .sikkhakarik-info-lines{position:relative;z-index:1;font-size:14.5px;line-height:1.75;width:95mm;margin:0 7mm 6mm auto}.sikkhakarik-signature{position:relative;z-index:1;text-align:center;margin:4mm 8mm 5mm auto;width:55mm;font-size:14.5px;line-height:1.55}
     .sikkhakarik-small-table,.sikkhakarik-score-table{width:100%;border-collapse:collapse;font-size:12px}.sikkhakarik-small-table{position:relative;z-index:1;width:132mm;margin-left:auto}.sikkhakarik-small-table th,.sikkhakarik-small-table td,.sikkhakarik-score-table th,.sikkhakarik-score-table td{border:1px solid #000;padding:2px 3px;text-align:center;vertical-align:middle}.sikkhakarik-small-table td{height:6.8mm}
     .sikkhakarik-score-grid{display:grid;grid-template-columns:1fr 1fr;gap:16mm}.sikkhakarik-line-title{font-size:15px;margin-bottom:2mm}.sikkhakarik-score-table td{height:7.6mm}.sikkhakarik-note-box{border:1px solid #000;border-top:0;padding:4mm 4mm;text-align:center;font-size:14px;line-height:1.5;min-height:29mm}
-    @media print{.sikkhakarik-report{display:block;background:#fff;padding:0;min-width:0}.sikkhakarik-page{box-shadow:none;margin:0;width:297mm;height:210mm;min-height:210mm;break-after:page}.sikkhakarik-page:last-child{break-after:auto}}
+    @media print{.sikkhakarik-report{display:block;background:#fff;padding:0;min-width:0}.sikkhakarik-student-info-page,.sikkhakarik-page{box-shadow:none;margin:0;width:297mm;break-after:page}.sikkhakarik-student-info-page{min-height:210mm;padding:10mm 12mm}.sikkhakarik-page{height:210mm;min-height:210mm}.sikkhakarik-page:last-child{break-after:auto}}
+    .sikkhakarik-report.moeys-transcript-preview{display:block;background:transparent;padding:0;min-width:0}
+    .moeys-transcript-preview .sikkhakarik-student-info-page{width:auto;min-height:0;background:transparent;padding:0;box-shadow:none;page-break-after:auto;color:inherit;font-family:"Khmer OS Siemreap","Khmer OS Siem Reap",var(--khmer-font-siemreap),sans-serif}
+    .moeys-transcript-preview .sikkhakarik-student-info-table{font-size:13px;line-height:1.45}
+    .moeys-transcript-preview .sikkhakarik-student-info-table th,
+    .moeys-transcript-preview .sikkhakarik-student-info-table td{border-color:#d9dee7;padding:.75rem;vertical-align:middle}
+    .moeys-transcript-preview .sikkhakarik-student-info-table th{font-family:inherit;font-weight:500;background:var(--tblr-primary, #206bc4);color:#fff;white-space:nowrap;height:2.625rem;padding-top:.5rem;padding-bottom:.5rem}
+    .moeys-transcript-preview .sikkhakarik-student-info-number{width:58px;text-align:center}
+    .moeys-transcript-preview .sikkhakarik-student-info-photo{width:110px}
+    .moeys-transcript-preview .sikkhakarik-student-info-photo img{width:58px;height:74px;object-fit:cover;border:1px solid #d9dee7;border-radius:6px;background:#f8fafc}
+    .moeys-transcript-preview .sikkhakarik-student-info-table td div{line-height:1.45}
 </style>

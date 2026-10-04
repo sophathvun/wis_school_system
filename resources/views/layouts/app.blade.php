@@ -41,6 +41,7 @@
     <link rel="apple-touch-icon" href="{{ route('app.icon', ['v' => $shortcutIcon ? substr(md5($shortcutIcon), 0, 10) : 'default']) }}">
     <title>@yield('title', 'School System')</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @stack('styles')
 
 </head>
 

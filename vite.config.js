@@ -8,6 +8,7 @@ export default defineConfig({
         laravel({
             input: [
                 "resources/css/app.css",
+                "resources/css/reports.css",
                 ...globSync("resources/css/pages/*.css"),
                 "resources/js/app.js",
                 "resources/js/academicYears.js",

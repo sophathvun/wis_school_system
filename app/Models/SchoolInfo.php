@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -40,5 +41,25 @@ class SchoolInfo extends Model
         return $this->belongsToMany(User::class, 'access_user_campuses', 'campus_id', 'user_id')
             ->withPivot(['is_primary', 'assigned_at'])
             ->withTimestamps();
+    }
+
+    public function addressProvince(): BelongsTo
+    {
+        return $this->belongsTo(Province::class, 'address_province_id');
+    }
+
+    public function addressDistrict(): BelongsTo
+    {
+        return $this->belongsTo(District::class, 'address_district_id');
+    }
+
+    public function addressCommune(): BelongsTo
+    {
+        return $this->belongsTo(Commune::class, 'address_commune_id');
+    }
+
+    public function addressVillage(): BelongsTo
+    {
+        return $this->belongsTo(Village::class, 'address_village_id');
     }
 }

@@ -33,7 +33,7 @@ class ReportsController
         'student-statistics-detail' => 'Stu. Statistics (Detail)',
         'withdrawn-students' => 'Withdrawn Students',
         'student-id-books-moeys' => 'Stu. ID Book (MoEYS)',
-        'moeys-sikkhakarik-book' => 'Stu. ID Book (MoEYS)',
+        'moeys-sikkhakarik-book' => 'Stu. Transcript Book',
         'moeys-id-number-book' => 'Customize Stu. List',
         'student-profile-label' => 'Stu. Profile Label',
     ];
@@ -42,16 +42,42 @@ class ReportsController
     {
         $type = $request->query('type', 'student-list');
         abort_unless(isset(self::TYPES[$type]), 404);
+        if ($type === 'moeys-id-number-book' && $request->boolean('filter_options')) {
+            return $this->customStudentListFilterOptions($request);
+        }
         $payload = $this->reportPayload($request, $type, true);
 
         return view('reports.index', $payload + [
             'type' => $type,
             'reportTypes' => self::TYPES,
-            'academicYears' => $this->academicYears($payload['filters']),
+            'academicYears' => $this->academicYears($payload['filters'], $type),
             'campuses' => $this->campuses($request, $payload['filters'], $type),
             'grades' => Grade::where('status', 1)->orderByRaw('CAST(grade_order AS UNSIGNED)')->get(['id', 'grade']),
             'gradeClassOptions' => ($this->isStudentListReport($type) || $this->isStudentContactListReport($type) || $type === 'attendance-list' || $type === 'score-list' || $type === 'moeys-id-number-book' || $type === 'moeys-sikkhakarik-book') ? $this->gradeClassOptions($request, $payload['filters'], $type) : ($type === 'withdrawn-students' ? $this->withdrawalGradeClassOptions($request, $payload['filters']) : collect()),
             'groupOptions' => ($this->isStudentListReport($type) || $this->isStudentContactListReport($type) || $type === 'moeys-sikkhakarik-book') ? $this->groupOptions($request, $payload['filters']) : ($type === 'withdrawn-students' ? $this->withdrawalGroupOptions($request, $payload['filters']) : collect()),
+        ]);
+    }
+
+    private function customStudentListFilterOptions(Request $request)
+    {
+        $filters = $request->validate([
+            'period_type' => ['nullable', 'in:all,regular,summer'],
+            'academic_year_id' => ['nullable', 'integer'],
+            'campus_id' => ['nullable', 'integer'],
+        ]);
+        $filters['period_type'] = $filters['period_type'] ?? 'all';
+        if (!empty($filters['academic_year_id']) && $filters['period_type'] !== 'all') {
+            $period = AcademicYear::whereKey($filters['academic_year_id'])->value('period_type');
+            if ($period !== $filters['period_type']) {
+                unset($filters['academic_year_id']);
+            }
+        }
+
+        return response()->json([
+            'academicYearId' => (string) ($filters['academic_year_id'] ?? ''),
+            'academicYears' => $this->academicYears($filters, 'moeys-id-number-book')
+                ->map(fn ($year) => ['value' => (string) $year->id, 'label' => $year->academic_year])->values(),
+            'gradeClassOptions' => $this->gradeClassOptions($request, $filters, 'moeys-id-number-book')->values(),
         ]);
     }
 
@@ -2615,7 +2641,10 @@ JS;
             $hasDataFilter = filled($filters['academic_year_id'] ?? null);
         } elseif ($type === 'moeys-sikkhakarik-book') {
             $hasDataFilter = filled($filters['academic_year_id'] ?? null)
-                && filled($filters['transcript_level'] ?? null);
+                && filled($filters['campus_id'] ?? null)
+                && filled($filters['transcript_level'] ?? null)
+                && filled($filters['grade_class'] ?? null)
+                && filled($filters['report_date'] ?? null);
         } elseif ($type === 'student-id-books-moeys') {
             unset($filters['grade_id'], $filters['class_id'], $filters['grade_class'], $filters['print_scope'], $filters['print_grade_classes']);
             $hasDataFilter = filled($filters['academic_year_id'] ?? null)
@@ -2703,9 +2732,10 @@ JS;
         ];
     }
 
-    private function academicYears(array $filters): Collection
+    private function academicYears(array $filters, string $type = ''): Collection
     {
         return AcademicYear::query()
+            ->when($type === 'moeys-sikkhakarik-book', fn ($q) => $q->where('period_type', 'regular'))
             ->when(($filters['period_type'] ?? 'all') !== 'all', fn ($q) => $q->where('period_type', $filters['period_type']))
             ->orderByDesc('academic_year')
             ->get(['id', 'academic_year', 'period_type', 'parent_academic_year_id']);
@@ -2785,7 +2815,7 @@ JS;
         $relations = [
             $studentRelation,
             'academicYear:id,academic_year,period_type',
-            'campus:id,campus_name_en,campus_name_kh,school_name_en,school_name_kh,logo_path',
+            'campus:id,campus_name_en,campus_name_kh,school_name_en,school_name_kh,logo_path,address_province_id,address_district_id,address_commune_id,address_village_id,address_kh',
             'grade:id,grade,grade_short_name,grade_order',
             'schoolClass:id,class_name,class_order',
             'academicTrack:id,name_en',
@@ -2809,6 +2839,10 @@ JS;
             $relations[] = 'student.addressDistrict:id,district_name_en,district_name_kh';
             $relations[] = 'student.addressCommune:id,commune_name_en,commune_name_kh';
             $relations[] = 'student.addressVillage:id,village_name_en,village_name_kh';
+            $relations[] = 'campus.addressProvince:id,province_name_kh';
+            $relations[] = 'campus.addressDistrict:id,district_name_kh';
+            $relations[] = 'campus.addressCommune:id,commune_name_kh';
+            $relations[] = 'campus.addressVillage:id,village_name_kh';
         }
         if ($type === 'student-id-books-moeys') {
             $relations[] = 'student.familyMembers:id,full_name_en,full_name_kh,relationship_type,occupation,occupation_en,occupation_kh';

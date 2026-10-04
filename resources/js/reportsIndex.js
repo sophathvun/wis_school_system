@@ -1,3 +1,5 @@
+import { Tooltip } from 'bootstrap';
+
 document.addEventListener('DOMContentLoaded', () => {
     const workspace = document.querySelector('[data-report-type]');
     if (!workspace) return;
@@ -62,40 +64,241 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    const reportDateMonthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const formatReportDisplayDate = (isoDate) => {
+        const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDate || '');
+        if (!match) return '';
+        const [, year, month, day] = match;
+        const monthName = reportDateMonthNames[Number(month) - 1] || '';
+        return monthName ? day + '-' + monthName + '-' + year : '';
+    };
+
+    const parseReportDisplayDate = (displayDate) => {
+        const value = (displayDate || '').trim();
+        const named = /^(\d{1,2})[-\/\s]([A-Za-z]{3,9})[-\/\s](\d{4})$/.exec(value);
+        const numeric = /^(\d{1,2})[-\/\s]?(\d{1,2})[-\/\s]?(\d{4})$/.exec(value);
+        let day;
+        let month;
+        let year;
+        if (named) {
+            const months = {
+                jan: '01', january: '01', feb: '02', february: '02', mar: '03', march: '03', apr: '04', april: '04',
+                may: '05', jun: '06', june: '06', jul: '07', july: '07', aug: '08', august: '08', sep: '09', sept: '09', september: '09',
+                oct: '10', october: '10', nov: '11', november: '11', dec: '12', december: '12',
+            };
+            day = named[1].padStart(2, '0');
+            month = months[named[2].toLowerCase()];
+            year = named[3];
+        } else if (numeric) {
+            day = numeric[1].padStart(2, '0');
+            month = numeric[2].padStart(2, '0');
+            year = numeric[3];
+        }
+        if (!day || !month || !year) return '';
+        const date = new Date(Number(year), Number(month) - 1, Number(day));
+        if (date.getFullYear() !== Number(year) || date.getMonth() !== Number(month) - 1 || date.getDate() !== Number(day)) return '';
+        return year + '-' + month + '-' + day;
+    };
+
+    const parseIsoDate = (isoDate) => {
+        const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDate || '');
+        if (!match) return new Date();
+        return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+    };
+
+    const isoFromDate = (date) => date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
+
+    const transcriptDatePicker = form?.querySelector('[data-report-date-picker]');
+    const transcriptDateDisplay = form?.querySelector('[data-report-date-display]');
+    const transcriptDateDisplaySpan = form?.querySelector('#report_print_date_display');
+    const transcriptDateValue = form?.querySelector('[data-report-date-value]');
+    const transcriptDateCalendar = form?.querySelector('[data-report-date-calendar]');
+    const transcriptDateToggle = form?.querySelector('[data-report-date-toggle]');
+    if (transcriptDatePicker && transcriptDateDisplay && transcriptDateValue && transcriptDateCalendar) {
+        const popup = transcriptDateCalendar;
+        const days = transcriptDatePicker.querySelector('.date-picker-days');
+        const monthButton = transcriptDatePicker.querySelector('[data-date-month]');
+        const yearPopup = transcriptDatePicker.querySelector('.date-picker-year-popup');
+        const years = transcriptDatePicker.querySelector('.date-picker-years');
+        let cursor = parseIsoDate(transcriptDateValue.value);
+        cursor = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
+
+        const renderYears = () => {
+            if (!years) return;
+            const current = cursor.getFullYear();
+            const startYear = 1900;
+            const endYear = new Date().getFullYear() + 10;
+            years.innerHTML = Array.from({ length: endYear - startYear + 1 }, (_, index) => {
+                const year = startYear + index;
+                return '<button type="button" class="date-picker-year' + (year === current ? ' is-selected' : '') + '" data-date-year="' + year + '">' + year + '</button>';
+            }).join('');
+            years.querySelector('.is-selected')?.scrollIntoView({ block: 'center' });
+        };
+
+        const renderReportDateCalendar = () => {
+            if (!days || !monthButton) return;
+            monthButton.textContent = cursor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+            const first = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
+            const count = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0).getDate();
+            const cells = [];
+            for (let i = 0; i < first.getDay(); i += 1) cells.push(new Date(cursor.getFullYear(), cursor.getMonth(), i - first.getDay() + 1));
+            for (let day = 1; day <= count; day += 1) cells.push(new Date(cursor.getFullYear(), cursor.getMonth(), day));
+            while (cells.length < 42) cells.push(new Date(cursor.getFullYear(), cursor.getMonth() + 1, cells.length - first.getDay() - count + 1));
+            days.innerHTML = cells.map((date) => {
+                const isoDate = isoFromDate(date);
+                return '<button type="button" class="date-picker-day' + (date.getMonth() !== cursor.getMonth() ? ' is-outside' : '') + (isoDate === transcriptDateValue.value ? ' is-selected' : '') + '" data-date-value="' + isoDate + '">' + date.getDate() + '</button>';
+            }).join('');
+            renderYears();
+        };
+
+        const showReportDateCalendar = () => {
+            cursor = parseIsoDate(transcriptDateValue.value || isoFromDate(new Date()));
+            cursor = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
+            renderReportDateCalendar();
+            popup.classList.remove('d-none');
+            transcriptDatePicker.classList.add('is-open');
+        };
+
+        const hideReportDateCalendar = () => {
+            popup.classList.add('d-none');
+            yearPopup?.classList.add('d-none');
+            transcriptDatePicker.classList.remove('is-open');
+        };
+
+        const commitReportDate = (isoDate, dispatch = true) => {
+            if (!/^(\d{4})-(\d{2})-(\d{2})$/.test(isoDate || '')) return;
+            const parts = isoDate.split('-');
+            transcriptDateValue.value = isoDate;
+            transcriptDateDisplay.value = parts[2] + '-' + reportDateMonthNames[Number(parts[1]) - 1] + '-' + parts[0];
+            cursor = parseIsoDate(isoDate);
+            cursor = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
+            renderReportDateCalendar();
+        };
+
+        const commitTypedReportDate = (dispatch = true) => {
+            const parsed = parseReportDisplayDate(transcriptDateDisplay.value);
+            if (parsed) {
+                commitReportDate(parsed, dispatch);
+            } else {
+                transcriptDateDisplay.value = formatReportDisplayDate(transcriptDateValue.value) || '';
+            }
+        };
+
+        transcriptDateDisplay.value = formatReportDisplayDate(transcriptDateValue.value) || transcriptDateDisplay.value;
+        if (transcriptDateDisplaySpan) transcriptDateDisplaySpan.textContent = transcriptDateDisplay.value || 'Choose date';
+        transcriptDateToggle?.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            popup.classList.contains('d-none') ? showReportDateCalendar() : hideReportDateCalendar();
+        });
+        transcriptDatePicker.addEventListener('click', (event) => {
+            if (event.target.closest('.date-picker-popup') || event.target.closest('[data-report-date-toggle]')) return;
+            showReportDateCalendar();
+        });
+        transcriptDateDisplay.addEventListener('focus', showReportDateCalendar);
+        transcriptDateDisplay.addEventListener('change', () => commitTypedReportDate(true));
+        transcriptDateDisplay.addEventListener('blur', () => commitTypedReportDate(false));
+        transcriptDateDisplay.addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter') return;
+            event.preventDefault();
+            commitTypedReportDate(true);
+            hideReportDateCalendar();
+        });
+        transcriptDatePicker.querySelector('[data-date-prev]')?.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            cursor = new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1);
+            renderReportDateCalendar();
+        });
+        transcriptDatePicker.querySelector('[data-date-next]')?.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+            yearPopup?.classList.add('d-none');
+            renderReportDateCalendar();
+        });
+        monthButton?.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            yearPopup?.classList.toggle('d-none');
+            if (!yearPopup?.classList.contains('d-none')) renderYears();
+        });
+        years?.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            const button = event.target.closest('[data-date-year]');
+            if (!button) return;
+            cursor = new Date(Number(button.dataset.dateYear), cursor.getMonth(), 1);
+            yearPopup?.classList.add('d-none');
+            renderReportDateCalendar();
+        });
+        days?.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            const button = event.target.closest('[data-date-value]');
+            if (!button) return;
+            commitReportDate(button.dataset.dateValue);
+            hideReportDateCalendar();
+        });
+        document.addEventListener('click', (event) => {
+            if (!transcriptDatePicker.contains(event.target)) hideReportDateCalendar();
+        });
+        renderReportDateCalendar();
+    }
+
     const tabsCard = workspace.querySelector('.reports-tabs-card');
     const tabsToggle = tabsCard?.querySelector('.reports-tabs-toggle');
     if (tabsCard && tabsToggle) {
         const storageKey = 'reportsTabsCollapsed';
         const icon = tabsToggle.querySelector('i');
+        const tabTooltips = [...tabsCard.querySelectorAll('[data-bs-toggle="tooltip"]')].map((element) => {
+            const tooltip = Tooltip.getOrCreateInstance(element, {
+                container: 'body',
+                placement: 'right',
+                customClass: 'report-tabs-tooltip',
+                delay: { show: 200, hide: 0 },
+                title: () => element === tabsToggle ? element.getAttribute('aria-label') : element.dataset.reportTabLabel,
+            });
+            element.addEventListener('click', () => tooltip.hide());
+            return tooltip;
+        });
         const isMobile = () => window.innerWidth < 992;
         const syncTabsToggle = () => {
-            const collapsed = workspace.classList.contains('reports-tabs-collapsed');
+            const collapsed = isMobile() ? !tabsCard.classList.contains('is-open') : workspace.classList.contains('reports-tabs-collapsed');
+            tabTooltips.forEach((tooltip) => {
+                tooltip.hide();
+                if (collapsed) tooltip.enable();
+                else tooltip.disable();
+            });
             tabsToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
-            tabsToggle.title = collapsed ? 'Maximize report types' : 'Minimize report types';
+            tabsToggle.setAttribute('aria-label', collapsed ? 'Expand report types' : 'Collapse report types');
+            tabsToggle.setAttribute('data-bs-title', collapsed ? 'Expand report types' : 'Collapse report types');
             if (icon) {
                 icon.className = collapsed ? 'ti ti-layout-sidebar-left-expand' : 'ti ti-layout-sidebar-left-collapse';
             }
         };
         const closeTabs = () => {
             tabsCard.classList.remove('is-open');
-            if (isMobile()) tabsToggle.setAttribute('aria-expanded', 'false');
+            syncTabsToggle();
         };
 
-        if (localStorage.getItem(storageKey) === '1') {
-            workspace.classList.add('reports-tabs-collapsed');
-        }
+        try {
+            if (localStorage.getItem(storageKey) === '1') workspace.classList.add('reports-tabs-collapsed');
+        } catch (_) { /* Keep the toggle usable when browser storage is unavailable. */ }
         syncTabsToggle();
 
         tabsToggle.addEventListener('click', (event) => {
             event.stopPropagation();
             if (isMobile()) {
-                const isOpen = tabsCard.classList.toggle('is-open');
-                tabsToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+                tabsCard.classList.toggle('is-open');
+                syncTabsToggle();
                 return;
             }
 
             const collapsed = workspace.classList.toggle('reports-tabs-collapsed');
-            localStorage.setItem(storageKey, collapsed ? '1' : '0');
+            try {
+                localStorage.setItem(storageKey, collapsed ? '1' : '0');
+            } catch (_) { /* The current page can still collapse and expand. */ }
             syncTabsToggle();
         });
 
@@ -126,11 +329,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if (transcriptLevelValue) transcriptLevelValue.value = '';
         if (groupValue) groupValue.value = '';
 
-        if (!requiresManualApply) quietRefreshAttendance();
+        if (requiresManualApply) refreshManualFilterOptions();
+        else quietRefreshAttendance();
     });
 
-    const closeComboboxes = () => document.querySelectorAll('.report-filter-combobox.is-open, .report-class-picker.is-open')
-        .forEach((box) => box.classList.remove('is-open'));
+    const closeComboboxes = () => document.querySelectorAll('.report-filter-combobox.is-open, .report-class-picker.is-open, .report-column-dropdown.is-open')
+        .forEach((box) => {
+            box.classList.remove('is-open');
+            box.querySelector('[data-column-toggle]')?.setAttribute('aria-expanded', 'false');
+        });
 
     const bindFilterCombobox = (box) => {
         if (box.dataset.reportComboboxBound === '1') return;
@@ -176,6 +383,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 syncLabel();
                 box.classList.remove('is-open');
+                if (requiresManualApply && ['reportAcademicYearValue', 'reportCampusValue'].includes(target.id)) {
+                    refreshManualFilterOptions();
+                }
                 if (!requiresManualApply && ['reportAcademicYearValue', 'reportIdBookLevelValue', 'reportTranscriptLevelValue', 'reportCampusValue', 'reportGradeClassValue', 'reportGroupValue'].includes(target.id)) {
                     setTimeout(() => isQuietAttendance ? quietRefreshAttendance() : form?.requestSubmit(), 0);
                 }
@@ -186,6 +396,84 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     document.querySelectorAll('.report-filter-combobox').forEach(bindFilterCombobox);
+
+    const replaceFilterOptions = (targetId, defaultLabel, entries) => {
+        const target = document.getElementById(targetId);
+        const box = target?.closest('.report-filter-field')?.querySelector('.report-filter-combobox');
+        if (!box) return null;
+        const replacement = box.cloneNode(true);
+        delete replacement.dataset.reportComboboxBound;
+        replacement.classList.remove('is-open');
+        replacement.querySelector('.report-filter-toggle').disabled = false;
+        replacement.querySelector('.report-filter-search').value = '';
+        const options = replacement.querySelector('.report-filter-options');
+        options.replaceChildren();
+        [{ value: '', label: defaultLabel }, ...entries].forEach((entry) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.dataset.value = String(entry.value);
+            button.textContent = entry.label;
+            options.append(button);
+        });
+        box.replaceWith(replacement);
+        bindFilterCombobox(replacement);
+        return replacement;
+    };
+
+    let manualFilterController = null;
+    let manualFilterVersion = 0;
+    const refreshManualFilterOptions = async () => {
+        if (!requiresManualApply || !form) return;
+        manualFilterController?.abort();
+        manualFilterController = new AbortController();
+        const version = ++manualFilterVersion;
+        const gradeTarget = document.getElementById('reportGradeClassValue');
+        if (gradeTarget) gradeTarget.value = '';
+        const gradeBox = replaceFilterOptions('reportGradeClassValue', 'All Grades', []);
+        const gradeToggle = gradeBox?.querySelector('.report-filter-toggle');
+        if (gradeToggle) {
+            gradeToggle.disabled = true;
+            gradeToggle.querySelector('span').textContent = 'Loading grades…';
+            gradeBox.setAttribute('aria-busy', 'true');
+        }
+        // Keep labels in sync when changing Period clears the hidden filter values.
+        ['reportAcademicYearValue', 'reportCampusValue'].forEach((id) => {
+            const target = document.getElementById(id);
+            const box = target?.closest('.report-filter-field')?.querySelector('.report-filter-combobox');
+            const selected = [...(box?.querySelectorAll('.report-filter-options button') || [])]
+                .find((option) => option.dataset.value === target.value);
+            if (selected) box.querySelector('.report-filter-toggle span').textContent = selected.textContent.trim();
+        });
+        const url = new URL(form.action, window.location.origin);
+        url.searchParams.set('type', reportType);
+        url.searchParams.set('filter_options', '1');
+        ['period_type', 'academic_year_id', 'campus_id'].forEach((name) => {
+            const value = form.elements.namedItem(name)?.value;
+            if (value) url.searchParams.set(name, value);
+        });
+        try {
+            const response = await fetch(url, {
+                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                signal: manualFilterController.signal,
+            });
+            if (!response.ok) throw new Error('Unable to load grade options.');
+            const payload = await response.json();
+            if (version !== manualFilterVersion) return;
+            const yearTarget = document.getElementById('reportAcademicYearValue');
+            if (yearTarget) yearTarget.value = payload.academicYearId;
+            replaceFilterOptions('reportAcademicYearValue', 'Select Academic Year', payload.academicYears);
+            const loaded = replaceFilterOptions('reportGradeClassValue', 'All Grades', payload.gradeClassOptions);
+            loaded?.removeAttribute('aria-busy');
+        } catch (error) {
+            if (error.name === 'AbortError' || version !== manualFilterVersion) return;
+            if (gradeToggle) {
+                gradeToggle.disabled = false;
+                gradeToggle.querySelector('span').textContent = 'All Grades';
+                gradeBox.removeAttribute('aria-busy');
+            }
+            showReportToast('error', 'Unable to load grades', 'Please select the Academic Year or Campus again.');
+        }
+    };
 
     const generateIdBookButton = workspace.querySelector('[data-id-book-generate]');
     const idBookStartInput = workspace.querySelector('[data-id-book-start-number]');
@@ -303,12 +591,37 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             columnOrder.forEach((value, index) => {
+                const label = columnLabels.get(value) || value;
                 const item = document.createElement('div');
                 item.className = 'selected-column-order-item';
                 item.draggable = true;
                 item.dataset.column = value;
-                item.innerHTML = `<span class="selected-column-order-number">${index + 1}</span><i class="ti ti-grip-vertical"></i><span>${columnLabels.get(value) || value}</span><button type="button" class="selected-column-order-remove" aria-label="Remove ${columnLabels.get(value) || value}" data-remove-column="${value}"><i class="ti ti-x"></i></button>`;
-                item.querySelector('[data-remove-column]')?.addEventListener('click', (event) => {
+
+                const number = document.createElement('span');
+                number.className = 'selected-column-order-number';
+                number.textContent = String(index + 1);
+
+                const grip = document.createElement('i');
+                grip.className = 'ti ti-grip-vertical';
+                grip.setAttribute('aria-hidden', 'true');
+
+                const labelText = document.createElement('span');
+                labelText.textContent = label;
+
+                const removeButton = document.createElement('button');
+                removeButton.type = 'button';
+                removeButton.className = 'selected-column-order-remove';
+                removeButton.setAttribute('aria-label', `Remove ${label}`);
+                removeButton.dataset.removeColumn = value;
+
+                const removeIcon = document.createElement('i');
+                removeIcon.className = 'ti ti-x';
+                removeIcon.setAttribute('aria-hidden', 'true');
+                removeButton.append(removeIcon);
+
+                item.append(number, grip, labelText, removeButton);
+
+                removeButton.addEventListener('click', (event) => {
                     event.preventDefault();
                     event.stopPropagation();
                     const checkbox = columnCheckboxes.find((field) => field.value === value);
@@ -354,15 +667,50 @@ document.addEventListener('DOMContentLoaded', () => {
             checkbox.addEventListener('change', renderColumnOrder);
         });
 
-        form.querySelectorAll('[data-column-search]').forEach((search) => {
-            const card = search.closest('.get-student-list-field-card');
-            const options = [...(card?.querySelectorAll('[data-column-option]') || [])];
-            search.addEventListener('input', () => {
+        form.querySelectorAll('[data-column-dropdown]').forEach((dropdown) => {
+            const toggle = dropdown.querySelector('[data-column-toggle]');
+            const summary = dropdown.querySelector('[data-column-summary]');
+            const search = dropdown.querySelector('[data-column-search]');
+            const options = [...dropdown.querySelectorAll('[data-column-option]')];
+            const empty = dropdown.querySelector('[data-column-empty]');
+            const syncSummary = () => {
+                const count = dropdown.querySelectorAll('input[name="selected_columns[]"]:checked').length;
+                summary.textContent = count ? `${count} ${count === 1 ? 'column' : 'columns'} selected` : 'Select columns';
+            };
+            const filterOptions = () => {
                 const term = search.value.trim().toLowerCase();
                 options.forEach((option) => {
                     option.hidden = term !== '' && !option.textContent.toLowerCase().includes(term);
                 });
+                empty.classList.toggle('d-none', options.some((option) => !option.hidden));
+            };
+            toggle.addEventListener('click', (event) => {
+                event.stopPropagation();
+                const opening = !dropdown.classList.contains('is-open');
+                closeComboboxes();
+                if (!opening) return;
+                dropdown.classList.add('is-open');
+                toggle.setAttribute('aria-expanded', 'true');
+                search.value = '';
+                filterOptions();
+                search.focus();
             });
+            dropdown.querySelector('[data-column-menu]').addEventListener('click', (event) => event.stopPropagation());
+            dropdown.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape') {
+                    event.stopPropagation();
+                    closeComboboxes();
+                    toggle.focus();
+                }
+                if (event.key === 'Enter' && event.target === search) event.preventDefault();
+            });
+            dropdown.querySelectorAll('input[name="selected_columns[]"]').forEach((checkbox) => {
+                checkbox.addEventListener('change', syncSummary);
+            });
+            search.addEventListener('input', () => {
+                filterOptions();
+            });
+            syncSummary();
         });
 
         form.addEventListener('submit', (event) => {
@@ -543,8 +891,241 @@ document.addEventListener('DOMContentLoaded', () => {
     const reportDateInput = document.querySelector('input[name="report_date"]');
     if (!reportDateInput && scope) {
         const field = document.createElement('div');
-        field.className = 'col-md-3';
+        field.className = 'col-md-3 report-filter-field';
         field.innerHTML = `<label class="form-label">Report Date</label><input type="date" name="report_date" class="form-control" value="${reportDate}">`;
         scope.closest('[class*="col-"]')?.insertAdjacentElement('afterend', field);
     }
 });
+
+
+/* Reports page inline scripts extracted from index.blade.php. */
+
+/* extracted inline report script 1 id="report-inline-date-picker-script" */
+document.addEventListener('DOMContentLoaded', function () {
+    var picker = document.querySelector('[data-report-date-picker]');
+    if (!picker || picker.dataset.reportDateBound === '1') return;
+    picker.dataset.reportDateBound = '1';
+
+    var display = picker.querySelector('[data-report-date-display]');
+    var displaySpan = picker.querySelector('#report_print_date_display');
+    var hidden = picker.querySelector('[data-report-date-value]');
+    var toggle = picker.querySelector('[data-report-date-toggle]');
+    var popup = picker.querySelector('[data-report-date-calendar]');
+    var days = picker.querySelector('.date-picker-days');
+    var monthButton = picker.querySelector('[data-date-month]');
+    var yearPopup = picker.querySelector('.date-picker-year-popup');
+    var years = picker.querySelector('.date-picker-years');
+    if (!display || !hidden || !toggle || !popup || !days || !monthButton) return;
+
+    var monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    var monthMap = { jan:'01', january:'01', feb:'02', february:'02', mar:'03', march:'03', apr:'04', april:'04', may:'05', jun:'06', june:'06', jul:'07', july:'07', aug:'08', august:'08', sep:'09', sept:'09', september:'09', oct:'10', october:'10', nov:'11', november:'11', dec:'12', december:'12' };
+    var cursor = parseIso(hidden.value || iso(new Date()));
+    cursor = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
+
+    function iso(date) {
+        return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
+    }
+    function parseIso(value) {
+        var match = /^(d{4})-(d{2})-(d{2})$/.exec(value || '');
+        return match ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3])) : new Date();
+    }
+    function displayDate(value) {
+        var match = /^(d{4})-(d{2})-(d{2})$/.exec(value || '');
+        if (!match) return '';
+        var monthName = monthNames[Number(match[2]) - 1] || '';
+        return monthName ? match[3] + '-' + monthName + '-' + match[1] : '';
+    }
+    function parseDisplay(value) {
+        value = (value || '').trim();
+        var named = /^(d{1,2})[-/s]([A-Za-z]{3,9})[-/s](d{4})$/.exec(value);
+        var numeric = /^(d{1,2})[-/s]?(d{1,2})[-/s]?(d{4})$/.exec(value);
+        var day, month, year;
+        if (named) {
+            day = named[1].padStart(2, '0');
+            month = monthMap[named[2].toLowerCase()];
+            year = named[3];
+        } else if (numeric) {
+            day = numeric[1].padStart(2, '0');
+            month = numeric[2].padStart(2, '0');
+            year = numeric[3];
+        }
+        if (!day || !month || !year) return '';
+        var date = new Date(Number(year), Number(month) - 1, Number(day));
+        if (date.getFullYear() !== Number(year) || date.getMonth() !== Number(month) - 1 || date.getDate() !== Number(day)) return '';
+        return year + '-' + month + '-' + day;
+    }
+    function renderYears() {
+        if (!years) return;
+        var current = cursor.getFullYear();
+        var html = '';
+        for (var year = 1900; year <= new Date().getFullYear() + 10; year += 1) {
+            html += '<button type="button" class="date-picker-year' + (year === current ? ' is-selected' : '') + '" data-date-year="' + year + '">' + year + '</button>';
+        }
+        years.innerHTML = html;
+        years.querySelector('.is-selected')?.scrollIntoView({ block: 'center' });
+    }
+    function render() {
+        monthButton.textContent = cursor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        var first = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
+        var count = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0).getDate();
+        var cells = [];
+        for (var i = 0; i < first.getDay(); i += 1) cells.push(new Date(cursor.getFullYear(), cursor.getMonth(), i - first.getDay() + 1));
+        for (var d = 1; d <= count; d += 1) cells.push(new Date(cursor.getFullYear(), cursor.getMonth(), d));
+        while (cells.length < 42) cells.push(new Date(cursor.getFullYear(), cursor.getMonth() + 1, cells.length - first.getDay() - count + 1));
+        days.innerHTML = cells.map(function (date) {
+            var value = iso(date);
+            return '<button type="button" class="date-picker-day' + (date.getMonth() !== cursor.getMonth() ? ' is-outside' : '') + (value === hidden.value ? ' is-selected' : '') + '" data-date-value="' + value + '">' + date.getDate() + '</button>';
+        }).join('');
+        renderYears();
+    }
+    function openCalendar() {
+        cursor = parseIso(hidden.value || iso(new Date()));
+        cursor = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
+        render();
+        popup.classList.remove('d-none');
+    }
+    function closeCalendar() {
+        popup.classList.add('d-none');
+        yearPopup?.classList.add('d-none');
+    }
+    function commit(value) {
+        if (!/^(\d{4})-(\d{2})-(\d{2})$/.test(value || '')) return;
+        var parts = value.split('-');
+        hidden.value = value;
+        display.value = parts[2] + '-' + monthNames[Number(parts[1]) - 1] + '-' + parts[0];
+        cursor = parseIso(value);
+        cursor = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
+        render();
+    }
+
+    display.value = displayDate(hidden.value) || display.value;
+    if (displaySpan) displaySpan.textContent = display.value || 'Choose date';
+    toggle.addEventListener('click', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        popup.classList.contains('d-none') ? openCalendar() : closeCalendar();
+    });
+    display.addEventListener('focus', openCalendar);
+    display.addEventListener('change', function () {
+        var parsed = parseDisplay(display.value);
+        if (parsed) commit(parsed);
+        else display.value = displayDate(hidden.value) || '';
+    });
+    picker.querySelector('[data-date-prev]')?.addEventListener('click', function (event) {
+        event.preventDefault(); event.stopPropagation();
+        cursor = new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1);
+        render();
+    });
+    picker.querySelector('[data-date-next]')?.addEventListener('click', function (event) {
+        event.preventDefault(); event.stopPropagation();
+        cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+        yearPopup?.classList.add('d-none');
+        render();
+    });
+    monthButton.addEventListener('click', function (event) {
+        event.preventDefault(); event.stopPropagation();
+        yearPopup?.classList.toggle('d-none');
+        if (!yearPopup?.classList.contains('d-none')) renderYears();
+    });
+    years?.addEventListener('click', function (event) {
+        event.preventDefault(); event.stopPropagation();
+        var button = event.target.closest('[data-date-year]');
+        if (!button) return;
+        cursor = new Date(Number(button.dataset.dateYear), cursor.getMonth(), 1);
+        yearPopup?.classList.add('d-none');
+        render();
+    });
+    days.addEventListener('click', function (event) {
+        event.preventDefault(); event.stopPropagation();
+        var button = event.target.closest('[data-date-value]');
+        if (!button) return;
+        var selectedValue = button.getAttribute('data-date-value');
+        commit(selectedValue);
+        setTimeout(function () {
+            if (/^(\d{4})-(\d{2})-(\d{2})$/.test(selectedValue || '')) {
+                hidden.value = selectedValue;
+                display.value = displayDate(selectedValue);
+                if (displaySpan) displaySpan.textContent = displayDate(selectedValue);
+            }
+        }, 50);
+        closeCalendar();
+    });
+    document.addEventListener('click', function (event) {
+        if (!picker.contains(event.target)) closeCalendar();
+    });
+    render();
+});
+
+document.addEventListener('click', function (event) {
+    var day = event.target.closest('[data-date-value]');
+    if (!day) return;
+    var picker = day.closest('[data-report-date-picker]');
+    if (!picker) return;
+    var value = day.getAttribute('data-date-value');
+    if (!/^(\d{4})-(\d{2})-(\d{2})$/.test(value || '')) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+
+    var hidden = picker.querySelector('[data-report-date-value]');
+    var direct = picker.querySelector('[data-report-date-display]');
+    var display = picker.querySelector('#report_print_date_display');
+    var popup = picker.querySelector('[data-report-date-calendar]');
+    var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    var parts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+    var formatted = parts[3] + '-' + months[Number(parts[2]) - 1] + '-' + parts[1];
+
+    if (hidden) hidden.value = value;
+    if (direct) direct.value = formatted;
+    if (display) display.textContent = formatted;
+    if (popup) popup.classList.add('d-none');
+
+    picker.querySelectorAll('[data-date-value]').forEach(function (button) {
+        button.classList.toggle('is-selected', button.getAttribute('data-date-value') === value);
+    });
+}, true);
+
+
+/* extracted inline report script 2 id="report-print-date-force-open-script" */
+document.addEventListener('click', function (event) {
+    var toggle = event.target.closest('[data-report-date-toggle]');
+    if (!toggle) return;
+    var picker = toggle.closest('[data-report-date-picker]');
+    if (!picker) return;
+    var popup = picker.querySelector('[data-report-date-calendar]');
+    var hidden = picker.querySelector('[data-report-date-value]');
+    var days = picker.querySelector('.date-picker-days');
+    var monthLabel = picker.querySelector('#report_print_date_month_label, [data-date-month]');
+    if (!popup || !hidden || !days || !monthLabel) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+
+    var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    function iso(date) {
+        return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
+    }
+    function parseIso(value) {
+        var match = /^(d{4})-(d{2})-(d{2})$/.exec(value || '');
+        return match ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3])) : new Date();
+    }
+    var cursor = parseIso(hidden.value);
+    cursor = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
+    function render() {
+        monthLabel.textContent = monthNames[cursor.getMonth()] + ' ' + cursor.getFullYear();
+        var first = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
+        var count = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0).getDate();
+        var cells = [];
+        for (var i = 0; i < first.getDay(); i += 1) cells.push(new Date(cursor.getFullYear(), cursor.getMonth(), i - first.getDay() + 1));
+        for (var d = 1; d <= count; d += 1) cells.push(new Date(cursor.getFullYear(), cursor.getMonth(), d));
+        while (cells.length < 42) cells.push(new Date(cursor.getFullYear(), cursor.getMonth() + 1, cells.length - first.getDay() - count + 1));
+        days.innerHTML = cells.map(function (date) {
+            var value = iso(date);
+            return '<button type="button" class="date-picker-day' + (date.getMonth() !== cursor.getMonth() ? ' is-outside' : '') + (value === hidden.value ? ' is-selected' : '') + '" data-date-value="' + value + '">' + date.getDate() + '</button>';
+        }).join('');
+    }
+    render();
+    popup.classList.toggle('d-none');
+}, true);
