@@ -1111,6 +1111,16 @@
 .report-header-dark-blue .card-title {
     color: inherit;
 }
+.reports-tabs-header.report-header-dark-blue .reports-tabs-toggle {
+    --tblr-btn-color: #fff;
+    --tblr-btn-border-color: rgba(255, 255, 255, .6);
+    --tblr-btn-hover-color: #fff;
+    --tblr-btn-hover-bg: rgba(255, 255, 255, .12);
+    --tblr-btn-hover-border-color: #fff;
+    --tblr-btn-active-color: #fff;
+    --tblr-btn-active-bg: rgba(255, 255, 255, .18);
+    --tblr-btn-active-border-color: #fff;
+}
 .report-header-dark-blue .report-preview-actions > .btn,
 .report-header-dark-blue .report-preview-actions > .dropdown > .btn {
     --tblr-btn-bg: var(--tblr-bg-surface, #fff);
@@ -1177,14 +1187,14 @@
     }
 }
 
-:is(.reports-workspace-student-list, .reports-workspace-student-contact-list, .reports-workspace-withdrawn-students) .report-preview-header .report-summary-card {
+:is(.reports-workspace-student-list, .reports-workspace-student-contact-list, .reports-workspace-withdrawn-students, .reports-workspace-student-profile-label) .report-preview-header .report-summary-card {
     display: flex;
     gap: .5rem;
     width: 280px !important;
     min-width: 0 !important;
     padding: 0;
 }
-:is(.reports-workspace-student-list, .reports-workspace-student-contact-list, .reports-workspace-withdrawn-students) .report-summary-item {
+:is(.reports-workspace-student-list, .reports-workspace-student-contact-list, .reports-workspace-withdrawn-students, .reports-workspace-student-profile-label) .report-summary-item {
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -1199,29 +1209,29 @@
     color: var(--tblr-body-color, #182433);
     text-align: center;
 }
-:is(.reports-workspace-student-list, .reports-workspace-student-contact-list, .reports-workspace-withdrawn-students) .report-summary-divider {
+:is(.reports-workspace-student-list, .reports-workspace-student-contact-list, .reports-workspace-withdrawn-students, .reports-workspace-student-profile-label) .report-summary-divider {
     display: none;
 }
-:is(.reports-workspace-student-list, .reports-workspace-student-contact-list, .reports-workspace-withdrawn-students) .report-summary-label {
+:is(.reports-workspace-student-list, .reports-workspace-student-contact-list, .reports-workspace-withdrawn-students, .reports-workspace-student-profile-label) .report-summary-label {
     font-size: .625rem;
     font-weight: 600;
     line-height: 1.2;
 }
-:is(.reports-workspace-student-list, .reports-workspace-student-contact-list, .reports-workspace-withdrawn-students) .report-summary-number {
+:is(.reports-workspace-student-list, .reports-workspace-student-contact-list, .reports-workspace-withdrawn-students, .reports-workspace-student-profile-label) .report-summary-number {
     color: var(--tblr-primary, #206bc4);
     font-size: .875rem;
     font-weight: 700;
     line-height: 1.2;
 }
-:is(.reports-workspace-student-list, .reports-workspace-student-contact-list, .reports-workspace-withdrawn-students) .report-preview-actions > .btn {
+:is(.reports-workspace-student-list, .reports-workspace-student-contact-list, .reports-workspace-withdrawn-students, .reports-workspace-student-profile-label) .report-preview-actions > .btn {
     height: 42px;
 }
-:is(.reports-workspace-student-list, .reports-workspace-student-contact-list, .reports-workspace-withdrawn-students) .report-summary-gender {
+:is(.reports-workspace-student-list, .reports-workspace-student-contact-list, .reports-workspace-withdrawn-students, .reports-workspace-student-profile-label) .report-summary-gender {
     font-size: .625rem;
     line-height: 1.3;
 }
 @media (max-width: 767.98px) {
-    :is(.reports-workspace-student-list, .reports-workspace-student-contact-list, .reports-workspace-withdrawn-students) .report-preview-header .report-summary-card {
+    :is(.reports-workspace-student-list, .reports-workspace-student-contact-list, .reports-workspace-withdrawn-students, .reports-workspace-student-profile-label) .report-preview-header .report-summary-card {
         width: 100% !important;
     }
 }
@@ -1328,54 +1338,65 @@
     min-height: 32px !important;
 }
 
+.report-filter-form-moeys-id-number-book .report-column-search {
+    height: 36px;
+    font-size: .8125rem;
+}
+.report-filter-form-moeys-id-number-book .report-column-option .form-check-label {
+    font-size: .8125rem;
+}
+
 /* Compact report filters. */
-:is(.report-filter-form-student-list, .report-filter-form-student-contact-list, .report-filter-form-score-list, .report-filter-form-attendance-list, .report-filter-form-student-statistics, .report-filter-form-student-statistics-detail, .report-filter-form-withdrawn-students, .report-filter-form-student-id-books-moeys, .report-filter-form-moeys-sikkhakarik-book) .report-filter-toggle,
-:is(.report-filter-form-student-list, .report-filter-form-student-contact-list, .report-filter-form-score-list, .report-filter-form-attendance-list, .report-filter-form-student-statistics, .report-filter-form-student-statistics-detail, .report-filter-form-withdrawn-students, .report-filter-form-student-id-books-moeys, .report-filter-form-moeys-sikkhakarik-book) .report-class-picker-toggle,
-:is(.report-filter-form-student-list, .report-filter-form-student-contact-list, .report-filter-form-score-list, .report-filter-form-attendance-list, .report-filter-form-student-statistics, .report-filter-form-student-statistics-detail, .report-filter-form-withdrawn-students, .report-filter-form-student-id-books-moeys, .report-filter-form-moeys-sikkhakarik-book) .report-select-with-arrow,
-:is(.report-filter-form-student-list, .report-filter-form-student-contact-list, .report-filter-form-score-list, .report-filter-form-attendance-list, .report-filter-form-student-statistics, .report-filter-form-student-statistics-detail, .report-filter-form-withdrawn-students, .report-filter-form-student-id-books-moeys, .report-filter-form-moeys-sikkhakarik-book) .report-filter-field > .form-control {
+:is(.report-filter-form-student-list, .report-filter-form-student-contact-list, .report-filter-form-score-list, .report-filter-form-attendance-list, .report-filter-form-student-statistics, .report-filter-form-student-statistics-detail, .report-filter-form-withdrawn-students, .report-filter-form-student-id-books-moeys, .report-filter-form-moeys-sikkhakarik-book, .report-filter-form-moeys-id-number-book, .report-filter-form-student-profile-label) .report-filter-toggle,
+:is(.report-filter-form-student-list, .report-filter-form-student-contact-list, .report-filter-form-score-list, .report-filter-form-attendance-list, .report-filter-form-student-statistics, .report-filter-form-student-statistics-detail, .report-filter-form-withdrawn-students, .report-filter-form-student-id-books-moeys, .report-filter-form-moeys-sikkhakarik-book, .report-filter-form-moeys-id-number-book, .report-filter-form-student-profile-label) .report-class-picker-toggle,
+:is(.report-filter-form-student-list, .report-filter-form-student-contact-list, .report-filter-form-score-list, .report-filter-form-attendance-list, .report-filter-form-student-statistics, .report-filter-form-student-statistics-detail, .report-filter-form-withdrawn-students, .report-filter-form-student-id-books-moeys, .report-filter-form-moeys-sikkhakarik-book, .report-filter-form-moeys-id-number-book, .report-filter-form-student-profile-label) .report-select-with-arrow,
+:is(.report-filter-form-student-list, .report-filter-form-student-contact-list, .report-filter-form-score-list, .report-filter-form-attendance-list, .report-filter-form-student-statistics, .report-filter-form-student-statistics-detail, .report-filter-form-withdrawn-students, .report-filter-form-student-id-books-moeys, .report-filter-form-moeys-sikkhakarik-book, .report-filter-form-moeys-id-number-book, .report-filter-form-student-profile-label) .report-filter-field > .form-control {
     height: 48px;
     min-height: 48px !important;
     padding: 1.15rem 1rem .25rem !important;
     font-size: .8125rem;
     line-height: 1.2;
 }
-:is(.report-filter-form-student-list, .report-filter-form-student-contact-list, .report-filter-form-score-list, .report-filter-form-attendance-list, .report-filter-form-student-statistics, .report-filter-form-student-statistics-detail, .report-filter-form-withdrawn-students, .report-filter-form-student-id-books-moeys, .report-filter-form-moeys-sikkhakarik-book) .report-select-with-arrow {
+:is(.report-filter-form-student-list, .report-filter-form-student-contact-list, .report-filter-form-score-list, .report-filter-form-attendance-list, .report-filter-form-student-statistics, .report-filter-form-student-statistics-detail, .report-filter-form-withdrawn-students, .report-filter-form-student-id-books-moeys, .report-filter-form-moeys-sikkhakarik-book, .report-filter-form-moeys-id-number-book, .report-filter-form-student-profile-label) .report-select-with-arrow {
     padding-right: 2.5rem !important;
 }
-:is(.report-filter-form-student-list, .report-filter-form-student-contact-list, .report-filter-form-score-list, .report-filter-form-attendance-list, .report-filter-form-student-statistics, .report-filter-form-student-statistics-detail, .report-filter-form-withdrawn-students, .report-filter-form-student-id-books-moeys, .report-filter-form-moeys-sikkhakarik-book) .report-filter-toggle span,
-:is(.report-filter-form-student-list, .report-filter-form-student-contact-list, .report-filter-form-score-list, .report-filter-form-attendance-list, .report-filter-form-student-statistics, .report-filter-form-student-statistics-detail, .report-filter-form-withdrawn-students, .report-filter-form-student-id-books-moeys, .report-filter-form-moeys-sikkhakarik-book) .report-class-picker-toggle span {
+:is(.report-filter-form-student-list, .report-filter-form-student-contact-list, .report-filter-form-score-list, .report-filter-form-attendance-list, .report-filter-form-student-statistics, .report-filter-form-student-statistics-detail, .report-filter-form-withdrawn-students, .report-filter-form-student-id-books-moeys, .report-filter-form-moeys-sikkhakarik-book, .report-filter-form-moeys-id-number-book, .report-filter-form-student-profile-label) .report-filter-toggle span,
+:is(.report-filter-form-student-list, .report-filter-form-student-contact-list, .report-filter-form-score-list, .report-filter-form-attendance-list, .report-filter-form-student-statistics, .report-filter-form-student-statistics-detail, .report-filter-form-withdrawn-students, .report-filter-form-student-id-books-moeys, .report-filter-form-moeys-sikkhakarik-book, .report-filter-form-moeys-id-number-book, .report-filter-form-student-profile-label) .report-class-picker-toggle span {
     font-size: .8125rem;
     line-height: 1.2;
 }
-:is(.report-filter-form-student-list, .report-filter-form-student-contact-list, .report-filter-form-score-list, .report-filter-form-attendance-list, .report-filter-form-student-statistics, .report-filter-form-student-statistics-detail, .report-filter-form-withdrawn-students, .report-filter-form-student-id-books-moeys, .report-filter-form-moeys-sikkhakarik-book) .report-filter-field > .form-label {
+:is(.report-filter-form-student-list, .report-filter-form-student-contact-list, .report-filter-form-score-list, .report-filter-form-attendance-list, .report-filter-form-student-statistics, .report-filter-form-student-statistics-detail, .report-filter-form-withdrawn-students, .report-filter-form-student-id-books-moeys, .report-filter-form-moeys-sikkhakarik-book, .report-filter-form-moeys-id-number-book, .report-filter-form-student-profile-label) .report-filter-field > .form-label {
     top: .35rem !important;
     font-size: .6875rem !important;
 }
-:is(.report-filter-form-student-list, .report-filter-form-student-contact-list, .report-filter-form-score-list, .report-filter-form-attendance-list, .report-filter-form-student-statistics, .report-filter-form-student-statistics-detail, .report-filter-form-withdrawn-students, .report-filter-form-student-id-books-moeys, .report-filter-form-moeys-sikkhakarik-book) .report-filter-actions .btn {
+:is(.report-filter-form-student-list, .report-filter-form-student-contact-list, .report-filter-form-score-list, .report-filter-form-attendance-list, .report-filter-form-student-statistics, .report-filter-form-student-statistics-detail, .report-filter-form-withdrawn-students, .report-filter-form-student-id-books-moeys, .report-filter-form-moeys-sikkhakarik-book, .report-filter-form-moeys-id-number-book, .report-filter-form-student-profile-label) .report-filter-actions .btn {
     height: 48px;
     min-height: 48px;
     font-size: .8125rem;
 }
 .report-student-list-filter-row,
-.report-student-contact-filter-row {
+.report-student-contact-filter-row,
+.report-student-profile-label-filter-row {
     row-gap: .5rem !important;
 }
 .student-list-print-options,
-.student-contact-list-print-options {
+.student-contact-list-print-options,
+.student-profile-label-print-options {
     margin-top: 0 !important;
     row-gap: .5rem;
 }
 .student-list-print-options > [class*="col-"],
-.student-contact-list-print-options > [class*="col-"] {
+.student-contact-list-print-options > [class*="col-"],
+.student-profile-label-print-options > [class*="col-"] {
     margin-top: 0;
 }
-:is(.report-filter-form-student-list, .report-filter-form-student-contact-list, .report-filter-form-score-list, .report-filter-form-attendance-list, .report-filter-form-student-statistics, .report-filter-form-student-statistics-detail, .report-filter-form-withdrawn-students, .report-filter-form-student-id-books-moeys, .report-filter-form-moeys-sikkhakarik-book) .report-filter-search,
-:is(.report-filter-form-student-list, .report-filter-form-student-contact-list, .report-filter-form-score-list, .report-filter-form-attendance-list, .report-filter-form-student-statistics, .report-filter-form-student-statistics-detail, .report-filter-form-withdrawn-students, .report-filter-form-student-id-books-moeys, .report-filter-form-moeys-sikkhakarik-book) .report-class-picker-menu .form-control {
+:is(.report-filter-form-student-list, .report-filter-form-student-contact-list, .report-filter-form-score-list, .report-filter-form-attendance-list, .report-filter-form-student-statistics, .report-filter-form-student-statistics-detail, .report-filter-form-withdrawn-students, .report-filter-form-student-id-books-moeys, .report-filter-form-moeys-sikkhakarik-book, .report-filter-form-moeys-id-number-book, .report-filter-form-student-profile-label) .report-filter-search,
+:is(.report-filter-form-student-list, .report-filter-form-student-contact-list, .report-filter-form-score-list, .report-filter-form-attendance-list, .report-filter-form-student-statistics, .report-filter-form-student-statistics-detail, .report-filter-form-withdrawn-students, .report-filter-form-student-id-books-moeys, .report-filter-form-moeys-sikkhakarik-book, .report-filter-form-moeys-id-number-book, .report-filter-form-student-profile-label) .report-class-picker-menu .form-control {
     height: 36px;
     font-size: .8125rem;
 }
-:is(.report-filter-form-student-list, .report-filter-form-student-contact-list, .report-filter-form-score-list, .report-filter-form-attendance-list, .report-filter-form-student-statistics, .report-filter-form-student-statistics-detail, .report-filter-form-withdrawn-students, .report-filter-form-student-id-books-moeys, .report-filter-form-moeys-sikkhakarik-book) .report-filter-options button,
-:is(.report-filter-form-student-list, .report-filter-form-student-contact-list, .report-filter-form-score-list, .report-filter-form-attendance-list, .report-filter-form-student-statistics, .report-filter-form-student-statistics-detail, .report-filter-form-withdrawn-students, .report-filter-form-student-id-books-moeys, .report-filter-form-moeys-sikkhakarik-book) .report-class-picker-option {
+:is(.report-filter-form-student-list, .report-filter-form-student-contact-list, .report-filter-form-score-list, .report-filter-form-attendance-list, .report-filter-form-student-statistics, .report-filter-form-student-statistics-detail, .report-filter-form-withdrawn-students, .report-filter-form-student-id-books-moeys, .report-filter-form-moeys-sikkhakarik-book, .report-filter-form-moeys-id-number-book, .report-filter-form-student-profile-label) .report-filter-options button,
+:is(.report-filter-form-student-list, .report-filter-form-student-contact-list, .report-filter-form-score-list, .report-filter-form-attendance-list, .report-filter-form-student-statistics, .report-filter-form-student-statistics-detail, .report-filter-form-withdrawn-students, .report-filter-form-student-id-books-moeys, .report-filter-form-moeys-sikkhakarik-book, .report-filter-form-moeys-id-number-book, .report-filter-form-student-profile-label) .report-class-picker-option {
     font-size: .8125rem !important;
 }
 :is(.report-filter-form-score-list, .report-filter-form-attendance-list) .card-body > .row {

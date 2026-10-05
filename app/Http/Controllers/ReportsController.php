@@ -34,6 +34,9 @@ class ReportsController
         'withdrawn-students' => 'Withdrawn Students',
         'student-id-books-moeys' => 'Stu. ID Book (MoEYS)',
         'moeys-sikkhakarik-book' => 'Stu. Transcript Book',
+        'k3-certificate-wis' => 'K3 Certificate (WIS)',
+        'g9-certificate-wis' => 'G9 Certificate (WIS)',
+        'g12-certificate-wis' => 'G12 Certificate (WIS)',
         'moeys-id-number-book' => 'Customize Stu. List',
         'student-profile-label' => 'Stu. Profile Label',
     ];
@@ -50,6 +53,7 @@ class ReportsController
         return view('reports.index', $payload + [
             'type' => $type,
             'reportTypes' => self::TYPES,
+            'isReportStub' => $this->isReportStub($type),
             'academicYears' => $this->academicYears($payload['filters'], $type),
             'campuses' => $this->campuses($request, $payload['filters'], $type),
             'grades' => Grade::where('status', 1)->orderByRaw('CAST(grade_order AS UNSIGNED)')->get(['id', 'grade']),
@@ -569,7 +573,7 @@ class ReportsController
 
     private function isReportStub(string $type): bool
     {
-        return false;
+        return in_array($type, ['k3-certificate-wis', 'g9-certificate-wis', 'g12-certificate-wis'], true);
     }
 
     private function classGroups($enrollments): Collection
@@ -2613,6 +2617,7 @@ JS;
         }
         if ($this->isReportStub($type)) {
             return [
+                'isReportStub' => true,
                 'filters' => $filters,
                 'enrollments' => collect(),
                 'previewLimit' => null,

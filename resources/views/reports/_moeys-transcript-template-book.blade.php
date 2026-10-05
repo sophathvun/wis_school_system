@@ -54,7 +54,12 @@
         }
         return $parts->join(' ');
     };
-    $coverBirthPlace = $birthPlace;
+    $birthProvinceOnly = static function ($student): string {
+        $province = trim((string) $student?->birthProvince?->province_name_kh);
+        if ($province === '') return '';
+        if (str_contains($province, 'ភ្នំពេញ')) return 'រាជធានីភ្នំពេញ';
+        return str_starts_with($province, 'ខេត្ត') ? $province : 'ខេត្ត' . $province;
+    };
     $currentAddress = static function ($student): string {
         $address = trim((string) $student?->current_address_kh);
         if ($address !== '') return $address;
@@ -99,31 +104,40 @@
                 <section class="transcript-template-page transcript-template-{{ $templateLevel }}">
                     <img src="{{ $pageImage }}" alt="Transcript book template">
                     @if($templateMode === 'cover' && $pageIndex === 0)
-                        <div class="transcript-cover-field transcript-cover-school">{{ $campus?->school_name_kh ?: $campus?->campus_name_kh }}</div>
+                        <div class="transcript-cover-field transcript-cover-school">វេស្ទើនអន្តរជាតិ</div>
                         <div class="transcript-cover-field transcript-cover-commune">{{ $campusAddressPart($campus, 'commune') }}</div>
                         <div class="transcript-cover-field transcript-cover-district">{{ $campusAddressPart($campus, 'district') }}</div>
                         <div class="transcript-cover-field transcript-cover-province">{{ $campusAddressPart($campus, 'province') }}</div>
                         <div class="transcript-cover-field transcript-cover-student-name">{{ $student?->full_name_kh }}</div>
                         <div class="transcript-cover-field transcript-cover-dob">{{ $khmerDate($student?->date_of_birth) }}</div>
-                        <div class="transcript-cover-field transcript-cover-birth-place">{{ $coverBirthPlace($student) }}</div>
+                        <div class="transcript-cover-field transcript-cover-birth-place">{{ $birthProvinceOnly($student) }}</div>
                     @endif
-                    @if($templateMode === 'content' && $templateLevel === 'primary' && $pageIndex === 0)
+                    @if($templateMode === 'content' && $pageIndex === 0)
                         @php
                             $father = $familyMember($student, 'father');
                             $mother = $familyMember($student, 'mother');
                             $printDate = $khmerDateParts($filters['report_date'] ?? now()->format('Y-m-d'));
+                            $contentAddress = $currentAddress($student);
+                            if ($templateLevel === 'secondary') {
+                                $contentAddress = trim(preg_replace('/(?:[,;]\s*)?(?:ព្រះរាជាណាចក្រ)?កម្ពុជា/u', '', $contentAddress), " \t\n\r\0\x0B,;");
+                            }
                         @endphp
                         <div class="transcript-content-field transcript-content-student-name">{{ $student?->full_name_kh }}</div>
+                        @if($templateLevel === 'secondary')
+                            <div class="transcript-content-field transcript-content-student-name-en">{{ $student?->full_name_en }}</div>
+                        @endif
                         <div class="transcript-content-field transcript-content-dob">{{ $khmerDate($student?->date_of_birth) }}</div>
-                        <div class="transcript-content-field transcript-content-birth-place">{{ $birthPlace($student) }}</div>
+                        <div class="transcript-content-field transcript-content-birth-place">{{ $birthProvinceOnly($student) }}</div>
                         <div class="transcript-content-field transcript-content-father-name">{{ $father?->full_name_kh }}</div>
-                        <div class="transcript-content-field transcript-content-father-occupation">{{ $father?->occupation_kh ?: $father?->occupation }}</div>
+                        <div class="transcript-content-field transcript-content-father-occupation">{{ $father?->occupation_kh ?: ($templateLevel === 'primary' ? $father?->occupation : '') }}</div>
                         <div class="transcript-content-field transcript-content-mother-name">{{ $mother?->full_name_kh }}</div>
-                        <div class="transcript-content-field transcript-content-mother-occupation">{{ $mother?->occupation_kh ?: $mother?->occupation }}</div>
-                        <div class="transcript-content-field transcript-content-current-address">{{ $currentAddress($student) }}</div>
-                        <div class="transcript-content-field transcript-content-print-day">{{ $printDate['day'] }}</div>
-                        <div class="transcript-content-field transcript-content-print-month">{{ $printDate['month'] }}</div>
-                        <div class="transcript-content-field transcript-content-print-year">{{ $printDate['year'] }}</div>
+                        <div class="transcript-content-field transcript-content-mother-occupation">{{ $mother?->occupation_kh ?: ($templateLevel === 'primary' ? $mother?->occupation : '') }}</div>
+                        <div class="transcript-content-field transcript-content-current-address">{{ $contentAddress }}</div>
+                        @if($templateLevel === 'primary')
+                            <div class="transcript-content-field transcript-content-print-day">{{ $printDate['day'] }}</div>
+                            <div class="transcript-content-field transcript-content-print-month">{{ $printDate['month'] }}</div>
+                            <div class="transcript-content-field transcript-content-print-year">{{ $printDate['year'] }}</div>
+                        @endif
                     @endif
                 </section>
             @endforeach

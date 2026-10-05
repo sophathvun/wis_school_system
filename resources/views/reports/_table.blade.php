@@ -1,5 +1,5 @@
 @php
-    $tableReportStubTypes = ['moeys-sikkhakarik-book'];
+    $isReportStub = $isReportStub ?? false;
 @endphp
 @if($type === 'student-id-books-moeys')
     @include('reports._student-id-book-moeys')
@@ -228,11 +228,11 @@
         }
     }
 </style>
-@elseif(in_array($type, $tableReportStubTypes, true))
-    <div class="report-placeholder-preview {{ in_array($type, ['moeys-sikkhakarik-book'], true) ? 'khmer-font-siemreap' : '' }}">
-        <div class="report-placeholder-preview-icon"><i class="ti ti-file-description"></i></div>
-        <div class="report-placeholder-preview-title">{{ $reportTypes[$type] ?? 'Report' }}</div>
-        <div class="report-placeholder-preview-text">This report tab has been added independently. Report columns, filters, print, Excel, and PDF format can be built in the next step.</div>
+@elseif($isReportStub)
+    <div class="report-placeholder-preview">
+        <div class="report-placeholder-preview-icon"><i class="ti ti-certificate"></i></div>
+        <div class="report-placeholder-preview-title">{{ $reportTypes[$type] ?? $title ?? 'Certificate' }}</div>
+        <div class="report-placeholder-preview-text">No certificate preview available.</div>
     </div>
 @elseif($type === 'score-list')
     @include('reports._score-list-table')
