@@ -73,3 +73,16 @@ it('keeps the no-students message for an empty transcript selection', function (
 
     expect($html)->toContain('No students found.')->not->toContain('data-report-print-unavailable');
 });
+
+it('keeps class PDF markup small by referencing the local template files', function ($level, $mode, $pageCount) {
+    $studentCount = 19;
+    $html = view('reports._moeys-transcript-template-book', [
+        'filters' => ['transcript_level' => $level, 'print_mode' => $mode, 'report_date' => '2026-10-05'],
+        'enrollments' => collect(array_fill(0, $studentCount, transcriptPrintTestRows()->first())),
+        'pdfMode' => true,
+    ])->render();
+
+    expect(substr_count($html, '<section class="transcript-template-page '))->toBe($pageCount * $studentCount)
+        ->and($html)->toContain('file://')->not->toContain('data:image/jpeg;base64,')
+        ->and(strlen($html))->toBeLessThan(1024 * 1024);
+})->with('transcript print modes');

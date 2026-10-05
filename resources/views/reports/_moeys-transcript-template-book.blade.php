@@ -2,6 +2,7 @@
     $templateLevel = ($filters['transcript_level'] ?? 'primary') === 'secondary' ? 'secondary' : 'primary';
     $templateMode = ($filters['print_mode'] ?? request('print_mode', 'content')) === 'cover' ? 'cover' : 'content';
     $templateRows = collect($enrollments ?? [])->values();
+    $templatePdfMode = $pdfMode ?? false;
     $templateBase = resource_path('report-templates/transcript-book/' . $templateLevel);
     $templateFiles = $templateLevel === 'secondary'
         ? [
@@ -16,9 +17,14 @@
             'content_repeat' => 'page-4.jpg',
             'repeat_count' => 8,
         ];
-    $templateImage = static function (string $file) use ($templateBase): string {
+    $templateImage = static function (string $file) use ($templateBase, $templatePdfMode): string {
         $path = $templateBase . DIRECTORY_SEPARATOR . $file;
-        return is_file($path) && is_readable($path) ? 'data:image/jpeg;base64,' . base64_encode(file_get_contents($path)) : '';
+        if (!is_file($path) || !is_readable($path)) return '';
+        if ($templatePdfMode) {
+            $path = str_replace('\\', '/', $path);
+            return preg_match('/^[A-Za-z]:\//', $path) ? 'file:///' . $path : 'file://' . $path;
+        }
+        return 'data:image/jpeg;base64,' . base64_encode(file_get_contents($path));
     };
     $khmerDate = static function ($date): string {
         if (!$date) return '';

@@ -337,6 +337,17 @@ class ReportsController
 
     private function makeDomPdfPath(string $html, string $type): string
     {
+        if ($type === 'moeys-sikkhakarik-book') {
+            // DomPDF has no aspect-ratio support; anchor each template to one A4 page.
+            $html = str_replace('</body>', '<style>
+                .transcript-template-page{width:297mm;height:210mm;page-break-inside:avoid}
+                .transcript-template-page img{position:absolute;left:0;top:0;width:297mm;height:210mm}
+                </style></body>', $html);
+        }
+        if (PHP_OS_FAMILY === 'Windows') {
+            // DomPDF resolves drive-letter paths without the browser's extra slash.
+            $html = preg_replace('~file:///([A-Za-z]:/)~', 'file://$1', $html);
+        }
         $paper = in_array($type, ['student-list', 'student-contact-list', 'attendance-list', 'score-list', 'student-id-books-moeys', 'moeys-sikkhakarik-book'], true)
             ? 'landscape'
             : 'portrait';
@@ -356,6 +367,7 @@ class ReportsController
                     'fontCache' => $domPdfFontPath,
                     'chroot' => [
                         public_path(),
+                        resource_path('report-templates/transcript-book'),
                         storage_path('app/public'),
                         storage_path('app/report-pdf-temp'),
                     ],
