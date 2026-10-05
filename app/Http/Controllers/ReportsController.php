@@ -122,6 +122,13 @@ class ReportsController
             : $this->reportPdfFilename($payload['enrollments'] ?? collect(), $type, false);
         $path = $this->makeReportPdfPath($request, $payload, $type);
 
+        if ($type === 'moeys-sikkhakarik-book' && $request->boolean('inline')) {
+            return response()
+                ->file($path, ['Content-Type' => 'application/pdf'])
+                ->setContentDisposition('inline', $filename)
+                ->deleteFileAfterSend(true);
+        }
+
         return response()
             ->download($path, $filename, ['Content-Type' => 'application/pdf'])
             ->deleteFileAfterSend(true);
