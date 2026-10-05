@@ -2600,6 +2600,7 @@ JS;
             'campus_id' => ['nullable', 'integer'],
             'id_book_level' => ['nullable', 'in:kindergarten,primary,secondary'],
             'transcript_level' => ['nullable', 'in:primary,secondary'],
+            'transcript_student_id' => ['nullable', 'integer', 'min:1'],
             'withdrawal_status' => ['nullable', 'in:all,pending,principal_approved,approved,rejected,cancelled'],
             'grade_id' => ['nullable', 'integer'],
             'class_id' => ['nullable', 'integer'],
@@ -2698,6 +2699,10 @@ JS;
         $withdrawalQuery = $type === 'withdrawn-students' && $hasDataFilter ? $this->withdrawals($request, $filters) : null;
         $withdrawals = $withdrawalQuery ? $withdrawalQuery->get() : collect();
         $enrollmentQuery = $hasDataFilter && $type !== 'withdrawn-students' ? $this->enrollments($request, $filters, $type) : null;
+        $transcriptStudentOptions = collect();
+        if ($preview && $type === 'moeys-sikkhakarik-book' && $hasDataFilter) {
+            $transcriptStudentOptions = $this->transcriptStudentOptions($request, $filters);
+        }
         $usesLimitedPreview = $preview && ($this->isStudentListReport($type) || $this->isStudentContactListReport($type));
         $currentPreviewLimit = self::PREVIEW_LIMIT;
         $studentListPagination = null;
@@ -2748,6 +2753,7 @@ JS;
         return [
             'filters' => $filters,
             'enrollments' => $enrollments,
+            'transcriptStudentOptions' => $transcriptStudentOptions,
             'withdrawals' => $withdrawals,
             'previewLimit' => $usesLimitedPreview ? $currentPreviewLimit : null,
             'hasMorePreviewRows' => $hasMorePreviewRows,
@@ -2758,6 +2764,17 @@ JS;
             'selectedColumns' => $type === 'moeys-id-number-book' ? collect($filters['selected_columns'] ?? [])->map(fn ($key) => $this->getStudentListColumnDefinitions()[$key] ?? null)->filter()->values()->all() : [],
             'studentListColumns' => $type === 'moeys-id-number-book' ? collect($this->getStudentListColumnDefinitions())->groupBy('group')->all() : [],
         ];
+    }
+
+    private function transcriptStudentOptions(Request $request, array $filters): Collection
+    {
+        // Keep the entire permitted class available after selecting one student.
+        unset($filters['transcript_student_id']);
+        return $this->enrollments($request, $filters, 'moeys-sikkhakarik-book')
+            ->withoutEagerLoads()->reorder()->toBase()
+            ->select('tb_student.id', 'tb_student.student_id', 'tb_student.full_name_kh', 'tb_student.full_name_en')
+            ->distinct()->orderBy('tb_student.full_name_kh')->orderBy('tb_student.full_name_en')->orderBy('tb_student.id')
+            ->get();
     }
 
     private function academicYears(array $filters, string $type = ''): Collection
@@ -2936,6 +2953,7 @@ JS;
             ->when($filters['grade_id'] ?? null, fn ($q, $id) => $q->where('tb_student_enrollment.grade_id', $id))
             ->when($filters['class_id'] ?? null, fn ($q, $id) => $q->where('tb_student_enrollment.class_id', $id))
             ->when($filters['session_id'] ?? null, fn ($q, $id) => $q->where('session_id', $id))
+            ->when($type === 'moeys-sikkhakarik-book' && filled($filters['transcript_student_id'] ?? null), fn ($q) => $q->where('tb_student_enrollment.student_id', $filters['transcript_student_id']))
             ->when($filters['print_grade_classes'] ?? null, function ($q, $values) {
                 $pairs = collect($values)->map(fn ($value) => array_map('intval', explode(':', $value, 2)))->filter(fn ($pair) => count($pair) === 2)->values();
                 $q->where(function ($nested) use ($pairs) {

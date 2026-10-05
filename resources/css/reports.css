@@ -1,4 +1,16 @@
 /* Reports page styles extracted from resources/views/reports/index.blade.php */
+.report-transcript-student-field .report-filter-menu {
+    width: max(100%, 320px);
+    max-width: calc(100vw - 2rem);
+    left: auto !important;
+    right: 0 !important;
+}
+.report-transcript-student-field :is(.report-filter-toggle span, .report-filter-options button) {
+    font-family: "Khmer OS Siemreap", Arial, sans-serif;
+}
+.report-transcript-student-field .report-filter-options button[hidden] {
+    display: none !important;
+}
 .report-filter-field {
         position: relative;
         min-width: 0;

@@ -49,7 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 summaryCard.innerHTML = nextSummaryCard.innerHTML;
             }
 
-            ['reportAcademicYearValue', 'reportIdBookLevelValue', 'reportTranscriptLevelValue', 'reportCampusValue', 'reportGradeClassValue', 'reportGroupValue'].forEach((id) => {
+            ['reportAcademicYearValue', 'reportIdBookLevelValue', 'reportTranscriptLevelValue', 'reportCampusValue', 'reportGradeClassValue', 'reportGroupValue', 'reportTranscriptStudentValue'].forEach((id) => {
                 const currentTarget = document.getElementById(id);
                 const nextTarget = doc.getElementById(id);
                 const currentBox = currentTarget?.closest('.report-filter-field')?.querySelector('.report-filter-combobox');
@@ -363,8 +363,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         toggle.addEventListener('click', (event) => {
             event.stopPropagation();
+            const wasOpen = box.classList.contains('is-open');
             closeComboboxes();
-            box.classList.toggle('is-open');
+            box.classList.toggle('is-open', !wasOpen);
             if (box.classList.contains('is-open')) {
                 search.value = '';
                 options.forEach((option) => { option.hidden = false; });
@@ -387,12 +388,22 @@ document.addEventListener('DOMContentLoaded', () => {
                     const gradeClassValue = document.getElementById('reportGradeClassValue');
                     if (gradeClassValue) gradeClassValue.value = '';
                 }
+                if (reportType === 'moeys-sikkhakarik-book' && ['reportAcademicYearValue', 'reportTranscriptLevelValue', 'reportCampusValue', 'reportGradeClassValue', 'reportGroupValue'].includes(target.id)) {
+                    // A different class or group requires a fresh student selection.
+                    const studentValue = document.getElementById('reportTranscriptStudentValue');
+                    const studentBox = studentValue?.closest('.report-filter-field')?.querySelector('.report-filter-combobox');
+                    if (studentValue) studentValue.value = '';
+                    const studentLabel = studentBox?.querySelector('.report-filter-toggle span');
+                    if (studentLabel) studentLabel.textContent = 'All Students';
+                    const studentToggle = studentBox?.querySelector('.report-filter-toggle');
+                    if (studentToggle) studentToggle.disabled = true;
+                }
                 syncLabel();
                 box.classList.remove('is-open');
                 if (requiresManualApply && ['reportAcademicYearValue', 'reportCampusValue'].includes(target.id)) {
                     refreshManualFilterOptions();
                 }
-                if (!requiresManualApply && ['reportAcademicYearValue', 'reportIdBookLevelValue', 'reportTranscriptLevelValue', 'reportCampusValue', 'reportGradeClassValue', 'reportGroupValue'].includes(target.id)) {
+                if (!requiresManualApply && ['reportAcademicYearValue', 'reportIdBookLevelValue', 'reportTranscriptLevelValue', 'reportCampusValue', 'reportGradeClassValue', 'reportGroupValue', 'reportTranscriptStudentValue'].includes(target.id)) {
                     setTimeout(() => isQuietAttendance ? quietRefreshAttendance() : form?.requestSubmit(), 0);
                 }
             });
