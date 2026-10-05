@@ -8,8 +8,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const campusKh = body.dataset.reportCampusKh || '';
     const campusEn = body.dataset.reportCampusEn || '';
     const campusAddress = body.dataset.reportCampusAddress || '';
+    const printUnavailable = body.querySelector('[data-report-print-unavailable]');
+    if (printUnavailable) {
+        body.querySelectorAll('[data-report-action="print"]').forEach((button) => { button.disabled = true; });
+    }
 
     const printReport = async () => {
+        if (printUnavailable) return;
         if (reportType === 'moeys-sikkhakarik-book') {
             // Template images and Khmer fonts must finish rendering before mobile printing.
             await document.fonts?.ready;

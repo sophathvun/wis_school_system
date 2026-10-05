@@ -2,23 +2,23 @@
     $templateLevel = ($filters['transcript_level'] ?? 'primary') === 'secondary' ? 'secondary' : 'primary';
     $templateMode = ($filters['print_mode'] ?? request('print_mode', 'content')) === 'cover' ? 'cover' : 'content';
     $templateRows = collect($enrollments ?? [])->values();
-    $templateBase = storage_path('app/imports/' . ($templateLevel === 'secondary' ? 'SECONDARY TRANSCRIPT BOOK' : 'PRIMARY TRANSCRIPT BOOK'));
+    $templateBase = resource_path('report-templates/transcript-book/' . $templateLevel);
     $templateFiles = $templateLevel === 'secondary'
         ? [
-            'cover' => ['Secondary Transcript Book Page_1.jpg', 'Secondary Transcript Book Page_2.jpg'],
-            'content_intro' => 'Secondary Transcript Book Page_3.jpg',
-            'content_repeat' => 'Secondary Transcript Book Page_4.jpg',
+            'cover' => ['page-1.jpg', 'page-2.jpg'],
+            'content_intro' => 'page-3.jpg',
+            'content_repeat' => 'page-4.jpg',
             'repeat_count' => 10,
         ]
         : [
-            'cover' => ['Primary Transcript Book Page1 (1).jpg', 'Primary Transcript Book Page2.jpg'],
-            'content_intro' => 'Primary Transcript Book Page3.jpg',
-            'content_repeat' => 'Primary Transcript Book Page4.jpg',
+            'cover' => ['page-1.jpg', 'page-2.jpg'],
+            'content_intro' => 'page-3.jpg',
+            'content_repeat' => 'page-4.jpg',
             'repeat_count' => 8,
         ];
     $templateImage = static function (string $file) use ($templateBase): string {
         $path = $templateBase . DIRECTORY_SEPARATOR . $file;
-        return is_file($path) ? 'data:image/jpeg;base64,' . base64_encode(file_get_contents($path)) : '';
+        return is_file($path) && is_readable($path) ? 'data:image/jpeg;base64,' . base64_encode(file_get_contents($path)) : '';
     };
     $khmerDate = static function ($date): string {
         if (!$date) return '';
@@ -83,16 +83,21 @@
             default => '',
         };
     };
-    $pageImages = $templateMode === 'cover'
-        ? collect($templateFiles['cover'])->map($templateImage)->filter()->values()
-        : collect([$templateImage($templateFiles['content_intro'])])
-            ->merge(collect(range(1, $templateFiles['repeat_count']))->map(fn () => $templateImage($templateFiles['content_repeat'])))
-            ->filter()
-            ->values();
+    $requiredTemplates = $templateMode === 'cover'
+        ? $templateFiles['cover']
+        : [$templateFiles['content_intro'], $templateFiles['content_repeat']];
+    $templateImages = collect($requiredTemplates)->mapWithKeys(fn ($file) => [$file => $templateImage($file)]);
+    $templatesUnavailable = $templateImages->contains(fn ($image) => $image === '');
+    $pageImages = $templatesUnavailable ? collect() : ($templateMode === 'cover'
+        ? collect($templateFiles['cover'])->map(fn ($file) => $templateImages[$file])
+        : collect([$templateImages[$templateFiles['content_intro']]])
+            ->merge(array_fill(0, $templateFiles['repeat_count'], $templateImages[$templateFiles['content_repeat']])));
 @endphp
 
 @if($templateRows->isEmpty())
     <div class="empty">No students found.</div>
+@elseif($templatesUnavailable)
+    <div class="empty" role="alert" data-report-print-unavailable>Transcript Book templates are unavailable. Please contact your administrator.</div>
 @else
     <div class="transcript-template-report">
         @foreach($templateRows as $templateRow)
