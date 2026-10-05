@@ -1,6 +1,9 @@
 <?php
 
 use Illuminate\Support\Str;
+use App\Support\TranscriptPdfLayout;
+use Dompdf\Dompdf;
+use Illuminate\Support\Facades\File;
 
 function transcriptPrintTestRows(): \Illuminate\Support\Collection
 {
@@ -85,4 +88,115 @@ it('keeps class PDF markup small by referencing the local template files', funct
     expect(substr_count($html, '<section class="transcript-template-page '))->toBe($pageCount * $studentCount)
         ->and($html)->toContain('file://')->not->toContain('data:image/jpeg;base64,')
         ->and(strlen($html))->toBeLessThan(1024 * 1024);
+})->with('transcript print modes');
+
+function transcriptPdfLayoutTestDirectory(): string
+{
+    static $path;
+    return $path ??= dirname(__DIR__, 2) . '/storage/framework/testing/transcript-pdf-' . Str::uuid();
+}
+
+afterAll(function () {
+    (new \Illuminate\Filesystem\Filesystem)->deleteDirectory(transcriptPdfLayoutTestDirectory());
+});
+
+it('renders transcript values inside their template rows in the fallback PDF', function ($level, $mode, $pageCount) {
+    $rows = transcriptPrintTestRows();
+    $rows->first()->student->full_name_kh = str_repeat('សិស្ស សាកល្បង ', 4);
+    $rows->first()->student->full_name_en = str_repeat('LONG STUDENT NAME ', 8);
+    $rows->first()->student->current_address_kh = str_repeat('រាជធានីភ្នំពេញ ', 12);
+    $rows->first()->student->familyMembers = collect([
+        (object) ['relationship_type' => 'father', 'full_name_kh' => 'សុខ ដារ៉ា', 'occupation_kh' => 'បុគ្គលិកក្រុមហ៊ុន'],
+        (object) ['relationship_type' => 'mother', 'full_name_kh' => 'សុខ សុភា', 'occupation_kh' => 'មន្ត្រីរាជការ'],
+    ]);
+    $html = view('reports.print', [
+        'filters' => ['transcript_level' => $level, 'print_mode' => $mode, 'report_date' => '2026-10-05'],
+        'enrollments' => collect([$rows->first(), $rows->first()]),
+        'type' => 'moeys-sikkhakarik-book', 'title' => 'Transcript test',
+        'academicYear' => null, 'campus' => null, 'pdfMode' => true,
+    ])->render();
+    $html = str_replace('</body>', '<style>
+        .transcript-template-page{width:297mm;height:210mm;page-break-inside:avoid}
+        .transcript-template-page img{position:absolute;left:0;top:0;width:297mm;height:210mm}
+        </style></body>', $html);
+    if (PHP_OS_FAMILY === 'Windows') $html = preg_replace('~file:///([A-Za-z]:/)~', 'file://$1', $html);
+
+    // DomPDF caches registered fonts across instances in the same PHP process.
+    $temp = transcriptPdfLayoutTestDirectory();
+    File::ensureDirectoryExists($temp);
+    $dompdf = new Dompdf([
+        'chroot' => [public_path(), resource_path('report-templates/transcript-book'), $temp],
+        'tempDir' => $temp, 'fontDir' => $temp, 'fontCache' => $temp,
+    ]);
+    $dompdf->loadHtml($html);
+    $dompdf->setPaper('a4', 'landscape');
+    TranscriptPdfLayout::configure($dompdf);
+    $prepare = $dompdf->getCallbacks()['begin_page_reflow'][0];
+    $rendered = [];
+    $dompdf->setCallbacks([
+        ['event' => 'begin_page_reflow', 'f' => $prepare],
+        ['event' => 'begin_frame', 'f' => static function ($frame, $canvas, $fontMetrics) use (&$rendered): void {
+            if (!$frame->is_text_node() || trim($frame->get_node()->textContent) === '') return;
+            $parent = $frame->get_parent();
+            $node = $parent->get_node();
+            if (!$node instanceof DOMElement) return;
+            $classes = preg_split('/\s+/', $node->getAttribute('class'));
+            if (!array_intersect($classes, ['transcript-cover-field', 'transcript-content-field'])) return;
+            $style = $frame->get_style();
+            $field = $parent->get_style();
+            $key = end($classes);
+            $rendered[$canvas->get_page_number()][$key][] = [
+                'baseline' => $frame->get_position('y') + $fontMetrics->getFontBaseline($style->font_family, $style->font_size),
+                'width' => $frame->get_margin_width(),
+                'available' => (float) $field->length_in_pt($field->width, $canvas->get_width()),
+            ];
+        }],
+    ]);
+    $dompdf->render();
+    expect($dompdf->getCanvas()->get_page_count())->toBe(2 * $pageCount)
+        ->and(count($rendered))->toBe(2);
+
+    // Bounds come from the dotted rows on the templates, in A4 PDF points.
+    $bounds = $mode === 'cover'
+        ? ($level === 'primary' ? [
+            'transcript-cover-school' => [428, 447],
+            'transcript-cover-student-name' => [480, 496],
+            'transcript-cover-dob' => [500, 516],
+            'transcript-cover-birth-place' => [522, 537],
+        ] : [
+            'transcript-cover-school' => [433, 453],
+            'transcript-cover-student-name' => [461, 477],
+            'transcript-cover-dob' => [485, 502],
+            'transcript-cover-birth-place' => [507, 525],
+        ])
+        : ($level === 'primary' ? [
+            'transcript-content-student-name' => [134, 150],
+            'transcript-content-dob' => [158, 175],
+            'transcript-content-birth-place' => [180, 195],
+            'transcript-content-father-name' => [202, 216],
+            'transcript-content-father-occupation' => [221, 236],
+            'transcript-content-mother-name' => [244, 259],
+            'transcript-content-mother-occupation' => [263, 278],
+            'transcript-content-current-address' => [285, 303],
+            'transcript-content-print-day' => [312, 329],
+            'transcript-content-print-month' => [312, 329],
+            'transcript-content-print-year' => [312, 329],
+        ] : [
+            'transcript-content-student-name' => [205, 221],
+            'transcript-content-student-name-en' => [205, 221],
+            'transcript-content-dob' => [229, 245],
+            'transcript-content-birth-place' => [251, 266],
+            'transcript-content-current-address' => [273, 291],
+            'transcript-content-father-name' => [298, 311],
+            'transcript-content-father-occupation' => [319, 335],
+            'transcript-content-mother-name' => [343, 358],
+            'transcript-content-mother-occupation' => [365, 381],
+        ]);
+    foreach ($rendered as $fields) foreach ($bounds as $key => [$top, $bottom]) {
+        expect($fields)->toHaveKey($key);
+        expect($fields[$key])->toHaveCount(1);
+        $value = $fields[$key][0];
+        expect($value['baseline'])->toBeGreaterThanOrEqual($top)->toBeLessThanOrEqual($bottom)
+            ->and($value['width'])->toBeLessThanOrEqual($value['available'] + 0.1);
+    }
 })->with('transcript print modes');

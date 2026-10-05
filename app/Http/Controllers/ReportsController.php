@@ -10,6 +10,7 @@ use App\Models\SchoolInfo;
 use App\Models\Session;
 use App\Models\StudentEnrollment;
 use App\Models\StudentEnrollmentHistory;
+use App\Support\TranscriptPdfLayout;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -356,7 +357,7 @@ class ReportsController
         $domPdfFontPath = $this->reportTempDirectory('dompdf-fonts');
 
         try {
-            Pdf::loadHTML($html)
+            $pdf = Pdf::loadHTML($html)
                 ->setPaper('a4', $paper)
                 ->setOptions([
                     'isRemoteEnabled' => true,
@@ -371,8 +372,11 @@ class ReportsController
                         storage_path('app/public'),
                         storage_path('app/report-pdf-temp'),
                     ],
-                ])
-                ->save($pdfPath);
+                ]);
+            if ($type === 'moeys-sikkhakarik-book') {
+                TranscriptPdfLayout::configure($pdf->getDomPDF());
+            }
+            $pdf->save($pdfPath);
         } catch (\Throwable $exception) {
             @unlink($pdfPath);
             Log::error('DomPDF report export failed.', [
