@@ -266,8 +266,13 @@
                             <a class="dropdown-item report-print-link" target="_blank" data-report-print-mode="content" data-report-print-url="{{ route('reports.show',$type) }}" href="{{ route('reports.show',$type) . '?' . http_build_query($filters + ['print_mode' => 'content']) }}"><i class="ti ti-files me-2"></i>Print Content</a>
                         </div>
                     </div>
-                    <a class="btn btn-outline-success report-excel-link" href="{{ route('reports.excel',$type) . '?' . http_build_query($filters) }}"><i class="ti ti-file-spreadsheet me-1"></i>Excel</a>
-                    <a class="btn btn-outline-danger report-pdf-link" href="{{ route('reports.pdf',$type) . '?' . http_build_query($filters + ['print_mode' => 'content']) }}"><i class="ti ti-file-type-pdf me-1"></i>PDF</a>
+                    <div class="dropdown">
+                        <button class="btn btn-outline-danger dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false"><i class="ti ti-file-type-pdf me-1"></i>PDF</button>
+                        <div class="dropdown-menu dropdown-menu-end">
+                            <a class="dropdown-item report-pdf-link" data-report-print-mode="cover" href="{{ route('reports.pdf',$type) . '?' . http_build_query(array_merge($filters, ['print_mode' => 'cover'])) }}"><i class="ti ti-book-2 me-2"></i>Export Cover</a>
+                            <a class="dropdown-item report-pdf-link" data-report-print-mode="content" href="{{ route('reports.pdf',$type) . '?' . http_build_query(array_merge($filters, ['print_mode' => 'content'])) }}"><i class="ti ti-files me-2"></i>Export Content</a>
+                        </div>
+                    </div>
                 @else
                     <a class="btn btn-outline-primary report-print-link" target="_blank" href="{{ route('reports.show',$type) . '?' . http_build_query($filters) }}"><i class="ti ti-printer me-1"></i>Print</a>
                     <a class="btn btn-outline-success report-excel-link" href="{{ route('reports.excel',$type) . '?' . http_build_query($filters) }}"><i class="ti ti-file-spreadsheet me-1"></i>Excel</a>
