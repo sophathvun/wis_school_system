@@ -262,8 +262,8 @@
                     <div class="dropdown">
                         <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false"><i class="ti ti-printer me-1"></i>Print</button>
                         <div class="dropdown-menu dropdown-menu-end">
-                            <a class="dropdown-item report-print-link" target="_blank" data-report-print-mode="cover" data-report-print-url="{{ route('reports.show',$type) }}" data-report-mobile-print-url="{{ route('reports.pdf',$type) }}" href="{{ route('reports.show',$type) . '?' . http_build_query($filters + ['print_mode' => 'cover']) }}"><i class="ti ti-book-2 me-2"></i>Print Cover</a>
-                            <a class="dropdown-item report-print-link" target="_blank" data-report-print-mode="content" data-report-print-url="{{ route('reports.show',$type) }}" data-report-mobile-print-url="{{ route('reports.pdf',$type) }}" href="{{ route('reports.show',$type) . '?' . http_build_query($filters + ['print_mode' => 'content']) }}"><i class="ti ti-files me-2"></i>Print Content</a>
+                            <a class="dropdown-item report-print-link" target="_blank" data-report-print-mode="cover" data-report-print-url="{{ route('reports.show',$type) }}" href="{{ route('reports.show',$type) . '?' . http_build_query($filters + ['print_mode' => 'cover']) }}"><i class="ti ti-book-2 me-2"></i>Print Cover</a>
+                            <a class="dropdown-item report-print-link" target="_blank" data-report-print-mode="content" data-report-print-url="{{ route('reports.show',$type) }}" href="{{ route('reports.show',$type) . '?' . http_build_query($filters + ['print_mode' => 'content']) }}"><i class="ti ti-files me-2"></i>Print Content</a>
                         </div>
                     </div>
                     <a class="btn btn-outline-success report-excel-link" href="{{ route('reports.excel',$type) . '?' . http_build_query($filters) }}"><i class="ti ti-file-spreadsheet me-1"></i>Excel</a>

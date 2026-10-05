@@ -2,13 +2,13 @@
 (() => {
     const names = document.querySelectorAll('.transcript-template-primary .transcript-content-student-name, .transcript-template-secondary .transcript-content-student-name, .transcript-template-secondary .transcript-content-student-name-en');
     if (!names.length) return;
-    const defaultSizes = new Map([...names].map((name) => [name, parseFloat(getComputedStyle(name).fontSize)]));
+    const originalFontSizes = new Map([...names].map((name) => [name, name.style.fontSize]));
 
     // Measure rendered glyphs rather than character counts. Keep short names at their original size.
     const fitNames = () => {
         names.forEach((name) => {
-            const defaultSize = defaultSizes.get(name);
-            name.style.fontSize = `${defaultSize}px`;
+            name.style.fontSize = originalFontSizes.get(name);
+            const defaultSize = parseFloat(getComputedStyle(name).fontSize);
             const width = name.getBoundingClientRect().width;
             if (!width || !name.textContent.trim()) return;
 

@@ -43,6 +43,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 previewBody.innerHTML = nextPreviewBody.innerHTML;
             }
 
+            const summaryCard = workspace.querySelector('.report-preview-header .report-summary-card');
+            const nextSummaryCard = nextWorkspace?.querySelector('.report-preview-header .report-summary-card');
+            if (summaryCard && nextSummaryCard) {
+                summaryCard.innerHTML = nextSummaryCard.innerHTML;
+            }
+
             ['reportAcademicYearValue', 'reportIdBookLevelValue', 'reportTranscriptLevelValue', 'reportCampusValue', 'reportGradeClassValue', 'reportGroupValue'].forEach((id) => {
                 const currentTarget = document.getElementById(id);
                 const nextTarget = doc.getElementById(id);
@@ -738,13 +744,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const syncActionLink = (link) => {
         if (!link || !form) return;
 
-        const mobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
-            || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-        const mobileTranscriptPrint = reportType === 'moeys-sikkhakarik-book'
-            && mobileDevice && Boolean(link.dataset.reportMobilePrintUrl);
-        const url = new URL(mobileTranscriptPrint
-            ? link.dataset.reportMobilePrintUrl
-            : (link.dataset.reportPrintUrl || link.href));
+        const url = new URL(link.dataset.reportPrintUrl || link.href);
         url.search = '';
         const data = getStudentListFormData ? getStudentListFormData() : new FormData(form);
         data.forEach((value, key) => {
@@ -753,7 +753,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (link.dataset.reportPrintMode) {
             url.searchParams.set('print_mode', link.dataset.reportPrintMode);
         }
-        if (mobileTranscriptPrint) url.searchParams.set('inline', '1');
         link.href = url.toString();
     };
 

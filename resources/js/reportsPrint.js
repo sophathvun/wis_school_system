@@ -9,10 +9,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const campusEn = body.dataset.reportCampusEn || '';
     const campusAddress = body.dataset.reportCampusAddress || '';
 
+    const printReport = async () => {
+        if (reportType === 'moeys-sikkhakarik-book') {
+            // Template images and Khmer fonts must finish rendering before mobile printing.
+            await document.fonts?.ready;
+            await Promise.all([...document.querySelectorAll('.transcript-template-page img')]
+                .map((image) => image.complete ? Promise.resolve() : new Promise((resolve) => {
+                    image.addEventListener('load', resolve, { once: true });
+                    image.addEventListener('error', resolve, { once: true });
+                })));
+        }
+        window.print();
+    };
+
     document.addEventListener('click', (event) => {
         const button = event.target.closest('[data-report-action]');
         if (!button) return;
-        if (button.dataset.reportAction === 'print') window.print();
+        if (button.dataset.reportAction === 'print') printReport();
         if (button.dataset.reportAction === 'close') window.close();
     });
 
@@ -225,7 +238,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateEnglishStudentListHeader();
         updateNameColumns();
         applyHeaderDecorations();
-        window.addEventListener('load', () => setTimeout(() => window.print(), 300));
+        window.addEventListener('load', () => setTimeout(printReport, 300));
     } else {
         updateNameColumns();
         updateScoreHeaders();
@@ -234,6 +247,6 @@ document.addEventListener('DOMContentLoaded', () => {
         applyKhmerAcademicYear();
         moveKhmerCampus();
         applyKhmerDateFooter();
-        window.addEventListener('load', () => setTimeout(() => window.print(), 300));
+        window.addEventListener('load', () => setTimeout(printReport, 300));
     }
 });
