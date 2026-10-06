@@ -7,6 +7,7 @@
     ];
 @endphp
 <input type="hidden" name="preview_page_size" value="{{ $filters['preview_page_size'] ?? \App\Services\G9CertificateReport::PREVIEW_DEFAULT_SIZE }}">
+<input type="hidden" name="certificate_show_qr" value="{{ $filters['certificate_show_qr'] ?? '0' }}" data-g9-qr-value>
 @foreach($fields as $field)
 <div class="col-md-3 report-filter-field">
     <label class="form-label">{{ $field['label'] }}</label>

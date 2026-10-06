@@ -386,6 +386,20 @@ document.addEventListener('DOMContentLoaded', () => {
             option.addEventListener('click', () => {
                 target.value = option.dataset.value || '';
                 target.dispatchEvent(new Event('change', { bubbles: true }));
+                if (reportType === 'student-photo') {
+                    if (['reportAcademicYearValue', 'reportCampusValue', 'reportGradeClassValue'].includes(target.id)) {
+                        const student = document.getElementById('reportPhotoStudentValue');
+                        if (student) student.value = '';
+                    }
+                    if (['reportAcademicYearValue', 'reportCampusValue'].includes(target.id)) {
+                        const grade = document.getElementById('reportGradeClassValue');
+                        if (grade) grade.value = '';
+                    }
+                    if (target.id === 'reportAcademicYearValue') {
+                        const campus = document.getElementById('reportCampusValue');
+                        if (campus) campus.value = '';
+                    }
+                }
                 if (target.id === 'reportTranscriptLevelValue') {
                     const gradeClassValue = document.getElementById('reportGradeClassValue');
                     if (gradeClassValue) gradeClassValue.value = '';
@@ -419,7 +433,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (requiresManualApply && ['reportAcademicYearValue', 'reportCampusValue'].includes(target.id)) {
                     refreshManualFilterOptions();
                 }
-                if (!requiresManualApply && ['reportAcademicYearValue', 'reportIdBookLevelValue', 'reportTranscriptLevelValue', 'reportCampusValue', 'reportGradeClassValue', 'reportGroupValue', 'reportTranscriptStudentValue', 'reportCertificateStudentValue'].includes(target.id)) {
+                if (!requiresManualApply && ['reportAcademicYearValue', 'reportIdBookLevelValue', 'reportTranscriptLevelValue', 'reportCampusValue', 'reportGradeClassValue', 'reportGroupValue', 'reportTranscriptStudentValue', 'reportCertificateStudentValue', 'reportPhotoStudentValue'].includes(target.id)) {
                     setTimeout(() => isQuietAttendance ? quietRefreshAttendance() : form?.requestSubmit(), 0);
                 }
             });
@@ -779,6 +793,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         if (link.dataset.reportPrintMode) {
             url.searchParams.set('print_mode', link.dataset.reportPrintMode);
+        }
+        if (link.dataset.reportPhotoSize) {
+            url.searchParams.set('photo_size', link.dataset.reportPhotoSize);
         }
         link.href = url.toString();
     };

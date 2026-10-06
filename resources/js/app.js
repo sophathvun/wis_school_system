@@ -13,6 +13,7 @@ import "./premiumForms.js";
 import "./sidebar.js";
 import "./navbar.js";
 import "./chatWidget.js";
+import { setupInstallShortcut } from "./installShortcut.js";
 
 const body = document.body;
 const currentPermissions = (() => {
@@ -24,63 +25,6 @@ const currentPermissions = (() => {
 })();
 window.userPermissions = currentPermissions;
 window.currentUserId = body?.dataset.currentUserId || "";
-
-let deferredInstallPrompt = null;
-
-const isStandaloneApp = () =>
-    window.matchMedia("(display-mode: standalone)").matches ||
-    window.navigator.standalone === true;
-
-const isMobileDevice = () =>
-    /Android|iPhone|iPad|iPod/i.test(window.navigator.userAgent) ||
-    window.matchMedia("(max-width: 767.98px)").matches;
-
-const setupInstallShortcut = () => {
-    const button = document.getElementById("installAppShortcut");
-    if (!button || isStandaloneApp() || !isMobileDevice()) return;
-
-    const showButton = () => button.classList.remove("d-none");
-    const hideButton = () => button.classList.add("d-none");
-    const isIos = /iPhone|iPad|iPod/i.test(window.navigator.userAgent);
-
-    if (isIos) showButton();
-
-    window.addEventListener("beforeinstallprompt", (event) => {
-        event.preventDefault();
-        deferredInstallPrompt = event;
-        showButton();
-    });
-
-    window.addEventListener("appinstalled", () => {
-        deferredInstallPrompt = null;
-        hideButton();
-    });
-
-    button.addEventListener("click", async () => {
-        if (deferredInstallPrompt) {
-            deferredInstallPrompt.prompt();
-            await deferredInstallPrompt.userChoice.catch(() => null);
-            deferredInstallPrompt = null;
-            hideButton();
-            return;
-        }
-
-        const message = isIos
-            ? "Tap the Share button in Safari, then choose Add to Home Screen."
-            : "Open this system in Chrome, tap the browser menu, then choose Add to Home screen.";
-
-        if (window.Swal) {
-            window.Swal.fire({
-                icon: "info",
-                title: "Add shortcut to phone",
-                text: message,
-                confirmButtonText: "OK",
-            });
-        } else {
-            window.alert(message);
-        }
-    });
-};
 
 const setupIdleLogout = () => {
     if (!document.body?.dataset.currentUserId) return;

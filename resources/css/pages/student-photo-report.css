@@ -1,0 +1,33 @@
+.reports-workspace-student-photo .report-filter-toggle { min-height: 54px; height: 54px; padding: 18px 16px 8px; }
+.reports-workspace-student-photo .report-filter-toggle span { font-size: .8rem; }
+.reports-workspace-student-photo .report-preview-header .report-summary-card { display: flex; width: 140px !important; min-width: 0 !important; height: 42px; padding: 0; }
+.reports-workspace-student-photo .report-summary-item { display: flex; flex-direction: column; justify-content: center; width: 100%; height: 42px; box-sizing: border-box; padding: .2rem .65rem; border: 1px solid var(--tblr-border-color, #d8e2f5); border-radius: 10px; background: var(--tblr-bg-surface, #fff); color: var(--tblr-body-color, #182433); text-align: center; }
+.reports-workspace-student-photo .report-summary-label { font-size: .625rem; font-weight: 600; line-height: 1.2; }
+.reports-workspace-student-photo .report-summary-number { color: var(--tblr-primary, #206bc4); font-size: .875rem; font-weight: 700; line-height: 1.2; }
+.reports-workspace-student-photo .report-preview-actions > .dropdown > .btn { height: 42px; }
+.student-photo-preview-group + .student-photo-preview-group { margin-top: 24px; }
+.student-photo-preview-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 16px; }
+.student-photo-preview-item { margin: 0; text-align: center; }
+.student-photo-preview-item > img, .student-photo-missing { width: 100%; max-width: 120px; aspect-ratio: 2 / 3; object-fit: cover; border: 1px solid #d3d3d3; box-sizing: border-box; }
+.student-photo-missing { display: grid; place-items: center; margin: auto; background: var(--tblr-bg-surface-secondary, #f5f5f5); color: var(--tblr-secondary, #667085); }
+.student-photo-preview-item figcaption { margin-top: 6px; font-size: .75rem; overflow-wrap: anywhere; }
+.student-photo-preview-item small { display: block; color: var(--tblr-secondary, #667085); }
+.student-photo-document { margin: 0; font: 14px Arial, sans-serif; color: #111; background: #eee; }
+.student-photo-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px; background: #fff; position: sticky; top: 0; z-index: 1; }
+.student-photo-toolbar button { padding: 9px 18px; border: 0; border-radius: 5px; background: #206bc4; color: #fff; cursor: pointer; }
+.student-photo-toolbar button:disabled { opacity: .55; cursor: wait; }
+.student-photo-sheet { width: 190mm; min-height: 277mm; margin: 12px auto; padding: 0 0 0 10mm; background: #fff; box-sizing: border-box; }
+.student-photo-sheet h1 { height: 7mm; margin: 0 0 3mm; font-size: 12pt; line-height: 7mm; font-weight: normal; }
+.student-photo-print-grid { display: grid; grid-template-columns: repeat(4, 40mm); gap: 4mm; }
+.student-photo-print-image { display: block; width: 40mm; height: 60mm; box-sizing: border-box; object-fit: cover; object-position: center; border: 1px solid #d3d3d3; }
+.student-photo-size-3x4 .student-photo-print-grid { grid-template-columns: repeat(5, 30mm); }
+.student-photo-size-3x4 .student-photo-print-image { width: 30mm; height: 40mm; }
+.student-photo-empty { padding: 16px; }
+@page { size: A4 portrait; margin: 10mm; }
+@media print {
+    .student-photo-document { background: #fff; }
+    .student-photo-toolbar { display: none !important; }
+    .student-photo-sheet { margin: 0; min-height: 0; break-after: page; page-break-after: always; break-inside: avoid; }
+    .student-photo-sheet:last-of-type { break-after: auto; page-break-after: auto; }
+    .student-photo-print-image { break-inside: avoid; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

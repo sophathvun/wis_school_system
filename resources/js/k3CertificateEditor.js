@@ -27,6 +27,12 @@ export function initK3CertificateEditor({ applyFieldStyle, loadFontsAndFit }) {
     };
     function clamp(key) {
         const field = layout.fields[key], photo = key === 'photo';
+        if (key === 'qr') {
+            field.width = Math.min(20,Math.max(8,field.width));
+            field.x = Math.min(100-field.width,Math.max(0,field.x));
+            field.y = Math.min(100-(field.width*PAGE.width/100+3)*100/PAGE.height,Math.max(0,field.y));
+            return;
+        }
         field.width = Math.min(100,Math.max(photo ? 2 : 5,field.width));
         field.x = Math.min(100-field.width,Math.max(0,field.x));
         if (photo) field.height = Math.min(40,Math.max(2,field.height));
@@ -42,7 +48,7 @@ export function initK3CertificateEditor({ applyFieldStyle, loadFontsAndFit }) {
     function render(key) {
         const field = layout.fields[key], node = blocks.get(key);
         for (const property of ['x','y','width','height']) if (property in field) node.dataset['k3'+property[0].toUpperCase()+property.slice(1)] = field[property];
-        if (key !== 'photo') {
+        if (!['photo','qr'].includes(key)) {
             Object.assign(node.dataset,{k3FontName:field.font,k3FontFamily:fonts.get(field.font),k3FontSize:field.size,k3FontColor:field.color,k3Bold:field.bold?'1':'0',k3BoldFirstLine:field.bold_first_line?'1':'0',k3Align:field.align,k3Source:field.text});
             if (textEditing !== key) {
                 const text = field.text.replace(/\{\{([^{}]+)\}\}/g,(token,name) => Object.hasOwn(values,name) ? values[name] : token);
@@ -56,10 +62,11 @@ export function initK3CertificateEditor({ applyFieldStyle, loadFontsAndFit }) {
         applyFieldStyle(node); attachHandle(node);
     }
     function syncControls() {
-        const field = layout.fields[selected], photo = selected === 'photo';
+        const field = layout.fields[selected], photo = selected === 'photo', qr = selected === 'qr';
         picker.value = selected;
-        form.querySelectorAll('[data-k3-text-tool]').forEach((node) => { node.hidden = photo; });
+        form.querySelectorAll('[data-k3-text-tool]').forEach((node) => { node.hidden = photo || qr; });
         form.querySelectorAll('[data-k3-photo-tool]').forEach((node) => { node.hidden = !photo; });
+        form.querySelectorAll('[data-k3-qr-tool]').forEach((node) => { node.hidden = !qr; });
         controls.forEach((control) => {
             const property = control.dataset.k3Property;
             control.disabled = !(property in field);
@@ -82,7 +89,7 @@ export function initK3CertificateEditor({ applyFieldStyle, loadFontsAndFit }) {
         syncControls();
     }
     function beginText() {
-        if (!editing || selected === 'photo') return;
+        if (!editing || ['photo','qr'].includes(selected)) return;
         finishText(); textEditing = selected;
         const node = blocks.get(selected);
         node.replaceChildren(document.createTextNode(layout.fields[selected].text));
@@ -101,7 +108,12 @@ export function initK3CertificateEditor({ applyFieldStyle, loadFontsAndFit }) {
         select(selected);
     }
     blocks.forEach((node,key) => {
-        node.addEventListener('click',() => { if (editing) select(key); });
+        node.addEventListener('click',(event) => {
+            if (editing) {
+                if (key === 'qr') event.preventDefault();
+                select(key);
+            }
+        });
         node.addEventListener('dblclick',() => { if (editing) { select(key);beginText(); } });
         node.addEventListener('blur',() => { if (textEditing === key) finishText(); });
         node.addEventListener('input',() => {
@@ -153,6 +165,13 @@ export function initK3CertificateEditor({ applyFieldStyle, loadFontsAndFit }) {
     }));
     controls.filter(control=>control.dataset.k3Property in PAGE).forEach(control=>control.addEventListener('change',syncControls));
     picker.addEventListener('change',() => select(picker.value));
+    form.querySelectorAll('[data-k3-qr-nudge]').forEach((button) => button.addEventListener('click', () => {
+        if (!editing || selected !== 'qr') return;
+        const direction = button.dataset.k3QrNudge;
+        const axis = ['left','right'].includes(direction) ? 'x' : 'y';
+        layout.fields.qr[axis] += (['left','up'].includes(direction) ? -1 : 1) * 100 / PAGE[axis];
+        clamp('qr'); render('qr'); syncControls(); markDirty();
+    }));
     form.querySelector('[data-k3-edit-toggle]').addEventListener('click',() => {
         toggle(!editing);
         showAlert({
@@ -162,7 +181,7 @@ export function initK3CertificateEditor({ applyFieldStyle, loadFontsAndFit }) {
     });
     form.querySelector('[data-k3-edit-text]').addEventListener('click',beginText);
     form.querySelector('[data-k3-insert-token]').addEventListener('change',(event) => {
-        if(!event.target.value||selected==='photo')return;
+        if(!event.target.value||['photo','qr'].includes(selected))return;
         finishText();const input=form.querySelector('[data-k3-property="text"]');
         const text=layout.fields[selected].text,start=input.selectionStart??text.length,end=input.selectionEnd??start;
         layout.fields[selected].text=(text.slice(0,start)+'{{'+event.target.value+'}}'+text.slice(end)).slice(0,1000);

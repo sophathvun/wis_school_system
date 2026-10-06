@@ -6,6 +6,7 @@ use App\Models\Permission;
 use App\Models\Role;
 use App\Support\K3CertificatePermissions;
 use App\Support\G9CertificatePermissions;
+use App\Support\G12CertificatePermissions;
 use Illuminate\Database\Seeder;
 
 class AccessFoundationSeeder extends Seeder
@@ -116,6 +117,9 @@ class AccessFoundationSeeder extends Seeder
         foreach (G9CertificatePermissions::catalog() as $code => $name) {
             $permissions[] = ['code' => $code, 'module' => 'reports.g9', 'action' => substr($code, strlen('reports.g9.')), 'name' => $name];
         }
+        foreach (G12CertificatePermissions::catalog() as $code => $name) {
+            $permissions[] = ['code' => $code, 'module' => 'reports.g12', 'action' => substr($code, strlen('reports.g12.')), 'name' => $name];
+        }
         foreach ($permissions as $permission) {
             Permission::updateOrCreate(['code' => $permission['code']], $permission);
         }
@@ -134,7 +138,7 @@ class AccessFoundationSeeder extends Seeder
             $role = Role::updateOrCreate(['code' => $roleData['code']], $roleData + ['is_system' => true, 'status' => 1]);
             // These shared certificate actions require an explicit grant to non-super roles.
             $rolePermissions = $role->code === 'super-admin' ? $allPermissions : $allPermissions->filter(
-                fn ($permission) => (!array_key_exists($permission->code, K3CertificatePermissions::catalog()) && !array_key_exists($permission->code, G9CertificatePermissions::catalog())) || $role->permissions->contains('id', $permission->id)
+                fn ($permission) => (!array_key_exists($permission->code, K3CertificatePermissions::catalog()) && !array_key_exists($permission->code, G9CertificatePermissions::catalog()) && !array_key_exists($permission->code, G12CertificatePermissions::catalog())) || $role->permissions->contains('id', $permission->id)
             );
             $role->permissions()->sync($rolePermissions->modelKeys());
         }

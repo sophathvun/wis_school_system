@@ -29,7 +29,7 @@ class G9CertificateController
             'update_prefix' => $count ? "Prefix updated on {$count} certificates. Student sequence numbers and Given Date kept unchanged." : 'Certificate Prefix saved for this academic year.',
             default => 'Given Date saved for this academic year.',
         };
-        return redirect()->route('reports.index', ['type' => 'g9-certificate-wis', 'academic_year_id' => $data['academic_year_id']] + $request->only(['campus_id', 'grade_class', 'certificate_student_id']))
+        return redirect()->route('reports.index', ['type' => 'g9-certificate-wis', 'academic_year_id' => $data['academic_year_id']] + $request->only(['campus_id', 'grade_class', 'certificate_student_id', 'certificate_show_qr']))
             ->with('success', $message)->with('g9_action', $data['action']);
     }
 
@@ -39,7 +39,7 @@ class G9CertificateController
         $layout = json_decode($data['template_data'],true);
         $validated = \Illuminate\Support\Facades\Validator::make(is_array($layout)?$layout:[],\App\Support\G9CertificateLayout::rules())->validate();
         app(G9CertificateReport::class)->saveTemplate($request,$validated,(int)$data['template_version']);
-        return redirect()->route('reports.index',['type'=>'g9-certificate-wis']+$request->only(['academic_year_id','campus_id','grade_class','certificate_student_id']))
+        return redirect()->route('reports.index',['type'=>'g9-certificate-wis']+$request->only(['academic_year_id','campus_id','grade_class','certificate_student_id','certificate_show_qr']))
             ->with('success','G9 certificate template saved. It will be used for certificates in all academic years.')->with('g9_action','save_template');
     }
 

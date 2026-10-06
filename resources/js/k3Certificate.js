@@ -6,7 +6,7 @@ function applyFieldStyle(field) {
     field.style.top = `${field.dataset.k3Y}%`;
     field.style.width = `${field.dataset.k3Width}%`;
     if (!field.dataset.k3FontKey) {
-        field.style.height = `${field.dataset.k3Height}%`;
+        if (field.dataset.k3Height) field.style.height = `${field.dataset.k3Height}%`;
         return;
     }
     field.style.fontFamily = field.dataset.k3FontFamily;
@@ -44,6 +44,35 @@ async function loadFontsAndFit(root = document) {
 }
 
 function initK3Certificate() {
+    const filterForm = document.querySelector('.report-filter-form-k3-certificate-wis');
+    const qrToggle = document.querySelector('[data-k3-qr-toggle]');
+    const syncQrPreview = () => {
+        if (!qrToggle) return;
+        document.querySelectorAll('[data-k3-certificate-preview] [data-k3-layout-key="qr"]').forEach((node) => {
+            node.hidden = !qrToggle.checked;
+        });
+    };
+    syncQrPreview();
+    qrToggle?.addEventListener('change', () => {
+        const value = qrToggle.checked ? '1' : '0';
+        syncQrPreview();
+        filterForm.querySelector('[data-k3-qr-value]').value = value;
+        document.querySelectorAll('.k3-certificate-settings, [data-k3-template-editor]').forEach((form) => {
+            const input = form.querySelector('[name="certificate_show_qr"]');
+            if (input) input.value = value;
+        });
+        const withQr = (address) => {
+            const url = new URL(address, window.location.href);
+            url.searchParams.set('certificate_show_qr', value);
+            return url.toString();
+        };
+        window.history.replaceState(null, '', withQr(window.location.href));
+        document.querySelectorAll('.premium-pagination a[href]').forEach((link) => {
+            if (link.getAttribute('href') !== '#') link.href = withQr(link.href);
+        });
+        document.querySelectorAll('[data-preview-page-size] option[data-url]').forEach((option) => { option.dataset.url = withQr(option.dataset.url); });
+        document.querySelectorAll('[data-preview-goto-url]').forEach((input) => { input.dataset.previewGotoUrl = withQr(input.dataset.previewGotoUrl); });
+    });
     const feedback = document.querySelector('[data-k3-action-feedback="error"]') || document.querySelector('[data-k3-action-feedback]');
     if (feedback) {
         showAlert({ type: feedback.dataset.k3ActionFeedback, title: feedback.dataset.k3ActionTitle, message: feedback.textContent.trim() });

@@ -41,7 +41,7 @@ function g9CertificatePermissionUser(array $codes = [], string $source = 'user')
 }
 
 beforeEach(function () {
-    Schema::create('tb_academic_year', function (Blueprint $t) { $t->id(); $t->string('period_type')->default('regular'); $t->softDeletes(); });
+    Schema::create('tb_academic_year', function (Blueprint $t) { $t->id(); $t->string('academic_year')->default('2025-2026'); $t->string('period_type')->default('regular'); $t->softDeletes(); });
     Schema::create('tb_school_info', function (Blueprint $t) { $t->id(); $t->string('campus_name_en'); });
     Schema::create('tb_grade', function (Blueprint $t) { $t->id(); $t->string('grade'); $t->string('grade_short_name'); $t->softDeletes(); });
     Schema::create('tb_class', function (Blueprint $t) { $t->id(); $t->string('class_name'); $t->softDeletes(); });
@@ -53,6 +53,7 @@ beforeEach(function () {
     (require database_path('migrations/2026_10_06_000005_create_g9_certificates.php'))->up();
     (require database_path('migrations/2026_10_06_000006_add_g9_certificate_typography.php'))->up();
     (require database_path('migrations/2026_10_06_000007_create_g9_certificate_template.php'))->up();
+    (require database_path('migrations/2026_10_06_000009_add_g9_certificate_qr_tokens.php'))->up();
     DB::table('tb_academic_year')->insert([['id'=>1],['id'=>2]]);
     DB::table('tb_school_info')->insert([['id'=>1,'campus_name_en'=>'BKK'],['id'=>2,'campus_name_en'=>'BCH']]);
     DB::table('tb_grade')->insert([['id'=>1,'grade'=>'9','grade_short_name'=>'9'],['id'=>2,'grade'=>'8','grade_short_name'=>'8']]);
@@ -78,6 +79,169 @@ it('assigns G9 only by campus then class then English name across the whole year
     expect(G9Certificate::orderBy('sequence')->pluck('student_id')->all())->toBe([3,2,4,1]);
     expect(G9Certificate::orderBy('sequence')->pluck('certificate_number')->all())->toBe(['26G9001','26G9002','26G9003','26G9004']);
     expect(DB::table('tb_student_enrollment')->where('enrollment_status','active')->count())->toBe(7);
+});
+
+it('stores distinct QR tokens and keeps them after reassigning numbers or editing the prefix', function () {
+    $this->service->save($this->request, $this->data);
+    $tokens = G9Certificate::orderBy('student_id')->pluck('qr_token', 'student_id')->all();
+    expect(array_unique($tokens))->toHaveCount(4);
+    foreach ($tokens as $token) expect($token)->toMatch('/^[A-Za-z0-9]{40}$/');
+    $this->service->save($this->request, $this->data);
+    $this->service->save($this->request, array_replace($this->data, ['action'=>'update_prefix', 'number_prefix'=>'NEW-G9']));
+    expect(G9Certificate::orderBy('student_id')->pluck('qr_token', 'student_id')->all())->toBe($tokens);
+});
+
+it('uses the Branding favicon in the QR center for both preview and exported content', function () {
+    \Illuminate\Support\Facades\Storage::fake('public');
+    $logo = imagecreatetruecolor(128, 64);
+    imagefill($logo, 0, 0, imagecolorallocate($logo, 220, 25, 35));
+    ob_start(); imagepng($logo); $contents = ob_get_clean(); imagedestroy($logo);
+    \Illuminate\Support\Facades\Storage::disk('public')->put('branding/favicon.png', $contents);
+    Schema::create('tb_branding_setting', function (Blueprint $t) { $t->id(); $t->string('favicon_path')->nullable(); });
+    DB::table('tb_branding_setting')->insert(['favicon_path'=>'branding/favicon.png']);
+    $this->service->save($this->request, $this->data);
+    foreach ([true, false] as $preview) {
+        $payload = $this->service->payload($this->request, ['academic_year_id'=>1, 'certificate_show_qr'=>'1'], $preview);
+        $image = imagecreatefromstring(base64_decode(substr($payload['certificates']->first()->certificate_qr_image, strlen('data:image/png;base64,'))));
+        $center = imagecolorsforindex($image, imagecolorat($image, 210, 210));
+        expect([$center['red'], $center['green'], $center['blue']])->toBe([220,25,35]);
+        $backing = imagecolorsforindex($image, imagecolorat($image, 210, 170));
+        expect([$backing['red'], $backing['green'], $backing['blue']])->toBe([255,255,255]);
+        imagedestroy($image);
+    }
+});
+
+it('keeps QR generation working if the favicon file is missing or unreadable', function () {
+    \Illuminate\Support\Facades\Storage::fake('public');
+    $token = str_repeat('a', 40);
+    $plain = \App\Support\G9CertificateQr::image($token, '');
+    expect(\App\Support\G9CertificateQr::image($token, 'branding/missing.png'))->toBe($plain);
+    \Illuminate\Support\Facades\Storage::disk('public')->put('branding/broken.png', 'broken image');
+    expect(\App\Support\G9CertificateQr::image($token, 'branding/broken.png'))->toBe($plain);
+});
+
+it('backfills QR tokens for existing certificates without changing their numbers', function () {
+    $this->service->save($this->request, $this->data);
+    $numbers = G9Certificate::orderBy('id')->pluck('certificate_number')->all();
+    $migration = require database_path('migrations/2026_10_06_000009_add_g9_certificate_qr_tokens.php');
+    $migration->down();
+    $migration->up();
+    expect(G9Certificate::whereNotNull('qr_token')->count())->toBe(4)
+        ->and(G9Certificate::distinct()->count('qr_token'))->toBe(4)
+        ->and(G9Certificate::orderBy('id')->pluck('certificate_number')->all())->toBe($numbers);
+});
+
+it('verifies an issued G9 certificate publicly without a login and reflects prefix corrections', function () {
+    $this->service->save($this->request, $this->data);
+    $certificate = G9Certificate::where('student_id', 3)->firstOrFail();
+    $url = route('g9-certificate.verify', $certificate->qr_token);
+    $this->get($url)->assertOk()->assertSee('Verified G9 Certificate')->assertSee('ALICE')
+        ->assertSee('26G9001')->assertSee('2025-2026')->assertSee('15 Aug 2026')
+        ->assertHeader('X-Robots-Tag', 'noindex, nofollow')->assertDontSee('ID-3');
+    $this->service->save($this->request, array_replace($this->data, ['action'=>'update_prefix', 'number_prefix'=>'FIX-G9']));
+    $this->get($url)->assertOk()->assertSee('FIX-G9001')->assertDontSee('26G9001');
+});
+
+it('rejects missing and malformed public G9 tokens', function () {
+    $this->get(route('g9-certificate.verify', str_repeat('a', 40)))->assertNotFound();
+    $this->get('/certificates/g9/1')->assertNotFound();
+});
+
+it('exports one G9 PDF page with verification inside the QR border and scan instructions below', function () {
+    $this->service->save($this->request, $this->data);
+    $payload = $this->service->payload($this->request, ['academic_year_id'=>1, 'certificate_student_id'=>3, 'certificate_show_qr'=>'1']);
+    $html = \App\Support\G9CertificatePdfLayout::prepareHtml(view('reports.g9-certificate-print', $payload + ['pdfMode'=>true])->render());
+    $temp = storage_path('framework/testing/g9-pdf');
+    \Illuminate\Support\Facades\File::ensureDirectoryExists($temp);
+    $pdf = new \Dompdf\Dompdf(['chroot'=>[public_path(), resource_path('css'), $temp], 'tempDir'=>$temp, 'fontDir'=>$temp, 'fontCache'=>$temp]);
+    $pdf->loadHtml($html);
+    $pdf->setPaper('a4', 'landscape');
+    \App\Support\G9CertificatePdfLayout::configure($pdf);
+    $prepare = $pdf->getCallbacks()['begin_page_reflow'][0];
+    $boxes = [];
+    $pdf->setCallbacks([
+        ['event'=>'begin_page_reflow', 'f'=>$prepare],
+        ['event'=>'begin_page_render', 'f'=>function ($page) use (&$boxes) {
+            foreach ($page->get_subtree() as $frame) {
+                $node = $frame->get_node();
+                if (!$node instanceof DOMElement) continue;
+                if ($node->tagName === 'img' && $node->getAttribute('alt') === 'QR code to verify this G9 certificate') {
+                    $boxes['qr'] = $frame->get_border_box();
+                }
+                foreach (['g9-qr-verification-note'=>'verification', 'g9-qr-scan-note'=>'scan'] as $class=>$key) {
+                    if ($node->getAttribute('class') === $class) $boxes[$key] = $frame->get_border_box();
+                }
+            }
+        }],
+    ]);
+    $pdf->render();
+    expect($pdf->getCanvas()->get_page_count())->toBe(1)
+        ->and($pdf->output())->toContain('/Subtype /Image');
+    expect($boxes)->toHaveKeys(['qr', 'verification', 'scan']);
+    expect($boxes['verification']['y'])->toBeGreaterThan($boxes['qr']['y'])
+        ->and($boxes['verification']['y'] + $boxes['verification']['h'])->toBeLessThan($boxes['qr']['y'] + $boxes['qr']['h'])
+        ->and($boxes['scan']['y'])->toBeGreaterThanOrEqual($boxes['qr']['y'] + $boxes['qr']['h']);
+});
+
+it('shows QR in preview and printed content only when checked', function () {
+    $this->service->save($this->request, $this->data);
+    $filters = ['academic_year_id'=>1, 'certificate_student_id'=>3];
+    $without = $this->service->payload($this->request, $filters);
+    $with = $this->service->payload($this->request, $filters + ['certificate_show_qr'=>'1']);
+    expect(view('reports.g9-certificate-print', $without)->render())->not->toContain('class="g9-certificate-qr"');
+    $html = view('reports.g9-certificate-print', $with)->render();
+    expect($html)->toContain('class="g9-certificate-qr"', 'data:image/png;base64,', 'data-g9-layout-key="qr"');
+    $verificationUrl = route('g9-certificate.verify', G9Certificate::where('student_id', 3)->firstOrFail()->qr_token);
+    expect($html)->toContain('class="g9-qr-verification-note"', 'href="'.$verificationUrl.'"', 'g9-qr-verification-tick', 'Verify:');
+    $png = base64_decode(substr($with['certificates']->first()->certificate_qr_image, strlen('data:image/png;base64,')));
+    expect(substr($png, 0, 8))->toBe("\x89PNG\r\n\x1a\n");
+    $size = getimagesizefromstring($png);
+    expect($size[0])->toBe(420)->and($size[1])->toBe(420);
+    $preview = $this->service->payload($this->request, $filters, true);
+    $document = new DOMDocument();
+    @$document->loadHTML(view('reports._g9-certificate-page', $preview + ['certificate'=>$preview['certificates']->first(), 'showFrame'=>true])->render());
+    expect((new DOMXPath($document))->query('//div[@class="g9-certificate-qr" and @hidden]')->length)->toBe(1);
+    expect((new DOMXPath($document))->query('//div[@class="g9-certificate-qr" and not(@hidden)]')->length)->toBe(0);
+    $previewWithQr = $this->service->payload($this->request, $filters + ['certificate_show_qr'=>'1'], true);
+    @$document->loadHTML(view('reports._g9-certificate-page', $previewWithQr + ['certificate'=>$previewWithQr['certificates']->first(), 'showFrame'=>true])->render());
+    expect((new DOMXPath($document))->query('//div[@class="g9-certificate-qr" and not(@hidden)]')->length)->toBe(1);
+    $link = (new DOMXPath($document))->query('//div[@class="g9-certificate-qr"]/div[@class="g9-qr-frame"]/a')->item(0);
+    expect($link->getAttribute('href'))->toBe($verificationUrl);
+    expect((new DOMXPath($document))->query('//div[@class="g9-certificate-qr"]/span[@class="g9-qr-scan-note"]')->item(0)->textContent)->toBe('Scan to Verify.');
+});
+
+it('can position QR in preview before certificate numbers are assigned', function () {
+    $payload = $this->service->payload($this->request, ['academic_year_id'=>1], true);
+    $html = view('reports._g9-certificate-page', $payload + ['certificate'=>$payload['certificates']->first(), 'showFrame'=>true])->render();
+    expect($html)->toContain('data-g9-layout-key="qr"', 'Assign certificate numbers to activate');
+});
+
+it('saves the QR position and uses it for future certificate previews and PDF output', function () {
+    $layout = \App\Support\G9CertificateLayout::defaults();
+    $layout['fields']['qr'] = ['x'=>65, 'y'=>71, 'width'=>9];
+    $this->actingAs($this->request->user())->withoutMiddleware();
+    $this->post(route('reports.g9-certificates.template'), ['template_data'=>json_encode($layout), 'template_version'=>0])->assertRedirect();
+    $this->service->save($this->request, $this->data);
+    $payload = $this->service->payload($this->request, ['academic_year_id'=>1, 'certificate_show_qr'=>'1']);
+    expect($payload['certificateLayout']['fields']['qr'])->toEqual($layout['fields']['qr']);
+    $future = $this->service->payload($this->request, ['academic_year_id'=>2], true);
+    expect($future['certificateLayout']['fields']['qr'])->toEqual($layout['fields']['qr']);
+    $html = \App\Support\G9CertificatePdfLayout::prepareHtml(view('reports.g9-certificate-print', $payload + ['pdfMode'=>true])->render());
+    $document = new DOMDocument();
+    @$document->loadHTML($html);
+    $qr = (new DOMXPath($document))->query('//*[@data-g9-layout-key="qr"]')->item(0);
+    expect($qr->getAttribute('style'))->toContain('left:65%', 'top:71%', 'width:9%');
+});
+
+it('keeps older templates compatible and contains resized QR blocks inside the page', function () {
+    $layout = \App\Support\G9CertificateLayout::defaults();
+    unset($layout['fields']['qr']);
+    expect(\Illuminate\Support\Facades\Validator::make($layout, \App\Support\G9CertificateLayout::rules())->passes())->toBeTrue();
+    expect(\App\Support\G9CertificateLayout::resolve($layout)['fields']['qr'])->toEqual(['x'=>33, 'y'=>68, 'width'=>10]);
+    $layout['fields']['qr'] = ['x'=>98, 'y'=>95, 'width'=>20];
+    $qr = \App\Support\G9CertificateLayout::resolve($layout)['fields']['qr'];
+    expect($qr['x'] + $qr['width'])->toBeLessThanOrEqual(100)
+        ->and($qr['y'] + ($qr['width']*297/100+3)*100/210)->toBeLessThanOrEqual(100);
 });
 
 it('accepts numeric and G9 grade codes while excluding K3 and G12', function () {
@@ -126,6 +290,7 @@ it('keeps G9 numbers dates and templates independent from K3', function () {
     (require database_path('migrations/2026_10_06_000001_create_k3_certificates.php'))->up();
     (require database_path('migrations/2026_10_06_000002_add_k3_certificate_typography.php'))->up();
     (require database_path('migrations/2026_10_06_000003_create_k3_certificate_template.php'))->up();
+    (require database_path('migrations/2026_10_06_000015_add_k3_certificate_qr_tokens.php'))->up();
     $k3 = App\Models\K3CertificateYear::create(['academic_year_id'=>1,'given_date'=>'2026-08-01','number_prefix'=>'K3-']);
     App\Models\K3Certificate::create(['certificate_year_id'=>$k3->id,'student_id'=>3,'enrollment_id'=>3,'sequence'=>1,'certificate_number'=>'K3-001']);
     App\Models\K3CertificateTemplate::find(1)->update(['layout'=>['fields'=>['heading'=>['text'=>'K3 ONLY']]],'version'=>7]);

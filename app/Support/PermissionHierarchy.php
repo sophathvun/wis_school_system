@@ -75,7 +75,7 @@ class PermissionHierarchy
             'reports' => [
                 'label' => 'Reports', 'permission' => 'reports.view',
                 'modules' => [],
-                'actions' => ['reports.export', K3CertificatePermissions::SAVE_GIVEN_DATE, K3CertificatePermissions::ASSIGN_NUMBERS, K3CertificatePermissions::EDIT_PREFIX, K3CertificatePermissions::EDIT_TEMPLATE, G9CertificatePermissions::SAVE_GIVEN_DATE, G9CertificatePermissions::ASSIGN_NUMBERS, G9CertificatePermissions::EDIT_PREFIX, G9CertificatePermissions::EDIT_TEMPLATE],
+                'actions' => ['reports.export', K3CertificatePermissions::SAVE_GIVEN_DATE, K3CertificatePermissions::ASSIGN_NUMBERS, K3CertificatePermissions::EDIT_PREFIX, K3CertificatePermissions::EDIT_TEMPLATE, G9CertificatePermissions::SAVE_GIVEN_DATE, G9CertificatePermissions::ASSIGN_NUMBERS, G9CertificatePermissions::EDIT_PREFIX, G9CertificatePermissions::EDIT_TEMPLATE, G12CertificatePermissions::SAVE_GIVEN_DATE, G12CertificatePermissions::ASSIGN_NUMBERS, G12CertificatePermissions::EDIT_PREFIX, G12CertificatePermissions::EDIT_TEMPLATE],
             ],
         ];
     }

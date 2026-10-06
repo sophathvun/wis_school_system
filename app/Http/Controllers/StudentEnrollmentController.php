@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Rule;
 use App\Services\FamilyService;
@@ -426,134 +427,166 @@ class StudentEnrollmentController
             $validated['academic_track_id'] = null;
         }
 
-        $enrollment = DB::transaction(function () use ($validated, $id, $request) {
-            $student = $request->input('student_record_id') ? Student::findOrFail($request->input('student_record_id')) : new Student();
-            if ($student->exists) {
-                $validated['student_no'] = $student->student_no;
-            } else {
-                $validated['student_no'] = $this->nextStudentNumber();
-            }
-            $validated['family_number'] = $validated['existing_family_number']
-                ?: ($validated['family_number'] ?: ('F' . $validated['student_id']));
-
-            $duplicate = StudentEnrollment::where('academic_year_id', $validated['academic_year_id'])
-                ->whereHas('student', fn ($q) => $q->where('student_no', $validated['student_no']))
-                ->when($id, fn ($q) => $q->where('id', '!=', $id))
-                ->exists();
-
-            if ($duplicate) {
-                throw ValidationException::withMessages([
-                    'student_no' => "Unable to save Student Enrollment. Student '{$validated['student_no']}' is already enrolled for this academic year.",
-                ]);
-            }
-
-            $student->fill(\App\Support\StudentBirthplaceResolver::clearTextForSelectionChanges($student, $validated));
-
-            $student->fill(collect($validated)->only(['student_no', 'student_id', 'family_number', 'full_name_en', 'full_name_kh', 'gender', 'gender_kh', 'date_of_birth', 'nationality_country_id', 'home_phone', 'email', 'birth_country_id', 'birth_province_id', 'birth_district_id', 'birth_commune_id', 'birth_village_id', 'address_country_id', 'address_province_id', 'address_district_id', 'address_commune_id', 'address_village_id', 'address_house_no_en', 'address_house_no_kh', 'address_street_en', 'address_street_kh', 'current_address_en', 'current_address_kh', 'previous_school', 'experienced_english', 'test_result', 'tested_by', 'remarks'])->all());
-            if ($request->hasFile('photo')) {
-                if ($student->photo_path) {
-                    Storage::disk('public')->delete($student->photo_path);
+        $newPhotoPath = null;
+        try {
+            $enrollment = DB::transaction(function () use ($validated, $id, $request, &$newPhotoPath) {
+                $student = $request->input('student_record_id')
+                    ? Student::query()->lockForUpdate()->findOrFail($request->input('student_record_id'))
+                    : new Student();
+                if ($student->exists) {
+                    $validated['student_no'] = $student->student_no;
+                } else {
+                    $validated['student_no'] = $this->nextStudentNumber();
                 }
-                $photo = $request->file('photo');
-                $photoName = $this->studentPhotoFilename($student, $photo->extension());
-                $student->photo_path = $photo->storeAs('student_photos', $photoName, 'public');
-            }
-            $student->status = $validated['status'];
-            $student->save();
-            $student->ensureIdCardQrCode();
+                $validated['family_number'] = $validated['existing_family_number']
+                    ?: ($validated['family_number'] ?: ('F' . $validated['student_id']));
 
-            $family = $this->familyService->syncStudentFamily($student, $validated['family_number']);
-            $this->familyService->syncEnrollmentMember($family, 'mother', [
-                'full_name_en' => $validated['mother_name_en'] ?? null,
-                'full_name_kh' => $validated['mother_name_kh'] ?? null,
-                'occupation_en' => $validated['mother_occupation_en'] ?? null,
-                'occupation_kh' => $validated['mother_occupation_kh'] ?? null,
-                'workplace' => $validated['mother_workplace'] ?? null,
-                'nationality_country_id' => $validated['mother_nationality_country_id'] ?? null,
-                'occupation_id' => $validated['mother_occupation_id'] ?? null,
-                'phone' => $validated['mother_phone'] ?? null,
-            ], $student);
-            $this->familyService->syncEnrollmentMember($family, 'father', [
-                'full_name_en' => $validated['father_name_en'] ?? null,
-                'full_name_kh' => $validated['father_name_kh'] ?? null,
-                'occupation_en' => $validated['father_occupation_en'] ?? null,
-                'occupation_kh' => $validated['father_occupation_kh'] ?? null,
-                'workplace' => $validated['father_workplace'] ?? null,
-                'nationality_country_id' => $validated['father_nationality_country_id'] ?? null,
-                'occupation_id' => $validated['father_occupation_id'] ?? null,
-                'phone' => $validated['father_phone'] ?? null,
-            ], $student);
-            $this->familyService->syncEnrollmentMember($family, 'guardian', [
-                'full_name_en' => $validated['guardian_name_en'] ?? null,
-                'full_name_kh' => $validated['guardian_name_kh'] ?? null,
-                'occupation_en' => $validated['guardian_occupation_en'] ?? null,
-                'occupation_kh' => $validated['guardian_occupation_kh'] ?? null,
-                'workplace' => $validated['guardian_workplace'] ?? null,
-                'nationality_country_id' => $validated['guardian_nationality_country_id'] ?? null,
-                'occupation_id' => $validated['guardian_occupation_id'] ?? null,
-                'phone' => $validated['guardian_phone'] ?? null,
-            ], $student);
+                $duplicate = StudentEnrollment::where('academic_year_id', $validated['academic_year_id'])
+                    ->whereHas('student', fn ($q) => $q->where('student_no', $validated['student_no']))
+                    ->when($id, fn ($q) => $q->where('id', '!=', $id))
+                    ->exists();
 
-            $enrollment = $id ? StudentEnrollment::findOrFail($id) : new StudentEnrollment();
-            $wasExisting = $enrollment->exists;
-            $oldAssignment = $wasExisting ? $enrollment->only(['campus_id', 'academic_year_id', 'grade_id', 'class_id', 'academic_track_id', 'session_id']) : [];
-            if ($wasExisting) {
-                $newAssignment = collect($validated)->only(['campus_id', 'academic_year_id', 'grade_id', 'class_id', 'academic_track_id', 'session_id'])
-                    ->map(fn ($value) => $value === null || $value === '' ? null : (int) $value)
-                    ->all();
-                $oldAssignment = collect($oldAssignment)
-                    ->map(fn ($value) => $value === null || $value === '' ? null : (int) $value)
-                    ->all();
-                if ($oldAssignment !== $newAssignment) {
+                if ($duplicate) {
                     throw ValidationException::withMessages([
-                        'enrollment_id' => 'Enrollment assignment cannot be changed here. Use Transfer Student to change the campus, grade, class, academic year, track, or group.',
+                        'student_no' => "Unable to save Student Enrollment. Student '{$validated['student_no']}' is already enrolled for this academic year.",
                     ]);
                 }
-            }
-            $enrollment->fill(collect($validated)->only(['campus_id', 'academic_year_id', 'grade_id', 'class_id', 'academic_track_id', 'session_id', 'status'])->all());
-            $enrollment->group_id = null;
-            $enrollment->student_id = $student->id;
-            $academicYear = AcademicYear::findOrFail($validated['academic_year_id']);
-            $existingStatus = $wasExisting ? $enrollment->enrollment_status : null;
-            $requestedStatus = $validated['enrollment_status'] ?? null;
-            $terminalStatuses = ['withdrawn', 'transferred', 'graduated', 'cancelled'];
-            $enrollment->enrollment_status = in_array($requestedStatus, $terminalStatuses, true)
-                ? $requestedStatus
-                : (in_array($existingStatus, $terminalStatuses, true) && !$requestedStatus
-                    ? $existingStatus
-                    : match ($academicYear->lifecycle_status) {
-                        'started' => 'active',
-                        'pending' => 'pending',
-                        'finished' => 'completed',
-                        default => $requestedStatus ?: ($existingStatus ?: 'pending'),
+
+                $student->fill(\App\Support\StudentBirthplaceResolver::clearTextForSelectionChanges($student, $validated));
+
+                $student->fill(collect($validated)->only(['student_no', 'student_id', 'family_number', 'full_name_en', 'full_name_kh', 'gender', 'gender_kh', 'date_of_birth', 'nationality_country_id', 'home_phone', 'email', 'birth_country_id', 'birth_province_id', 'birth_district_id', 'birth_commune_id', 'birth_village_id', 'address_country_id', 'address_province_id', 'address_district_id', 'address_commune_id', 'address_village_id', 'address_house_no_en', 'address_house_no_kh', 'address_street_en', 'address_street_kh', 'current_address_en', 'current_address_kh', 'previous_school', 'experienced_english', 'test_result', 'tested_by', 'remarks'])->all());
+                if ($request->hasFile('photo')) {
+                    $oldPhotoPath = $student->photo_path;
+                    $photo = $request->file('photo');
+                    $photoName = $this->studentPhotoFilename($student, $photo->extension());
+                    $newPhotoPath = $photo->storeAs('student_photos', $photoName, 'public');
+                    if (!$newPhotoPath) {
+                        throw ValidationException::withMessages(['photo' => 'Unable to store the new student photo. Please try again.']);
+                    }
+                    $student->photo_path = $newPhotoPath;
+                    // Keep the original file until the entire enrollment update commits.
+                    DB::afterCommit(function () use ($oldPhotoPath) {
+                        if (!$oldPhotoPath) {
+                            return;
+                        }
+                        try {
+                            if (Student::where('photo_path', $oldPhotoPath)->exists()) {
+                                return;
+                            }
+                            if (!Storage::disk('public')->delete($oldPhotoPath)) {
+                                report(new \RuntimeException('Unable to delete replaced student photo: ' . $oldPhotoPath));
+                            }
+                        } catch (\Throwable $exception) {
+                            report($exception);
+                        }
                     });
-            $enrollment->student_type = StudentEnrollment::where('student_id', $student->id)
-                ->when($id, fn ($query) => $query->where('id', '!=', $id))
-                ->where('academic_year_id', '!=', $validated['academic_year_id'])
-                ->exists() ? 'old' : 'new';
-            $enrollment->enrolled_on = $validated['enrolled_on'] ?? ($enrollment->enrolled_on ?: now()->toDateString());
-            $enrollment->ended_on = $validated['ended_on'] ?? null;
-            $enrollment->exit_reason = $validated['exit_reason'] ?? null;
-            $enrollment->notes = $validated['enrollment_notes'] ?? null;
-            $enrollment->save();
+                }
+                $student->status = $validated['status'];
+                $student->save();
+                $student->ensureIdCardQrCode();
 
-            $newAssignment = $enrollment->only(['campus_id', 'academic_year_id', 'grade_id', 'class_id', 'academic_track_id', 'session_id']);
-            $action = !$wasExisting ? 'enrolled' : ($oldAssignment !== $newAssignment ? 'assignment_changed' : 'updated');
-            StudentEnrollmentHistory::create([
-                'enrollment_id' => $enrollment->id,
-                'student_id' => $student->id,
-                'action_type' => $action,
-                ...$newAssignment,
-                'enrollment_status' => $enrollment->enrollment_status,
-                'student_type' => $enrollment->student_type,
-                'effective_on' => $enrollment->ended_on ?: $enrollment->enrolled_on,
-                'reason' => $enrollment->exit_reason,
-                'notes' => $enrollment->notes,
-                'changed_by' => auth()->id(),
-            ]);
+                $family = $this->familyService->syncStudentFamily($student, $validated['family_number']);
+                $this->familyService->syncEnrollmentMember($family, 'mother', [
+                    'full_name_en' => $validated['mother_name_en'] ?? null,
+                    'full_name_kh' => $validated['mother_name_kh'] ?? null,
+                    'occupation_en' => $validated['mother_occupation_en'] ?? null,
+                    'occupation_kh' => $validated['mother_occupation_kh'] ?? null,
+                    'workplace' => $validated['mother_workplace'] ?? null,
+                    'nationality_country_id' => $validated['mother_nationality_country_id'] ?? null,
+                    'occupation_id' => $validated['mother_occupation_id'] ?? null,
+                    'phone' => $validated['mother_phone'] ?? null,
+                ], $student);
+                $this->familyService->syncEnrollmentMember($family, 'father', [
+                    'full_name_en' => $validated['father_name_en'] ?? null,
+                    'full_name_kh' => $validated['father_name_kh'] ?? null,
+                    'occupation_en' => $validated['father_occupation_en'] ?? null,
+                    'occupation_kh' => $validated['father_occupation_kh'] ?? null,
+                    'workplace' => $validated['father_workplace'] ?? null,
+                    'nationality_country_id' => $validated['father_nationality_country_id'] ?? null,
+                    'occupation_id' => $validated['father_occupation_id'] ?? null,
+                    'phone' => $validated['father_phone'] ?? null,
+                ], $student);
+                $this->familyService->syncEnrollmentMember($family, 'guardian', [
+                    'full_name_en' => $validated['guardian_name_en'] ?? null,
+                    'full_name_kh' => $validated['guardian_name_kh'] ?? null,
+                    'occupation_en' => $validated['guardian_occupation_en'] ?? null,
+                    'occupation_kh' => $validated['guardian_occupation_kh'] ?? null,
+                    'workplace' => $validated['guardian_workplace'] ?? null,
+                    'nationality_country_id' => $validated['guardian_nationality_country_id'] ?? null,
+                    'occupation_id' => $validated['guardian_occupation_id'] ?? null,
+                    'phone' => $validated['guardian_phone'] ?? null,
+                ], $student);
 
-            return $enrollment->load(['student', 'campus', 'academicYear', 'grade', 'schoolClass', 'academicTrack', 'schoolGroup', 'session']);
-        });
+                $enrollment = $id ? StudentEnrollment::findOrFail($id) : new StudentEnrollment();
+                $wasExisting = $enrollment->exists;
+                $oldAssignment = $wasExisting ? $enrollment->only(['campus_id', 'academic_year_id', 'grade_id', 'class_id', 'academic_track_id', 'session_id']) : [];
+                if ($wasExisting) {
+                    $newAssignment = collect($validated)->only(['campus_id', 'academic_year_id', 'grade_id', 'class_id', 'academic_track_id', 'session_id'])
+                        ->map(fn ($value) => $value === null || $value === '' ? null : (int) $value)
+                        ->all();
+                    $oldAssignment = collect($oldAssignment)
+                        ->map(fn ($value) => $value === null || $value === '' ? null : (int) $value)
+                        ->all();
+                    if ($oldAssignment !== $newAssignment) {
+                        throw ValidationException::withMessages([
+                            'enrollment_id' => 'Enrollment assignment cannot be changed here. Use Transfer Student to change the campus, grade, class, academic year, track, or group.',
+                        ]);
+                    }
+                }
+                $enrollment->fill(collect($validated)->only(['campus_id', 'academic_year_id', 'grade_id', 'class_id', 'academic_track_id', 'session_id', 'status'])->all());
+                $enrollment->group_id = null;
+                $enrollment->student_id = $student->id;
+                $academicYear = AcademicYear::findOrFail($validated['academic_year_id']);
+                $existingStatus = $wasExisting ? $enrollment->enrollment_status : null;
+                $requestedStatus = $validated['enrollment_status'] ?? null;
+                $terminalStatuses = ['withdrawn', 'transferred', 'graduated', 'cancelled'];
+                $enrollment->enrollment_status = in_array($requestedStatus, $terminalStatuses, true)
+                    ? $requestedStatus
+                    : (in_array($existingStatus, $terminalStatuses, true) && !$requestedStatus
+                        ? $existingStatus
+                        : match ($academicYear->lifecycle_status) {
+                            'started' => 'active',
+                            'pending' => 'pending',
+                            'finished' => 'completed',
+                            default => $requestedStatus ?: ($existingStatus ?: 'pending'),
+                        });
+                $enrollment->student_type = StudentEnrollment::where('student_id', $student->id)
+                    ->when($id, fn ($query) => $query->where('id', '!=', $id))
+                    ->where('academic_year_id', '!=', $validated['academic_year_id'])
+                    ->exists() ? 'old' : 'new';
+                $enrollment->enrolled_on = $validated['enrolled_on'] ?? ($enrollment->enrolled_on ?: now()->toDateString());
+                $enrollment->ended_on = $validated['ended_on'] ?? null;
+                $enrollment->exit_reason = $validated['exit_reason'] ?? null;
+                $enrollment->notes = $validated['enrollment_notes'] ?? null;
+                $enrollment->save();
+
+                $newAssignment = $enrollment->only(['campus_id', 'academic_year_id', 'grade_id', 'class_id', 'academic_track_id', 'session_id']);
+                $action = !$wasExisting ? 'enrolled' : ($oldAssignment !== $newAssignment ? 'assignment_changed' : 'updated');
+                StudentEnrollmentHistory::create([
+                    'enrollment_id' => $enrollment->id,
+                    'student_id' => $student->id,
+                    'action_type' => $action,
+                    ...$newAssignment,
+                    'enrollment_status' => $enrollment->enrollment_status,
+                    'student_type' => $enrollment->student_type,
+                    'effective_on' => $enrollment->ended_on ?: $enrollment->enrolled_on,
+                    'reason' => $enrollment->exit_reason,
+                    'notes' => $enrollment->notes,
+                    'changed_by' => auth()->id(),
+                ]);
+
+                return $enrollment->load(['student', 'campus', 'academicYear', 'grade', 'schoolClass', 'academicTrack', 'schoolGroup', 'session']);
+            });
+        } catch (\Throwable $exception) {
+            if ($newPhotoPath) {
+                try {
+                    Storage::disk('public')->delete($newPhotoPath);
+                } catch (\Throwable $cleanupException) {
+                    report($cleanupException);
+                }
+            }
+            throw $exception;
+        }
 
         return response()->json(['status' => 'success', 'message' => $id ? 'Student enrollment updated successfully.' : 'Student enrollment created successfully.', 'data' => $enrollment], $id ? 200 : 201);
     }
@@ -579,7 +612,8 @@ class StudentEnrollmentController
         $name = trim($name, '_');
         $studentId = preg_replace('/[^\pL\pN]+/u', '_', trim((string) $student->student_id)) ?: $student->id;
 
-        return $name . '_' . trim($studentId, '_') . '.' . strtolower($extension);
+        // A new URL on every upload prevents browsers and CDNs reusing cached photos.
+        return $name . '_' . trim($studentId, '_') . '_' . Str::uuid() . '.' . strtolower($extension);
     }
 
     private function filteredEnrollmentStatsQuery(Request $request)

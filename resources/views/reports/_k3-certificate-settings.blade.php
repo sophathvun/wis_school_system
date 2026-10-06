@@ -1,5 +1,6 @@
 <form id="k3CertificateSettings" method="post" action="{{ route('reports.k3-certificates.save') }}" class="card-body pt-0 k3-certificate-settings">
     @csrf
+    <input type="hidden" name="certificate_show_qr" value="{{ $filters['certificate_show_qr'] ?? '0' }}">
     <input type="hidden" name="academic_year_id" value="{{ $filters['academic_year_id']??'' }}">
     @foreach(['campus_id','grade_class','certificate_student_id'] as $key)<input type="hidden" name="{{ $key }}" value="{{ $filters[$key]??'' }}">@endforeach
     @if(session('success'))

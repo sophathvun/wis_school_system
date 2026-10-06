@@ -1,0 +1,23 @@
+@font-face {
+    font-family: 'K3 Verification Khmer';
+    src: url('../../../public/fonts/khmer/KhmerOSsiemreap.ttf') format('truetype');
+    font-display: swap;
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 28px 16px; font: 16px/1.6 Arial, sans-serif; color: #182433; background: #f2f5fa; }
+.certificate-verification { max-width: 640px; margin: 0 auto; overflow: hidden; border: 1px solid #dae2ed; border-radius: 18px; background: #fff; box-shadow: 0 12px 32px #17365d12; }
+header { padding: 24px; color: #fff; background: #17365d; }
+header p { margin: 0 0 6px; font-size: 14px; }
+h1 { margin: 0; font-size: 24px; }
+section { padding: 24px; }
+.verification-status { display: inline-block; margin: 0; padding: 5px 12px; border-radius: 20px; color: #176337; background: #e6f6eb; font-size: 14px; font-weight: bold; }
+h2 { margin: 20px 0; font-size: 21px; }
+dl { margin: 0; }
+dl > div { display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 12px; padding: 14px 0; border-top: 1px solid #e5eaf2; }
+dt { color: #52627a; font-size: 14px; }
+dd { margin: 0; overflow-wrap: anywhere; }
+.khmer-name { display: block; margin-top: 4px; font-family: 'K3 Verification Khmer', sans-serif; }
+@media (max-width: 480px) {
+    header, section { padding: 20px; }
+    dl > div { grid-template-columns: 1fr; gap: 3px; }
+}

@@ -115,6 +115,12 @@ Route::get('/staff-card/{token}/qr.svg', [AuthController::class, 'staffCardQr'])
 Route::get('/staff-card/{token}/vcard', [AuthController::class, 'staffCardVcard'])->name('staff-card.vcard');
 Route::get('/student-card/{qr}', [StudentIdCardQrController::class, 'publicCard'])->name('student-id-card.public');
 Route::get('/student-card/{qr}/qr.svg', [StudentIdCardQrController::class, 'publicQr'])->name('student-id-card.public.qr');
+Route::get('/certificates/g9/{token}', [\App\Http\Controllers\G9CertificateVerificationController::class, 'show'])
+    ->where('token', '[A-Za-z0-9]{40}')->middleware('throttle:60,1')->name('g9-certificate.verify');
+Route::get('/certificates/k3/{token}', [\App\Http\Controllers\K3CertificateVerificationController::class, 'show'])
+    ->where('token', '[A-Za-z0-9]{40}')->middleware('throttle:60,1')->name('k3-certificate.verify');
+Route::get('/certificates/g12/{token}', [\App\Http\Controllers\G12CertificateVerificationController::class, 'show'])
+    ->where('token', '[A-Za-z0-9]{40}')->middleware('throttle:60,1')->name('g12-certificate.verify');
 
 Route::middleware(['auth', 'active.user'])->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
@@ -332,6 +338,8 @@ Route::middleware(['auth', 'active.user'])->group(function () {
     Route::post('/reports/k3-certificate-wis/template', [ReportsController::class, 'saveK3CertificateTemplate'])->name('reports.k3-certificates.template');
     Route::post('/reports/g9-certificate-wis/settings', [\App\Http\Controllers\G9CertificateController::class, 'saveG9Certificates'])->name('reports.g9-certificates.save');
     Route::post('/reports/g9-certificate-wis/template', [\App\Http\Controllers\G9CertificateController::class, 'saveG9CertificateTemplate'])->name('reports.g9-certificates.template');
+    Route::post('/reports/g12-certificate-wis/settings', [\App\Http\Controllers\G12CertificateController::class, 'saveG12Certificates'])->name('reports.g12-certificates.save');
+    Route::post('/reports/g12-certificate-wis/template', [\App\Http\Controllers\G12CertificateController::class, 'saveG12CertificateTemplate'])->name('reports.g12-certificates.template');
     Route::view('/reports/hrm-reports', 'academic-module-placeholder', [
         'title' => 'HRM Reports',
         'pretitle' => 'Reports',

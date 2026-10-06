@@ -1,7 +1,9 @@
 @php
     $isReportStub = $isReportStub ?? false;
 @endphp
-@if($type === 'student-id-books-moeys')
+@if($type === 'student-photo')
+    @include('reports._student-photo-preview')
+@elseif($type === 'student-id-books-moeys')
     @include('reports._student-id-book-moeys')
 @elseif($type === 'student-profile-label')
     @include('reports._student-profile-label')
@@ -232,6 +234,8 @@
     @include('reports._k3-certificate-preview')
 @elseif($type === 'g9-certificate-wis')
     @include('reports._g9-certificate-preview')
+@elseif($type === 'g12-certificate-wis')
+    @include('reports._g12-certificate-preview')
 @elseif($isReportStub)
     <div class="report-placeholder-preview">
         <div class="report-placeholder-preview-icon"><i class="ti ti-certificate"></i></div>

@@ -3,6 +3,7 @@
 @import "@tabler/icons-webfont/dist/tabler-icons.min.css";
 @import "@fontsource/noto-sans-khmer/400.css";
 @import "./khmer-fonts.css";
+@import "./install-shortcut.css";
 
 @import "./pages/index.css";
 

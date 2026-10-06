@@ -22,6 +22,7 @@ class K3CertificateLayout
         $fields = [];
         foreach ($content as $key=>$field) $fields[$key] = $field + $styles[$key] + ['bold'=>false,'bold_first_line'=>false,'align'=>'center'];
         $fields['photo'] = ['x'=>46.9,'y'=>68.4,'width'=>7.5,'height'=>12.4];
+        $fields['qr'] = ['x'=>33,'y'=>60,'width'=>9];
         return ['fields'=>$fields];
     }
 
@@ -31,6 +32,15 @@ class K3CertificateLayout
         if (!$layout) return $default;
         foreach ($default['fields'] as $key=>$field) {
             $value = $layout['fields'][$key] ?? [];
+            if ($key === 'qr') {
+                $width = max(8, min(20, (float) ($value['width'] ?? $field['width'])));
+                $default['fields'][$key] = [
+                    'x'=>max(0, min(100-$width, (float) ($value['x'] ?? $field['x']))),
+                    'y'=>max(0, min(100-($width*297/100+3)*100/210, (float) ($value['y'] ?? $field['y']))),
+                    'width'=>$width,
+                ];
+                continue;
+            }
             $width = max($key==='photo' ? 2 : 5,min(100,(float)($value['width']??$field['width'])));
             $field['width'] = $width;
             $field['x'] = max(0,min(100-$width,(float)($value['x']??$field['x'])));
@@ -73,6 +83,14 @@ class K3CertificateLayout
         $keys = array_keys(self::defaults()['fields']);
         $rules = ['fields'=>['required','array:'.implode(',',$keys)]];
         foreach ($keys as $key) {
+            if ($key === 'qr') {
+                // Existing saved K3 templates do not yet include a QR position.
+                $rules['fields.qr'] = ['sometimes','array:x,y,width'];
+                $rules['fields.qr.x'] = ['required_with:fields.qr','numeric','between:0,98'];
+                $rules['fields.qr.y'] = ['required_with:fields.qr','numeric','between:0,95'];
+                $rules['fields.qr.width'] = ['required_with:fields.qr','numeric','between:8,20'];
+                continue;
+            }
             $allowed = $key==='photo' ? 'x,y,width,height' : 'text,x,y,width,font,size,color,align,bold,bold_first_line';
             $rules["fields.$key"] = ['required','array:'.$allowed];
             $rules["fields.$key.x"] = ['required','numeric','between:0,98'];

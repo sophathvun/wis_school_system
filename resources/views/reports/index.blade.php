@@ -2,13 +2,16 @@
 @section('title','Reports')
 @push('styles')
     @vite('resources/css/reports.css')
+    @if($type === 'student-photo')@vite('resources/css/pages/student-photo-report.css')@endif
     @if($type === 'k3-certificate-wis')@vite('resources/css/k3Certificate.css')@endif
     @if($type === 'g9-certificate-wis')@vite('resources/css/g9Certificate.css')@endif
+    @if($type === 'g12-certificate-wis')@vite('resources/css/g12Certificate.css')@endif
 @endpush
 @push('scripts')
     @vite('resources/js/reportsIndex.js')
     @if($type === 'k3-certificate-wis')@vite('resources/js/k3Certificate.js')@endif
     @if($type === 'g9-certificate-wis')@vite('resources/js/g9Certificate.js')@endif
+    @if($type === 'g12-certificate-wis')@vite('resources/js/g12Certificate.js')@endif
 @endpush
 @section('page-header')
     <div class="container-fluid">
@@ -37,13 +40,16 @@
         'g12-certificate-wis' => 'ti-certificate',
         'moeys-id-number-book' => 'ti-address-book',
         'student-profile-label' => 'ti-tags',
+        'student-photo' => 'ti-photo',
     ];
     $khmerReportTypeTabs = ['moeys-sikkhakarik-book'];
     $isReportStub = $isReportStub ?? false;
     $transcriptTotalStudents = $type === 'moeys-sikkhakarik-book' ? collect($enrollments ?? [])->count() : 0;
 @endphp
 <div class="row g-3 reports-workspace reports-workspace-{{ $type }}" data-report-type="{{ $type }}" data-report-date="{{ $filters['report_date'] ?? now()->format('Y-m-d') }}"><div class="col-lg-2 report-tabs-column"><div class="card reports-tabs-card"><div class="card-header reports-tabs-header report-header-dark-blue"><h3 class="card-title">Report Types</h3><button type="button" class="btn btn-icon btn-outline-primary reports-tabs-toggle" aria-expanded="true" aria-controls="reportsTypeList" aria-label="Collapse report types" data-bs-toggle="tooltip" data-bs-placement="right" data-bs-custom-class="report-tabs-tooltip" data-bs-title="Collapse report types"><i class="ti ti-layout-sidebar-left-collapse"></i></button></div><div class="list-group list-group-flush reports-tabs-list" id="reportsTypeList">@foreach($reportTypes as $key=>$label)<a href="{{ route('reports.index',['type'=>$key]) }}" class="list-group-item list-group-item-action {{ $type===$key?'active':'' }} {{ in_array($key, $khmerReportTypeTabs, true) ? 'report-tab-khmer' : '' }}" data-report-tab-label="{{ $label }}" aria-label="{{ $label }}" data-bs-toggle="tooltip" data-bs-placement="right" data-bs-custom-class="report-tabs-tooltip" data-bs-title="{{ $label }}"><i class="ti {{ $reportTypeIcons[$key] ?? 'ti-file-text' }} me-2" aria-hidden="true"></i><span class="report-tab-label">{{ $label }}</span></a>@endforeach</div></div></div><div class="col-lg-10 report-content-column"><div class="card mb-3"><div class="card-header report-header-dark-blue"><h3 class="card-title {{ in_array($type, ['student-id-books-moeys', 'moeys-sikkhakarik-book'], true) ? 'student-id-book-title' : '' }}">@if($type === 'student-id-books-moeys')<img src="{{ asset('images/moeys_logo.png') }}" alt="MoEYS" class="student-id-book-title-logo"><span>សៀវភៅចុះអត្តលេខសិស្ស (MoEYS)</span>@elseif($type === 'moeys-sikkhakarik-book')<img src="{{ asset('images/moeys_logo.png') }}" alt="MoEYS" class="student-id-book-title-logo"><span>សៀវភៅសិក្ខាគារិក (MoEYS)</span>@else{{ $type === 'student-statistics-detail' ? 'STUDENT STATISTICS (Details)' : $reportTypes[$type] }}@endif</h3></div><form method="get" action="{{ route('reports.index') }}" class="report-filter-form report-filter-form-{{ $type }}"><input type="hidden" name="type" value="{{ $type }}"><div class="card-body"><div class="{{ $type === 'student-list' ? 'report-student-list-filter-row' : ($type === 'student-contact-list' ? 'report-student-contact-filter-row' : ($type === 'student-profile-label' ? 'report-student-profile-label-filter-row' : 'row g-3')) }}">
-@if($type === 'student-list')
+@if($type === 'student-photo')
+@include('reports._student-photo-filters')
+@elseif($type === 'student-list')
 <div class="report-student-list-filter-field report-filter-field"><label class="form-label">Period</label><div class="report-native-select"><select name="period_type" class="form-select report-select-with-arrow" data-report-period-select><option value="all" @selected(($filters['period_type']??'all')==='all')>Regular + Summer</option><option value="regular" @selected(($filters['period_type']??'')==='regular')>Regular</option><option value="summer" @selected(($filters['period_type']??'')==='summer')>Summer</option></select><i class="ti ti-chevron-down report-native-select-arrow"></i></div></div>
 <div class="report-student-list-filter-field report-filter-field"><label class="form-label">Academic Year</label><div class="report-filter-combobox" data-target="reportAcademicYearValue"><button type="button" class="report-filter-toggle"><span>{{ $academicYears->firstWhere('id',(int)($filters['academic_year_id']??0))?->academic_year ?: 'All Academic Years' }}</span><i class="ti ti-chevron-down"></i></button><div class="report-filter-menu"><input type="search" class="form-control report-filter-search" placeholder="Search Academic Year"><div class="report-filter-options"><button type="button" data-value="">All Academic Years</button>@foreach($academicYears as $year)<button type="button" data-value="{{ $year->id }}">{{ $year->academic_year }}</button>@endforeach</div></div></div><input type="hidden" name="academic_year_id" id="reportAcademicYearValue" value="{{ $filters['academic_year_id']??'' }}"></div>
 <div class="report-student-list-filter-field report-filter-field"><label class="form-label">Campus</label><div class="report-filter-combobox" data-target="reportCampusValue"><button type="button" class="report-filter-toggle"><span>{{ $campuses->firstWhere('id',(int)($filters['campus_id']??0))?->campus_name_en ?: '' }}</span><i class="ti ti-chevron-down"></i></button><div class="report-filter-menu"><input type="search" class="form-control report-filter-search" placeholder="Search Campus"><div class="report-filter-options"><button type="button" data-value="">All Campuses</button>@foreach($campuses as $campus)<button type="button" data-value="{{ $campus->id }}">{{ $campus->campus_name_en }}</button>@endforeach</div></div></div><input type="hidden" name="campus_id" id="reportCampusValue" value="{{ $filters['campus_id']??'' }}"></div>
@@ -113,6 +119,8 @@
 @include('reports._k3-certificate-filters')
 @elseif($type === 'g9-certificate-wis')
 @include('reports._g9-certificate-filters')
+@elseif($type === 'g12-certificate-wis')
+@include('reports._g12-certificate-filters')
 @elseif($isReportStub)
 <div class="col-12">
     <div class="alert alert-info mb-0 report-placeholder-alert {{ in_array($type, $khmerReportTypeTabs, true) ? 'khmer-font-siemreap' : '' }}">
@@ -210,6 +218,8 @@
 @include('reports._k3-certificate-settings')
 @elseif($type === 'g9-certificate-wis')
 @include('reports._g9-certificate-settings')
+@elseif($type === 'g12-certificate-wis')
+@include('reports._g12-certificate-settings')
 @endif
 </div>
 <div class="card report-preview-card">
@@ -232,6 +242,8 @@
                     <div class="report-summary-number">{{ number_format($studentSummary['new_total'] ?? 0) }}</div>
                 </div>
             </div>
+        @elseif($type === 'student-photo')
+            <div class="report-summary-card"><div class="report-summary-item report-summary-total"><div class="report-summary-label">Total Students</div><div class="report-summary-number">{{ number_format($photoTotal) }}</div></div></div>
         @elseif($type === 'withdrawn-students')
             <div class="report-summary-card">
                 <div class="report-summary-item report-summary-total">
@@ -247,14 +259,23 @@
                 </div>
             </div>
         @endif
-        @if(in_array($type, ['k3-certificate-wis', 'g9-certificate-wis'], true))
+        @if(in_array($type, ['k3-certificate-wis', 'g9-certificate-wis', 'g12-certificate-wis'], true))
             <div class="report-summary-card"><div class="report-summary-item report-summary-total"><div class="report-summary-label">Total Students</div><div class="report-summary-number">{{ $certificates->count() }}</div></div></div>
         @endif
         @if(!$isReportStub)
             <div class="report-preview-actions d-flex gap-2 ms-auto">
-                @if(in_array($type, ['k3-certificate-wis', 'g9-certificate-wis'], true))
+                @if(in_array($type, ['k3-certificate-wis', 'g9-certificate-wis', 'g12-certificate-wis'], true))
                     <a class="btn btn-outline-primary report-print-link {{ $certificateReady ? '' : 'disabled' }}" @if(!$certificateReady) aria-disabled="true" tabindex="-1" @endif target="_blank" href="{{ route('reports.show',$type) . '?' . http_build_query($filters) }}"><i class="ti ti-printer me-1"></i>Print Content</a>
                     <a class="btn btn-outline-danger report-pdf-link {{ $certificateReady ? '' : 'disabled' }}" @if(!$certificateReady) aria-disabled="true" tabindex="-1" @endif href="{{ route('reports.pdf',$type) . '?' . http_build_query($filters) }}"><i class="ti ti-file-type-pdf me-1"></i>PDF Content</a>
+                @elseif($type === 'student-photo')
+                    <div class="dropdown">
+                        <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" @disabled(!$hasDataFilter || $photoTotal <= $photoMissingCount)><i class="ti ti-printer me-1"></i>Print</button>
+                        <div class="dropdown-menu dropdown-menu-end">
+                            @foreach(['4x6' => '4×6 cm', '3x4' => '3×4 cm'] as $size => $label)
+                                <a class="dropdown-item report-print-link" target="_blank" data-report-photo-size="{{ $size }}" href="{{ route('reports.show', $type).'?'.http_build_query(array_merge($filters, ['photo_size' => $size])) }}">Print {{ $label }}</a>
+                            @endforeach
+                        </div>
+                    </div>
                 @elseif($type === 'moeys-id-number-book')
                     <a class="btn btn-outline-success report-excel-link" href="{{ route('reports.excel',$type) . '?' . http_build_query($filters) }}"><i class="ti ti-file-spreadsheet me-1"></i>Export Excel</a>
                 @elseif($type === 'student-id-books-moeys')

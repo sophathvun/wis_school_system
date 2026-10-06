@@ -99,6 +99,23 @@
     --tblr-btn-disabled-opacity: 1;
 }
 [data-bs-theme="dark"] .report-filter-form-g9-certificate-wis .g9-settings-field .form-control { color: #eaf2ff; background: #141c2c; }
+.g9-qr-toggle { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--tblr-body-color, #182433); font-size: .75rem; white-space: nowrap; cursor: pointer; }
+.g9-qr-toggle .form-check-input { flex-shrink: 0; margin: 0; }
+.g9-editor-tools .g9-qr-toggle { display: flex; align-items: center; gap: 8px; min-height: 36px; white-space: normal; }
+.reports-workspace-g9-certificate-wis .report-preview-header .report-preview-actions { flex-wrap: wrap !important; }
+.g9-certificate-qr { position: absolute; left: 33%; top: 68%; width: 10%; text-align: center; color: #111; font: 6pt/1.4 Arial, sans-serif; }
+.g9-certificate-qr[hidden] { display: none !important; }
+.g9-certificate-qr img { display: block; width: 100%; height: auto; background: #fff; user-select: none; }
+.g9-qr-frame { position: relative; aspect-ratio: 1; }
+.g9-qr-frame > img { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
+.g9-qr-verification-note { position: absolute; left: 2%; top: 88.5%; width: 96%; display: block; margin: 0; color: #334155; font: 4.5pt/1.2 Arial, sans-serif; text-align: center; text-decoration: none; white-space: nowrap; }
+.g9-qr-scan-note { display: block; margin-top: .3mm; color: #334155; font: 6pt/1.2 Arial, sans-serif; text-align: center; }
+.g9-certificate-qr .g9-qr-verification-tick { display: inline-block; width: 1.8mm; height: 1.8mm; vertical-align: middle; background: transparent; }
+.g9-qr-placeholder { display: flex; align-items: center; justify-content: center; aspect-ratio: 1; padding: 3mm; border: .6mm solid #111; border-radius: 2mm; background: #fff; box-sizing: border-box; }
+.g9-editor-qr-move { grid-column: span 2; display: grid; gap: 4px; font-size: .72rem; color: var(--tblr-secondary, #52627a); }
+.g9-qr-move-buttons { display: flex; gap: 6px; }
+.g9-qr-move-buttons .btn { width: 36px; height: 36px; padding: 0; }
+@media (max-width: 767px) { .g9-qr-toggle { width: 100%; justify-content: flex-start; min-height: 30px; } }
 
 @font-face {
     font-family: 'G9 Old English Text MT';
@@ -212,6 +229,12 @@
 @media screen {
     .g9-screen-preview { width: 100%; aspect-ratio: 297 / 210; position: relative; overflow: hidden; overflow: clip; }
     .g9-screen-preview .g9-certificate-page { transform-origin: top left; }
+    .reports-workspace-g9-certificate-wis [data-g9-certificate-preview] > .g9-certificate-page {
+        position: absolute;
+        top: 0;
+        left: 0;
+    }
+    .g9-certificate-list { margin-top: .5rem; }
     .g9-print-toolbar { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px; background: #fff; position: sticky; top: 0; z-index: 2; }
     .g9-print-toolbar button { background: #206bc4; border: 0; border-radius: 5px; color: #fff; padding: 9px 18px; cursor: pointer; }
     .g9-print-help { font: 13px Arial, sans-serif; color: #52627a; align-self: center; }

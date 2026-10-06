@@ -49,6 +49,18 @@ class G9CertificatePdfLayout
             foreach ((new DOMXPath($document))->query('//*[@data-g9-layout-key]') as $field) {
                 if (!$field instanceof DOMElement) continue;
                 $key = $field->getAttribute('data-g9-layout-key');
+                if ($key === 'qr') {
+                    $width = max(8, min(20, (float) $field->getAttribute('data-g9-width')));
+                    $x = max(0, min(100-$width, (float) $field->getAttribute('data-g9-x')));
+                    $y = max(0, min(100-($width*297/100+3)*100/210, (float) $field->getAttribute('data-g9-y')));
+                    $field->setAttribute('style', 'left:'.$x.'%;top:'.$y.'%;width:'.$width.'%');
+                    foreach ($field->childNodes as $frame) {
+                        if ($frame instanceof DOMElement && $frame->getAttribute('class') === 'g9-qr-frame') {
+                            $frame->setAttribute('style', 'height:'.(297*$width/100).'mm');
+                        }
+                    }
+                    continue;
+                }
                 $x = max(0,min(98,(float)$field->getAttribute('data-g9-x')));
                 $y = max(0,min(95,(float)$field->getAttribute('data-g9-y')));
                 $width = max($key==='photo'?2:5,min(100,(float)$field->getAttribute('data-g9-width')));

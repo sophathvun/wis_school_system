@@ -1,6 +1,7 @@
 <form id="g9CertificateSettings" method="post" action="{{ route('reports.g9-certificates.save') }}" class="card-body pt-0 g9-certificate-settings">
     @csrf
     <input type="hidden" name="academic_year_id" value="{{ $filters['academic_year_id']??'' }}">
+    <input type="hidden" name="certificate_show_qr" value="{{ $filters['certificate_show_qr'] ?? '0' }}">
     @foreach(['campus_id','grade_class','certificate_student_id'] as $key)<input type="hidden" name="{{ $key }}" value="{{ $filters[$key]??'' }}">@endforeach
     @if(session('success'))
         @php

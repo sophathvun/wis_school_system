@@ -14,6 +14,9 @@ use App\Support\K3CertificatePdfLayout;
 use App\Services\K3CertificateReport;
 use App\Services\G9CertificateReport;
 use App\Support\G9CertificatePdfLayout;
+use App\Services\G12CertificateReport;
+use App\Services\StudentPhotoReport;
+use App\Support\G12CertificatePdfLayout;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -43,6 +46,7 @@ class ReportsController
         'g12-certificate-wis' => 'G12 Certificate (WIS)',
         'moeys-id-number-book' => 'Customize Stu. List',
         'student-profile-label' => 'Stu. Profile Label',
+        'student-photo' => 'Print Stu. Photo',
     ];
 
     public function index(Request $request)
@@ -59,9 +63,9 @@ class ReportsController
             'reportTypes' => self::TYPES,
             'isReportStub' => $this->isReportStub($type),
             'academicYears' => $this->academicYears($payload['filters'], $type),
-            'campuses' => $this->campuses($request, $payload['filters'], $type),
+            'campuses' => $payload['photoCampuses'] ?? $this->campuses($request, $payload['filters'], $type),
             'grades' => Grade::where('status', 1)->orderByRaw('CAST(grade_order AS UNSIGNED)')->get(['id', 'grade']),
-            'gradeClassOptions' => ($this->isStudentListReport($type) || $this->isStudentContactListReport($type) || $type === 'attendance-list' || $type === 'score-list' || $type === 'moeys-id-number-book' || $type === 'moeys-sikkhakarik-book') ? $this->gradeClassOptions($request, $payload['filters'], $type) : ($type === 'withdrawn-students' ? $this->withdrawalGradeClassOptions($request, $payload['filters']) : collect()),
+            'gradeClassOptions' => $payload['photoGradeClassOptions'] ?? (($this->isStudentListReport($type) || $this->isStudentContactListReport($type) || $type === 'attendance-list' || $type === 'score-list' || $type === 'moeys-id-number-book' || $type === 'moeys-sikkhakarik-book') ? $this->gradeClassOptions($request, $payload['filters'], $type) : ($type === 'withdrawn-students' ? $this->withdrawalGradeClassOptions($request, $payload['filters']) : collect())),
             'groupOptions' => ($this->isStudentListReport($type) || $this->isStudentContactListReport($type) || $type === 'moeys-sikkhakarik-book') ? $this->groupOptions($request, $payload['filters']) : ($type === 'withdrawn-students' ? $this->withdrawalGroupOptions($request, $payload['filters']) : collect()),
         ]);
     }
@@ -92,7 +96,7 @@ class ReportsController
     public function excel(Request $request, string $type)
     {
         abort_unless(isset(self::TYPES[$type]), 404);
-        abort_if(in_array($type, ['k3-certificate-wis', 'g9-certificate-wis'], true), 404);
+        abort_if(in_array($type, ['k3-certificate-wis', 'g9-certificate-wis', 'g12-certificate-wis', 'student-photo'], true), 404);
 
         $payload = $this->reportPayload($request, $type);
         if ($type === 'student-id-books-moeys' && $request->query('print_mode') === 'cover') {
@@ -114,6 +118,7 @@ class ReportsController
     public function pdf(Request $request, string $type)
     {
         abort_unless(isset(self::TYPES[$type]), 404);
+        abort_if($type === 'student-photo', 404);
 
         $payload = $this->reportPayload($request, $type);
         $mode = $request->query('pdf_mode', 'combined');
@@ -151,6 +156,9 @@ class ReportsController
     {
         abort_unless(isset(self::TYPES[$type]), 404);
         $payload = $this->reportPayload($request, $type);
+        if ($type === 'student-photo') {
+            return view('reports.student-photo-print', $payload);
+        }
         if ($type === 'k3-certificate-wis') {
             abort_unless($payload['certificateReady'], 422, 'Save the Given Date and assign certificate numbers before printing.');
             return view('reports.k3-certificate-print', $payload);
@@ -158,6 +166,10 @@ class ReportsController
         if ($type === 'g9-certificate-wis') {
             abort_unless($payload['certificateReady'], 422, 'Save the Given Date and assign certificate numbers before printing.');
             return view('reports.g9-certificate-print', $payload);
+        }
+        if ($type === 'g12-certificate-wis') {
+            abort_unless($payload['certificateReady'], 422, 'Save the Given Date and assign certificate numbers before printing.');
+            return view('reports.g12-certificate-print', $payload);
         }
         $academicYear = $request->filled('academic_year_id') ? AcademicYear::find($request->integer('academic_year_id')) : null;
         $campus = $request->filled('campus_id') ? SchoolInfo::find($request->integer('campus_id')) : null;
@@ -206,7 +218,7 @@ class ReportsController
             'update_prefix' => $count ? "Prefix updated on {$count} certificates. Student sequence numbers and Given Date kept unchanged." : 'Certificate Prefix saved for this academic year.',
             default => 'Given Date saved for this academic year.',
         };
-        return redirect()->route('reports.index', ['type' => 'k3-certificate-wis', 'academic_year_id' => $data['academic_year_id']] + $request->only(['campus_id', 'grade_class', 'certificate_student_id']))
+        return redirect()->route('reports.index', ['type' => 'k3-certificate-wis', 'academic_year_id' => $data['academic_year_id']] + $request->only(['campus_id', 'grade_class', 'certificate_student_id', 'certificate_show_qr']))
             ->with('success', $message)->with('k3_action', $data['action']);
     }
 
@@ -216,7 +228,7 @@ class ReportsController
         $layout = json_decode($data['template_data'],true);
         $validated = \Illuminate\Support\Facades\Validator::make(is_array($layout)?$layout:[],\App\Support\K3CertificateLayout::rules())->validate();
         app(K3CertificateReport::class)->saveTemplate($request,$validated,(int)$data['template_version']);
-        return redirect()->route('reports.index',['type'=>'k3-certificate-wis']+$request->only(['academic_year_id','campus_id','grade_class','certificate_student_id']))
+        return redirect()->route('reports.index',['type'=>'k3-certificate-wis']+$request->only(['academic_year_id','campus_id','grade_class','certificate_student_id','certificate_show_qr']))
             ->with('success','K3 certificate template saved. It will be used for certificates in all academic years.')->with('k3_action','save_template');
     }
 
@@ -288,6 +300,11 @@ class ReportsController
             abort_unless($payload['certificateReady'], 422, 'Save the Given Date and assign certificate numbers before exporting.');
             $html = view('reports.g9-certificate-print', $payload + ['pdfMode' => true])->render();
             return $this->makeDomPdfPath(G9CertificatePdfLayout::prepareHtml($html), $type);
+        }
+        if ($type === 'g12-certificate-wis') {
+            abort_unless($payload['certificateReady'], 422, 'Save the Given Date and assign certificate numbers before exporting.');
+            $html = view('reports.g12-certificate-print', $payload + ['pdfMode' => true])->render();
+            return $this->makeDomPdfPath(G12CertificatePdfLayout::prepareHtml($html), $type);
         }
         if ($type === 'k3-certificate-wis') {
             abort_unless($payload['certificateReady'], 422, 'Save the Given Date and assign certificate numbers before exporting.');
@@ -418,7 +435,7 @@ class ReportsController
             // DomPDF resolves drive-letter paths without the browser's extra slash.
             $html = preg_replace('~file:///([A-Za-z]:/)~', 'file://$1', $html);
         }
-        $paper = in_array($type, ['student-list', 'student-contact-list', 'attendance-list', 'score-list', 'student-id-books-moeys', 'moeys-sikkhakarik-book', 'k3-certificate-wis', 'g9-certificate-wis'], true)
+        $paper = in_array($type, ['student-list', 'student-contact-list', 'attendance-list', 'score-list', 'student-id-books-moeys', 'moeys-sikkhakarik-book', 'k3-certificate-wis', 'g9-certificate-wis', 'g12-certificate-wis'], true)
             ? 'landscape'
             : 'portrait';
         $pdfPath = $this->reportTempPath('dompdf-', '.pdf');
@@ -449,6 +466,8 @@ class ReportsController
                 K3CertificatePdfLayout::configure($pdf->getDomPDF());
             } elseif ($type === 'g9-certificate-wis') {
                 G9CertificatePdfLayout::configure($pdf->getDomPDF());
+            } elseif ($type === 'g12-certificate-wis') {
+                G12CertificatePdfLayout::configure($pdf->getDomPDF());
             }
             if ($type !== 'moeys-sikkhakarik-book') $pdf->save($pdfPath);
         } catch (\Throwable $exception) {
@@ -670,7 +689,7 @@ class ReportsController
 
     private function isReportStub(string $type): bool
     {
-        return $type === 'g12-certificate-wis';
+        return false;
     }
 
     private function classGroups($enrollments): Collection
@@ -2676,6 +2695,9 @@ JS;
             'transcript_level' => ['nullable', 'in:primary,secondary'],
             'transcript_student_id' => ['nullable', 'integer', 'min:1'],
             'certificate_student_id' => ['nullable', 'integer', 'min:1'],
+            'certificate_show_qr' => ['nullable', 'boolean'],
+            'photo_student_id' => ['nullable', 'integer', 'min:1'],
+            'photo_size' => ['nullable', 'in:4x6,3x4'],
             'withdrawal_status' => ['nullable', 'in:all,pending,principal_approved,approved,rejected,cancelled'],
             'grade_id' => ['nullable', 'integer'],
             'class_id' => ['nullable', 'integer'],
@@ -2688,7 +2710,7 @@ JS;
             'selected_columns_submitted' => ['nullable', 'string'],
             'selected_columns' => ['nullable', 'array'],
             'selected_columns.*' => ['string'],
-            'preview_page_size' => ['nullable', $type === 'g9-certificate-wis' ? 'in:'.implode(',', G9CertificateReport::PREVIEW_SIZES) : ($type === 'k3-certificate-wis' ? 'in:'.implode(',', K3CertificateReport::PREVIEW_SIZES) : 'in:all,25,50,75,100')],
+            'preview_page_size' => ['nullable', $type === 'g12-certificate-wis' ? 'in:'.implode(',', G12CertificateReport::PREVIEW_SIZES) : ($type === 'g9-certificate-wis' ? 'in:'.implode(',', G9CertificateReport::PREVIEW_SIZES) : ($type === 'k3-certificate-wis' ? 'in:'.implode(',', K3CertificateReport::PREVIEW_SIZES) : 'in:all,25,50,75,100'))],
             'preview_page' => ['nullable', 'integer', 'min:1'],
             'report_date' => ['nullable', 'date'],
             'month' => ['nullable', 'date_format:Y-m'],
@@ -2700,11 +2722,18 @@ JS;
         $filters['score_columns'] = (int) ($filters['score_columns'] ?? 5);
         $filters['print_type'] = $filters['print_type'] ?? 'quarter_1';
         $filters['report_date'] = $filters['report_date'] ?? now()->format('Y-m-d');
+        if ($type === 'student-photo') {
+            $request->validate(['grade_class' => ['nullable', 'regex:/^\d+:\d+$/']]);
+            return app(StudentPhotoReport::class)->payload($request, $filters, $preview);
+        }
         if ($type === 'k3-certificate-wis') {
             return app(K3CertificateReport::class)->payload($request, $filters, $preview);
         }
         if ($type === 'g9-certificate-wis') {
             return app(G9CertificateReport::class)->payload($request, $filters, $preview);
+        }
+        if ($type === 'g12-certificate-wis') {
+            return app(G12CertificateReport::class)->payload($request, $filters, $preview);
         }
         if ($type === 'moeys-id-number-book') {
             $availableColumns = array_keys($this->getStudentListColumnDefinitions());
@@ -2861,7 +2890,7 @@ JS;
     private function academicYears(array $filters, string $type = ''): Collection
     {
         return AcademicYear::query()
-            ->when(in_array($type, ['moeys-sikkhakarik-book', 'k3-certificate-wis', 'g9-certificate-wis'], true), fn ($q) => $q->where('period_type', 'regular'))
+            ->when(in_array($type, ['moeys-sikkhakarik-book', 'k3-certificate-wis', 'g9-certificate-wis', 'g12-certificate-wis'], true), fn ($q) => $q->where('period_type', 'regular'))
             ->when(($filters['period_type'] ?? 'all') !== 'all', fn ($q) => $q->where('period_type', $filters['period_type']))
             ->orderByDesc('academic_year')
             ->get(['id', 'academic_year', 'period_type', 'parent_academic_year_id']);

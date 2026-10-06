@@ -5,9 +5,11 @@ namespace App\Services;
 use App\Models\K3Certificate;
 use App\Models\K3CertificateYear;
 use App\Models\K3CertificateTemplate;
+use App\Models\BrandingSetting;
 use App\Support\K3CertificateLayout;
 use App\Support\K3CertificateTypography;
 use App\Support\K3CertificatePermissions;
+use App\Support\K3CertificateQr;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -76,8 +78,22 @@ class K3CertificateReport
         $students = $campusStudents->filter(fn ($row) => empty($filters['grade_class']) || $row->grade_id.':'.$row->class_id === $filters['grade_class'])->values();
         $options = $students;
         if (!empty($filters['certificate_student_id'])) $students = $students->where('student_id', (int) $filters['certificate_student_id'])->values();
-        $numbers = $settings ? $settings->certificates()->pluck('certificate_number', 'student_id') : collect();
-        foreach ($students as $student) $student->certificate_number = $numbers->get($student->student_id);
+        $issued = $settings ? $settings->certificates()->get(['student_id', 'certificate_number', 'qr_token'])->keyBy('student_id') : collect();
+        $numbers = $issued->pluck('certificate_number', 'student_id');
+        $showQr = filter_var($filters['certificate_show_qr'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $filters['certificate_show_qr'] = $showQr ? '1' : '0';
+        $faviconPath = (($preview || $showQr) && $issued->isNotEmpty()) ? (BrandingSetting::current()->favicon_path ?? '') : '';
+        foreach ($students as $index => $student) {
+            $certificate = $issued->get($student->student_id);
+            $student->certificate_number = $certificate?->certificate_number;
+            $student->certificate_verification_url = $certificate?->qr_token ? K3CertificateQr::url($certificate->qr_token) : null;
+            $verificationAddress = $student->certificate_verification_url ? parse_url($student->certificate_verification_url) : [];
+            $student->certificate_verification_site = $student->certificate_verification_url
+                ? $verificationAddress['host'].(isset($verificationAddress['port']) ? ':'.$verificationAddress['port'] : '')
+                : null;
+            $student->certificate_qr_image = $certificate?->qr_token && (($preview && $index === 0) || (!$preview && $showQr))
+                ? K3CertificateQr::image($certificate->qr_token, $faviconPath) : null;
+        }
         $filters['given_date'] = $settings?->given_date?->toDateString() ?? '';
         $filters['number_prefix'] = $settings?->number_prefix ?? '';
 
@@ -118,6 +134,7 @@ class K3CertificateReport
             'canEditCertificatePrefix' => $canEditPrefix,
             'canManageCertificates' => $canSaveGivenDate || $canAssignNumbers || $canEditPrefix,
             'certificateNumbersAssigned' => $numbers->isNotEmpty(),
+            'certificateShowQr' => $showQr,
             'certificateReady' => $settings && $students->isNotEmpty() && $students->every(fn ($row) => filled($row->certificate_number)),
             'hasDataFilter' => (bool) $year, 'hasMorePreviewRows' => false,
         ];

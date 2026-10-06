@@ -27,6 +27,12 @@ export function initG9CertificateEditor({ applyFieldStyle, loadFontsAndFit }) {
     };
     function clamp(key) {
         const field = layout.fields[key], photo = key === 'photo';
+        if (key === 'qr') {
+            field.width = Math.min(20, Math.max(8, field.width));
+            field.x = Math.min(100-field.width, Math.max(0, field.x));
+            field.y = Math.min(100-(field.width*PAGE.width/100+3)*100/PAGE.height, Math.max(0, field.y));
+            return;
+        }
         field.width = Math.min(100,Math.max(photo ? 2 : 5,field.width));
         field.x = Math.min(100-field.width,Math.max(0,field.x));
         if (photo) field.height = Math.min(40,Math.max(2,field.height));
@@ -42,7 +48,7 @@ export function initG9CertificateEditor({ applyFieldStyle, loadFontsAndFit }) {
     function render(key) {
         const field = layout.fields[key], node = blocks.get(key);
         for (const property of ['x','y','width','height']) if (property in field) node.dataset['g9'+property[0].toUpperCase()+property.slice(1)] = field[property];
-        if (key !== 'photo') {
+        if (!['photo', 'qr'].includes(key)) {
             if (key === 'title') node.dataset.g9Curve = field.curve ?? 26;
             Object.assign(node.dataset,{g9FontName:field.font,g9FontFamily:fonts.get(field.font),g9FontSize:field.size,g9FontColor:field.color,g9Bold:field.bold?'1':'0',g9BoldFirstLine:field.bold_first_line?'1':'0',g9Align:field.align,g9Source:field.text});
             if (textEditing !== key) {
@@ -57,10 +63,11 @@ export function initG9CertificateEditor({ applyFieldStyle, loadFontsAndFit }) {
         applyFieldStyle(node); attachHandle(node);
     }
     function syncControls() {
-        const field = layout.fields[selected], photo = selected === 'photo';
+        const field = layout.fields[selected], photo = selected === 'photo', qr = selected === 'qr';
         picker.value = selected;
-        form.querySelectorAll('[data-g9-text-tool]').forEach((node) => { node.hidden = photo; });
+        form.querySelectorAll('[data-g9-text-tool]').forEach((node) => { node.hidden = photo || qr; });
         form.querySelectorAll('[data-g9-photo-tool]').forEach((node) => { node.hidden = !photo; });
+        form.querySelectorAll('[data-g9-qr-tool]').forEach((node) => { node.hidden = !qr; });
         form.querySelectorAll('[data-g9-title-tool]').forEach((node) => { node.hidden = selected !== 'title'; });
         controls.forEach((control) => {
             const property = control.dataset.g9Property;
@@ -84,7 +91,7 @@ export function initG9CertificateEditor({ applyFieldStyle, loadFontsAndFit }) {
         syncControls();
     }
     function beginText() {
-        if (!editing || selected === 'photo') return;
+        if (!editing || ['photo', 'qr'].includes(selected)) return;
         finishText(); textEditing = selected;
         const node = blocks.get(selected);
         node.replaceChildren(document.createTextNode(layout.fields[selected].text));
@@ -103,7 +110,12 @@ export function initG9CertificateEditor({ applyFieldStyle, loadFontsAndFit }) {
         select(selected);
     }
     blocks.forEach((node,key) => {
-        node.addEventListener('click',() => { if (editing) select(key); });
+        node.addEventListener('click',(event) => {
+            if (editing) {
+                if (event.target.closest('a')) event.preventDefault();
+                select(key);
+            }
+        });
         node.addEventListener('dblclick',() => { if (editing) { select(key);beginText(); } });
         node.addEventListener('blur',() => { if (textEditing === key) finishText(); });
         node.addEventListener('input',() => {
@@ -156,6 +168,13 @@ export function initG9CertificateEditor({ applyFieldStyle, loadFontsAndFit }) {
     }));
     controls.filter(control=>control.dataset.g9Property in PAGE).forEach(control=>control.addEventListener('change',syncControls));
     picker.addEventListener('change',() => select(picker.value));
+    form.querySelectorAll('[data-g9-qr-nudge]').forEach((button) => button.addEventListener('click', () => {
+        if (!editing || selected !== 'qr') return;
+        const direction = button.dataset.g9QrNudge;
+        const axis = ['left', 'right'].includes(direction) ? 'x' : 'y';
+        layout.fields.qr[axis] += (['left', 'up'].includes(direction) ? -1 : 1) * 100 / PAGE[axis];
+        clamp('qr'); render('qr'); syncControls(); markDirty();
+    }));
     form.querySelector('[data-g9-edit-toggle]').addEventListener('click',() => {
         toggle(!editing);
         showAlert({
@@ -165,7 +184,7 @@ export function initG9CertificateEditor({ applyFieldStyle, loadFontsAndFit }) {
     });
     form.querySelector('[data-g9-edit-text]').addEventListener('click',beginText);
     form.querySelector('[data-g9-insert-token]').addEventListener('change',(event) => {
-        if(!event.target.value||selected==='photo')return;
+        if(!event.target.value||['photo','qr'].includes(selected))return;
         finishText();const input=form.querySelector('[data-g9-property="text"]');
         const text=layout.fields[selected].text,start=input.selectionStart??text.length,end=input.selectionEnd??start;
         layout.fields[selected].text=(text.slice(0,start)+'{{'+event.target.value+'}}'+text.slice(end)).slice(0,1000);

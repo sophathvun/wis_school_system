@@ -7,7 +7,7 @@ function applyFieldStyle(field) {
     field.style.top = `${field.dataset.g9Y}%`;
     field.style.width = `${field.dataset.g9Width}%`;
     if (!field.dataset.g9FontKey) {
-        field.style.height = `${field.dataset.g9Height}%`;
+        if (field.dataset.g9Height) field.style.height = `${field.dataset.g9Height}%`;
         return;
     }
     field.style.fontFamily = field.dataset.g9FontFamily;
@@ -47,6 +47,34 @@ async function loadFontsAndFit(root = document) {
 
 function initG9Certificate() {
     const filterForm = document.querySelector('.report-filter-form-g9-certificate-wis');
+    const qrToggle = document.querySelector('[data-g9-qr-toggle]');
+    const syncQrPreview = () => {
+        if (!qrToggle) return;
+        document.querySelectorAll('[data-g9-certificate-preview] [data-g9-layout-key="qr"]').forEach((node) => {
+            node.hidden = !qrToggle.checked;
+        });
+    };
+    syncQrPreview();
+    qrToggle?.addEventListener('change', () => {
+        const value = qrToggle.checked ? '1' : '0';
+        syncQrPreview();
+        filterForm.querySelector('[data-g9-qr-value]').value = value;
+        document.querySelectorAll('.g9-certificate-settings, [data-g9-template-editor]').forEach((form) => {
+            const input = form.querySelector('[name="certificate_show_qr"]');
+            if (input) input.value = value;
+        });
+        const withQr = (address) => {
+            const url = new URL(address, window.location.href);
+            url.searchParams.set('certificate_show_qr', value);
+            return url.toString();
+        };
+        window.history.replaceState(null, '', withQr(window.location.href));
+        document.querySelectorAll('.premium-pagination a[href]').forEach((link) => {
+            if (link.getAttribute('href') !== '#') link.href = withQr(link.href);
+        });
+        document.querySelectorAll('[data-preview-page-size] option[data-url]').forEach((option) => { option.dataset.url = withQr(option.dataset.url); });
+        document.querySelectorAll('[data-preview-goto-url]').forEach((input) => { input.dataset.previewGotoUrl = withQr(input.dataset.previewGotoUrl); });
+    });
     filterForm?.addEventListener('change', (event) => {
         const id = event.target.id;
         if (['reportAcademicYearValue', 'reportCampusValue', 'reportGradeClassValue'].includes(id)) {

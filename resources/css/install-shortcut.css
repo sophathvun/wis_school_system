@@ -1,0 +1,10 @@
+.install-app-shortcut.is-ios:not(.d-none) { display: inline-flex; }
+.ios-shortcut-dialog .swal2-title { font-size: 1.35rem; }
+.ios-shortcut-dialog .swal2-html-container { margin: 1rem 1.25rem 0; font-size: 1rem; }
+.ios-shortcut-instructions { text-align: left; line-height: 1.5; }
+.ios-shortcut-instructions ol { margin: 0; padding-left: 1.5rem; }
+.ios-shortcut-instructions li { padding-left: .25rem; margin-bottom: 1rem; }
+.ios-shortcut-instructions li::marker { font-weight: 700; color: #206bc4; }
+.ios-shortcut-instructions small { display: block; margin-top: .25rem; font-size: .85rem; }
+.ios-shortcut-share-icon { display: inline-block; width: 1.4rem; height: 1.4rem; vertical-align: middle; color: #206bc4; }
+.ios-shortcut-instructions p { margin: .5rem 0 0; font-size: .85rem; }
