@@ -93,6 +93,10 @@
 }
 .reports-workspace-g9-certificate-wis .report-preview-actions > .btn {
     height: 42px;
+    --tblr-btn-disabled-bg: var(--tblr-bg-surface, #fff);
+    --tblr-btn-disabled-color: var(--tblr-secondary-color, #52627a);
+    --tblr-btn-disabled-border-color: var(--tblr-border-color, #d8e2f5);
+    --tblr-btn-disabled-opacity: 1;
 }
 [data-bs-theme="dark"] .report-filter-form-g9-certificate-wis .g9-settings-field .form-control { color: #eaf2ff; background: #141c2c; }
 
