@@ -58,6 +58,7 @@ it('renders transcript pages without legacy import files on the server', functio
 
         expect(substr_count($html, '<section class="transcript-template-page '))->toBe($pageCount)
             ->and(substr_count($html, '/reports/transcript-templates/'.$level.'/'))->toBe($pageCount)
+            ->and($html)->toContain('?v='.substr(hash_file('sha256', resource_path('report-templates/transcript-book/'.$level.'/'.($mode === 'cover' ? 'page-1.jpg' : 'page-3.jpg'))), 0, 12))
             ->and($html)->not->toContain('data:image/jpeg;base64,')
             ->and($html)->toContain('សិស្ស សាកល្បង')
             ->not->toContain('data-report-print-unavailable');
@@ -277,9 +278,9 @@ it('renders transcript values inside their template rows in the fallback PDF', f
             'transcript-content-mother-name' => [244, 259],
             'transcript-content-mother-occupation' => [263, 278],
             'transcript-content-current-address' => [285, 303],
-            'transcript-content-print-day' => [312, 329],
-            'transcript-content-print-month' => [312, 329],
-            'transcript-content-print-year' => [312, 329],
+            'transcript-content-print-day' => [319, 336],
+            'transcript-content-print-month' => [319, 336],
+            'transcript-content-print-year' => [319, 336],
         ] : [
             'transcript-content-student-name' => [205, 221],
             'transcript-content-student-name-en' => [205, 221],

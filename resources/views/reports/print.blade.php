@@ -66,7 +66,8 @@
 .transcript-template-primary .transcript-cover-birth-place{font-size:calc(15 * var(--transcript-font-unit))}
 .transcript-template-primary .transcript-content-student-name{font-family:"Khmer OS Muol Light","Khmer OS Muol",serif;font-weight:400;text-align:center;white-space:nowrap;overflow-wrap:normal}
 .transcript-template-primary .transcript-content-dob,.transcript-template-primary .transcript-content-birth-place,.transcript-template-primary .transcript-content-father-name,.transcript-template-primary .transcript-content-father-occupation,.transcript-template-primary .transcript-content-mother-name,.transcript-template-primary .transcript-content-mother-occupation{text-align:center;font-size:calc(15 * var(--transcript-font-unit))}
-.transcript-template-primary .transcript-content-current-address{top:47.6%;line-height:1.6}
+.transcript-template-primary .transcript-content-current-address{top:47.6%;line-height:1.8}
+.transcript-template-primary .transcript-content-print-day,.transcript-template-primary .transcript-content-print-month,.transcript-template-primary .transcript-content-print-year{top:53.4%}
 .transcript-template-secondary .transcript-cover-school{font-size:calc(20 * var(--transcript-font-unit))}
 .transcript-template-secondary .transcript-cover-school,.transcript-template-secondary .transcript-cover-student-name,.transcript-template-secondary .transcript-cover-dob,.transcript-template-secondary .transcript-cover-birth-place{left:63%;width:24.5%;text-align:center}
 .transcript-template-secondary .transcript-cover-birth-place{font-size:calc(17 * var(--transcript-font-unit))}

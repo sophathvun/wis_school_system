@@ -25,7 +25,7 @@
             return preg_match('/^[A-Za-z]:\//', $path) ? 'file:///' . $path : 'file://' . $path;
         }
         // Reuse two same-origin images instead of embedding their bytes in every printed page.
-        return route('reports.transcript-template', ['level' => $templateLevel, 'page' => $file], false);
+        return route('reports.transcript-template', ['level' => $templateLevel, 'page' => $file, 'v' => substr(hash_file('sha256', $path), 0, 12)], false);
     };
     $khmerDate = static function ($date): string {
         if (!$date) return '';
