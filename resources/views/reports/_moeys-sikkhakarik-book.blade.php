@@ -89,9 +89,9 @@
                             </td>
                             <td>
                                 <div><strong>ម្តាយ៖</strong> {{ $infoMother?->full_name_kh ?: '................................' }}</div>
-                                <div><strong>មុខរបរ៖</strong> {{ $infoMother?->occupation_kh ?: $infoMother?->occupation ?: '................................' }}</div>
+                                <div><strong>មុខរបរ៖</strong> {{ \App\Support\FamilyMemberOccupation::khmer($infoMother) ?: $infoMother?->occupation ?: '................................' }}</div>
                                 <div><strong>ឪពុក៖</strong> {{ $infoFather?->full_name_kh ?: '................................' }}</div>
-                                <div><strong>មុខរបរ៖</strong> {{ $infoFather?->occupation_kh ?: $infoFather?->occupation ?: '................................' }}</div>
+                                <div><strong>មុខរបរ៖</strong> {{ \App\Support\FamilyMemberOccupation::khmer($infoFather) ?: $infoFather?->occupation ?: '................................' }}</div>
                             </td>
                         </tr>
                     @endforeach
@@ -142,8 +142,8 @@
                     <div>នាមត្រកូល និង នាមខ្លួន : <span>{{ $student?->full_name_kh ?: '................................' }}</span></div>
                     <div>ថ្ងៃ ខែ ឆ្នាំកំណើត : <span>{{ $khmerDate($student?->date_of_birth) }}</span></div>
                     <div>ទីកន្លែងកំណើត : <span>{{ $locationText($student, 'birth') ?: '................................' }}</span></div>
-                    <div>ឪពុក និង មុខរបរ : <span>{{ $father?->full_name_kh ?: '................................' }} {{ $father?->occupation_kh ?: $father?->occupation ?: '' }}</span></div>
-                    <div>ម្តាយ និង មុខរបរ : <span>{{ $mother?->full_name_kh ?: '................................' }} {{ $mother?->occupation_kh ?: $mother?->occupation ?: '' }}</span></div>
+                    <div>ឪពុក និង មុខរបរ : <span>{{ $father?->full_name_kh ?: '................................' }} {{ \App\Support\FamilyMemberOccupation::khmer($father) ?: $father?->occupation ?: '' }}</span></div>
+                    <div>ម្តាយ និង មុខរបរ : <span>{{ $mother?->full_name_kh ?: '................................' }} {{ \App\Support\FamilyMemberOccupation::khmer($mother) ?: $mother?->occupation ?: '' }}</span></div>
                     <div>អាសយដ្ឋានសព្វថ្ងៃ : <span>{{ $locationText($student, 'address') ?: '................................' }}</span></div>
                 </div>
                 <div class="sikkhakarik-signature">ថ្ងៃទី ........ ខែ ........ ឆ្នាំ ........<br>នាយកសាលា</div>

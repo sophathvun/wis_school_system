@@ -2937,7 +2937,10 @@ JS;
             $relations[] = 'student.familyMembers:id,phone,relationship_type';
         }
         if ($type === 'moeys-id-number-book' || $type === 'moeys-sikkhakarik-book') {
-            $relations[] = 'student.familyMembers:id,full_name_en,full_name_kh,relationship_type,phone,email,occupation,occupation_en,occupation_kh,workplace,nationality_en,nationality_kh';
+            $relations[] = 'student.familyMembers:id,full_name_en,full_name_kh,relationship_type,phone,email,occupation,occupation_en,occupation_kh,workplace,nationality_en,nationality_kh'.($type === 'moeys-sikkhakarik-book' ? ',occupation_id' : '');
+            if ($type === 'moeys-sikkhakarik-book') {
+                $relations[] = 'student.familyMembers.occupationRecord:id,occupation_name_en,occupation_name_kh';
+            }
             $relations[] = 'student.nationalityCountry:id,country_name_en,country_name_kh,nationality_name_en,nationality_name_kh';
             $relations[] = 'student.birthCountry:id,country_name_en,country_name_kh';
             $relations[] = 'student.birthProvince:id,province_name_en,province_name_kh';

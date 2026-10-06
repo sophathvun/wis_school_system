@@ -141,9 +141,9 @@
                         <div class="transcript-content-field transcript-content-dob">{{ $khmerDate($student?->date_of_birth) }}</div>
                         <div class="transcript-content-field transcript-content-birth-place">{{ $birthProvinceOnly($student) }}</div>
                         <div class="transcript-content-field transcript-content-father-name">{{ $father?->full_name_kh }}</div>
-                        <div class="transcript-content-field transcript-content-father-occupation">{{ $father?->occupation_kh ?: ($templateLevel === 'primary' ? $father?->occupation : '') }}</div>
+                        <div class="transcript-content-field transcript-content-father-occupation">{{ \App\Support\FamilyMemberOccupation::khmer($father) ?: ($templateLevel === 'primary' ? $father?->occupation : '') }}</div>
                         <div class="transcript-content-field transcript-content-mother-name">{{ $mother?->full_name_kh }}</div>
-                        <div class="transcript-content-field transcript-content-mother-occupation">{{ $mother?->occupation_kh ?: ($templateLevel === 'primary' ? $mother?->occupation : '') }}</div>
+                        <div class="transcript-content-field transcript-content-mother-occupation">{{ \App\Support\FamilyMemberOccupation::khmer($mother) ?: ($templateLevel === 'primary' ? $mother?->occupation : '') }}</div>
                         <div class="transcript-content-field transcript-content-current-address">{{ $contentAddress }}</div>
                         @if($templateLevel === 'primary')
                             <div class="transcript-content-field transcript-content-print-day">{{ $printDate['day'] }}</div>
