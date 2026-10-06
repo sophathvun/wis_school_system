@@ -1,10 +1,12 @@
 import { Tooltip } from 'bootstrap';
+import { initPremiumDatePicker } from './premiumDatePicker';
 
 document.addEventListener('DOMContentLoaded', () => {
     const workspace = document.querySelector('[data-report-type]');
     if (!workspace) return;
 
     const reportType = workspace.dataset.reportType || '';
+    workspace.querySelectorAll('[data-premium-date-picker]').forEach(initPremiumDatePicker);
     const reportDate = workspace.dataset.reportDate || '';
     const form = workspace.querySelector('form');
     const periodSelect = form?.querySelector('[data-report-period-select]');
@@ -388,6 +390,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     const gradeClassValue = document.getElementById('reportGradeClassValue');
                     if (gradeClassValue) gradeClassValue.value = '';
                 }
+                if (reportType === 'k3-certificate-wis') {
+                    if (['reportAcademicYearValue', 'reportCampusValue', 'reportGradeClassValue'].includes(target.id)) {
+                        const student = document.getElementById('reportCertificateStudentValue');
+                        if (student) student.value = '';
+                    }
+                    if (target.id === 'reportAcademicYearValue') {
+                        const campus = document.getElementById('reportCampusValue');
+                        if (campus) campus.value = '';
+                    }
+                    if (['reportAcademicYearValue', 'reportCampusValue'].includes(target.id)) {
+                        const grade = document.getElementById('reportGradeClassValue');
+                        if (grade) grade.value = '';
+                    }
+                }
                 if (reportType === 'moeys-sikkhakarik-book' && ['reportAcademicYearValue', 'reportTranscriptLevelValue', 'reportCampusValue', 'reportGradeClassValue', 'reportGroupValue'].includes(target.id)) {
                     // A different class or group requires a fresh student selection.
                     const studentValue = document.getElementById('reportTranscriptStudentValue');
@@ -403,7 +419,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (requiresManualApply && ['reportAcademicYearValue', 'reportCampusValue'].includes(target.id)) {
                     refreshManualFilterOptions();
                 }
-                if (!requiresManualApply && ['reportAcademicYearValue', 'reportIdBookLevelValue', 'reportTranscriptLevelValue', 'reportCampusValue', 'reportGradeClassValue', 'reportGroupValue', 'reportTranscriptStudentValue'].includes(target.id)) {
+                if (!requiresManualApply && ['reportAcademicYearValue', 'reportIdBookLevelValue', 'reportTranscriptLevelValue', 'reportCampusValue', 'reportGradeClassValue', 'reportGroupValue', 'reportTranscriptStudentValue', 'reportCertificateStudentValue'].includes(target.id)) {
                     setTimeout(() => isQuietAttendance ? quietRefreshAttendance() : form?.requestSubmit(), 0);
                 }
             });

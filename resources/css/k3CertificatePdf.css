@@ -1,0 +1,31 @@
+/* DomPDF needs explicit bold faces to retain each selected embedded font family. */
+@font-face {
+    font-family: 'K3 Old English Text MT';
+    src: url('../../public/fonts/certificates/OldEnglishTextMT.ttf') format('truetype');
+    font-weight: bold;
+    font-style: normal;
+}
+@font-face {
+    font-family: 'K3 Maiandra GD';
+    src: url('../../public/fonts/certificates/MaiandraGD.ttf') format('truetype');
+    font-weight: bold;
+    font-style: normal;
+}
+@font-face {
+    font-family: 'K3 Siemreap';
+    src: url('../../public/fonts/khmer/KhmerOSsiemreap.ttf') format('truetype');
+    font-weight: bold;
+    font-style: normal;
+}
+@font-face {
+    font-family: 'K3 Battambang';
+    src: url('../../public/fonts/khmer/KhmerOSbattambang.ttf') format('truetype');
+    font-weight: bold;
+    font-style: normal;
+}
+@font-face {
+    font-family: 'K3 Muol Light';
+    src: url('../../public/fonts/khmer/KhmerOSmuollight.ttf') format('truetype');
+    font-weight: bold;
+    font-style: normal;
+}

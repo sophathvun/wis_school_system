@@ -9,6 +9,7 @@ export default defineConfig({
             input: [
                 "resources/css/app.css",
                 "resources/css/reports.css",
+                "resources/css/k3Certificate.css",
                 ...globSync("resources/css/pages/*.css"),
                 "resources/js/app.js",
                 "resources/js/academicYears.js",
@@ -41,6 +42,7 @@ export default defineConfig({
                 "resources/js/chat.js",
                 "resources/js/databaseBackups.js",
                 "resources/js/reportsIndex.js",
+                "resources/js/k3Certificate.js",
                 "resources/js/reportsPrint.js",
                 "resources/js/pdfPrint.js",
                 "resources/js/staffCardPublic.js",

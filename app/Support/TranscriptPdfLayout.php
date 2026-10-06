@@ -7,14 +7,14 @@ use FontLib\Font;
 
 class TranscriptPdfLayout
 {
-    public static function configure(Dompdf $dompdf): void
+    public static function configure(Dompdf $dompdf, array $fieldClasses = ['transcript-cover-field', 'transcript-content-field']): void
     {
         $prepared = false;
         $fontBaselines = [];
 
         $dompdf->setCallbacks([[
             'event' => 'begin_page_reflow',
-            'f' => static function ($page, $canvas, $fontMetrics) use (&$prepared, &$fontBaselines): void {
+            'f' => static function ($page, $canvas, $fontMetrics) use (&$prepared, &$fontBaselines, $fieldClasses): void {
                 // Prepare the whole tree once, before pagination splits it into pages.
                 if ($prepared) return;
                 $prepared = true;
@@ -23,7 +23,7 @@ class TranscriptPdfLayout
                     $node = $field->get_node();
                     if (!$node instanceof \DOMElement) continue;
                     $classes = preg_split('/\s+/', $node->getAttribute('class'));
-                    if (!array_intersect($classes, ['transcript-cover-field', 'transcript-content-field'])) continue;
+                    if (!array_intersect($classes, $fieldClasses)) continue;
 
                     $style = $field->get_style();
                     $font = $style->font_family;

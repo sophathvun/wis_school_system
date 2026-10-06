@@ -1,4 +1,100 @@
 /* Reports page styles extracted from resources/views/reports/index.blade.php */
+.reports-workspace-k3-certificate-wis .report-filter-toggle,
+.report-filter-form-k3-certificate-wis .k3-settings-field .form-control {
+    min-height: 48px !important;
+    height: 48px !important;
+    font-size: .8rem !important;
+    padding-top: 1.25rem !important;
+    padding-bottom: .25rem !important;
+}
+.reports-workspace-k3-certificate-wis .report-filter-toggle span { font-size: .8rem !important; }
+.reports-workspace-k3-certificate-wis .report-filter-options button[hidden] { display: none !important; }
+.report-filter-form-k3-certificate-wis .card-body > .row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    margin: 0;
+}
+.report-filter-form-k3-certificate-wis .card-body > .row > .report-filter-field {
+    width: auto;
+    margin: 0;
+    padding: 0;
+}
+@media (min-width: 576px) {
+    .report-filter-form-k3-certificate-wis .card-body > .row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+@media (min-width: 992px) {
+    .report-filter-form-k3-certificate-wis .card-body > .row {
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+    .report-filter-form-k3-certificate-wis .k3-given-date-picker .date-picker-popup {
+        left: auto;
+        right: 0;
+    }
+}
+.k3-font-settings summary { cursor: pointer; font-weight: 600; color: var(--tblr-primary); }
+.k3-font-row { display: grid; grid-template-columns: minmax(160px, 1fr) minmax(180px, 1.3fr) 90px 90px; gap: 12px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--tblr-border-color); }
+.k3-font-row label { display: grid; gap: 3px; font-size: .72rem; color: var(--tblr-secondary); }
+.k3-font-section { font-size: .82rem; }
+.k3-font-row :is(.form-control, .form-select) { height: 36px; min-height: 36px; font-size: .8rem; padding: 5px 8px; }
+.k3-font-row .form-control-color { width: 100%; }
+@media(max-width: 767px) {
+    .k3-font-row { grid-template-columns: 1fr 1fr; gap: 8px; padding: 12px 0; }
+    .k3-font-row :is(.k3-font-section, .k3-font-family) { grid-column: 1 / -1; }
+}
+.k3-given-date-picker .form-control { padding-right: 2.8rem !important; border-radius: 14px; }
+.k3-given-date-picker .date-picker-calendar-button {
+    position: absolute; top: .3rem; right: .25rem;
+    width: 36px; height: 36px; min-height: 36px;
+    padding: 0; justify-content: center; border: 0;
+    color: var(--tblr-primary); background: transparent;
+}
+.k3-given-date-picker .date-picker-popup {
+    left: 0; width: 21rem; max-width: calc(100vw - 24px); z-index: 2050;
+}
+.k3-given-date-picker.is-open .form-control,
+.k3-given-date-picker.has-value .form-control { border-color: #6b5bd6; }
+[data-bs-theme="dark"] .k3-given-date-picker :is(.date-picker-popup, .date-picker-year-popup) {
+    background: #1e293b; border-color: #475569;
+}
+[data-bs-theme="dark"] .k3-given-date-picker :is(.date-picker-day, .date-picker-year, .date-picker-weekdays) { color: #e2e8f0; }
+[data-bs-theme="dark"] .k3-given-date-picker .date-picker-day.is-outside { color: #64748b; }
+[data-bs-theme="dark"] .k3-given-date-picker :is(.date-picker-day, .date-picker-year):hover { background: #334155; }
+.k3-certificate-note { font-size: .72rem; line-height: 1.4; color: var(--tblr-secondary); }
+.reports-workspace-k3-certificate-wis .report-filter-form .card-body { padding-bottom: 1rem; }
+.reports-workspace-k3-certificate-wis .report-preview-header .report-summary-card {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 140px !important;
+    min-width: 0 !important;
+    height: 42px;
+    box-sizing: border-box;
+    margin: 0 !important;
+    padding: .2rem .65rem;
+    border: 1px solid var(--tblr-border-color, #d8e2f5);
+    border-radius: 10px;
+    background: var(--tblr-bg-surface, #fff);
+    color: var(--tblr-body-color, #182433);
+    text-align: center;
+}
+.reports-workspace-k3-certificate-wis .report-summary-label {
+    font-size: .625rem;
+    font-weight: 600;
+    line-height: 1.2;
+}
+.reports-workspace-k3-certificate-wis .report-summary-number {
+    color: var(--tblr-primary, #206bc4);
+    font-size: .875rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+.reports-workspace-k3-certificate-wis .report-preview-actions > .btn {
+    height: 42px;
+}
+[data-bs-theme="dark"] .report-filter-form-k3-certificate-wis .k3-settings-field .form-control { color: #eaf2ff; background: #141c2c; }
 .report-transcript-student-field .report-filter-menu {
     width: max(100%, 320px);
     max-width: calc(100vw - 2rem);

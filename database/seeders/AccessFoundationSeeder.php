@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Permission;
 use App\Models\Role;
+use App\Support\K3CertificatePermissions;
 use Illuminate\Database\Seeder;
 
 class AccessFoundationSeeder extends Seeder
@@ -108,6 +109,9 @@ class AccessFoundationSeeder extends Seeder
             }
         }
 
+        foreach (K3CertificatePermissions::catalog() as $code => $name) {
+            $permissions[] = ['code' => $code, 'module' => 'reports.k3', 'action' => substr($code, strlen('reports.k3.')), 'name' => $name];
+        }
         foreach ($permissions as $permission) {
             Permission::updateOrCreate(['code' => $permission['code']], $permission);
         }
@@ -124,7 +128,11 @@ class AccessFoundationSeeder extends Seeder
 
         foreach ($roles as $roleData) {
             $role = Role::updateOrCreate(['code' => $roleData['code']], $roleData + ['is_system' => true, 'status' => 1]);
-            $role->permissions()->sync($allPermissions->modelKeys());
+            // These shared certificate actions require an explicit grant to non-super roles.
+            $rolePermissions = $role->code === 'super-admin' ? $allPermissions : $allPermissions->filter(
+                fn ($permission) => !array_key_exists($permission->code, K3CertificatePermissions::catalog()) || $role->permissions->contains('id', $permission->id)
+            );
+            $role->permissions()->sync($rolePermissions->modelKeys());
         }
     }
 }

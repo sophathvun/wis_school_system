@@ -11,6 +11,8 @@ use App\Models\Session;
 use App\Models\StudentEnrollment;
 use App\Models\StudentEnrollmentHistory;
 use App\Support\TranscriptPdfLayout;
+use App\Support\K3CertificatePdfLayout;
+use App\Services\K3CertificateReport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -89,6 +91,7 @@ class ReportsController
     public function excel(Request $request, string $type)
     {
         abort_unless(isset(self::TYPES[$type]), 404);
+        abort_if($type === 'k3-certificate-wis', 404);
 
         $payload = $this->reportPayload($request, $type);
         if ($type === 'student-id-books-moeys' && $request->query('print_mode') === 'cover') {
@@ -139,6 +142,10 @@ class ReportsController
     {
         abort_unless(isset(self::TYPES[$type]), 404);
         $payload = $this->reportPayload($request, $type);
+        if ($type === 'k3-certificate-wis') {
+            abort_unless($payload['certificateReady'], 422, 'Save the Given Date and assign certificate numbers before printing.');
+            return view('reports.k3-certificate-print', $payload);
+        }
         $academicYear = $request->filled('academic_year_id') ? AcademicYear::find($request->integer('academic_year_id')) : null;
         $campus = $request->filled('campus_id') ? SchoolInfo::find($request->integer('campus_id')) : null;
 
@@ -159,6 +166,42 @@ class ReportsController
             'academicYear' => $academicYear,
             'campus' => $campus,
         ]);
+    }
+
+    public function saveK3Certificates(Request $request)
+    {
+        $data = $request->validate([
+            'academic_year_id' => ['required', 'integer', \Illuminate\Validation\Rule::exists('tb_academic_year', 'id')->where('period_type', 'regular')->whereNull('deleted_at')],
+            'action' => ['required', 'in:save_date,assign,update_prefix,save_style,reset_style'],
+        ]);
+        if ($data['action'] === 'save_style') {
+            $data += $request->validate(\App\Support\K3CertificateTypography::rules());
+        } elseif ($data['action'] !== 'reset_style') {
+            $data += $request->validate([
+                'given_date'=>[$data['action'] === 'save_date' ? 'required' : 'nullable','date_format:Y-m-d'],
+                'number_prefix'=>[$data['action'] === 'update_prefix' ? 'required' : 'nullable','string','max:16','regex:/^[A-Za-z0-9-]+$/'],
+            ]);
+        }
+        $count = app(K3CertificateReport::class)->save($request, $data);
+        $message = match ($data['action']) {
+            'save_style' => 'Certificate fonts saved for this academic year.',
+            'reset_style' => 'Certificate fonts restored to the original style for this academic year.',
+            'assign' => "Assigned {$count} new certificate numbers. Given Date saved.",
+            'update_prefix' => $count ? "Prefix updated on {$count} certificates. Student sequence numbers and Given Date kept unchanged." : 'Certificate Prefix saved for this academic year.',
+            default => 'Given Date saved for this academic year.',
+        };
+        return redirect()->route('reports.index', ['type' => 'k3-certificate-wis', 'academic_year_id' => $data['academic_year_id']] + $request->only(['campus_id', 'grade_class', 'certificate_student_id']))
+            ->with('success', $message)->with('k3_action', $data['action']);
+    }
+
+    public function saveK3CertificateTemplate(Request $request)
+    {
+        $data = $request->validate(['template_data'=>['required','json','max:30000'],'template_version'=>['required','integer','min:0']]);
+        $layout = json_decode($data['template_data'],true);
+        $validated = \Illuminate\Support\Facades\Validator::make(is_array($layout)?$layout:[],\App\Support\K3CertificateLayout::rules())->validate();
+        app(K3CertificateReport::class)->saveTemplate($request,$validated,(int)$data['template_version']);
+        return redirect()->route('reports.index',['type'=>'k3-certificate-wis']+$request->only(['academic_year_id','campus_id','grade_class','certificate_student_id']))
+            ->with('success','K3 certificate template saved. It will be used for certificates in all academic years.')->with('k3_action','save_template');
     }
 
     public function generateIdBookListCodes(Request $request, string $type)
@@ -225,6 +268,11 @@ class ReportsController
 
     private function makeReportPdfPath(Request $request, array $payload, string $type): string
     {
+        if ($type === 'k3-certificate-wis') {
+            abort_unless($payload['certificateReady'], 422, 'Save the Given Date and assign certificate numbers before exporting.');
+            $html = view('reports.k3-certificate-print', $payload + ['pdfMode' => true])->render();
+            return $this->makeDomPdfPath(K3CertificatePdfLayout::prepareHtml($html), $type);
+        }
         $first = ($payload['enrollments'] ?? collect())->first();
         [$pdfKhmerLunarDate, $pdfKhmerSolarDate] = $this->moeysKhmerDateLines($payload['filters']['report_date'] ?? null, $first?->campus);
         $academicYear = $request->filled('academic_year_id') ? AcademicYear::find($request->integer('academic_year_id')) : null;
@@ -349,7 +397,7 @@ class ReportsController
             // DomPDF resolves drive-letter paths without the browser's extra slash.
             $html = preg_replace('~file:///([A-Za-z]:/)~', 'file://$1', $html);
         }
-        $paper = in_array($type, ['student-list', 'student-contact-list', 'attendance-list', 'score-list', 'student-id-books-moeys', 'moeys-sikkhakarik-book'], true)
+        $paper = in_array($type, ['student-list', 'student-contact-list', 'attendance-list', 'score-list', 'student-id-books-moeys', 'moeys-sikkhakarik-book', 'k3-certificate-wis'], true)
             ? 'landscape'
             : 'portrait';
         $pdfPath = $this->reportTempPath('dompdf-', '.pdf');
@@ -368,6 +416,7 @@ class ReportsController
                     'fontCache' => $domPdfFontPath,
                     'chroot' => [
                         public_path(),
+                        resource_path('css'),
                         resource_path('report-templates/transcript-book'),
                         storage_path('app/public'),
                         storage_path('app/report-pdf-temp'),
@@ -375,6 +424,8 @@ class ReportsController
                 ]);
             if ($type === 'moeys-sikkhakarik-book') {
                 TranscriptPdfLayout::configure($pdf->getDomPDF());
+            } elseif ($type === 'k3-certificate-wis') {
+                K3CertificatePdfLayout::configure($pdf->getDomPDF());
             }
             $pdf->save($pdfPath);
         } catch (\Throwable $exception) {
@@ -596,7 +647,7 @@ class ReportsController
 
     private function isReportStub(string $type): bool
     {
-        return in_array($type, ['k3-certificate-wis', 'g9-certificate-wis', 'g12-certificate-wis'], true);
+        return in_array($type, ['g9-certificate-wis', 'g12-certificate-wis'], true);
     }
 
     private function classGroups($enrollments): Collection
@@ -2601,6 +2652,7 @@ JS;
             'id_book_level' => ['nullable', 'in:kindergarten,primary,secondary'],
             'transcript_level' => ['nullable', 'in:primary,secondary'],
             'transcript_student_id' => ['nullable', 'integer', 'min:1'],
+            'certificate_student_id' => ['nullable', 'integer', 'min:1'],
             'withdrawal_status' => ['nullable', 'in:all,pending,principal_approved,approved,rejected,cancelled'],
             'grade_id' => ['nullable', 'integer'],
             'class_id' => ['nullable', 'integer'],
@@ -2613,7 +2665,7 @@ JS;
             'selected_columns_submitted' => ['nullable', 'string'],
             'selected_columns' => ['nullable', 'array'],
             'selected_columns.*' => ['string'],
-            'preview_page_size' => ['nullable', 'in:all,25,50,75,100'],
+            'preview_page_size' => ['nullable', $type === 'k3-certificate-wis' ? 'in:'.implode(',', K3CertificateReport::PREVIEW_SIZES) : 'in:all,25,50,75,100'],
             'preview_page' => ['nullable', 'integer', 'min:1'],
             'report_date' => ['nullable', 'date'],
             'month' => ['nullable', 'date_format:Y-m'],
@@ -2625,6 +2677,9 @@ JS;
         $filters['score_columns'] = (int) ($filters['score_columns'] ?? 5);
         $filters['print_type'] = $filters['print_type'] ?? 'quarter_1';
         $filters['report_date'] = $filters['report_date'] ?? now()->format('Y-m-d');
+        if ($type === 'k3-certificate-wis') {
+            return app(K3CertificateReport::class)->payload($request, $filters, $preview);
+        }
         if ($type === 'moeys-id-number-book') {
             $availableColumns = array_keys($this->getStudentListColumnDefinitions());
             $defaultColumns = ['student_id', 'full_name_en', 'gender', 'date_of_birth', 'academic_year', 'campus', 'grade_class', 'group', 'student_type', 'mother_name_en', 'mother_phone', 'father_name_en', 'father_phone'];
@@ -2780,7 +2835,7 @@ JS;
     private function academicYears(array $filters, string $type = ''): Collection
     {
         return AcademicYear::query()
-            ->when($type === 'moeys-sikkhakarik-book', fn ($q) => $q->where('period_type', 'regular'))
+            ->when(in_array($type, ['moeys-sikkhakarik-book', 'k3-certificate-wis'], true), fn ($q) => $q->where('period_type', 'regular'))
             ->when(($filters['period_type'] ?? 'all') !== 'all', fn ($q) => $q->where('period_type', $filters['period_type']))
             ->orderByDesc('academic_year')
             ->get(['id', 'academic_year', 'period_type', 'parent_academic_year_id']);

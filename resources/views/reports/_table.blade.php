@@ -228,6 +228,8 @@
         }
     }
 </style>
+@elseif($type === 'k3-certificate-wis')
+    @include('reports._k3-certificate-preview')
 @elseif($isReportStub)
     <div class="report-placeholder-preview">
         <div class="report-placeholder-preview-icon"><i class="ti ti-certificate"></i></div>

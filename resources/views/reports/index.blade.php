@@ -2,9 +2,11 @@
 @section('title','Reports')
 @push('styles')
     @vite('resources/css/reports.css')
+    @if($type === 'k3-certificate-wis')@vite('resources/css/k3Certificate.css')@endif
 @endpush
 @push('scripts')
     @vite('resources/js/reportsIndex.js')
+    @if($type === 'k3-certificate-wis')@vite('resources/js/k3Certificate.js')@endif
 @endpush
 @section('page-header')
     <div class="container-fluid">
@@ -105,6 +107,8 @@
 <div class="col-md-4 report-filter-field"><label class="form-label">Grade</label><div class="report-filter-combobox" data-target="reportGradeClassValue"><button type="button" class="report-filter-toggle"><span>{{ data_get(collect($gradeClassOptions)->firstWhere('value',$filters['grade_class']??''), 'label', 'All Grades') }}</span><i class="ti ti-chevron-down"></i></button><div class="report-filter-menu"><input type="search" class="form-control report-filter-search" placeholder="Search Grade"><div class="report-filter-options"><button type="button" data-value="">All Grades</button>@foreach($gradeClassOptions as $option)<button type="button" data-value="{{ $option['value'] }}">{{ $option['label'] }}</button>@endforeach</div></div></div><input type="hidden" name="grade_class" id="reportGradeClassValue" value="{{ $filters['grade_class']??'' }}"></div>
 <div class="col-md-4 report-filter-field"><label class="form-label">Group</label><div class="report-filter-combobox" data-target="reportGroupValue"><button type="button" class="report-filter-toggle"><span>{{ $groupOptions->firstWhere('session_id',(int)($filters['session_id']??0))?->session_short_name ?: 'All Groups' }}</span><i class="ti ti-chevron-down"></i></button><div class="report-filter-menu"><input type="search" class="form-control report-filter-search" placeholder="Search Group"><div class="report-filter-options"><button type="button" data-value="">All Groups</button>@foreach($groupOptions as $group)<button type="button" data-value="{{ $group->session_id }}">{{ $group->session_short_name }}</button>@endforeach</div></div></div><input type="hidden" name="session_id" id="reportGroupValue" value="{{ $filters['session_id']??'' }}"></div>
 <div class="col-md-4 report-filter-field"><label class="form-label">Withdrawal Status</label><div class="report-native-select"><select name="withdrawal_status" class="form-select report-select-with-arrow"><option value="approved" @selected(($filters['withdrawal_status']??'approved')==='approved')>Approved</option><option value="pending" @selected(($filters['withdrawal_status']??'')==='pending')>Pending</option><option value="principal_approved" @selected(($filters['withdrawal_status']??'')==='principal_approved')>Principal Approved</option><option value="rejected" @selected(($filters['withdrawal_status']??'')==='rejected')>Rejected</option><option value="cancelled" @selected(($filters['withdrawal_status']??'')==='cancelled')>Cancelled</option><option value="all" @selected(($filters['withdrawal_status']??'')==='all')>All Statuses</option></select><i class="ti ti-chevron-down report-native-select-arrow"></i></div></div>
+@elseif($type === 'k3-certificate-wis')
+@include('reports._k3-certificate-filters')
 @elseif($isReportStub)
 <div class="col-12">
     <div class="alert alert-info mb-0 report-placeholder-alert {{ in_array($type, $khmerReportTypeTabs, true) ? 'khmer-font-siemreap' : '' }}">
@@ -197,7 +201,11 @@
         </div>
     </div>
 @endif
-</div></div></form></div>
+</div></div></form>
+@if($type === 'k3-certificate-wis')
+@include('reports._k3-certificate-settings')
+@endif
+</div>
 <div class="card report-preview-card">
     <div class="card-header d-flex align-items-center justify-content-between gap-2 report-preview-header report-header-dark-blue">
         <div class="report-preview-title-wrap">
@@ -233,9 +241,15 @@
                 </div>
             </div>
         @endif
+        @if($type === 'k3-certificate-wis')
+            <div class="report-summary-card"><div class="report-summary-item report-summary-total"><div class="report-summary-label">Total Students</div><div class="report-summary-number">{{ $certificates->count() }}</div></div></div>
+        @endif
         @if(!$isReportStub)
             <div class="report-preview-actions d-flex gap-2 ms-auto">
-                @if($type === 'moeys-id-number-book')
+                @if($type === 'k3-certificate-wis')
+                    <a class="btn btn-outline-primary report-print-link {{ $certificateReady ? '' : 'disabled' }}" @if(!$certificateReady) aria-disabled="true" tabindex="-1" @endif target="_blank" href="{{ route('reports.show',$type) . '?' . http_build_query($filters) }}"><i class="ti ti-printer me-1"></i>Print Content</a>
+                    <a class="btn btn-outline-danger report-pdf-link {{ $certificateReady ? '' : 'disabled' }}" @if(!$certificateReady) aria-disabled="true" tabindex="-1" @endif href="{{ route('reports.pdf',$type) . '?' . http_build_query($filters) }}"><i class="ti ti-file-type-pdf me-1"></i>PDF Content</a>
+                @elseif($type === 'moeys-id-number-book')
                     <a class="btn btn-outline-success report-excel-link" href="{{ route('reports.excel',$type) . '?' . http_build_query($filters) }}"><i class="ti ti-file-spreadsheet me-1"></i>Export Excel</a>
                 @elseif($type === 'student-id-books-moeys')
                     <div class="dropdown">

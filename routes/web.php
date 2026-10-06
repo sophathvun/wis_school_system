@@ -326,6 +326,8 @@ Route::middleware(['auth', 'active.user'])->group(function () {
     ])->name('financial-management.expenses');
 
     Route::get('/reports', [ReportsController::class, 'index'])->name('reports.index');
+    Route::post('/reports/k3-certificate-wis/settings', [ReportsController::class, 'saveK3Certificates'])->name('reports.k3-certificates.save');
+    Route::post('/reports/k3-certificate-wis/template', [ReportsController::class, 'saveK3CertificateTemplate'])->name('reports.k3-certificates.template');
     Route::view('/reports/hrm-reports', 'academic-module-placeholder', [
         'title' => 'HRM Reports',
         'pretitle' => 'Reports',

@@ -75,7 +75,7 @@ class PermissionHierarchy
             'reports' => [
                 'label' => 'Reports', 'permission' => 'reports.view',
                 'modules' => [],
-                'actions' => ['reports.export'],
+                'actions' => ['reports.export', K3CertificatePermissions::SAVE_GIVEN_DATE, K3CertificatePermissions::ASSIGN_NUMBERS, K3CertificatePermissions::EDIT_PREFIX, K3CertificatePermissions::EDIT_TEMPLATE],
             ],
         ];
     }
