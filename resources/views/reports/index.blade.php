@@ -3,10 +3,12 @@
 @push('styles')
     @vite('resources/css/reports.css')
     @if($type === 'k3-certificate-wis')@vite('resources/css/k3Certificate.css')@endif
+    @if($type === 'g9-certificate-wis')@vite('resources/css/g9Certificate.css')@endif
 @endpush
 @push('scripts')
     @vite('resources/js/reportsIndex.js')
     @if($type === 'k3-certificate-wis')@vite('resources/js/k3Certificate.js')@endif
+    @if($type === 'g9-certificate-wis')@vite('resources/js/g9Certificate.js')@endif
 @endpush
 @section('page-header')
     <div class="container-fluid">
@@ -109,6 +111,8 @@
 <div class="col-md-4 report-filter-field"><label class="form-label">Withdrawal Status</label><div class="report-native-select"><select name="withdrawal_status" class="form-select report-select-with-arrow"><option value="approved" @selected(($filters['withdrawal_status']??'approved')==='approved')>Approved</option><option value="pending" @selected(($filters['withdrawal_status']??'')==='pending')>Pending</option><option value="principal_approved" @selected(($filters['withdrawal_status']??'')==='principal_approved')>Principal Approved</option><option value="rejected" @selected(($filters['withdrawal_status']??'')==='rejected')>Rejected</option><option value="cancelled" @selected(($filters['withdrawal_status']??'')==='cancelled')>Cancelled</option><option value="all" @selected(($filters['withdrawal_status']??'')==='all')>All Statuses</option></select><i class="ti ti-chevron-down report-native-select-arrow"></i></div></div>
 @elseif($type === 'k3-certificate-wis')
 @include('reports._k3-certificate-filters')
+@elseif($type === 'g9-certificate-wis')
+@include('reports._g9-certificate-filters')
 @elseif($isReportStub)
 <div class="col-12">
     <div class="alert alert-info mb-0 report-placeholder-alert {{ in_array($type, $khmerReportTypeTabs, true) ? 'khmer-font-siemreap' : '' }}">
@@ -204,6 +208,8 @@
 </div></div></form>
 @if($type === 'k3-certificate-wis')
 @include('reports._k3-certificate-settings')
+@elseif($type === 'g9-certificate-wis')
+@include('reports._g9-certificate-settings')
 @endif
 </div>
 <div class="card report-preview-card">
@@ -241,12 +247,12 @@
                 </div>
             </div>
         @endif
-        @if($type === 'k3-certificate-wis')
+        @if(in_array($type, ['k3-certificate-wis', 'g9-certificate-wis'], true))
             <div class="report-summary-card"><div class="report-summary-item report-summary-total"><div class="report-summary-label">Total Students</div><div class="report-summary-number">{{ $certificates->count() }}</div></div></div>
         @endif
         @if(!$isReportStub)
             <div class="report-preview-actions d-flex gap-2 ms-auto">
-                @if($type === 'k3-certificate-wis')
+                @if(in_array($type, ['k3-certificate-wis', 'g9-certificate-wis'], true))
                     <a class="btn btn-outline-primary report-print-link {{ $certificateReady ? '' : 'disabled' }}" @if(!$certificateReady) aria-disabled="true" tabindex="-1" @endif target="_blank" href="{{ route('reports.show',$type) . '?' . http_build_query($filters) }}"><i class="ti ti-printer me-1"></i>Print Content</a>
                     <a class="btn btn-outline-danger report-pdf-link {{ $certificateReady ? '' : 'disabled' }}" @if(!$certificateReady) aria-disabled="true" tabindex="-1" @endif href="{{ route('reports.pdf',$type) . '?' . http_build_query($filters) }}"><i class="ti ti-file-type-pdf me-1"></i>PDF Content</a>
                 @elseif($type === 'moeys-id-number-book')

@@ -330,6 +330,8 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         ->where('level', 'primary|secondary')->where('page', 'page-[1-4]\.jpg')->name('reports.transcript-template');
     Route::post('/reports/k3-certificate-wis/settings', [ReportsController::class, 'saveK3Certificates'])->name('reports.k3-certificates.save');
     Route::post('/reports/k3-certificate-wis/template', [ReportsController::class, 'saveK3CertificateTemplate'])->name('reports.k3-certificates.template');
+    Route::post('/reports/g9-certificate-wis/settings', [\App\Http\Controllers\G9CertificateController::class, 'saveG9Certificates'])->name('reports.g9-certificates.save');
+    Route::post('/reports/g9-certificate-wis/template', [\App\Http\Controllers\G9CertificateController::class, 'saveG9CertificateTemplate'])->name('reports.g9-certificates.template');
     Route::view('/reports/hrm-reports', 'academic-module-placeholder', [
         'title' => 'HRM Reports',
         'pretitle' => 'Reports',
