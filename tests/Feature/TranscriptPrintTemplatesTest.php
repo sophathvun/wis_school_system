@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Str;
 use App\Support\TranscriptPdfLayout;
+use App\Support\TranscriptPdfRenderer;
 use Dompdf\Dompdf;
 use Illuminate\Support\Facades\File;
 
@@ -31,6 +32,19 @@ dataset('transcript print modes', [
     'secondary content' => ['secondary', 'content', 11],
 ]);
 
+it('uses UTF-8 and bundled Khmer fonts in all standalone transcript print modes', function ($level, $mode) {
+    $html = view('reports.print', [
+        'filters' => ['transcript_level' => $level, 'print_mode' => $mode, 'report_date' => '2026-10-06'],
+        'enrollments' => transcriptPrintTestRows(), 'type' => 'moeys-sikkhakarik-book',
+        'title' => 'Transcript test', 'academicYear' => null, 'campus' => null,
+    ])->render();
+    expect(mb_check_encoding($html, 'UTF-8'))->toBeTrue()
+        ->and($html)->toContain('<meta charset="utf-8">', 'data:font/ttf;base64,', 'សិស្ស សាកល្បង');
+    foreach (['KhmerOSsiemreap.ttf', 'KhmerOSmuollight.ttf'] as $file) {
+        expect($html)->toContain(base64_encode(file_get_contents(public_path('fonts/khmer/'.$file))));
+    }
+})->with('transcript print modes');
+
 it('renders transcript pages without legacy import files on the server', function ($level, $mode, $pageCount) {
     $originalStoragePath = $this->app->storagePath();
     $this->app->useStoragePath(sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'transcript-no-imports-' . Str::uuid());
@@ -43,13 +57,37 @@ it('renders transcript pages without legacy import files on the server', functio
         ])->render();
 
         expect(substr_count($html, '<section class="transcript-template-page '))->toBe($pageCount)
-            ->and(substr_count($html, 'data:image/jpeg;base64,'))->toBe($pageCount)
+            ->and(substr_count($html, '/reports/transcript-templates/'.$level.'/'))->toBe($pageCount)
+            ->and($html)->not->toContain('data:image/jpeg;base64,')
             ->and($html)->toContain('សិស្ស សាកល្បង')
             ->not->toContain('data-report-print-unavailable');
     } finally {
         $this->app->useStoragePath($originalStoragePath);
     }
 })->with('transcript print modes');
+
+it('keeps a 50-student browser print request small and includes every page', function ($level, $mode, $pageCount) {
+    $html = view('reports.print', [
+        'filters' => ['transcript_level' => $level, 'print_mode' => $mode, 'report_date' => '2026-10-06'],
+        'enrollments' => collect(array_fill(0, 50, transcriptPrintTestRows()->first())),
+        'type' => 'moeys-sikkhakarik-book', 'title' => 'Transcript test', 'academicYear' => null, 'campus' => null,
+    ])->render();
+    expect(strlen($html))->toBeLessThan(2 * 1024 * 1024)
+        ->and(substr_count($html, '<section class="transcript-template-page '))->toBe(50 * $pageCount)
+        ->and(substr_count($html, '/reports/transcript-templates/'.$level.'/'))->toBe(50 * $pageCount)
+        ->and($html)->not->toContain('data:image/jpeg;base64,', 'http://localhost/reports/transcript-templates');
+})->with('transcript print modes');
+
+it('serves only bundled transcript images through the authenticated image route', function () {
+    $url = route('reports.transcript-template', ['level' => 'primary', 'page' => 'page-3.jpg'], false);
+    $this->get($url)->assertRedirect(route('login'));
+    $this->withoutMiddleware();
+    $response = $this->get($url)->assertOk()->assertHeader('Content-Type', 'image/jpeg');
+    expect($response->baseResponse->getFile()->getPathname())->toBe(resource_path('report-templates/transcript-book/primary/page-3.jpg'))
+        ->and($response->headers->get('Cache-Control'))->toContain('private', 'max-age=86400');
+    $this->get('/reports/transcript-templates/invalid/page-3.jpg')->assertNotFound();
+    $this->get('/reports/transcript-templates/primary/page-5.jpg')->assertNotFound();
+});
 
 it('shows a visible message instead of blank pages when bundled templates are missing', function ($level, $mode) {
     $originalBasePath = $this->app->basePath();
@@ -67,6 +105,30 @@ it('shows a visible message instead of blank pages when bundled templates are mi
         $this->app->setBasePath($originalBasePath);
     }
 })->with('transcript print modes');
+
+it('exports more than 25 students through the controller fallback with every content page', function ($level, $pagesPerStudent) {
+    $rows = collect(range(1, 30))->map(function ($index) {
+        $row = transcriptPrintTestRows()->first();
+        $row->student->full_name_kh .= ' '.$index;
+        return $row;
+    });
+    $html = view('reports.print', [
+        'filters' => ['transcript_level' => $level, 'print_mode' => 'content', 'report_date' => '2026-10-06'],
+        'enrollments' => $rows, 'pdfMode' => true, 'type' => 'moeys-sikkhakarik-book',
+        'title' => 'Transcript test', 'academicYear' => null, 'campus' => null,
+    ])->render();
+    $controller = new \App\Http\Controllers\ReportsController;
+    $method = new ReflectionMethod($controller, 'makeDomPdfPath');
+    $path = $method->invoke($controller, $html, 'moeys-sikkhakarik-book');
+    try {
+        $parser = new \setasign\Fpdi\PdfParser\PdfParser(\setasign\Fpdi\PdfParser\StreamReader::createByFile($path));
+        $reader = new \setasign\Fpdi\PdfReader\PdfReader($parser);
+        expect($reader->getPageCount())->toBe(30 * $pagesPerStudent)->and(filesize($path))->toBeGreaterThan(1000);
+        unset($reader, $parser);
+    } finally {
+        @unlink($path);
+    }
+})->with(['primary content' => ['primary', 9], 'secondary content' => ['secondary', 11]]);
 
 it('keeps the no-students message for an empty transcript selection', function () {
     $html = view('reports._moeys-transcript-template-book', [
@@ -99,6 +161,43 @@ function transcriptPdfLayoutTestDirectory(): string
 afterAll(function () {
     (new \Illuminate\Filesystem\Filesystem)->deleteDirectory(transcriptPdfLayoutTestDirectory());
 });
+
+it('shapes Khmer in the transcript fallback PDF while keeping page counts and field bounds', function ($level, $mode, $pageCount) {
+    $rows = transcriptPrintTestRows();
+    $rows->first()->student->full_name_kh = 'ងួន ពិចិត្រ';
+    $rows->first()->student->full_name_en = str_repeat('LONG STUDENT NAME ', 6);
+    $rows->first()->student->familyMembers = collect([
+        (object) ['relationship_type' => 'father', 'full_name_kh' => 'ឈឿន ស៊ីយ៉ា', 'occupation_kh' => 'មន្ត្រីរាជការ'],
+        (object) ['relationship_type' => 'mother', 'full_name_kh' => 'លុន សាវេត', 'occupation_kh' => 'មន្ត្រីរាជការ'],
+    ]);
+    $html = view('reports.print', [
+        'filters' => ['transcript_level' => $level, 'print_mode' => $mode, 'report_date' => '2026-10-06'],
+        'enrollments' => collect([$rows->first(), $rows->first()]), 'pdfMode' => true,
+        'type' => 'moeys-sikkhakarik-book', 'title' => 'Transcript test', 'academicYear' => null, 'campus' => null,
+    ])->render();
+    $html = str_replace('</body>', '<style>.transcript-template-page{width:297mm;height:210mm;page-break-inside:avoid}.transcript-template-page img{position:absolute;left:0;top:0;width:297mm;height:210mm}</style></body>', $html);
+    if (PHP_OS_FAMILY === 'Windows') $html = preg_replace('~file:///([A-Za-z]:/)~', 'file://$1', $html);
+    $temp = transcriptPdfLayoutTestDirectory();
+    File::ensureDirectoryExists($temp);
+    $layout = new Dompdf(['chroot' => [public_path(), resource_path('report-templates/transcript-book'), $temp],
+        'tempDir' => $temp, 'fontDir' => $temp, 'fontCache' => $temp]);
+    $layout->loadHtml($html, 'UTF-8');
+    $layout->setPaper('a4', 'landscape');
+    $path = $temp.'/'.$level.'-'.$mode.'.pdf';
+    $rendered = TranscriptPdfRenderer::save($layout, $path, $temp.'/shaped');
+    expect($layout->getCanvas()->get_page_count())->toBe(2)
+        ->and(array_keys($rendered))->toBe([1, $pageCount + 1]);
+    $parser = new \setasign\Fpdi\PdfParser\PdfParser(\setasign\Fpdi\PdfParser\StreamReader::createByFile($path));
+    $reader = new \setasign\Fpdi\PdfReader\PdfReader($parser);
+    expect($reader->getPageCount())->toBe(2 * $pageCount)->and($rendered)->toHaveCount(2);
+    foreach ($rendered as $fields) {
+        $name = $fields[$mode === 'cover' ? 'transcript-cover-student-name' : 'transcript-content-student-name'];
+        expect($name['text'])->toBe('ងួន ពិចិត្រ')->and($name['shaped'])->not->toBe($name['text'])->not->toContain("\u{25CC}");
+        foreach ($fields as $field) expect($field['rendered_width'])->toBeLessThanOrEqual($field['width'] + 0.1)
+            ->and($field['baseline'])->toBeGreaterThan(0)->toBeLessThan(595.28);
+    }
+    expect(file_get_contents($path))->toContain('/Subtype /Type0');
+})->with('transcript print modes');
 
 it('renders transcript values inside their template rows in the fallback PDF', function ($level, $mode, $pageCount) {
     $rows = transcriptPrintTestRows();

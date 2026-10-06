@@ -49,6 +49,7 @@ class FamilyService
             'email' => $data['email'] ?? null,
             'occupation_en' => $data['occupation_en'] ?? ($data['occupation'] ?? null),
             'occupation_kh' => $data['occupation_kh'] ?? null,
+            'occupation' => $data['occupation_en'] ?? ($data['occupation'] ?? null),
             'workplace' => $data['workplace'] ?? null,
             'nationality_en' => $data['nationality_en'] ?? null,
             'nationality_kh' => $data['nationality_kh'] ?? null,

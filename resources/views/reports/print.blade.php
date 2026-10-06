@@ -6,13 +6,21 @@
         return preg_match('/^[A-Za-z]:\//', $path) ? 'file:///' . $path : 'file://' . $path;
     };
     $fontPath = static fn ($file) => $toLocalFileUrl(public_path('fonts/khmer/' . $file));
+    $fontSource = static function ($file) use ($isPdfMode, $fontPath, $type) {
+        if ($isPdfMode) return $fontPath($file);
+        // Standalone mobile print pages must not depend on an asset host or cached fallback fonts.
+        if ($type === 'moeys-sikkhakarik-book') {
+            return 'data:font/ttf;base64,' . base64_encode(file_get_contents(public_path('fonts/khmer/' . $file)));
+        }
+        return asset('fonts/khmer/' . $file);
+    };
 @endphp
 <!doctype html>
 <html lang="{{ ($filters['print_format'] ?? 'internal') === 'moeys' ? 'km' : 'en' }}">
 <head><meta charset="utf-8">@if($type === 'moeys-sikkhakarik-book')<meta name="viewport" content="width=device-width, initial-scale=1">@endif<title>{{ $title }}</title>@unless($isPdfMode)@vite('resources/js/khmer-calendar.js')@endunless<style>
-@font-face{font-family:'Khmer OS Siemreap';src:url('{{ $isPdfMode ? $fontPath('KhmerOSsiemreap.ttf') : asset('fonts/khmer/KhmerOSsiemreap.ttf') }}') format('truetype');font-weight:normal;font-style:normal}
-@font-face{font-family:'Khmer OS Muol Light';src:url('{{ $isPdfMode ? $fontPath('KhmerOSmuollight.ttf') : asset('fonts/khmer/KhmerOSmuollight.ttf') }}') format('truetype');font-weight:normal;font-style:normal}
-@font-face{font-family:'Tacteing';src:url('{{ $isPdfMode ? $fontPath('Tacteing.ttf') : asset('fonts/khmer/Tacteing.ttf') }}') format('truetype');font-weight:normal;font-style:normal}
+@font-face{font-family:'Khmer OS Siemreap';src:url('{{ $fontSource('KhmerOSsiemreap.ttf') }}') format('truetype');font-weight:normal;font-style:normal}
+@font-face{font-family:'Khmer OS Muol Light';src:url('{{ $fontSource('KhmerOSmuollight.ttf') }}') format('truetype');font-weight:normal;font-style:normal}
+@font-face{font-family:'Tacteing';src:url('{{ $fontSource('Tacteing.ttf') }}') format('truetype');font-weight:normal;font-style:normal}
 @page{size:A4 portrait;margin:8mm}*{box-sizing:border-box}body{margin:0;color:#172b4d;font-family:Arial,sans-serif;font-size:11px}.toolbar{display:flex;gap:8px;margin-bottom:14px}.toolbar button{border:0;border-radius:4px;background:#206bc4;color:#fff;padding:8px 14px;cursor:pointer}.a4-page{min-height:270mm;page-break-after:always}.a4-page:last-child{page-break-after:auto}.report-header{position:relative;min-height:39mm;border-bottom:2px solid #206bc4;padding:0 20mm 7px;text-align:center}.report-header .logo{position:absolute;top:0;left:0;max-width:34mm;max-height:28mm;object-fit:contain}.report-header .motto{position:static;width:auto;text-align:center;font-family:"Khmer OS Muol Light","Khmer OS Muol",serif;font-size:11px;line-height:1.55;margin:0 auto 4px}.report-header .motto::after{content:"KINGDOM OF CAMBODIA\A NATION RELIGION KING";display:block;white-space:pre;font-family:Arial,sans-serif;font-size:9px;line-height:1.35;font-weight:700}.report-header h1{margin:4px 0;font-size:18px}.report-header h2{margin:2px 0;font-size:14px}.report-header p{margin:3px 0}.report-header .small{color:#52627a;font-size:9px}.report-table{width:100%;border-collapse:collapse;margin-top:10px}.report-table th,.report-table td{border:1px solid #9aa8ba;padding:5px 6px;text-align:center;vertical-align:middle}.report-table th{background:#f1f3f5;background-color:#f1f3f5;font-weight:700;-webkit-print-color-adjust:exact;print-color-adjust:exact}.report-table .left{text-align:left}.report-table .khmer{font-family:"Khmer OS Siemreap","Khmer OS Siem Reap",sans-serif}.report-table .english{font-size:10px;margin-top:2px}.signature{display:flex;justify-content:space-between;margin-top:24px}.signature span{border-top:1px solid #65748b;padding-top:5px;width:160px;text-align:center}.empty{text-align:center;padding:20px}@media print{.toolbar{display:none}}
 </style></head>
 <body class="{{ $isPdfMode ? 'is-pdf-export' : '' }}" data-report-type="{{ $type }}" data-report-print-format="{{ $filters['print_format'] ?? 'internal' }}" data-report-date="{{ $filters['report_date'] ?? now()->format('Y-m-d') }}" data-report-academic-year="{{ $academicYear?->academic_year ?? '' }}" data-report-campus-kh="{{ $enrollments->first()?->campus?->campus_name_kh ?? $campus?->campus_name_kh ?? '' }}" data-report-campus-en="{{ $enrollments->first()?->campus?->campus_name_en ?? $campus?->campus_name_en ?? '' }}" data-report-campus-address="{{ $enrollments->first()?->campus?->address ?? $campus?->address ?? '' }}">
@@ -58,6 +66,7 @@
 .transcript-template-primary .transcript-cover-birth-place{font-size:calc(15 * var(--transcript-font-unit))}
 .transcript-template-primary .transcript-content-student-name{font-family:"Khmer OS Muol Light","Khmer OS Muol",serif;font-weight:400;text-align:center;white-space:nowrap;overflow-wrap:normal}
 .transcript-template-primary .transcript-content-dob,.transcript-template-primary .transcript-content-birth-place,.transcript-template-primary .transcript-content-father-name,.transcript-template-primary .transcript-content-father-occupation,.transcript-template-primary .transcript-content-mother-name,.transcript-template-primary .transcript-content-mother-occupation{text-align:center;font-size:calc(15 * var(--transcript-font-unit))}
+.transcript-template-primary .transcript-content-current-address{top:47.6%;line-height:1.6}
 .transcript-template-secondary .transcript-cover-school{font-size:calc(20 * var(--transcript-font-unit))}
 .transcript-template-secondary .transcript-cover-school,.transcript-template-secondary .transcript-cover-student-name,.transcript-template-secondary .transcript-cover-dob,.transcript-template-secondary .transcript-cover-birth-place{left:63%;width:24.5%;text-align:center}
 .transcript-template-secondary .transcript-cover-birth-place{font-size:calc(17 * var(--transcript-font-unit))}

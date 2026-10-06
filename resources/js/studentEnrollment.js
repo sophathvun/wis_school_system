@@ -1,5 +1,8 @@
 import { renderPagination, renderPageInfo } from "./helpers/pagination.js";
 import { showSuccess, showConfirm, showError } from "./helpers/sweet-alert2.js";
+import { formatStudentBirthplace } from "./helpers/student-profile.js";
+import "../css/components/student-profile-birthplace.css";
+import birthplaceStyles from "../css/components/student-profile-birthplace.css?raw";
 import intlTelInput from "intl-tel-input";
 import "intl-tel-input/styles";
 
@@ -33,6 +36,7 @@ const studentProfileContent = document.getElementById("studentProfileContent");
 const studentProfilePrint = document.getElementById("studentProfilePrint");
 const studentProfilePdf = document.getElementById("studentProfilePdf");
 let currentStudentProfile = null;
+let studentProfileRequestId = 0;
 const table = document.getElementById("enrollmentsTable");
 const search = document.getElementById("enrollments-search");
 const perPage = document.getElementById("enrollments-per-page");
@@ -736,26 +740,9 @@ const studentProfileMarkup = (student = {}) => {
         age = `${khmerNumber(years)}ឆ្នាំ ${khmerNumber(months)}ខែ ${khmerNumber(days)}ថ្ងៃ`;
         ageEnglish = `${years} years ${months} months ${days} days`;
     }
-    const birthPlace =
-        [
-            student.birth_village?.village_name_kh,
-            student.birth_commune?.commune_name_kh,
-            student.birth_district?.district_name_kh,
-            student.birth_province?.province_name_kh,
-        ]
-            .filter(Boolean)
-            .map(escapeHtml)
-            .join(" &nbsp;&nbsp; ") || "-";
-    const birthPlaceEn =
-        [
-            student.birth_village?.village_name_en,
-            student.birth_commune?.commune_name_en,
-            student.birth_district?.district_name_en,
-            student.birth_province?.province_name_en,
-        ]
-            .filter(Boolean)
-            .map(escapeHtml)
-            .join(" &nbsp;&nbsp; ") || "-";
+    const birthplaceMarkup = (language) => `<div class="student-profile-birthplace"><span class="student-profile-birthplace-text">${escapeHtml(formatStudentBirthplace(student, language))}</span></div>`;
+    const birthPlace = birthplaceMarkup("kh");
+    const birthPlaceEn = birthplaceMarkup("en");
     return `<div class="text-center mb-4">${photo}</div><div class="student-profile-section-header row g-3 align-items-center mb-4"><div class="col-md-6"><div class="h3 mb-0 khmer-font-muol d-flex align-items-center gap-2"><img src="/flags/cambodia.svg" alt="Cambodia flag" style="width:24px;height:16px;object-fit:cover;">ប្រវត្តិរូបសិស្ស</div></div><div class="col-md-6"><div class="h3 mb-0 d-flex align-items-center gap-2"><img src="/flags/uk.svg" alt="United Kingdom flag" style="width:24px;height:16px;object-fit:cover;">STUDENT PROFILE</div></div></div><div class="row g-4"><div class="col-md-6"><div class="school-profile-khmer">${profileRow("អត្តលេខសិស្ស", escapeHtml(student.student_id || "-"))}${profileRow("ឈ្មោះ", escapeHtml(student.full_name_kh || "-"))}${profileRow("ភេទ", escapeHtml(student.gender_kh || "-"))}${profileRow("ថ្ងៃ ខែ ឆ្នាំកំណើត", `${escapeHtml(profileDateKhmer)}<div>អាយុ: ${age}</div>`)}${profileRow("ទីកន្លែងកំណើត", birthPlace)}${profileRow("សញ្ជាតិ", escapeHtml(student.nationality_country?.nationality_name_kh || "-"))}${profileRow("លេខទូរស័ព្ទ", escapeHtml(student.home_phone || "-"))}${profileRow("អ៊ីមែល", escapeHtml(student.email || "-"))}${profileRow("អាសយដ្ឋានបច្ចុប្បន្ន", escapeHtml(student.current_address_kh || "-"))}</div></div><div class="col-md-6"><div>${profileRow("Student ID", escapeHtml(student.student_id || "-"))}${profileRow("Name", escapeHtml(student.full_name_en || "-"))}${profileRow("Gender", escapeHtml(student.gender || "-"))}${profileRow("Date of Birth", `${escapeHtml(profileDate)}<div>Age: ${escapeHtml(ageEnglish)}</div>`)}${profileRow("Place of Birth", birthPlaceEn)}${profileRow("Nationality", escapeHtml(student.nationality_country?.nationality_name_en || "-"))}${profileRow("Phone", escapeHtml(student.home_phone || "-"))}${profileRow("Email", escapeHtml(student.email || "-"))}${profileRow("Current Address", escapeHtml(student.current_address_en || "-"))}</div></div></div>`;
 };
 const studentFamilyMarkup = (student = {}) => {
@@ -770,10 +757,14 @@ const studentFamilyMarkup = (student = {}) => {
         `<div class="student-profile-paired-row student-family-parent-heading ${extraClass}"><div class="parent-heading-box school-profile-khmer khmer-font-muol" style="background:#1e3a5f !important;color:#fff !important;padding:5px 8px;border-radius:4px;font-family:'Khmer OS Muol Light','Khmer OS Siemreap',sans-serif;font-weight:300;">${khmer}</div><div class="parent-heading-box" style="background:#1e3a5f !important;color:#fff !important;padding:5px 8px;border-radius:4px;font-family:Arial,sans-serif;font-weight:700;">${english}</div></div>`;
     const mother = parent("mother");
     const father = parent("father");
+    const guardian = parent("guardian");
     const parentRows = (khmer, english, member) =>
         `${parentHeading(khmer, english)}${familyRow("ឈ្មោះម្ដាយ", "Mother's Name", member.full_name_kh, member.full_name_en)}${familyRow("មុខរបរ", "Occupation", member.occupation_kh || member.occupation, member.occupation_en || member.occupation)}${familyRow("សញ្ជាតិ", "Nationality", member.nationality_kh, member.nationality_en)}${familyRow("លេខទូរស័ព្ទ", "Phone Number", member.phone, member.phone)}${familyRow("កន្លែងការងារ", "Workplace", member.workplace, member.workplace)}`;
     const fatherRows = `${parentHeading("ឪពុក", "FATHER", "student-family-father-heading")}${familyRow("ឈ្មោះឪពុក", "Father's Name", father.full_name_kh, father.full_name_en)}${familyRow("មុខរបរ", "Occupation", father.occupation_kh || father.occupation, father.occupation_en || father.occupation)}${familyRow("សញ្ជាតិ", "Nationality", father.nationality_kh, father.nationality_en)}${familyRow("លេខទូរស័ព្ទ", "Phone Number", father.phone, father.phone)}${familyRow("កន្លែងការងារ", "Workplace", father.workplace, father.workplace)}`;
-    return `<div class="student-profile-section-card"><div class="student-profile-section-card-header"><div class="student-profile-section-header row g-3 align-items-center"><div class="col-md-6"><div class="h3 mb-0 khmer-font-muol d-flex align-items-center gap-2"><img src="/flags/cambodia.svg" alt="Cambodia flag" style="width:24px;height:16px;object-fit:cover;">ព័ត៌មានអាណាព្យាបាល</div></div><div class="col-md-6"><div class="h3 mb-0 d-flex align-items-center gap-2"><img src="/flags/uk.svg" alt="United Kingdom flag" style="width:24px;height:16px;object-fit:cover;">PARENT INFORMATION</div></div></div></div><div class="student-profile-section-card-body"><div class="student-profile-paired-rows">${parentRows("ម្ដាយ", "MOTHER", mother)}${fatherRows}</div></div></div>`;
+    const guardianRows = members.some((member) => member.relationship_type === "guardian")
+        ? `${parentHeading("អាណាព្យាបាល", "GUARDIAN")}${familyRow("ឈ្មោះអាណាព្យាបាល", "Guardian's Name", guardian.full_name_kh, guardian.full_name_en)}${familyRow("មុខរបរ", "Occupation", guardian.occupation_kh || guardian.occupation, guardian.occupation_en || guardian.occupation)}${familyRow("សញ្ជាតិ", "Nationality", guardian.nationality_kh, guardian.nationality_en)}${familyRow("លេខទូរស័ព្ទ", "Phone Number", guardian.phone, guardian.phone)}${familyRow("កន្លែងការងារ", "Workplace", guardian.workplace, guardian.workplace)}`
+        : "";
+    return `<div class="student-profile-section-card"><div class="student-profile-section-card-header"><div class="student-profile-section-header row g-3 align-items-center"><div class="col-md-6"><div class="h3 mb-0 khmer-font-muol d-flex align-items-center gap-2"><img src="/flags/cambodia.svg" alt="Cambodia flag" style="width:24px;height:16px;object-fit:cover;">ព័ត៌មានអាណាព្យាបាល</div></div><div class="col-md-6"><div class="h3 mb-0 d-flex align-items-center gap-2"><img src="/flags/uk.svg" alt="United Kingdom flag" style="width:24px;height:16px;object-fit:cover;">PARENT INFORMATION</div></div></div></div><div class="student-profile-section-card-body"><div class="student-profile-paired-rows">${parentRows("ម្ដាយ", "MOTHER", mother)}${fatherRows}${guardianRows}</div></div></div>`;
 };const siblingStatusClass = (status = "") => {
     const normalized = String(status || "").toLowerCase();
     if (normalized === "active") return "success";
@@ -912,22 +903,20 @@ const showStudentProfile = async (enrollmentId) => {
     const item = rows.find((row) => Number(row.id) === Number(enrollmentId));
     if (!item?.student || !studentProfileContent || !studentProfileModal)
         return;
-    const student = { ...item.student };
-    if (student.family_number && !(student.families || []).some((family) => (family.members || []).length)) {
-        try {
-            const response = await fetch(
-                `/student-enrollments/family-details?family_number=${encodeURIComponent(student.family_number)}`,
-                { headers: { Accept: "application/json" } },
-            );
-            const familyDetailsResult = await response.json();
-            if (response.ok && Array.isArray(familyDetailsResult.members)) {
-                student.families = [
-                    { family_number: student.family_number, members: familyDetailsResult.members },
-                ];
-            }
-        } catch (error) {
-            console.warn("Unable to load family contacts for profile.", error);
-        }
+    const requestId = ++studentProfileRequestId;
+    let student;
+    try {
+        const response = await fetch(
+            `/student-enrollments/student/${item.student.id}/profile`,
+            { headers: { Accept: "application/json" } },
+        );
+        const result = await response.json();
+        if (!response.ok || !result.student) throw new Error(result.message || "Unable to load student profile.");
+        if (requestId !== studentProfileRequestId) return;
+        student = result.student;
+    } catch (error) {
+        if (requestId === studentProfileRequestId) showError("Unable to load student profile", error.message);
+        return;
     }
     currentStudentProfile = student;
     studentProfileContent.innerHTML = studentProfileMarkup(student);
@@ -991,6 +980,12 @@ const showStudentProfile = async (enrollmentId) => {
     enrollmentSource.innerHTML = studentEnrollmentSectionMarkup();
     const enrollmentCard = enrollmentSource.firstElementChild;
     studentProfileContent.replaceChildren(profileCard);
+    // Let the birthplace occupy the remaining flex width, rather than its natural text width.
+    studentProfileContent.querySelectorAll('.student-profile-birthplace').forEach((element) => {
+        element.parentElement.classList.add('student-profile-birthplace');
+        element.parentElement.parentElement.classList.add('student-profile-birthplace-row');
+        element.classList.remove('student-profile-birthplace');
+    });
     if (familyCard) studentProfileContent.append(familyCard);
     if (enrollmentCard) {
         studentProfileContent.append(enrollmentCard);
@@ -1044,6 +1039,7 @@ const openStudentProfileReport = () => {
         .forEach((element) => element.remove());
     reportWindow.document
         .write(`<!doctype html><html><head><meta charset="utf-8"><title>Student Profile Report - ${escapeHtml(studentName)}</title><style>
+        ${birthplaceStyles}
         @page { size: A4 portrait; margin: 12mm; }
         @font-face { font-family: 'Khmer OS Muol Light'; src: url('/fonts/khmer/KhmerOSmuollight.ttf') format('truetype'); font-weight: 300; }
         @font-face { font-family: 'Khmer OS Siemreap'; src: url('/fonts/khmer/KhmerOSsiemreap.ttf') format('truetype'); font-weight: 400; }
@@ -1070,9 +1066,10 @@ const openStudentProfileReport = () => {
         .student-profile-section-header .h3 { gap: 14px !important; }
         .student-profile-section-header .h3 > img { margin-right: 12px !important; }
         .student-profile-paired-rows { display: flex; flex-direction: column; }
-        .student-profile-paired-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 0; }
+        .student-profile-paired-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; padding: 0; }
         .student-profile-paired-row > .d-flex { display: flex; align-items: flex-start; min-width: 0; padding-top: 0 !important; padding-bottom: 0 !important; }
-        .student-profile-paired-row .text-nowrap { flex: 0 0 130px; }
+        .student-profile-paired-row .text-nowrap { flex: 0 0 130px !important; }
+        .student-profile-paired-row > .student-profile-birthplace-row .text-nowrap { flex-basis: 110px !important; }
         .student-profile-paired-row .flex-fill { overflow-wrap: anywhere; }
         .student-family-parent-heading { align-items: center; gap: 20px; margin-top: 4px; margin-bottom: 6px; }
         .student-family-parent-heading > div { padding: 5px 8px; border-radius: 4px; background: #1e3a5f; color: #fff; font-weight: 700; }
@@ -1109,7 +1106,10 @@ const openStudentProfileReport = () => {
         }
     });
     reportWindow.focus();
-    window.setTimeout(() => reportWindow.print(), 300);
+    reportWindow.document.fonts.ready.then(() => {
+        if (reportWindow.closed) return;
+        window.setTimeout(() => { if (!reportWindow.closed) reportWindow.print(); }, 300);
+    });
 };
 studentProfilePrint?.addEventListener("click", openStudentProfileReport);
 studentProfilePdf?.addEventListener("click", openStudentProfileReport);
@@ -1447,9 +1447,22 @@ const populateSelectedFamily = () => {
 
         const occupation = field(`${type}_occupation_id`);
         if (occupation) {
+            if (member.occupation_id && ![...occupation.options].some((option) => option.value === String(member.occupation_id))) {
+                const option = new Option(member.occupation_en || member.occupation || "Saved occupation", String(member.occupation_id));
+                option.dataset.kh = member.occupation_kh || "";
+                occupation.add(option);
+            }
             occupation.value = member.occupation_id || "";
             occupation.dispatchEvent(new Event("change", { bubbles: true }));
+            if (!occupation.value) {
+                const selected = field(`${type}-occupation-selected`);
+                if (selected) selected.textContent = familySelectedLabel(member.occupation_kh || "", member.occupation_en || member.occupation || "");
+            }
         }
+        ["en", "kh"].forEach((language) => {
+            const text = field(`${type}_occupation_${language}`);
+            if (text) text.value = member[`occupation_${language}`] || member.occupation || "";
+        });
         const nationality = field(`${type}_nationality_country_id`);
         if (nationality) {
             nationality.value = member.nationality_country_id || "";
@@ -2095,6 +2108,10 @@ const setupFamilyOccupation = (type, occupations) => {
     ui.search?.addEventListener("input", render);
     ui.select.addEventListener("change", () => {
         const option = ui.select.selectedOptions[0];
+        const english = field(`${type}_occupation_en`);
+        const khmer = field(`${type}_occupation_kh`);
+        if (english) english.value = option?.value ? option.textContent : "";
+        if (khmer) khmer.value = option?.value ? (option.dataset.kh || "") : "";
         if (ui.selected)
             ui.selected.innerHTML = option?.value
                 ? `<span class="location-combobox-selected-text">${escapeHtml(familySelectedLabel(option.dataset.kh || "", option.textContent || ""))}</span>`
@@ -4114,6 +4131,9 @@ const openEdit = async (id) => {
                 phone: member.phone,
                 workplace: member.workplace,
                 occupation_id: member.occupation_id,
+                occupation_en: member.occupation_en,
+                occupation_kh: member.occupation_kh,
+                occupation: member.occupation,
                 nationality_country_id: member.nationality_country_id,
             })),
         };
@@ -4618,6 +4638,7 @@ form.addEventListener("submit", async (event) => {
         await loadEnrollmentDocuments(result.data?.student_id);
         modal.hide();
         showSuccess("Saved", result.message);
+        delete familyDetails[field("family_number")?.value || ""];
         enrollmentListOptionsCache = null;
         loadEnrollmentListOptions().catch(() => {});
         fetchRows();

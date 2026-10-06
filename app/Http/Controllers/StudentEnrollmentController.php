@@ -20,6 +20,7 @@ use App\Models\Country;
 use App\Models\Occupation;
 use App\Models\StudentEnrollmentHistory;
 use App\Models\Family;
+use App\Models\FamilyMember;
 use App\Models\AcademicTrack;
 use App\Models\EnrollmentWorkflowAction;
 
@@ -218,22 +219,56 @@ class StudentEnrollmentController
         abort_if($familyNumber === '', 422, 'Family number is required.');
 
         $family = Family::with(['members' => fn ($query) => $query
+            ->with(['occupationRecord', 'nationalityCountry', 'nationality'])
             ->whereIn('relationship_type', ['mother', 'father', 'guardian'])])
             ->where('family_number', $familyNumber)
             ->first();
 
         return response()->json([
             'family_number' => $familyNumber,
-            'members' => $family?->members->map(fn ($member) => [
-                'relationship_type' => $member->relationship_type,
-                'full_name_en' => $member->full_name_en,
-                'full_name_kh' => $member->full_name_kh,
-                'phone' => $member->phone,
-                'workplace' => $member->workplace,
-                'occupation_id' => $member->occupation_id,
-                'nationality_country_id' => $member->nationality_country_id,
-            ])->values() ?? collect(),
+            'members' => $family?->members->map(fn ($member) => $this->familyMemberDetails($member))->values() ?? collect(),
         ]);
+    }
+
+    public function profile(Student $student)
+    {
+        // Fetch detailed names only for the selected student, keeping the list fast.
+        $student->load(['birthVillage', 'birthCommune', 'birthDistrict', 'birthProvince', 'nationalityCountry',
+            'families.members.occupationRecord', 'families.members.nationalityCountry', 'families.members.nationality']);
+        $families = $student->families;
+        if (filled($student->family_number) && !$families->contains(fn ($family) => $family->members->isNotEmpty())) {
+            $family = Family::with(['members.occupationRecord', 'members.nationalityCountry', 'members.nationality'])
+                ->where('family_number', $student->family_number)->first();
+            if ($family) $families = collect([$family]);
+        }
+        $data = $student->toArray();
+        $data['families'] = $families->map(fn ($family) => [
+            'id' => $family->id,
+            'family_number' => $family->family_number,
+            'members' => $family->members->map(fn ($member) => $this->familyMemberDetails($member))->values(),
+        ])->values();
+
+        return response()->json(['student' => $data]);
+    }
+
+    private function familyMemberDetails(FamilyMember $member): array
+    {
+        // Resolve stored IDs and retain text from older records when no lookup exists.
+        $occupation = $member->occupationRecord;
+        return [
+            'relationship_type' => $member->relationship_type,
+            'full_name_en' => $member->full_name_en,
+            'full_name_kh' => $member->full_name_kh,
+            'phone' => $member->phone,
+            'workplace' => $member->workplace,
+            'occupation_id' => $member->occupation_id,
+            'nationality_country_id' => $member->nationality_country_id,
+            'occupation' => $member->getRawOriginal('occupation'),
+            'occupation_en' => $occupation?->occupation_name_en ?: ($member->occupation_en ?: $member->getRawOriginal('occupation')),
+            'occupation_kh' => $occupation?->occupation_name_kh ?: ($member->occupation_kh ?: $member->getRawOriginal('occupation')),
+            'nationality_en' => $member->nationalityCountry?->nationality_name_en ?: ($member->nationality?->nationality_name_en ?: $member->nationality_en),
+            'nationality_kh' => $member->nationalityCountry?->nationality_name_kh ?: ($member->nationality?->nationality_name_kh ?: $member->nationality_kh),
+        ];
     }
 
     public function siblings(Student $student)
@@ -411,6 +446,8 @@ class StudentEnrollmentController
                     'student_no' => "Unable to save Student Enrollment. Student '{$validated['student_no']}' is already enrolled for this academic year.",
                 ]);
             }
+
+            $student->fill(\App\Support\StudentBirthplaceResolver::clearTextForSelectionChanges($student, $validated));
 
             $student->fill(collect($validated)->only(['student_no', 'student_id', 'family_number', 'full_name_en', 'full_name_kh', 'gender', 'gender_kh', 'date_of_birth', 'nationality_country_id', 'home_phone', 'email', 'birth_country_id', 'birth_province_id', 'birth_district_id', 'birth_commune_id', 'birth_village_id', 'address_country_id', 'address_province_id', 'address_district_id', 'address_commune_id', 'address_village_id', 'address_house_no_en', 'address_house_no_kh', 'address_street_en', 'address_street_kh', 'current_address_en', 'current_address_kh', 'previous_school', 'experienced_english', 'test_result', 'tested_by', 'remarks'])->all());
             if ($request->hasFile('photo')) {

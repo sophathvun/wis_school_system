@@ -17,14 +17,15 @@
             'content_repeat' => 'page-4.jpg',
             'repeat_count' => 8,
         ];
-    $templateImage = static function (string $file) use ($templateBase, $templatePdfMode): string {
+    $templateImage = static function (string $file) use ($templateBase, $templatePdfMode, $templateLevel): string {
         $path = $templateBase . DIRECTORY_SEPARATOR . $file;
         if (!is_file($path) || !is_readable($path)) return '';
         if ($templatePdfMode) {
             $path = str_replace('\\', '/', $path);
             return preg_match('/^[A-Za-z]:\//', $path) ? 'file:///' . $path : 'file://' . $path;
         }
-        return 'data:image/jpeg;base64,' . base64_encode(file_get_contents($path));
+        // Reuse two same-origin images instead of embedding their bytes in every printed page.
+        return route('reports.transcript-template', ['level' => $templateLevel, 'page' => $file], false);
     };
     $khmerDate = static function ($date): string {
         if (!$date) return '';

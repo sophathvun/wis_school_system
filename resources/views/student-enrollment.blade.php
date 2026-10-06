@@ -132,6 +132,11 @@
             <div class="modal-content">
                 <form id="enrollmentForm" novalidate>
                     @csrf
+                    @foreach(['mother', 'father', 'guardian'] as $relationship)
+                        @foreach(['en', 'kh'] as $language)
+                            <input type="hidden" id="{{ $relationship }}_occupation_{{ $language }}" name="{{ $relationship }}_occupation_{{ $language }}">
+                        @endforeach
+                    @endforeach
                     <input type="hidden" id="enrollment_id" name="enrollment_id">
                     <input type="hidden" id="student_record_id" name="student_record_id">
                     <div class="modal-header">

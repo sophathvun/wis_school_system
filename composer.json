@@ -14,7 +14,8 @@
         "barryvdh/laravel-dompdf": "*",
         "laravel/framework": "^13.8",
         "laravel/tinker": "^3.0",
-        "minishlink/web-push": "*"
+        "minishlink/web-push": "*",
+        "mpdf/mpdf": "^8.2"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",

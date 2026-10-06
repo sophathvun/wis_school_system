@@ -36,6 +36,9 @@ class FamilyMember extends Model
     }
 
     public function family(): BelongsTo { return $this->belongsTo(Family::class); }
+    public function occupationRecord(): BelongsTo { return $this->belongsTo(Occupation::class, 'occupation_id')->withTrashed(); }
+    public function nationalityCountry(): BelongsTo { return $this->belongsTo(Country::class, 'nationality_country_id'); }
+    public function nationality(): BelongsTo { return $this->belongsTo(Nationality::class)->withTrashed(); }
     public function students() { return $this->belongsToMany(Student::class, 'tb_student_family_member')->withPivot(['relationship_type', 'is_primary_contact'])->withTimestamps(); }
     public function user(): BelongsTo { return $this->belongsTo(User::class); }
 }

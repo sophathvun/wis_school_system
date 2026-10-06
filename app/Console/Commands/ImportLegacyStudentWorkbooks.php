@@ -33,7 +33,8 @@ class ImportLegacyStudentWorkbooks extends Command
         $this->info('Students: '.count($students).', Enrollments: '.count($enrollments).', Parent rows: '.count($parents));
 
         $counts = ['students' => 0, 'enrollments' => 0, 'families' => 0, 'parents' => 0];
-        DB::transaction(function () use ($students, $enrollments, $parents, &$counts) {
+        $birthplaceResolver = new \App\Support\StudentBirthplaceResolver();
+        DB::transaction(function () use ($students, $enrollments, $parents, &$counts, $birthplaceResolver) {
             $studentMap = [];
             foreach ($students as $row) {
                 $studentId = trim((string) ($row['student id'] ?? ''));
@@ -63,6 +64,8 @@ class ImportLegacyStudentWorkbooks extends Command
                     'remarks' => $this->nullable($row['remarks'] ?? null),
                     'status' => 1,
                 ]);
+                $student->fill(\App\Support\LegacyStudentProfile::missingBirthplace($student, $row))->saveQuietly();
+                $student->fill($birthplaceResolver->changes($student))->saveQuietly();
                 $student->ensureIdCardQrCode();
                 $studentMap[$studentId] = $student;
                 $counts['students']++;
@@ -82,6 +85,7 @@ class ImportLegacyStudentWorkbooks extends Command
                     FamilyMember::updateOrCreate(['family_id' => $family->id, 'relationship_type' => $relationship], [
                         'full_name_en' => $this->nameValue($name, 160), 'full_name_kh' => $this->nameValue($row[$fields['name_kh']] ?? null, 160),
                         'name_en' => $this->nameValue($name, 160), 'name_kh' => $this->nameValue($row[$fields['name_kh']] ?? null, 160), 'phone' => $this->phone($row[$fields['phone']] ?? null),
+                        ...\App\Support\LegacyStudentProfile::occupation($row, $relationship),
                         'occupation_id' => $this->occupationId($row[$fields['occupation']] ?? null), 'nationality_country_id' => $this->countryId($row[$fields['nationality']] ?? null),
                         'workplace' => $this->nullable($row[$fields['workplace']] ?? null), 'status' => 1,
                     ]);
@@ -114,7 +118,7 @@ class ImportLegacyStudentWorkbooks extends Command
         return self::SUCCESS;
     }
 
-    private function readWorkbook(string $file): array
+    public function readWorkbook(string $file): array
     {
         $zip = new ZipArchive(); if ($zip->open($file) !== true) throw new \RuntimeException("Cannot open {$file}");
         $shared = [];

@@ -326,6 +326,8 @@ Route::middleware(['auth', 'active.user'])->group(function () {
     ])->name('financial-management.expenses');
 
     Route::get('/reports', [ReportsController::class, 'index'])->name('reports.index');
+    Route::get('/reports/transcript-templates/{level}/{page}', [ReportsController::class, 'transcriptTemplate'])
+        ->where('level', 'primary|secondary')->where('page', 'page-[1-4]\.jpg')->name('reports.transcript-template');
     Route::post('/reports/k3-certificate-wis/settings', [ReportsController::class, 'saveK3Certificates'])->name('reports.k3-certificates.save');
     Route::post('/reports/k3-certificate-wis/template', [ReportsController::class, 'saveK3CertificateTemplate'])->name('reports.k3-certificates.template');
     Route::view('/reports/hrm-reports', 'academic-module-placeholder', [
@@ -417,6 +419,7 @@ Route::get('/student-enrollments/stats', [StudentEnrollmentController::class, 's
 Route::get('/student-enrollments/fetch', [StudentEnrollmentController::class, 'fetchData'])->name('student-enrollments.fetch');
 Route::get('/student-enrollments/student/{student}/academic-years', [StudentEnrollmentController::class, 'studentAcademicYears'])->name('student-enrollments.student-academic-years');
 Route::get('/student-enrollments/student/{student}/siblings', [StudentEnrollmentController::class, 'siblings'])->name('student-enrollments.siblings');
+Route::get('/student-enrollments/student/{student}/profile', [StudentEnrollmentController::class, 'profile'])->middleware('auth')->name('student-enrollments.profile');
 Route::get('/student-enrollments/{enrollment}/history', [StudentEnrollmentController::class, 'history'])->name('student-enrollments.history');
 Route::post('/student-enrollments/save', [StudentEnrollmentController::class, 'save'])->name('student-enrollments.save');
 Route::delete('/student-enrollments/delete/{id}', [StudentEnrollmentController::class, 'delete'])->name('student-enrollments.delete');

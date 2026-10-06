@@ -10,7 +10,6 @@ use App\Models\SchoolInfo;
 use App\Models\Session;
 use App\Models\StudentEnrollment;
 use App\Models\StudentEnrollmentHistory;
-use App\Support\TranscriptPdfLayout;
 use App\Support\K3CertificatePdfLayout;
 use App\Services\K3CertificateReport;
 use Illuminate\Http\Request;
@@ -138,6 +137,14 @@ class ReportsController
             ->deleteFileAfterSend(true);
     }
 
+    public function transcriptTemplate(string $level, string $page)
+    {
+        abort_unless(in_array($level, ['primary', 'secondary'], true) && preg_match('/^page-[1-4]\.jpg$/', $page), 404);
+        $path = resource_path('report-templates/transcript-book/'.$level.'/'.$page);
+        abort_unless(is_file($path) && is_readable($path), 404);
+        return response()->file($path, ['Content-Type' => 'image/jpeg'])->setPrivate()->setMaxAge(86400);
+    }
+
     public function show(Request $request, string $type)
     {
         abort_unless(isset(self::TYPES[$type]), 404);
@@ -159,13 +166,16 @@ class ReportsController
             ]);
         }
 
-        return view('reports.print', $payload + [
+        $printView = view('reports.print', $payload + [
             'type' => $type,
             'title' => self::TYPES[$type],
             'academicYears' => $this->academicYears($payload['filters'] ?? []),
             'academicYear' => $academicYear,
             'campus' => $campus,
         ]);
+        return $type === 'moeys-sikkhakarik-book'
+            ? response($printView->render())->header('Content-Type', 'text/html; charset=UTF-8')
+            : $printView;
     }
 
     public function saveK3Certificates(Request $request)
@@ -405,7 +415,7 @@ class ReportsController
         $domPdfFontPath = $this->reportTempDirectory('dompdf-fonts');
 
         try {
-            $pdf = Pdf::loadHTML($html)
+            $pdf = Pdf::loadHTML($html, 'UTF-8')
                 ->setPaper('a4', $paper)
                 ->setOptions([
                     'isRemoteEnabled' => true,
@@ -423,11 +433,11 @@ class ReportsController
                     ],
                 ]);
             if ($type === 'moeys-sikkhakarik-book') {
-                TranscriptPdfLayout::configure($pdf->getDomPDF());
+                \App\Support\TranscriptPdfRenderer::save($pdf->getDomPDF(), $pdfPath, $this->reportTempDirectory('transcript-mpdf'));
             } elseif ($type === 'k3-certificate-wis') {
                 K3CertificatePdfLayout::configure($pdf->getDomPDF());
             }
-            $pdf->save($pdfPath);
+            if ($type !== 'moeys-sikkhakarik-book') $pdf->save($pdfPath);
         } catch (\Throwable $exception) {
             @unlink($pdfPath);
             Log::error('DomPDF report export failed.', [
