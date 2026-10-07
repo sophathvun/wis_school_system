@@ -10,8 +10,6 @@ use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
     $this->withoutMiddleware();
-    $this->app->make(\Illuminate\Contracts\Debug\ExceptionHandler::class)
-        ->shouldRenderJsonWhen(fn ($request) => $request->expectsJson());
     Storage::fake('public');
     Schema::create('tb_student', function (Blueprint $table) {
         $table->id();
@@ -135,4 +133,38 @@ it('does not delete an old file still used by another student', function () {
     ])->assertOk();
     Storage::disk('public')->assertExists($this->oldPhoto);
     Storage::disk('public')->assertExists($response->json('data.student.photo_path'));
+});
+
+it('returns all missing required fields as JSON for enrollment form submissions', function (string $userAgent) {
+    $this->post(route('student-enrollments.save'), ['student_id' => 'NEW001'], [
+        'Accept' => 'application/json', 'User-Agent' => $userAgent,
+    ])->assertUnprocessable()->assertJsonValidationErrors([
+        'full_name_en', 'academic_year_id', 'campus_id', 'grade_id', 'class_id', 'session_id', 'status',
+        'mother_name_en', 'mother_phone', 'father_name_en', 'father_phone',
+    ]);
+})->with([
+    'iPhone Safari' => 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1',
+    'Android Chrome' => 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/143.0.0.0 Mobile Safari/537.36',
+    'desktop Chrome' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/143.0.0.0 Safari/537.36',
+]);
+
+it('returns optional field validation errors without redirecting the mobile form', function () {
+    $this->post(route('student-enrollments.save'), [...$this->payload, 'email' => 'invalid-email'], [
+        'Accept' => 'application/json', 'User-Agent' => 'iPhone Safari',
+    ])->assertUnprocessable()->assertJsonValidationErrors('email');
+});
+
+it('returns a clear duplicate ID error for mobile enrollment', function () {
+    $this->post(route('student-enrollments.save'), [
+        ...$this->payload, 'enrollment_id' => null, 'student_record_id' => null,
+    ], ['Accept' => 'application/json', 'User-Agent' => 'iPhone Safari'])
+        ->assertUnprocessable()->assertJsonPath('errors.student_id.0', 'Student ID TEST001 already exists. Please enter a different Student ID.');
+});
+
+it('creates a student from a valid mobile form submission', function () {
+    $response = $this->post(route('student-enrollments.save'), [
+        ...$this->payload, 'enrollment_id' => null, 'student_record_id' => null, 'student_id' => 'NEW001',
+    ], ['Accept' => 'application/json', 'User-Agent' => 'iPhone Safari'])->assertCreated()
+        ->assertJsonPath('data.student.student_id', 'NEW001');
+    expect(DB::table('tb_student_enrollment')->where('student_id', $response->json('data.student.id'))->exists())->toBeTrue();
 });

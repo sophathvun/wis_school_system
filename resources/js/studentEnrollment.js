@@ -1,6 +1,7 @@
 import { renderPagination, renderPageInfo } from "./helpers/pagination.js";
 import { showSuccess, showConfirm, showError } from "./helpers/sweet-alert2.js";
 import { formatStudentBirthplace } from "./helpers/student-profile.js";
+import { isDuplicateStudentIdMessage, isDuplicateStudentIdResponse, readEnrollmentSaveResponse } from "./helpers/enrollment-response.js";
 import "../css/components/student-profile-birthplace.css";
 import birthplaceStyles from "../css/components/student-profile-birthplace.css?raw";
 import intlTelInput from "intl-tel-input";
@@ -1483,7 +1484,7 @@ const alertError = (message) => {
     const text = message || "Please correct the errors below.";
     alert.textContent = text;
     alert.classList.remove("d-none");
-    showError("Unable to create enrollment", text);
+    showError(field("enrollment_id")?.value ? "Unable to update enrollment" : "Unable to create enrollment", text);
 };
 
 const enrollmentRequiredFields = [
@@ -1510,12 +1511,16 @@ const enrollmentFieldLabelMap = Object.fromEntries(
 );
 enrollmentFieldLabelMap.student_no = "Student No.";
 enrollmentFieldLabelMap.enrollment_id = "Enrollment";
+enrollmentFieldLabelMap.photo = "Student Photo";
+enrollmentFieldLabelMap.email = "E-mail";
+enrollmentFieldLabelMap.date_of_birth = "Date of Birth";
 
 const enrollmentValidationWrapper = (control) =>
     control?.closest(".premium-floating-field, [class*='col-']") || control?.parentElement;
 
 const enrollmentVisualControl = (control) => {
     if (!control) return null;
+    if (control.type === "file") return studentPhotoDropzone || control;
     const wrapper = enrollmentValidationWrapper(control);
     if (control.classList.contains("d-none")) {
         return wrapper?.querySelector(".location-combobox-toggle") || wrapper?.querySelector(".location-combobox") || control;
@@ -1630,17 +1635,6 @@ const displayEnrollmentValidationErrors = (errors = {}, fallbackMessage = "Pleas
     showEnrollmentValidationSummary(labels);
     if (firstName) focusEnrollmentValidationField(firstName);
     return false;
-};
-
-const isDuplicateStudentIdMessage = (message = "") => {
-    const text = String(message || "").toLowerCase();
-    return (
-        text.includes("duplicate") ||
-        text.includes("already exists") ||
-        text.includes("integrity constraint") ||
-        text.includes("1062") ||
-        text.includes("unique")
-    ) && (text.includes("student_id") || text.includes("student id") || text.includes("tb_student"));
 };
 
 const showDuplicateStudentIdError = () => {
@@ -4600,28 +4594,12 @@ form.addEventListener("submit", async (event) => {
         const response = await fetch("/student-enrollments/save", {
             method: "POST",
             headers: { Accept: "application/json", "X-CSRF-TOKEN": csrf },
-        body: new FormData(form),
+            body: new FormData(form),
         });
-        const responseText = await response.text();
-        let result;
-        try {
-            result = responseText ? JSON.parse(responseText) : {};
-        } catch {
-            if (isDuplicateStudentIdMessage(responseText)) {
-                return showDuplicateStudentIdError();
-            }
-            throw new Error(
-                "The server returned an unexpected response. Please try again or check the enrollment information.",
-            );
-        }
+        const result = await readEnrollmentSaveResponse(response);
         if (response.status === 422) {
             const validationMessage = result.message || Object.values(result.errors || {})[0]?.[0] || "";
-            const studentIdMessages = result.errors?.student_id || result.errors?.["student.student_id"] || [];
-            if (
-                studentIdMessages.length ||
-                isDuplicateStudentIdMessage(validationMessage) ||
-                isDuplicateStudentIdMessage(String(studentIdMessages))
-            ) {
+            if (isDuplicateStudentIdResponse(result)) {
                 return showDuplicateStudentIdError();
             }
             return displayEnrollmentValidationErrors(
