@@ -105,7 +105,7 @@ class K3CertificateLayout
                 foreach ($matches[1] as $token) if (!in_array($token,['student_name','class','campus','certificate_number','given_day','given_month','given_year','given_date'],true)) $fail('Unknown certificate placeholder: '.$token);
             }];
             $rules["fields.$key.font"] = ['required',Rule::in(array_keys(K3CertificateTypography::fonts()))];
-            $rules["fields.$key.size"] = ['required','numeric','between:6,36'];
+            $rules["fields.$key.size"] = ['required','numeric','between:6,60'];
             $rules["fields.$key.color"] = ['required','regex:/^#[0-9a-fA-F]{6}$/'];
             $rules["fields.$key.align"] = ['required','in:left,center,right'];
             $rules["fields.$key.bold"] = ['required','boolean'];

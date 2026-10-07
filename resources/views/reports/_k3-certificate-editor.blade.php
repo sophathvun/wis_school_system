@@ -26,7 +26,7 @@
         <label data-k3-text-tool>Font<select class="form-select" data-k3-property="font">
             @foreach($editorFonts as $key=>$font)<option value="{{ $key }}" data-font-family="{{ $font['family'] }}">{{ $font['label'] }}</option>@endforeach
         </select></label>
-        <label data-k3-text-tool>Size (pt)<input class="form-control" type="number" min="6" max="36" step="0.5" data-k3-property="size"></label>
+        <label data-k3-text-tool>Size (pt)<input class="form-control" type="number" min="6" max="60" step="0.5" data-k3-property="size"></label>
         <label data-k3-text-tool>Color<input class="form-control form-control-color" type="color" data-k3-property="color"></label>
         <label data-k3-text-tool>Alignment<select class="form-select" data-k3-property="align"><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>
         <label>Left (mm)<input class="form-control" type="number" min="0" max="297" step="0.1" data-k3-property="x"></label>

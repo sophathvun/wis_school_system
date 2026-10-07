@@ -40,7 +40,7 @@ class K3CertificateTypography
             $value = $saved[$key] ?? [];
             $styles[$key] = [
                 'font'=>isset(self::fonts()[$value['font'] ?? '']) ? $value['font'] : $field['font'],
-                'size'=>is_numeric($value['size'] ?? null) ? max(6, min(36, (float)$value['size'])) : $field['size'],
+                'size'=>is_numeric($value['size'] ?? null) ? max(6, min(60, (float)$value['size'])) : $field['size'],
                 'color'=>preg_match('/^#[0-9a-fA-F]{6}$/', $value['color'] ?? '') ? $value['color'] : $field['color'],
             ];
         }
@@ -53,7 +53,7 @@ class K3CertificateTypography
         foreach (self::fields() as $key=>$field) {
             $rules["typography.$key"] = ['required','array:font,size,color'];
             $rules["typography.$key.font"] = ['required', Rule::in(array_keys(self::fonts()))];
-            $rules["typography.$key.size"] = ['required','numeric','between:6,36'];
+            $rules["typography.$key.size"] = ['required','numeric','between:6,60'];
             $rules["typography.$key.color"] = ['required','regex:/^#[0-9a-fA-F]{6}$/'];
         }
         return $rules;

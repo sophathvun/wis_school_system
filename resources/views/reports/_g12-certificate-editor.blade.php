@@ -26,7 +26,7 @@
         <label data-g12-text-tool>Font<select class="form-select" data-g12-property="font">
             @foreach($editorFonts as $key=>$font)<option value="{{ $key }}" data-font-family="{{ $font['family'] }}">{{ $font['label'] }}</option>@endforeach
         </select></label>
-        <label data-g12-text-tool>Size (pt)<input class="form-control" type="number" min="6" max="36" step="0.5" data-g12-property="size"></label>
+        <label data-g12-text-tool>Size (pt)<input class="form-control" type="number" min="6" max="60" step="0.5" data-g12-property="size"></label>
         <label data-g12-text-tool>Color<input class="form-control form-control-color" type="color" data-g12-property="color"></label>
         <label class="g12-editor-curve" data-g12-title-tool hidden>Curve (°)
             <span class="g12-curve-inputs">
