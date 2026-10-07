@@ -2,6 +2,7 @@ import { renderPagination, renderPageInfo } from "./helpers/pagination.js";
 import { showSuccess, showConfirm, showError } from "./helpers/sweet-alert2.js";
 import { formatStudentBirthplace } from "./helpers/student-profile.js";
 import { isDuplicateStudentIdMessage, isDuplicateStudentIdResponse, readEnrollmentSaveResponse } from "./helpers/enrollment-response.js";
+import { createEnrollmentFamilyOptionsLoader } from "./helpers/enrollment-family-options.js";
 import "../css/components/student-profile-birthplace.css";
 import birthplaceStyles from "../css/components/student-profile-birthplace.css?raw";
 import intlTelInput from "intl-tel-input";
@@ -523,7 +524,7 @@ let familyItems = [];
 let familyDetails = {};
 const familyDetailsRequests = new Map();
 let studentFamilyDetails = {};
-let quickEnrollmentOptionsPromise = null;
+const familyOptionsLoader = createEnrollmentFamilyOptionsLoader();
 let dobCursor = new Date();
 let enrollmentOptionsCache = null;
 let enrollmentListOptionsCache = null;
@@ -1841,6 +1842,10 @@ const setupSearchableEnrollmentSelect = (id, label) => {
     const results = field(`${id}-results`);
     const selected = field(`${id}-selected`);
     const isListFilter = id.startsWith("enrollments-filter-");
+    const isFamilyPicker = id === "existing_family_number";
+    let familySearchRequestId = 0;
+    let familySearchTimer;
+    if (isFamilyPicker) searchInput.placeholder = "Search family number, Student ID or name";
     const emptyLabel = isListFilter ? `All ${label}` : emptySelectedLabel;
     const positionListFilterMenu = () => {
         if (!isListFilter) return;
@@ -1876,6 +1881,25 @@ const setupSearchableEnrollmentSelect = (id, label) => {
     };
     const render = () => {
         const term = (searchInput.value || "").toLowerCase();
+        if (isFamilyPicker) {
+            const requestId = ++familySearchRequestId;
+            results.innerHTML = `<div class="text-secondary px-2 py-2" role="status">Loading families...</div>`;
+            familyOptionsLoader.load(term).then((data) => {
+                if (requestId !== familySearchRequestId) return;
+                applyQuickEnrollmentOptions(data);
+                const newFamily = `<button type="button" class="location-combobox-option" data-searchable-select-id="${id}" data-searchable-select-value="">No sibling / New family</button>`;
+                results.innerHTML = newFamily + data.families.map((item) =>
+                    `<button type="button" class="location-combobox-option" data-searchable-select-id="${id}" data-searchable-select-value="${escapeHtml(item.family_number)}">${escapeHtml(item.family_number)}${item.full_name_en ? ` - ${escapeHtml(item.full_name_en)}` : ""}</button>`,
+                ).join("") + (data.hasMore
+                    ? `<div class="text-secondary px-2 py-2 small">Type a family number, Student ID or name to find more families.</div>`
+                    : data.families.length ? "" : `<div class="text-secondary px-2 py-2">No families found</div>`);
+                sync();
+            }).catch((error) => {
+                if (requestId === familySearchRequestId)
+                    results.innerHTML = `<div class="text-danger px-2 py-2" role="alert">${escapeHtml(error.message)}</div>`;
+            });
+            return;
+        }
         const options = Array.from(select.options)
             .slice(1)
             .filter(
@@ -1920,7 +1944,13 @@ const setupSearchableEnrollmentSelect = (id, label) => {
         },
         true,
     );
-    searchInput.addEventListener("input", render);
+    searchInput.addEventListener("input", () => {
+        if (!isFamilyPicker) return render();
+        // Invalidate older results immediately while the user types.
+        familySearchRequestId++;
+        clearTimeout(familySearchTimer);
+        familySearchTimer = setTimeout(render, 180);
+    });
     results.addEventListener("click", (event) => {
         const option = event.target.closest("[data-searchable-select-value]");
         if (!option) return;
@@ -1947,9 +1977,16 @@ document.addEventListener("click", (event) => {
 const refreshSearchableEnrollmentLabels = () => {
     const wasRefreshing = isRefreshingEnrollmentFilters;
     isRefreshingEnrollmentFilters = true;
-    searchableEnrollmentSelects.forEach(([id]) =>
-        field(id)?.dispatchEvent(new Event("change")),
-    );
+    searchableEnrollmentSelects.forEach(([id]) => {
+        if (id === "existing_family_number") {
+            const select = field(id);
+            const selected = field(`${id}-selected`);
+            if (selected) selected.textContent = select?.value
+                ? select.selectedOptions?.[0]?.textContent || select.value : emptySelectedLabel;
+            return;
+        }
+        field(id)?.dispatchEvent(new Event("change"));
+    });
     isRefreshingEnrollmentFilters = wasRefreshing;
 };
 const familyNationalityUi = (type) => ({
@@ -2196,8 +2233,16 @@ const setFamilyReferenceOptions = (options) => {
     ["mother", "father", "guardian"].forEach((type) => {
         const occupation = field(`${type}_occupation_id`);
         const nationality = field(`${type}_nationality_country_id`);
+        const savedOccupation = occupation?.value ? occupation.selectedOptions?.[0]?.cloneNode(true) : null;
+        const savedNationality = nationality?.value ? nationality.selectedOptions?.[0]?.cloneNode(true) : null;
         setupFamilyOccupation(type, options.occupations || []);
         setupFamilyNationality(type, options.countries || []);
+        [[occupation, savedOccupation], [nationality, savedNationality]].forEach(([select, savedOption]) => {
+            if (!select || !savedOption) return;
+            if (![...select.options].some((item) => item.value === savedOption.value)) select.add(savedOption);
+            select.value = savedOption.value;
+            select.dispatchEvent(new Event("change", { bubbles: true }));
+        });
     });
 };
 
@@ -3369,7 +3414,6 @@ const loadOptions = async () => {
                     .join("");
         gradeItems = options.grades || [];
         academicTrackItems = options.academicTracks || [];
-        familyItems = options.families || [];
         familyDetails = { ...familyDetails, ...(options.familyDetails || {}) };
         studentFamilyDetails = options.studentFamilyDetails || {};
         setFamilyReferenceOptions(options);
@@ -3379,20 +3423,6 @@ const loadOptions = async () => {
             "academic_year",
             "Select Academic Year",
         );
-        const familySelect = field("existing_family_number");
-        if (familySelect) {
-            familySelect.innerHTML =
-                `<option value="">No sibling / New family</option>` +
-                familyItems
-                    .map((item) => {
-                        const studentName = item.full_name_en || "";
-                        const label = studentName
-                            ? `${item.family_number} - ${studentName}`
-                            : item.family_number;
-                        return `<option value="${escapeHtml(item.family_number)}">${escapeHtml(label)}</option>`;
-                    })
-                    .join("");
-        }
         const campusSelect = field("campus_id");
         if (campusSelect) {
             campusItems = (options.campuses || []).map((item) => {
@@ -3474,7 +3504,6 @@ const loadOptions = async () => {
                 .join("");
     gradeItems = options.grades || [];
     academicTrackItems = options.academicTracks || [];
-    familyItems = options.families || [];
     familyDetails = { ...familyDetails, ...(options.familyDetails || {}) };
     studentFamilyDetails = options.studentFamilyDetails || {};
     setFamilyReferenceOptions(options);
@@ -3484,20 +3513,6 @@ const loadOptions = async () => {
         "academic_year",
         "Select Academic Year",
     );
-    const familySelect = field("existing_family_number");
-    if (familySelect) {
-        familySelect.innerHTML =
-            `<option value="">No sibling / New family</option>` +
-            familyItems
-                .map((item) => {
-                    const studentName = item.full_name_en || "";
-                    const label = studentName
-                        ? `${item.family_number} - ${studentName}`
-                        : item.family_number;
-                    return `<option value="${escapeHtml(item.family_number)}">${escapeHtml(label)}</option>`;
-                })
-                .join("");
-    }
     const campusSelect = field("campus_id");
     if (campusSelect) {
         campusItems = (options.campuses || []).map((item) => {
@@ -3984,6 +3999,7 @@ const applyQuickEnrollmentOptions = (options = {}) => {
     const familySelect = field("existing_family_number");
     if (!familySelect) return;
     const currentValue = familySelect.value;
+    const currentLabel = familySelect.selectedOptions?.[0]?.textContent || currentValue;
     familySelect.innerHTML =
         `<option value="">No sibling / New family</option>` +
         familyItems
@@ -3995,23 +4011,22 @@ const applyQuickEnrollmentOptions = (options = {}) => {
                 return `<option value="${escapeHtml(item.family_number)}">${escapeHtml(label)}</option>`;
             })
             .join("");
-    if (currentValue) familySelect.value = currentValue;
+    if (currentValue) {
+        if (!familyItems.some((item) => String(item.family_number) === currentValue))
+            familySelect.add(new Option(currentLabel, currentValue));
+        familySelect.value = currentValue;
+    }
+    const selected = field("existing_family_number-selected");
+    if (selected) selected.textContent = familySelect.value
+        ? familySelect.selectedOptions?.[0]?.textContent || familySelect.value : emptySelectedLabel;
 };
 
 const loadQuickEnrollmentOptions = () => {
-    if (quickEnrollmentOptionsPromise) return quickEnrollmentOptionsPromise;
-    quickEnrollmentOptionsPromise = fetch("/student-enrollments/quick-options", {
-        headers: { Accept: "application/json" },
-    })
-        .then((response) => {
-            if (!response.ok) throw new Error("Unable to load quick enrollment options.");
-            return response.json();
-        })
-        .then((options) => {
-            applyQuickEnrollmentOptions(options);
-            return options;
-        });
-    return quickEnrollmentOptionsPromise;
+    return familyOptionsLoader.load().then((options) => {
+        // A background preload must not replace an active search's options.
+        if (!field("existing_family_number-search")?.value) applyQuickEnrollmentOptions(options);
+        return options;
+    });
 };
 
 const enrollmentAssignmentFields = [
@@ -4076,10 +4091,6 @@ const openCreate = async (forEdit = false) => {
     }
 
     dataLoad.then(() => {
-        field("student_no").value = "";
-        field("existing_family_number").value = "";
-        autoFamilyNumber();
-        setEnrollmentDate(todayEnrollmentDate());
         applyNewEnrollmentCambodiaDefaults();
         refreshPremiumFieldStates();
     });
@@ -4154,8 +4165,10 @@ const openEdit = async (id) => {
     field("home_phone_number").value = formatCambodiaPhoneDisplay(student.home_phone || "");
     // Populate the shared family contacts immediately. The remaining edit
     // options (locations/documents) may take longer to load.
-    field("existing_family_number").value =
-        student.family_number || linkedFamily?.family_number || "";
+    const storedFamilyNumber = student.family_number || linkedFamily?.family_number || "";
+    if (storedFamilyNumber && ![...field("existing_family_number").options].some((option) => option.value === storedFamilyNumber))
+        field("existing_family_number").add(new Option(storedFamilyNumber, storedFamilyNumber));
+    field("existing_family_number").value = storedFamilyNumber;
     initPhoneInputs();
     populateSelectedFamily();
     if (student.photo_path)
@@ -4609,6 +4622,7 @@ form.addEventListener("submit", async (event) => {
         modal.hide();
         showSuccess("Saved", result.message);
         delete familyDetails[field("family_number")?.value || ""];
+        familyOptionsLoader.clear();
         enrollmentListOptionsCache = null;
         loadEnrollmentListOptions().catch(() => {});
         fetchRows();
@@ -4885,6 +4899,8 @@ field("date_of_birth")?.addEventListener("change", syncDobDisplay);
 field("date_of_birth_direct")?.addEventListener("change", (event) =>
     setDobValue(event.target.value),
 );
+// Prepare the small family list before the user opens the enrollment form.
+loadQuickEnrollmentOptions().catch(() => {});
 loadEnrollmentDependentFilterOptions().catch((error) => {
     if (error.name !== "AbortError") console.error(error);
 });

@@ -42,17 +42,34 @@ class StudentEnrollmentController
         return response()->json($this->enrollmentListOptions());
     }
 
-    public function quickOptions()
+    public function quickOptions(Request $request)
     {
+        $term = mb_substr(trim((string) $request->query('q', '')), 0, 120);
+        $families = Student::query()
+            ->whereNotNull('family_number')
+            ->where('family_number', '!=', '')
+            ->when($term !== '', function ($query) use ($term) {
+                $pattern = '%' . $term . '%';
+                $query->where(function ($matching) use ($pattern) {
+                    $matching->where('family_number', 'like', $pattern)
+                        ->orWhereIn('family_number', Student::query()->select('family_number')
+                            ->where(function ($student) use ($pattern) {
+                                $student->where('student_id', 'like', $pattern)
+                                    ->orWhere('full_name_en', 'like', $pattern)
+                                    ->orWhere('full_name_kh', 'like', $pattern);
+                            }));
+                });
+            })
+            ->select('family_number')
+            ->selectRaw('MIN(full_name_en) as full_name_en')
+            ->groupBy('family_number')
+            ->orderBy('family_number')
+            ->limit(51)
+            ->get();
+
         return response()->json([
-            'families' => Student::query()
-                ->whereNotNull('family_number')
-                ->where('family_number', '!=', '')
-                ->select('family_number')
-                ->selectRaw('MIN(full_name_en) as full_name_en')
-                ->groupBy('family_number')
-                ->orderBy('family_number')
-                ->get(),
+            'families' => $families->take(50)->values(),
+            'hasMore' => $families->count() > 50,
         ]);
     }
 
@@ -82,14 +99,6 @@ class StudentEnrollmentController
                 ->get(['id', 'student_id', 'full_name_en', 'full_name_kh']),
             // The list filter rows are loaded by /list-options separately;
             // avoid duplicating this potentially very large payload here.
-            'families' => Student::query()
-                ->whereNotNull('family_number')
-                ->where('family_number', '!=', '')
-                ->select('family_number')
-                ->selectRaw('MIN(full_name_en) as full_name_en')
-                ->groupBy('family_number')
-                ->orderBy('family_number')
-                ->get(),
             'countries' => Country::where('status', 1)->orderBy('country_name_en')->get(['id', 'country_name_en', 'country_name_kh', 'nationality_name_en', 'nationality_name_kh', 'flag_path']),
             'occupations' => Occupation::where('status', 1)->orderBy('occupation_name_en')->get(['id', 'occupation_name_en', 'occupation_name_kh']),
         ]);
