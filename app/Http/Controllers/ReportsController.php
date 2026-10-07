@@ -1244,6 +1244,24 @@ class ReportsController
         return $value === '' ? '-' : $value;
     }
 
+    private function getStudentListSortedIds(iterable $rows, string $column, string $direction): Collection
+    {
+        $values = [];
+        foreach ($rows as $row) {
+            // Use the actual date for both language columns, rather than sorting formatted dates.
+            $value = match ($column) {
+                'row_no' => count($values),
+                'date_of_birth', 'date_of_birth_kh' => $row->student?->date_of_birth?->format('Y-m-d') ?? '',
+                'enrolled_on', 'ended_on' => $row->{$column}?->format('Y-m-d') ?? '',
+                default => $this->getStudentListColumnValue($row, $column),
+            };
+            $values[$row->id] = mb_strtolower((string) $value);
+        }
+
+        $sorted = collect($values)->sort(SORT_NATURAL | SORT_FLAG_CASE);
+        return ($direction === 'desc' ? $sorted->reverse() : $sorted)->keys();
+    }
+
     private function getStudentListWorksheetXml($enrollments, array $columns): string
     {
         $enrollments = collect($enrollments)->values();
@@ -2742,6 +2760,15 @@ JS;
             $filters['selected_columns'] = collect($submittedColumns ? ($filters['selected_columns'] ?? []) : $defaultColumns)->intersect($availableColumns)->values()->all();
             $filters['preview_page_size'] = $filters['preview_page_size'] ?? (string) self::GET_STUDENT_LIST_PREVIEW_DEFAULT_SIZE;
             $filters['preview_page'] = max(1, (int) ($filters['preview_page'] ?? 1));
+            $sort = $request->validate([
+                'sort_by' => ['nullable', \Illuminate\Validation\Rule::in(array_merge(['row_no'], $availableColumns))],
+                'sort_dir' => ['nullable', 'in:asc,desc'],
+            ]);
+            $filters['sort_by'] = $sort['sort_by'] ?? '';
+            $filters['sort_dir'] = $sort['sort_dir'] ?? 'asc';
+            if ($filters['sort_by'] !== 'row_no' && !in_array($filters['sort_by'], $filters['selected_columns'], true)) {
+                $filters['sort_by'] = '';
+            }
         }
         if ($type === 'moeys-sikkhakarik-book') {
             $filters['transcript_level'] = $filters['transcript_level'] ?? '';
@@ -2822,6 +2849,10 @@ JS;
                 : (string) self::GET_STUDENT_LIST_PREVIEW_DEFAULT_SIZE;
             $page = max(1, (int) ($filters['preview_page'] ?? 1));
             $totalRows = (clone $enrollmentQuery)->count();
+            $sortedIds = filled($filters['sort_by'] ?? null)
+                // Hydrate in batches so sorting a year does not load every student's relations at once.
+                ? $this->getStudentListSortedIds((clone $enrollmentQuery)->orderBy('tb_student_enrollment.id')->lazy(200), $filters['sort_by'], $filters['sort_dir'])
+                : null;
             if ($pageSize === 'all') {
                 $lastPage = 1;
                 $page = 1;
@@ -2830,7 +2861,13 @@ JS;
                 $perPage = (int) $pageSize;
                 $lastPage = max(1, (int) ceil($totalRows / $perPage));
                 $page = min($page, $lastPage);
-                $enrollments = $enrollmentQuery->skip(($page - 1) * $perPage)->take($perPage)->get();
+                $enrollments = $sortedIds === null
+                    ? $enrollmentQuery->skip(($page - 1) * $perPage)->take($perPage)->get()
+                    : $enrollmentQuery->whereIn('tb_student_enrollment.id', $sortedIds->slice(($page - 1) * $perPage, $perPage)->all())->get();
+            }
+            if ($sortedIds !== null) {
+                $positions = $sortedIds->flip();
+                $enrollments = $enrollments->sortBy(fn ($row) => $positions[$row->id])->values();
             }
             $filters['preview_page_size'] = $pageSize;
             $filters['preview_page'] = $page;
@@ -2854,6 +2891,10 @@ JS;
             $hasMorePreviewRows = $usesLimitedPreview && $enrollments->count() > $currentPreviewLimit;
             if ($hasMorePreviewRows) {
                 $enrollments = $enrollments->take($currentPreviewLimit);
+            }
+            if ($type === 'moeys-id-number-book' && filled($filters['sort_by'] ?? null)) {
+                $positions = $this->getStudentListSortedIds($enrollments, $filters['sort_by'], $filters['sort_dir'])->flip();
+                $enrollments = $enrollments->sortBy(fn ($row) => $positions[$row->id])->values();
             }
         }
         $studentSummary = ($this->isStudentListReport($type) || $this->isStudentContactListReport($type)) && $hasDataFilter

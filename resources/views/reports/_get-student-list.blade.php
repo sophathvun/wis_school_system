@@ -2,6 +2,15 @@
     $rows = collect($enrollments ?? []);
     $columns = collect($selectedColumns ?? []);
     $pagination = $studentListPagination ?? null;
+    $sortBy = $filters['sort_by'] ?? '';
+    $sortDir = $filters['sort_dir'] ?? 'asc';
+    $sortUrl = static fn (string $key) => route('reports.index', array_merge($filters ?? [], [
+        'type' => 'moeys-id-number-book',
+        'sort_by' => $key,
+        'sort_dir' => $sortBy === $key && $sortDir === 'asc' ? 'desc' : 'asc',
+        'preview_page' => 1,
+    ]));
+    $sortIcon = static fn (string $key) => $sortBy === $key ? ($sortDir === 'asc' ? '↑' : '↓') : '↕';
     $rowOffset = $pagination && ($pagination['pageSize'] ?? '') !== 'all'
         ? max(0, ((int) ($pagination['page'] ?? 1) - 1) * (int) ($pagination['perPage'] ?? 25))
         : 0;
@@ -156,16 +165,16 @@
     <table class="table table-vcenter table-bordered get-student-list-preview-table">
         <thead>
             <tr>
-                <th>No.</th>
+                <th aria-sort="{{ $sortBy === 'row_no' ? ($sortDir === 'asc' ? 'ascending' : 'descending') : 'none' }}"><a class="custom-student-list-sort {{ $sortBy === 'row_no' ? 'text-primary' : '' }}" href="{{ $sortUrl('row_no') }}">No. <span aria-hidden="true">{{ $sortIcon('row_no') }}</span></a></th>
                 @foreach($columns as $column)
-                    <th>{{ $column['label'] ?? $column['key'] }}</th>
+                    <th aria-sort="{{ $sortBy === $column['key'] ? ($sortDir === 'asc' ? 'ascending' : 'descending') : 'none' }}"><a class="custom-student-list-sort {{ $sortBy === $column['key'] ? 'text-primary' : '' }}" href="{{ $sortUrl($column['key']) }}">{{ $column['label'] ?? $column['key'] }} <span aria-hidden="true">{{ $sortIcon($column['key']) }}</span></a></th>
                 @endforeach
             </tr>
         </thead>
         <tbody>
             @forelse($rows as $index => $row)
                 <tr>
-                    <td>{{ $rowOffset + $index + 1 }}</td>
+                    <td>{{ $sortBy === 'row_no' && $sortDir === 'desc' ? ($pagination['total'] ?? $rows->count()) - $rowOffset - $index : $rowOffset + $index + 1 }}</td>
                     @foreach($columns as $column)
                         <td>{{ $cellValue($row, $column['key'] ?? '') }}</td>
                     @endforeach
@@ -179,9 +188,3 @@
         @include('reports._preview-pagination', ['pagination' => $pagination])
     @endif
 @endif
-
-<style>
-    .get-student-list-preview-table { min-width: 1100px; }
-    .get-student-list-preview-table th { background: var(--tblr-primary); color: #fff; white-space: nowrap; }
-    .get-student-list-preview-table td { white-space: nowrap; }
-</style>
