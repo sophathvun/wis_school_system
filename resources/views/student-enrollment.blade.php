@@ -173,8 +173,8 @@
                                 </div>
                                 <div class="col-md-4 premium-floating-field">
                                     <label class="form-label">Student No. (Auto)</label>
-                                    <input id="student_no" name="student_no" class="form-control" readonly
-                                        placeholder="Auto generated">
+                                    <input id="student_no" class="form-control" readonly
+                                        placeholder="Assigned when saved">
                                 </div>
                                 <div class="col-md-4 premium-floating-field">
                                     <label class="form-label">Student ID <span class="text-danger">*</span></label>

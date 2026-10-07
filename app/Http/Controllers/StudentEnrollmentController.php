@@ -17,6 +17,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Rule;
 use App\Services\FamilyService;
+use App\Services\StudentNumberAllocator;
 use App\Models\Country;
 use App\Models\Occupation;
 use App\Models\StudentEnrollmentHistory;
@@ -44,7 +45,6 @@ class StudentEnrollmentController
     public function quickOptions()
     {
         return response()->json([
-            'nextStudentNo' => $this->nextStudentNumber(),
             'families' => Student::query()
                 ->whereNotNull('family_number')
                 ->where('family_number', '!=', '')
@@ -90,7 +90,6 @@ class StudentEnrollmentController
                 ->groupBy('family_number')
                 ->orderBy('family_number')
                 ->get(),
-            'nextStudentNo' => $this->nextStudentNumber(),
             'countries' => Country::where('status', 1)->orderBy('country_name_en')->get(['id', 'country_name_en', 'country_name_kh', 'nationality_name_en', 'nationality_name_kh', 'flag_path']),
             'occupations' => Occupation::where('status', 1)->orderBy('occupation_name_en')->get(['id', 'occupation_name_en', 'occupation_name_kh']),
         ]);
@@ -337,7 +336,6 @@ class StudentEnrollmentController
             }
         }
         $validated = $request->validate([
-            'student_no' => ['nullable', 'string', 'max:30'],
             'student_id' => ['required', 'string', 'max:30', Rule::unique('tb_student', 'student_id')->ignore($request->input('student_record_id'))],
             'photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'dimensions:width=600,height=800', 'max:2048'],
             'family_number' => ['nullable', 'string', 'max:30'],
@@ -436,7 +434,7 @@ class StudentEnrollmentController
                 if ($student->exists) {
                     $validated['student_no'] = $student->student_no;
                 } else {
-                    $validated['student_no'] = $this->nextStudentNumber();
+                    $validated['student_no'] = app(StudentNumberAllocator::class)->allocate();
                 }
                 $validated['family_number'] = $validated['existing_family_number']
                     ?: ($validated['family_number'] ?: ('F' . $validated['student_id']));
@@ -589,20 +587,6 @@ class StudentEnrollmentController
         }
 
         return response()->json(['status' => 'success', 'message' => $id ? 'Student enrollment updated successfully.' : 'Student enrollment created successfully.', 'data' => $enrollment], $id ? 200 : 201);
-    }
-
-    private function nextStudentNumber(): string
-    {
-        $max = (int) Student::query()->selectRaw('MAX(CAST(student_no AS UNSIGNED)) as max_no')->value('max_no');
-        $next = $max + 1;
-
-        if ($next > 99999999) {
-            throw ValidationException::withMessages([
-                'student_no' => 'Unable to generate Student Number. The 8-digit limit has been reached.',
-            ]);
-        }
-
-        return str_pad((string) $next, 8, '0', STR_PAD_LEFT);
     }
 
     private function studentPhotoFilename(Student $student, string $extension): string

@@ -523,7 +523,6 @@ let familyItems = [];
 let familyDetails = {};
 const familyDetailsRequests = new Map();
 let studentFamilyDetails = {};
-let nextStudentNo = "";
 let quickEnrollmentOptionsPromise = null;
 let dobCursor = new Date();
 let enrollmentOptionsCache = null;
@@ -3368,7 +3367,6 @@ const loadOptions = async () => {
                             `<option value="${item.id}">${escapeHtml(item.name_kh || "")}${item.name_kh ? " / " : ""}${escapeHtml(item.name_en)}</option>`,
                     )
                     .join("");
-        nextStudentNo = options.nextStudentNo || "";
         gradeItems = options.grades || [];
         academicTrackItems = options.academicTracks || [];
         familyItems = options.families || [];
@@ -3474,7 +3472,6 @@ const loadOptions = async () => {
                         `<option value="${item.id}">${escapeHtml(item.name_kh || "")}${item.name_kh ? " / " : ""}${escapeHtml(item.name_en)}</option>`,
                 )
                 .join("");
-    nextStudentNo = options.nextStudentNo || "";
     gradeItems = options.grades || [];
     academicTrackItems = options.academicTracks || [];
     familyItems = options.families || [];
@@ -3982,11 +3979,6 @@ const refreshEnrollmentFiltersWithOptions = async (changed = "") => {
 };
 
 const applyQuickEnrollmentOptions = (options = {}) => {
-    if (options.nextStudentNo) {
-        nextStudentNo = options.nextStudentNo;
-        if (!field("enrollment_id")?.value && field("student_no"))
-            field("student_no").value = nextStudentNo;
-    }
     if (!Array.isArray(options.families)) return;
     familyItems = options.families;
     const familySelect = field("existing_family_number");
@@ -4044,7 +4036,7 @@ const openCreate = async (forEdit = false) => {
     resetEnrollmentDocumentFiles();
     field("enrollment_id").value = "";
     field("student_record_id").value = "";
-    field("student_no").value = nextStudentNo;
+    field("student_no").value = "";
     if (!forEdit) {
         field("existing_family_number").value = "";
         autoFamilyNumber();
@@ -4084,7 +4076,7 @@ const openCreate = async (forEdit = false) => {
     }
 
     dataLoad.then(() => {
-        field("student_no").value = nextStudentNo;
+        field("student_no").value = "";
         field("existing_family_number").value = "";
         autoFamilyNumber();
         setEnrollmentDate(todayEnrollmentDate());

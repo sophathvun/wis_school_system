@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Storage;
 beforeEach(function () {
     $this->withoutMiddleware();
     Storage::fake('public');
+    (require database_path('migrations/2026_10_07_000001_create_student_number_sequence.php'))->up();
     Schema::create('tb_student', function (Blueprint $table) {
         $table->id();
         foreach (['student_no', 'student_id', 'full_name_en', 'family_number', 'photo_path'] as $column) {
@@ -167,4 +168,38 @@ it('creates a student from a valid mobile form submission', function () {
     ], ['Accept' => 'application/json', 'User-Agent' => 'iPhone Safari'])->assertCreated()
         ->assertJsonPath('data.student.student_id', 'NEW001');
     expect(DB::table('tb_student_enrollment')->where('student_id', $response->json('data.student.id'))->exists())->toBeTrue();
+});
+
+it('ignores stale or user-supplied student numbers and assigns the next number only on save', function () {
+    $this->getJson('/student-enrollments/quick-options')->assertOk()->assertJsonMissingPath('nextStudentNo');
+    expect(DB::table('tb_student_number_sequence')->value('last_number'))->toBe(0);
+    foreach (['NEW001' => '00000002', 'NEW002' => '00000003'] as $studentId => $studentNo) {
+        $this->postJson(route('student-enrollments.save'), [
+            ...$this->payload, 'enrollment_id' => null, 'student_record_id' => null,
+            'student_id' => $studentId, 'student_no' => '00000003',
+        ])->assertCreated()->assertJsonPath('data.student.student_no', $studentNo);
+    }
+});
+
+it('preserves the student number when updating an existing enrollment', function () {
+    $this->postJson(route('student-enrollments.save'), [...$this->payload, 'student_no' => '99999999'])
+        ->assertOk()->assertJsonPath('data.student.student_no', '00000001');
+    expect(DB::table('tb_student_number_sequence')->value('last_number'))->toBe(0);
+});
+
+it('rolls back the number allocation if enrollment creation fails after the student insert', function () {
+    $this->mock(FamilyService::class, function ($mock) {
+        $mock->shouldReceive('syncStudentFamily')->andThrow(new \RuntimeException('Test save failure'));
+    });
+    $this->withoutExceptionHandling();
+    try {
+        $this->postJson(route('student-enrollments.save'), [
+            ...$this->payload, 'enrollment_id' => null, 'student_record_id' => null, 'student_id' => 'NEW001',
+        ]);
+        $this->fail('The failed enrollment should throw.');
+    } catch (\RuntimeException $exception) {
+        expect($exception->getMessage())->toBe('Test save failure');
+    }
+    expect(DB::table('tb_student_number_sequence')->value('last_number'))->toBe(0)
+        ->and(DB::table('tb_student')->where('student_id', 'NEW001')->exists())->toBeFalse();
 });
