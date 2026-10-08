@@ -9,6 +9,9 @@ export function initPremiumDatePicker(picker) {
     const years = picker.querySelector('.date-picker-years');
     const days = picker.querySelector('.date-picker-days');
     if (!input || !value || !toggle || !popup || !month || !years || !days) return;
+    const displayFormat = picker.dataset.premiumDateFormat || 'DD-MM-YYYY';
+    const namedMonth = displayFormat === 'DD-MMM-YYYY';
+    const shortMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const pad = (number) => String(number).padStart(2, '0');
     const iso = (date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
     const parse = (raw) => {
@@ -19,10 +22,15 @@ export function initPremiumDatePicker(picker) {
     };
     const parseTyped = () => {
         const raw = input.value.trim();
+        const named = namedMonth && /^(\d{1,2})[-/]([a-z]{3})[-/](\d{4})$/i.exec(raw);
+        if (named) {
+            const monthIndex = shortMonths.findIndex((name) => name.toLowerCase() === named[2].toLowerCase());
+            return monthIndex < 0 ? null : parse(`${named[3]}-${pad(monthIndex + 1)}-${pad(named[1])}`);
+        }
         const match = /^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/.exec(raw);
         return match ? parse(`${match[3]}-${pad(match[2])}-${pad(match[1])}`) : parse(raw);
     };
-    const display = (date) => `${pad(date.getDate())}-${pad(date.getMonth() + 1)}-${date.getFullYear()}`;
+    const display = (date) => `${pad(date.getDate())}-${namedMonth ? shortMonths[date.getMonth()] : pad(date.getMonth() + 1)}-${date.getFullYear()}`;
     const initial = parse(value.value);
     let cursor = initial || new Date();
     cursor = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
@@ -67,7 +75,7 @@ export function initPremiumDatePicker(picker) {
     const syncTyped = (format = true) => {
         const parsed = parseTyped();
         value.value = parsed ? iso(parsed) : '';
-        input.setCustomValidity(input.value.trim() && !parsed ? 'Enter a valid date as DD-MM-YYYY.' : '');
+        input.setCustomValidity(input.value.trim() && !parsed ? `Enter a valid date as ${displayFormat}.` : '');
         picker.classList.toggle('has-value', Boolean(parsed));
         if (parsed && format) {
             input.value = display(parsed);
@@ -114,6 +122,9 @@ export function initPremiumDatePicker(picker) {
         cursor = new Date(cursor.getFullYear(), cursor.getMonth() + (direction === 'prev' ? -1 : 1), 1);
         yearPopup?.classList.add('d-none'); render();
     }));
+    picker.querySelector('[data-premium-date-today]')?.addEventListener('click', () => {
+        set(new Date()); close(); toggle.focus();
+    });
     month.addEventListener('click', () => {
         yearPopup?.classList.toggle('d-none');
         if (!yearPopup?.classList.contains('d-none')) years.querySelector('.is-selected')?.scrollIntoView({ block: 'nearest' });

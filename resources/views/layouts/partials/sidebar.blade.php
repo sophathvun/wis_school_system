@@ -395,13 +395,15 @@
                                             <i class="ti ti-files me-2"></i> Student Documents
                                         </a>
                                     @endif
+                                    @if ($canView('student-skipping-grade.view'))
                                     <a class="dropdown-item {{ request()->routeIs('student-skipping-grade.*') ? 'active' : '' }}"
                                         href="{{ route('student-skipping-grade.index') }}">
-                                        <i class="ti ti-stairs-up me-2"></i> Student Skipping Grade
+                                        <i class="ti ti-stairs-up me-2"></i> Stu. Skipping Grade
                                     </a>
+                                    @endif
                                     <a class="dropdown-item {{ request()->routeIs('western-scholarship.*') ? 'active' : '' }}"
                                         href="{{ route('western-scholarship.index') }}">
-                                        <i class="ti ti-award me-2"></i> WESTERN Scholarship
+                                        <i class="ti ti-award me-2"></i> WIS Scholarship
                                     </a>
                                     @if ($canView('student-data-transfer.view'))
                                         <a class="dropdown-item {{ request()->routeIs('student-data-transfer.*') ? 'active' : '' }}"

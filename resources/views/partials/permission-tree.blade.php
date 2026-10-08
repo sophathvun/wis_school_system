@@ -61,6 +61,9 @@
                                 class="status-toggle-knob"></span>
                         </button>
                     </div>
+                    @if($group['modules_label'] ?? null)
+                        <div class="fw-bold mt-3 mb-1">{{ $group['modules_label'] }}</div>
+                    @endif
                     @foreach ($group['modules'] as $moduleKey => $module)
                         @php($submenuId = $permissionPrefix . '-submenu-' . str_replace(['.', '-'], '_', $moduleKey))
                         @php($submenuOn = $assignedPermissions->contains('id', $module['permission']->id))
@@ -86,12 +89,15 @@
                             </div>
                             @foreach ($module['actions'] as $action)
                                 @php($actionOn = $assignedPermissions->contains('id', $action->id))
+                                @php($skippingParent = $moduleKey==='student-skipping-grade' ? (\App\Support\StudentSkippingGradePermissions::PARENTS[$action->action]??null) : null)
                                 <div class="d-flex justify-content-between align-items-center border-top py-2 ps-3 permission-action"
                                     data-action-parent="{{ $submenuId }}">
                                     <span class="small text-secondary">{{ $action->name }}
                                         <small>({{ $action->code }})</small></span>
                                     <button type="button" class="status-toggle {{ $actionOn ? 'is-active' : '' }}"
                                         data-permission-toggle data-permission-level="action"
+                                        data-permission-code="{{ $action->code }}"
+                                        @if($skippingParent) data-requires-permission="student-skipping-grade.{{ $skippingParent }}" @endif
                                         data-parent-permission="{{ $submenuId }}"
                                         data-status="{{ $actionOn ? 1 : 0 }}"
                                         aria-pressed="{{ $actionOn ? 'true' : 'false' }}">
@@ -131,4 +137,3 @@
         @endif
     @endforeach
 </div>
-

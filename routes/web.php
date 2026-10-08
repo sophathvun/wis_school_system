@@ -202,12 +202,31 @@ Route::post('/dashboard/customize', [DashboardController::class, 'saveCustomizat
 Route::delete('/dashboard/customize', [DashboardController::class, 'resetCustomization'])->name('dashboard.customize.reset');
 
 Route::middleware(['auth', 'active.user'])->group(function () {
-    Route::view('/students/skipping-grade', 'academic-module-placeholder', [
-        'title' => 'Student Skipping Grade',
-        'pretitle' => 'Students',
-        'icon' => 'ti-stairs-up',
-        'description' => 'Use this module to manage student skipping grade requests and records.',
-    ])->name('student-skipping-grade.index');
+    Route::prefix('students/skipping-grade')->name('student-skipping-grade.')->controller(\App\Http\Controllers\StudentSkippingGradeController::class)->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('/create', 'create')->name('create');
+        Route::get('/campus-settings', 'campusSettings')->name('campus-settings');
+        Route::post('/campus-settings', 'saveCampusSettings')->name('campus-settings.save');
+        Route::get('/settings', 'settings')->name('settings');
+        Route::post('/settings', 'saveSettings')->name('settings.save');
+        Route::get('/templates/{form}', 'templateEditor')->name('template');
+        Route::get('/templates/{form}/preview', 'templatePreview')->name('template.preview');
+        Route::post('/templates/{form}', 'saveTemplate')->name('template.save');
+        Route::get('/students', 'students')->name('students');
+        Route::get('/source-classes', 'sourceClasses')->name('source-classes');
+        Route::get('/enrollment/{enrollment}', 'enrollment')->name('enrollment');
+        Route::get('/classes', 'targetClasses')->name('classes');
+        Route::post('/', 'store')->name('store');
+        Route::get('/{skipping}/edit', 'edit')->name('edit');
+        Route::post('/{skipping}/update', 'update')->name('update');
+        Route::post('/{skipping}/submit', 'submit')->name('submit');
+        Route::post('/{skipping}/approve', 'approve')->name('approve');
+        Route::post('/{skipping}/reject', 'reject')->name('reject');
+        Route::get('/{skipping}/signed-request', 'signedRequest')->name('signed-request');
+        Route::get('/{skipping}/share/approval', 'shareApproval')->name('share-approval');
+        Route::get('/{skipping}/print/{form}', 'printForm')->name('print');
+        Route::get('/{skipping}', 'show')->name('show');
+    });
     Route::view('/students/western-scholarship', 'academic-module-placeholder', [
         'title' => 'WESTERN Scholarship',
         'pretitle' => 'Students',
@@ -331,15 +350,15 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         'description' => 'Use this module to record and track school expenses.',
     ])->name('financial-management.expenses');
 
-    Route::get('/reports', [ReportsController::class, 'index'])->name('reports.index');
+    Route::get('/reports', [ReportsController::class, 'index'])->middleware(\App\Http\Middleware\EnsureAcademicReportPermission::class)->name('reports.index');
     Route::get('/reports/transcript-templates/{level}/{page}', [ReportsController::class, 'transcriptTemplate'])
-        ->where('level', 'primary|secondary')->where('page', 'page-[1-4]\.jpg')->name('reports.transcript-template');
-    Route::post('/reports/k3-certificate-wis/settings', [ReportsController::class, 'saveK3Certificates'])->name('reports.k3-certificates.save');
-    Route::post('/reports/k3-certificate-wis/template', [ReportsController::class, 'saveK3CertificateTemplate'])->name('reports.k3-certificates.template');
-    Route::post('/reports/g9-certificate-wis/settings', [\App\Http\Controllers\G9CertificateController::class, 'saveG9Certificates'])->name('reports.g9-certificates.save');
-    Route::post('/reports/g9-certificate-wis/template', [\App\Http\Controllers\G9CertificateController::class, 'saveG9CertificateTemplate'])->name('reports.g9-certificates.template');
-    Route::post('/reports/g12-certificate-wis/settings', [\App\Http\Controllers\G12CertificateController::class, 'saveG12Certificates'])->name('reports.g12-certificates.save');
-    Route::post('/reports/g12-certificate-wis/template', [\App\Http\Controllers\G12CertificateController::class, 'saveG12CertificateTemplate'])->name('reports.g12-certificates.template');
+        ->where('level', 'primary|secondary')->where('page', 'page-[1-4]\.jpg')->middleware(\App\Http\Middleware\EnsureAcademicReportPermission::class)->name('reports.transcript-template');
+    Route::post('/reports/k3-certificate-wis/settings', [ReportsController::class, 'saveK3Certificates'])->middleware(\App\Http\Middleware\EnsureAcademicReportPermission::class)->name('reports.k3-certificates.save');
+    Route::post('/reports/k3-certificate-wis/template', [ReportsController::class, 'saveK3CertificateTemplate'])->middleware(\App\Http\Middleware\EnsureAcademicReportPermission::class)->name('reports.k3-certificates.template');
+    Route::post('/reports/g9-certificate-wis/settings', [\App\Http\Controllers\G9CertificateController::class, 'saveG9Certificates'])->middleware(\App\Http\Middleware\EnsureAcademicReportPermission::class)->name('reports.g9-certificates.save');
+    Route::post('/reports/g9-certificate-wis/template', [\App\Http\Controllers\G9CertificateController::class, 'saveG9CertificateTemplate'])->middleware(\App\Http\Middleware\EnsureAcademicReportPermission::class)->name('reports.g9-certificates.template');
+    Route::post('/reports/g12-certificate-wis/settings', [\App\Http\Controllers\G12CertificateController::class, 'saveG12Certificates'])->middleware(\App\Http\Middleware\EnsureAcademicReportPermission::class)->name('reports.g12-certificates.save');
+    Route::post('/reports/g12-certificate-wis/template', [\App\Http\Controllers\G12CertificateController::class, 'saveG12CertificateTemplate'])->middleware(\App\Http\Middleware\EnsureAcademicReportPermission::class)->name('reports.g12-certificates.template');
     Route::view('/reports/hrm-reports', 'academic-module-placeholder', [
         'title' => 'HRM Reports',
         'pretitle' => 'Reports',
@@ -352,10 +371,10 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         'icon' => 'ti-report-money',
         'description' => 'Use this module to review, print, and export financial reports.',
     ])->name('reports.financial');
-    Route::get('/reports/{type}', [ReportsController::class, 'show'])->name('reports.show');
-    Route::post('/reports/{type}/generate-id-book-list-codes', [ReportsController::class, 'generateIdBookListCodes'])->name('reports.id-book-list-codes.generate');
-    Route::get('/reports/{type}/excel', [ReportsController::class, 'excel'])->name('reports.excel');
-    Route::get('/reports/{type}/pdf', [ReportsController::class, 'pdf'])->name('reports.pdf');
+    Route::get('/reports/{type}', [ReportsController::class, 'show'])->middleware(\App\Http\Middleware\EnsureAcademicReportPermission::class)->name('reports.show');
+    Route::post('/reports/{type}/generate-id-book-list-codes', [ReportsController::class, 'generateIdBookListCodes'])->middleware(\App\Http\Middleware\EnsureAcademicReportPermission::class)->name('reports.id-book-list-codes.generate');
+    Route::get('/reports/{type}/excel', [ReportsController::class, 'excel'])->middleware(\App\Http\Middleware\EnsureAcademicReportPermission::class)->name('reports.excel');
+    Route::get('/reports/{type}/pdf', [ReportsController::class, 'pdf'])->middleware(\App\Http\Middleware\EnsureAcademicReportPermission::class)->name('reports.pdf');
 });
 
 Route::middleware(['auth', 'campus.context', 'campus.access'])->prefix('access')->group(function () {

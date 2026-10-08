@@ -24,6 +24,7 @@ use Illuminate\Support\Facades\Log;
 use Barryvdh\DomPDF\Facade\Pdf;
 use RuntimeException;
 use Illuminate\Support\Str;
+use App\Support\AcademicReportPermissions;
 
 class ReportsController
 {
@@ -31,28 +32,13 @@ class ReportsController
     private const GET_STUDENT_LIST_PREVIEW_DEFAULT_SIZE = 25;
     private const GET_STUDENT_LIST_PREVIEW_SIZES = ['all', '25', '50', '75', '100'];
 
-    private const TYPES = [
-        'student-list' => 'Student List',
-        'student-contact-list' => 'Stu. Contact List',
-        'score-list' => 'Score List',
-        'attendance-list' => 'Attendance List',
-        'student-statistics' => 'Stu. Statistics (Summary)',
-        'student-statistics-detail' => 'Stu. Statistics (Detail)',
-        'withdrawn-students' => 'Withdrawn Students',
-        'student-id-books-moeys' => 'Stu. ID Book (MoEYS)',
-        'moeys-sikkhakarik-book' => 'Stu. Transcript Book',
-        'k3-certificate-wis' => 'K3 Certificate (WIS)',
-        'g9-certificate-wis' => 'G9 Certificate (WIS)',
-        'g12-certificate-wis' => 'G12 Certificate (WIS)',
-        'moeys-id-number-book' => 'Customize Stu. List',
-        'student-profile-label' => 'Stu. Profile Label',
-        'student-photo' => 'Print Stu. Photo',
-    ];
-
     public function index(Request $request)
     {
-        $type = $request->query('type', 'student-list');
-        abort_unless(isset(self::TYPES[$type]), 404);
+        $reportTypes = AcademicReportPermissions::visibleTypes($request->user());
+        abort_unless($reportTypes, 403);
+        $type = $request->query('type', array_key_first($reportTypes));
+        abort_unless(is_string($type) && isset(AcademicReportPermissions::REPORTS[$type]), 404);
+        abort_unless(isset($reportTypes[$type]), 403);
         if ($type === 'moeys-id-number-book' && $request->boolean('filter_options')) {
             return $this->customStudentListFilterOptions($request);
         }
@@ -60,7 +46,7 @@ class ReportsController
 
         return view('reports.index', $payload + [
             'type' => $type,
-            'reportTypes' => self::TYPES,
+            'reportTypes' => $reportTypes,
             'isReportStub' => $this->isReportStub($type),
             'academicYears' => $this->academicYears($payload['filters'], $type),
             'campuses' => $payload['photoCampuses'] ?? $this->campuses($request, $payload['filters'], $type),
@@ -95,7 +81,7 @@ class ReportsController
 
     public function excel(Request $request, string $type)
     {
-        abort_unless(isset(self::TYPES[$type]), 404);
+        abort_unless(isset(AcademicReportPermissions::labels()[$type]), 404);
         abort_if(in_array($type, ['k3-certificate-wis', 'g9-certificate-wis', 'g12-certificate-wis', 'student-photo'], true), 404);
 
         $payload = $this->reportPayload($request, $type);
@@ -105,7 +91,7 @@ class ReportsController
             $filename = 'student-id-book-cover-' . now('Asia/Phnom_Penh')->format('Ymd-His') . '.xlsx';
             $path = $this->studentIdBookCoverExcelPath($this->studentIdBookCoverData($payload, $academicYear, $campus));
         } else {
-            $filename = str_replace(' ', '-', strtolower(self::TYPES[$type])) . '-' . now('Asia/Phnom_Penh')->format('Ymd-His') . '.xlsx';
+            $filename = str_replace(' ', '-', strtolower(AcademicReportPermissions::labels()[$type])) . '-' . now('Asia/Phnom_Penh')->format('Ymd-His') . '.xlsx';
             $path = $this->reportExcelPath($payload, $type);
         }
 
@@ -117,7 +103,7 @@ class ReportsController
     }
     public function pdf(Request $request, string $type)
     {
-        abort_unless(isset(self::TYPES[$type]), 404);
+        abort_unless(isset(AcademicReportPermissions::labels()[$type]), 404);
         abort_if($type === 'student-photo', 404);
 
         $payload = $this->reportPayload($request, $type);
@@ -154,7 +140,7 @@ class ReportsController
 
     public function show(Request $request, string $type)
     {
-        abort_unless(isset(self::TYPES[$type]), 404);
+        abort_unless(isset(AcademicReportPermissions::labels()[$type]), 404);
         $payload = $this->reportPayload($request, $type);
         if ($type === 'student-photo') {
             return view('reports.student-photo-print', $payload);
@@ -186,7 +172,7 @@ class ReportsController
 
         $printView = view('reports.print', $payload + [
             'type' => $type,
-            'title' => self::TYPES[$type],
+            'title' => AcademicReportPermissions::labels()[$type],
             'academicYears' => $this->academicYears($payload['filters'] ?? []),
             'academicYear' => $academicYear,
             'campus' => $campus,
@@ -326,7 +312,7 @@ class ReportsController
             ])
             : view('reports.print', $payload + [
                 'type' => $type,
-                'title' => self::TYPES[$type],
+                'title' => AcademicReportPermissions::labels()[$type],
                 'academicYears' => $this->academicYears($payload['filters'] ?? []),
                 'academicYear' => $academicYear,
                 'campus' => $campus,
@@ -629,7 +615,7 @@ class ReportsController
         }
 
         $this->writeZipArchive($zipPath, $entries);
-        $zipFilename = str_replace(' ', '-', strtolower(self::TYPES[$type])) . '-pdf-' . now('Asia/Phnom_Penh')->format('Ymd-His') . '.zip';
+        $zipFilename = str_replace(' ', '-', strtolower(AcademicReportPermissions::labels()[$type])) . '-pdf-' . now('Asia/Phnom_Penh')->format('Ymd-His') . '.zip';
 
         return response()
             ->download($zipPath, $zipFilename, ['Content-Type' => 'application/zip'])
@@ -639,9 +625,9 @@ class ReportsController
     private function reportPdfFilename($enrollments, string $type, bool $classSpecific = false): string
     {
         $first = $enrollments instanceof Collection ? $enrollments->first() : null;
-        $grade = $classSpecific && $first ? $this->gradeClassLabel($first) : self::TYPES[$type];
+        $grade = $classSpecific && $first ? $this->gradeClassLabel($first) : AcademicReportPermissions::labels()[$type];
         $academicYear = $first?->academicYear?->academic_year ?: 'All-Academic-Years';
-        $reportName = $this->isStudentContactListReport($type) ? 'Student-Contact-List' : ($type === 'student-profile-label' ? 'Student-Profile-Label' : ($this->isStudentListReport($type) ? 'Student-List' : ($type === 'attendance-list' ? 'Attendance-List' : ($type === 'score-list' ? 'Score-List' : self::TYPES[$type]))));
+        $reportName = $this->isStudentContactListReport($type) ? 'Student-Contact-List' : ($type === 'student-profile-label' ? 'Student-Profile-Label' : ($this->isStudentListReport($type) ? 'Student-List' : ($type === 'attendance-list' ? 'Attendance-List' : ($type === 'score-list' ? 'Score-List' : AcademicReportPermissions::labels()[$type]))));
         $parts = $classSpecific ? [$grade, $academicYear, $reportName] : [$reportName, $academicYear, now('Asia/Phnom_Penh')->format('Ymd-His')];
 
         return $this->safeReportFilename(collect($parts)->filter()->join('-')) . '.pdf';
@@ -816,7 +802,7 @@ class ReportsController
 
         if ($type === 'student-statistics') {
             return [[
-                'name' => self::TYPES[$type],
+                'name' => AcademicReportPermissions::labels()[$type],
                 'xml' => $this->statisticsWorksheetXml($payload['statistics'] ?? $this->emptyStatistics(), $hasLogo, $payload['filters'] ?? []),
                 'tacteing_col' => 7,
                 'show_tacteing' => false,
@@ -836,7 +822,7 @@ class ReportsController
         if ($type === 'moeys-sikkhakarik-book') {
             return [[
                 'name' => 'MoEYS Transcript Book',
-                'xml' => $this->enrollmentsWorksheetXml($enrollments, self::TYPES[$type], $hasLogo, false, $payload['filters']['report_date'] ?? null, $type),
+                'xml' => $this->enrollmentsWorksheetXml($enrollments, AcademicReportPermissions::labels()[$type], $hasLogo, false, $payload['filters']['report_date'] ?? null, $type),
                 'tacteing_col' => 7,
                 'show_tacteing' => false,
             ]];
@@ -953,8 +939,8 @@ class ReportsController
 
         if (!($this->isStudentListReport($type) || $this->isStudentContactListReport($type))) {
             return [[
-                'name' => self::TYPES[$type],
-                'xml' => $this->enrollmentsWorksheetXml($enrollments, self::TYPES[$type], $hasLogo, false, $payload['filters']['report_date'] ?? null, $type),
+                'name' => AcademicReportPermissions::labels()[$type],
+                'xml' => $this->enrollmentsWorksheetXml($enrollments, AcademicReportPermissions::labels()[$type], $hasLogo, false, $payload['filters']['report_date'] ?? null, $type),
                 'tacteing_col' => 7,
             ]];
         }
@@ -963,8 +949,8 @@ class ReportsController
 
         if ($groups->isEmpty()) {
             return [[
-                'name' => self::TYPES[$type],
-                'xml' => $this->enrollmentsWorksheetXml(collect(), $isMoeys ? ($this->isStudentContactListReport($type) ? 'បញ្ជីទំនាក់ទំនងសិស្ស' : 'បញ្ជីឈ្មោះសិស្ស') : self::TYPES[$type], $hasLogo, $isMoeys, $payload['filters']['report_date'] ?? null, $type),
+                'name' => AcademicReportPermissions::labels()[$type],
+                'xml' => $this->enrollmentsWorksheetXml(collect(), $isMoeys ? ($this->isStudentContactListReport($type) ? 'បញ្ជីទំនាក់ទំនងសិស្ស' : 'បញ្ជីឈ្មោះសិស្ស') : AcademicReportPermissions::labels()[$type], $hasLogo, $isMoeys, $payload['filters']['report_date'] ?? null, $type),
                 'tacteing_col' => $isMoeys ? ($this->isStudentContactListReport($type) ? 5 : 4) : ($this->isStudentContactListReport($type) ? 8 : 6),
             ]];
         }
@@ -978,7 +964,7 @@ class ReportsController
                 'name' => $sheetName,
                 'xml' => $this->enrollmentsWorksheetXml(
                     $rows->values(),
-                    $isMoeys ? (($this->isStudentContactListReport($type) ? 'បញ្ជីទំនាក់ទំនងសិស្សថ្នាក់ទី ' : 'បញ្ជីឈ្មោះសិស្សថ្នាក់ទី ') . $gradeClass) : (self::TYPES[$type] . ' for Grade ' . $gradeClass),
+                    $isMoeys ? (($this->isStudentContactListReport($type) ? 'បញ្ជីទំនាក់ទំនងសិស្សថ្នាក់ទី ' : 'បញ្ជីឈ្មោះសិស្សថ្នាក់ទី ') . $gradeClass) : (AcademicReportPermissions::labels()[$type] . ' for Grade ' . $gradeClass),
                     $hasLogo,
                     $isMoeys,
                     $payload['filters']['report_date'] ?? null,

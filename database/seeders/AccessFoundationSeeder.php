@@ -7,6 +7,7 @@ use App\Models\Role;
 use App\Support\K3CertificatePermissions;
 use App\Support\G9CertificatePermissions;
 use App\Support\G12CertificatePermissions;
+use App\Support\AcademicReportPermissions;
 use Illuminate\Database\Seeder;
 
 class AccessFoundationSeeder extends Seeder
@@ -111,6 +112,10 @@ class AccessFoundationSeeder extends Seeder
             }
         }
 
+        $permissions = array_merge($permissions, AcademicReportPermissions::catalog());
+        foreach (\App\Support\StudentSkippingGradePermissions::catalog() as $action => $name) {
+            $permissions[] = ['code' => 'student-skipping-grade.'.$action, 'module' => 'student-skipping-grade', 'action' => $action, 'name' => $name];
+        }
         foreach (K3CertificatePermissions::catalog() as $code => $name) {
             $permissions[] = ['code' => $code, 'module' => 'reports.k3', 'action' => substr($code, strlen('reports.k3.')), 'name' => $name];
         }
@@ -133,12 +138,17 @@ class AccessFoundationSeeder extends Seeder
         ];
 
         $allPermissions = Permission::all();
+        $reportTabCodes = array_column(AcademicReportPermissions::catalog(), 'code');
+        $skippingCentralCodes = array_map(fn ($action) => 'student-skipping-grade.'.$action, \App\Support\StudentSkippingGradePermissions::CENTRAL_ACTIONS);
 
         foreach ($roles as $roleData) {
             $role = Role::updateOrCreate(['code' => $roleData['code']], $roleData + ['is_system' => true, 'status' => 1]);
             // These shared certificate actions require an explicit grant to non-super roles.
             $rolePermissions = $role->code === 'super-admin' ? $allPermissions : $allPermissions->filter(
-                fn ($permission) => (!array_key_exists($permission->code, K3CertificatePermissions::catalog()) && !array_key_exists($permission->code, G9CertificatePermissions::catalog()) && !array_key_exists($permission->code, G12CertificatePermissions::catalog())) || $role->permissions->contains('id', $permission->id)
+                fn ($permission) => in_array($permission->code, $reportTabCodes, true)
+                    // New seeded roles keep the standard defaults; existing roles keep their selected tabs.
+                    ? ($role->wasRecentlyCreated || $role->permissions->contains('id', $permission->id))
+                    : ((!in_array($permission->code, $skippingCentralCodes, true) && !array_key_exists($permission->code, K3CertificatePermissions::catalog()) && !array_key_exists($permission->code, G9CertificatePermissions::catalog()) && !array_key_exists($permission->code, G12CertificatePermissions::catalog())) || $role->permissions->contains('id', $permission->id))
             );
             $role->permissions()->sync($rolePermissions->modelKeys());
         }

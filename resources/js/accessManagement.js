@@ -90,6 +90,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (!submenuOn || submenu.disabled) setToggle(actionButton, false);
             });
         });
+        form.querySelectorAll('[data-requires-permission]').forEach((button) => {
+            const parent = form.querySelector(`[data-permission-code="${button.dataset.requiresPermission}"]`);
+            button.disabled = button.disabled || !parent || parent.disabled || parent.dataset.status !== '1';
+            if (button.disabled) setToggle(button, false);
+        });
     };
 
     document.querySelectorAll("[data-permission-form]").forEach((form) => {

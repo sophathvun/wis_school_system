@@ -20,6 +20,7 @@
                          "@tabler/icons-webfont":  "^3.44.0",
                          "@thyrith/momentkh":  "^3.0.3",
                          "bootstrap":  "^5.3.8",
+                         "html-to-image":  "^1.11.13",
                          "intl-tel-input":  "^29.1.2",
                          "sweetalert2":  "^11.26.25"
                      }

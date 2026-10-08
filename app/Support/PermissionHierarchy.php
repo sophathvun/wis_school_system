@@ -9,7 +9,7 @@ class PermissionHierarchy
 {
     public static function moduleLabels(): array
     {
-        return [
+        return array_merge([
             'users' => 'Users', 'departments' => 'Departments', 'positions' => 'Positions', 'roles' => 'Roles', 'notifications' => 'Notifications', 'chat' => 'Chat',
             'academic-years' => 'Academic Years', 'grades' => 'Grades', 'classes' => 'Classes', 'sessions' => 'Sessions',
             'education-levels' => 'Education Levels', 'programs' => 'Programs', 'school-info' => 'School Information',
@@ -19,9 +19,9 @@ class PermissionHierarchy
             'attendance' => 'Attendance', 'schedules' => 'Schedules', 'grading-system' => 'Grading System', 'reports' => 'Reports',
             'students.search' => 'Search Students', 'students.enrollment' => 'Student Enrollment', 'families' => 'Family Management',
             'students.promotion' => 'Student Promotion', 'students.transfer' => 'Student Transfer', 'students.graduation' => 'Student Graduation',
-            'student-reentry' => 'Student Re-entry', 'student-id-card-qr' => 'Stu. ID Card (QR)', 'student-documents' => 'Student Documents', 'student-data-transfer' => 'Import / Export Data', 'homeroom' => 'Homeroom Activities',
+            'student-reentry' => 'Student Re-entry', 'student-skipping-grade' => 'Stu. Skipping Grade', 'student-id-card-qr' => 'Stu. ID Card (QR)', 'student-documents' => 'Student Documents', 'student-data-transfer' => 'Import / Export Data', 'homeroom' => 'Homeroom Activities',
             'staff' => 'Staff Management',
-        ];
+        ], AcademicReportPermissions::moduleLabels());
     }
 
     public static function groups(): array
@@ -44,7 +44,7 @@ class PermissionHierarchy
             ],
             'students' => [
                 'label' => 'Students', 'permission' => 'students.view',
-                'modules' => ['students.search', 'students.enrollment', 'summer-school', 'families', 'students.promotion', 'students.transfer', 'students.graduation', 'student-withdrawals', 'student-reentry', 'student-id-card-qr', 'student-documents', 'homeroom', 'student-data-transfer'],
+                'modules' => ['students.search', 'students.enrollment', 'summer-school', 'families', 'students.promotion', 'students.transfer', 'students.graduation', 'student-withdrawals', 'student-reentry', 'student-skipping-grade', 'student-id-card-qr', 'student-documents', 'homeroom', 'student-data-transfer'],
                 'actions' => ['students.manage'],
             ],
             'dashboard' => [
@@ -74,8 +74,9 @@ class PermissionHierarchy
             ],
             'reports' => [
                 'label' => 'Reports', 'permission' => 'reports.view',
-                'modules' => [],
-                'actions' => ['reports.export', K3CertificatePermissions::SAVE_GIVEN_DATE, K3CertificatePermissions::ASSIGN_NUMBERS, K3CertificatePermissions::EDIT_PREFIX, K3CertificatePermissions::EDIT_TEMPLATE, G9CertificatePermissions::SAVE_GIVEN_DATE, G9CertificatePermissions::ASSIGN_NUMBERS, G9CertificatePermissions::EDIT_PREFIX, G9CertificatePermissions::EDIT_TEMPLATE, G12CertificatePermissions::SAVE_GIVEN_DATE, G12CertificatePermissions::ASSIGN_NUMBERS, G12CertificatePermissions::EDIT_PREFIX, G12CertificatePermissions::EDIT_TEMPLATE],
+                'modules_label' => 'Academic Reports',
+                'modules' => array_keys(AcademicReportPermissions::moduleLabels()),
+                'actions' => ['reports.export'],
             ],
         ];
     }
@@ -95,7 +96,7 @@ class PermissionHierarchy
                 }
             }
             $actions = collect($group['actions'])->map(fn ($code) => $byCode->get($code))->filter()->values();
-            $tree[$key] = ['label' => $group['label'], 'permission' => $byCode->get($group['permission']), 'modules' => $modules, 'actions' => $actions];
+            $tree[$key] = ['label' => $group['label'], 'permission' => $byCode->get($group['permission']), 'modules' => $modules, 'modules_label' => $group['modules_label'] ?? null, 'actions' => $actions];
         }
 
         return $tree;
@@ -154,6 +155,10 @@ class PermissionHierarchy
                     }
                 }
             }
+        }
+
+        foreach (StudentSkippingGradePermissions::PARENTS as $action=>$parent) {
+            if (!$codes->has(StudentSkippingGradePermissions::MODULE.'.'.$parent)) $codes->forget(StudentSkippingGradePermissions::MODULE.'.'.$action);
         }
 
         return $codes->keys()->map(fn ($code) => $byId->firstWhere('code', $code)->id)->values()->all();

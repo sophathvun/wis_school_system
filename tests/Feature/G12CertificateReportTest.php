@@ -25,12 +25,13 @@ function g12CertificatePermissionUser(array $codes = [], string $source = 'user'
     Schema::create('access_department_permissions', function (Blueprint $t) { $t->integer('department_id'); $t->integer('permission_id'); $t->timestamps(); });
     DB::table('access_roles')->insert([['id'=>1,'code'=>'super-admin','name'=>'Super Administrator'],['id'=>2,'code'=>'registrar','name'=>'Registrar']]);
     DB::table('access_permissions')->insert(['code'=>'reports.view','module'=>'reports','action'=>'view','name'=>'View Reports']);
+    DB::table('access_permissions')->insert(\App\Support\AcademicReportPermissions::catalog());
     (require database_path('migrations/2026_10_06_000013_add_g12_certificate_action_permissions.php'))->up();
     DB::table('users')->insert(['id'=>1,'name'=>'Permission Test User','active_campus_id'=>2,'department_id'=>$source==='department'?1:null]);
     DB::table('access_user_campuses')->insert(['user_id'=>1,'campus_id'=>2]);
     DB::table('access_user_roles')->insert(['user_id'=>1,'role_id'=>2,'campus_id'=>2]);
     if ($source==='department') DB::table('access_departments')->insert(['id'=>1,'code'=>'test','name'=>'Test Department']);
-    $ids=DB::table('access_permissions')->whereIn('code',array_merge(['reports.view'],$codes))->pluck('id');
+    $ids=DB::table('access_permissions')->whereIn('code',array_merge(['reports.view','reports.g12.view'],$codes))->pluck('id');
     foreach ($ids as $id) {
         if ($source==='role') DB::table('access_role_permissions')->insert(['role_id'=>2,'permission_id'=>$id]);
         elseif ($source==='department') DB::table('access_department_permissions')->insert(['department_id'=>1,'permission_id'=>$id]);
@@ -754,13 +755,14 @@ it('exposes four separate permissions under Reports without granting non-super r
     $permissions=\App\Models\Permission::all();
     $codes=array_keys(G12CertificatePermissions::catalog());
     $tree=\App\Support\PermissionHierarchy::tree($permissions);
-    expect($tree['reports']['actions']->pluck('code')->all())->toBe($codes)
+    expect($tree['reports']['modules']['reports.g12']['actions']->pluck('code')->all())->toBe($codes)
         ->and(DB::table('access_role_permissions')->where('role_id',2)->count())->toBe(0)
         ->and(DB::table('access_role_permissions')->where('role_id',1)->count())->toBe(4);
     $ids=$permissions->whereIn('code',$codes)->modelKeys();
     expect(\App\Support\PermissionHierarchy::normalizeIds($ids,$permissions))->toBe([]);
     $ids[]=$permissions->firstWhere('code','reports.view')->id;
-    expect(\App\Support\PermissionHierarchy::normalizeIds($ids,$permissions))->toHaveCount(5);
+    $ids[]=$permissions->firstWhere('code','reports.g12.view')->id;
+    expect(\App\Support\PermissionHierarchy::normalizeIds($ids,$permissions))->toHaveCount(6);
     $html=view('partials.permission-tree',['permissionHierarchy'=>$tree,'permissionPrefix'=>'test','assignedPermissions'=>collect()])->render();
     foreach(G12CertificatePermissions::catalog() as $code=>$name) expect($html)->toContain($code,$name);
 });
