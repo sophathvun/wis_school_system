@@ -1,3 +1,5 @@
+import { renderMessageReactions, createMessageReactionController } from './helpers/chatReactions.js';
+
             document.addEventListener('DOMContentLoaded', () => {
                 const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
                 const widget = document.getElementById('school-chat-widget');
@@ -619,6 +621,7 @@
                 <div class="chat-mini-message ${message.user_id === currentUserId ? 'mine' : ''}" data-message-id="${message.id}">
                     <div class="small opacity-75 mb-1">${esc(message.user_name)} &middot; ${esc(message.created_at)}</div>
                     ${messageContent(message)}
+                    ${renderMessageReactions(message)}
                     ${message.can_delete ? `<button type="button" class="chat-mini-delete-button" data-delete-message="${message.id}" data-delete-everyone="${message.can_delete_for_everyone ? 'true' : 'false'}"><i class="ti ti-trash"></i><span>Delete</span></button>` : ''}
                     ${messageStatus(message)}
                 </div>
@@ -645,6 +648,7 @@
                             chooseDeleteScope(Number(button.dataset.deleteMessage), button.dataset.deleteEveryone === 'true').catch((error) => showDeleteError(error.message || 'Unable to delete message.'));
                         });
                     });
+                    reactionController.refresh();
                     attachVoicePlaybackHandlers();
                     messagesBox.querySelectorAll('img').forEach((image) => {
                         if (!image.complete && shouldScrollToLatest) image.addEventListener('load', scrollMessagesToLatest, { once: true });
@@ -655,6 +659,13 @@
                         messagesBox.scrollTop = previousScrollTop + (messagesBox.scrollHeight - previousScrollHeight);
                     }
                 };
+
+                const reactionController = createMessageReactionController(messagesBox, {
+                    api,
+                    baseUrl: routes.messagesBase,
+                    getMessage: (id) => activeConversation?.messages?.find((message) => Number(message.id) === id),
+                    onError: (text) => showChatAlert('Unable to react', text, 'error'),
+                });
 
                 const openConversation = async (id, options = {}) => {
                     if (loadingConversation) return;

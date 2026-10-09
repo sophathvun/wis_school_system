@@ -152,6 +152,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/communication/chat', [ChatController::class, 'create'])->name('chat.create');
     Route::get('/communication/chat/messages/{message}/download', [ChatController::class, 'download'])->name('chat.messages.download');
     Route::delete('/communication/chat/messages/{message}', [ChatController::class, 'deleteMessage'])->name('chat.messages.delete');
+    Route::put('/communication/chat/messages/{message}/reaction', [ChatController::class, 'setReaction'])->name('chat.messages.reaction');
+    Route::delete('/communication/chat/messages/{message}/reaction', [ChatController::class, 'removeReaction'])->name('chat.messages.reaction.remove');
     Route::patch('/communication/chat/{conversation}', [ChatController::class, 'update'])->name('chat.update');
     Route::post('/communication/chat/{conversation}/members', [ChatController::class, 'addMembers'])->name('chat.members.add');
     Route::post('/communication/chat/{conversation}/admins', [ChatController::class, 'setAdmins'])->name('chat.admins.set');

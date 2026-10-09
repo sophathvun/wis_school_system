@@ -6,6 +6,7 @@ use App\Models\ChatCall;
 use App\Models\ChatCallSignal;
 use App\Models\ChatConversation;
 use App\Models\ChatMessage;
+use App\Models\ChatMessageReaction;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -13,6 +14,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use App\Services\WebPushService;
+use Illuminate\Validation\Rule;
 
 class ChatController
 {
@@ -267,13 +269,42 @@ class ChatController
         return response()->json(['deleted' => true, 'scope' => 'me']);
     }
 
+    public function setReaction(Request $request, ChatMessage $message)
+    {
+        return $this->saveReaction($request, $message, true);
+    }
+
+    public function removeReaction(Request $request, ChatMessage $message)
+    {
+        return $this->saveReaction($request, $message, false);
+    }
+
+    private function saveReaction(Request $request, ChatMessage $message, bool $set)
+    {
+        return DB::transaction(function () use ($request, $message, $set) {
+            $message = ChatMessage::whereKey($message->id)->lockForUpdate()->firstOrFail();
+            $conversation = $message->conversation;
+            abort_unless($conversation, 404);
+            $this->authorizeMember($request, $conversation);
+            abort_if($message->hiddenByUsers()->whereKey($request->user()->id)->exists(), 404);
+            if ($set) {
+                $data = $request->validate(['emoji' => ['required', 'string', Rule::in(ChatMessageReaction::EMOJIS)]]);
+                $message->reactions()->updateOrCreate(['user_id' => $request->user()->id], ['emoji' => $data['emoji']]);
+            } else {
+                $message->reactions()->where('user_id', $request->user()->id)->delete();
+            }
+
+            return response()->json(['reactions' => $this->reactionData($message, $request->user())]);
+        });
+    }
+
     public function messages(Request $request, ChatConversation $conversation)
     {
         $this->authorizeMember($request, $conversation);
         $this->ensureCallHistoryMessages($conversation);
         $request->user()->chatConversations()->updateExistingPivot($conversation->id, ['last_read_at' => now()]);
         $conversation->load('users.department');
-        $messages = $conversation->messages()->with('user')->oldest()->limit(200)->get();
+        $messages = $conversation->messages()->with(['user', 'reactions.user:id,name'])->oldest()->limit(200)->get();
         $hiddenMessageIds = DB::table('chat_message_deletions')
             ->where('user_id', $request->user()->id)
             ->whereIn('message_id', $messages->pluck('id'))
@@ -314,7 +345,7 @@ class ChatController
         $conversation->touch();
         $this->sendChatPush($conversation, $message);
 
-        return response()->json($this->messageData($message->load('user')));
+        return response()->json($this->messageData($message->load('user'), $conversation->load('users.department'), $request->user()));
     }
 
     public function sendVoice(Request $request, ChatConversation $conversation)
@@ -354,7 +385,7 @@ class ChatController
         $conversation->touch();
         $this->sendChatPush($conversation, $message);
 
-        return response()->json($this->messageData($message->load('user')));
+        return response()->json($this->messageData($message->load('user'), $conversation->load('users.department'), $request->user()));
     }
 
     public function download(Request $request, ChatMessage $message)
@@ -618,6 +649,18 @@ class ChatController
         ];
     }
 
+    private function reactionData(ChatMessage $message, ?User $viewer): array
+    {
+        $message->loadMissing('reactions.user:id,name');
+
+        return $message->reactions->groupBy('emoji')->map(fn ($reactions, $emoji) => [
+            'emoji' => $emoji,
+            'count' => $reactions->count(),
+            'reacted' => $viewer && $reactions->contains(fn ($reaction) => (int) $reaction->user_id === (int) $viewer->id),
+            'users' => $reactions->map(fn ($reaction) => ['id' => $reaction->user_id, 'name' => $reaction->user?->name])->values()->all(),
+        ])->values()->all();
+    }
+
     private function messageData(ChatMessage $message, ?ChatConversation $conversation = null, ?User $viewer = null): array
     {
         $readBy = collect();
@@ -663,6 +706,8 @@ class ChatController
             'user_online' => $message->user?->last_seen_at?->greaterThan(now()->subMinutes(5)) ?? false,
             'read_by' => $readBy,
             'unread_by' => $unreadBy,
+            'reactions' => $this->reactionData($message, $viewer),
+            'can_react' => (bool) $viewer,
             'can_delete_for_me' => (bool) $viewer,
             'can_delete_for_everyone' => $viewer && $conversation && (
                 $conversation->type === 'direct'

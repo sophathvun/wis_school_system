@@ -30,7 +30,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*')
-                || ($request->is('student-enrollments/save', 'students/skipping-grade', 'students/skipping-grade/*', 'student-enrollment-workflows/*') && $request->expectsJson()),
+                || ($request->is('student-enrollments/save', 'students/skipping-grade', 'students/skipping-grade/*', 'student-enrollment-workflows/*', 'communication/chat/*') && $request->expectsJson()),
         );
 
         $exceptions->render(function (TokenMismatchException $exception, Request $request) {

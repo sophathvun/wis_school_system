@@ -1,3 +1,4 @@
+@import "../components/chat-reactions.css";
 /* Extracted from resources/views/layouts/partials/chat-widget.blade.php. Keep page-specific styles in this file. */
 
 @media (max-width: 767px) {

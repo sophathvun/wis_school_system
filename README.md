@@ -100,6 +100,12 @@ php artisan boost:install
 
 Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
 
+## Message reactions
+
+The Messages widget and full chat page support heart, thanks, thumbs-up, laugh, surprised, and sad reactions. Click React on a message to choose one; click your selected reaction again to remove it. Each conversation member has one reaction per message and can change it. Counts and participant names appear on the message and refresh with the existing chat polling. Reacting does not send a new message or push notification.
+
+Deployment requires `php artisan migrate --force` (migration `2026_10_09_000016_create_chat_message_reactions.php`) and `npm run build`. Reactions are restricted to current conversation members and visible, undeleted messages. Existing messages can receive reactions after deployment.
+
 ## Contributing
 
 Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
