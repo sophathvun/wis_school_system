@@ -106,6 +106,16 @@ The Messages widget and full chat page support heart, thanks, thumbs-up, laugh, 
 
 Deployment requires `php artisan migrate --force` (migration `2026_10_09_000016_create_chat_message_reactions.php`) and `npm run build`. Reactions are restricted to current conversation members and visible, undeleted messages. Existing messages can receive reactions after deployment.
 
+## Message replies
+
+In the Messages widget and full chat page, right-click a message on a computer and choose Reply, or use the visible Reply button. On phones, users can also long-press the message. A composer preview shows the selected message and lets users cancel. Sent text, file/photo, and voice replies show the original sender and a quoted preview; clicking the quote locates the original message when it is in the loaded history. Switching conversations clears the selected reply.
+
+Replies are restricted to visible messages in the same conversation. Deleted or personally hidden originals display "Message unavailable" without exposing their content. Deployment requires `php artisan migrate --force` (migration `2026_10_09_000017_add_chat_message_replies.php`) and `npm run build`.
+
+## Pasting chat attachments
+
+In the Messages widget and full chat page, paste a copied image, screenshot, or supported file into the composer with Ctrl+V, review the attachment preview, and click Send. Ordinary text paste still works. Messages accept one attachment up to 20 MB; invalid files leave the current attachment intact. Files must be available through the browser clipboard; if a copied file is not exposed by the browser, use the attachment picker. Deployment requires `npm run build`.
+
 ## Contributing
 
 Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).

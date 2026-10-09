@@ -1,0 +1,74 @@
+.chat-reply-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    min-height: 32px;
+    padding: 0.2rem 0.5rem;
+    margin-top: 0.4rem;
+    border: 1px solid currentColor;
+    border-radius: 999px;
+    color: inherit;
+    background: transparent;
+    font: inherit;
+    font-size: 0.75rem;
+    cursor: pointer;
+}
+
+.chat-reply-quote {
+    display: block;
+    width: 100%;
+    padding: 0.35rem 0.55rem;
+    margin: 0 0 0.5rem;
+    border: 0;
+    border-left: 3px solid currentColor;
+    border-radius: 0.3rem;
+    background: rgba(120, 135, 165, 0.15);
+    color: inherit;
+    font: inherit;
+    font-size: 0.8rem;
+    text-align: left;
+    cursor: pointer;
+    overflow-wrap: anywhere;
+}
+
+.chat-reply-quote strong,
+.chat-reply-quote span,
+.chat-reply-composer-text strong,
+.chat-reply-composer-text span { display: block; }
+
+.chat-reply-unavailable { opacity: 0.7; cursor: default; }
+
+.chat-reply-composer {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.7rem;
+    margin-bottom: 0.6rem;
+    border-left: 3px solid var(--tblr-primary);
+    border-radius: 0.4rem;
+    background: var(--tblr-bg-surface-secondary);
+    color: var(--tblr-body-color);
+    font-size: 0.8rem;
+}
+
+.chat-reply-composer-text { flex: 1; min-width: 0; }
+.chat-reply-composer-text span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.chat-reply-composer button { border: 0; background: transparent; color: inherit; min-width: 36px; min-height: 36px; }
+
+.chat-message-context-menu {
+    position: fixed;
+    z-index: 2147483647;
+    min-width: 130px;
+    padding: 0.3rem;
+    border: 1px solid var(--tblr-border-color);
+    border-radius: 0.6rem;
+    background: var(--tblr-bg-surface);
+    color: var(--tblr-body-color);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+.chat-message-context-menu button { width: 100%; border: 0; background: transparent; color: inherit; text-align: left; padding: 0.5rem; font: inherit; }
+.chat-message-context-menu button:hover { background: var(--tblr-bg-surface-secondary); border-radius: 0.35rem; }
+.chat-reply-composer[hidden], .chat-message-context-menu[hidden] { display: none; }
+.chat-reply-button:focus-visible, .chat-reply-quote:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+.chat-reply-highlight { outline: 3px solid var(--tblr-warning, #f59f00); outline-offset: 3px; }

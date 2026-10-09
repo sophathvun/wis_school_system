@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use App\Services\WebPushService;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class ChatController
 {
@@ -304,7 +305,7 @@ class ChatController
         $this->ensureCallHistoryMessages($conversation);
         $request->user()->chatConversations()->updateExistingPivot($conversation->id, ['last_read_at' => now()]);
         $conversation->load('users.department');
-        $messages = $conversation->messages()->with(['user', 'reactions.user:id,name'])->oldest()->limit(200)->get();
+        $messages = $conversation->messages()->with(['user', 'reactions.user:id,name', 'replyTo.user:id,name', 'replyTo.hiddenByUsers:users.id'])->oldest()->limit(200)->get();
         $hiddenMessageIds = DB::table('chat_message_deletions')
             ->where('user_id', $request->user()->id)
             ->whereIn('message_id', $messages->pluck('id'))
@@ -326,8 +327,10 @@ class ChatController
         $data = $request->validate([
             'message' => ['nullable', 'string', 'max:5000'],
             'attachment' => ['nullable', 'file', 'mimes:jpg,jpeg,png,gif,webp,pdf,doc,docx,xls,xlsx,ppt,pptx,txt,zip,rar', 'max:20480'],
+            'reply_to_message_id' => ['nullable', 'integer'],
         ]);
         abort_if(blank($data['message'] ?? null) && !$request->hasFile('attachment'), 422, 'Write a message or attach a file.');
+        $replyTo = $this->replyTarget($request, $conversation, $data['reply_to_message_id'] ?? null);
 
         $file = $request->file('attachment');
         $path = $file?->storeAs('chat/attachments/'.now()->format('Y/m'), Str::uuid().'.'.($file->getClientOriginalExtension() ?: 'bin'), 'public');
@@ -340,6 +343,7 @@ class ChatController
             'media_path' => $path,
             'media_name' => $file?->getClientOriginalName(),
             'media_mime' => $file?->getMimeType(),
+            'reply_to_message_id' => $replyTo,
         ]);
 
         $conversation->touch();
@@ -354,7 +358,9 @@ class ChatController
         $data = $request->validate([
             'audio' => ['required', 'file', 'mimetypes:audio/webm,video/webm,audio/ogg,video/ogg,audio/mp3,audio/mpeg,audio/wav,audio/mp4,audio/x-m4a,video/mp4,application/octet-stream', 'max:10240'],
             'duration_seconds' => ['nullable', 'integer', 'min:1', 'max:3600'],
+            'reply_to_message_id' => ['nullable', 'integer'],
         ]);
+        $replyTo = $this->replyTarget($request, $conversation, $data['reply_to_message_id'] ?? null);
 
         $file = $data['audio'];
         $extension = $file->getClientOriginalExtension() ?: match (true) {
@@ -380,6 +386,7 @@ class ChatController
             'media_name' => $file->getClientOriginalName(),
             'media_mime' => $file->getMimeType(),
             'media_duration_seconds' => $data['duration_seconds'] ?? null,
+            'reply_to_message_id' => $replyTo,
         ]);
 
         $conversation->touch();
@@ -649,6 +656,33 @@ class ChatController
         ];
     }
 
+    private function replyTarget(Request $request, ChatConversation $conversation, ?int $id): ?int
+    {
+        if ($id === null) return null;
+        $reply = $conversation->messages()->whereKey($id)
+            ->whereDoesntHave('hiddenByUsers', fn ($query) => $query->whereKey($request->user()->id))->first();
+        if (!$reply) throw ValidationException::withMessages([
+            'reply_to_message_id' => 'The message you are replying to is no longer available in this conversation. Choose another message or cancel the reply.',
+        ]);
+
+        return $reply->id;
+    }
+
+    private function replyData(ChatMessage $message, ?User $viewer): ?array
+    {
+        if (!$message->reply_to_message_id) return null;
+        $message->loadMissing(['replyTo.user:id,name', 'replyTo.hiddenByUsers:users.id']);
+        $reply = $message->replyTo;
+        if (!$reply || (int) $reply->conversation_id !== (int) $message->conversation_id
+            || ($viewer && $reply->hiddenByUsers->contains('id', $viewer->id))) {
+            return ['id' => $message->reply_to_message_id, 'unavailable' => true];
+        }
+
+        return ['id' => $reply->id, 'user_name' => $reply->user?->name,
+            'message' => Str::limit($reply->message ?: ($reply->media_name ?: 'Message'), 180),
+            'message_type' => $reply->message_type ?? 'text', 'unavailable' => false];
+    }
+
     private function reactionData(ChatMessage $message, ?User $viewer): array
     {
         $message->loadMissing('reactions.user:id,name');
@@ -708,6 +742,8 @@ class ChatController
             'unread_by' => $unreadBy,
             'reactions' => $this->reactionData($message, $viewer),
             'can_react' => (bool) $viewer,
+            'can_reply' => (bool) $viewer,
+            'reply_to' => $this->replyData($message, $viewer),
             'can_delete_for_me' => (bool) $viewer,
             'can_delete_for_everyone' => $viewer && $conversation && (
                 $conversation->type === 'direct'

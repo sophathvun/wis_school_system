@@ -134,7 +134,8 @@
                                     </button>
                                 </div>
                             </div>
-                            <textarea id="school-chat-input" class="form-control" rows="1" placeholder="Type a message..."></textarea>
+                            <textarea id="school-chat-input" class="form-control" rows="1" placeholder="Type a message..."
+                                title="Paste a copied image or file here (Ctrl+V)"></textarea>
                             <button class="btn btn-primary" type="submit"><i class="ti ti-send"></i></button>
                         </div>
                         <input type="file" id="school-chat-file" class="d-none"

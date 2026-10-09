@@ -1,4 +1,5 @@
 @import "../components/chat-reactions.css";
+@import "../components/chat-replies.css";
 /* Extracted from resources/views/chat.blade.php. Keep page-specific styles in this file. */
 
 .chat-shell {

@@ -1,4 +1,6 @@
 import { renderMessageReactions, createMessageReactionController } from './helpers/chatReactions.js';
+import { renderReplyQuote, renderReplyAction, createMessageReplyController } from './helpers/chatReplies.js';
+import { bindChatAttachmentPaste, prepareChatAttachment } from './helpers/chatAttachmentPaste.js';
 
 document.addEventListener("DOMContentLoaded", () => {
     const shell = document.getElementById("chat-shell");
@@ -135,6 +137,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let modalMode = "new";
     let addMembersConversationId = null;
     let selectedAttachment = null;
+    let attachmentPreviewUrl = null;
     let mediaRecorder = null;
     let voiceChunks = [];
     let voiceStartedAt = null;
@@ -394,8 +397,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 ${message.user_id === currentUserId ? "" : avatar({ name: message.user_name, photo: message.user_photo, online: message.user_online })}
                 <div class="chat-message ${message.user_id === currentUserId ? "mine" : ""}" data-message-id="${message.id}">
                     <div class="small opacity-75 mb-1">${esc(message.user_name)} &middot; ${esc(message.created_at)}</div>
+                    ${renderReplyQuote(message)}
                     ${messageContent(message)}
                     ${renderMessageReactions(message)}
+                    ${renderReplyAction(message)}
                     ${message.can_delete ? `<button type="button" class="chat-delete-button" data-delete-message="${message.id}" data-delete-everyone="${message.can_delete_for_everyone ? "true" : "false"}"><i class="ti ti-trash"></i><span>Delete</span></button>` : ""}
                     ${messageStatus(message)}
                 </div>
@@ -421,6 +426,7 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         });
         reactionController.refresh();
+        replyController.refresh();
         attachVoicePlaybackHandlers();
         chatMessages.querySelectorAll("img").forEach((image) => {
             if (!image.complete && shouldScrollToLatest) image.addEventListener("load", scrollMessagesToLatest, { once: true });
@@ -439,6 +445,14 @@ document.addEventListener("DOMContentLoaded", () => {
         onError: (text) => showChatAlert('Unable to react', text, 'error'),
     });
 
+    const replyController = createMessageReplyController(chatMessages, {
+        form: messageForm,
+        input: messageInput,
+        getConversationId: () => activeId,
+        getMessage: (id) => activeConversation?.messages?.find((message) => Number(message.id) === id),
+        onMissing: (text) => showChatAlert('Reply', text),
+    });
+
     const loadUsers = async () => {
         users = await api(routes.users);
         renderUsers(userSearch.value);
@@ -448,6 +462,7 @@ document.addEventListener("DOMContentLoaded", () => {
         renderChats();
     };
     const openChat = async (id, options = {}) => {
+        if (activeId !== id) { replyController.clear(); clearAttachment(); }
         activeId = id;
         renderChats();
         const data = await api(`${routes.messagesBase}/${id}/messages`);
@@ -464,6 +479,8 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!skipRender) renderMessages({ scrollToLatest: options.quiet ? isMessagesNearBottom() : true });
     };
     const clearAttachment = () => {
+        if (attachmentPreviewUrl) URL.revokeObjectURL(attachmentPreviewUrl);
+        attachmentPreviewUrl = null;
         selectedAttachment = null;
         fileInput.value = "";
         attachmentPreview.classList.add("d-none");
@@ -471,18 +488,39 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     const renderAttachmentPreview = (file) => {
         const isImage = file.type.startsWith("image/");
-        attachmentPreview.innerHTML = `${isImage ? `<img src="${URL.createObjectURL(file)}" alt="">` : '<i class="ti ti-file-description fs-2 text-primary"></i>'}<span class="file-name text-truncate">${esc(file.name)}<small class="d-block text-secondary">${(file.size / 1024 / 1024).toFixed(2)} MB</small></span><button type="button" class="btn btn-sm btn-outline-secondary" id="chat-remove-file" title="Remove attachment"><i class="ti ti-x"></i></button>`;
+        if (attachmentPreviewUrl) URL.revokeObjectURL(attachmentPreviewUrl);
+        attachmentPreviewUrl = isImage ? URL.createObjectURL(file) : null;
+        attachmentPreview.innerHTML = `${isImage ? `<img src="${attachmentPreviewUrl}" alt="Attachment preview">` : '<i class="ti ti-file-description fs-2 text-primary"></i>'}<span class="file-name text-truncate">${esc(file.name)}<small class="d-block text-secondary">${(file.size / 1024 / 1024).toFixed(2)} MB</small></span><button type="button" class="btn btn-sm btn-outline-secondary" id="chat-remove-file" title="Remove attachment"><i class="ti ti-x"></i></button>`;
         attachmentPreview.classList.remove("d-none");
         document.getElementById("chat-remove-file").addEventListener("click", clearAttachment);
     };
+    const selectAttachment = (file) => {
+        const prepared = prepareChatAttachment(file);
+        if (prepared.error) {
+            fileInput.value = '';
+            showChatAlert('Unable to attach file', prepared.error, 'warning');
+            return;
+        }
+        selectedAttachment = prepared.file;
+        renderAttachmentPreview(prepared.file);
+        messageInput.focus();
+    };
+    bindChatAttachmentPaste(messageForm, {
+        enabled: () => Boolean(activeId),
+        selectFile: selectAttachment,
+        onError: (text) => showChatAlert('Unable to attach file', text, 'warning'),
+    });
     const uploadVoiceNote = async (blob, durationSeconds, mimeType = "audio/webm") => {
         if (!activeId) return;
+        const conversationId = activeId;
         const formData = new FormData();
+        const replyToken = replyController.appendTo(formData);
         formData.append("audio", blob, `voice-note-${Date.now()}.${voiceExtension(mimeType)}`);
         formData.append("duration_seconds", Math.max(1, Math.round(durationSeconds || 1)));
-        await postForm(`${routes.messagesBase}/${activeId}/voice`, formData);
+        await postForm(`${routes.messagesBase}/${conversationId}/voice`, formData);
+        replyController.sent(replyToken);
         await loadChats();
-        await openChat(activeId);
+        if (activeId === conversationId) await openChat(conversationId);
     };
     const renameActiveGroup = async () => {
         if (!activeId || activeConversation?.type !== "group") return;
@@ -711,6 +749,8 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
     chatBack.addEventListener("click", () => {
+        replyController.clear();
+        clearAttachment();
         shell.classList.remove("has-conversation");
         activeId = null;
         activeConversation = null;
@@ -737,28 +777,37 @@ document.addEventListener("DOMContentLoaded", () => {
     fileInput.addEventListener("change", () => {
         const file = fileInput.files?.[0];
         if (!file) return;
-        if (file.size > 20 * 1024 * 1024) {
-            alert("Attachments must be 20 MB or smaller.");
-            clearAttachment();
-            return;
-        }
-        selectedAttachment = file;
-        renderAttachmentPreview(file);
+        selectAttachment(file);
     });
 
+    let sendingMessage = false;
     messageForm.addEventListener("submit", async (event) => {
         event.preventDefault();
         const message = messageInput.value.trim();
-        if ((!message && !selectedAttachment) || !activeId) return;
+        if (sendingMessage || (!message && !selectedAttachment) || !activeId) return;
+        const conversationId = activeId;
+        const draftText = messageInput.value;
+        const attachment = selectedAttachment;
         const formData = new FormData();
+        const replyToken = replyController.appendTo(formData);
         if (message) formData.append("message", message);
         if (selectedAttachment) formData.append("attachment", selectedAttachment, selectedAttachment.name);
-        await postForm(`${routes.messagesBase}/${activeId}/messages`, formData);
-        messageInput.value = "";
-        clearAttachment();
-        emojiPicker.classList.add("d-none");
-        await loadChats();
-        await openChat(activeId);
+        sendingMessage = true;
+        try {
+            await postForm(`${routes.messagesBase}/${conversationId}/messages`, formData);
+            replyController.sent(replyToken);
+            if (activeId === conversationId) {
+                if (messageInput.value === draftText) messageInput.value = "";
+                if (selectedAttachment === attachment) clearAttachment();
+                emojiPicker.classList.add("d-none");
+                await openChat(conversationId);
+            }
+            await loadChats();
+        } catch (error) {
+            await showChatAlert('Unable to send message', error.message || 'Please try again.', 'error');
+        } finally {
+            sendingMessage = false;
+        }
     });
 
     newChatForm.addEventListener("submit", async (event) => {

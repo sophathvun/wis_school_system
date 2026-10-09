@@ -21,6 +21,7 @@ beforeEach(function () {
         '2026_09_18_000001_add_group_management_to_chat.php',
         '2026_09_18_000002_create_chat_message_deletions.php',
         '2026_10_09_000016_create_chat_message_reactions.php',
+        '2026_10_09_000017_add_chat_message_replies.php',
     ] as $migration) (require database_path('migrations/'.$migration))->up();
     DB::table('users')->insert([
         ['id'=>1,'name'=>'Sender'], ['id'=>2,'name'=>'Reader'], ['id'=>3,'name'=>'Other member'], ['id'=>4,'name'=>'Outsider'],
