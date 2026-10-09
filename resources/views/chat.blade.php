@@ -118,7 +118,8 @@
                                 </div>
                             </div>
                             <textarea id="message-input" class="form-control" rows="1" placeholder="Type a message..."
-                                title="Paste a copied image or file here (Ctrl+V)"></textarea>
+                                title="Enter to send; Shift+Enter for a new line. Paste an image or file with Ctrl+V."
+                                aria-keyshortcuts="Enter Shift+Enter"></textarea>
                             <button class="btn btn-primary" type="submit"><i class="ti ti-send"></i></button>
                         </div>
                         <input type="file" id="chat-file" class="d-none"

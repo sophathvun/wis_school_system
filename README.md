@@ -116,6 +116,8 @@ Replies are restricted to visible messages in the same conversation. Deleted or 
 
 In the Messages widget and full chat page, paste a copied image, screenshot, or supported file into the composer with Ctrl+V, review the attachment preview, and click Send. Ordinary text paste still works. Messages accept one attachment up to 20 MB; invalid files leave the current attachment intact. Files must be available through the browser clipboard; if a copied file is not exposed by the browser, use the attachment picker. Deployment requires `npm run build`.
 
+In both chat views, Enter sends the current message and Shift+Enter adds a new line. Enter used to confirm an input-method composition does not send the draft, and holding Enter does not repeatedly submit it.
+
 ## Contributing
 
 Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).

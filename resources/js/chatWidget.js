@@ -1,5 +1,6 @@
 import { renderMessageReactions, createMessageReactionController } from './helpers/chatReactions.js';
 import { renderReplyQuote, createMessageReplyController } from './helpers/chatReplies.js';
+import { bindChatComposerKeyboard } from './helpers/chatComposerKeyboard.js';
 import { bindChatAttachmentPaste, prepareChatAttachment } from './helpers/chatAttachmentPaste.js';
 
             document.addEventListener('DOMContentLoaded', () => {
@@ -1496,6 +1497,7 @@ import { bindChatAttachmentPaste, prepareChatAttachment } from './helpers/chatAt
                 });
 
                 let sendingMessage = false;
+                bindChatComposerKeyboard(input, form);
                 form.addEventListener('submit', async (event) => {
                     event.preventDefault();
                     const message = input.value.trim();
