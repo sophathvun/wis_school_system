@@ -121,8 +121,8 @@ class StudentSkippingGradeService
                 $this->activeSource($enrollment); $this->unchangedSource($record,$enrollment);
                 [$targetGrade,,$targetYear]=$this->target($enrollment,$record->toArray());
                 $this->noDuplicateTargetEnrollment($enrollment,$targetYear);
-                $yearCode=trim((string)$targetYear->ay_code);
-                if ($yearCode==='') $this->invalid('settings','Set the AY Code for the requested academic year in Academic Year settings before approving.');
+                $yearCode=trim((string)$enrollment->academicYear->ay_code);
+                if ($yearCode==='') $this->invalid('settings','Set the AY Code for the current academic year in Academic Year settings before approving.');
                 $settings=SkippingGradeSetting::whereKey(1)->lockForUpdate()->firstOrFail();
                 $customOptions=app(SkippingGradeTemplateService::class)->captureCheckboxOptions($settings->approval_template??[],$data['custom_options']??[]);
                 if (!$settings->signer_name_kh) $this->invalid('settings','Save the VP name, digital signature, and stamp in Approval Settings first.');

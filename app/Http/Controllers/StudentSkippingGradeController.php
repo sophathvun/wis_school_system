@@ -337,7 +337,7 @@ class StudentSkippingGradeController
     private function templateSample(): StudentSkippingGrade
     {
         $today=now()->toDateString();
-        $sampleYear=AcademicYear::regular()->where('academic_year','2026-2027')->first();
+        $sampleYear=AcademicYear::regular()->where('academic_year','2025-2026')->first();
         $sampleYearCode=trim((string)$sampleYear?->ay_code);
         $settings=SkippingGradeSetting::current();
         return (new StudentSkippingGrade([

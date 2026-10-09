@@ -1,3 +1,5 @@
+import { promotionPreviewRow } from './helpers/promotionPreview';
+
             document.addEventListener('DOMContentLoaded', () => {
                 const root = document.querySelector('[data-enrollment-workflows]');
                 if (!root) return;
@@ -11,6 +13,7 @@
                 let options = {};
                 let currentPage = 1;
                 let enrollmentSearchTimer = null;
+                let studentPreviewRequest = 0;
                 let workflowSortBy = 'promoted_date';
                 let workflowSortDir = 'desc';
 
@@ -266,6 +269,7 @@
                     if (params.class_id) query.set('class_id', params.class_id);
                     if (isPromotion && params.target_academic_year_id) query.set('target_academic_year_id',
                         params.target_academic_year_id);
+                    if (isPromotion && params.include_existing) query.set('include_existing', '1');
                     const response = await fetch(
                         `/student-enrollment-workflows/enrollments?${query.toString()}`);
                     return response.json();
@@ -570,6 +574,7 @@
                 };
 
                 const renderSelectedStudents = async () => {
+                    const requestId = ++studentPreviewRequest;
                     const ids = ['from_academic_year_id', 'from_campus_id', 'from_grade_id', 'from_class_id']
                         .map((id) => field(id).value);
                     const list = document.getElementById('selected-students-list');
@@ -585,23 +590,27 @@
                         grade_id: ids[2],
                         class_id: ids[3],
                         target_academic_year_id: field('to_academic_year_id').value,
+                        include_existing: isPromotion,
                         limit: 5000,
                     });
+                    if (requestId !== studentPreviewRequest) return;
                     matching.sort((a, b) => studentName(a.student).localeCompare(studentName(b.student),
                         undefined, {
                             numeric: true,
                             sensitivity: 'base'
                         }));
-                    list.innerHTML = matching.length ? matching.map((item) => `
+                    list.innerHTML = matching.length ? (isPromotion
+                        ? matching.map((item) => promotionPreviewRow(item, enrollmentLabel(item), isSelectedStudentAction())).join('')
+                        : matching.map((item) => `
             <label class="form-check mb-1">
                 <input class="form-check-input selected-class-student" type="checkbox" value="${item.id}">
                 <span class="form-check-label">${esc(enrollmentLabel(item))}</span>
             </label>
-        `).join('') : `<div class="text-secondary small">No active students found in the selected class.</div>`;
+        `).join('')) : `<div class="text-secondary small">No active students found in the selected class.</div>`;
                 };
 
                 const refreshSelectedStudentsIfNeeded = () => {
-                    if (!isSelectedStudentAction()) return;
+                    if (!isSelectedStudentAction() && !(isPromotion && field('action_type').value === 'class_promotion')) return;
                     renderSelectedStudents().catch(() => {
                         document.getElementById('selected-students-list').innerHTML =
                             '<div class="text-danger small">Unable to load students.</div>';
@@ -720,11 +729,14 @@
                     document.querySelector('.student-source-title').classList.toggle('d-none', classAction);
                     document.querySelector('.student-source-title').textContent = 'Current Enrollment';
                     document.querySelector('.target-year').classList.toggle('d-none', !isPromotion);
-                    document.querySelector('.selected-students-action').classList.toggle('d-none', !selectedAction);
-                    document.querySelector('.selected-students-title').textContent = isPromotion ?
+                    const promotionPreview = isPromotion && action === 'class_promotion';
+                    document.querySelector('.selected-students-action').classList.toggle('d-none', !selectedAction && !promotionPreview);
+                    field('select-all-class-students').classList.toggle('d-none', !selectedAction);
+                    document.querySelector('.selected-students-title').textContent = promotionPreview ? 'Promotion Preview' : isPromotion ?
                         'Select Students to Promote' : 'Select Students to Transfer';
-                    document.querySelector('.selected-students-help').textContent = isPromotion ?
-                        'Only selected students will be promoted. Unselected students remain in the current class.' :
+                    document.querySelector('.selected-students-help').textContent = promotionPreview ?
+                        'Approved grade-skipping placements are kept. Students with other existing enrollments require review.' : isPromotion ?
+                        'Only selected students will be promoted. Approved grade-skipping placements are kept. Other unselected students remain in the current class.' :
                         'Only selected students will be transferred. Unselected students remain in the current class.';
                     field('to_campus_id').required = !isPromotion;
                     field('to_grade_id').required = true;
@@ -796,7 +808,7 @@
                 document.addEventListener('click', (event) => {
                     if (event.target.id === 'select-all-class-students') {
                         document.querySelectorAll('.selected-class-student').forEach((checkbox) => {
-                            checkbox.checked = true;
+                            if (!checkbox.disabled) checkbox.checked = true;
                         });
                     }
                     if (!event.target.closest('.location-combobox')) {
@@ -942,10 +954,11 @@
                         field('workflowError').textContent = message;
                         field('workflowError').classList.remove('d-none');
                         const alreadyPromoted = /already (has an enrollment|promot)|already enrolled|have already been promoted/i.test(message);
+                        const needsReview = /review the existing enrollment/i.test(message);
                         if (window.Swal) {
                             await window.Swal.fire({
-                                icon: alreadyPromoted ? 'warning' : 'error',
-                                title: alreadyPromoted ? 'Already Promoted' : (isPromotion ? 'Promotion Failed' : 'Transfer Failed'),
+                                icon: alreadyPromoted || needsReview ? 'warning' : 'error',
+                                title: needsReview ? 'Enrollment Review Required' : alreadyPromoted ? 'Already Promoted' : (isPromotion ? 'Promotion Failed' : 'Transfer Failed'),
                                 text: message,
                                 confirmButtonText: 'OK',
                             });
@@ -960,7 +973,7 @@
                             icon: 'success',
                             title: isPromotion ? 'Promotion Completed' : 'Transfer Completed',
                             text: result.message || 'The workflow action was completed successfully.',
-                            timer: 2600,
+                            timer: result.skipped_count ? 6500 : 2600,
                             timerProgressBar: true,
                             showConfirmButton: false,
                             didOpen: (toast) => {

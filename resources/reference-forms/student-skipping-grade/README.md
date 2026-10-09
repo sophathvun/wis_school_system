@@ -1,12 +1,16 @@
 # Student Skipping Grade references
 
+When an approved skipping-grade request has already enrolled a student in the next academic year, class and selected-student promotion keep that placement and promote the remaining students. The promotion preview marks these students as `Already enrolled — Grade Skipping`, shows the approved grade/class/year and approval number, and reports separate promoted and already-enrolled counts. An existing enrollment without a matching approved request and valid linked placement requires review; promotion does not overwrite it. The one-enrollment-per-student-per-year database constraint remains in place.
+
+Preparing a skipping-grade enrollment for next year leaves the current enrollment active. The academic-year lifecycle completes it when the current year is finished. Bulk promotion does not create another skipping-grade history entry or change the approved request, signature, or stamp.
+
 The School Logo is selectable in both editors. Dragging, arrows, and Left/Top offsets move it relative to its original position; Width and Height resize its container while the Branding image keeps its proportions. Each form saves its logo layout independently. Reset Selected Object or Restore Original Layout restores its original size and position.
 
 Text objects support the Bullets checkbox in both editors. Each non-empty content line becomes a bullet item with a hanging indent; blank lines preserve spacing. The saved content and automatic values remain intact when bullets are switched off. Preview and print use the same formatting.
 
 Added checkboxes can use the editor's Checkbox Value selector to link to an existing request criterion, approval age/school decision, or student obligation. Linked checkboxes read saved record values and do not create additional entry options. Remove the original checkbox and link its replacement to the matching value, then save the template. Choosing New form option retains the separate custom-option workflow.
 
-Approval numbers combine the Approval Settings prefix, the requested academic year's saved AY Code (`academic_year_code`), and the padded request ID. A missing AY Code must be filled in Academic Year settings before approval. Changing the code affects future approvals; issued numbers remain unchanged. The template sample uses the saved code for its example year (2026–2027), or the placeholder `AY-CODE` if that year has no code.
+Approval numbers combine the Approval Settings prefix, the student's current academic year's saved AY Code (`academic_year_code`), and the padded request ID. For a request from 2025–2026 to 2026–2027, the code comes from 2025–2026. A missing current-year AY Code must be filled in Academic Year settings before approval. Changing the code affects future approvals; issued numbers remain unchanged. The template sample uses the saved code for its current year (2025–2026), or the placeholder `AY-CODE` if that year has no code.
 
 These permanent copies preserve the supplied request and approval examples after the sample files in Imports are deleted. Printed forms use the independent Blade templates, CSS, saved request data, and privately uploaded approval signature/stamp. They do not load these reference images or files from Imports.
 

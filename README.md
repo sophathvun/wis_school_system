@@ -37,6 +37,35 @@ If port 8002 is already in use, check the existing site before starting another
 server. For the separate Laragon Nginx URL, select PHP 8.4.25 or newer in Laragon
 and restart its services; that URL is http://school_system.test:8080/.
 
+## Server upload limits
+
+Central Grade Skipping Settings accepts a digital signature and school stamp of
+up to 2 MB **each**. Both files are sent in one multipart request. An HTTP 413
+response means the web server or PHP rejected the request before the application's
+per-file validation could run.
+
+For Nginx, set `client_max_body_size 8m;` in the school site's active `server`
+block (including the HTTPS server block). Nginx defaults to 1 MB for the entire
+request. Check for a smaller override in a matching `location` block.
+Validate the configuration with `sudo nginx -t`, then reload with
+`sudo systemctl reload nginx`.
+
+In the **PHP-FPM configuration used by the site**, set:
+
+```ini
+upload_max_filesize = 2M
+post_max_size = 8M
+```
+
+Reload the site's PHP-FPM service after changing its configuration. The CLI
+`php --ini` output may point to a different configuration from PHP-FPM.
+The application still enforces 2 MB per signature/stamp image. These settings
+only provide sufficient space for the complete request; a Git pull does not
+update the server's Nginx or PHP-FPM configuration.
+
+References: [Nginx request body limit](https://nginx.org/en/docs/http/ngx_http_core_module.html#client_max_body_size),
+[PHP upload and POST limits](https://www.php.net/manual/en/ini.core.php#ini.post-max-size).
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:

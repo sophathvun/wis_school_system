@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Http\Controllers\StudentSkippingGradeController;
 use App\Models\SkippingGradeSetting;
 use App\Models\StudentSkippingGrade;
+use App\Support\PhoneNumber;
 use Illuminate\Support\HtmlString;
 
 class SkippingGradeTemplateService
@@ -16,19 +17,19 @@ class SkippingGradeTemplateService
     {
         if ($form === 'request') {
             $blocks = [
-                'heading-kh'=>'ពាក្យសុំឡើងថ្នាក់', 'heading-en'=>'Grade Skipping Application Form',
-                'label-name-kh'=>'ឈ្មោះសិស្ស៖', 'label-name-en'=>'Student’s Name', 'student-name'=>'{student_name_en}',
-                'label-id-kh'=>'អត្តលេខសិស្ស៖', 'label-id-en'=>'Student ID', 'student-id'=>'{student_id}',
-                'label-current-kh'=>'ថ្នាក់បច្ចុប្បន្ន៖', 'label-current-en'=>'Current Grade', 'current-grade'=>'{current_grade}',
-                'label-target-kh'=>'ស្នើសុំឡើងថ្នាក់៖', 'label-target-en'=>'Requested Grade', 'target-grade'=>'{requested_grade}',
-                'label-year-kh'=>'ឆ្នាំសិក្សា៖', 'label-year-en'=>'Academic Year', 'year'=>'{requested_academic_year}',
-                'label-dob-kh'=>'ថ្ងៃខែឆ្នាំកំណើត៖', 'label-dob-en'=>'Date of Birth', 'dob'=>'{date_of_birth}',
-                'label-campus-kh'=>'សាខា៖', 'label-campus-en'=>'Campus', 'campus'=>'{campus_en}',
-                'label-parent-kh'=>'មាតាបិតា/អាណាព្យាបាល៖', 'label-parent-en'=>'Parent/Guardian Name', 'parent'=>'{parent_name}',
-                'label-signature-kh'=>'ហត្ថលេខា៖', 'label-signature-en'=>'Signature',
-                'label-phone-kh'=>'លេខទូរស័ព្ទ៖', 'label-phone-en'=>'Telephone', 'phone'=>'{parent_phone}',
-                'label-date-kh'=>'ថ្ងៃធ្វើពាក្យ៖', 'label-date-en'=>'Date Completed', 'date'=>'{application_date}',
-                'criteria-heading-kh'=>'លក្ខខណ្ឌសម្រាប់សិស្សសុំឡើងថ្នាក់', 'criteria-heading-en'=>'Criteria for Students Applying for Grade Skipping',
+                'heading-kh'=>'ពាក្យសុំផ្លោះថ្នាក់', 'heading-en'=>'Grade Skipping Application Form',
+                'label-name-kh'=>'ឈ្មោះសិស្ស:', 'label-name-en'=>'Student’s Name', 'student-name'=>'{student_name_en}',
+                'label-id-kh'=>'អត្តលេខសិស្ស:', 'label-id-en'=>'Student ID', 'student-id'=>'{student_id}',
+                'label-current-kh'=>'ថ្នាក់បច្ចុប្បន្ន:', 'label-current-en'=>'Current Grade', 'current-grade'=>'{current_grade}',
+                'label-target-kh'=>'ស្នើសុំផ្លោះចូលថ្នាក់ទី:', 'label-target-en'=>'Requested Grade', 'target-grade'=>'{requested_grade}',
+                'label-year-kh'=>'ឆ្នាំសិក្សា:', 'label-year-en'=>'Academic Year', 'year'=>'{requested_academic_year}',
+                'label-dob-kh'=>'ថ្ងៃ ខែ ឆ្នាំកំណើត:', 'label-dob-en'=>'Date of Birth', 'dob'=>'{date_of_birth}',
+                'label-campus-kh'=>'សាខា:', 'label-campus-en'=>'Campus', 'campus'=>'{campus_en}',
+                'label-parent-kh'=>'ឈ្មោះមាតាបិតា ឬអាណាព្យាបាល:', 'label-parent-en'=>'Parent/Guardian Name', 'parent'=>'{parent_name}',
+                'label-signature-kh'=>'ហត្ថលេខា:', 'label-signature-en'=>'Signature',
+                'label-phone-kh'=>'លេខទូរស័ព្ទ:', 'label-phone-en'=>'Telephone', 'phone'=>'{parent_phone}',
+                'label-date-kh'=>'ធ្វើនៅថ្ងៃទី:', 'label-date-en'=>'Date Completed', 'date'=>'{application_date}',
+                'criteria-heading-kh'=>'លក្ខណៈវិនិច្ឆ័យ', 'criteria-heading-en'=>'Critaria',
                 'average-label'=>'Overall Average:', 'average'=>'{average_score} / {average_scale}',
                 'reason-label'=>'Additional Information:', 'reason'=>'{reason}',
                 'committee-heading-kh'=>'ការឯកភាពរបស់គណៈកម្មការ', 'committee-heading-en'=>'Committee Approval',
@@ -39,6 +40,14 @@ class SkippingGradeTemplateService
                 $blocks['criterion-'.$key.'-kh']=$criterion['kh'];
                 $blocks['criterion-'.$key.'-en']=$criterion['en'];
             }
+            $blocks['criterion-age-kh']='ត្រូវមានអាយុត្រឹមត្រូវតាមច្បាប់រដ្ឋ (មានសេចក្តីចម្លងសំបុត្រកំណើតច្បាប់ដើមជាភស្តុតាង)';
+            $blocks['criterion-age-en']='The student must meet the legal requirement for the grade based on the original cophy of their birth certificate as proof from the district authorities. (e.g. 6 years old for Grade 1).';
+            $blocks['criterion-average-kh']='ត្រូវមានពិន្ទុមធ្យមភាគ ៨៥% ឡើង (យកពិន្ទុប្រចាំឆ្នាំជាគោល)';
+            $blocks['criterion-average-en']='The student must have maintained an overall average of 85% or higher in the preceding school year.';
+            $blocks['criterion-documents-kh']='មានឯកសារពីសាលាមួយទៀតថាចប់ថ្នាក់ដែលចង់ផ្លោះដោយជោគជ័យ (ឧ. សិស្សត្រូវរៀនចប់ថ្នាក់ទី៣ មុនចូលថ្នាក់ទី៤)';
+            $blocks['criterion-documents-en']='The student must provide documents from another school confirming the successful completion of the grade they wish to skip. For example, the student must have completed Grade 3 before entering Grade 4.';
+            $blocks['criterion-recommendation-kh']='មានការគាំទ្រពីគ្រូប្រចាំថ្នាក់លើការសិក្សានិងវិន័យ';
+            $blocks['criterion-recommendation-en']='A cecommendation from the class teacher is required., addressing both academic performance and behavior.';
             foreach (SkippingGradeSetting::COMMITTEE as $index=>$role) {
                 $blocks['committee-role-'.$index]=($index+1).'. '.$role;
                 $blocks['committee-name-'.$index]='{committee_name_'.$index.'}';
@@ -87,12 +96,12 @@ class SkippingGradeTemplateService
         if (preg_match('/[0-9០-៩]+/u',$gradeNumber,$matches)) $gradeNumber=strtr($matches[0],array_combine(['០','១','២','៣','៤','៥','៦','៧','៨','៩'],range(0,9)));
         $values = [
             'student_name_en'=>$s['name_en'], 'student_name_kh'=>$s['name_kh'], 'student_id'=>$s['student_id'],
-            'current_grade'=>$s['source_grade'].$s['source_class'], 'requested_grade'=>$s['target_grade'].$s['target_class'],
+            'current_grade'=>$s['source_grade'].$s['source_class'], 'requested_grade'=>$s['target_grade'],
             'requested_grade_number'=>$gradeNumber,
             'academic_year'=>$s['target_academic_year']??$s['academic_year'], 'campus_en'=>$s['campus_en'], 'campus_kh'=>$s['campus_kh']??'',
             'source_academic_year'=>$s['academic_year'],'requested_academic_year'=>$s['target_academic_year']??$s['academic_year'],
             'date_of_birth'=>!empty($s['date_of_birth'])?\Carbon\Carbon::parse($s['date_of_birth'])->format('d-M-Y'):'',
-            'parent_name'=>$record->parent_name, 'parent_phone'=>$record->parent_phone??'', 'application_date'=>$record->application_date->format('d-M-Y'),
+            'parent_name'=>$record->parent_name, 'parent_phone'=>PhoneNumber::formatCambodian($record->parent_phone), 'application_date'=>$record->application_date->format('d-M-Y'),
             'request_id'=>(string)$record->id, 'reference_number'=>$record->reference_number??'',
             'average_score'=>(string)($record->average_score??'____________'), 'average_scale'=>(string)$record->average_scale, 'reason'=>$record->reason??'',
             'approval_notes'=>$record->approval_snapshot['notes']??'', 'signer_title_kh'=>$record->approval_snapshot['signer_title_kh']??'',
@@ -122,7 +131,7 @@ class SkippingGradeTemplateService
         if (isset($this->definitionCache[$form])) return $this->definitionCache[$form];
         $definitions=[];
         foreach ($this->defaults($form) as $key=>$text) $definitions[$key]=['type'=>'text','text'=>$text];
-        $definitions['school-logo']=['type'=>'image','width'=>$form==='request'?57:60,'height'=>$form==='request'?18:27];
+        $definitions['school-logo']=['type'=>'image','width'=>$form==='request'?68.4:60,'height'=>$form==='request'?21.6:27];
         if ($form==='request') {
             $definitions['average'] += ['border_style'=>'solid','border_width'=>1,'border_color'=>'#333333'];
             $definitions['average']['type']='score';
@@ -133,7 +142,7 @@ class SkippingGradeTemplateService
                 $definitions['committee-line-'.$index.'-'.$column]=['type'=>'line','border_style'=>'dotted','border_width'=>1,'border_color'=>'#999999'];
             }
             foreach (array_keys(StudentSkippingGradeController::CRITERIA) as $key) $definitions['criteria-check-'.$key]=$this->checkboxDefinition();
-            $definitions['committee-divider']=['type'=>'line','border_style'=>'solid','border_width'=>2,'border_color'=>'#233e69'];
+            $definitions['committee-divider']=['type'=>'line','border_style'=>'solid','border_width'=>8,'border_color'=>'#22395c'];
         } else {
             $definitions['student-divider']=['type'=>'line','border_style'=>'dotted','border_width'=>1,'border_color'=>'#555555'];
             foreach (['age-standard','age-exception','school-internal','school-external','criterion-age','criterion-average','criterion-documents','criterion-recommendation','obligation-conduct','obligation-rules','obligation-study'] as $key) {
@@ -250,6 +259,10 @@ class SkippingGradeTemplateService
             $rendered=implode('',array_map(fn($line)=>trim($line)===''
                 ?'<span class="skipping-template-bullet-space" aria-hidden="true"> </span>'
                 :'<span class="skipping-template-bullet-row"><span class="skipping-template-bullet-marker" aria-hidden="true">•</span><span>'.e($line).'</span></span>',preg_split('/\r\n|\r|\n/',strtr($content,$tokens))));
+        }
+        if ($key==='criterion-documents-kh') {
+            $example='ឧ. សិស្សត្រូវរៀនចប់ថ្នាក់ទី៣ មុនចូលថ្នាក់ទី៤';
+            $rendered=str_replace(e($example),'<span class="request-criterion-example">'.e($example).'</span>',$rendered);
         }
         if (in_array($key,['committee-heading','decision-heading'],true)) {
             $rendered=preg_replace('/[\x{1780}-\x{17FF}\x{19E0}-\x{19FF}]+/u','<span class="approval-committee-kh">$0</span>',$rendered);

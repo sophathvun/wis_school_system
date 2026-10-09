@@ -63,7 +63,9 @@ if (root) {
         const response = await fetch(url, { ...options, headers: { Accept: 'application/json', ...options.headers } });
         const json = response.headers.get('content-type')?.includes('application/json') ? await response.json() : null;
         if (!response.ok || !json || response.redirected) {
-            const message = json?.message || ({ 413: 'The upload is too large.', 419: 'Your session expired. Refresh this page and try again.', 403: 'You do not have permission for this action.' })[response.status] || 'Unable to complete this action. Refresh the page and try again.';
+            const message = response.status === 413
+                ? 'The server rejected this upload because its upload limit was exceeded. Please ask your administrator to check the server upload limits, then try again.'
+                : json?.message || ({ 419: 'Your session expired. Refresh this page and try again.', 403: 'You do not have permission for this action.' })[response.status] || 'Unable to complete this action. Refresh the page and try again.';
             throw Object.assign(new Error(message), { errors: json?.errors });
         }
         return json;

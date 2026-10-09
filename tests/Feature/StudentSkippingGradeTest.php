@@ -6,6 +6,7 @@ use App\Models\StudentEnrollmentHistory;
 use App\Models\StudentSkippingGrade;
 use App\Models\User;
 use App\Services\StudentSkippingGradeService;
+use App\Services\EnrollmentWorkflowService;
 use App\Support\PermissionHierarchy;
 use App\Support\StudentSkippingGradePermissions;
 use Illuminate\Database\Schema\Blueprint;
@@ -196,10 +197,14 @@ it('renders every editable block in both sample previews without creating a requ
         expect($config['values']['requested_academic_year'])->toBe('2026-2027')
             ->and($config['values']['academic_year'])->toBe('2026-2027')
             ->and($config['values']['source_academic_year'])->toBe('2025-2026')
-            ->and($config['values']['reference_number'])->toBe('SKAY26-27-001')
+            ->and($config['values']['reference_number'])->toBe('SK2526-001')
             ->and($config['values']['signer_name_kh'])->toBe('គីង រដ្ឋមុនី');
         $response=$this->actingAs($this->central)->get('/students/skipping-grade/templates/'.$form.'/preview')->assertOk();
         foreach (array_keys($templates->definitions($form)) as $key) {
+            if ($form==='request' && in_array($key,['average-label','reason-label','reason','committee-heading-kh'],true)) {
+                $response->assertDontSee('data-skipping-block="'.$key.'"',false);
+                continue;
+            }
             if ($form==='approval' && (in_array($key,['student-divider','school-external','check-school-external','average','notes'],true) || str_starts_with($key,'criterion-') || str_starts_with($key,'check-criterion-'))) {
                 $response->assertDontSee('data-skipping-block="'.$key.'"',false);
                 continue;
@@ -235,7 +240,10 @@ it('prints bilingual approval student labels and only the requested grade number
     expect($value[1])->toBe($number);
     $request=$this->get('/students/skipping-grade/'.$record->id.'/print/request')->assertOk();
     preg_match('~<span[^>]*data-skipping-block="target-grade"[^>]*>(.*?)</span>~s',$request->getContent(),$value);
-    expect($value[1])->toBe($grade.'B');
+    expect($value[1])->toBe($grade);
+    $requestPreview=$this->get('/students/skipping-grade/templates/request/preview')->assertOk();
+    preg_match('~<span[^>]*data-skipping-block="target-grade"[^>]*>(.*?)</span>~s',$requestPreview->getContent(),$value);
+    expect($value[1])->toBe('5');
     $preview=$this->get('/students/skipping-grade/templates/approval/preview')->assertOk()->assertSee("Student's Name")->assertSee('គណៈកម្មការ / Committee');
     preg_match('~<span[^>]*data-skipping-block="target-grade"[^>]*>(.*?)</span>~s',$preview->getContent(),$value);
     expect($value[1])->toBe('5');
@@ -306,7 +314,7 @@ it('saves school logo position size and removal separately in both form template
     $page=$this->get('/students/skipping-grade/templates/'.$form)->assertOk();
     preg_match('~<script type="application/json" data-template-config>(.*?)</script>~s',$page->getContent(),$config);
     $config=json_decode($config[1],true,512,JSON_THROW_ON_ERROR);
-    expect($config['definitions']['school-logo'])->toBe(['type'=>'image','width'=>$form==='request'?57:60,'height'=>$form==='request'?18:27]);
+    expect($config['definitions']['school-logo'])->toBe(['type'=>'image','width'=>$form==='request'?68.4:60,'height'=>$form==='request'?21.6:27]);
     $blocks=['school-logo'=>['type'=>'image','left'=>12,'top'=>-4,'width'=>42,'height'=>16]];
     $this->postJson('/students/skipping-grade/templates/'.$form,['blocks'=>$blocks,'revision'=>$templates->revision([])])->assertOk();
     expect(SkippingGradeSetting::current()->{$form.'_template'})->toBe($blocks)
@@ -383,7 +391,7 @@ it('saves bullet formatting for original and added text in previews and printout
         expect($element->getAttribute('class'))->not->toContain('skipping-template-bulleted');
         expect($element->textContent)->toBe(str_replace('{student_name_en}','SOK DARA',$content));
     }
-})->with([['request','reason'],['approval','implementation']]);
+})->with([['request','criterion-recommendation-en'],['approval','implementation']]);
 
 it('rejects invalid bullet formatting and bullet formatting on shapes', function ($key,$block) {
     $templates=app(\App\Services\SkippingGradeTemplateService::class);
@@ -634,6 +642,120 @@ it('rejects unknown template blocks tokens and unsafe styles', function ($blocks
     'unsafe fill'=>[['heading-en'=>['fill'=>'url(https://example.com)']],'blocks.heading-en.fill'],
     'wrong original type'=>[['student-name'=>['type'=>'box']],'blocks.student-name.type'],
 ]);
+
+it('updates the request Khmer title in saved templates and printouts while preserving customization', function () {
+    $record=($this->draft)();
+    $this->actingAs($this->central)->get('/students/skipping-grade/'.$record->id.'/print/request')
+        ->assertOk()->assertSee('ពាក្យសុំផ្លោះថ្នាក់');
+    $settings=SkippingGradeSetting::current();
+    $heading=['text'=>'ពាក្យសុំឡើងថ្នាក់','size'=>20,'x'=>2];
+    $approval=['heading'=>['text'=>'Custom approval title']];
+    $settings->update(['request_template'=>['heading-kh'=>$heading],'approval_template'=>$approval]);
+    $migration=require database_path('migrations/2026_10_09_000001_update_skipping_grade_request_khmer_title.php');
+    $migration->up();
+    expect($settings->fresh()->request_template['heading-kh'])->toBe(array_replace($heading,['text'=>'ពាក្យសុំផ្លោះថ្នាក់']))
+        ->and($settings->fresh()->approval_template)->toBe($approval);
+    $this->get('/students/skipping-grade/'.$record->id.'/print/request')->assertOk()->assertSee('ពាក្យសុំផ្លោះថ្នាក់');
+    $settings->update(['request_template'=>['heading-kh'=>['text'=>'Custom request title']]]);
+    $migration->up();
+    expect($settings->fresh()->request_template['heading-kh']['text'])->toBe('Custom request title');
+});
+
+it('updates request field label colons while preserving formatting and unrelated text', function () {
+    $settings=SkippingGradeSetting::current();
+    $template=[
+        'label-name-kh'=>['text'=>'ឈ្មោះសិស្ស៖','size'=>11,'left'=>2],
+        'label-date-kh'=>['text'=>'ថ្ងៃធ្វើពាក្យ៖'],
+        'custom-note'=>['text'=>'Custom note៖'],
+    ];
+    $approval=['reference'=>['text'=>'លេខ៖ {reference_number}']];
+    $settings->update(['request_template'=>$template,'approval_template'=>$approval]);
+    $migration=require database_path('migrations/2026_10_09_000002_update_skipping_grade_request_label_colons.php');
+    $migration->up();
+    $template['label-name-kh']['text']='ឈ្មោះសិស្ស:';
+    $template['label-date-kh']['text']='ថ្ងៃធ្វើពាក្យ:';
+    expect($settings->fresh()->request_template)->toBe($template)
+        ->and($settings->fresh()->approval_template)->toBe($approval);
+    $this->actingAs($this->central)->get('/students/skipping-grade/'.($this->draft)()->id.'/print/request')
+        ->assertOk()->assertSee('ឈ្មោះសិស្ស:')->assertSee('ថ្ងៃធ្វើពាក្យ:');
+});
+
+it('updates the printed bilingual age criterion without changing request selections or approval templates', function () {
+    $old=\App\Http\Controllers\StudentSkippingGradeController::CRITERIA['age'];
+    $template=[
+        'criterion-age-kh'=>['text'=>$old['kh'],'size'=>11],
+        'criterion-age-en'=>['text'=>$old['en'],'left'=>4],
+    ];
+    $approval=['criterion-age'=>['text'=>$old['kh']]];
+    $settings=SkippingGradeSetting::current();
+    $settings->update(['request_template'=>$template,'approval_template'=>$approval]);
+    (require database_path('migrations/2026_10_09_000009_update_skipping_grade_request_age_criterion.php'))->up();
+    (require database_path('migrations/2026_10_09_000013_correct_skipping_grade_request_age_criterion.php'))->up();
+    $kh='ត្រូវមានអាយុត្រឹមត្រូវតាមច្បាប់រដ្ឋ (មានសេចក្តីចម្លងសំបុត្រកំណើតច្បាប់ដើមជាភស្តុតាង)';
+    $en='The student must meet the legal requirement for the grade based on the original cophy of their birth certificate as proof from the district authorities. (e.g. 6 years old for Grade 1).';
+    $template['criterion-age-kh']['text']=$kh;
+    $template['criterion-age-en']['text']=$en;
+    expect($settings->fresh()->request_template)->toBe($template)
+        ->and($settings->fresh()->approval_template)->toBe($approval);
+    $record=($this->draft)();
+    $this->actingAs($this->central)->get('/students/skipping-grade/'.$record->id.'/print/request')
+        ->assertOk()->assertSee($kh)->assertSee($en);
+    expect($record->fresh()->criteria['age'])->toBeTrue();
+});
+
+it('formats the documents example separately while retaining editable text and escaping markup', function ($bullet) {
+    $templates=app(\App\Services\SkippingGradeTemplateService::class);
+    $example='ឧ. សិស្សត្រូវរៀនចប់ថ្នាក់ទី៣ មុនចូលថ្នាក់ទី៤';
+    $content='Supporting documents ('.$example.') <script>alert(1)</script>';
+    $html=(string)$templates->text('request','criterion-documents-kh',[
+        'criterion-documents-kh'=>['text'=>$content,'size'=>11,'bullet'=>$bullet],
+    ],[]);
+    $dom=new DOMDocument();
+    @$dom->loadHTML('<?xml encoding="UTF-8">'.$html);
+    $xpath=new DOMXPath($dom);
+    $block=$xpath->query('//*[@data-skipping-block="criterion-documents-kh"]')->item(0);
+    $label=$xpath->query('.//*[@class="request-criterion-example"]',$block);
+    expect($label->length)->toBe(1)
+        ->and($label->item(0)->textContent)->toBe($example)
+        ->and($block->getAttribute('data-template-text'))->toBe($content)
+        ->and($xpath->query('.//script',$block)->length)->toBe(0);
+})->with(['plain'=>[false],'bulleted'=>[true]]);
+
+it('formats Cambodian telephone numbers on request prints without changing the saved number', function ($phone, $formatted) {
+    $record=($this->draft)();
+    $record->update(['parent_phone'=>$phone]);
+    $page=$this->actingAs($this->central)->get('/students/skipping-grade/'.$record->id.'/print/request')->assertOk();
+    $dom=new DOMDocument();
+    @$dom->loadHTML('<?xml encoding="UTF-8">'.$page->getContent());
+    $xpath=new DOMXPath($dom);
+    expect($xpath->query('//*[@data-skipping-block="phone"]')->item(0)->textContent)->toBe($formatted)
+        ->and($record->fresh()->parent_phone)->toBe($phone);
+})->with([
+    'local nine digits'=>['012998898','012 998 898'],
+    'local ten digits'=>['0977878787','097 787 8787'],
+    'international short'=>['+85512676787','+855 12 676 787'],
+    'international long'=>['+855978787878','+855 97 878 7878'],
+    'existing spacing'=>['097 787 8787','097 787 8787'],
+    'international dial prefix'=>['0085512676787','+855 12 676 787'],
+    'country code without plus'=>['855978787878','+855 97 878 7878'],
+    'foreign number'=>['+66 81 234 5678','+66 81 234 5678'],
+    'incomplete number'=>['01234','01234'],
+    'empty number'=>[null,''],
+]);
+
+it('prints the score next to the Khmer average criterion without the Overall Average label', function () {
+    $record=($this->draft)();
+    $page=$this->actingAs($this->central)->get('/students/skipping-grade/'.$record->id.'/print/request')
+        ->assertOk()->assertDontSee('Overall Average:');
+    $dom=new DOMDocument();
+    @$dom->loadHTML('<?xml encoding="UTF-8">'.$page->getContent());
+    $xpath=new DOMXPath($dom);
+    $row=$xpath->query('//p[@class="request-average-heading"]')->item(0);
+    expect($xpath->query('.//*[@data-skipping-block="criterion-average-kh"]',$row)->length)->toBe(1)
+        ->and($xpath->query('.//*[@data-skipping-block="average"]',$row)->item(0)->textContent)->toBe('95 / 100')
+        ->and($xpath->query('.//*[@data-skipping-block="criterion-average-en"]',$row)->length)->toBe(0)
+        ->and($xpath->query('//*[@data-skipping-block="criterion-average-en"]')->length)->toBe(1);
+});
 
 it('prevents stale template overwrites and restores the original without changing the other form', function () {
     $templates=app(\App\Services\SkippingGradeTemplateService::class);
@@ -1007,7 +1129,7 @@ it('offers current and next requested years and scopes requested classes to the 
     preg_match('~<select[^>]*data-target-year[^>]*>(.*?)</select>~s',$edit->getContent(),$select);
     expect($select[1])->toMatch('/<option value="2"\s+selected/');
     $this->get('/students/skipping-grade/'.$record->id.'/print/request')->assertOk()->assertSee('>2026-2027</span>',false)
-        ->assertSee('>G2A</span>',false)->assertSee('>G4C</span>',false);
+        ->assertSee('>G2A</span>',false)->assertSee('>G4</span>',false);
 });
 
 it('approves a next-year skip without changing the current-year enrollment and links both history entries', function ($lifecycle, $status) {
@@ -1025,12 +1147,12 @@ it('approves a next-year skip without changing the current-year enrollment and l
     $target=StudentEnrollment::findOrFail($record->target_enrollment_id);
     expect(StudentEnrollment::find(1)->toArray())->toBe($source)
         ->and([$target->student_id,$target->campus_id,$target->academic_year_id,$target->grade_id,$target->class_id,$target->enrollment_status,$target->academic_track_id])->toBe([1,1,2,2,3,$status,9])
-        ->and($record->reference_number)->toBe('SGAY26-27-001');
+        ->and($record->reference_number)->toBe('SG2526-001');
     $history=StudentEnrollmentHistory::orderBy('id')->get();
     expect($history)->toHaveCount(2)->and($history[0]->academic_year_id)->toBe(1)->and($history[1]->academic_year_id)->toBe(2)
         ->and($history[1]->enrollment_id)->toBe($target->id)->and($history[1]->source_history_id)->toBe($history[0]->id);
     $this->get('/students/skipping-grade/'.$record->id.'/print/request')->assertOk()->assertSee('>2026-2027</span>',false);
-    $this->get('/students/skipping-grade/'.$record->id.'/print/approval')->assertOk()->assertSee('SGAY26-27-001');
+    $this->get('/students/skipping-grade/'.$record->id.'/print/approval')->assertOk()->assertSee('SG2526-001');
     expect(fn()=>$this->service->approve($this->central,$record,$this->approval))->toThrow(ValidationException::class);
     expect(StudentEnrollment::count())->toBe(2);
 })->with([['pending','pending'],['started','active']]);
@@ -1117,9 +1239,12 @@ it('uses the saved AY Code at approval and preserves issued numbers when the cod
     expect($record->fresh()->reference_number)->toBe('SGAY25-26-001');
 });
 
-it('requires the requested academic year AY Code before issuing an approval', function ($code) {
+it('requires the current academic year AY Code before issuing a next-year approval', function ($code) {
     ($this->configure)();
-    $record=($this->pending)();
+    DB::table('tb_academic_year')->insert(['id'=>2,'academic_year'=>'2026-2027','academic_year_code'=>'2627','lifecycle_status'=>'pending']);
+    DB::table('tb_class')->insert(['id'=>3,'class_name'=>'A','grade_id'=>2,'academic_year_id'=>2]);
+    $record=$this->service->saveDraft($this->campus,array_replace($this->data,['target_academic_year_id'=>2,'target_class_id'=>3]));
+    $record=$this->service->submit($this->campus,$record,now()->toDateString());
     DB::table('tb_academic_year')->where('id',1)->update(['academic_year_code'=>$code]);
     $this->actingAs($this->central)->postJson('/students/skipping-grade/'.$record->id.'/approve',$this->approval)
         ->assertUnprocessable()->assertJsonValidationErrors('settings');
@@ -1129,6 +1254,82 @@ it('requires the requested academic year AY Code before issuing an approval', fu
         ->and(StudentEnrollmentHistory::count())->toBe(0);
     expect(Storage::disk('local')->allFiles('grade-skipping/approvals'))->toBe([]);
 })->with([null,'','   ']);
+
+it('uses the current year code even when the requested year code is missing', function () {
+    DB::table('tb_academic_year')->insert(['id'=>2,'academic_year'=>'2026-2027','academic_year_code'=>null,'lifecycle_status'=>'pending']);
+    DB::table('tb_class')->insert(['id'=>3,'class_name'=>'A','grade_id'=>2,'academic_year_id'=>2]);
+    DB::table('tb_academic_year')->where('id',1)->update(['academic_year_code'=>'CURRENT-CODE']);
+    $record=$this->service->saveDraft($this->campus,array_replace($this->data,['target_academic_year_id'=>2,'target_class_id'=>3]));
+    $record=$this->service->submit($this->campus,$record,now()->toDateString());
+    ($this->configure)();
+    $record=$this->service->approve($this->central,$record,$this->approval);
+    expect($record->reference_number)->toBe('SGCURRENT-CODE-001')
+        ->and($record->academic_year_id)->toBe(1)
+        ->and($record->target_enrollment_id)->not->toBe(1);
+    DB::table('tb_academic_year')->where('id',1)->update(['academic_year_code'=>'NEW-CODE']);
+    expect($record->fresh()->reference_number)->toBe('SGCURRENT-CODE-001');
+});
+
+it('corrects only approval 003 and its history to the authorized current-year code', function () {
+    DB::table('tb_academic_year')->where('id',1)->update(['academic_year_code'=>'2627']);
+    DB::table('tb_academic_year')->insert(['id'=>2,'academic_year'=>'2026-2027','academic_year_code'=>'2728','lifecycle_status'=>'pending']);
+    DB::table('tb_class')->insert(['id'=>3,'class_name'=>'A','grade_id'=>2,'academic_year_id'=>2]);
+    $record=$this->service->saveDraft($this->campus,array_replace($this->data,['target_academic_year_id'=>2,'target_class_id'=>3]));
+    DB::table('tb_student_skipping_grade')->where('id',$record->id)->update(['id'=>3]);
+    $record=StudentSkippingGrade::findOrFail(3);
+    $record=$this->service->submit($this->campus,$record,now()->toDateString());
+    ($this->configure)();
+    $record=$this->service->approve($this->central,$record,$this->approval);
+    $snapshot=$record->approval_snapshot;
+    $record->update(['reference_number'=>'SG2728-003']);
+    StudentEnrollmentHistory::query()->update(['reason'=>'Approved grade skipping: SG2728-003']);
+    $other=$record->replicate();
+    $other->reference_number='SG2728-004';
+    $other->save();
+    $migration=require database_path('migrations/2026_10_09_000014_correct_skipping_grade_approval_003_current_year_code.php');
+    $migration->up();
+    $migration->up();
+    expect($record->fresh()->reference_number)->toBe('SG2627-003')
+        ->and($record->fresh()->approval_snapshot)->toBe($snapshot)
+        ->and($other->fresh()->reference_number)->toBe('SG2728-004')
+        ->and(StudentEnrollmentHistory::pluck('reason')->all())->toBe(array_fill(0,2,'Approved grade skipping: SG2627-003'));
+    $this->actingAs($this->central)->get('/students/skipping-grade/3/print/approval')->assertOk()->assertSee('SG2627-003');
+    $this->get('/students/skipping-grade/3/share/approval')->assertOk()->assertSee('SG2627-003.png');
+    $migration->down();
+    expect($record->fresh()->reference_number)->toBe('SG2728-003');
+});
+
+it('corrects approval 002 only for student 2216236 and preserves the signed approval', function () {
+    DB::table('tb_academic_year')->where('id',1)->update(['academic_year_code'=>'2627']);
+    DB::table('tb_academic_year')->insert(['id'=>2,'academic_year'=>'2026-2027','academic_year_code'=>'2728','lifecycle_status'=>'pending']);
+    DB::table('tb_class')->insert(['id'=>3,'class_name'=>'A','grade_id'=>2,'academic_year_id'=>2]);
+    $record=$this->service->saveDraft($this->campus,array_replace($this->data,['target_academic_year_id'=>2,'target_class_id'=>3]));
+    DB::table('tb_student_skipping_grade')->where('id',$record->id)->update(['id'=>2]);
+    $record=$this->service->submit($this->campus,StudentSkippingGrade::findOrFail(2),now()->toDateString());
+    ($this->configure)();
+    $record=$this->service->approve($this->central,$record,$this->approval);
+    $signed=$record->approval_snapshot;
+    $approvedAt=$record->approved_at->toDateTimeString();
+    $record->update(['reference_number'=>'SG2728-002']);
+    StudentEnrollmentHistory::query()->update(['reason'=>'Approved grade skipping: SG2728-002']);
+    $migration=require database_path('migrations/2026_10_09_000015_correct_skipping_grade_approval_002_current_year_code.php');
+    $migration->up();
+    expect($record->fresh()->reference_number)->toBe('SG2728-002');
+    $snapshot=$record->student_snapshot;
+    $snapshot['student_id']='2216236';
+    $record->update(['student_snapshot'=>$snapshot]);
+    $migration->up();
+    $migration->up();
+    expect($record->fresh()->reference_number)->toBe('SG2627-002')
+        ->and($record->fresh()->approval_snapshot)->toBe($signed)
+        ->and($record->fresh()->approved_at->toDateTimeString())->toBe($approvedAt)
+        ->and(StudentEnrollmentHistory::pluck('reason')->all())->toBe(array_fill(0,2,'Approved grade skipping: SG2627-002'));
+    $this->actingAs($this->central)->get('/students/skipping-grade/2/print/approval')->assertOk()->assertSee('SG2627-002');
+    $this->get('/students/skipping-grade/2/share/approval')->assertOk()->assertSee('2216236-SG2627-002.png');
+    $migration->down();
+    expect($record->fresh()->reference_number)->toBe('SG2728-002')
+        ->and(StudentEnrollmentHistory::pluck('reason')->all())->toBe(array_fill(0,2,'Approved grade skipping: SG2728-002'));
+});
 
 it('moves grade only once and freezes the signature stamp and before-after history on approval', function () {
     ($this->configure)(); $record=$this->service->approve($this->central,($this->pending)(),$this->approval);
@@ -1283,6 +1484,28 @@ it('does not expose sharing before approval or for rejected requests', function 
     $this->get('/students/skipping-grade')->assertOk()->assertDontSee('data-skipping-share-approval',false);
 })->with(['draft','pending','rejected']);
 
+it('accepts both central settings images up to 2 MB each in one submission', function ($signatureKb, $stampKb) {
+    $this->actingAs($this->central)->post('/students/skipping-grade/settings',[
+        'signer_name_kh'=>'VP','signer_title_kh'=>'Chair','signer_title_en'=>'Chair','number_prefix'=>'SG',
+        'signature'=>UploadedFile::fake()->image('signature.png')->size($signatureKb),
+        'stamp'=>UploadedFile::fake()->image('stamp.png')->size($stampKb),
+    ],['Accept'=>'application/json'])->assertOk();
+    $settings=SkippingGradeSetting::current()->fresh();
+    Storage::disk('local')->assertExists([$settings->signature_path,$settings->stamp_path]);
+})->with(['reported image sizes'=>[222,800],'both at the maximum'=>[2048,2048]]);
+
+it('rejects an image above 2 MB without changing existing central settings or images', function ($field) {
+    ($this->configure)();
+    $before=SkippingGradeSetting::current()->getAttributes();
+    $this->actingAs($this->central)->post('/students/skipping-grade/settings',[
+        'signer_name_kh'=>'New VP','signer_title_kh'=>'Chair','signer_title_en'=>'Chair','number_prefix'=>'SG',
+        'signature'=>UploadedFile::fake()->image('signature.png')->size($field==='signature'?2049:222),
+        'stamp'=>UploadedFile::fake()->image('stamp.png')->size($field==='stamp'?2049:800),
+    ],['Accept'=>'application/json'])->assertUnprocessable()->assertJsonValidationErrors($field);
+    expect(SkippingGradeSetting::current()->fresh()->getAttributes())->toBe($before);
+    Storage::disk('local')->assertExists(['settings/signature.png','settings/stamp.png']);
+})->with(['signature','stamp']);
+
 it('replaces settings uploads while preserving images copied into issued approval forms', function () {
     ($this->configure)(); $record=$this->service->approve($this->central,($this->pending)(),$this->approval);
     $this->actingAs($this->central)->post('/students/skipping-grade/settings',[
@@ -1388,3 +1611,122 @@ it('loads bounded student choices when only a source filter is selected', functi
     $this->actingAs($this->campus)->getJson('/students/skipping-grade/students?'.$filter)
         ->assertOk()->assertJsonCount(1,'students')->assertJsonPath('students.0.id',1);
 })->with(['academic_year_id=1','campus_id=1','grade_id=1','grade_class=1:1']);
+
+
+describe('promotion with approved grade-skipping placements', function () {
+    beforeEach(function () {
+        Schema::table('tb_student_enrollment', function (Blueprint $t) {
+            $t->date('ended_on')->nullable(); $t->string('exit_reason')->nullable(); $t->text('notes')->nullable();
+            $t->unique(['student_id','academic_year_id']);
+        });
+        Schema::table('tb_student', fn(Blueprint $t)=>$t->string('student_no')->nullable());
+        Schema::table('tb_session', fn(Blueprint $t)=>$t->string('session_short_name')->nullable());
+        (require database_path('migrations/2026_08_03_000013_create_enrollment_workflow_actions.php'))->up();
+        (require database_path('migrations/2026_08_26_000001_add_promotion_lifecycle_to_workflows.php'))->up();
+        DB::table('tb_grade')->where('id',1)->update(['grade'=>'Grade 3','grade_short_name'=>'G3','grade_order'=>3]);
+        DB::table('tb_grade')->where('id',2)->update(['grade'=>'Grade 5','grade_short_name'=>'G5','grade_order'=>5]);
+        DB::table('tb_grade')->insert(['id'=>3,'grade'=>'Grade 4','grade_short_name'=>'G4','grade_order'=>4]);
+        DB::table('tb_academic_year')->insert(['id'=>2,'academic_year'=>'2026-2027','academic_year_code'=>'2627','lifecycle_status'=>'pending']);
+        DB::table('tb_class')->insert([
+            ['id'=>3,'class_name'=>'A','grade_id'=>2,'academic_year_id'=>2],
+            ['id'=>4,'class_name'=>'A','grade_id'=>3,'academic_year_id'=>2],
+        ]);
+        $request=$this->service->saveDraft($this->campus,array_replace($this->data,['target_academic_year_id'=>2,'target_class_id'=>3]));
+        $request=$this->service->submit($this->campus,$request,now()->toDateString());
+        ($this->configure)();
+        $this->skipping=$this->service->approve($this->central,$request,$this->approval);
+        DB::table('tb_student')->insert(['id'=>2,'student_id'=>'2622222','full_name_en'=>'REGULAR STUDENT','full_name_kh'=>'?????']);
+        $this->regular=StudentEnrollment::create(['student_id'=>2,'campus_id'=>1,'academic_year_id'=>1,'grade_id'=>1,'class_id'=>1,'status'=>true,'enrollment_status'=>'active','student_type'=>'old']);
+        $this->promotion=['from_academic_year_id'=>1,'from_campus_id'=>1,'from_grade_id'=>1,'from_class_id'=>1,
+            'to_academic_year_id'=>2,'to_campus_id'=>1,'to_grade_id'=>3,'to_class_id'=>4,'to_session_id'=>null,
+            'effective_on'=>now()->toDateString(),'enrollment_ids'=>[1,$this->regular->id]];
+        $this->workflow=app(EnrollmentWorkflowService::class);
+        $this->actingAs($this->campus);
+    });
+
+    it('promotes the remaining class or selected students while preserving the approved placement and current enrollment', function ($endpoint) {
+        $source=StudentEnrollment::findOrFail(1)->toArray();
+        $target=$this->skipping->targetEnrollment->toArray();
+        $approval=$this->skipping->attributesToArray();
+        $this->postJson('/student-enrollment-workflows/'.$endpoint,$this->promotion)->assertOk()
+            ->assertJsonPath('count',1)->assertJsonPath('skipped_count',1)
+            ->assertJsonPath('skipped_students.0.student_id','2612345')
+            ->assertJsonPath('skipped_students.0.grade','G5')->assertJsonPath('skipped_students.0.class','A')
+            ->assertJsonPath('skipped_students.0.academic_year','2026-2027');
+        expect(StudentEnrollment::findOrFail(1)->toArray())->toBe($source)
+            ->and($this->skipping->fresh()->targetEnrollment->toArray())->toBe($target)
+            ->and($this->skipping->fresh()->attributesToArray())->toBe($approval)
+            ->and(StudentEnrollment::where('student_id',1)->where('academic_year_id',2)->count())->toBe(1)
+            ->and(StudentEnrollment::where('student_id',2)->where('academic_year_id',2)->value('grade_id'))->toBe(3)
+            ->and($this->regular->fresh()->enrollment_status)->toBe('completed')
+            ->and(DB::table('tb_student_enrollment_workflow')->count())->toBe(1)
+            ->and(StudentEnrollmentHistory::count())->toBe(3);
+        $this->postJson('/student-enrollment-workflows/'.$endpoint,$this->promotion)->assertUnprocessable();
+        expect(StudentEnrollment::count())->toBe(4);
+    })->with(['class-promote','selected-promote']);
+
+    it('shows grade skipping in the promotion preview and keeps the existing default picker behavior', function () {
+        $query='academic_year_id=1&campus_id=1&grade_id=1&class_id=1&target_academic_year_id=2';
+        $page=$this->getJson('/student-enrollment-workflows/enrollments?'.$query.'&include_existing=1')->assertOk();
+        $students=collect($page->json())->keyBy('student_id');
+        expect($students[1]['promotion_preview']['status'])->toBe('grade_skipping')
+            ->and($students[1]['promotion_preview']['reference_number'])->toBe($this->skipping->reference_number)
+            ->and($students[1]['promotion_preview']['grade'])->toBe('G5')
+            ->and($students[2]['promotion_preview']['status'])->toBe('eligible');
+        $this->getJson('/student-enrollment-workflows/enrollments?'.$query)->assertOk()->assertJsonCount(1)->assertJsonPath('0.student_id',2);
+    });
+
+    it('does not block a class where everyone already has an approved skipping placement', function () {
+        $this->regular->delete();
+        $this->postJson('/student-enrollment-workflows/class-promote',$this->promotion)->assertOk()
+            ->assertJsonPath('count',0)->assertJsonPath('skipped_count',1);
+        $this->postJson('/student-enrollment-workflows/class-promote',$this->promotion)->assertOk()
+            ->assertJsonPath('count',0)->assertJsonPath('skipped_count',1);
+        expect(StudentEnrollment::count())->toBe(2)
+            ->and(StudentEnrollment::find(1)->enrollment_status)->toBe('active')
+            ->and(DB::table('tb_student_enrollment_workflow')->count())->toBe(0)
+            ->and(StudentEnrollmentHistory::count())->toBe(2);
+    });
+
+    it('keeps an existing skipping placement for individual promotion too', function () {
+        $payload=$this->promotion+['enrollment_id'=>1];
+        $this->postJson('/student-enrollment-workflows/promote',$payload)->assertOk()
+            ->assertJsonPath('count',0)->assertJsonPath('skipped_count',1)->assertJsonPath('data.grade_id',2);
+        expect(StudentEnrollment::count())->toBe(3)
+            ->and(StudentEnrollment::find(1)->enrollment_status)->toBe('active')
+            ->and(StudentEnrollmentHistory::count())->toBe(2);
+    });
+
+    it('requires review for an unrelated existing enrollment and rolls back the entire batch', function () {
+        StudentEnrollment::create(['student_id'=>2,'campus_id'=>1,'academic_year_id'=>2,'grade_id'=>3,'class_id'=>4,'status'=>true,'enrollment_status'=>'pending']);
+        $this->postJson('/student-enrollment-workflows/class-promote',$this->promotion)->assertUnprocessable()->assertJsonValidationErrors('from_class_id');
+        $this->postJson('/student-enrollment-workflows/selected-promote',$this->promotion)->assertUnprocessable()->assertJsonValidationErrors('enrollment_ids');
+        $preview=$this->getJson('/student-enrollment-workflows/enrollments?academic_year_id=1&target_academic_year_id=2&include_existing=1')->assertOk();
+        expect(collect($preview->json())->keyBy('student_id')[2]['promotion_preview']['status'])->toBe('review')
+            ->and($this->regular->fresh()->enrollment_status)->toBe('active')
+            ->and(DB::table('tb_student_enrollment_workflow')->count())->toBe(0)
+            ->and(StudentEnrollmentHistory::count())->toBe(2);
+    });
+
+    it('requires review when the skipping approval or its linked target is no longer valid', function ($invalid) {
+        if ($invalid==='not approved') $this->skipping->update(['status'=>'rejected']);
+        elseif ($invalid==='cancelled target') $this->skipping->targetEnrollment->update(['enrollment_status'=>'cancelled']);
+        elseif ($invalid==='changed placement') $this->skipping->targetEnrollment->update(['grade_id'=>3,'class_id'=>4]);
+        else $this->skipping->update(['target_enrollment_id'=>$this->regular->id]);
+        $this->postJson('/student-enrollment-workflows/class-promote',$this->promotion)->assertUnprocessable()->assertJsonValidationErrors('from_class_id');
+        expect($this->regular->fresh()->enrollment_status)->toBe('active')
+            ->and(DB::table('tb_student_enrollment_workflow')->count())->toBe(0);
+    })->with(['not approved','cancelled target','changed placement','wrong link']);
+
+    it('does not complete the skipping source until its academic year finishes', function () {
+        $this->workflow->promoteClass($this->promotion);
+        expect(StudentEnrollment::find(1)->enrollment_status)->toBe('active');
+        $year=\App\Models\AcademicYear::findOrFail(1);
+        $year->lifecycle_status='finished';
+        $sync=new ReflectionMethod(\App\Http\Controllers\AcademicYearController::class,'syncEnrollmentStatuses');
+        $sync->invoke(app(\App\Http\Controllers\AcademicYearController::class),$year);
+        expect(StudentEnrollment::find(1)->enrollment_status)->toBe('completed')
+            ->and($this->skipping->fresh()->targetEnrollment->enrollment_status)->toBe('pending')
+            ->and($this->skipping->fresh()->targetEnrollment->grade_id)->toBe(2);
+    });
+});

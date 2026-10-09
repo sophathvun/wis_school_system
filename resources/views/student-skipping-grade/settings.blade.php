@@ -12,7 +12,7 @@
         <label>VP Name English<input class="form-control" name="signer_name_en" value="{{ $settings->signer_name_en }}" maxlength="200"></label>
         <label>Title Khmer <span class="text-danger">*</span><input class="form-control skipping-kh" name="signer_title_kh" value="{{ $settings->signer_title_kh }}" maxlength="200"></label>
         <label>Title English <span class="text-danger">*</span><input class="form-control" name="signer_title_en" value="{{ $settings->signer_title_en }}" maxlength="200"></label>
-        <label>Approval Number Prefix <span class="text-danger">*</span><input class="form-control" name="number_prefix" value="{{ $settings->number_prefix }}" maxlength="16"><small class="text-secondary">Prefix + requested year's AY Code + request ID. Example: SG + AY Code 2526 → SG2526-001.</small></label>
+        <label>Approval Number Prefix <span class="text-danger">*</span><input class="form-control" name="number_prefix" value="{{ $settings->number_prefix }}" maxlength="16"><small class="text-secondary">Prefix + current year's AY Code + request ID. Example: SG + AY Code 2526 → SG2526-001.</small></label>
     </div><div class="skipping-upload-grid mt-3">
         @include('student-skipping-grade._image-upload',['uploadName'=>'signature','uploadLabel'=>'Digital Signature','uploadImage'=>$signature])
         @include('student-skipping-grade._image-upload',['uploadName'=>'stamp','uploadLabel'=>'School Stamp','uploadImage'=>$stamp])

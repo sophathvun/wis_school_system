@@ -7,6 +7,8 @@ use App\Models\AcademicYear;
 use App\Models\Grade;
 use App\Models\StudentEnrollment;
 use App\Models\StudentEnrollmentHistory;
+use App\Models\StudentSkippingGrade;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -15,118 +17,90 @@ class EnrollmentWorkflowService
     private const PROMOTION_ACTIONS = ['promotion', 'class_promotion', 'selected_promotion', 're_promotion'];
     private const TRANSFER_ACTIONS = ['transfer', 'class_transfer', 'selected_transfer'];
 
-    public function promoteClass(array $data): int
+    public function promoteClass(array $data): array
     {
-        return DB::transaction(function () use ($data) {
-            $sourceEnrollments = StudentEnrollment::where('campus_id', $data['from_campus_id'])
-                ->where('academic_year_id', $data['from_academic_year_id'])
-                ->where('grade_id', $data['from_grade_id'])
-                ->where('class_id', $data['from_class_id'])
-                ->get();
-
-            $alreadyPromoted = EnrollmentWorkflowAction::whereIn('student_id', $sourceEnrollments->pluck('student_id'))
-                ->where('from_campus_id', $data['from_campus_id'])
-                ->where('from_academic_year_id', $data['from_academic_year_id'])
-                ->where('from_grade_id', $data['from_grade_id'])
-                ->where('from_class_id', $data['from_class_id'])
-                ->where('to_academic_year_id', $data['to_academic_year_id'])
-                ->whereIn('action_type', self::PROMOTION_ACTIONS)
-                ->where('status', '!=', 'cancelled')
-                ->exists();
-            if ($alreadyPromoted) {
-                throw ValidationException::withMessages([
-                    'from_class_id' => 'Students in this class have already been promoted to the selected academic year.',
-                ]);
-            }
-
-            $enrollments = $sourceEnrollments->where('enrollment_status', 'active')->values();
-
-            if ($enrollments->isEmpty()) {
-                throw ValidationException::withMessages(['from_class_id' => 'No active students were found in the selected class.']);
-            }
-
-            $alreadyPromoted = StudentEnrollment::whereIn('student_id', $enrollments->pluck('student_id'))
-                ->where('academic_year_id', $data['to_academic_year_id'])
-                ->exists();
-            if ($alreadyPromoted) {
-                throw ValidationException::withMessages([
-                    'from_class_id' => 'Students in this class have already been promoted to the selected academic year.',
-                ]);
-            }
-
-            foreach ($enrollments as $enrollment) {
-                $this->promote($enrollment, [
-                    'to_campus_id' => $data['to_campus_id'] ?? $data['from_campus_id'],
-                    'to_academic_year_id' => $data['to_academic_year_id'],
-                    'to_grade_id' => $data['to_grade_id'],
-                    'to_class_id' => $data['to_class_id'],
-                    'to_session_id' => $data['to_session_id'] ?? null,
-                    'effective_on' => $data['effective_on'],
-                    'reason' => $data['reason'] ?? 'Class promotion',
-                    'notes' => $data['notes'] ?? null,
-                    'action_type' => 'class_promotion',
-                ]);
-            }
-
-            return $enrollments->count();
-        });
+        return $this->promoteBatch($data, false);
     }
 
-    public function promoteSelected(array $data): int
+    public function promoteSelected(array $data): array
     {
-        return DB::transaction(function () use ($data) {
-            $sourceEnrollments = StudentEnrollment::whereIn('id', $data['enrollment_ids'])
-                ->where('campus_id', $data['from_campus_id'])
-                ->where('academic_year_id', $data['from_academic_year_id'])
-                ->where('grade_id', $data['from_grade_id'])
-                ->where('class_id', $data['from_class_id'])
-                ->get();
+        return $this->promoteBatch($data, true);
+    }
 
-            $alreadyPromoted = EnrollmentWorkflowAction::whereIn('student_id', $sourceEnrollments->pluck('student_id'))
-                ->where('from_campus_id', $data['from_campus_id'])
-                ->where('from_academic_year_id', $data['from_academic_year_id'])
-                ->where('from_grade_id', $data['from_grade_id'])
-                ->where('from_class_id', $data['from_class_id'])
-                ->where('to_academic_year_id', $data['to_academic_year_id'])
-                ->whereIn('action_type', self::PROMOTION_ACTIONS)
-                ->where('status', '!=', 'cancelled')
-                ->exists();
-            if ($alreadyPromoted) {
-                throw ValidationException::withMessages([
-                    'enrollment_ids' => 'One or more selected students have already been promoted to the selected academic year.',
+    public function approvedGradeSkippingTargets(Collection $sources, int $yearId): Collection
+    {
+        if ($sources->isEmpty()) return collect();
+        $sources=$sources->keyBy('id');
+        return StudentSkippingGrade::with(['targetEnrollment.grade','targetEnrollment.schoolClass','targetEnrollment.academicYear'])
+            ->whereIn('enrollment_id',$sources->keys())->where('status','approved')
+            ->where('target_academic_year_id',$yearId)->get()->filter(function ($request) use ($sources,$yearId) {
+                $source=$sources->get($request->enrollment_id);
+                $target=$request->targetEnrollment;
+                return $target && $target->grade && $target->schoolClass && $target->academicYear
+                    && $target->status && in_array($target->enrollment_status,['active','pending'],true)
+                    && (int)$source->academic_year_id !== $yearId
+                    && (int)$request->academic_year_id === (int)$source->academic_year_id
+                    && (int)$request->student_id === (int)$source->student_id
+                    && (int)$target->student_id === (int)$source->student_id
+                    && (int)$target->academic_year_id === $yearId
+                    && (int)$target->campus_id === (int)$request->campus_id
+                    && (int)$target->grade_id === (int)$request->target_grade_id
+                    && (int)$target->class_id === (int)$request->target_class_id
+                    && (string)$target->session_id === (string)$request->target_session_id;
+            })->keyBy('enrollment_id');
+    }
+
+    public function gradeSkippingSummary(StudentSkippingGrade $request): array
+    {
+        $target=$request->targetEnrollment;
+        return [
+            'enrollment_id'=>$request->enrollment_id,
+            'student_id'=>$request->student_snapshot['student_id']??'',
+            'student_name'=>$request->student_snapshot['name_en']??'',
+            'reference_number'=>$request->reference_number,
+            'target_enrollment_id'=>$target->id,
+            'academic_year'=>$target->academicYear->academic_year,
+            'grade'=>$target->grade->grade_short_name ?: $target->grade->grade,
+            'class'=>$target->schoolClass->class_name,
+        ];
+    }
+
+    private function promoteBatch(array $data, bool $selected): array
+    {
+        return DB::transaction(function () use ($data,$selected) {
+            $field=$selected?'enrollment_ids':'from_class_id';
+            $sources=StudentEnrollment::where('campus_id',$data['from_campus_id'])
+                ->where('academic_year_id',$data['from_academic_year_id'])
+                ->where('grade_id',$data['from_grade_id'])->where('class_id',$data['from_class_id'])
+                ->when($selected,fn($query)=>$query->whereIn('id',$data['enrollment_ids']))
+                ->orderBy('id')->lockForUpdate()->get();
+            $alreadyPromoted=EnrollmentWorkflowAction::whereIn('student_id',$sources->pluck('student_id'))
+                ->where('from_campus_id',$data['from_campus_id'])->where('from_academic_year_id',$data['from_academic_year_id'])
+                ->where('from_grade_id',$data['from_grade_id'])->where('from_class_id',$data['from_class_id'])
+                ->where('to_academic_year_id',$data['to_academic_year_id'])->whereIn('action_type',self::PROMOTION_ACTIONS)
+                ->where('status','!=','cancelled')->exists();
+            if ($alreadyPromoted) throw ValidationException::withMessages([$field=>'Students in this class have already been promoted to the selected academic year.']);
+            $sources=$sources->filter(fn($source)=>$source->status && $source->enrollment_status==='active')->values();
+            if ($selected && $sources->count()!==count(array_unique($data['enrollment_ids']))) {
+                throw ValidationException::withMessages([$field=>'One or more selected students are not active in the selected class.']);
+            }
+            if ($sources->isEmpty()) throw ValidationException::withMessages([$field=>'No active students were found in the selected class.']);
+            $skipping=$this->approvedGradeSkippingTargets($sources,(int)$data['to_academic_year_id']);
+            $eligible=$sources->reject(fn($source)=>$skipping->has($source->id));
+            if (StudentEnrollment::whereIn('student_id',$eligible->pluck('student_id'))->where('academic_year_id',$data['to_academic_year_id'])->exists()) {
+                throw ValidationException::withMessages([$field=>'A student already has an enrollment in the target academic year without a matching approved grade-skipping placement. Review the existing enrollment before promoting.']);
+            }
+            foreach ($eligible as $source) {
+                $this->promote($source,[
+                    'to_campus_id'=>$data['to_campus_id']??$data['from_campus_id'],
+                    'to_academic_year_id'=>$data['to_academic_year_id'],'to_grade_id'=>$data['to_grade_id'],
+                    'to_class_id'=>$data['to_class_id'],'to_session_id'=>$data['to_session_id']??null,
+                    'effective_on'=>$data['effective_on'],'reason'=>$data['reason']??($selected?'Selected student promotion':'Class promotion'),
+                    'notes'=>$data['notes']??null,'action_type'=>$selected?'selected_promotion':'class_promotion',
                 ]);
             }
-
-            $enrollments = $sourceEnrollments->where('enrollment_status', 'active')->values();
-
-            if ($enrollments->count() !== count(array_unique($data['enrollment_ids']))) {
-                throw ValidationException::withMessages(['enrollment_ids' => 'One or more selected students are not active in the selected class.']);
-            }
-
-            $alreadyPromoted = StudentEnrollment::whereIn('student_id', $enrollments->pluck('student_id'))
-                ->where('academic_year_id', $data['to_academic_year_id'])
-                ->exists();
-            if ($alreadyPromoted) {
-                throw ValidationException::withMessages([
-                    'enrollment_ids' => 'One or more selected students have already been promoted to the selected academic year.',
-                ]);
-            }
-
-            foreach ($enrollments as $enrollment) {
-                $this->promote($enrollment, [
-                    'to_campus_id' => $data['to_campus_id'] ?? $data['from_campus_id'],
-                    'to_academic_year_id' => $data['to_academic_year_id'],
-                    'to_grade_id' => $data['to_grade_id'],
-                    'to_class_id' => $data['to_class_id'],
-                    'to_session_id' => $data['to_session_id'] ?? null,
-                    'effective_on' => $data['effective_on'],
-                    'reason' => $data['reason'] ?? 'Selected student promotion',
-                    'notes' => $data['notes'] ?? null,
-                    'action_type' => 'selected_promotion',
-                ]);
-            }
-
-            return $enrollments->count();
+            return ['count'=>$eligible->count(),'skipped_count'=>$skipping->count(),
+                'skipped_students'=>$skipping->values()->map(fn($request)=>$this->gradeSkippingSummary($request))->all()];
         });
     }
 
@@ -197,6 +171,9 @@ class EnrollmentWorkflowService
     public function promote(StudentEnrollment $source, array $data): StudentEnrollment
     {
         return DB::transaction(function () use ($source, $data) {
+            $source=StudentEnrollment::lockForUpdate()->findOrFail($source->id);
+            $skipping=$this->approvedGradeSkippingTargets(collect([$source]),(int)$data['to_academic_year_id'])->first();
+            if ($skipping) return $skipping->targetEnrollment->setAttribute('promotion_skipped',true);
             $cancelledPromotion = EnrollmentWorkflowAction::query()
                 ->where('source_enrollment_id', $source->id)
                 ->where('to_academic_year_id', $data['to_academic_year_id'])

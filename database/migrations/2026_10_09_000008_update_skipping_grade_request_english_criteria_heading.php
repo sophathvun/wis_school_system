@@ -1,0 +1,30 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Support\Facades\DB;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        $this->replaceHeading('Criteria for Students Applying for Grade Skipping', 'Critaria');
+    }
+
+    public function down(): void
+    {
+        $this->replaceHeading('Critaria', 'Criteria for Students Applying for Grade Skipping');
+    }
+
+    private function replaceHeading(string $from, string $to): void
+    {
+        foreach (DB::table('tb_skipping_grade_settings')->whereNotNull('request_template')->get(['id','request_template']) as $setting) {
+            $template=json_decode($setting->request_template,true,512,JSON_THROW_ON_ERROR);
+            $text=$template['criteria-heading-en']['text']??null;
+            if (!is_string($text) || trim($text)!==$from) continue;
+            $template['criteria-heading-en']['text']=$to;
+            DB::table('tb_skipping_grade_settings')->where('id',$setting->id)->update([
+                'request_template'=>json_encode($template,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),'updated_at'=>now(),
+            ]);
+        }
+    }
+};

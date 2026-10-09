@@ -150,6 +150,27 @@ if (root) {
                 return row;
             }));
         } else if (type !== 'image') node.textContent = isText(node) ? resolve(text) : '';
+        if (key === 'criterion-documents-kh') {
+            const example = 'ឧ. សិស្សត្រូវរៀនចប់ថ្នាក់ទី៣ មុនចូលថ្នាក់ទី៤';
+            const walker = node.ownerDocument.createTreeWalker(node, 4);
+            const textNodes = [];
+            while (walker.nextNode()) textNodes.push(walker.currentNode);
+            textNodes.forEach((textNode) => {
+                const parts = textNode.textContent.split(example);
+                if (parts.length === 1) return;
+                const fragment = node.ownerDocument.createDocumentFragment();
+                parts.forEach((part, index) => {
+                    if (index > 0) {
+                        const label = node.ownerDocument.createElement('span');
+                        label.className = 'request-criterion-example';
+                        label.textContent = example;
+                        fragment.append(label);
+                    }
+                    fragment.append(node.ownerDocument.createTextNode(part));
+                });
+                textNode.replaceWith(fragment);
+            });
+        }
         if (['committee-heading', 'decision-heading'].includes(key)) {
             const walker = node.ownerDocument.createTreeWalker(node, 4);
             const textNodes = [];

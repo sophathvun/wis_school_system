@@ -126,6 +126,7 @@ class EnrollmentWorkflowController
             'grade_id' => ['nullable', 'exists:tb_grade,id'],
             'class_id' => ['nullable', 'exists:tb_class,id'],
             'target_academic_year_id' => ['nullable', 'exists:tb_academic_year,id'],
+            'include_existing' => ['nullable', 'boolean'],
             'search' => ['nullable', 'string', 'max:100'],
             'limit' => ['nullable', 'integer', 'min:1', 'max:5000'],
         ]);
@@ -154,7 +155,7 @@ class EnrollmentWorkflowController
             ->when(!empty($data['campus_id']), fn ($query) => $query->where('campus_id', $data['campus_id']))
             ->when(!empty($data['grade_id']), fn ($query) => $query->where('grade_id', $data['grade_id']))
             ->when(!empty($data['class_id']), fn ($query) => $query->where('class_id', $data['class_id']))
-            ->when(!empty($data['target_academic_year_id']), fn ($query) => $query->whereNotIn(
+            ->when(!empty($data['target_academic_year_id']) && empty($data['include_existing']), fn ($query) => $query->whereNotIn(
                 'student_id',
                 StudentEnrollment::select('student_id')
                     ->where('academic_year_id', $data['target_academic_year_id'])
@@ -173,6 +174,18 @@ class EnrollmentWorkflowController
             ->limit($data['limit'] ?? 50)
             ->get();
 
+        if (!empty($data['include_existing']) && !empty($data['target_academic_year_id'])) {
+            $yearId=(int)$data['target_academic_year_id'];
+            $skipping=$this->service->approvedGradeSkippingTargets($enrollments,$yearId);
+            $existing=StudentEnrollment::whereIn('student_id',$enrollments->pluck('student_id'))
+                ->where('academic_year_id',$yearId)->get()->keyBy('student_id');
+            foreach ($enrollments as $enrollment) {
+                $request=$skipping->get($enrollment->id);
+                $enrollment->setAttribute('promotion_preview',$request
+                    ? ['status'=>'grade_skipping']+$this->service->gradeSkippingSummary($request)
+                    : ['status'=>$existing->has($enrollment->student_id)?'review':'eligible']);
+            }
+        }
         return response()->json($enrollments);
     }
 
@@ -240,7 +253,10 @@ class EnrollmentWorkflowController
         $data = $this->validated($request, true);
         $source = StudentEnrollment::findOrFail($data['enrollment_id']);
         $target = $this->service->promote($source, $data);
-        return response()->json(['status' => 'success', 'message' => 'Student promoted successfully.', 'data' => $target]);
+        $skipped=(bool)$target->getAttribute('promotion_skipped');
+        return response()->json(['status' => 'success', 'message' => $skipped
+            ? 'Student already enrolled through approved grade skipping. The approved placement was kept.'
+            : 'Student promoted successfully.', 'data' => $target,'count'=>$skipped?0:1,'skipped_count'=>$skipped?1:0]);
     }
 
     public function cancelPromotion(Request $request, EnrollmentWorkflowAction $workflow)
@@ -305,23 +321,7 @@ class EnrollmentWorkflowController
             'notes' => ['nullable', 'string', 'max:5000'],
         ]);
 
-        $sourceStudentIds = StudentEnrollment::where('campus_id', $data['from_campus_id'])
-            ->where('academic_year_id', $data['from_academic_year_id'])
-            ->where('grade_id', $data['from_grade_id'])
-            ->where('class_id', $data['from_class_id'])
-            ->pluck('student_id');
-
-        if ($sourceStudentIds->isNotEmpty() && StudentEnrollment::whereIn('student_id', $sourceStudentIds)
-            ->where('academic_year_id', $data['to_academic_year_id'])
-            ->exists()) {
-            return response()->json([
-                'status' => 'warning',
-                'message' => 'Students in this class have already been promoted to the selected academic year.',
-            ], 422);
-        }
-
-        $count = $this->service->promoteClass($data);
-        return response()->json(['status' => 'success', 'message' => "{$count} students promoted successfully.", 'count' => $count]);
+        return $this->promotionResponse($this->service->promoteClass($data));
     }
 
     public function promoteSelected(Request $request)
@@ -342,8 +342,16 @@ class EnrollmentWorkflowController
             'reason' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string', 'max:5000'],
         ]);
-        $count = $this->service->promoteSelected($data);
-        return response()->json(['status' => 'success', 'message' => "{$count} selected students promoted successfully.", 'count' => $count]);
+        return $this->promotionResponse($this->service->promoteSelected($data));
+    }
+
+    private function promotionResponse(array $result)
+    {
+        $message=$result['count'].($result['count']===1?' student promoted.':' students promoted.');
+        if ($result['skipped_count']) $message.=' '.$result['skipped_count']
+            .($result['skipped_count']===1?' student already enrolled':' students already enrolled')
+            .' through approved grade skipping. Approved placements were kept.';
+        return response()->json(['status'=>'success','message'=>$message]+$result);
     }
 
     public function transferClass(Request $request)
