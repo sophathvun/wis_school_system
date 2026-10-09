@@ -1,0 +1,6 @@
+.chat-draft-row { align-items: flex-end; }
+.chat-draft-row > textarea.form-control {
+    box-sizing: border-box;
+    resize: none;
+    overflow-y: hidden;
+}

@@ -118,6 +118,12 @@ In the Messages widget and full chat page, paste a copied image, screenshot, or 
 
 In both chat views, Enter sends the current message and Shift+Enter adds a new line. Enter used to confirm an input-method composition does not send the draft, and holding Enter does not repeatedly submit it.
 
+The composer grows automatically for multiline drafts and wrapped text, keeping the latest message visible when the reader is at the bottom. Long drafts scroll inside the input after reaching a limit of 240 px or 40% of the available message/composer area. Sending the draft returns the input to one line; reading older messages preserves the current scroll position.
+
+Opening a conversation in the Messages widget hides the Messages heading, tabs, search, and New Group Chat controls. The conversation photo/name and back button stay at the top; Back restores the chat/people list and its controls. On phones the message area fills the remaining screen height. Both chat views show a bottom-right down-arrow while reading older messages; clicking it returns to the latest message.
+
+Group headers show the group name without a member subtitle. In both chat views, Group options > Group Members lists every participant, including the current user, with their photo, Owner/Admin/Member role, and online/offline status. All group members can view the roster; group-management actions remain restricted to authorized managers.
+
 ## Contributing
 
 Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).

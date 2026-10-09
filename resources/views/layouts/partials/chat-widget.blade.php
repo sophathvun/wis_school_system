@@ -23,7 +23,7 @@
         </button>
 
         <div id="school-chat-drawer" class="school-chat-drawer d-none">
-            <div class="card-header py-3 px-4">
+            <div class="card-header py-3 px-4 chat-widget-list-chrome">
                 <div class="d-flex align-items-center gap-3 w-100">
                     <div class="avatar avatar-md bg-primary-lt text-primary">
                         <i class="ti ti-messages fs-4"></i>
@@ -42,7 +42,7 @@
                 </div>
             </div>
 
-            <ul class="nav nav-tabs px-3 pt-2">
+            <ul class="nav nav-tabs px-3 pt-2 chat-widget-list-chrome">
                 <li class="nav-item">
                     <button type="button" class="nav-link active" data-school-chat-tab="conversations">Chats</button>
                 </li>
@@ -51,7 +51,7 @@
                 </li>
             </ul>
 
-            <div class="p-3 border-bottom">
+            <div class="p-3 border-bottom chat-widget-list-chrome">
                 <div class="input-icon">
                     <span class="input-icon-addon"><i class="ti ti-search"></i></span>
                     <input type="search" id="school-chat-search" class="form-control"
@@ -62,16 +62,17 @@
                 </button>
             </div>
 
-            <div class="flex-fill d-flex flex-column overflow-hidden">
+            <div class="flex-fill d-flex flex-column overflow-hidden chat-widget-workspace">
                 <div id="school-chat-conversations-pane" class="chat-mini-list d-flex flex-column"></div>
 
                 <div id="school-chat-people-pane" class="chat-mini-list d-none flex-column"></div>
 
-                <div id="school-chat-conversation-pane" class="d-none flex-column h-100">
-                    <div class="border-bottom p-3 d-flex align-items-center gap-3">
-                        <button type="button" id="school-chat-back" class="btn btn-outline-secondary btn-sm">
+                <div id="school-chat-conversation-pane" class="d-none flex-column">
+                    <div class="border-bottom p-3 d-flex align-items-center gap-2 chat-mini-conversation-header">
+                        <button type="button" id="school-chat-back" class="btn btn-outline-secondary btn-sm" aria-label="Back to chats">
                             <i class="ti ti-arrow-left"></i>
                         </button>
+                        <div id="school-chat-conversation-photo" class="avatar avatar-sm chat-mini-avatar bg-primary-lt text-primary"></div>
                         <div class="flex-fill min-w-0">
                             <div class="d-flex align-items-center gap-2 min-w-0">
                                 <div class="fw-semibold text-truncate flex-fill" id="school-chat-conversation-title">Conversation
@@ -102,9 +103,17 @@
                             title="Start voice call">
                             <i class="ti ti-phone"></i>
                         </button>
+                        <button type="button" id="school-chat-conversation-minimize" class="btn btn-outline-secondary btn-sm" aria-label="Minimize chat">
+                            <i class="ti ti-minus"></i>
+                        </button>
                     </div>
 
-                    <div id="school-chat-messages" class="chat-mini-messages p-3"></div>
+                    <div class="chat-message-scroll-area">
+                        <div id="school-chat-messages" class="chat-mini-messages p-3"></div>
+                        <button type="button" id="school-chat-scroll-latest" class="chat-scroll-latest" aria-label="Back to latest message" title="Back to latest message" hidden>
+                            <i class="ti ti-arrow-down"></i>
+                        </button>
+                    </div>
 
                     <form id="school-chat-form" class="border-top p-3 position-relative">
                         <div id="school-chat-attachment-preview" class="chat-mini-attachment-preview d-none"></div>
@@ -112,7 +121,7 @@
                             <div class="small fw-semibold text-secondary mb-2">Emoji</div>
                             <div class="chat-mini-emoji-grid" id="school-chat-emoji-grid"></div>
                         </div>
-                        <div class="input-group">
+                        <div class="input-group chat-draft-row">
                             <div class="chat-composer-actions">
                                 <button type="button" id="school-chat-more-actions"
                                     class="btn btn-outline-secondary" title="More chat options"

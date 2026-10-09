@@ -1,6 +1,9 @@
 import { renderMessageReactions, createMessageReactionController } from './helpers/chatReactions.js';
 import { renderReplyQuote, createMessageReplyController } from './helpers/chatReplies.js';
 import { bindChatComposerKeyboard } from './helpers/chatComposerKeyboard.js';
+import { bindChatScrollToLatest } from './helpers/chatScrollToLatest.js';
+import { bindChatComposerResize } from './helpers/chatComposerResize.js';
+import { renderGroupActions, showGroupMembers } from './helpers/chatGroupMembers.js';
 import { bindChatAttachmentPaste, prepareChatAttachment } from './helpers/chatAttachmentPaste.js';
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -303,6 +306,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const scrollMessagesToLatest = () => {
         const scroll = () => {
             chatMessages.scrollTop = chatMessages.scrollHeight;
+            latestScroll.refresh();
         };
         scroll();
         requestAnimationFrame(scroll);
@@ -310,6 +314,8 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     const isMessagesNearBottom = () => chatMessages.scrollHeight - chatMessages.scrollTop - chatMessages.clientHeight < 80;
+    const latestScroll = bindChatScrollToLatest(chatMessages, document.getElementById('chat-scroll-latest'), scrollMessagesToLatest);
+    const composerResize = bindChatComposerResize(messageInput, messageForm, chatMessages);
 
     const readReceipts = (message) => {
         if (message.user_id !== currentUserId) return "";
@@ -385,13 +391,15 @@ document.addEventListener("DOMContentLoaded", () => {
         const previousScrollTop = chatMessages.scrollTop;
         const previousScrollHeight = chatMessages.scrollHeight;
         document.getElementById("chat-title").textContent = activeConversation.title || "Conversation";
-        document.getElementById("chat-members").textContent = (activeConversation.users || [])
+        document.getElementById('chat-conversation-photo').innerHTML = activeConversation.photo ? `<img src="${esc(activeConversation.photo)}" alt="${esc(activeConversation.title || 'Conversation')}" class="chat-photo">` : `<i class="ti ti-${activeConversation.type === 'group' ? 'users' : 'user'}"></i>`;
+        const membersLabel = document.getElementById('chat-members');
+        membersLabel.classList.toggle('d-none', activeConversation.type === 'group');
+        membersLabel.textContent = activeConversation.type === 'group' ? '' : (activeConversation.users || [])
             .filter((user) => user.id !== currentUserId)
             .map((user) => `${user.name} - ${user.online ? "Online" : "Offline"}`)
             .join(", ");
-        const canManageGroup = activeConversation.type === "group" && Boolean(activeConversation.can_manage_group);
         groupControls.classList.add("d-none");
-        groupMenuButton.classList.toggle("d-none", !canManageGroup);
+        groupMenuButton.classList.toggle("d-none", activeConversation.type !== 'group');
         groupAdminsButton.classList.toggle("d-none", !activeConversation.can_assign_group_admins);
         chatMessages.innerHTML = (activeConversation.messages || []).map((message) => `
             <div class="chat-row ${message.user_id === currentUserId ? "mine" : ""}">
@@ -428,6 +436,8 @@ document.addEventListener("DOMContentLoaded", () => {
         } else {
             chatMessages.scrollTop = previousScrollTop + (chatMessages.scrollHeight - previousScrollHeight);
         }
+        latestScroll.refresh();
+        composerResize.refresh();
     };
 
     const reactionController = createMessageReactionController(chatMessages, {
@@ -548,25 +558,15 @@ document.addEventListener("DOMContentLoaded", () => {
         await showChatSuccess("Group renamed", "The group name has been updated.");
     };
     const showGroupActions = async () => {
-        if (!activeId || activeConversation?.type !== "group" || !activeConversation.can_manage_group) return;
+        if (!activeId || activeConversation?.type !== "group") return;
         if (!window.Swal) {
-            await renameActiveGroup();
+            await showGroupMembers(activeConversation);
             return;
         }
-        const adminButton = activeConversation.can_assign_group_admins
-            ? '<button type="button" class="school-chat-group-action" data-group-action="admins"><i class="ti ti-shield-star"></i><span>Admin</span></button>'
-            : "";
         let selectedGroupAction = null;
         await window.Swal.fire({
             title: "Group options",
-            html: `
-                <div class="school-chat-group-action-grid">
-                    <button type="button" class="school-chat-group-action" data-group-action="rename"><i class="ti ti-edit"></i><span>Rename</span></button>
-                    <button type="button" class="school-chat-group-action" data-group-action="members"><i class="ti ti-user-plus"></i><span>Add Member</span></button>
-                    <button type="button" class="school-chat-group-action" data-group-action="photo"><i class="ti ti-photo"></i><span>Photo</span></button>
-                    ${adminButton}
-                </div>
-            `,
+            html: renderGroupActions(activeConversation),
             showConfirmButton: false,
             showCloseButton: true,
             customClass: { popup: 'school-chat-group-actions-swal' },
@@ -580,6 +580,7 @@ document.addEventListener("DOMContentLoaded", () => {
             },
         });
         const action = selectedGroupAction;
+        if (action === 'view-members') await showGroupMembers(activeConversation);
         if (action === "rename") await renameActiveGroup();
         if (action === "members") await openAddMembersModal();
         if (action === "photo") groupPhotoFile.click();
@@ -725,6 +726,7 @@ document.addEventListener("DOMContentLoaded", () => {
         messageInput.value = `${messageInput.value.slice(0, start)}${button.dataset.emoji}${messageInput.value.slice(end)}`;
         messageInput.focus();
         messageInput.selectionStart = messageInput.selectionEnd = start + button.dataset.emoji.length;
+        composerResize.refresh();
     }));
 
     newChatButton.addEventListener("click", () => openNewChatModal().catch((error) => showChatAlert("Unable to open chat form", error.message || "Please try again.", "error")));
@@ -791,7 +793,10 @@ document.addEventListener("DOMContentLoaded", () => {
             await postForm(`${routes.messagesBase}/${conversationId}/messages`, formData);
             replyController.sent(replyToken);
             if (activeId === conversationId) {
-                if (messageInput.value === draftText) messageInput.value = "";
+                if (messageInput.value === draftText) {
+                    messageInput.value = "";
+                    composerResize.refresh();
+                }
                 if (selectedAttachment === attachment) clearAttachment();
                 emojiPicker.classList.add("d-none");
                 await openChat(conversationId);

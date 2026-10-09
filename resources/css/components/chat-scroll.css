@@ -1,0 +1,31 @@
+.chat-message-scroll-area {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.chat-scroll-latest {
+    position: absolute;
+    right: 0.8rem;
+    bottom: 0.8rem;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    border: 1px solid var(--tblr-border-color);
+    border-radius: 999px;
+    background: var(--tblr-bg-surface);
+    color: var(--tblr-primary);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+    font-size: 1.4rem;
+    cursor: pointer;
+}
+
+.chat-scroll-latest:hover { background: var(--tblr-bg-surface-secondary); }
+.chat-scroll-latest:focus-visible { outline: 2px solid var(--tblr-primary); outline-offset: 2px; }
+.chat-scroll-latest[hidden] { display: none; }

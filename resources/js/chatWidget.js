@@ -1,6 +1,9 @@
 import { renderMessageReactions, createMessageReactionController } from './helpers/chatReactions.js';
 import { renderReplyQuote, createMessageReplyController } from './helpers/chatReplies.js';
 import { bindChatComposerKeyboard } from './helpers/chatComposerKeyboard.js';
+import { bindChatScrollToLatest } from './helpers/chatScrollToLatest.js';
+import { bindChatComposerResize } from './helpers/chatComposerResize.js';
+import { renderGroupActions, showGroupMembers } from './helpers/chatGroupMembers.js';
 import { bindChatAttachmentPaste, prepareChatAttachment } from './helpers/chatAttachmentPaste.js';
 
             document.addEventListener('DOMContentLoaded', () => {
@@ -31,6 +34,8 @@ import { bindChatAttachmentPaste, prepareChatAttachment } from './helpers/chatAt
                 const conversationPane = document.getElementById('school-chat-conversation-pane');
                 const backButton = document.getElementById('school-chat-back');
                 const conversationTitle = document.getElementById('school-chat-conversation-title');
+                const conversationPhoto = document.getElementById('school-chat-conversation-photo');
+                const conversationMinimize = document.getElementById('school-chat-conversation-minimize');
                 const conversationMembers = document.getElementById('school-chat-conversation-members');
                 const groupControls = document.getElementById('school-chat-group-controls');
                 const groupMenuButton = document.getElementById('school-chat-group-menu');
@@ -259,6 +264,7 @@ import { bindChatAttachmentPaste, prepareChatAttachment } from './helpers/chatAt
 
                 const setTab = (tab) => {
                     activeTab = tab;
+                    drawer.classList.toggle('conversation-open', Boolean(activeConversationId) && !groupMode && !groupAddMode && !groupAdminMode);
                     tabButtons.forEach((button) => button.classList.toggle('active', button.dataset
                         .schoolChatTab === tab));
                     conversationsPane.classList.toggle('d-none', tab !== 'conversations' || !!activeConversationId);
@@ -519,6 +525,7 @@ import { bindChatAttachmentPaste, prepareChatAttachment } from './helpers/chatAt
                 const scrollMessagesToLatest = () => {
                     const scroll = () => {
                         messagesBox.scrollTop = messagesBox.scrollHeight;
+                        latestScroll.refresh();
                     };
                     scroll();
                     requestAnimationFrame(scroll);
@@ -526,6 +533,8 @@ import { bindChatAttachmentPaste, prepareChatAttachment } from './helpers/chatAt
                 };
 
                 const isMessagesNearBottom = () => messagesBox.scrollHeight - messagesBox.scrollTop - messagesBox.clientHeight < 80;
+                const latestScroll = bindChatScrollToLatest(messagesBox, document.getElementById('school-chat-scroll-latest'), scrollMessagesToLatest);
+                const composerResize = bindChatComposerResize(input, form, messagesBox);
 
                 const renderConversationView = (options = {}) => {
                     const shouldScrollToLatest = options.scrollToLatest ?? isMessagesNearBottom();
@@ -533,14 +542,15 @@ import { bindChatAttachmentPaste, prepareChatAttachment } from './helpers/chatAt
                     const previousScrollHeight = messagesBox.scrollHeight;
                     if (!activeConversation) return;
                     conversationTitle.textContent = activeConversation.title || 'Conversation';
-                    conversationMembers.textContent = (activeConversation.users || [])
+                    conversationPhoto.innerHTML = `<span class="chat-mini-photo-wrap w-100 h-100">${activeConversation.photo ? `<img src="${esc(activeConversation.photo)}" alt="${esc(activeConversation.title || 'Conversation')}" class="chat-mini-photo">` : `<i class="ti ti-${activeConversation.type === 'group' ? 'users' : 'user'}"></i>`}${activeConversation.type === 'direct' ? `<span class="chat-mini-presence-dot ${activeConversation.online ? 'online' : ''}" title="${activeConversation.online ? 'Online' : 'Offline'}"></span>` : ''}</span>`;
+                    conversationMembers.classList.toggle('d-none', activeConversation.type === 'group');
+                    conversationMembers.textContent = activeConversation.type === 'group' ? '' : (activeConversation.users || [])
                         .filter((user) => user.id !== currentUserId)
                         .map((user) => `${user.name} \u2022 ${user.online ? 'Online' : 'Offline'}`)
                         .join(', ');
                     callStartButton.classList.toggle('d-none', activeConversation.type !== 'direct');
-                    const canManageGroup = activeConversation.type === 'group' && Boolean(activeConversation.can_manage_group);
                     groupControls?.classList.add('d-none');
-                    groupMenuButton?.classList.toggle('d-none', !canManageGroup);
+                    groupMenuButton?.classList.toggle('d-none', activeConversation.type !== 'group');
                     groupAdminsButton?.classList.toggle('d-none', !activeConversation.can_assign_group_admins);
                     const avatar = (user, className = 'chat-mini-message-avatar') => {
                         const statusDot = user?.online !== undefined ?
@@ -656,6 +666,8 @@ import { bindChatAttachmentPaste, prepareChatAttachment } from './helpers/chatAt
                     } else {
                         messagesBox.scrollTop = previousScrollTop + (messagesBox.scrollHeight - previousScrollHeight);
                     }
+                    latestScroll.refresh();
+                    composerResize.refresh();
                 };
 
                 const reactionController = createMessageReactionController(messagesBox, {
@@ -771,25 +783,15 @@ import { bindChatAttachmentPaste, prepareChatAttachment } from './helpers/chatAt
                 };
 
                 const showGroupActions = async () => {
-                    if (!activeConversationId || activeConversation?.type !== 'group' || !activeConversation.can_manage_group) return;
+                    if (!activeConversationId || activeConversation?.type !== 'group') return;
                     if (!window.Swal) {
-                        await renameActiveGroup();
+                        await showGroupMembers(activeConversation);
                         return;
                     }
-                    const adminButton = activeConversation.can_assign_group_admins
-                        ? '<button type="button" class="school-chat-group-action" data-group-action="admins"><i class="ti ti-shield-star"></i><span>Admin</span></button>'
-                        : '';
                     let selectedGroupAction = null;
                     await window.Swal.fire({
                         title: 'Group options',
-                        html: `
-                            <div class="school-chat-group-action-grid">
-                                <button type="button" class="school-chat-group-action" data-group-action="rename"><i class="ti ti-edit"></i><span>Rename</span></button>
-                                <button type="button" class="school-chat-group-action" data-group-action="members"><i class="ti ti-user-plus"></i><span>Add Member</span></button>
-                                <button type="button" class="school-chat-group-action" data-group-action="photo"><i class="ti ti-photo"></i><span>Photo</span></button>
-                                ${adminButton}
-                            </div>
-                        `,
+                        html: renderGroupActions(activeConversation),
                         showConfirmButton: false,
                         showCloseButton: true,
                         customClass: { popup: 'school-chat-group-actions-swal' },
@@ -803,6 +805,7 @@ import { bindChatAttachmentPaste, prepareChatAttachment } from './helpers/chatAt
                         },
                     });
                     const action = selectedGroupAction;
+                    if (action === 'view-members') await showGroupMembers(activeConversation);
                     if (action === 'rename') await renameActiveGroup();
                     if (action === 'members') showAddMembersPanel();
                     if (action === 'photo') groupPhotoFile?.click();
@@ -1356,6 +1359,7 @@ import { bindChatAttachmentPaste, prepareChatAttachment } from './helpers/chatAt
                 });
 
                 minimize.addEventListener('click', closeDrawer);
+                conversationMinimize.addEventListener('click', closeDrawer);
 
                 backButton.addEventListener('click', () => {
                     replyController.clear();
@@ -1481,6 +1485,7 @@ import { bindChatAttachmentPaste, prepareChatAttachment } from './helpers/chatAt
                         `${input.value.slice(0, start)}${button.dataset.emoji}${input.value.slice(end)}`;
                     input.focus();
                     input.selectionStart = input.selectionEnd = start + button.dataset.emoji.length;
+                    composerResize.refresh();
                 }));
                 moreActionsButton.addEventListener('click', () => {
                     const isHidden = actionsMenu.classList.toggle('d-none');
@@ -1515,7 +1520,10 @@ import { bindChatAttachmentPaste, prepareChatAttachment } from './helpers/chatAt
                         await postForm(`${routes.messagesBase}/${conversationId}/messages`, formData);
                         replyController.sent(replyToken);
                         if (activeConversationId === conversationId) {
-                            if (input.value === draftText) input.value = '';
+                            if (input.value === draftText) {
+                                input.value = '';
+                                composerResize.refresh();
+                            }
                             if (selectedAttachment === attachment) clearAttachment();
                             emojiPicker.classList.add('d-none');
                             await openConversation(conversationId);

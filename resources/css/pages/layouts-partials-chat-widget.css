@@ -1,5 +1,8 @@
 @import "../components/chat-reactions.css";
 @import "../components/chat-replies.css";
+@import "../components/chat-scroll.css";
+@import "../components/chat-composer.css";
+@import "../components/chat-group-members.css";
 /* Extracted from resources/views/layouts/partials/chat-widget.blade.php. Keep page-specific styles in this file. */
 
 @media (max-width: 767px) {
@@ -56,6 +59,12 @@
 .school-chat-drawer.d-none {
     display: none !important;
 }
+
+.school-chat-drawer.conversation-open > .chat-widget-list-chrome { display: none !important; }
+.chat-widget-workspace { min-height: 0; }
+.chat-mini-conversation-header,
+#school-chat-form { flex-shrink: 0; }
+.chat-mini-conversation-header { padding-top: max(1rem, env(safe-area-inset-top)) !important; }
 
 .school-chat-drawer .nav-tabs .nav-link {
     border: 0;

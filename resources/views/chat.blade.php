@@ -63,6 +63,7 @@
                         <button type="button" class="btn btn-outline-secondary btn-sm d-md-none" id="chat-back">
                             <i class="ti ti-arrow-left"></i>
                         </button>
+                        <div id="chat-conversation-photo" class="avatar avatar-sm bg-primary-lt text-primary"></div>
                         <div class="flex-fill min-w-0">
                             <div class="d-flex align-items-center gap-2 min-w-0">
                                 <h3 class="card-title mb-0 text-truncate flex-fill" id="chat-title">Conversation</h3>
@@ -89,14 +90,19 @@
                             </div>
                         </div>
                     </div>
-                    <div class="chat-messages" id="chat-messages"></div>
+                    <div class="chat-message-scroll-area">
+                        <div class="chat-messages" id="chat-messages"></div>
+                        <button type="button" id="chat-scroll-latest" class="chat-scroll-latest" aria-label="Back to latest message" title="Back to latest message" hidden>
+                            <i class="ti ti-arrow-down"></i>
+                        </button>
+                    </div>
                     <form class="border-top p-3 position-relative" id="message-form">
                         <div id="chat-attachment-preview" class="chat-attachment-preview d-none"></div>
                         <div id="chat-emoji-picker" class="chat-emoji-picker d-none">
                             <div class="small fw-semibold text-secondary mb-2">Emoji</div>
                             <div class="chat-emoji-grid" id="chat-emoji-grid"></div>
                         </div>
-                        <div class="input-group">
+                        <div class="input-group chat-draft-row">
                             <div class="chat-composer-actions">
                                 <button type="button" id="chat-more-actions" class="btn btn-outline-secondary"
                                     title="More chat options" aria-label="More chat options" aria-expanded="false">
