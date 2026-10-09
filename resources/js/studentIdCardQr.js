@@ -35,7 +35,7 @@ document.addEventListener("DOMContentLoaded", () => {
         menu.innerHTML = `
             <label class="student-id-searchable-search-wrap">
                 <i class="ti ti-search"></i>
-                <input type="search" class="form-control student-id-searchable-search" placeholder="Search">
+                <input type="search" class="form-control student-id-searchable-search" placeholder="Search" data-search-normalized="true">
             </label>
             <div class="student-id-searchable-results"></div>
         `;

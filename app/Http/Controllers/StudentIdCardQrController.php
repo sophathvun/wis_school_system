@@ -19,6 +19,30 @@ use Illuminate\Support\Facades\Schema;
 
 class StudentIdCardQrController
 {
+    private function gradeClassLabel(?Grade $grade, ?SchoolClass $schoolClass): string
+    {
+        $gradeCode = rtrim(trim((string) ($grade?->grade_short_name ?: $grade?->grade)), '- ');
+        if (preg_match('/^(?:Grade\s*|G)?(\d+)$/i', $gradeCode, $matches)) {
+            $gradeCode = $matches[1];
+        } elseif (strcasecmp($gradeCode, 'Nursery') === 0) {
+            $gradeCode = 'N';
+        }
+
+        $className = trim((string) ($schoolClass?->class_name ?? ''));
+        if ($gradeCode === '' || $className === '') {
+            return $gradeCode . $className;
+        }
+
+        // Some class records already include the grade prefix.
+        if (preg_match('/^' . preg_quote($gradeCode, '/') . '(?:[-\s]|[A-Z])/i', $className)) {
+            return $className;
+        }
+
+        $separator = preg_match('/^(?:N|K[123])$/i', $gradeCode) ? '-' : '';
+
+        return $gradeCode . $separator . ltrim($className, '- ');
+    }
+
     private function publicQrUrl(string $qr): string
     {
         $baseUrl = rtrim((string) config('services.public_qr_base_url', config('app.url')), '/');
@@ -64,12 +88,7 @@ class StudentIdCardQrController
 
         $grade = $latestEnrollment?->grade;
         $schoolClass = $latestEnrollment?->schoolClass;
-        $gradeText = trim((string) ($grade?->grade_short_name ?: $grade?->grade));
-        $gradeNumber = preg_match('/\d+/', $gradeText, $matches) ? $matches[0] : $gradeText;
-        $className = trim((string) ($schoolClass?->class_name ?? ''));
-        $gradeClassLabel = $className !== '' && $gradeNumber !== '' && str_starts_with($className, $gradeNumber)
-            ? $className
-            : trim($gradeNumber . $className);
+        $gradeClassLabel = $this->gradeClassLabel($grade, $schoolClass);
         $enrollmentStatus = strtolower((string) ($latestEnrollment?->enrollment_status ?? ''));
         $isWithdrawn = $enrollmentStatus === 'withdrawn';
         $isInactive = ! $isWithdrawn && ! $hasActiveAcademicYearEnrollment;
@@ -203,15 +222,12 @@ class StudentIdCardQrController
             ->map(function ($row) use ($grades, $schoolClasses) {
                 $grade = $grades->get($row->grade_id);
                 $schoolClass = $schoolClasses->get($row->class_id);
-                $gradeText = trim((string) ($grade?->grade_short_name ?: $grade?->grade));
-                $gradeNumber = preg_match('/\d+/', $gradeText, $matches) ? $matches[0] : $gradeText;
-                $section = trim((string) ($schoolClass?->class_name ?? ''));
-                $label = $gradeNumber . $section;
+                $label = $this->gradeClassLabel($grade, $schoolClass);
 
                 return (object) [
                     'grade_id' => (int) $row->grade_id,
                     'class_id' => (int) $row->class_id,
-                    'label' => $label !== '' ? $label : $section,
+                    'label' => $label,
                     'grade_order' => (int) ($grade?->grade_order ?? 999),
                     'class_order' => (int) ($schoolClass?->class_order ?? 999),
                 ];
@@ -226,6 +242,7 @@ class StudentIdCardQrController
         return view('student-id-card-qr', [
             'branding' => BrandingSetting::current(),
             'academicYears' => AcademicYear::query()
+                ->regular()
                 ->whereIn('id', StudentEnrollment::query()->whereNotNull('academic_year_id')->select('academic_year_id')->distinct())
                 ->orderByDesc('academic_year')
                 ->get(['id', 'academic_year', 'period_type']),
