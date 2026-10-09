@@ -33,7 +33,7 @@ beforeEach(function () {
     Schema::create('tb_student', function (Blueprint $t) { $t->id(); $t->string('student_id'); $t->string('full_name_en'); $t->string('full_name_kh'); $t->string('gender')->nullable(); $t->string('photo_path')->nullable(); $t->date('date_of_birth')->nullable(); $t->integer('status')->default(1); $t->timestamps(); });
     Schema::create('tb_family_member', function (Blueprint $t) { $t->id(); $t->string('full_name_en'); $t->string('full_name_kh')->nullable(); $t->string('relationship_type'); $t->string('phone')->nullable(); $t->softDeletes(); });
     Schema::create('tb_student_family_member', function (Blueprint $t) { $t->integer('student_id'); $t->integer('family_member_id'); $t->string('relationship_type'); $t->boolean('is_primary_contact')->default(true); $t->timestamps(); });
-    Schema::create('tb_student_enrollment', function (Blueprint $t) { $t->id(); foreach (['student_id','campus_id','academic_year_id','grade_id','class_id'] as $field) $t->integer($field); foreach (['session_id','group_id','academic_track_id'] as $field) $t->integer($field)->nullable(); $t->boolean('status')->default(true); $t->string('student_type')->default('old'); $t->string('enrollment_status')->default('active'); $t->date('enrolled_on')->nullable(); $t->timestamps(); });
+    Schema::create('tb_student_enrollment', function (Blueprint $t) { $t->id(); foreach (['student_id','campus_id','academic_year_id','grade_id','class_id'] as $field) $t->integer($field); foreach (['session_id','group_id','academic_track_id'] as $field) $t->integer($field)->nullable(); $t->boolean('status')->default(true); $t->string('student_type')->default('old'); $t->string('enrollment_status')->default('active'); $t->date('enrolled_on')->nullable(); $t->text('notes')->nullable(); $t->timestamps(); });
     Schema::create('tb_student_enrollment_history', function (Blueprint $t) { $t->id(); foreach (['enrollment_id','source_history_id','student_id','campus_id','academic_year_id','grade_id','class_id','academic_track_id','session_id','changed_by'] as $field) $t->integer($field)->nullable(); $t->string('action_type'); $t->string('enrollment_status'); $t->string('student_type'); $t->date('effective_on'); $t->text('reason'); $t->text('notes')->nullable(); $t->timestamps(); });
     DB::table('users')->insert([['id'=>1,'name'=>'Campus Registrar','active_campus_id'=>1],['id'=>2,'name'=>'Central Office','active_campus_id'=>1]]);
     DB::table('access_roles')->insert([['id'=>1,'code'=>'registrar','name'=>'Registrar'],['id'=>2,'code'=>'super-admin','name'=>'Super Administrator']]);
@@ -49,6 +49,8 @@ beforeEach(function () {
     DB::table('tb_student_enrollment')->insert(['id'=>1,'student_id'=>1,'campus_id'=>1,'academic_year_id'=>1,'grade_id'=>1,'class_id'=>1,'academic_track_id'=>9,'group_id'=>3]);
     foreach (['students.view','students.enrollment.manage'] as $code) DB::table('access_permissions')->insert(['code'=>$code,'name'=>$code,'module'=>'students','action'=>'view']);
     foreach (DB::table('access_permissions')->pluck('id') as $id) DB::table('access_role_permissions')->insert(['role_id'=>1,'permission_id'=>$id]);
+    (require database_path('migrations/2026_08_03_000013_create_enrollment_workflow_actions.php'))->up();
+    (require database_path('migrations/2026_08_26_000001_add_promotion_lifecycle_to_workflows.php'))->up();
     $this->migration=require database_path('migrations/2026_10_07_000003_create_student_skipping_grade_workflow.php');
     $this->migration->up();
     (require database_path('migrations/2026_10_08_000001_add_skipping_grade_form_templates.php'))->up();
@@ -1157,6 +1159,32 @@ it('approves a next-year skip without changing the current-year enrollment and l
     expect(StudentEnrollment::count())->toBe(2);
 })->with([['pending','pending'],['started','active']]);
 
+it('adds the approval number and saved source placement to enrollment and history remarks only on approval', function ($nextYear, $existingNotes, $requestReason) {
+    StudentEnrollment::findOrFail(1)->update(['notes'=>$existingNotes]);
+    $this->data['reason']=$requestReason;
+    if ($nextYear) {
+        DB::table('tb_academic_year')->insert(['id'=>2,'academic_year'=>'2026-2027','lifecycle_status'=>'pending']);
+        DB::table('tb_class')->insert(['id'=>3,'class_name'=>'B','grade_id'=>2,'academic_year_id'=>2]);
+        $this->data=array_replace($this->data,['target_academic_year_id'=>2,'target_class_id'=>3]);
+    }
+    $record=($this->pending)();
+    expect(StudentEnrollment::find(1)->notes)->toBe($existingNotes);
+    // The approved remark must describe the saved source, even if labels are renamed later.
+    DB::table('tb_grade')->where('id',1)->update(['grade_short_name'=>'Renamed']);
+    ($this->configure)();
+    $record=$this->service->approve($this->central,$record,$this->approval);
+    $remark='Skipped from G2A | Approval No: SG2526-001';
+    $expected=!$nextYear && filled($existingNotes) ? $existingNotes."\n".$remark : $remark;
+    expect($record->targetEnrollment->notes)->toBe($expected);
+    $historyNotes=filled($requestReason) ? $requestReason."\n".$remark : $remark;
+    $history=StudentEnrollmentHistory::orderBy('id')->get();
+    expect($history->pluck('notes')->all())->toBe([$historyNotes,$historyNotes]);
+    if ($nextYear) expect(StudentEnrollment::find(1)->notes)->toBe($existingNotes);
+    expect(fn()=>$this->service->approve($this->central,$record,$this->approval))->toThrow(ValidationException::class);
+    expect($record->targetEnrollment->fresh()->notes)->toBe($expected);
+    expect(StudentEnrollmentHistory::count())->toBe(2);
+})->with([[false,null,null],[false,"Existing remark\nSecond line",'Request reason'],[true,null,null],[true,'Source-only remark','Request reason']]);
+
 it('rejects invalid requested years and classes for a different requested year', function ($yearId, $classId, $field) {
     DB::table('tb_academic_year')->insert([
         ['id'=>2,'academic_year'=>'2026-2027','period_type'=>'regular','lifecycle_status'=>'pending'],
@@ -1616,13 +1644,11 @@ it('loads bounded student choices when only a source filter is selected', functi
 describe('promotion with approved grade-skipping placements', function () {
     beforeEach(function () {
         Schema::table('tb_student_enrollment', function (Blueprint $t) {
-            $t->date('ended_on')->nullable(); $t->string('exit_reason')->nullable(); $t->text('notes')->nullable();
+            $t->date('ended_on')->nullable(); $t->string('exit_reason')->nullable();
             $t->unique(['student_id','academic_year_id']);
         });
         Schema::table('tb_student', fn(Blueprint $t)=>$t->string('student_no')->nullable());
         Schema::table('tb_session', fn(Blueprint $t)=>$t->string('session_short_name')->nullable());
-        (require database_path('migrations/2026_08_03_000013_create_enrollment_workflow_actions.php'))->up();
-        (require database_path('migrations/2026_08_26_000001_add_promotion_lifecycle_to_workflows.php'))->up();
         DB::table('tb_grade')->where('id',1)->update(['grade'=>'Grade 3','grade_short_name'=>'G3','grade_order'=>3]);
         DB::table('tb_grade')->where('id',2)->update(['grade'=>'Grade 5','grade_short_name'=>'G5','grade_order'=>5]);
         DB::table('tb_grade')->insert(['id'=>3,'grade'=>'Grade 4','grade_short_name'=>'G4','grade_order'=>4]);
@@ -1635,7 +1661,7 @@ describe('promotion with approved grade-skipping placements', function () {
         $request=$this->service->submit($this->campus,$request,now()->toDateString());
         ($this->configure)();
         $this->skipping=$this->service->approve($this->central,$request,$this->approval);
-        DB::table('tb_student')->insert(['id'=>2,'student_id'=>'2622222','full_name_en'=>'REGULAR STUDENT','full_name_kh'=>'?????']);
+        DB::table('tb_student')->insert(['id'=>2,'student_id'=>'2622222','full_name_en'=>'REGULAR STUDENT','full_name_kh'=>'សិស្ស']);
         $this->regular=StudentEnrollment::create(['student_id'=>2,'campus_id'=>1,'academic_year_id'=>1,'grade_id'=>1,'class_id'=>1,'status'=>true,'enrollment_status'=>'active','student_type'=>'old']);
         $this->promotion=['from_academic_year_id'=>1,'from_campus_id'=>1,'from_grade_id'=>1,'from_class_id'=>1,
             'to_academic_year_id'=>2,'to_campus_id'=>1,'to_grade_id'=>3,'to_class_id'=>4,'to_session_id'=>null,
@@ -1728,5 +1754,181 @@ describe('promotion with approved grade-skipping placements', function () {
         expect(StudentEnrollment::find(1)->enrollment_status)->toBe('completed')
             ->and($this->skipping->fresh()->targetEnrollment->enrollment_status)->toBe('pending')
             ->and($this->skipping->fresh()->targetEnrollment->grade_id)->toBe(2);
+    });
+});
+
+
+describe('grade skipping after normal promotion', function () {
+    beforeEach(function () {
+        Schema::create('user_notifications', function (Blueprint $t) { $t->id(); $t->integer('user_id'); $t->timestamp('read_at')->nullable(); $t->timestamps(); });
+        Schema::table('tb_student_enrollment', function (Blueprint $t) {
+            $t->date('ended_on')->nullable(); $t->string('exit_reason')->nullable();
+            $t->unique(['student_id','academic_year_id']);
+        });
+        DB::table('tb_grade')->where('id',1)->update(['grade'=>'Grade 3','grade_short_name'=>'G3','grade_order'=>3]);
+        DB::table('tb_grade')->where('id',2)->update(['grade'=>'Grade 5','grade_short_name'=>'G5','grade_order'=>5]);
+        DB::table('tb_grade')->insert(['id'=>3,'grade'=>'Grade 4','grade_short_name'=>'G4','grade_order'=>4]);
+        DB::table('tb_academic_year')->insert(['id'=>2,'academic_year'=>'2026-2027','academic_year_code'=>'2627','lifecycle_status'=>'pending']);
+        DB::table('tb_class')->insert([
+            ['id'=>3,'class_name'=>'A','grade_id'=>2,'academic_year_id'=>2],
+            ['id'=>4,'class_name'=>'A','grade_id'=>3,'academic_year_id'=>2],
+        ]);
+        $this->actingAs($this->campus);
+        $this->workflow=app(EnrollmentWorkflowService::class);
+        $this->promotionData=['to_academic_year_id'=>2,'to_grade_id'=>3,'to_class_id'=>4,'effective_on'=>now()->toDateString(),'reason'=>'Normal promotion'];
+        $this->promoted=$this->workflow->promote(StudentEnrollment::findOrFail(1),$this->promotionData)->fresh();
+        $this->originalPromotion=\App\Models\EnrollmentWorkflowAction::firstOrFail();
+        $this->data=array_replace($this->data,['target_academic_year_id'=>2,'target_class_id'=>3]);
+        ($this->configure)();
+    });
+
+    it('allows selecting the original completed enrollment and shows its already-promoted placement', function () {
+        $this->getJson('/students/skipping-grade/students?academic_year_id=1&q=SOK')->assertOk()->assertJsonPath('students.0.id',1);
+        $this->getJson('/students/skipping-grade/source-classes?academic_year_id=1&campus_id=1')->assertOk()->assertJsonPath('classes.0.label','G3A');
+        $this->getJson('/students/skipping-grade/enrollment/1')->assertOk()
+            ->assertJsonPath('existing_promotions.0.grade','G4A')->assertJsonPath('existing_promotions.0.grade_order',4)
+            ->assertJsonPath('target_academic_years.0.id',2)->assertJsonCount(1,'target_academic_years');
+        $this->postJson('/students/skipping-grade',$this->data)->assertOk();
+        $record=StudentSkippingGrade::firstOrFail();
+        expect($record->student_snapshot['source_grade'])->toBe('G3')
+            ->and($record->student_snapshot['existing_promotion']['target']['id'])->toBe((string)$this->promoted->id)
+            ->and($this->promoted->fresh()->grade_id)->toBe(3);
+        $this->get('/students/skipping-grade/'.$record->id.'/edit')->assertOk()->assertSee('Already promoted to G4A');
+        $this->get('/students/skipping-grade/'.$record->id)->assertOk()->assertSee('Already Promoted')->assertSee('G4A → G5A');
+    });
+
+    it('updates the existing next-year enrollment only after central approval and preserves the original promotion', function ($yearStatus) {
+        DB::table('tb_academic_year')->where('id',2)->update(['lifecycle_status'=>$yearStatus]);
+        $this->promoted->update(['enrollment_status'=>$yearStatus==='started'?'active':'pending']);
+        $source=StudentEnrollment::find(1)->toArray();
+        $oldPromotion=$this->originalPromotion->toArray();
+        $oldHistory=StudentEnrollmentHistory::firstOrFail()->toArray();
+        $record=($this->pending)();
+        $this->actingAs($this->central)->postJson('/students/skipping-grade/'.$record->id.'/approve',$this->approval)->assertOk();
+        $record->refresh();
+        expect(StudentEnrollment::count())->toBe(2)
+            ->and($record->target_enrollment_id)->toBe($this->promoted->id)
+            ->and($this->promoted->fresh()->grade_id)->toBe(2)
+            ->and($this->promoted->fresh()->class_id)->toBe(3)
+            ->and($this->promoted->fresh()->enrolled_on->toDateString())->toBe($this->promoted->enrolled_on->toDateString())
+            ->and($this->promoted->fresh()->enrollment_status)->toBe($yearStatus==='started'?'active':'pending')
+            ->and(StudentEnrollment::find(1)->toArray())->toBe($source)
+            ->and($record->reference_number)->toBe('SG2526-001')
+            ->and($this->originalPromotion->fresh()->toArray())->toBe($oldPromotion)
+            ->and(StudentEnrollmentHistory::firstOrFail()->toArray())->toBe($oldHistory);
+        $history=StudentEnrollmentHistory::where('action_type','grade_skipping_from')->firstOrFail();
+        $after=StudentEnrollmentHistory::where('action_type','grade_skipping')->firstOrFail();
+        expect([$history->enrollment_id,$history->academic_year_id,$history->grade_id])->toBe([$this->promoted->id,2,3])
+            ->and([$after->enrollment_id,$after->academic_year_id,$after->grade_id,$after->source_history_id])->toBe([$this->promoted->id,2,2,$history->id]);
+        $this->get('/students/skipping-grade/'.$record->id)->assertOk()->assertSee('The existing enrollment was updated');
+    })->with(['pending','started']);
+
+    it('appends skipping approval remarks to an already promoted enrollment without losing existing notes', function () {
+        StudentEnrollment::findOrFail(1)->update(['notes'=>'Original source remark']);
+        $this->promoted->update(['notes'=>"Normal promotion remark\nKeep this instruction"]);
+        $record=($this->pending)();
+        expect($this->promoted->fresh()->notes)->toBe("Normal promotion remark\nKeep this instruction");
+        $record=$this->service->approve($this->central,$record,$this->approval);
+        expect($record->target_enrollment_id)->toBe($this->promoted->id)
+            ->and($this->promoted->fresh()->notes)->toBe("Normal promotion remark\nKeep this instruction\nSkipped from G3A | Approval No: SG2526-001")
+            ->and(StudentEnrollment::find(1)->notes)->toBe('Original source remark')
+            ->and(StudentEnrollment::count())->toBe(2);
+        $historyNotes=filled($record->reason) ? $record->reason."\nSkipped from G3A | Approval No: SG2526-001" : 'Skipped from G3A | Approval No: SG2526-001';
+        expect(StudentEnrollmentHistory::whereIn('action_type',['grade_skipping_from','grade_skipping'])->pluck('notes')->all())
+            ->toBe([$historyNotes,$historyNotes]);
+    });
+
+    it('keeps the promoted grade unchanged while pending or rejected', function () {
+        $this->promoted->update(['notes'=>'Existing promotion remark']);
+        $placement=$this->promoted->toArray();
+        $record=($this->pending)();
+        expect($this->promoted->fresh()->toArray())->toBe($placement);
+        $this->service->reject($this->central,$record,'Committee declined the skipping request.');
+        expect($this->promoted->fresh()->toArray())->toBe($placement)
+            ->and(StudentEnrollment::count())->toBe(2)
+            ->and(StudentEnrollmentHistory::count())->toBe(1)
+            ->and(StudentEnrollment::find(1)->enrollment_status)->toBe('completed');
+    });
+
+    it('requires a higher grade than the existing promoted placement', function () {
+        $this->postJson('/students/skipping-grade',array_replace($this->data,['target_grade_id'=>3,'target_class_id'=>4]))
+            ->assertUnprocessable()->assertJsonValidationErrors('target_grade_id');
+        expect(StudentSkippingGrade::count())->toBe(0)->and($this->promoted->fresh()->grade_id)->toBe(3);
+    });
+
+    it('blocks approval if the placement changed after submission', function ($changed) {
+        $record=($this->pending)();
+        if ($changed==='group') $this->promoted->update(['group_id'=>99]);
+        elseif ($changed==='class') $this->promoted->update(['class_id'=>3]);
+        elseif ($changed==='status') $this->promoted->update(['enrollment_status'=>'withdrawn']);
+        else $this->workflow->cancelPromotion($this->originalPromotion,['effective_on'=>now()->toDateString(),'reason'=>'Placement cancelled']);
+        $before=$this->promoted->fresh()->toArray();
+        $this->actingAs($this->central)->postJson('/students/skipping-grade/'.$record->id.'/approve',$this->approval)->assertUnprocessable();
+        expect($record->fresh()->status)->toBe('pending')
+            ->and($this->promoted->fresh()->toArray())->toBe($before)
+            ->and(StudentEnrollmentHistory::whereIn('action_type',['grade_skipping_from','grade_skipping'])->count())->toBe(0)
+            ->and(Storage::disk('local')->allFiles('grade-skipping/approvals'))->toBe([]);
+    })->with(['group','class','status','cancelled']);
+
+    it('requires review when normal promotion occurs after a skipping draft was saved', function () {
+        StudentEnrollmentHistory::query()->delete();
+        $this->originalPromotion->delete();
+        $this->promoted->delete();
+        $source=StudentEnrollment::find(1);
+        $source->update(['enrollment_status'=>'active','ended_on'=>null,'exit_reason'=>null]);
+        $record=($this->draft)();
+        $this->workflow->promote($source,$this->promotionData);
+        expect(fn()=>$this->service->submit($this->campus,$record,now()->toDateString()))->toThrow(ValidationException::class);
+        $record=$this->service->saveDraft($this->campus,$this->data,$record);
+        $record=$this->service->submit($this->campus,$record,now()->toDateString());
+        expect($record->status)->toBe('pending')->and($record->student_snapshot['existing_promotion']['grade'])->toBe('G4A');
+    });
+
+    it('can use the original enrollment after its academic year finishes', function () {
+        DB::table('tb_academic_year')->where('id',1)->update(['lifecycle_status'=>'finished']);
+        $this->getJson('/students/skipping-grade/students?academic_year_id=1&q=SOK')->assertOk()->assertJsonPath('students.0.id',1);
+        $record=($this->pending)();
+        $record=$this->service->approve($this->central,$record,$this->approval);
+        expect($record->reference_number)->toBe('SG2526-001')->and(StudentEnrollment::find(1)->enrollment_status)->toBe('completed');
+    });
+
+    it('allows a valid re-promotion while retaining its original source enrollment', function () {
+        $cancelled=$this->workflow->cancelPromotion($this->originalPromotion,['effective_on'=>now()->toDateString(),'reason'=>'Temporarily cancelled']);
+        $this->workflow->repromote($cancelled,['effective_on'=>now()->toDateString(),'reason'=>'Returned']);
+        $this->getJson('/students/skipping-grade/students?academic_year_id=1&q=SOK')->assertOk()->assertJsonPath('students.0.id',1);
+        $record=($this->pending)();
+        $record=$this->service->approve($this->central,$record,$this->approval);
+        expect($record->target_enrollment_id)->toBe($this->promoted->id)
+            ->and($record->approval_snapshot['existing_promotion']['workflow_id'])->not->toBe($this->originalPromotion->id)
+            ->and($this->promoted->fresh()->grade_id)->toBe(2)
+            ->and(StudentEnrollment::count())->toBe(2);
+    });
+
+    it('does not let cancellation undo an approved skipping placement', function () {
+        $record=($this->pending)();
+        $record=$this->service->approve($this->central,$record,$this->approval);
+        expect(fn()=>$this->workflow->cancelPromotion($this->originalPromotion,['effective_on'=>now()->toDateString(),'reason'=>'Cancel']))->toThrow(ValidationException::class);
+        expect($this->promoted->fresh()->grade_id)->toBe(2)->and($this->originalPromotion->fresh()->status)->toBe('completed');
+    });
+
+    it('requires a real promotion link and keeps campus creation permissions on completed sources', function () {
+        $this->originalPromotion->delete();
+        $this->getJson('/students/skipping-grade/students?academic_year_id=1&q=SOK')->assertOk()->assertJsonCount(0,'students');
+        $this->postJson('/students/skipping-grade',$this->data)->assertUnprocessable()->assertJsonValidationErrors('enrollment_id');
+        DB::table('tb_student_enrollment')->where('id',1)->update(['campus_id'=>2]);
+        $this->postJson('/students/skipping-grade',$this->data)->assertForbidden();
+        expect(StudentSkippingGrade::count())->toBe(0)->and($this->promoted->fresh()->grade_id)->toBe(3);
+    });
+
+    it('rolls back the reused enrollment and signature copies when approval history fails', function () {
+        $record=($this->pending)();
+        $before=$this->promoted->toArray();
+        StudentEnrollmentHistory::creating(function ($history) { if ($history->action_type==='grade_skipping') throw new RuntimeException('History write failed'); });
+        try { expect(fn()=>$this->service->approve($this->central,$record,$this->approval))->toThrow(RuntimeException::class); }
+        finally { StudentEnrollmentHistory::flushEventListeners(); }
+        expect($record->fresh()->status)->toBe('pending')
+            ->and($this->promoted->fresh()->toArray())->toBe($before)
+            ->and(StudentEnrollmentHistory::count())->toBe(1)
+            ->and(Storage::disk('local')->allFiles('grade-skipping/approvals'))->toBe([]);
     });
 });

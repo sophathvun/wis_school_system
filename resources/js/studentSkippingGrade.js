@@ -1,3 +1,4 @@
+import { existingPromotedPlacement, minimumRequestedGradeOrder } from './helpers/existingPromotion';
 import Swal from 'sweetalert2';
 import { Tooltip } from 'bootstrap';
 import { initPremiumDatePicker } from './premiumDatePicker';
@@ -127,10 +128,29 @@ if (root) {
     const photo = root.querySelector('[data-student-photo]');
     const noPhoto = root.querySelector('[data-student-no-photo]');
     photo?.addEventListener('error', () => { photo.hidden = true; noPhoto.hidden = false; });
+    let selectedStudent = null;
+    const syncExistingPromotion = () => {
+        const placement = existingPromotedPlacement(selectedStudent, targetYear?.value);
+        const note = root.querySelector('[data-existing-promotion]');
+        if (note) {
+            note.hidden = !placement;
+            note.textContent = placement ? `Already promoted to ${placement.grade} / ${placement.academic_year}. Approval will update this existing enrollment. It stays unchanged while the request is pending or rejected.` : '';
+        }
+        if (!selectedStudent || !grade) return;
+        const minimum = minimumRequestedGradeOrder(selectedStudent, targetYear?.value);
+        [...grade.options].forEach((item) => {
+            if (!item.value) return;
+            item.hidden = Number(item.dataset.order) <= minimum;
+            item.disabled = item.hidden;
+        });
+        if (grade.selectedOptions[0]?.disabled) grade.value = '';
+    };
     const renderStudentSummary = (row, message = 'No student selected.') => {
         const empty = root.querySelector('[data-student-empty]');
         const selected = root.querySelector('[data-selected-student]');
         if (!empty || !selected) return;
+        selectedStudent = row;
+        if (!row) syncExistingPromotion();
         empty.hidden = Boolean(row); empty.textContent = message;
         selected.hidden = !row;
         if (!row) { photo.removeAttribute('src'); photo.hidden = true; noPhoto.hidden = false; return; }
@@ -310,17 +330,13 @@ if (root) {
                     input.dispatchEvent(new Event('input', { bubbles: true }));
                 });
             }
-            const requestedYear = initial ? targetYear.value : String(row.academic_year_id);
+            const requestedYear = initial ? targetYear.value : String(row.enrollment_status === 'completed' ? row.target_academic_years[0]?.id || '' : row.academic_year_id);
             targetYear.replaceChildren(option('', 'Select Academic Year'));
             row.target_academic_years.forEach((year) => targetYear.add(option(year.id, year.label)));
             targetYear.value = requestedYear;
             targetYear.closest('.premium-form-field')?.classList.toggle('has-value', Boolean(targetYear.value));
             enrollment.dispatchEvent(new Event('change', { bubbles: true }));
-            [...grade.options].forEach((item) => {
-                if (!item.value) return;
-                item.hidden = Number(item.dataset.order) <= row.grade_order;
-                item.disabled = item.hidden;
-            });
+            syncExistingPromotion();
             if (!initial) { grade.value = ''; classes.replaceChildren(option('', 'Select Class')); classes.disabled = false; group.value = ''; }
             else if (grade.value) await loadClasses(classes.value);
             if (signal.aborted) return;
@@ -349,7 +365,7 @@ if (root) {
         }
     });
     grade?.addEventListener('change', () => loadClasses());
-    targetYear?.addEventListener('change', () => { group.value = ''; loadClasses(); });
+    targetYear?.addEventListener('change', () => { syncExistingPromotion(); group.value = ''; loadClasses(); });
     classes?.addEventListener('change', () => { if (classes.selectedOptions[0]?.dataset.session) group.value = classes.selectedOptions[0].dataset.session; });
     if (enrollment?.value) selectStudent(enrollment.value, '', true);
     if (search) {

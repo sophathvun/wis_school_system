@@ -5,8 +5,11 @@
 @endsection
 @section('content')
 @include('student-skipping-grade._workspace-start')
-@php($s=$record->student_snapshot)
-@php($requestedYear=$s['target_academic_year']??$s['academic_year'])
+@php
+    $s=$record->student_snapshot;
+    $requestedYear=$s['target_academic_year']??$s['academic_year'];
+    $existingPromotion=$record->student_snapshot['existing_promotion']??null;
+@endphp
 <div class="skipping-page" data-skipping-page data-success="{{ session('success') }}">
     <div class="card mb-3"><div class="card-header skipping-header skipping-record-header">
         <h3 class="card-title">{{ $s['name_en'] }} · {{ $s['student_id'] }}</h3>
@@ -58,6 +61,12 @@
     @if($record->submitted_at)
         <div class="card mb-3"><div class="card-body"><div class="skipping-details skipping-submission-details"><div><small>Parent Signed Date</small><strong>{{ $record->parent_signed_at?->format('d-M-Y') }}</strong></div><div><small>Submitted</small><strong><span class="skipping-submission-date">{{ $record->submitted_at->format('d-M-Y') }}</span> <span class="skipping-submission-time">{{ $record->submitted_at->format('H:i') }}</span></strong></div><div><small>Requested By</small><strong>{{ $record->creator?->name }}</strong></div></div>@if($record->signed_request_path)<a class="btn btn-outline-primary mt-3" target="_blank" href="{{ route('student-skipping-grade.signed-request',$record) }}">View Signed Request</a>@endif</div></div>
     @endif
+    @if($existingPromotion)
+        <div class="alert alert-info"><strong>Already Promoted</strong> · {{ $existingPromotion['grade'] }} → {{ $s['target_grade'] }}{{ $s['target_class'] }} / {{ $requestedYear }}.
+            @if($record->status==='approved')The existing enrollment was updated. The original promotion remains in student history.
+            @else Central Office approval will update the existing enrollment. Until approval, the {{ $existingPromotion['grade'] }} placement stays unchanged.@endif
+        </div>
+    @endif
     @if($record->status==='pending' && $permissions['approve'])
     <div class="card mb-3"><div class="card-header skipping-header"><h3 class="card-title">Central Office Approval</h3></div><div class="card-body"><form method="post" action="{{ route('student-skipping-grade.approve',$record) }}" data-skipping-form data-confirm="Approve this request for {{ $s['name_en'] }} in {{ $s['target_grade'] }}{{ $s['target_class'] }} for {{ $requestedYear }}?" novalidate>@csrf
         <div class="skipping-form-grid skipping-approval-date-grid">@foreach(['received_date'=>'Request Received Date','review_date'=>'Committee Review Date','approval_date'=>'VP Approval Date','effective_date'=>'Grade Change Effective Date'] as $key=>$label)
@@ -69,12 +78,12 @@
         @foreach(['conduct'=>'Maintain good conduct','rules'=>'Follow school regulations','study'=>'Fulfil all study obligations'] as $key=>$label)<label class="form-check mt-2"><input class="form-check-input" type="checkbox" name="obligations[{{ $key }}]" value="1" checked><span class="form-check-label">{{ $label }}</span></label>@endforeach
         @include('student-skipping-grade._custom-options',['customOptions'=>$approvalCustomOptions,'optionsTitle'=>'Additional Approval Options','selectedOptions'=>[],'useDefaults'=>true])
         <label class="form-check mt-3"><input class="form-check-input" type="checkbox" name="vp_signed" value="1"><span class="form-check-label">The committee review is complete and the VP has signed the final request.</span></label>
-        <p class="text-secondary mt-3">Approval prepares the student enrollment in {{ $s['campus_en'] }} for {{ $requestedYear }}.@if($requestedYear!==$s['academic_year']) The current-year enrollment stays unchanged.@endif The approval form includes the configured VP signature and stamp.</p>
+        <p class="text-secondary mt-3">@if($existingPromotion)Approval updates the existing {{ $existingPromotion['grade'] }} enrollment to {{ $s['target_grade'] }}{{ $s['target_class'] }}. The original promotion remains in history.@else Approval prepares the student enrollment in {{ $s['campus_en'] }} for {{ $requestedYear }}.@if($requestedYear!==$s['academic_year']) The current-year enrollment stays unchanged.@endif @endif The approval form includes the configured VP signature and stamp.</p>
         <button class="btn btn-success skipping-mobile-full-width" type="submit"><i class="ti ti-check me-1"></i>Approve and Move Grade</button>
     </form></div></div>
     @elseif($record->status==='pending')<div class="alert alert-info">Awaiting Central Office approval after committee review and the VP’s final signature.</div>@endif
     @if($record->status==='pending' && $permissions['reject'])
-    <div class="card mb-3"><div class="card-body"><form method="post" action="{{ route('student-skipping-grade.reject',$record) }}" data-skipping-form data-confirm="Reject this request? The student will remain in the current grade." novalidate>@csrf<label class="d-block">Reason for Rejection <span class="text-danger">*</span><textarea class="form-control" name="rejection_reason" rows="2" maxlength="1500"></textarea></label><button class="btn btn-outline-danger mt-3 skipping-mobile-full-width" type="submit">Reject Request</button></form></div></div>
+    <div class="card mb-3"><div class="card-body"><form method="post" action="{{ route('student-skipping-grade.reject',$record) }}" data-skipping-form data-confirm="Reject this request? {{ $existingPromotion ? 'The existing promoted placement will remain unchanged.' : 'The student will remain in the current grade.' }}" novalidate>@csrf<label class="d-block">Reason for Rejection <span class="text-danger">*</span><textarea class="form-control" name="rejection_reason" rows="2" maxlength="1500"></textarea></label><button class="btn btn-outline-danger mt-3 skipping-mobile-full-width" type="submit">Reject Request</button></form></div></div>
     @endif
     @if($record->status==='approved')
         @if($record->approval_snapshot['custom_options']??[])<div class="card mb-3"><div class="card-body">@include('student-skipping-grade._saved-options',['optionsTitle'=>'Additional Approval Options','savedOptions'=>$record->approval_snapshot['custom_options']])</div></div>@endif

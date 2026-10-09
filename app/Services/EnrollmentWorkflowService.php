@@ -234,6 +234,10 @@ class EnrollmentWorkflowService
                 throw ValidationException::withMessages(['workflow' => 'The promoted enrollment no longer exists.']);
             }
 
+            if (StudentSkippingGrade::where('target_enrollment_id',$target->id)->where('status','approved')->exists()) {
+                throw ValidationException::withMessages(['workflow'=>'This placement is linked to an approved grade-skipping request. Central Office must review it before the promotion can be cancelled.']);
+            }
+
             $target->update([
                 'enrollment_status' => 'promotion_cancelled',
                 'ended_on' => $data['effective_on'],

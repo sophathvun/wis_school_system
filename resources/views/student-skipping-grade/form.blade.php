@@ -12,7 +12,7 @@
     @if(!$record->exists)
         <h4 class="mb-3">Filter Students</h4>
         <div class="skipping-student-filter-grid mb-3">
-            <div class="premium-form-field"><label class="form-label" for="skippingFilterYear">Academic Year</label><select id="skippingFilterYear" class="form-select" aria-label="Academic Year" data-student-year data-skipping-searchable="Academic Year"><option value="">All Academic Year</option>@foreach($academicYears->whereIn('lifecycle_status',['pending','started']) as $year)<option value="{{ $year->id }}">{{ $year->academic_year }}</option>@endforeach</select></div>
+            <div class="premium-form-field"><label class="form-label" for="skippingFilterYear">Academic Year</label><select id="skippingFilterYear" class="form-select" aria-label="Academic Year" data-student-year data-skipping-searchable="Academic Year"><option value="">All Academic Year</option>@foreach($academicYears->whereIn('lifecycle_status',['pending','started','finished']) as $year)<option value="{{ $year->id }}">{{ $year->academic_year }}</option>@endforeach</select></div>
             <div class="premium-form-field"><label class="form-label" for="skippingFilterCampus">Campus</label><select id="skippingFilterCampus" class="form-select" aria-label="Campus" data-student-campus data-skipping-searchable="Campus"><option value="">All Campuses</option>@foreach($campuses as $campus)<option value="{{ $campus->id }}" @selected(auth()->user()->active_campus_id==$campus->id)>{{ $campus->campus_name_en }}</option>@endforeach</select></div>
             <div class="premium-form-field"><label class="form-label" for="skippingFilterGrade">Grade</label><select id="skippingFilterGrade" class="form-select" aria-label="Grade" data-student-grade data-skipping-searchable="Grade"><option value="">All Grades</option></select></div>
             <div class="premium-form-field"><label class="form-label" for="skippingFilterStudent">Student Name</label><select id="skippingFilterStudent" class="form-select" aria-label="Student Name" data-student-name data-skipping-searchable="Student Name"><option value="">Select Student</option></select></div>
@@ -37,6 +37,12 @@
                 </div>
             </div>
         </div>
+    </div>
+    @php
+        $existingPromotion=$record->student_snapshot['existing_promotion']??null;
+    @endphp
+    <div class="alert alert-info mt-3" data-existing-promotion @unless($existingPromotion) hidden @endunless>
+        @if($existingPromotion)Already promoted to {{ $existingPromotion['grade'] }} / {{ $existingPromotion['academic_year'] }}. Approval will update this existing enrollment. It stays unchanged while the request is pending or rejected.@endif
     </div>
     <div class="skipping-form-grid skipping-request-grid mt-3">
         <div class="premium-form-field"><label class="form-label" for="skippingRequestedYear">Requested Academic Year <span class="text-danger">*</span></label><select id="skippingRequestedYear" name="target_academic_year_id" class="form-select" data-target-year><option value="">Select Academic Year</option>@foreach($requestedAcademicYears as $year)<option value="{{ $year->id }}" @selected(old('target_academic_year_id',$record->target_academic_year_id??$record->academic_year_id)==$year->id)>{{ $year->academic_year }}</option>@endforeach</select></div>

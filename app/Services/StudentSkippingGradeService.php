@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\AcademicYear;
+use App\Models\EnrollmentWorkflowAction;
 use App\Models\Grade;
 use App\Models\SchoolClass;
 use App\Models\Session;
@@ -26,6 +27,37 @@ class StudentSkippingGradeService
         abort_unless(StudentSkippingGradePermissions::allows($user,$action,$campus),403);
     }
 
+    public function eligibleSourceEnrollments()
+    {
+        return StudentEnrollment::where('tb_student_enrollment.status',1)->whereHas('student',fn($q)=>$q->where('status',1))
+            ->whereHas('academicYear',fn($q)=>$q->regular()->whereIn('lifecycle_status',['pending','started','finished']))
+            ->where(function ($q) {
+                $q->where(fn($active)=>$active->where('enrollment_status','active')->whereHas('academicYear',fn($year)=>$year->operational()))
+                    ->orWhere(fn($completed)=>$completed->where('enrollment_status','completed')->whereExists(function ($promotion) {
+                        $promotion->selectRaw('1')->from('tb_student_enrollment_workflow as promotion')
+                            ->leftJoin('tb_student_enrollment_workflow as promotion_parent','promotion_parent.id','=','promotion.parent_workflow_id')
+                            ->join('tb_student_enrollment as promoted','promoted.id','=','promotion.target_enrollment_id')
+                            ->join('tb_academic_year as promoted_year','promoted_year.id','=','promoted.academic_year_id')
+                            ->whereRaw("(CASE WHEN promotion.action_type = 're_promotion' THEN promotion_parent.source_enrollment_id ELSE promotion.source_enrollment_id END) = tb_student_enrollment.id")
+                            ->whereColumn('promotion.student_id','tb_student_enrollment.student_id')
+                            ->whereColumn('promoted.student_id','tb_student_enrollment.student_id')
+                            ->whereColumn('promoted.campus_id','tb_student_enrollment.campus_id')
+                            ->whereColumn('promoted.academic_year_id','!=','tb_student_enrollment.academic_year_id')
+                            ->whereIn('promotion.action_type',['promotion','class_promotion','selected_promotion','re_promotion'])->where('promotion.status','completed')
+                            ->where('promoted.status',1)->whereIn('promoted.enrollment_status',['active','pending'])
+                            ->where('promoted_year.period_type','regular')->whereIn('promoted_year.lifecycle_status',['pending','started'])
+                            ->whereNull('promoted_year.deleted_at');
+                        foreach (['campus_id','academic_year_id','grade_id','class_id'] as $field) {
+                            $promotion->whereRaw("(CASE WHEN promotion.action_type = 're_promotion' THEN promotion_parent.from_{$field} ELSE promotion.from_{$field} END) = tb_student_enrollment.{$field}")
+                                ->whereColumn('promotion.to_'.$field,'promoted.'.$field);
+                        }
+                        $fromSession="(CASE WHEN promotion.action_type = 're_promotion' THEN promotion_parent.from_session_id ELSE promotion.from_session_id END)";
+                        $promotion->whereRaw("({$fromSession} = tb_student_enrollment.session_id OR ({$fromSession} IS NULL AND tb_student_enrollment.session_id IS NULL))")
+                            ->whereRaw('(promotion.to_session_id = promoted.session_id OR (promotion.to_session_id IS NULL AND promoted.session_id IS NULL))');
+                    }));
+            });
+    }
+
     public function saveDraft(User $user, array $data, ?StudentSkippingGrade $record = null): StudentSkippingGrade
     {
         if ($record) $this->authorizeEdit($user,$record);
@@ -38,13 +70,13 @@ class StudentSkippingGradeService
             }
             $enrollment=StudentEnrollment::with(['student','campus','academicYear','grade','schoolClass','session'])->whereKey($data['enrollment_id'])->lockForUpdate()->firstOrFail();
             if (!$record) $this->authorize($user,'create',$enrollment->campus_id);
-            $this->activeSource($enrollment);
+            $this->activeSource($enrollment,(int)($data['target_academic_year_id']??$enrollment->academic_year_id));
             if ($record) $this->unchangedSource($record,$enrollment);
             if (StudentSkippingGrade::where('enrollment_id',$enrollment->id)->whereIn('status',['draft','pending'])->when($record,fn($q)=>$q->where('id','!=',$record->id))->exists()) {
                 $this->invalid('enrollment_id','This student already has a draft or submitted grade skipping request.');
             }
             [$grade,$class,$year]=$this->target($enrollment,$data);
-            $this->noDuplicateTargetEnrollment($enrollment,$year);
+            $promotion=$this->targetPlacement($enrollment,$year,$grade);
             if (isset($data['average_score']) && $data['average_score'] > $data['average_scale']) $this->invalid('average_score','The average cannot exceed the selected score scale.');
             $snapshot=[
                 'name_en'=>$enrollment->student->full_name_en,'name_kh'=>$enrollment->student->full_name_kh,
@@ -56,6 +88,7 @@ class StudentSkippingGradeService
                 'source_class'=>$enrollment->schoolClass->class_name,
                 'target_grade'=>$grade->grade_short_name ?: $grade->grade,'target_class'=>$class->class_name,
             ];
+            if ($promotion) $snapshot['existing_promotion']=$this->promotionContext($promotion);
             $values=collect($data)->only(['target_grade_id','target_class_id','target_session_id','application_date','parent_name','parent_phone','reason','criteria','average_score','average_scale','committee_names'])->all();
             $values['target_academic_year_id']=$year->id;
             $values['parent_name']=Str::upper($values['parent_name']);
@@ -89,9 +122,9 @@ class StudentSkippingGradeService
                 $record=StudentSkippingGrade::whereKey($record->id)->lockForUpdate()->firstOrFail();
                 $this->requireStatus($record,'draft');
                 $enrollment=StudentEnrollment::whereKey($record->enrollment_id)->lockForUpdate()->firstOrFail();
-                $this->activeSource($enrollment); $this->unchangedSource($record,$enrollment);
-                [,,$year]=$this->target($enrollment,$record->toArray());
-                $this->noDuplicateTargetEnrollment($enrollment,$year);
+                $this->activeSource($enrollment,(int)$record->target_academic_year_id); $this->unchangedSource($record,$enrollment);
+                [$grade,,$year]=$this->target($enrollment,$record->toArray());
+                $this->targetPlacement($enrollment,$year,$grade,$record);
                 if ($file) {
                     $path=$file->store('grade-skipping/signed-requests','local');
                     if (!$path) $this->invalid('signed_request','Unable to store the signed request. Please try again.');
@@ -118,9 +151,9 @@ class StudentSkippingGradeService
                 if (!$record->parent_signed_at) $this->invalid('status','The parent-signed request has not been submitted.');
                 if (empty($data['vp_signed'])) $this->invalid('vp_signed','Confirm that the VP has signed the final request.');
                 $enrollment=StudentEnrollment::with(['student','academicYear','grade'])->whereKey($record->enrollment_id)->lockForUpdate()->firstOrFail();
-                $this->activeSource($enrollment); $this->unchangedSource($record,$enrollment);
+                $this->activeSource($enrollment,(int)$record->target_academic_year_id); $this->unchangedSource($record,$enrollment);
                 [$targetGrade,,$targetYear]=$this->target($enrollment,$record->toArray());
-                $this->noDuplicateTargetEnrollment($enrollment,$targetYear);
+                $promotion=$this->targetPlacement($enrollment,$targetYear,$targetGrade,$record);
                 $yearCode=trim((string)$enrollment->academicYear->ay_code);
                 if ($yearCode==='') $this->invalid('settings','Set the AY Code for the current academic year in Academic Year settings before approving.');
                 $settings=SkippingGradeSetting::whereKey(1)->lockForUpdate()->firstOrFail();
@@ -141,19 +174,30 @@ class StudentSkippingGradeService
                 $snapshot['obligations']=array_map(fn($value)=>(bool)$value,$data['obligations'] ?? []);
                 $snapshot['custom_options']=$customOptions;
                 $reference=$settings->number_prefix.$yearCode.'-'.str_pad((string)$record->id,3,'0',STR_PAD_LEFT);
+                if ($promotion) $snapshot['existing_promotion']=$this->promotionContext($promotion);
+                $beforeEnrollment=$promotion?->targetEnrollment??$enrollment;
+                $studentSnapshot=$record->student_snapshot;
+                $remark='Skipped from '.$studentSnapshot['source_grade'].$studentSnapshot['source_class']
+                    .' | Approval No: '.$reference;
                 $history=[
-                    'enrollment_id'=>$enrollment->id,'student_id'=>$enrollment->student_id,'campus_id'=>$enrollment->campus_id,
-                    'academic_year_id'=>$enrollment->academic_year_id,'grade_id'=>$enrollment->grade_id,'class_id'=>$enrollment->class_id,
-                    'academic_track_id'=>$enrollment->academic_track_id,'session_id'=>$enrollment->session_id,
-                    'enrollment_status'=>$enrollment->enrollment_status,'student_type'=>$enrollment->student_type,
-                    'effective_on'=>$data['effective_date'],'reason'=>'Approved grade skipping: '.$reference,'notes'=>$record->reason,'changed_by'=>$user->id,
+                    'enrollment_id'=>$beforeEnrollment->id,'student_id'=>$beforeEnrollment->student_id,'campus_id'=>$beforeEnrollment->campus_id,
+                    'academic_year_id'=>$beforeEnrollment->academic_year_id,'grade_id'=>$beforeEnrollment->grade_id,'class_id'=>$beforeEnrollment->class_id,
+                    'academic_track_id'=>$beforeEnrollment->academic_track_id,'session_id'=>$beforeEnrollment->session_id,
+                    'enrollment_status'=>$beforeEnrollment->enrollment_status,'student_type'=>$beforeEnrollment->student_type,
+                    'effective_on'=>$data['effective_date'],'reason'=>'Approved grade skipping: '.$reference,
+                    'notes'=>filled($record->reason) ? $record->reason."\n".$remark : $remark,'changed_by'=>$user->id,
                 ];
                 $before=StudentEnrollmentHistory::create($history+['action_type'=>'grade_skipping_from']);
+                $existingNotes=($promotion || $targetYear->id == $enrollment->academic_year_id) ? $beforeEnrollment->notes : null;
                 $targetValues=[
                     'grade_id'=>$record->target_grade_id,'class_id'=>$record->target_class_id,'session_id'=>$record->target_session_id,'group_id'=>null,
-                    'academic_track_id'=>$enrollment->grade->education_level_id == $targetGrade->education_level_id ? $enrollment->academic_track_id : null,
+                    'academic_track_id'=>$beforeEnrollment->grade->education_level_id == $targetGrade->education_level_id ? $beforeEnrollment->academic_track_id : null,
+                    'notes'=>filled($existingNotes) ? $existingNotes."\n".$remark : $remark,
                 ];
-                if ($targetYear->id == $enrollment->academic_year_id) {
+                if ($promotion) {
+                    $targetEnrollment=$promotion->targetEnrollment;
+                    $targetEnrollment->update($targetValues);
+                } elseif ($targetYear->id == $enrollment->academic_year_id) {
                     $enrollment->update($targetValues);
                     $targetEnrollment=$enrollment;
                 } else {
@@ -197,11 +241,54 @@ class StudentSkippingGradeService
         if ($record->status !== $status) $this->invalid('status','This request is '.$record->status.'. Refresh the form before continuing.');
     }
 
-    private function activeSource(StudentEnrollment $enrollment): void
+    private function activeSource(StudentEnrollment $enrollment, int $targetYearId): void
     {
-        if (!$enrollment->status || $enrollment->enrollment_status !== 'active' || !$enrollment->student?->status) $this->invalid('enrollment_id','This student is no longer active in the selected enrollment.');
+        if (!$enrollment->status || !$enrollment->student?->status) $this->invalid('enrollment_id','This student is no longer active.');
         $year=$enrollment->academicYear;
-        if (!$year || $year->isSummer() || !in_array($year->lifecycle_status,['pending','started'],true)) $this->invalid('enrollment_id','Select an active student in an operational regular academic year.');
+        if (!$year || $year->isSummer()) $this->invalid('enrollment_id','Select a student in a regular academic year.');
+        if ($enrollment->enrollment_status==='completed' && in_array($year->lifecycle_status,['pending','started','finished'],true)
+            && $this->existingPromotions($enrollment,$targetYearId)->isNotEmpty()) return;
+        if ($enrollment->enrollment_status==='completed') $this->invalid('enrollment_id','This completed enrollment has no matching valid promotion. Central Office must review the next-year placement.');
+        if ($enrollment->enrollment_status!=='active' || !in_array($year->lifecycle_status,['pending','started'],true)) {
+            $this->invalid('enrollment_id','Select an active enrollment or a completed enrollment with a valid promotion to the requested year.');
+        }
+    }
+
+    public function existingPromotions(StudentEnrollment $source, ?int $yearId = null): \Illuminate\Support\Collection
+    {
+        if (!$source->status || $source->enrollment_status!=='completed') return collect();
+        $years=$this->targetAcademicYears($source->academicYear)->pluck('id');
+        return EnrollmentWorkflowAction::with(['parentWorkflow','targetEnrollment.grade','targetEnrollment.schoolClass','targetEnrollment.academicYear'])
+            ->where(fn($q)=>$q->where('source_enrollment_id',$source->id)
+                ->orWhere(fn($re)=>$re->where('action_type','re_promotion')->whereHas('parentWorkflow',fn($parent)=>$parent->where('source_enrollment_id',$source->id))))
+            ->where('student_id',$source->student_id)
+            ->whereIn('action_type',['promotion','class_promotion','selected_promotion','re_promotion'])->where('status','completed')
+            ->whereIn('to_academic_year_id',$years)->when($yearId,fn($q)=>$q->where('to_academic_year_id',$yearId))
+            ->latest('id')->get()->filter(function ($promotion) use ($source) {
+                $target=$promotion->targetEnrollment;
+                if (!$target || !$target->status || !$target->grade || !$target->schoolClass || !$target->academicYear
+                    || !in_array($target->enrollment_status,['pending','active'],true)
+                    || (int)$target->academic_year_id===(int)$source->academic_year_id
+                    || (int)$target->student_id!==(int)$source->student_id
+                    || (int)$target->campus_id!==(int)$source->campus_id) return false;
+                $original=$promotion->action_type==='re_promotion'?$promotion->parentWorkflow:$promotion;
+                if (!$original || (int)$original->source_enrollment_id!==(int)$source->id) return false;
+                foreach (['campus_id','academic_year_id','grade_id','class_id','session_id'] as $field) {
+                    if ((string)$original->{'from_'.$field}!==(string)$source->$field
+                        || (string)$promotion->{'to_'.$field}!==(string)$target->$field) return false;
+                }
+                return true;
+            })->unique('target_enrollment_id')->values();
+    }
+
+    public function promotionContext(EnrollmentWorkflowAction $promotion): array
+    {
+        $target=$promotion->targetEnrollment;
+        $fields=['id','student_id','campus_id','academic_year_id','grade_id','class_id','session_id','group_id',
+            'academic_track_id','status','enrollment_status','student_type','enrolled_on','ended_on'];
+        return ['workflow_id'=>$promotion->id,'target'=>collect($fields)->mapWithKeys(fn($field)=>[$field=>(string)$target->getRawOriginal($field)])->all(),
+            'grade'=>($target->grade->grade_short_name ?: $target->grade->grade).$target->schoolClass->class_name,
+            'grade_order'=>(int)$target->grade->grade_order,'academic_year'=>$target->academicYear->academic_year];
     }
 
     private function unchangedSource(StudentSkippingGrade $record, StudentEnrollment $enrollment): void
@@ -242,11 +329,27 @@ class StudentSkippingGradeService
         return $year;
     }
 
-    private function noDuplicateTargetEnrollment(StudentEnrollment $enrollment, AcademicYear $year): void
+    private function targetPlacement(StudentEnrollment $source, AcademicYear $year, Grade $grade, ?StudentSkippingGrade $record = null): ?EnrollmentWorkflowAction
     {
-        if ($year->id != $enrollment->academic_year_id && StudentEnrollment::where('student_id',$enrollment->student_id)->where('academic_year_id',$year->id)->lockForUpdate()->exists()) {
-            $this->invalid('target_academic_year_id','This student already has an enrollment in the requested academic year.');
+        $saved=$record?->student_snapshot['existing_promotion']??null;
+        $promotion=null;
+        if ($year->id!=$source->academic_year_id) {
+            $existing=StudentEnrollment::where('student_id',$source->student_id)->where('academic_year_id',$year->id)->lockForUpdate()->first();
+            if ($existing) {
+                $promotion=$this->existingPromotions($source,$year->id)->first(fn($item)=>(int)$item->target_enrollment_id===(int)$existing->id);
+                if (!$promotion) $this->invalid('target_academic_year_id','This student already has an enrollment in the requested academic year without a matching valid promotion. Central Office must review it.');
+                if ((int)$grade->grade_order <= (int)$promotion->targetEnrollment->grade->grade_order) {
+                    $this->invalid('target_grade_id','The requested grade must be higher than the grade the student was already promoted to.');
+                }
+            }
         }
+        if ($record) {
+            $current=$promotion?$this->promotionContext($promotion):null;
+            if (($saved['workflow_id']??null)!==($current['workflow_id']??null) || ($saved['target']??null)!==($current['target']??null)) {
+                $this->invalid('target_academic_year_id','The existing next-year placement changed after this request was saved. Review and update the request before submitting or approving.');
+            }
+        }
+        return $promotion;
     }
 
     private function invalid(string $field, string $message): never

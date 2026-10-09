@@ -18,6 +18,7 @@ class EnrollmentWorkflowAction extends Model
     protected $casts = ['effective_on' => 'date', 'cancelled_at' => 'datetime'];
 
     public function student() { return $this->belongsTo(Student::class); }
+    public function targetEnrollment() { return $this->belongsTo(StudentEnrollment::class, 'target_enrollment_id'); }
     public function fromCampus() { return $this->belongsTo(SchoolInfo::class, 'from_campus_id'); }
     public function toCampus() { return $this->belongsTo(SchoolInfo::class, 'to_campus_id'); }
     public function fromAcademicYear() { return $this->belongsTo(AcademicYear::class, 'from_academic_year_id'); }

@@ -542,6 +542,11 @@
                                     </div>
                                 </div>
                             </div>
+                            <div class="col-12 premium-floating-field enrollment-remarks-field">
+                                <label class="form-label">Enrollment Remarks</label>
+                                <textarea id="enrollment_notes" name="enrollment_notes" class="form-control"
+                                    rows="2" maxlength="5000" placeholder=" "></textarea>
+                            </div>
                             <input type="hidden" id="status" name="status" value="1">
                         </div>
                         <div class="enrollment-section-header enrollment-section-header-dark mt-4">
@@ -884,13 +889,14 @@
                                     <th>Track</th>
                                     <th>Group</th>
                                     <th>Status</th>
+                                    <th>Remarks</th>
                                     <th>Updated Date &amp; Time</th>
                                     <th>Updated By</th>
                                 </tr>
                             </thead>
                             <tbody id="enrollmentHistoryTable">
                                 <tr>
-                                    <td colspan="11" class="text-center">No history found.</td>
+                                    <td colspan="12" class="text-center">No history found.</td>
                                 </tr>
                             </tbody>
                         </table>

@@ -1934,6 +1934,15 @@
     z-index: 2001;
 }
 
+#enrollmentInformationFields > .enrollment-remarks-field {
+    grid-column: 1 / -1;
+}
+
+.enrollment-history-remarks {
+    min-width: 16rem;
+    white-space: pre-line;
+}
+
 @media (min-width: 1200px) {
     #enrollmentInformationFields {
         display: grid;

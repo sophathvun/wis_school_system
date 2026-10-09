@@ -86,6 +86,18 @@ beforeEach(function () {
     });
 });
 
+it('preserves enrollment remarks on profile edits unless the enrollment remarks are explicitly changed', function ($mode) {
+    $remark='Skipped from 3B | Approval No: SG2627-003';
+    DB::table('tb_student_enrollment')->where('id',1)->update(['notes'=>$remark]);
+    $payload=$this->payload;
+    if ($mode==='replace') $payload['enrollment_notes']='Updated enrollment remark';
+    if ($mode==='clear') $payload['enrollment_notes']=null;
+    $expected=match ($mode) { 'replace'=>'Updated enrollment remark', 'clear'=>null, default=>$remark };
+    $this->postJson(route('student-enrollments.save'), $payload)->assertOk()->assertJsonPath('data.notes',$expected);
+    expect(DB::table('tb_student_enrollment')->where('id',1)->value('notes'))->toBe($expected)
+        ->and(DB::table('tb_student_enrollment_history')->latest('id')->value('notes'))->toBe($expected);
+})->with(['omit','replace','clear']);
+
 it('changes the photo URL on every upload and deletes each replaced file after saving', function () {
     $previousPath = $this->oldPhoto;
     for ($upload = 0; $upload < 2; $upload++) {

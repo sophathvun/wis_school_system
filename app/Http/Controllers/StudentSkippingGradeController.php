@@ -106,9 +106,7 @@ class StudentSkippingGradeController
 
     private function eligibleStudentEnrollments(Request $request)
     {
-        return StudentEnrollment::query()->where('tb_student_enrollment.status',1)->where('enrollment_status','active')
-            ->whereHas('academicYear',fn($q)=>$q->regular()->operational())
-            ->whereHas('student',fn($q)=>$q->where('status',1));
+        return $this->service->eligibleSourceEnrollments();
     }
 
     public function sourceClasses(Request $request)
@@ -154,6 +152,7 @@ class StudentSkippingGradeController
     {
         $this->service->authorize($request->user(),'requests');
         $enrollment->load(['student.familyMembers','academicYear','grade','schoolClass','campus']);
+        $promotions=$this->service->existingPromotions($enrollment);
         return response()->json([
             'id'=>$enrollment->id,'academic_year_id'=>$enrollment->academic_year_id,'campus_id'=>$enrollment->campus_id,
             'can_request'=>StudentSkippingGradePermissions::allows($request->user(),'create',$enrollment->campus_id),
@@ -164,7 +163,11 @@ class StudentSkippingGradeController
             'campus'=>$enrollment->campus->campus_name_en,'year'=>$enrollment->academicYear->academic_year,
             'grade'=>($enrollment->grade->grade_short_name ?: $enrollment->grade->grade).$enrollment->schoolClass->class_name,
             'grade_order'=>(int)$enrollment->grade->grade_order,'session_id'=>$enrollment->session_id,
-            'target_academic_years'=>$this->service->targetAcademicYears($enrollment->academicYear)->map(fn($year)=>['id'=>$year->id,'label'=>$year->academic_year])->values(),
+            'enrollment_status'=>$enrollment->enrollment_status,
+            'existing_promotions'=>$promotions->map(fn($promotion)=>$this->service->promotionContext($promotion))->values(),
+            'target_academic_years'=>$this->service->targetAcademicYears($enrollment->academicYear)
+                ->when($enrollment->enrollment_status==='completed',fn($years)=>$years->whereIn('id',$promotions->pluck('to_academic_year_id')))
+                ->map(fn($year)=>['id'=>$year->id,'label'=>$year->academic_year])->values(),
             'campus_committee_names'=>SkippingGradeCampusSetting::namesFor($enrollment->campus_id),
             'parents'=>$enrollment->student->familyMembers->filter(fn($member)=>in_array($member->relationship_type ?? $member->pivot?->relationship_type,['father','mother','guardian'],true))->map(fn($member)=>[
                 'name'=>$member->full_name_en ?: $member->full_name_kh,'phone'=>$member->phone,'relationship'=>$member->relationship_type ?? $member->pivot?->relationship_type,

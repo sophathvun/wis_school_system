@@ -4110,6 +4110,7 @@ const openEdit = async (id) => {
     submit.textContent = "Update";
     const student = row.student || {};
     field("enrollment_id").value = row.id;
+    field("enrollment_notes").value = row.notes ?? "";
     field("student_record_id").value = row.student_id;
     // Prefer the family matching the stored number, but fall back to the
     // student's linked family when older records have a stale family_number.
@@ -4675,7 +4676,7 @@ const remove = async (id) => {
 const showEnrollmentHistory = async (id, studentName) => {
     document.getElementById("enrollmentHistoryTitle").textContent =
         `Enrollment History${studentName ? ` - ${studentName}` : ""}`;
-    enrollmentHistoryTable.innerHTML = `<tr><td colspan="11" class="text-center">Loading...</td></tr>`;
+    enrollmentHistoryTable.innerHTML = `<tr><td colspan="12" class="text-center">Loading...</td></tr>`;
     historyModal.show();
     let result = {};
     try {
@@ -4687,7 +4688,7 @@ const showEnrollmentHistory = async (id, studentName) => {
             throw new Error(result.message || "Unable to load enrollment history.");
         }
     } catch (error) {
-        enrollmentHistoryTable.innerHTML = `<tr><td colspan="11" class="text-center text-danger">${escapeHtml(error.message || "Unable to load enrollment history.")}</td></tr>`;
+        enrollmentHistoryTable.innerHTML = `<tr><td colspan="12" class="text-center text-danger">${escapeHtml(error.message || "Unable to load enrollment history.")}</td></tr>`;
         return;
     }
     const history = result.history || [];
@@ -4720,12 +4721,13 @@ const showEnrollmentHistory = async (id, studentName) => {
             ${cell(item, index, "academic_track_id", escapeHtml(item.academic_track?.name_en || "-"))}
             ${cell(item, index, "session_id", escapeHtml(item.session?.session_short_name || "-"))}
             ${cell(item, index, "enrollment_status", `<span class="badge bg-${item.enrollment_status === "graduated" ? "blue" : item.enrollment_status === "withdrawn" ? "danger" : item.enrollment_status === "pending" ? "warning" : item.enrollment_status === "active" ? "success" : "secondary"}-lt">${escapeHtml(item.enrollment_status || "-")}</span>`)}
+            <td class="enrollment-history-remarks">${escapeHtml(item.notes || "-")}</td>
             <td class="${index === 0 ? "bg-green-lt fw-bold" : ""}">${escapeHtml(formatDateTime(item.updated_at))}</td>
             <td>${escapeHtml(item.changed_by?.name || "System")}</td>
         </tr>`,
               )
               .join("")
-        : `<tr><td colspan="11" class="text-center">No enrollment history found.</td></tr>`;
+        : `<tr><td colspan="12" class="text-center">No enrollment history found.</td></tr>`;
 };
 
 document.addEventListener("click", (event) => {

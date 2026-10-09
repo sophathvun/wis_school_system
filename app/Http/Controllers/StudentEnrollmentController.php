@@ -564,7 +564,9 @@ class StudentEnrollmentController
                 $enrollment->enrolled_on = $validated['enrolled_on'] ?? ($enrollment->enrolled_on ?: now()->toDateString());
                 $enrollment->ended_on = $validated['ended_on'] ?? null;
                 $enrollment->exit_reason = $validated['exit_reason'] ?? null;
-                $enrollment->notes = $validated['enrollment_notes'] ?? null;
+                if (array_key_exists('enrollment_notes', $validated)) {
+                    $enrollment->notes = $validated['enrollment_notes'];
+                }
                 $enrollment->save();
 
                 $newAssignment = $enrollment->only(['campus_id', 'academic_year_id', 'grade_id', 'class_id', 'academic_track_id', 'session_id']);
