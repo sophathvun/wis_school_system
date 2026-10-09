@@ -58,17 +58,26 @@
 .chat-message-context-menu {
     position: fixed;
     z-index: 2147483647;
-    min-width: 130px;
-    padding: 0.3rem;
+    width: max-content;
+    max-width: calc(100vw - 16px);
+    min-width: 180px;
+    padding: 0.4rem;
     border: 1px solid var(--tblr-border-color);
-    border-radius: 0.6rem;
+    border-radius: 1rem;
     background: var(--tblr-bg-surface);
     color: var(--tblr-body-color);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
 }
 
-.chat-message-context-menu button { width: 100%; border: 0; background: transparent; color: inherit; text-align: left; padding: 0.5rem; font: inherit; }
-.chat-message-context-menu button:hover { background: var(--tblr-bg-surface-secondary); border-radius: 0.35rem; }
+.chat-message-context-menu button { border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.chat-menu-reactions { display: flex; justify-content: space-between; gap: 0.2rem; padding-bottom: 0.4rem; margin-bottom: 0.3rem; border-bottom: 1px solid var(--tblr-border-color); }
+.chat-menu-reactions button { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 44px; border-radius: 999px; font-size: 1.6rem; }
+.chat-menu-reactions button[aria-pressed="true"] { background: var(--tblr-primary-lt); box-shadow: inset 0 0 0 2px var(--tblr-primary); }
+.chat-message-context-menu .chat-menu-action { display: flex; align-items: center; gap: 0.75rem; width: 100%; min-height: 44px; padding: 0.6rem 0.75rem; border-radius: 0.5rem; text-align: left; }
+.chat-message-context-menu .chat-menu-delete { color: var(--tblr-danger, #d63939); }
+.chat-message-context-menu button:hover { background: var(--tblr-bg-surface-secondary); }
+.chat-message-context-menu button:focus-visible { outline: 2px solid var(--tblr-primary); outline-offset: -2px; }
+.chat-message-context-menu button:disabled { opacity: 0.6; cursor: wait; }
 .chat-reply-composer[hidden], .chat-message-context-menu[hidden] { display: none; }
 .chat-reply-button:focus-visible, .chat-reply-quote:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
 .chat-reply-highlight { outline: 3px solid var(--tblr-warning, #f59f00); outline-offset: 3px; }

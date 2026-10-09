@@ -1,3 +1,5 @@
+import { reactionOptions } from './chatReactions.js';
+
 const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
 }[char]));
@@ -15,11 +17,13 @@ export function renderReplyQuote(message) {
     return `<button type="button" class="chat-reply-quote" data-jump-reply="${Number(reply.id)}" aria-label="Go to replied message"><strong>${escapeHtml(reply.user_name || 'Staff')}</strong><span>${escapeHtml(replyPreview(reply))}</span></button>`;
 }
 
-export function renderReplyAction(message) {
-    return message.can_reply ? `<button type="button" class="chat-reply-button" data-reply-message="${Number(message.id)}"><i class="ti ti-arrow-back-up"></i><span>Reply</span></button>` : '';
+export function renderMessageMenu(message) {
+    const selected = (message.reactions || []).find((reaction) => reaction.reacted)?.emoji;
+    const reactions = message.can_react ? `<div class="chat-menu-reactions" role="group" aria-label="React to message">${reactionOptions.map(({ emoji, label }) => `<button type="button" data-menu-reaction="${emoji}" aria-label="${label}" aria-pressed="${selected === emoji}" title="${label}">${emoji}</button>`).join('')}</div>` : '';
+    return `${reactions}${message.can_reply ? '<button type="button" class="chat-menu-action" data-menu-reply role="menuitem"><i class="ti ti-arrow-back-up"></i><span>Reply</span></button>' : ''}${message.can_delete ? '<button type="button" class="chat-menu-action chat-menu-delete" data-menu-delete role="menuitem"><i class="ti ti-trash"></i><span>Delete</span></button>' : ''}`;
 }
 
-export function createMessageReplyController(root, { form, input, getMessage, getConversationId, onMissing }) {
+export function createMessageReplyController(root, { form, input, getMessage, getConversationId, onMissing, onReact, onDelete }) {
     const doc = root.ownerDocument;
     const win = doc.defaultView;
     const banner = doc.createElement('div');
@@ -34,10 +38,13 @@ export function createMessageReplyController(root, { form, input, getMessage, ge
     doc.body.append(menu);
     let selection = null;
     let menuMessageId = null;
+    let menuConversationId = null;
+    let menuPoint = null;
+    let menuBusy = false;
     let pressTimer = null;
     let pressPoint = null;
     let suppressClickUntil = 0;
-    const closeMenu = () => { menu.hidden = true; menuMessageId = null; };
+    const closeMenu = () => { menu.hidden = true; menuMessageId = null; menuConversationId = null; menuPoint = null; };
     const clear = () => { selection = null; banner.hidden = true; banner.innerHTML = ''; closeMenu(); };
     const showBanner = (message) => {
         banner.innerHTML = `<div class="chat-reply-composer-text"><strong>Replying to ${escapeHtml(message.user_name || 'Staff')}</strong><span>${escapeHtml(replyPreview(message))}</span></div><button type="button" data-cancel-reply aria-label="Cancel reply"><i class="ti ti-x"></i></button>`;
@@ -51,14 +58,19 @@ export function createMessageReplyController(root, { form, input, getMessage, ge
         closeMenu();
         input.focus();
     };
-    const showMenu = (id, x, y) => {
-        if (!getMessage(id)?.can_reply) return;
+    const canOpenMenu = (message) => message && (message.can_react || message.can_reply || message.can_delete);
+    const showMenu = (id, x, y, focus = true) => {
+        const message = getMessage(id);
+        if (!canOpenMenu(message)) return;
+        if (focus) doc.dispatchEvent(new win.CustomEvent('chat-message-menu-open', { detail: menu }));
         menuMessageId = id;
-        menu.innerHTML = '<button type="button" role="menuitem"><i class="ti ti-arrow-back-up"></i> Reply</button>';
+        menuConversationId = getConversationId();
+        menuPoint = { x, y };
+        menu.innerHTML = renderMessageMenu(message);
         menu.hidden = false;
         menu.style.left = `${Math.max(8, Math.min(x, win.innerWidth - menu.offsetWidth - 8))}px`;
         menu.style.top = `${Math.max(8, Math.min(y, win.innerHeight - menu.offsetHeight - 8))}px`;
-        menu.querySelector('button').focus();
+        if (focus) menu.querySelector('button')?.focus();
     };
     const messageBubble = (event) => {
         if (event.target.closest('a, audio, button, input, textarea')) return null;
@@ -67,20 +79,36 @@ export function createMessageReplyController(root, { form, input, getMessage, ge
     };
     root.addEventListener('contextmenu', (event) => {
         const bubble = messageBubble(event);
-        if (!bubble || !getMessage(Number(bubble.dataset.messageId))?.can_reply) return;
+        if (!bubble || !canOpenMenu(getMessage(Number(bubble.dataset.messageId)))) return;
         event.preventDefault();
         event.stopPropagation();
         showMenu(Number(bubble.dataset.messageId), event.clientX, event.clientY);
     });
-    menu.addEventListener('click', (event) => {
-        if (event.target.closest('button') && menuMessageId !== null) select(menuMessageId);
+    menu.addEventListener('click', async (event) => {
+        const button = event.target.closest('button');
+        if (!button || menuMessageId === null || menuBusy) return;
+        const id = menuMessageId;
+        const conversationId = menuConversationId;
+        const message = getMessage(id);
+        if (conversationId !== getConversationId() || !message) { closeMenu(); return; }
+        if (button.hasAttribute('data-menu-reply')) { select(id); return; }
+        if (button.hasAttribute('data-menu-delete') && message.can_delete) { closeMenu(); onDelete?.(id, Boolean(message.can_delete_for_everyone)); return; }
+        if (button.hasAttribute('data-menu-reaction') && message.can_react) {
+            menuBusy = true;
+            menu.querySelectorAll('button').forEach((item) => { item.disabled = true; });
+            try {
+                const saved = await onReact?.(id, button.dataset.menuReaction);
+                if (menuMessageId === id && menuConversationId === conversationId) {
+                    if (saved) closeMenu();
+                    else showMenu(id, menuPoint.x, menuPoint.y);
+                }
+            } finally { menuBusy = false; }
+        }
     });
     banner.addEventListener('click', (event) => {
         if (event.target.closest('[data-cancel-reply]')) { clear(); input.focus(); }
     });
     root.addEventListener('click', (event) => {
-        const reply = event.target.closest('[data-reply-message]');
-        if (reply) { event.preventDefault(); event.stopPropagation(); select(Number(reply.dataset.replyMessage)); return; }
         const quote = event.target.closest('[data-jump-reply]');
         if (!quote) return;
         event.preventDefault();
@@ -110,16 +138,39 @@ export function createMessageReplyController(root, { form, input, getMessage, ge
     root.addEventListener('pointercancel', cancelPress);
     root.addEventListener('click', (event) => {
         if (Date.now() < suppressClickUntil) { event.preventDefault(); event.stopImmediatePropagation(); }
+        else if (event.pointerType === 'touch' || win.matchMedia('(pointer: coarse)').matches || win.matchMedia('(max-width: 767px)').matches) {
+            const bubble = messageBubble(event);
+            if (!bubble || !canOpenMenu(getMessage(Number(bubble.dataset.messageId)))) return;
+            event.preventDefault(); event.stopImmediatePropagation();
+            showMenu(Number(bubble.dataset.messageId), event.clientX, event.clientY);
+        }
     }, true);
     root.addEventListener('scroll', () => { closeMenu(); cancelPress(); });
     doc.addEventListener('click', (event) => { if (!menu.contains(event.target)) closeMenu(); });
+    doc.addEventListener('chat-message-menu-open', (event) => { if (event.detail !== menu) closeMenu(); });
+    win.addEventListener('resize', closeMenu);
+    menu.addEventListener('keydown', (event) => {
+        if (!['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+        const buttons = [...menu.querySelectorAll('button:not(:disabled)')];
+        const index = buttons.indexOf(doc.activeElement);
+        const next = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 : (index + (['ArrowUp', 'ArrowLeft'].includes(event.key) ? -1 : 1) + buttons.length) % buttons.length;
+        buttons[next]?.focus(); event.preventDefault();
+    });
     doc.addEventListener('keydown', (event) => {
         if (event.key === 'Escape' && !menu.hidden) {
-            closeMenu(); input.focus(); event.preventDefault();
+            const bubble = root.querySelector(`[data-message-id="${menuMessageId}"]`);
+            closeMenu(); if (bubble) { bubble.tabIndex = 0; bubble.focus(); } event.preventDefault();
         }
     });
     const refresh = () => {
-        closeMenu();
+        if (menuMessageId !== null) {
+            if (menuConversationId !== getConversationId() || !canOpenMenu(getMessage(menuMessageId))) closeMenu();
+            else if (!menuBusy) {
+                const focusedLabel = menu.contains(doc.activeElement) ? doc.activeElement.getAttribute('aria-label') || doc.activeElement.textContent.trim() : null;
+                showMenu(menuMessageId, menuPoint.x, menuPoint.y, false);
+                if (focusedLabel) [...menu.querySelectorAll('button')].find((button) => (button.getAttribute('aria-label') || button.textContent.trim()) === focusedLabel)?.focus();
+            }
+        }
         cancelPress();
         if (!selection) return;
         const message = getMessage(selection.id);

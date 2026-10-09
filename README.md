@@ -102,13 +102,13 @@ Boost provides your agent 15+ tools and skills that help agents build Laravel ap
 
 ## Message reactions
 
-The Messages widget and full chat page support heart, thanks, thumbs-up, laugh, surprised, and sad reactions. Click React on a message to choose one; click your selected reaction again to remove it. Each conversation member has one reaction per message and can change it. Counts and participant names appear on the message and refresh with the existing chat polling. Reacting does not send a new message or push notification.
+The Messages widget and full chat page support heart, thanks, thumbs-up, laugh, surprised, and sad reactions. Right-click a message on computers or tap it on phones to open quick reactions, Reply, and Delete (when permitted). Select an emoji to react; select your current emoji again to remove it. Each conversation member has one reaction per message and can change it. Only reaction counts remain visible on the message; counts and participant names refresh with the existing chat polling. Reacting does not send a new message or push notification.
 
 Deployment requires `php artisan migrate --force` (migration `2026_10_09_000016_create_chat_message_reactions.php`) and `npm run build`. Reactions are restricted to current conversation members and visible, undeleted messages. Existing messages can receive reactions after deployment.
 
 ## Message replies
 
-In the Messages widget and full chat page, right-click a message on a computer and choose Reply, or use the visible Reply button. On phones, users can also long-press the message. A composer preview shows the selected message and lets users cancel. Sent text, file/photo, and voice replies show the original sender and a quoted preview; clicking the quote locates the original message when it is in the loaded history. Switching conversations clears the selected reply.
+In the Messages widget and full chat page, right-click a message on a computer or tap it on a phone and choose Reply from the popup. Long-press also opens the popup on phones. A composer preview shows the selected message and lets users cancel. Sent text, file/photo, and voice replies show the original sender and a quoted preview; clicking the quote locates the original message when it is in the loaded history. Switching conversations clears the selected reply and popup. Links, attachments, and audio controls retain their normal click behavior.
 
 Replies are restricted to visible messages in the same conversation. Deleted or personally hidden originals display "Message unavailable" without exposing their content. Deployment requires `php artisan migrate --force` (migration `2026_10_09_000017_add_chat_message_replies.php`) and `npm run build`.
 

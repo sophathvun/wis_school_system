@@ -1,5 +1,5 @@
 import { renderMessageReactions, createMessageReactionController } from './helpers/chatReactions.js';
-import { renderReplyQuote, renderReplyAction, createMessageReplyController } from './helpers/chatReplies.js';
+import { renderReplyQuote, createMessageReplyController } from './helpers/chatReplies.js';
 import { bindChatAttachmentPaste, prepareChatAttachment } from './helpers/chatAttachmentPaste.js';
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -399,9 +399,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     <div class="small opacity-75 mb-1">${esc(message.user_name)} &middot; ${esc(message.created_at)}</div>
                     ${renderReplyQuote(message)}
                     ${messageContent(message)}
-                    ${renderMessageReactions(message)}
-                    ${renderReplyAction(message)}
-                    ${message.can_delete ? `<button type="button" class="chat-delete-button" data-delete-message="${message.id}" data-delete-everyone="${message.can_delete_for_everyone ? "true" : "false"}"><i class="ti ti-trash"></i><span>Delete</span></button>` : ""}
+                    <div class="chat-reaction-slot">${renderMessageReactions(message)}</div>
                     ${messageStatus(message)}
                 </div>
                 ${message.user_id === currentUserId ? avatar({ name: "You", photo: currentUserPhoto, online: true }) : ""}
@@ -416,13 +414,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 const wasOpen = detail?.classList.contains("show");
                 chatMessages.querySelectorAll(".chat-message-detail.show").forEach((item) => item.classList.remove("show"));
                 if (detail && !wasOpen) detail.classList.add("show");
-            });
-        });
-        chatMessages.querySelectorAll("[data-delete-message]").forEach((button) => {
-            button.addEventListener("click", (event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                chooseDeleteScope(Number(button.dataset.deleteMessage), button.dataset.deleteEveryone === "true").catch((error) => showDeleteError(error.message || "Unable to delete message."));
             });
         });
         reactionController.refresh();
@@ -451,6 +442,8 @@ document.addEventListener("DOMContentLoaded", () => {
         getConversationId: () => activeId,
         getMessage: (id) => activeConversation?.messages?.find((message) => Number(message.id) === id),
         onMissing: (text) => showChatAlert('Reply', text),
+        onReact: (id, emoji) => reactionController.react(id, emoji),
+        onDelete: (id, everyone) => chooseDeleteScope(id, everyone).catch((error) => showDeleteError(error.message || 'Unable to delete message.')),
     });
 
     const loadUsers = async () => {
@@ -653,8 +646,7 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        let selectedGroupAction = null;
-        await window.Swal.fire({
+        const result = await window.Swal.fire({
             icon: "warning",
             title: "Delete message",
             html: canDeleteForEveryone

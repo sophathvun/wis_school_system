@@ -3,8 +3,7 @@
     color: inherit;
 }
 
-.chat-reaction-summary,
-.chat-reaction-picker {
+.chat-reaction-counts {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -39,25 +38,9 @@
     outline-offset: 2px;
 }
 
-.chat-reaction-picker {
-    margin-top: 0.4rem;
-    padding: 0.35rem;
-    border-radius: 0.65rem;
-    background: var(--tblr-bg-surface, #fff);
-    color: var(--tblr-body-color, #182433);
-}
-
-.chat-reaction-picker[hidden] { display: none; }
-
-.chat-reaction-picker button {
-    min-width: 36px;
-    min-height: 36px;
-    border-color: transparent;
-    font-size: 1.25rem;
-    padding: 0.25rem;
-}
-
 .chat-message-reactions button:disabled {
     opacity: 0.6;
     cursor: wait;
 }
+
+.chat-reaction-counts:empty { display: none; }

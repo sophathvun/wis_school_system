@@ -10,14 +10,13 @@ test('reactions show counts, selected state and safe participant names', () => {
     assert.match(markup, /Heart: 2, your reaction\. Click to remove/);
     assert.match(markup, /&lt;script&gt;&quot;Name&quot;&lt;\/script&gt;/);
     assert.ok(!markup.includes('<script>'));
-    assert.match(markup, /Choose a reaction/);
-    for (const option of reactionOptions) assert.ok(markup.includes(`aria-label="${option.label}"`));
+    assert.ok(!markup.includes('data-reaction-picker'));
+    assert.ok(!markup.includes('>React<'));
 });
 
-test('old messages with no reactions have a picker and unsupported reactions are not rendered', () => {
+test('messages without supported reactions have no inline controls', () => {
     const markup = renderMessageReactions({ id: 1, can_react: true, reactions: [{ emoji: '<img src=x>', count: 1 }] });
-    assert.match(markup, /React to message/);
-    assert.match(markup, /hidden/);
+    assert.equal(markup, '');
     assert.ok(!markup.includes('<img'));
     assert.equal(renderMessageReactions({ id: 1, can_react: false }), '');
 });
