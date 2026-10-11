@@ -140,6 +140,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('/settings/users/{user}', [UserManagementController::class, 'delete'])->name('users.delete');
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::get('/notifications/unread', [NotificationController::class, 'unread'])->name('notifications.unread');
+    Route::get('/notifications/{notification}/open', [NotificationController::class, 'read'])->name('notifications.open');
     Route::post('/notifications/read-all', [NotificationController::class, 'readAll'])->name('notifications.read-all');
     Route::post('/notifications/{notification}/read', [NotificationController::class, 'read'])->name('notifications.read');
     Route::get('/push/vapid-public-key', [PushSubscriptionController::class, 'publicKey'])->name('push.public-key');
@@ -207,6 +208,12 @@ Route::middleware(['auth', 'active.user'])->group(function () {
     Route::prefix('students/skipping-grade')->name('student-skipping-grade.')->controller(\App\Http\Controllers\StudentSkippingGradeController::class)->group(function () {
         Route::get('/', 'index')->name('index');
         Route::get('/create', 'create')->name('create');
+        Route::get('/my-approvals', 'myApprovals')->name('my-approvals');
+        Route::get('/approval-flow', 'approvalFlow')->name('approval-flow');
+        Route::post('/approval-flow', 'saveApprovalFlow')->name('approval-flow.save');
+        Route::get('/print-report', 'printReport')->name('report.print');
+        Route::get('/print-statistics', 'printStatistics')->name('statistics.print');
+        Route::get('/reports/{kind}/export/{format}', 'exportReport')->where('kind', 'list|statistics')->where('format', 'pdf|xlsx')->name('report.export');
         Route::get('/campus-settings', 'campusSettings')->name('campus-settings');
         Route::post('/campus-settings', 'saveCampusSettings')->name('campus-settings.save');
         Route::get('/settings', 'settings')->name('settings');
@@ -224,6 +231,10 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         Route::post('/{skipping}/submit', 'submit')->name('submit');
         Route::post('/{skipping}/approve', 'approve')->name('approve');
         Route::post('/{skipping}/reject', 'reject')->name('reject');
+        Route::post('/{skipping}/review', 'review')->name('review');
+        Route::post('/{skipping}/reviewers/{step}/reassign', 'reassignReviewer')->whereNumber('step')->name('reviewer.reassign');
+        Route::post('/{skipping}/attachments', 'uploadAttachments')->name('attachments.upload');
+        Route::get('/{skipping}/attachments/{index}', 'attachment')->whereNumber('index')->name('attachment');
         Route::get('/{skipping}/signed-request', 'signedRequest')->name('signed-request');
         Route::get('/{skipping}/share/approval', 'shareApproval')->name('share-approval');
         Route::get('/{skipping}/print/{form}', 'printForm')->name('print');
@@ -236,6 +247,9 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         'description' => 'Use this module to manage WESTERN scholarship students and records.',
     ])->name('western-scholarship.index');
     Route::get('/students/id-card-qr', [StudentIdCardQrController::class, 'index'])->name('student-id-card-qr.index');
+    Route::post('/students/id-card-qr/template', [StudentIdCardQrController::class, 'saveTemplate'])->name('student-id-card-qr.template');
+    Route::post('/students/id-card-qr/generate', [StudentIdCardQrController::class, 'generateQr'])->name('student-id-card-qr.generate');
+    Route::get('/students/id-card-qr/print', [StudentIdCardQrController::class, 'printCards'])->name('student-id-card-qr.print');
     Route::get('/students/id-card-qr/{student}/qr.svg', [StudentIdCardQrController::class, 'qr'])->name('student-id-card-qr.qr');
 
     Route::view('/attendance', 'academic-module-placeholder', [

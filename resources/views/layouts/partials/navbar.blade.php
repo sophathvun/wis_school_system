@@ -2,7 +2,7 @@
     $headerNotificationPayload = $headerNotificationPayload ?? [];
     $headerUnreadNotifications = $headerUnreadNotifications ?? 0;
     if (auth()->check()) {
-        $headerNotifications = auth()->user()->userNotifications()->latest()->limit(5)->get();
+        $headerNotifications = auth()->user()->userNotifications()->latest('id')->limit(5)->get();
         $headerUnreadNotifications = auth()->user()->userNotifications()->whereNull('read_at')->count();
         $headerNotificationPayload = $headerNotifications
             ->map(
@@ -10,7 +10,7 @@
                     'id' => $item->id,
                     'title' => $item->title,
                     'message' => \Illuminate\Support\Str::limit(strip_tags($item->message), 90),
-                    'url' => $item->action_url ?: route('notifications.index'),
+                    'url' => $item->action_url ? route('notifications.open', $item) : route('notifications.index'),
                     'read' => (bool) $item->read_at,
                     'time' => $item->created_at?->diffForHumans(),
                 ],

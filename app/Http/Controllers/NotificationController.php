@@ -117,17 +117,17 @@ class NotificationController
     public function unread(Request $request)
     {
         $unread = $request->user()->userNotifications()->whereNull('read_at')->count();
-        $latest = $request->user()->userNotifications()->latest()->first();
+        $latest = $request->user()->userNotifications()->latest('id')->first();
         $items = $request->user()->userNotifications()
             ->when($unread > 0, fn ($query) => $query->whereNull('read_at'))
-            ->latest()
+            ->latest('id')
             ->limit(5)
             ->get()
             ->map(fn ($item) => [
                 'id' => $item->id,
                 'title' => $item->title,
                 'message' => Str::limit(strip_tags($item->message), 120),
-                'url' => $item->action_url ?: route('notifications.index'),
+                'url' => $item->action_url ? route('notifications.open', $item) : route('notifications.index'),
                 'created_at' => $item->created_at?->toIso8601String(),
                 'time' => $item->created_at?->diffForHumans(),
                 'read' => (bool) $item->read_at,
@@ -140,11 +140,12 @@ class NotificationController
                 'id' => $latest->id,
                 'title' => $latest->title,
                 'message' => Str::limit(strip_tags($latest->message), 120),
-                'url' => $latest->action_url ?: route('notifications.index'),
+                'url' => $latest->action_url ? route('notifications.open', $latest) : route('notifications.index'),
                 'created_at' => $latest->created_at?->toIso8601String(),
                 'read' => (bool) $latest->read_at,
             ] : null,
             'items' => $items,
+            'skipping_pending' => app(\App\Services\SkippingGradeNotifications::class)->pendingCount($request->user()),
         ]);
     }
 

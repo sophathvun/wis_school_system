@@ -9,13 +9,19 @@
     $s=$record->student_snapshot;
     $requestedYear=$s['target_academic_year']??$s['academic_year'];
     $existingPromotion=$record->student_snapshot['existing_promotion']??null;
+    $sequential=$record->usesSequentialFlow();
+    $canFinalize=$sequential?($canReview && $currentStep?->is_final):$permissions['approve'];
+    $canReject=$sequential?$canReview:$permissions['reject'];
+    $canManageDocuments=$record->status==='draft' && \App\Support\StudentSkippingGradePermissions::canEdit(auth()->user(),$record);
+    $canSubmit=$record->status==='draft' && $permissions['submit'];
 @endphp
-<div class="skipping-page" data-skipping-page data-success="{{ session('success') }}">
+<div class="skipping-page {{ $sequential?'skipping-workflow-fields':'' }}" data-skipping-page data-success="{{ session('success') }}">
+    @if($sequential)@include('student-skipping-grade._approval-workflow')@endif
     <div class="card mb-3"><div class="card-header skipping-header skipping-record-header">
         <h3 class="card-title">{{ $s['name_en'] }} · {{ $s['student_id'] }}</h3>
-        <span class="badge skipping-record-status skipping-status-{{ $record->status }}">{{ $record->status==='pending'?'Submitted to Central Office':ucfirst($record->status) }}</span>
+        <span class="badge skipping-record-status skipping-status-{{ $record->status }}">{{ $record->status==='pending'?($sequential?'Pending Approval':'Submitted to Central Office'):ucfirst($record->status) }}</span>
         <div class="skipping-record-header-actions">
-            @if($permissions['print'] && $record->status!=='rejected')
+            @if($canPrint && $record->status!=='rejected')
                 <a class="btn" target="_blank" href="{{ route('student-skipping-grade.print',['skipping'=>$record,'form'=>'request']) }}"><i class="ti ti-printer me-1"></i>Print Request</a>
                 @if($record->status==='approved')<a class="btn" target="_blank" href="{{ route('student-skipping-grade.print',['skipping'=>$record,'form'=>'approval']) }}"><i class="ti ti-printer me-1"></i>Print Approval</a>@endif
             @endif
@@ -51,15 +57,25 @@
     @include('student-skipping-grade._saved-options',['optionsTitle'=>'Additional Request Options','savedOptions'=>$record->criteria['custom_options']??[]])
     @if(\App\Support\StudentSkippingGradePermissions::canEdit(auth()->user(),$record))<a class="btn btn-outline-primary mt-3 skipping-mobile-full-width" href="{{ route('student-skipping-grade.edit',$record) }}"><i class="ti ti-edit me-1"></i>{{ $record->status==='draft'?'Edit Draft':'Edit Request' }}</a>@endif
     </div></div>
-    @if($record->status==='draft' && $permissions['submit'])
-    <div class="card mb-3"><div class="card-header skipping-header"><h3 class="card-title">Submit Parent-signed Request</h3></div><div class="card-body"><form method="post" action="{{ route('student-skipping-grade.submit',$record) }}" enctype="multipart/form-data" data-skipping-form data-confirm="Submit this parent-signed request to Central Office?" novalidate>@csrf
-        <div class="skipping-form-grid">@include('student-skipping-grade._date-field',['dateName'=>'parent_signed_date','dateLabel'=>'Parent Signed Date'])<label>Signed Request (Optional)<input class="form-control" type="file" name="signed_request" accept="application/pdf,image/png,image/jpeg,image/webp"><small class="text-secondary">PDF, JPG, PNG, or WEBP. Maximum 5 MB.</small></label></div>
-        <label class="form-check mt-3"><input class="form-check-input" type="checkbox" name="parent_signed" value="1"><span class="form-check-label">The parent/guardian has signed the printed request.</span></label>
-        <button class="btn btn-primary mt-3" type="submit">Submit to Central Office</button>
-    </form></div></div>
-    @endif
+    <div class="card mb-3"><div class="card-header skipping-header"><h3 class="card-title">{{ $canSubmit?'Supporting Documents & Submission':'Supporting Documents' }}</h3></div><div class="card-body">
+        @if($canManageDocuments || $canSubmit)
+            <form method="post" action="{{ $canManageDocuments?route('student-skipping-grade.attachments.upload',$record):route('student-skipping-grade.submit',$record) }}" enctype="multipart/form-data" data-skipping-form novalidate>@csrf
+                @include('student-skipping-grade._supporting-documents-upload',['documentsEditable'=>$canManageDocuments,'documentsSaveAction'=>'save documents or submit the request'])
+                @if($canSubmit)
+                    <div class="skipping-form-grid mt-3">@include('student-skipping-grade._date-field',['dateName'=>'parent_signed_date','dateLabel'=>'Parent Signed Date'])</div>
+                    <label class="form-check mt-3"><input class="form-check-input" type="checkbox" name="parent_signed" value="1"><span class="form-check-label">The parent/guardian has signed the request.</span></label>
+                @endif
+                <div class="d-flex flex-wrap gap-2 mt-3">
+                    @if($canManageDocuments)<button type="submit" class="btn btn-outline-primary">Save Documents</button>@endif
+                    @if($canSubmit)<button type="submit" class="btn btn-primary" formaction="{{ route('student-skipping-grade.submit',$record) }}" data-confirm="{{ $sequential?'Save attached documents and submit this parent-signed request to the first assigned reviewer?':'Save attached documents and submit this parent-signed request to Central Office?' }}">{{ $sequential?'Submit for Approval':'Submit to Central Office' }}</button>@endif
+                </div>
+            </form>
+        @else
+            @include('student-skipping-grade._supporting-documents-upload',['documentsEditable'=>false])
+        @endif
+    </div></div>
     @if($record->submitted_at)
-        <div class="card mb-3"><div class="card-body"><div class="skipping-details skipping-submission-details"><div><small>Parent Signed Date</small><strong>{{ $record->parent_signed_at?->format('d-M-Y') }}</strong></div><div><small>Submitted</small><strong><span class="skipping-submission-date">{{ $record->submitted_at->format('d-M-Y') }}</span> <span class="skipping-submission-time">{{ $record->submitted_at->format('H:i') }}</span></strong></div><div><small>Requested By</small><strong>{{ $record->creator?->name }}</strong></div></div>@if($record->signed_request_path)<a class="btn btn-outline-primary mt-3" target="_blank" href="{{ route('student-skipping-grade.signed-request',$record) }}">View Signed Request</a>@endif</div></div>
+        <div class="card mb-3"><div class="card-body"><div class="skipping-details skipping-submission-details"><div><small>Parent Signed Date</small><strong>{{ $record->parent_signed_at?->format('d-M-Y') }}</strong></div><div><small>Submitted</small><strong><span class="skipping-submission-date">{{ $record->submitted_at->format('d-M-Y') }}</span> <span class="skipping-submission-time">{{ $record->submitted_at->format('H:i') }}</span></strong></div><div><small>Requested By</small><strong>{{ $requester['name']??'Unavailable' }}</strong></div></div>@if($record->signed_request_path)<a class="btn btn-outline-primary mt-3" target="_blank" href="{{ route('student-skipping-grade.signed-request',$record) }}">View Signed Request</a>@endif</div></div>
     @endif
     @if($existingPromotion)
         <div class="alert alert-info"><strong>Already Promoted</strong> · {{ $existingPromotion['grade'] }} → {{ $s['target_grade'] }}{{ $s['target_class'] }} / {{ $requestedYear }}.
@@ -67,8 +83,15 @@
             @else Central Office approval will update the existing enrollment. Until approval, the {{ $existingPromotion['grade'] }} placement stays unchanged.@endif
         </div>
     @endif
-    @if($record->status==='pending' && $permissions['approve'])
-    <div class="card mb-3"><div class="card-header skipping-header"><h3 class="card-title">Central Office Approval</h3></div><div class="card-body"><form method="post" action="{{ route('student-skipping-grade.approve',$record) }}" data-skipping-form data-confirm="Approve this request for {{ $s['name_en'] }} in {{ $s['target_grade'] }}{{ $s['target_class'] }} for {{ $requestedYear }}?" novalidate>@csrf
+    @if($canReview && !$currentStep?->is_final)
+        <div class="card mb-3"><div class="card-header skipping-header"><h3 class="card-title">{{ $currentStep->title }} Review</h3></div><div class="card-body"><p>Review the request and attached documents. Approval at this step forwards the request to the next reviewer.</p><form method="post" action="{{ route('student-skipping-grade.review',$record) }}" data-skipping-form data-confirm="Approve your review and forward this request to the next reviewer?" novalidate>@csrf
+            <input type="hidden" name="approval_step_id" value="{{ $currentStep->id }}"><input type="hidden" name="approval_step_revision" value="{{ $currentStep->revision }}">
+            <div class="premium-form-field"><label class="form-label" for="reviewComments">Review Comments (Optional)</label><textarea id="reviewComments" name="comments" class="form-control" maxlength="1500" rows="2"></textarea></div><button type="submit" class="btn btn-success mt-3">Approve and Forward</button>
+        </form></div></div>
+    @endif
+    @if($record->status==='pending' && $canFinalize)
+    <div class="card mb-3"><div class="card-header skipping-header"><h3 class="card-title">{{ $sequential?'Vice President — Final Approval':'Central Office Approval' }}</h3></div><div class="card-body"><form method="post" action="{{ route('student-skipping-grade.approve',$record) }}" data-skipping-form data-confirm="Approve this request for {{ $s['name_en'] }} in {{ $s['target_grade'] }}{{ $s['target_class'] }} for {{ $requestedYear }}?" novalidate>@csrf
+        @if($sequential)<input type="hidden" name="approval_step_id" value="{{ $currentStep->id }}"><input type="hidden" name="approval_step_revision" value="{{ $currentStep->revision }}">@endif
         <div class="skipping-form-grid skipping-approval-date-grid">@foreach(['received_date'=>'Request Received Date','review_date'=>'Committee Review Date','approval_date'=>'VP Approval Date','effective_date'=>'Grade Change Effective Date'] as $key=>$label)
             @include('student-skipping-grade._date-field',['dateName'=>$key,'dateLabel'=>$label])
         @endforeach</div>
@@ -81,13 +104,15 @@
         <p class="text-secondary mt-3">@if($existingPromotion)Approval updates the existing {{ $existingPromotion['grade'] }} enrollment to {{ $s['target_grade'] }}{{ $s['target_class'] }}. The original promotion remains in history.@else Approval prepares the student enrollment in {{ $s['campus_en'] }} for {{ $requestedYear }}.@if($requestedYear!==$s['academic_year']) The current-year enrollment stays unchanged.@endif @endif The approval form includes the configured VP signature and stamp.</p>
         <button class="btn btn-success skipping-mobile-full-width" type="submit"><i class="ti ti-check me-1"></i>Approve and Move Grade</button>
     </form></div></div>
-    @elseif($record->status==='pending')<div class="alert alert-info">Awaiting Central Office approval after committee review and the VP’s final signature.</div>@endif
-    @if($record->status==='pending' && $permissions['reject'])
-    <div class="card mb-3"><div class="card-body"><form method="post" action="{{ route('student-skipping-grade.reject',$record) }}" data-skipping-form data-confirm="Reject this request? {{ $existingPromotion ? 'The existing promoted placement will remain unchanged.' : 'The student will remain in the current grade.' }}" novalidate>@csrf<label class="d-block">Reason for Rejection <span class="text-danger">*</span><textarea class="form-control" name="rejection_reason" rows="2" maxlength="1500"></textarea></label><button class="btn btn-outline-danger mt-3 skipping-mobile-full-width" type="submit">Reject Request</button></form></div></div>
+    @elseif($record->status==='pending' && !$canReview)<div class="alert alert-info">@if($sequential)Awaiting {{ $currentStep?->reviewerNames()??'the assigned reviewer' }} ({{ $currentStep?->title }}).@else Awaiting Central Office approval after committee review and the VP’s final signature.@endif</div>@endif
+    @if($record->status==='pending' && $canReject)
+    <div class="card mb-3"><div class="card-body"><form method="post" action="{{ route('student-skipping-grade.reject',$record) }}" data-skipping-form data-confirm="Reject this request? {{ $existingPromotion ? 'The existing promoted placement will remain unchanged.' : 'The student will remain in the current grade.' }}" novalidate>@csrf
+        @if($sequential)<input type="hidden" name="approval_step_id" value="{{ $currentStep->id }}"><input type="hidden" name="approval_step_revision" value="{{ $currentStep->revision }}">@endif
+        <label class="d-block">Reason for Rejection <span class="text-danger">*</span><textarea class="form-control" name="rejection_reason" rows="2" maxlength="1500"></textarea></label><button class="btn btn-outline-danger mt-3 skipping-mobile-full-width" type="submit">Reject Request</button></form></div></div>
     @endif
     @if($record->status==='approved')
         @if($record->approval_snapshot['custom_options']??[])<div class="card mb-3"><div class="card-body">@include('student-skipping-grade._saved-options',['optionsTitle'=>'Additional Approval Options','savedOptions'=>$record->approval_snapshot['custom_options']])</div></div>@endif
-        <div class="alert alert-success"><strong>{{ $record->reference_number }}</strong> · Approved by {{ $record->approver?->name }} on {{ $record->approved_at->format('d-M-Y H:i') }}. Enrollment prepared in {{ $s['target_grade'] }}{{ $s['target_class'] }} for {{ $requestedYear }} (effective {{ $record->effective_date->format('d-M-Y') }}).</div>
+        <div class="alert alert-success"><strong>{{ $record->reference_number }}</strong> · Approved by {{ $sequential?($record->approvalSteps->last()?->actor_snapshot['name']??$record->approver?->name):$record->approver?->name }} on {{ $record->approved_at->format('d-M-Y H:i') }}. Enrollment prepared in {{ $s['target_grade'] }}{{ $s['target_class'] }} for {{ $requestedYear }} (effective {{ $record->effective_date->format('d-M-Y') }}).</div>
     @endif
     @if($record->status==='rejected')<div class="alert alert-danger"><strong>Rejected</strong><p class="mb-0 skipping-prewrap">{{ $record->rejection_reason }}</p></div>@endif
 </div>

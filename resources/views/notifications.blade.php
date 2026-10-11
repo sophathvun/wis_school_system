@@ -31,7 +31,7 @@
                             <div class="fw-bold">{{ $notification->title }}</div>
                             <div class="notification-message-content text-secondary">{!! $notification->message !!}</div>
                             @if ($notification->action_url)
-                                <a class="btn btn-sm btn-outline-primary mt-2" href="{{ $notification->action_url }}"
+                                <a class="btn btn-sm btn-outline-primary mt-2" href="{{ route('notifications.open', $notification) }}"
                                     target="_blank" rel="noopener noreferrer">Open Link</a>
                             @endif
                             <div class="small text-secondary mt-1">

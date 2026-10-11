@@ -7,8 +7,8 @@ use Illuminate\Database\Eloquent\Model;
 class SkippingGradeCampusSetting extends Model
 {
     protected $table = 'tb_skipping_grade_campus_settings';
-    protected $fillable = ['campus_id', 'committee_names', 'updated_by'];
-    protected $casts = ['committee_names'=>'array'];
+    protected $fillable = ['campus_id', 'committee_names', 'updated_by', 'approval_steps'];
+    protected $casts = ['committee_names'=>'array', 'approval_steps'=>'array'];
 
     public static function namesFor(int $campusId): array
     {

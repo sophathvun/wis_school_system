@@ -1,14 +1,11 @@
 import { withPngResolution } from './helpers/pngResolution';
+import { createSkippingStatisticsImage, initSkippingStatisticsShare } from './helpers/skippingStatisticsShare';
+import { initSkippingReportPrint } from './helpers/skippingReportPrint';
 
-const button = document.querySelector('[data-skipping-print]');
-button?.addEventListener('click', async () => {
-    button.disabled = true;
-    try {
-        await document.fonts.ready;
-        await Promise.all([...document.images].map((image) => image.decode().catch(() => {})));
-        window.print();
-    } finally { button.disabled = false; }
-});
+initSkippingStatisticsShare();
+if (document.querySelector('.skipping-statistics-paper')) window.createSkippingStatisticsImage = createSkippingStatisticsImage;
+
+initSkippingReportPrint();
 document.querySelector('[data-skipping-close]')?.addEventListener('click', () => window.close());
 
 if (document.body.hasAttribute('data-skipping-image-export')) {

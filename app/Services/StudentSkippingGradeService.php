@@ -62,7 +62,9 @@ class StudentSkippingGradeService
     {
         if ($record) $this->authorizeEdit($user,$record);
         else $this->authorize($user,'create');
-        return DB::transaction(function () use ($user,$data,$record) {
+        $paths=[];
+        try {
+        return DB::transaction(function () use ($user,$data,$record,&$paths) {
             if ($record) {
                 $record=StudentSkippingGrade::whereKey($record->id)->lockForUpdate()->firstOrFail();
                 $this->authorizeEdit($user,$record);
@@ -76,6 +78,7 @@ class StudentSkippingGradeService
                 $this->invalid('enrollment_id','This student already has a draft or submitted grade skipping request.');
             }
             [$grade,$class,$year]=$this->target($enrollment,$data);
+            $targetSession=isset($data['target_session_id']) ? Session::find($data['target_session_id']) : null;
             $promotion=$this->targetPlacement($enrollment,$year,$grade);
             if (isset($data['average_score']) && $data['average_score'] > $data['average_scale']) $this->invalid('average_score','The average cannot exceed the selected score scale.');
             $snapshot=[
@@ -86,9 +89,14 @@ class StudentSkippingGradeService
                 'target_academic_year'=>$year->academic_year,
                 'source_grade'=>$enrollment->grade->grade_short_name ?: $enrollment->grade->grade,
                 'source_class'=>$enrollment->schoolClass->class_name,
+                'source_session'=>$enrollment->session?->session_short_name ?: $enrollment->session?->session_name,
+                'target_session'=>$targetSession?->session_short_name ?: $targetSession?->session_name,
                 'target_grade'=>$grade->grade_short_name ?: $grade->grade,'target_class'=>$class->class_name,
             ];
             if ($promotion) $snapshot['existing_promotion']=$this->promotionContext($promotion);
+            foreach (['requester','submitter'] as $person) {
+                if (isset($record?->student_snapshot[$person])) $snapshot[$person]=$record->student_snapshot[$person];
+            }
             $values=collect($data)->only(['target_grade_id','target_class_id','target_session_id','application_date','parent_name','parent_phone','reason','criteria','average_score','average_scale','committee_names'])->all();
             $values['target_academic_year_id']=$year->id;
             $values['parent_name']=Str::upper($values['parent_name']);
@@ -98,56 +106,119 @@ class StudentSkippingGradeService
                 SkippingGradeSetting::current()->request_template??[],$data['custom_options']??[]);
             $values+=['student_snapshot'=>$snapshot,'updated_by'=>$user->id];
             if (!$record) {
+                $settings=SkippingGradeSetting::whereKey(SkippingGradeSetting::current()->id)->lockForUpdate()->firstOrFail();
+                $values['approval_flow_mode']=$settings->approval_flow_mode ?? 'legacy';
                 $values+=['enrollment_id'=>$enrollment->id,'student_id'=>$enrollment->student_id,'campus_id'=>$enrollment->campus_id,
                     'academic_year_id'=>$enrollment->academic_year_id,'source_grade_id'=>$enrollment->grade_id,'source_class_id'=>$enrollment->class_id,
                     'source_session_id'=>$enrollment->session_id,'created_by'=>$user->id,'status'=>'draft'];
-                return StudentSkippingGrade::create($values);
+                $record=StudentSkippingGrade::create($values);
+            } else {
+                $record->update($values);
             }
-            $record->update($values);
+            $documentMarkers=isset($data['document_markers']) || array_key_exists('parent_signed_documents',$data)?($data['parent_signed_documents']??[]):null;
+            if (!empty($data['documents']) || $documentMarkers!==null) $this->storeSupportingDocuments($user,$record,$data['documents']??[],$paths,$documentMarkers,$data['document_count']??null);
             return $record->fresh();
         });
+        } catch (\Throwable $e) { Storage::disk('local')->delete($paths); throw $e; }
+    }
+
+    public function uploadSupportingDocuments(User $user, StudentSkippingGrade $record, array $files, ?array $parentSignedIndexes = null, ?int $expectedDocumentCount = null): void
+    {
+        $this->authorizeEdit($user,$record);
+        $paths=[];
+        try {
+            DB::transaction(function () use ($user,$record,$files,$parentSignedIndexes,$expectedDocumentCount,&$paths) {
+                $record=StudentSkippingGrade::whereKey($record->id)->lockForUpdate()->firstOrFail();
+                $this->authorizeEdit($user,$record);
+                $this->storeSupportingDocuments($user,$record,$files,$paths,$parentSignedIndexes,$expectedDocumentCount);
+            });
+        } catch (\Throwable $e) { Storage::disk('local')->delete($paths); throw $e; }
+    }
+
+    private function storeSupportingDocuments(User $user, StudentSkippingGrade $record, array $files, array &$paths, ?array $parentSignedIndexes = null, ?int $expectedDocumentCount = null): void
+    {
+        abort_unless($record->status==='draft',403,'Attachments can only be added to a draft.');
+        $documents=$record->supporting_documents??[];
+        if ($expectedDocumentCount!==null && $expectedDocumentCount!==count($documents)) $this->invalid('documents','The attached documents changed. Refresh the request before saving or submitting.');
+        if (count($files)>10) $this->invalid('documents','Upload at most 10 files at a time.');
+        if (count($documents)+count($files)>20) $this->invalid('documents','A request can have up to 20 supporting documents.');
+        foreach ($files as $file) {
+            $path=$file->store('grade-skipping/attachments/'.$record->id,'local');
+            if (!$path) $this->invalid('documents','Unable to save the document. Please try again.');
+            $paths[]=$path;
+            $documents[]=['path'=>$path,'name'=>basename($file->getClientOriginalName()),'mime'=>$file->getMimeType(),'uploaded_by'=>$user->id,'uploaded_at'=>now()->toIso8601String()];
+        }
+        if ($parentSignedIndexes!==null) {
+            foreach ($parentSignedIndexes as $index) {
+                if (filter_var($index,FILTER_VALIDATE_INT)===false || !array_key_exists((int)$index,$documents)) $this->invalid('parent_signed_documents','Choose an attached document to mark as a parent-signed request.');
+            }
+            $marked=array_fill_keys(array_map('intval',$parentSignedIndexes),true);
+            foreach ($documents as $index=>&$document) $document['is_parent_signed']=isset($marked[$index]);
+            unset($document);
+        }
+        $record->update(['supporting_documents'=>$documents,'updated_by'=>$user->id]);
     }
 
     public function authorizeEdit(User $user, StudentSkippingGrade $record): void
     {
+        if ($record->usesSequentialFlow()) abort_unless(app(SkippingGradeWorkflow::class)->canView($user,$record),403);
         abort_unless(StudentSkippingGradePermissions::canEdit($user,$record),403,'This request cannot be edited with your current permissions or status.');
     }
 
-    public function submit(User $user, StudentSkippingGrade $record, string $signedDate, ?UploadedFile $file = null): StudentSkippingGrade
+    public function submit(User $user, StudentSkippingGrade $record, string $signedDate, ?UploadedFile $file = null, array $documents = [], ?array $parentSignedIndexes = null, ?int $expectedDocumentCount = null): StudentSkippingGrade
     {
+        if ($record->usesSequentialFlow()) abort_unless(app(SkippingGradeWorkflow::class)->canView($user,$record),403);
         $this->authorize($user,'submit',$record->campus_id);
+        if ($documents || $parentSignedIndexes!==null) $this->authorizeEdit($user,$record);
         $path=null;
+        $workflowFiles=[];
+        $documentPaths=[];
         try {
-            return DB::transaction(function () use ($user,$record,$signedDate,$file,&$path) {
+            return DB::transaction(function () use ($user,$record,$signedDate,$file,$documents,$parentSignedIndexes,$expectedDocumentCount,&$path,&$workflowFiles,&$documentPaths) {
                 $record=StudentSkippingGrade::whereKey($record->id)->lockForUpdate()->firstOrFail();
                 $this->requireStatus($record,'draft');
+                if ($documents || $parentSignedIndexes!==null) {
+                    $this->authorizeEdit($user,$record);
+                    $this->storeSupportingDocuments($user,$record,$documents,$documentPaths,$parentSignedIndexes,$expectedDocumentCount);
+                }
                 $enrollment=StudentEnrollment::whereKey($record->enrollment_id)->lockForUpdate()->firstOrFail();
                 $this->activeSource($enrollment,(int)$record->target_academic_year_id); $this->unchangedSource($record,$enrollment);
                 [$grade,,$year]=$this->target($enrollment,$record->toArray());
                 $this->targetPlacement($enrollment,$year,$grade,$record);
+                $workflow=app(SkippingGradeWorkflow::class);
+                $workflow->capture($record,$workflowFiles);
+                $snapshot=$record->student_snapshot;
+                if ($record->creator) $snapshot['requester']=$workflow->snapshot($record->creator,'Requested By','campus',$record->campus_id);
+                $snapshot['submitter']=$workflow->snapshot($user,'Submitted By','campus',$record->campus_id);
                 if ($file) {
                     $path=$file->store('grade-skipping/signed-requests','local');
                     if (!$path) $this->invalid('signed_request','Unable to store the signed request. Please try again.');
                 }
                 $record->update(['status'=>'pending','parent_signed_at'=>$signedDate,'signed_request_path'=>$path,
+                    'student_snapshot'=>$snapshot,
                     'committee_names'=>SkippingGradeSetting::current()->requestCommitteeNames($record->committee_names??[]),
                     'submitted_at'=>now(),'submitted_by'=>$user->id,'updated_by'=>$user->id]);
+                app(SkippingGradeNotifications::class)->awaiting($record);
                 return $record->fresh();
             });
         } catch (\Throwable $e) {
             if ($path) Storage::disk('local')->delete($path);
+            Storage::disk('local')->delete($workflowFiles);
+            Storage::disk('local')->delete($documentPaths);
             throw $e;
         }
     }
 
     public function approve(User $user, StudentSkippingGrade $record, array $data): StudentSkippingGrade
     {
-        $this->authorize($user,'approve',$record->campus_id);
+        if (!$record->usesSequentialFlow()) $this->authorize($user,'approve',$record->campus_id);
         $files=[];
         try {
             return DB::transaction(function () use ($user,$record,$data,&$files) {
                 $record=StudentSkippingGrade::whereKey($record->id)->lockForUpdate()->firstOrFail();
                 $this->requireStatus($record,'pending');
+                $workflow=app(SkippingGradeWorkflow::class);
+                $step=$record->usesSequentialFlow()?$workflow->decisionStep($user,$record,$data,true):null;
                 if (!$record->parent_signed_at) $this->invalid('status','The parent-signed request has not been submitted.');
                 if (empty($data['vp_signed'])) $this->invalid('vp_signed','Confirm that the VP has signed the final request.');
                 $enrollment=StudentEnrollment::with(['student','academicYear','grade'])->whereKey($record->enrollment_id)->lockForUpdate()->firstOrFail();
@@ -158,10 +229,11 @@ class StudentSkippingGradeService
                 if ($yearCode==='') $this->invalid('settings','Set the AY Code for the current academic year in Academic Year settings before approving.');
                 $settings=SkippingGradeSetting::whereKey(1)->lockForUpdate()->firstOrFail();
                 $customOptions=app(SkippingGradeTemplateService::class)->captureCheckboxOptions($settings->approval_template??[],$data['custom_options']??[]);
-                if (!$settings->signer_name_kh) $this->invalid('settings','Save the VP name, digital signature, and stamp in Approval Settings first.');
-                $snapshot=$settings->only(['signer_name_kh','signer_name_en','signer_title_kh','signer_title_en']);
+                $signer=$record->usesSequentialFlow()?($record->workflow_signer_snapshot??[]):$settings->toArray();
+                if (empty($signer['signer_name_kh'])) $this->invalid('settings','Save the VP name, digital signature, and stamp in Approval Settings first.');
+                $snapshot=\Illuminate\Support\Arr::only($signer,['signer_name_kh','signer_name_en','signer_title_kh','signer_title_en']);
                 foreach (['signature_path','stamp_path'] as $key) {
-                    $source=$settings->{$key};
+                    $source=$signer[$key]??null;
                     if (!$source || !Storage::disk('local')->exists($source)) $this->invalid('settings','Upload the VP digital signature and approval stamp in Approval Settings first.');
                     $copy='grade-skipping/approvals/'.$record->id.'/'.Str::uuid().'.'.pathinfo($source,PATHINFO_EXTENSION);
                     $files[]=$copy;
@@ -218,6 +290,8 @@ class StudentSkippingGradeService
                     'approval_date'=>$data['approval_date'],'received_date'=>$data['received_date'],
                     'review_date'=>$data['review_date'],'effective_date'=>$data['effective_date'],
                 ]);
+                if ($step) $workflow->complete($step,$user,'approved',$data['approval_notes']??null);
+                app(SkippingGradeNotifications::class)->completed($record);
                 return $record->fresh();
             });
         } catch (\Throwable $e) {
@@ -226,13 +300,20 @@ class StudentSkippingGradeService
         }
     }
 
-    public function reject(User $user, StudentSkippingGrade $record, string $reason): void
+    public function reject(User $user, StudentSkippingGrade $record, string $reason, array $expected = []): void
     {
-        $this->authorize($user,'reject',$record->campus_id);
-        DB::transaction(function () use ($user,$record,$reason) {
+        if (!$record->usesSequentialFlow()) $this->authorize($user,'reject',$record->campus_id);
+        DB::transaction(function () use ($user,$record,$reason,$expected) {
             $record=StudentSkippingGrade::whereKey($record->id)->lockForUpdate()->firstOrFail();
             $this->requireStatus($record,'pending');
+            if ($record->usesSequentialFlow()) {
+                $workflow=app(SkippingGradeWorkflow::class);
+                $step=$workflow->decisionStep($user,$record,$expected);
+                $workflow->complete($step,$user,'rejected',$reason);
+                $record->approvalSteps()->where('status','waiting')->update(['status'=>'cancelled','updated_at'=>now()]);
+            }
             $record->update(['status'=>'rejected','rejection_reason'=>$reason,'rejected_by'=>$user->id,'rejected_at'=>now(),'updated_by'=>$user->id]);
+            app(SkippingGradeNotifications::class)->completed($record);
         });
     }
 

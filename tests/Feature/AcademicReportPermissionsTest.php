@@ -71,6 +71,44 @@ beforeEach(function () {
     };
 });
 
+it('lists every Student ID Card action on the permission page without replacing existing grants', function () {
+    Permission::create(['code' => 'students.view', 'module' => 'students', 'action' => 'view', 'name' => 'View Students']);
+    $edit = Permission::create([
+        'code' => 'student-id-card-qr.edit-template', 'module' => 'student-id-card-qr', 'action' => 'edit-template', 'name' => 'Edit ID Card Template',
+    ]);
+    foreach (['access_role_permissions' => 'role_id', 'access_department_permissions' => 'department_id', 'access_user_permission_overrides' => 'user_id'] as $table => $owner) {
+        $values = [$owner => 1, 'permission_id' => $edit->id];
+        if ($owner === 'user_id') $values['allowed'] = false;
+        DB::table($table)->insert($values);
+    }
+    $migration = require database_path('migrations/2026_10_09_000019_add_student_id_card_action_permissions.php');
+    $migration->up();
+    $migration->up();
+    $permissions = Permission::all();
+    $catalog = \App\Support\StudentIdCardPermissions::catalog();
+    $tree = PermissionHierarchy::tree($permissions);
+    $module = $tree['students']['modules']['student-id-card-qr'];
+    expect($module['permission']->code)->toBe('student-id-card-qr.view')
+        ->and($module['actions']->pluck('action')->sort()->values()->all())->toBe(collect(array_keys($catalog))->reject(fn ($action) => $action === 'view')->sort()->values()->all())
+        ->and(Permission::where('module', 'student-id-card-qr')->count())->toBe(count($catalog))
+        ->and(Permission::where('code', 'student-id-card-qr.edit-template')->value('id'))->toBe($edit->id);
+    $ids = Permission::where('module', 'student-id-card-qr')->pluck('id');
+    expect(DB::table('access_role_permissions')->where('role_id', 2)->whereIn('permission_id', $ids)->count())->toBe(count($catalog))
+        ->and(DB::table('access_role_permissions')->where('role_id', 1)->whereIn('permission_id', $ids)->count())->toBe(1)
+        ->and(DB::table('access_department_permissions')->where('department_id', 1)->where('permission_id', $edit->id)->count())->toBe(1)
+        ->and((bool) DB::table('access_user_permission_overrides')->where('user_id', 1)->where('permission_id', $edit->id)->value('allowed'))->toBeFalse();
+    $html = view('partials.permission-tree', [
+        'permissionHierarchy' => $tree, 'permissionPrefix' => 'id-cards', 'assignedPermissions' => collect(),
+    ])->render();
+    foreach ($catalog as $action => $label) {
+        if ($action === 'view') continue;
+        expect($html)->toContain('student-id-card-qr.' . $action);
+        expect($html)->toContain($label);
+    }
+    expect($html)->toContain('STU. ID CARD (QR)');
+    expect(PermissionHierarchy::normalizeIds($ids->all(), $permissions))->toBeEmpty();
+});
+
 it('adds every tab to the permission hierarchy and nests certificate actions under their tab', function () {
     $this->migration->up();
     $permissions=Permission::all();

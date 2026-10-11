@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\AcademicYear;
 use App\Models\BrandingSetting;
 use App\Models\Grade;
+use App\Models\Position;
 use App\Models\SchoolClass;
 use App\Models\SchoolInfo;
 use App\Models\Session;
@@ -13,9 +14,13 @@ use App\Models\SkippingGradeCampusSetting;
 use App\Models\Student;
 use App\Models\StudentEnrollment;
 use App\Models\StudentSkippingGrade;
+use App\Models\User;
+use App\Services\SkippingGradeWorkflow;
 use App\Services\StudentSkippingGradeService;
+use App\Services\StudentSkippingGradeReport;
 use App\Services\SkippingGradeTemplateService;
 use App\Support\StudentSkippingGradePermissions;
+use App\Support\StudentSkippingGradeExport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -42,7 +47,7 @@ class StudentSkippingGradeController
         ];
     }
 
-    public function index(Request $request)
+    public function index(Request $request, StudentSkippingGradeReport $report)
     {
         $this->service->authorize($request->user(),'view');
         if (!StudentSkippingGradePermissions::allows($request->user(),'requests')) {
@@ -50,13 +55,14 @@ class StudentSkippingGradeController
                 if (StudentSkippingGradePermissions::allows($request->user(),$action)) return in_array($action,['campus-settings','settings'],true)
                     ?redirect()->route($destination):redirect()->route('student-skipping-grade.template',$destination);
             }
+            if (app(SkippingGradeWorkflow::class)->isConfiguredReviewer($request->user())) {
+                return redirect()->route('student-skipping-grade.my-approvals');
+            }
             abort(403);
         }
-        $filters=$request->validate(['academic_year_id'=>['nullable','integer'],'campus_id'=>['nullable','integer'],
-            'status'=>['nullable','in:draft,pending,approved,rejected'],'search'=>['nullable','string','max:120'],
-            'per_page'=>['nullable','in:all,20,50,75,100']]);
+        $filters=$this->listFilters($request);
         $shared=$this->shared($request);
-        $yearQuery=StudentSkippingGrade::query()
+        $yearQuery=app(SkippingGradeWorkflow::class)->visibleRequests(StudentSkippingGrade::query(),$request->user())
             ->when($filters['academic_year_id']??null,fn($q,$id)=>$q->where('academic_year_id',$id));
         if (!empty($filters['academic_year_id'])) {
             $campusIds=(clone $yearQuery)->distinct()->pluck('campus_id');
@@ -66,16 +72,13 @@ class StudentSkippingGradeController
         $availableStatuses=(clone $scope)->distinct()->pluck('status');
         $statusOptions=collect(['draft'=>'Draft','pending'=>'Submitted to Central Office','approved'=>'Approved','rejected'=>'Rejected'])
             ->only($availableStatuses->all())->all();
-        $query=$scope->with(['creator','approver','student'])
-            ->when($filters['status']??null,fn($q,$status)=>$q->where('status',$status))
-            ->when($filters['search']??null,fn($q,$term)=>$q->where(fn($inner)=>$inner->where('parent_name','like','%'.$term.'%')
-                ->orWhere('reference_number','like','%'.$term.'%')->orWhere('student_snapshot->name_en','like','%'.$term.'%')
-                ->orWhere('student_snapshot->name_kh','like','%'.$term.'%')->orWhere('student_snapshot->student_id','like','%'.$term.'%')));
+        $query=$report->query($filters)->with(['creator','approver','student','approvalSteps.reviewers']);
         $pageSize=$filters['per_page']??'20';
         $showAll=$pageSize==='all';
         $records=$query->orderByDesc('id')->paginate($showAll?max(1,(clone $query)->count()):(int)$pageSize,['*'],'page',$showAll?1:null)->withQueryString();
         $photoUrls=$records->getCollection()->mapWithKeys(fn($record)=>[$record->id=>$this->studentPhotoUrl($record->student)]);
-        return view('student-skipping-grade.index',$shared+compact('records','filters','photoUrls','statusOptions'));
+        $reportRows=$report->rows($records->getCollection());
+        return view('student-skipping-grade.index',$shared+compact('records','filters','photoUrls','statusOptions','reportRows')+$report->options($filters));
     }
 
     public function create(Request $request)
@@ -83,6 +86,75 @@ class StudentSkippingGradeController
         $this->service->authorize($request->user(),'create');
         return $this->form($request,new StudentSkippingGrade(['application_date'=>now()->toDateString(),'average_scale'=>100,
             'committee_names'=>[]]));
+    }
+
+    public function printReport(Request $request, StudentSkippingGradeReport $report)
+    {
+        $this->service->authorize($request->user(), 'print-reports');
+        return view('student-skipping-grade.print-report', $this->reportData($request, $report));
+    }
+
+    public function printStatistics(Request $request, StudentSkippingGradeReport $report)
+    {
+        $this->service->authorize($request->user(), 'print-reports');
+        return view('student-skipping-grade.print-statistics', $this->reportData($request, $report, true));
+    }
+
+    public function exportReport(Request $request, StudentSkippingGradeReport $report, StudentSkippingGradeExport $export, string $kind, string $format)
+    {
+        $this->service->authorize($request->user(), 'print-reports');
+        $data = $this->reportData($request, $report, $kind === 'statistics');
+        $filename = 'grade-skipping-'.$kind.'-'.$data['reportDate']->format('Ymd').'.'.$format;
+        if ($format === 'pdf') return response($export->pdf($kind, $data), 200, [
+            'Content-Type' => 'application/pdf', 'Content-Disposition' => 'attachment; filename="'.$filename.'"', 'Cache-Control' => 'private, no-store',
+        ]);
+        return response($export->xlsx($kind, $data), 200, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition' => 'attachment; filename="'.$filename.'"', 'Cache-Control' => 'private, no-store',
+        ]);
+    }
+
+    private function reportData(Request $request, StudentSkippingGradeReport $report, bool $statistics = false): array
+    {
+        $filters = $this->listFilters($request);
+        if ($statistics) $filters['status'] = 'approved';
+        $data = $report->data($filters);
+        $photoCache = [];
+        $data['photoUrls'] = $statistics ? collect() : $data['records']->mapWithKeys(function ($record) use (&$photoCache) {
+            $path = $record->student?->photo_path;
+            if (!$path) return [$record->id => null];
+            if (!array_key_exists($path, $photoCache)) $photoCache[$path] = Storage::disk('public')->exists($path)
+                ? 'data:'.Storage::disk('public')->mimeType($path).';base64,'.base64_encode(Storage::disk('public')->get($path)) : null;
+            return [$record->id => $photoCache[$path]];
+        });
+        $logoPath=BrandingSetting::current()->report_logo_1_path;
+        $data['reportLogo']=$logoPath && Storage::disk('public')->exists($logoPath)
+            ? 'data:'.Storage::disk('public')->mimeType($logoPath).';base64,'.base64_encode(Storage::disk('public')->get($logoPath)) : null;
+        $data['reportDate'] = now('Asia/Phnom_Penh');
+        $data['pdfExport'] = false;
+        $data['reportKind'] = $statistics ? 'statistics' : 'list';
+        $data['exportFilters'] = array_filter(\Illuminate\Support\Arr::except($filters, ['per_page']), fn($value) => filled($value));
+        if ($statistics) {
+            $data['statistics'] = $report->statistics($data);
+            $data['statisticsYearSubtitle'] = $data['reportYearPairs']->map(fn($years)=>
+                'From Academic Year: '.$years['from'].' Skipped to Academic Year: '.$years['to']
+            )->implode(' | ') ?: 'From Academic Year: '.($data['reportYear']?->academic_year ?? 'All Years').' Skipped to Academic Year: —';
+            $data['academicYears'] = AcademicYear::regular()->orderByDesc('academic_year')->get();
+            $data['campuses'] = SchoolInfo::where('status', 1)->orderBy('campus_name_en')->get();
+        }
+        return $data;
+    }
+
+    private function listFilters(Request $request): array
+    {
+        return $request->validate([
+            'academic_year_id'=>['nullable','integer'],
+            'campus_id'=>['nullable','integer'],
+            'status'=>['nullable','in:draft,pending,approved,rejected'],
+            'grade_class'=>['nullable','string','regex:/^\d+:\d+:(\d+|none)$/'],
+            'approval_number'=>['nullable','string','max:120'],
+            'search'=>['nullable','string','max:120'],
+            'per_page'=>['nullable','in:all,20,50,75,100'],
+        ]);
     }
 
     public function edit(Request $request, StudentSkippingGrade $skipping)
@@ -93,8 +165,13 @@ class StudentSkippingGradeController
 
     private function form(Request $request, StudentSkippingGrade $record)
     {
-        return view('student-skipping-grade.form',$this->shared($request,$record->campus_id)+[
+        $shared=$this->shared($request,$record->campus_id);
+        if (!$record->exists && !$request->user()->isSuperAdmin()) {
+            $shared['campuses']=$shared['campuses']->filter(fn($campus)=>StudentSkippingGradePermissions::assignedToCampus($request->user(),$campus->id))->values();
+        }
+        return view('student-skipping-grade.form',$shared+[
             'record'=>$record,'grades'=>Grade::where('status',1)->orderByRaw('CAST(grade_order AS UNSIGNED)')->get(),
+            'sequentialFlow'=>$record->exists?$record->usesSequentialFlow():SkippingGradeSetting::current()->approval_flow_mode==='sequential',
             'campusCommitteeRoles'=>SkippingGradeSetting::CAMPUS_COMMITTEE,
             'groups'=>Session::where('status',1)->orderBy('session_order')->get(),
             'targetClass'=>$record->target_class_id?SchoolClass::find($record->target_class_id):null,
@@ -106,7 +183,11 @@ class StudentSkippingGradeController
 
     private function eligibleStudentEnrollments(Request $request)
     {
-        return $this->service->eligibleSourceEnrollments();
+        $query=$this->service->eligibleSourceEnrollments();
+        if ($request->query('request_action')==='create' && !$request->user()->isSuperAdmin()) {
+            $query->whereIn('tb_student_enrollment.campus_id',$request->user()->campuses()->where('status',1)->pluck('tb_school_info.id'));
+        }
+        return $query;
     }
 
     public function sourceClasses(Request $request)
@@ -151,6 +232,7 @@ class StudentSkippingGradeController
     public function enrollment(Request $request, StudentEnrollment $enrollment)
     {
         $this->service->authorize($request->user(),'requests');
+        if ($request->query('request_action')==='create') $this->service->authorize($request->user(),'create',$enrollment->campus_id);
         $enrollment->load(['student.familyMembers','academicYear','grade','schoolClass','campus']);
         $promotions=$this->service->existingPromotions($enrollment);
         return response()->json([
@@ -198,6 +280,10 @@ class StudentSkippingGradeController
             'custom_options'=>['sometimes','array','max:220'],'custom_options.*'=>['boolean'],
             'average_score'=>['nullable','numeric','min:0','max:100'],'average_scale'=>['required',Rule::in([10,100])],
             'committee_names'=>['nullable','array:0,1,2,3'],'committee_names.*'=>['nullable','string','max:200'],
+            'documents'=>['nullable','array','max:10'],'documents.*'=>['file','mimes:pdf,jpg,jpeg,png,webp','max:5120'],
+            'document_markers'=>['sometimes','accepted'],'parent_signed_documents'=>['sometimes','array','max:20'],
+            'document_count'=>['sometimes','integer','min:0','max:20'],
+            'parent_signed_documents.*'=>['integer','min:0','max:19','distinct'],
         ]);
         $data['target_session_id']=$data['target_session_id']??null;
         $data['criteria']=array_replace(array_fill_keys(array_keys(self::CRITERIA),false),array_map(fn($value)=>(bool)$value,$data['criteria']??[]));
@@ -220,10 +306,19 @@ class StudentSkippingGradeController
 
     public function show(Request $request, StudentSkippingGrade $skipping)
     {
-        $this->service->authorize($request->user(),'requests');
-        $skipping->load(['creator','approver','student']);
+        $workflow=app(SkippingGradeWorkflow::class);
+        abort_unless($workflow->canView($request->user(),$skipping),403);
+        $skipping->load(['creator','submitter','approver','student','approvalSteps.reassignments','approvalSteps.reviewers']);
+        $requester=$skipping->student_snapshot['requester']??($skipping->creator?$workflow->snapshot($skipping->creator,'Requested By','campus',$skipping->campus_id):null);
+        $submitter=$skipping->student_snapshot['submitter']??($skipping->submitter?$workflow->snapshot($skipping->submitter,'Submitted By','campus',$skipping->campus_id):null);
         return view('student-skipping-grade.show',$this->shared($request,$skipping->campus_id)+[
             'record'=>$skipping,
+            'requester'=>$requester,
+            'submitter'=>$submitter,
+            'currentStep'=>$workflow->currentStep($skipping),
+            'canReview'=>$workflow->canAct($request->user(),$skipping),
+            'canPrint'=>StudentSkippingGradePermissions::allows($request->user(),'print') || $workflow->isReviewer($request->user(),$skipping),
+            'reviewerOptions'=>$request->user()->isSuperAdmin()?$this->reviewerOptions():collect(),
             'photoUrl'=>$this->studentPhotoUrl($skipping->student),
             'approvalCustomOptions'=>app(SkippingGradeTemplateService::class)->checkboxOptions(SkippingGradeSetting::current()->approval_template??[]),
         ]);
@@ -233,17 +328,24 @@ class StudentSkippingGradeController
     {
         $this->service->authorize($request->user(),'submit',$skipping->campus_id);
         $data=$request->validate(['parent_signed'=>['required','accepted'],'parent_signed_date'=>['required','date_format:Y-m-d','before_or_equal:today'],
-            'signed_request'=>['nullable','file','mimes:pdf,jpg,jpeg,png,webp','max:5120']]);
-        $this->service->submit($request->user(),$skipping,$data['parent_signed_date'],$request->file('signed_request'));
-        return $this->success($request,'Request submitted to Central Office for committee and VP approval.',route('student-skipping-grade.show',$skipping));
+            'signed_request'=>['nullable','file','mimes:pdf,jpg,jpeg,png,webp','max:5120'],
+            'documents'=>['nullable','array','max:10'],'documents.*'=>['file','mimes:pdf,jpg,jpeg,png,webp','max:5120'],
+            'document_markers'=>['sometimes','accepted'],'parent_signed_documents'=>['sometimes','array','max:20'],
+            'document_count'=>['sometimes','integer','min:0','max:20'],
+            'parent_signed_documents.*'=>['integer','min:0','max:19','distinct']]);
+        $markers=$request->has('document_markers') || $request->has('parent_signed_documents')?($data['parent_signed_documents']??[]):null;
+        $this->service->submit($request->user(),$skipping,$data['parent_signed_date'],$request->file('signed_request'),$request->file('documents',[]),$markers,$data['document_count']??null);
+        return $this->success($request,$skipping->usesSequentialFlow()?'Request submitted to the first assigned reviewer.':'Request submitted to Central Office for committee and VP approval.',route('student-skipping-grade.show',$skipping));
     }
 
     public function approve(Request $request, StudentSkippingGrade $skipping)
     {
-        $this->service->authorize($request->user(),'approve',$skipping->campus_id);
+        if ($skipping->usesSequentialFlow()) abort_unless(app(SkippingGradeWorkflow::class)->canAct($request->user(),$skipping),403);
+        else $this->service->authorize($request->user(),'approve',$skipping->campus_id);
         $effectiveDateRules=['required','date_format:Y-m-d'];
         if (($skipping->target_academic_year_id??$skipping->academic_year_id)==$skipping->academic_year_id) $effectiveDateRules[]='before_or_equal:today';
         $data=$request->validate(['vp_signed'=>['required','accepted'],'approval_date'=>['required','date_format:Y-m-d','before_or_equal:today'],
+            'approval_step_id'=>['sometimes','integer'],'approval_step_revision'=>['sometimes','integer'],
             'received_date'=>['required','date_format:Y-m-d','before_or_equal:approval_date'],
             'review_date'=>['required','date_format:Y-m-d','after_or_equal:received_date','before_or_equal:approval_date'],
             'effective_date'=>$effectiveDateRules,'approval_notes'=>['nullable','string','max:1500'],
@@ -256,16 +358,19 @@ class StudentSkippingGradeController
 
     public function reject(Request $request, StudentSkippingGrade $skipping)
     {
-        $this->service->authorize($request->user(),'reject',$skipping->campus_id);
-        $data=$request->validate(['rejection_reason'=>['required','string','max:1500']]);
-        $this->service->reject($request->user(),$skipping,$data['rejection_reason']);
+        if ($skipping->usesSequentialFlow()) abort_unless(app(SkippingGradeWorkflow::class)->canAct($request->user(),$skipping),403);
+        else $this->service->authorize($request->user(),'reject',$skipping->campus_id);
+        $data=$request->validate(['rejection_reason'=>['required','string','max:1500'],
+            'approval_step_id'=>['sometimes','integer'],'approval_step_revision'=>['sometimes','integer']]);
+        $this->service->reject($request->user(),$skipping,$data['rejection_reason'],$data);
         return $this->success($request,'Request rejected. The student remains in the current grade.',route('student-skipping-grade.show',$skipping));
     }
 
     public function printForm(Request $request, StudentSkippingGrade $skipping, string $form)
     {
+        if ($skipping->usesSequentialFlow()) abort_unless(app(SkippingGradeWorkflow::class)->canView($request->user(),$skipping),403);
         // Printing is available across campuses with the Print permission.
-        $this->service->authorize($request->user(),'print');
+        if (!app(SkippingGradeWorkflow::class)->isReviewer($request->user(),$skipping)) $this->service->authorize($request->user(),'print');
         abort_unless(in_array($form,['request','approval'],true),404);
         abort_if($skipping->status==='rejected',403,'Rejected requests cannot be printed.');
         if ($form==='approval') abort_unless($skipping->status==='approved',403,'The approval form is available only after approval.');
@@ -274,6 +379,7 @@ class StudentSkippingGradeController
 
     public function shareApproval(Request $request, StudentSkippingGrade $skipping)
     {
+        if ($skipping->usesSequentialFlow()) abort_unless(app(SkippingGradeWorkflow::class)->canView($request->user(),$skipping),403);
         $this->service->authorize($request->user(),'print');
         abort_unless($skipping->status==='approved',403,'Only approved requests can be shared.');
         $filenameParts=array_map(static fn($value)=>trim(preg_replace('/[^\p{L}\p{N} _-]/u','-',(string)$value)),[
@@ -426,9 +532,151 @@ class StudentSkippingGradeController
 
     public function signedRequest(Request $request, StudentSkippingGrade $skipping)
     {
-        $this->service->authorize($request->user(),'requests');
+        abort_unless(app(SkippingGradeWorkflow::class)->canView($request->user(),$skipping),403);
         abort_unless($skipping->signed_request_path && Storage::disk('local')->exists($skipping->signed_request_path),404);
         return Storage::disk('local')->response($skipping->signed_request_path,null,['X-Content-Type-Options'=>'nosniff']);
+    }
+
+    private function reviewerOptions()
+    {
+        return User::where('status',1)->orderBy('name')->get();
+    }
+
+    public function approvalFlow(Request $request, SkippingGradeWorkflow $workflow)
+    {
+        abort_unless($request->user()->isSuperAdmin(),403);
+        $campuses=SchoolInfo::where('status',1)->orderBy('campus_name_en')->get();
+        $data=$request->validate(['campus_id'=>['nullable','integer']]);
+        $campus=$campuses->firstWhere('id',(int)($data['campus_id']??$campuses->first()?->id));
+        abort_unless($campus,404,'Select an active campus.');
+        $settings=SkippingGradeSetting::current();
+        $centralSteps=collect($settings->central_approval_steps??[]);
+        $reviewers=$this->reviewerOptions();
+        return view('student-skipping-grade.approval-flow',compact('campuses','campus','settings')+[
+            'campusSteps'=>SkippingGradeCampusSetting::where('campus_id',$campus->id)->first()?->approval_steps??[],
+            'centralSteps'=>$centralSteps->reject(fn($step)=>$step['is_final']??false)->values()->all(),
+            'vicePresidentId'=>$centralSteps->first(fn($step)=>$step['is_final']??false)['user_id']??null,
+            'campusReviewerOptions'=>$reviewers->filter(fn($user)=>$workflow->reviewerIsEligible($user,$campus->id))->values(),
+            'centralReviewerOptions'=>$reviewers->filter(fn($user)=>$workflow->reviewerIsEligible($user,null))->values(),
+            'reviewerPositions'=>Position::where('status',1)->orderBy('name')->pluck('name'),
+            'revision'=>$workflow->revision(),
+            'reviewerGrades'=>Grade::where('status',1)->orderByRaw('CAST(grade_order AS UNSIGNED)')->orderBy('id')->get(),
+            'configuredCampusIds'=>SkippingGradeCampusSetting::whereNotNull('approval_steps')->get()->filter(fn($setting)=>!empty($setting->approval_steps))->pluck('campus_id')->all(),
+        ]);
+    }
+
+    public function saveApprovalFlow(Request $request, SkippingGradeWorkflow $workflow)
+    {
+        abort_unless($request->user()->isSuperAdmin(),403);
+        $data=$request->validate(['revision'=>['required','string','size:64'],'mode'=>['required','in:legacy,sequential'],
+            'campus_id'=>['required','integer'],'campus_steps'=>['nullable','array','max:20'],'central_steps'=>['nullable','array','max:20'],
+            'campus_steps.*'=>['array:title,user_id,reviewers'],'central_steps.*'=>['array:title,user_id,reviewers'],
+            'campus_steps.*.title'=>['required','string','max:120'],'central_steps.*.title'=>['required','string','max:120'],
+            'campus_steps.*.user_id'=>['sometimes','required','integer'],'central_steps.*.user_id'=>['sometimes','required','integer'],
+            'campus_steps.*.reviewers'=>['sometimes','required','array','min:1','max:20'],'central_steps.*.reviewers'=>['sometimes','required','array','min:1','max:20'],
+            'campus_steps.*.reviewers.*'=>['array:user_id,title,grade_scope,grade_ids'],'central_steps.*.reviewers.*'=>['array:user_id,title,grade_scope,grade_ids'],
+            'campus_steps.*.reviewers.*.title'=>['sometimes','required','string','max:120'],'central_steps.*.reviewers.*.title'=>['sometimes','required','string','max:120'],
+            'campus_steps.*.reviewers.*.user_id'=>['required','integer'],'central_steps.*.reviewers.*.user_id'=>['required','integer'],
+            'campus_steps.*.reviewers.*.grade_scope'=>['required','in:all,selected'],'central_steps.*.reviewers.*.grade_scope'=>['required','in:all,selected'],
+            'campus_steps.*.reviewers.*.grade_ids'=>['nullable','array','max:100'],'central_steps.*.reviewers.*.grade_ids'=>['nullable','array','max:100'],
+            'campus_steps.*.reviewers.*.grade_ids.*'=>['integer'],'central_steps.*.reviewers.*.grade_ids.*'=>['integer'],
+            'vice_president_id'=>['nullable','integer']]);
+        $workflow->saveSettings($request->user(),$data);
+        return $this->success($request,'Approval flow saved. Existing requests retain their saved flow and reviewer steps.',route('student-skipping-grade.approval-flow',['campus_id'=>$data['campus_id']]));
+    }
+
+    public function myApprovals(Request $request)
+    {
+        $this->service->authorize($request->user(),'view');
+        $user=$request->user(); $workflow=app(SkippingGradeWorkflow::class);
+        $isReviewer=$workflow->isConfiguredReviewer($user) || StudentSkippingGradePermissions::allows($user,'approve') || StudentSkippingGradePermissions::allows($user,'reject')
+            || StudentSkippingGrade::where(fn($q)=>$q->where('approved_by',$user->id)->orWhere('rejected_by',$user->id))->exists();
+        $isRequester=StudentSkippingGradePermissions::allows($user,'create')
+            || StudentSkippingGrade::where(fn($q)=>$q->where('created_by',$user->id)->orWhere('submitted_by',$user->id))->exists();
+        $scopeLabels=['campus'=>'Campus Requests','approvals'=>'My Approval','rejected'=>'My Rejected','requests'=>'My Requested'];
+        $scopeOptions=['campus'=>$scopeLabels['campus']];
+        if ($isReviewer) $scopeOptions+=['approvals'=>$scopeLabels['approvals'],'rejected'=>$scopeLabels['rejected']];
+        if ($isRequester) $scopeOptions+=['requests'=>$scopeLabels['requests']];
+        $filters=$request->validate(['scope'=>['nullable','in:campus,approvals,rejected,requests'],'search'=>['nullable','string','max:120'],'status'=>['nullable','in:draft,pending,approved,rejected,all']]);
+        $scope=$filters['scope']??($isReviewer?'approvals':($isRequester?'requests':'campus'));
+        // Retain bookmarked personal views without adding unrelated records to them.
+        if (!isset($scopeOptions[$scope])) $scopeOptions[$scope]=$scopeLabels[$scope];
+        $status=$scope==='rejected'?'rejected':($filters['status']??'all');
+        $statusOptions=$scope==='rejected'?['rejected'=>'Rejected by Me']:($scope==='approvals'
+            ?['all'=>'All My Approvals','pending'=>'Awaiting My Approval','approved'=>'Approved by Me','rejected'=>'Rejected by Me']
+            :['all'=>'All Statuses','draft'=>'Draft','pending'=>'Pending Approval','approved'=>'Approved','rejected'=>'Rejected']);
+        abort_unless(array_key_exists($status,$statusOptions),422,'Select a valid status for this request view.');
+        $query=StudentSkippingGrade::with(['creator','student','approvalSteps.reviewers']);
+        if ($scope==='campus') $workflow->campusRequests($query,$user);
+        elseif ($scope==='requests') $query->where(fn($q)=>$q->where('created_by',$user->id)->orWhere('submitted_by',$user->id));
+        elseif ($scope==='approvals' && $status==='pending') {
+            $query->whereIn('id',app(\App\Services\SkippingGradeNotifications::class)->pendingRequests($user)->select('tb_student_skipping_grade.id'));
+        }
+        else {
+            $canReviewCurrentFlow=StudentSkippingGradePermissions::allows($user,'approve') || StudentSkippingGradePermissions::allows($user,'reject');
+            $query->where(function ($assigned) use ($user,$status,$canReviewCurrentFlow) {
+                $assigned->where(fn($sequential)=>$sequential->where('approval_flow_mode','sequential')->whereHas('approvalSteps',function ($steps) use ($user,$status) {
+                    if ($status==='pending') $steps->assignedTo($user->id)->where('status','pending');
+                    elseif ($status==='all') $steps->where(fn($q)=>$q->assignedTo($user->id)->orWhere('acted_by',$user->id));
+                    else $steps->where('acted_by',$user->id)->where('status',$status);
+                }))->orWhere(function ($current) use ($user,$status,$canReviewCurrentFlow) {
+                    $current->where('approval_flow_mode','!=','sequential')->where(function ($mine) use ($user,$status,$canReviewCurrentFlow) {
+                        if ($status==='approved') $mine->where('approved_by',$user->id)->where('status','approved');
+                        elseif ($status==='rejected') $mine->where('rejected_by',$user->id)->where('status','rejected');
+                        elseif ($status==='pending') $canReviewCurrentFlow?$mine->where('status','pending'):$mine->whereRaw('1 = 0');
+                        else {
+                            $mine->where('approved_by',$user->id)->orWhere('rejected_by',$user->id);
+                            if ($canReviewCurrentFlow) $mine->orWhere('status','pending');
+                        }
+                    });
+                });
+            });
+        }
+        if (!in_array($scope,['approvals','rejected'],true) && $status!=='all') $query->where('status',$status);
+        $query->when(trim($filters['search']??''),fn($q,$term)=>$q->where(function ($search) use ($term) {
+            foreach (['parent_name','parent_phone','reference_number','student_snapshot->name_en','student_snapshot->name_kh','student_snapshot->student_id'] as $field) $search->orWhere($field,'like','%'.$term.'%');
+        }));
+        $records=$query->orderByDesc('submitted_at')->orderByDesc('id')->paginate(20)->withQueryString();
+        $photoUrls=$records->getCollection()->mapWithKeys(fn($record)=>[$record->id=>$this->studentPhotoUrl($record->student)]);
+        $reportRows=app(StudentSkippingGradeReport::class)->rows($records->getCollection());
+        return view('student-skipping-grade.my-approvals',compact('records','filters','scope','scopeOptions','status','statusOptions','photoUrls','reportRows'));
+    }
+
+    public function review(Request $request, StudentSkippingGrade $skipping, SkippingGradeWorkflow $workflow)
+    {
+        abort_unless($workflow->canAct($request->user(),$skipping),403);
+        $data=$request->validate(['approval_step_id'=>['required','integer'],'approval_step_revision'=>['required','integer'],'comments'=>['nullable','string','max:1500']]);
+        $workflow->review($request->user(),$skipping,$data);
+        return $this->success($request,'Your approval is recorded. The next reviewer can now review the request.',route('student-skipping-grade.show',$skipping));
+    }
+
+    public function reassignReviewer(Request $request, StudentSkippingGrade $skipping, int $step, SkippingGradeWorkflow $workflow)
+    {
+        abort_unless($request->user()->isSuperAdmin(),403);
+        $data=$request->validate(['revision'=>['required','integer'],'reviewer_id'=>['required','integer'],'member_id'=>['sometimes','integer'],'reason'=>['required','string','max:1500','regex:/\S/']]);
+        $workflow->reassign($request->user(),$skipping,$step,$data);
+        return $this->success($request,'Unfinished reviewer reassigned. Completed approvals remain unchanged.',route('student-skipping-grade.show',$skipping));
+    }
+
+    public function uploadAttachments(Request $request, StudentSkippingGrade $skipping)
+    {
+        $this->service->authorizeEdit($request->user(),$skipping);
+        abort_unless($skipping->status==='draft',403,'Attachments can only be added to a draft.');
+        $data=$request->validate(['documents'=>['required_without_all:document_markers,parent_signed_documents','array','max:10'],'documents.*'=>['required','file','mimes:pdf,jpg,jpeg,png,webp','max:5120'],
+            'document_markers'=>['sometimes','accepted'],'parent_signed_documents'=>['sometimes','array','max:20'],
+            'document_count'=>['sometimes','integer','min:0','max:20'],
+            'parent_signed_documents.*'=>['integer','min:0','max:19','distinct']]);
+        $markers=$request->has('document_markers') || $request->has('parent_signed_documents')?($data['parent_signed_documents']??[]):null;
+        $this->service->uploadSupportingDocuments($request->user(),$skipping,$request->file('documents',[]),$markers,$data['document_count']??null);
+        return $this->success($request,'Supporting documents saved.',route('student-skipping-grade.show',$skipping));
+    }
+
+    public function attachment(Request $request, StudentSkippingGrade $skipping, int $index)
+    {
+        abort_unless(app(SkippingGradeWorkflow::class)->canView($request->user(),$skipping),403);
+        $document=$skipping->supporting_documents[$index]??null;
+        abort_unless($document && Storage::disk('local')->exists($document['path']),404);
+        return Storage::disk('local')->response($document['path'],$document['name'],['X-Content-Type-Options'=>'nosniff','Cache-Control'=>'private, no-store']);
     }
 
     public function settings(Request $request)

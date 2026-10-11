@@ -5,8 +5,8 @@
 @endsection
 @section('content')
 @include('student-skipping-grade._workspace-start')
-<div class="skipping-page" data-skipping-page data-students-url="{{ route('student-skipping-grade.students') }}" data-source-classes-url="{{ route('student-skipping-grade.source-classes') }}" data-enrollment-url="{{ route('student-skipping-grade.enrollment',['enrollment'=>'__id__']) }}" data-classes-url="{{ route('student-skipping-grade.classes') }}">
-<form class="skipping-request-form" method="post" action="{{ $record->exists?route('student-skipping-grade.update',$record):route('student-skipping-grade.store') }}" data-skipping-form data-request-action="{{ $record->exists?'update':'create' }}" novalidate>@csrf
+<div class="skipping-page" data-skipping-page data-students-url="{{ route('student-skipping-grade.students',$record->exists?[]:['request_action'=>'create']) }}" data-source-classes-url="{{ route('student-skipping-grade.source-classes',$record->exists?[]:['request_action'=>'create']) }}" data-enrollment-url="{{ route('student-skipping-grade.enrollment',['enrollment'=>'__id__']+($record->exists?[]:['request_action'=>'create'])) }}" data-classes-url="{{ route('student-skipping-grade.classes') }}">
+<form class="skipping-request-form" method="post" action="{{ $record->exists?route('student-skipping-grade.update',$record):route('student-skipping-grade.store') }}" enctype="multipart/form-data" data-skipping-form data-request-action="{{ $record->exists?'update':'create' }}" novalidate>@csrf
     <div class="alert alert-info" data-request-campus-note hidden>You can view this student, but you do not have permission to save this request for their campus.</div>
     <div class="card mb-3"><div class="card-header skipping-header"><h3 class="card-title">Student Information</h3></div><div class="card-body">
     @if(!$record->exists)
@@ -88,7 +88,16 @@
         <div class="skipping-form-grid mt-3"><div class="premium-form-field"><label class="form-label" for="skippingAverageScore">Previous Year Average</label><input id="skippingAverageScore" class="form-control" type="number" name="average_score" min="0" max="100" step="0.01" value="{{ old('average_score',$record->average_score) }}"></div><div class="premium-form-field skipping-score-scale-field"><label class="form-label" for="skippingAverageScale">Score Scale</label><select id="skippingAverageScale" class="form-select" name="average_scale"><option value="100" @selected(old('average_scale',$record->average_scale)==100)>Out of 100</option><option value="10" @selected(old('average_scale',$record->average_scale)==10)>Out of 10</option></select><i class="ti ti-chevron-down skipping-score-scale-arrow" aria-hidden="true"></i></div></div>
         <div class="premium-form-field mt-3"><label class="form-label" for="skippingReason">Reason / Additional Information</label><textarea id="skippingReason" class="form-control" name="reason" rows="3" maxlength="1500">{{ old('reason',$record->reason) }}</textarea></div>
     </div></div>
-    <div class="card mb-3"><div class="card-header skipping-header"><h3 class="card-title">Committee Names</h3></div><div class="card-body"><div class="skipping-form-grid skipping-campus-committee-grid">@foreach($campusCommitteeRoles as $index=>$role)<div class="premium-form-field"><label class="form-label" for="skippingCommittee{{ $index }}">{{ $index+1 }}. {{ $role }}</label><input id="skippingCommittee{{ $index }}" class="form-control" name="committee_names[{{ $index }}]" data-campus-committee-name="{{ $index }}" value="{{ old('committee_names.'.$index,$record->committee_names[$index]??'') }}" maxlength="200"></div>@endforeach</div></div></div>
+    @if(!$sequentialFlow)
+        <div class="card mb-3"><div class="card-header skipping-header"><h3 class="card-title">Committee Names</h3></div><div class="card-body"><div class="skipping-form-grid skipping-campus-committee-grid">@foreach($campusCommitteeRoles as $index=>$role)<div class="premium-form-field"><label class="form-label" for="skippingCommittee{{ $index }}">{{ $index+1 }}. {{ $role }}</label><input id="skippingCommittee{{ $index }}" class="form-control" name="committee_names[{{ $index }}]" data-campus-committee-name="{{ $index }}" value="{{ old('committee_names.'.$index,$record->committee_names[$index]??'') }}" maxlength="200"></div>@endforeach</div></div></div>
+    @else
+        <div class="alert alert-info">Reviewers follow the campus and Central approval flow configured for this request. Their names, roles, and current grade assignments are saved when the request is submitted.</div>
+    @endif
+    @if(!$record->exists || $record->status==='draft')
+        <div class="card mb-3"><div class="card-header skipping-header"><h3 class="card-title">Supporting Documents</h3></div><div class="card-body">
+            @include('student-skipping-grade._supporting-documents-upload')
+        </div></div>
+    @endif
     <div class="skipping-save-bar"><a class="btn" href="{{ route('student-skipping-grade.index') }}">Cancel</a><button class="btn btn-primary" type="submit"><i class="ti ti-device-floppy me-1"></i>{{ $record->status==='pending'?'Save Changes':'Save Draft Request' }}</button></div>
 </form></div>
 @include('student-skipping-grade._workspace-end')

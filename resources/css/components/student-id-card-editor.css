@@ -1,0 +1,64 @@
+.student-id-template-editor {
+    padding: 12px;
+    border: 1px solid var(--tblr-border-color, #dbe2ec);
+    border-radius: 12px;
+    background: var(--tblr-bg-surface, #fff);
+    flex: 0 0 auto;
+}
+.student-id-template-editor [hidden], .student-id-template-card [hidden] { display: none !important; }
+.student-id-editor-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.student-id-editor-status, .student-id-editor-note { font-size: .75rem; color: var(--tblr-secondary, #52627a); }
+.student-id-editor-note { margin: 8px 0 0; }
+.student-id-editor-tools { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 8px; margin-top: 12px; align-items: end; }
+.student-id-editor-tools label, .student-id-editor-nudge { display: grid; gap: 4px; font-size: .72rem; color: var(--tblr-secondary, #52627a); }
+.student-id-editor-tools :is(.form-control, .form-select) { min-height: 36px; font-size: .8rem; padding: 6px 8px; }
+.student-id-editor-tools .form-control-color { width: 100%; height: 36px; }
+.student-id-editor-wide { grid-column: span 2; }
+.student-id-editor-content { grid-column: 1 / -1; }
+.student-id-editor-tools .student-id-editor-check { display: flex; align-items: center; gap: 6px; min-height: 36px; }
+.student-id-editor-nudge > div { display: flex; gap: 4px; }
+.student-id-editor-nudge .btn { padding: 6px 10px; }
+.student-id-preview-panel { overflow-y: auto; }
+.student-id-preview-panel .student-id-card-preview-wrap { flex: 0 0 auto; overflow: visible; }
+.student-id-card-preview.student-id-template-card {
+    display: block;
+    width: min(100%, 340px);
+    height: auto;
+    padding: 0;
+    flex-shrink: 0;
+    border-radius: 3mm;
+    isolation: isolate;
+}
+.student-id-template-field {
+    position: absolute;
+    z-index: 1;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    min-width: 0;
+    line-height: 1.15;
+}
+.student-id-template-text { display: flex; flex-direction: column; justify-content: center; }
+.student-id-field-text { display: block; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 100%; overflow: hidden; }
+.student-id-template-field > img { position: absolute; inset: 0; display: block; width: 100%; height: 100%; min-width: 0; min-height: 0; object-fit: contain; }
+.student-id-template-photo > img { object-fit: cover; border: 1px solid #d7dee8; border-radius: 2mm; }
+.student-id-template-qr { background: #fff; }
+.student-id-template-logo { display: grid; place-items: center; text-align: center; font-size: calc(var(--id-card-scale,1) * 7pt); }
+.student-id-media-placeholder { display: grid; place-items: center; width: 100%; height: 100%; background: #edf2f7; color: #8da2bd; font-size: calc(var(--id-card-scale,1) * 20pt); }
+.student-id-is-editing .student-id-template-field { cursor: move; touch-action: none; outline: .6pt dashed #9aaed0; }
+.student-id-is-editing .student-id-block-selected { outline: 1.5pt solid #206bc4; background-color: rgba(32,107,196,.08); z-index: 2; }
+.student-id-is-editing [contenteditable="plaintext-only"] { cursor: text; touch-action: auto; outline-color: #ae4ecc; }
+.student-id-is-editing .student-id-editor-hidden { display: flex !important; opacity: .35; }
+.student-id-editor-resize { display: none; position: absolute; right: -5px; bottom: -5px; z-index: 3; width: 12px; height: 12px; padding: 0; border: 1px solid #fff; background: #206bc4; border-radius: 2px; cursor: nwse-resize; }
+.student-id-block-selected .student-id-editor-resize { display: block; }
+@media (max-width: 575.98px) {
+    .student-id-editor-tools { grid-template-columns: 1fr 1fr; }
+    .student-id-editor-actions .btn { padding: 6px 10px; font-size: .75rem; }
+}
+@media print {
+    .student-id-template-editor, .student-id-editor-resize { display: none !important; }
+    .student-id-card-preview.student-id-template-card { --id-card-scale: 1 !important; padding: 0 !important; }
+    .student-id-is-editing .student-id-template-field { outline: none !important; }
+    .student-id-is-editing .student-id-block-selected { background-color: transparent !important; }
+    .student-id-is-editing .student-id-editor-hidden { display: none !important; }
+}

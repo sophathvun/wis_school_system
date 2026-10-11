@@ -1,4 +1,6 @@
-﻿.page-body:has(.student-id-page-shell) {
+@import "../components/student-id-card-editor.css";
+
+.page-body:has(.student-id-page-shell) {
     margin: 0;
 }
 
@@ -231,6 +233,11 @@
     color: #206bc4;
 }
 
+.student-id-searchable-option:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+}
+
 .student-id-searchable-empty {
     color: #8aa0ba;
 }
@@ -428,6 +435,12 @@
 
 .student-id-print-sheet {
     display: none;
+}
+
+@media screen {
+    .student-id-print-body .student-id-page-shell { padding: 1rem; }
+    .student-id-print-body .student-id-print-sheet { display: grid; gap: 1rem; justify-content: center; }
+    .student-id-print-body .student-id-card-workspace { display: block; height: auto; max-height: none; max-width: 400px; margin: auto; }
 }
 
 .student-id-print-card-page {
@@ -902,13 +915,19 @@
 }
 
 @media print {
+    .student-id-page-shell[data-id-print-allowed="false"] { display: none !important; }
+
     @page {
         size: 54mm 90mm;
         margin: 0;
     }
 
+    html,
     body {
         background: #ffffff !important;
+        height: auto !important;
+        min-height: 0 !important;
+        overflow: visible !important;
     }
 
     .navbar,
@@ -924,8 +943,10 @@
         display: none !important;
     }
 
+    .page,
     .page-wrapper,
     .page-body,
+    .container-fluid,
     .container-xl,
     .student-id-page-shell,
     .student-id-card-workspace,
@@ -933,7 +954,9 @@
     .student-id-card-preview-wrap {
         display: block !important;
         width: 54mm !important;
-        height: 90mm !important;
+        height: auto !important;
+        min-height: 0 !important;
+        overflow: visible !important;
         margin: 0 !important;
         padding: 0 !important;
         border: 0 !important;

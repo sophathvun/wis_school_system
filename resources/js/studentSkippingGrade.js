@@ -1,9 +1,14 @@
 import { existingPromotedPlacement, minimumRequestedGradeOrder } from './helpers/existingPromotion';
 import Swal from 'sweetalert2';
-import { Tooltip } from 'bootstrap';
+import { Dropdown, Tooltip } from 'bootstrap';
 import { initPremiumDatePicker } from './premiumDatePicker';
 import { initSkippingImageUpload } from './helpers/skippingImageUpload';
+import { initSkippingDocumentsUpload } from './helpers/skippingDocumentsUpload';
 import { initSkippingApprovalShare } from './helpers/skippingApprovalShare';
+import { initSkippingStatisticsShare } from './helpers/skippingStatisticsShare';
+import { skippingReportUrl } from './helpers/skippingReportUrl';
+import { initSkippingWorkflowEditor } from './helpers/skippingWorkflowEditor';
+import { initSkippingWorkflowTimeline } from './helpers/skippingWorkflowTimeline';
 
 document.querySelectorAll('[data-skipping-workspace]').forEach((workspace) => {
     const toggle = workspace.querySelector('[data-skipping-tabs-toggle]');
@@ -41,7 +46,21 @@ document.querySelectorAll('[data-skipping-workspace]').forEach((workspace) => {
 
 const root = document.querySelector('[data-skipping-page]');
 if (root) {
+    root.querySelectorAll('.skipping-list-header-actions [data-bs-toggle="dropdown"]').forEach((toggle) => {
+        Dropdown.getOrCreateInstance(toggle, { popperConfig: { strategy: 'fixed' } });
+    });
+    const inboxFilterBody = root.querySelector('[data-skipping-inbox-filter-body]');
+    const inboxFilterToggle = root.querySelector('.skipping-inbox-filter-toggle');
+    if (inboxFilterBody && inboxFilterToggle) {
+        const expanded = window.matchMedia('(min-width: 768px)').matches;
+        inboxFilterBody.classList.toggle('show', expanded);
+        inboxFilterToggle.classList.toggle('collapsed', !expanded);
+        inboxFilterToggle.setAttribute('aria-expanded', String(expanded));
+    }
+    initSkippingWorkflowTimeline(root);
+    initSkippingWorkflowEditor(root);
     initSkippingApprovalShare(root);
+    initSkippingStatisticsShare(root);
     root.querySelectorAll('[data-premium-date-picker]').forEach(initPremiumDatePicker);
     const parentNameInput = root.querySelector('[name="parent_name"]');
     const uppercaseParentName = (event) => {
@@ -59,6 +78,7 @@ if (root) {
     uppercaseParentName();
     const notice = (icon, title, text) => Swal.fire({ icon, title, text });
     root.querySelectorAll('[data-skipping-image-upload]').forEach((wrapper) => initSkippingImageUpload(wrapper, notice));
+    const documentUploaders = [...root.querySelectorAll('[data-skipping-documents-upload]')].map(initSkippingDocumentsUpload);
     if (root.dataset.success) notice('success', 'Saved', root.dataset.success);
     const request = async (url, options = {}) => {
         const response = await fetch(url, { ...options, headers: { Accept: 'application/json', ...options.headers } });
@@ -81,14 +101,18 @@ if (root) {
                 return;
             }
             if (form.dataset.campusReadOnly === 'true') return;
-            if (form.dataset.confirm && !(await Swal.fire({ icon: 'question', title: 'Confirm action', text: form.dataset.confirm, showCancelButton: true, confirmButtonText: 'Confirm' })).isConfirmed) return;
+            const action = event.submitter?.getAttribute('formaction') || form.action;
+            const confirmation = event.submitter?.dataset.confirm || form.dataset.confirm;
+            if (confirmation && !(await Swal.fire({ icon: 'question', title: 'Confirm action', text: confirmation, showCancelButton: true, confirmButtonText: 'Confirm' })).isConfirmed) return;
             form.querySelectorAll('.is-invalid').forEach((el) => el.classList.remove('is-invalid'));
             form.querySelectorAll('[data-skipping-error]').forEach((el) => el.remove());
             const buttons = [...form.querySelectorAll('button[type="submit"]')];
             form.dataset.busy = '1';
             buttons.forEach((button) => button.disabled = true);
             try {
-                const json = await request(form.action, { method: 'POST', body: new FormData(form) });
+                const formData = new FormData(form);
+                documentUploaders.filter((uploader) => uploader.form === form).forEach((uploader) => uploader.appendTo(formData));
+                const json = await request(action, { method: 'POST', body: formData });
                 await notice('success', 'Saved', json.message);
                 if (json.redirect) location.assign(json.redirect);
             } catch (error) {
@@ -98,6 +122,7 @@ if (root) {
                     let input = [...form.elements].find((el) => el.name === name);
                     if (input?.matches('[data-premium-date-value]')) input = input.closest('[data-premium-date-picker]').querySelector('[data-premium-date-input]');
                     if (input?.matches('[data-upload-input]')) input = input.closest('[data-skipping-image-upload]').querySelector('[data-upload-dropzone]');
+                    if (['documents','parent_signed_documents'].some((field) => key === field || key.startsWith(`${field}.`))) input = form.querySelector('[data-documents-dropzone]') || input;
                     if (key === 'enrollment_id') input = form.querySelector('[data-student-search]') || form.querySelector('[data-student-summary]');
                     if (input) {
                         input.classList.add('is-invalid');
@@ -213,6 +238,10 @@ if (root) {
             searchableFilters.forEach((item) => item.close());
             input.value = ''; menu.hidden = false; toggle.setAttribute('aria-expanded', 'true');
             refresh(); input.focus();
+            if (root.querySelector('.skipping-request-report-filters')?.contains(select)) {
+                const bounds = toggle.getBoundingClientRect();
+                Object.assign(menu.style, { position: 'fixed', top: `${bounds.bottom + 4}px`, left: `${bounds.left}px`, width: `${bounds.width}px`, zIndex: '1050' });
+            }
             if (select === studentFilter) input.dispatchEvent(new Event('input'));
         };
         toggle.addEventListener('click', () => menu.hidden ? open() : close());
@@ -234,6 +263,10 @@ if (root) {
         refresh();
     });
     document.addEventListener('click', (event) => { if (!event.target.closest('.skipping-searchable')) searchableFilters.forEach((item) => item.close()); });
+    if (root.querySelector('.skipping-request-report-filters')) {
+        window.addEventListener('resize', () => searchableFilters.forEach((item) => item.close()));
+        root.querySelector('.skipping-request-report-filters').parentElement.addEventListener('scroll', () => searchableFilters.forEach((item) => item.close()));
+    }
     const listFilters = root.querySelector('[data-skipping-list-filters]');
     if (listFilters) {
         const filterCard = listFilters.closest('[data-skipping-filter-card]');
@@ -255,19 +288,58 @@ if (root) {
         const yearFilter = listFilters.querySelector('[name="academic_year_id"]');
         const campusFilter = listFilters.querySelector('[name="campus_id"]');
         const statusFilter = listFilters.querySelector('[name="status"]');
+        const gradeFilter = listFilters.querySelector('[name="grade_class"]');
+        const approvalFilter = listFilters.querySelector('[name="approval_number"]');
         const textFilter = listFilters.querySelector('[name="search"]');
         let filterTimer;
         const applyFilters = () => { clearTimeout(filterTimer); listFilters.requestSubmit(); };
-        yearFilter.addEventListener('change', () => { campusFilter.value = ''; statusFilter.value = ''; applyFilters(); });
-        campusFilter.addEventListener('change', () => { statusFilter.value = ''; applyFilters(); });
-        statusFilter.addEventListener('change', applyFilters);
+        const resetPlacement = () => { gradeFilter.value = ''; approvalFilter.value = ''; };
+        yearFilter.addEventListener('change', () => { campusFilter.value = ''; statusFilter.value = ''; resetPlacement(); applyFilters(); });
+        campusFilter.addEventListener('change', () => { statusFilter.value = ''; resetPlacement(); applyFilters(); });
+        statusFilter.addEventListener('change', () => { resetPlacement(); applyFilters(); });
+        gradeFilter.addEventListener('change', () => { approvalFilter.value = ''; applyFilters(); });
+        approvalFilter.addEventListener('change', applyFilters);
         const searchFilters = (event) => {
             clearTimeout(filterTimer);
+            textFilter.closest('.premium-form-field')?.classList.toggle('has-value', Boolean(textFilter.value));
             if (!event.isComposing) filterTimer = setTimeout(applyFilters, 650);
         };
         textFilter.addEventListener('input', searchFilters);
         textFilter.addEventListener('compositionend', searchFilters);
         listFilters.addEventListener('submit', () => clearTimeout(filterTimer));
+        root.querySelectorAll('[data-skipping-report-help]').forEach((button) => button.addEventListener('click', () => {
+            notice('info', 'No requests to print', 'No grade skipping requests match these filters. Adjust the academic year, campus, status, grade, approved number, or search and try again.');
+        }));
+        root.querySelectorAll('[data-skipping-report-print], [data-skipping-statistics-print], [data-skipping-report-export]').forEach((link) => link.addEventListener('click', (event) => {
+            const statistics = link.hasAttribute('data-skipping-statistics-print') || link.dataset.skippingReportExport === 'statistics';
+            const url = skippingReportUrl(link.href, new FormData(listFilters), statistics);
+            if (link.hasAttribute('data-skipping-report-print') || link.hasAttribute('data-skipping-statistics-print')) url.searchParams.set('autoprint', '1');
+            event.currentTarget.href = url.href;
+        }));
+    }
+    const inboxFilters = root.querySelector('[data-skipping-inbox-filters]');
+    if (inboxFilters) {
+        let inboxSearchTimer;
+        const applyInboxFilters = () => {
+            clearTimeout(inboxSearchTimer);
+            inboxFilters.requestSubmit();
+        };
+        inboxFilters.querySelector('[name="scope"]').addEventListener('change', () => {
+            const statusSelect = inboxFilters.querySelector('[name="status"]');
+            const nextStatus = inboxFilters.querySelector('[name="scope"]').value === 'rejected' ? 'rejected' : 'all';
+            if (![...statusSelect.options].some((item) => item.value === nextStatus)) statusSelect.add(new Option(nextStatus === 'all' ? 'All Statuses' : 'Rejected by Me', nextStatus));
+            statusSelect.value = nextStatus;
+            applyInboxFilters();
+        });
+        inboxFilters.querySelector('[name="status"]').addEventListener('change', applyInboxFilters);
+        const inboxSearch = inboxFilters.querySelector('[name="search"]');
+        const scheduleInboxSearch = (event) => {
+            clearTimeout(inboxSearchTimer);
+            if (!event.isComposing) inboxSearchTimer = setTimeout(applyInboxFilters, 650);
+        };
+        inboxSearch.addEventListener('input', scheduleInboxSearch);
+        inboxSearch.addEventListener('compositionend', scheduleInboxSearch);
+        inboxFilters.addEventListener('submit', () => clearTimeout(inboxSearchTimer));
     }
     let parents = [], searchController, detailsController, classController, timer;
     const option = (value, label) => new Option(label, value);

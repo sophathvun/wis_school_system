@@ -67,6 +67,7 @@ class AccessFoundationSeeder extends Seeder
             'students.promotion' => ['view' => 'View student promotion and transfer', 'manage' => 'Manage student promotion and transfer'],
             'students.graduation' => ['view' => 'View student graduation', 'manage' => 'Manage student graduation'],
             'student-reentry' => ['view' => 'View student re-entry', 'manage' => 'Manage student re-entry'],
+            'student-id-card-qr' => \App\Support\StudentIdCardPermissions::catalog(),
             'student-documents' => ['view' => 'View student documents', 'manage' => 'Manage student documents', 'preview' => 'View student document files', 'download' => 'Download student documents', 'delete' => 'Delete student documents'],
             'student-data-transfer' => ['view' => 'View student data transfer', 'import' => 'Import student data', 'export' => 'Export student data'],
             'student-withdrawals' => ['view' => 'View student withdrawals', 'manage' => 'Manage student withdrawals', 'approve' => 'Approve student withdrawals', 'delete' => 'Delete student withdrawals'],
@@ -140,6 +141,7 @@ class AccessFoundationSeeder extends Seeder
         $allPermissions = Permission::all();
         $reportTabCodes = array_column(AcademicReportPermissions::catalog(), 'code');
         $skippingCentralCodes = array_map(fn ($action) => 'student-skipping-grade.'.$action, \App\Support\StudentSkippingGradePermissions::CENTRAL_ACTIONS);
+        $idCardActionCodes = array_map(fn ($action) => 'student-id-card-qr.'.$action, array_diff(array_keys(\App\Support\StudentIdCardPermissions::catalog()), ['view']));
 
         foreach ($roles as $roleData) {
             $role = Role::updateOrCreate(['code' => $roleData['code']], $roleData + ['is_system' => true, 'status' => 1]);
@@ -148,7 +150,7 @@ class AccessFoundationSeeder extends Seeder
                 fn ($permission) => in_array($permission->code, $reportTabCodes, true)
                     // New seeded roles keep the standard defaults; existing roles keep their selected tabs.
                     ? ($role->wasRecentlyCreated || $role->permissions->contains('id', $permission->id))
-                    : ((!in_array($permission->code, $skippingCentralCodes, true) && !array_key_exists($permission->code, K3CertificatePermissions::catalog()) && !array_key_exists($permission->code, G9CertificatePermissions::catalog()) && !array_key_exists($permission->code, G12CertificatePermissions::catalog())) || $role->permissions->contains('id', $permission->id))
+                    : ((!in_array($permission->code, $skippingCentralCodes, true) && !in_array($permission->code, $idCardActionCodes, true) && !array_key_exists($permission->code, K3CertificatePermissions::catalog()) && !array_key_exists($permission->code, G9CertificatePermissions::catalog()) && !array_key_exists($permission->code, G12CertificatePermissions::catalog())) || $role->permissions->contains('id', $permission->id))
             );
             $role->permissions()->sync($rolePermissions->modelKeys());
         }

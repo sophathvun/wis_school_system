@@ -30,9 +30,11 @@
                 </a>
             </div>
             <div class="nav-item ms-3">
-                <a href="#" class="nav-link px-0" title="Notifications" data-bs-toggle="tooltip"
+                <a href="{{ route('notifications.index') }}" class="nav-link px-0 position-relative" title="Notifications" data-bs-toggle="tooltip"
                     data-bs-placement="bottom" aria-label="Notifications">
                     <i class="ti ti-bell icon"></i>
+                    @php($mobileNotificationCount=auth()->user()?->userNotifications()->whereNull('read_at')->count()??0)
+                    <span class="navbar-notification-badge {{ $mobileNotificationCount ? '' : 'd-none' }}" data-navbar-mobile-notification-badge>{{ $mobileNotificationCount }}</span>
                 </a>
             </div>
             @auth
@@ -304,11 +306,12 @@
                             ? 'active'
                             : '' }}">
                         <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown"
-                            data-bs-auto-close="false" role="button" aria-expanded="true">
+                            data-bs-auto-close="false" role="button" aria-expanded="true" data-sidebar-label="Students">
                             <span class="nav-link-icon d-md-none d-lg-inline-block">
                                 <i class="ti ti-user icon"></i>
                             </span>
                             <span class="nav-link-title">Students</span>
+                            <span class="badge bg-orange text-white ms-auto {{ $skippingPendingCount ? '' : 'd-none' }}" data-skipping-pending-badge aria-label="Grade skipping requests awaiting your approval">{{ $skippingPendingCount }}</span>
                         </a>
                         <div
                             class="dropdown-menu {{ request()->routeIs('searchStudent.*') ||
@@ -383,7 +386,7 @@
                                             <i class="ti ti-user-check me-2"></i> Student Re-entry
                                         </a>
                                     @endif
-                                    @if ($canView('students.view'))
+                                    @if ($canView('student-id-card-qr.view'))
                                         <a class="dropdown-item {{ request()->routeIs('student-id-card-qr.*') ? 'active' : '' }}"
                                             href="{{ route('student-id-card-qr.index') }}">
                                             <i class="ti ti-qrcode me-2"></i> Stu. ID Card (QR)
@@ -397,8 +400,9 @@
                                     @endif
                                     @if ($canView('student-skipping-grade.view'))
                                     <a class="dropdown-item {{ request()->routeIs('student-skipping-grade.*') ? 'active' : '' }}"
-                                        href="{{ route('student-skipping-grade.index') }}">
-                                        <i class="ti ti-stairs-up me-2"></i> Stu. Skipping Grade
+                                        href="{{ route('student-skipping-grade.index') }}" data-sidebar-label="Grade Skipping">
+                                        <i class="ti ti-stairs-up me-2"></i> Grade Skipping
+                                        <span class="badge bg-orange text-white ms-auto {{ $skippingPendingCount ? '' : 'd-none' }}" data-skipping-pending-badge aria-label="Requests awaiting your approval">{{ $skippingPendingCount }}</span>
                                     </a>
                                     @endif
                                     <a class="dropdown-item {{ request()->routeIs('western-scholarship.*') ? 'active' : '' }}"

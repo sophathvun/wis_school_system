@@ -10,12 +10,18 @@ use App\Models\SchoolClass;
 use App\Models\SchoolInfo;
 use App\Models\Student;
 use App\Models\StudentEnrollment;
+use App\Models\StudentIdCardTemplate;
+use App\Support\StudentIdCardLayout;
+use App\Support\StudentIdCardPermissions;
 use BaconQrCode\Renderer\Image\SvgImageBackEnd;
 use BaconQrCode\Renderer\ImageRenderer;
 use BaconQrCode\Renderer\RendererStyle\RendererStyle;
 use BaconQrCode\Writer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 
 class StudentIdCardQrController
 {
@@ -137,6 +143,7 @@ class StudentIdCardQrController
 
     public function index(Request $request)
     {
+        abort_unless(StudentIdCardPermissions::allows($request->user(), 'view'), 403);
         [$gradeId, $classId] = array_pad(explode(':', (string) $request->input('grade_class'), 2), 2, null);
         $qrStudent = null;
         $hasStoredQrCode = Schema::hasColumn((new Student())->getTable(), 'id_card_qr_code');
@@ -175,7 +182,15 @@ class StudentIdCardQrController
             && filled($filters['class_id']);
 
         $studentsQuery = Student::query()
-            ->select(array_values(array_filter(['id', 'student_id', 'student_no', $hasStoredQrCode ? 'id_card_qr_code' : null, 'full_name_en', 'full_name_kh', 'photo_path', 'home_phone'])))
+            ->select(array_values(array_filter(['id', 'student_id', 'student_no', $hasStoredQrCode ? 'id_card_qr_code' : null, 'full_name_en', 'full_name_kh', 'photo_path', 'home_phone', 'date_of_birth', 'gender'])))
+            ->with(['enrollments' => function ($query) use ($filters) {
+                $query->with(['grade', 'schoolClass', 'campus', 'academicYear'])
+                    ->when($filters['academic_year_id'], fn ($query, $id) => $query->where('academic_year_id', $id))
+                    ->when($filters['campus_id'], fn ($query, $id) => $query->where('campus_id', $id))
+                    ->when($filters['grade_id'], fn ($query, $id) => $query->where('grade_id', $id))
+                    ->when($filters['class_id'], fn ($query, $id) => $query->where('class_id', $id))
+                    ->orderByDesc('id');
+            }])
             ->whereHas('enrollments', function ($query) use ($filters) {
                 $query
                     ->when($filters['academic_year_id'], fn ($query, $id) => $query->where('academic_year_id', $id))
@@ -194,9 +209,6 @@ class StudentIdCardQrController
         }
 
         $selectedStudent ??= $students->first();
-        if ($selectedStudent) {
-            $selectedStudent->ensureIdCardQrCode();
-        }
 
         $classEnrollmentIds = StudentEnrollment::query()
             ->whereNotNull('class_id')
@@ -239,7 +251,19 @@ class StudentIdCardQrController
             ])
             ->values();
 
+        $template = Schema::hasTable('tb_student_id_card_template') ? StudentIdCardTemplate::find(1) : null;
+        $cardPermissions = [];
+        foreach (StudentIdCardPermissions::catalog() as $action => $label) {
+            $cardPermissions[$action] = StudentIdCardPermissions::allows($request->user(), $action);
+        }
+
         return view('student-id-card-qr', [
+            'cardLayout' => StudentIdCardLayout::resolve($template?->layout),
+            'cardTemplateVersion' => $template?->version ?? 0,
+            'canEditCardTemplate' => $this->canEditTemplate($request),
+            'cardPermissions' => $cardPermissions,
+            'hasStoredQrCode' => $hasStoredQrCode,
+            'cardTemplateReady' => $template !== null,
             'branding' => BrandingSetting::current(),
             'academicYears' => AcademicYear::query()
                 ->regular()
@@ -258,17 +282,68 @@ class StudentIdCardQrController
         ]);
     }
 
-    public function qr(Student $student)
+    private function canEditTemplate(Request $request): bool
     {
+        return StudentIdCardPermissions::allows($request->user(), 'edit-template');
+    }
+
+    public function saveTemplate(Request $request)
+    {
+        abort_unless($this->canEditTemplate($request), 403, 'You do not have permission to edit the Student ID Card template.');
+        $data = $request->validate([
+            'template_data' => ['required', 'json', 'max:100000'],
+            'template_version' => ['required', 'integer', 'min:0'],
+        ]);
+        $layout = json_decode($data['template_data'], true);
+        $validated = Validator::make(is_array($layout) ? $layout : [], StudentIdCardLayout::rules())->validate();
+        DB::transaction(function () use ($validated, $data) {
+            $template = StudentIdCardTemplate::whereKey(1)->lockForUpdate()->firstOrFail();
+            if ($template->version !== (int) $data['template_version']) {
+                throw ValidationException::withMessages(['template_data' => 'The template was updated by another user. Refresh the page before editing again.']);
+            }
+            $template->update(['layout' => StudentIdCardLayout::resolve($validated), 'version' => $template->version + 1]);
+        });
+
+        return redirect()->route('student-id-card-qr.index', $request->only([
+            'academic_year_id', 'campus_id', 'grade_class', 'grade_id', 'class_id', 'student_id', 'print_scope',
+        ]))->with('success', 'Student ID Card template saved for all academic years.');
+    }
+
+    public function generateQr(Request $request)
+    {
+        abort_unless(StudentIdCardPermissions::allows($request->user(), 'generate-qr'), 403);
+        $data = $request->validate(['student_id' => ['required', 'integer', 'exists:tb_student,id']]);
+        Student::findOrFail($data['student_id'])->ensureIdCardQrCode();
+        return redirect()->route('student-id-card-qr.index', $request->only([
+            'academic_year_id', 'campus_id', 'grade_id', 'class_id', 'student_id', 'print_scope',
+        ]))->with('success', 'Student ID Card QR code is ready.');
+    }
+
+    public function printCards(Request $request)
+    {
+        $request->validate(['print_scope' => ['nullable', 'in:student,class']]);
+        $action = $request->input('print_scope') === 'class' ? 'print-class' : 'print-card';
+        abort_unless(StudentIdCardPermissions::allows($request->user(), $action), 403);
+        $data = $this->index($request)->getData();
+        $resolvedAction = $data['filters']['print_scope'] === 'class' ? 'print-class' : 'print-card';
+        abort_unless(StudentIdCardPermissions::allows($request->user(), $resolvedAction), 403);
+        abort_unless($data['selectedStudent'], 422, 'Select an academic year, campus, grade and student before printing.');
+        return view('student-id-card.print', $data);
+    }
+
+    public function qr(Request $request, Student $student)
+    {
+        abort_unless(StudentIdCardPermissions::allows($request->user(), 'view'), 403);
         $hasStoredQrCode = Schema::hasColumn($student->getTable(), 'id_card_qr_code');
+        abort_if($hasStoredQrCode && blank($student->id_card_qr_code), 404, 'Generate this student QR code first.');
         $value = $hasStoredQrCode
-            ? route('student-id-card.public', ['qr' => $student->ensureIdCardQrCode()])
+            ? route('student-id-card.public', ['qr' => $student->id_card_qr_code])
             : route('student-id-card-qr.index', ['student_id' => $student->id]);
         $renderer = new ImageRenderer(new RendererStyle(360, 1), new SvgImageBackEnd());
 
         return response((new Writer($renderer))->writeString($value), 200, [
             'Content-Type' => 'image/svg+xml',
-            'Cache-Control' => 'public, max-age=86400',
+            'Cache-Control' => 'private, max-age=86400',
         ]);
     }
 }

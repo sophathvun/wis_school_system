@@ -100,6 +100,16 @@ php artisan boost:install
 
 Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
 
+## Student ID Card template
+
+Student ID Cards use one saved template for all academic years and campuses. Users with **Student ID Card: Edit Template (all years)** permission can select Edit Template above the preview, drag blocks to move them, resize from the corner, or set positions and dimensions in millimetres. Text supports font, point size, color, alignment, and bold. Add Field inserts custom text or automatic student values; Remove Block removes a field. Show QR code controls QR visibility and its SCAN caption. Restore Original Layout and Discard Changes follow the certificate editor workflow. Save Template applies changes to individual and whole-class prints. Printing uses the saved template, including when the browser print shortcut is used while editing.
+
+The card remains 54 × 90 mm. Automatic values come from the selected enrollment, including grade/class, campus, and academic year; student values include English/Khmer names, ID, phone, birth date, and gender. Templates reject unsupported placeholders and styles, and an outdated editor cannot overwrite a newer saved version. The new template permission is assigned to Super Administrator by default and can be granted through existing access management.
+
+The permission page lists **Students → STU. ID CARD (QR)** with View, Generate QR, Print Individual Card, Print Whole Class, Copy Link, and Edit / Save / Discard / Restore Template. Actions require both Students and ID Card viewing permissions, and denied buttons are hidden. QR generation uses an authorized POST request; previewing a card does not generate a missing QR code. Individual and whole-class print routes check their separate permissions. Existing role, department, and user grants are preserved; new actions default to Super Administrator only.
+
+Deployment requires `php artisan migrate --force` (migrations `2026_10_09_000018_create_student_id_card_template.php` and `2026_10_09_000019_add_student_id_card_action_permissions.php`) and `npm run build`.
+
 ## Message reactions
 
 The Messages widget and full chat page support heart, thanks, thumbs-up, laugh, surprised, and sad reactions. Right-click a message on computers or tap it on phones to open quick reactions, Reply, and Delete (when permitted). Select an emoji to react; select your current emoji again to remove it. Each conversation member has one reaction per message and can change it. Only reaction counts remain visible on the message; counts and participant names refresh with the existing chat polling. Reacting does not send a new message or push notification.

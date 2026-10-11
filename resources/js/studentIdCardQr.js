@@ -1,4 +1,7 @@
+import { initStudentIdCardEditor } from './studentIdCardEditor';
+
 document.addEventListener("DOMContentLoaded", () => {
+    initStudentIdCardEditor();
     const escapeHtml = (value) =>
         String(value ?? "")
             .replace(/&/g, "&amp;")
@@ -50,6 +53,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const options = Array.from(select.options).map((option) => ({
             value: option.value,
             label: option.textContent.trim(),
+            disabled: option.disabled,
         }));
 
         const syncText = () => {
@@ -65,6 +69,7 @@ document.addEventListener("DOMContentLoaded", () => {
                           (option) => `
                             <button type="button"
                                 class="student-id-searchable-option ${option.value === select.value ? "is-selected" : ""}"
+                                ${option.disabled ? 'disabled' : ''}
                                 data-value="${escapeHtml(option.value)}">
                                 ${escapeHtml(option.label)}
                             </button>
@@ -90,7 +95,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         results.addEventListener("click", (event) => {
             const option = event.target.closest("[data-value]");
-            if (!option) return;
+            if (!option || option.disabled) return;
             select.value = option.dataset.value;
             syncText();
             combo.classList.remove("is-open");

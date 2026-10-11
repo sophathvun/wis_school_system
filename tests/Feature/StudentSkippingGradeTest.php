@@ -19,12 +19,18 @@ use Illuminate\Validation\ValidationException;
 beforeEach(function () {
     $this->withoutMiddleware(\App\Http\Middleware\TrackUserPresence::class);
     Storage::fake('local');
+    (require database_path('migrations/2026_08_04_000023_create_user_notifications_table.php'))->up();
     Schema::create('users', function (Blueprint $t) { $t->id(); $t->string('name'); $t->integer('active_campus_id')->nullable(); $t->integer('department_id')->nullable(); $t->boolean('is_global')->default(false); $t->integer('status')->default(1); $t->timestamps(); });
     Schema::create('access_roles', function (Blueprint $t) { $t->id(); $t->string('code'); $t->string('name'); $t->integer('status')->default(1); $t->boolean('is_global')->default(false); $t->boolean('is_system')->default(false); $t->integer('department_id')->nullable(); $t->softDeletes(); $t->timestamps(); });
     Schema::create('access_permissions', function (Blueprint $t) { $t->id(); $t->string('code')->unique(); $t->string('name'); $t->string('module'); $t->string('action'); $t->timestamps(); });
     Schema::create('access_user_roles', function (Blueprint $t) { $t->integer('user_id'); $t->integer('role_id'); $t->integer('campus_id')->nullable(); $t->timestamps(); });
     foreach (['access_role_permissions'=>'role_id','access_department_permissions'=>'department_id','access_user_permission_overrides'=>'user_id'] as $table=>$owner) Schema::create($table, function (Blueprint $t) use ($owner) { $t->integer($owner); $t->integer('permission_id'); $t->unique([$owner,'permission_id']); $t->timestamps(); if ($owner==='user_id') $t->boolean('allowed'); });
     Schema::create('access_user_campuses', function (Blueprint $t) { $t->integer('user_id'); $t->integer('campus_id'); $t->boolean('is_primary')->default(true); $t->timestamp('assigned_at')->nullable(); $t->timestamps(); });
+    Schema::create('access_positions',function(Blueprint $t) { $t->id(); $t->string('name'); $t->boolean('status')->default(true); });
+    DB::table('access_positions')->insert([
+        ['name'=>'KH-Coordinator','status'=>1],['name'=>'Vice School Principal','status'=>1],
+        ['name'=>'School Principal','status'=>1],['name'=>'Inactive Position','status'=>0],
+    ]);
     Schema::create('tb_school_info', function (Blueprint $t) { $t->id(); $t->string('campus_name_en'); $t->string('campus_name_kh')->nullable(); $t->integer('status')->default(1); $t->softDeletes(); });
     Schema::create('tb_academic_year', function (Blueprint $t) { $t->id(); $t->string('academic_year'); $t->string('academic_year_code',20)->nullable(); $t->string('period_type')->default('regular'); $t->string('lifecycle_status')->default('started'); $t->softDeletes(); });
     Schema::create('tb_grade', function (Blueprint $t) { $t->id(); $t->string('grade'); $t->string('grade_short_name'); $t->integer('grade_order'); $t->integer('education_level_id')->default(1); $t->integer('status')->default(1); $t->softDeletes(); });
@@ -58,6 +64,8 @@ beforeEach(function () {
     (require database_path('migrations/2026_10_08_000003_add_skipping_grade_tab_permissions.php'))->up();
     (require database_path('migrations/2026_10_08_000004_add_central_skipping_grade_edit_permission.php'))->up();
     (require database_path('migrations/2026_10_08_000005_add_skipping_grade_campus_settings.php'))->up();
+    (require database_path('migrations/2026_10_11_000001_add_configurable_skipping_grade_approval_flow.php'))->up();
+    (require database_path('migrations/2026_10_11_000002_add_grade_scoped_skipping_reviewers.php'))->up();
     $this->grant=function (int $user, array $actions) { foreach ($actions as $action) { $id=DB::table('access_permissions')->where('code',$action==='students.view'?$action:'student-skipping-grade.'.$action)->value('id'); DB::table('access_user_permission_overrides')->updateOrInsert(['user_id'=>$user,'permission_id'=>$id],['allowed'=>true]); } };
     ($this->grant)(2,['students.view','view','requests','approve','reject','settings','save-settings','request-template','edit-request-template','approval-template','edit-approval-template','print']);
     $this->campus=User::find(1); $this->central=User::find(2); $this->service=app(StudentSkippingGradeService::class);
@@ -66,10 +74,1423 @@ beforeEach(function () {
     $this->draft=fn()=>$this->service->saveDraft($this->campus,$this->data);
     $this->pending=function () { return $this->service->submit($this->campus,($this->draft)(),now()->toDateString()); };
     $this->configure=function () { foreach (['signature','stamp'] as $key) Storage::disk('local')->put('settings/'.$key.'.png',base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j3ioAAAAASUVORK5CYII=')); SkippingGradeSetting::current()->update(['signer_name_kh'=>'គីង រដ្ឋមុនី','signer_name_en'=>'KING ROTH MONY','signature_path'=>'settings/signature.png','stamp_path'=>'settings/stamp.png']); };
+    $this->workflow=app(\App\Services\SkippingGradeWorkflow::class);
+    $this->workflowSetup=function () {
+        ($this->configure)();
+        Schema::table('users',fn(Blueprint $t)=>$t->string('photo_path')->nullable());
+        Storage::fake('public');
+        DB::table('access_user_roles')->insert(['user_id'=>2,'role_id'=>2,'campus_id'=>null]);
+        DB::table('tb_school_info')->insert(['id'=>3,'campus_name_en'=>'CEN','campus_name_kh'=>'Central','status'=>1]);
+        foreach ([3=>'KH Coordinator',4=>'Campus VSP',5=>'Vice President',6=>'Replacement VSP',7=>'Other Campus Viewer',8=>'DNG Coordinator',9=>'Central Reviewer'] as $id=>$name) {
+            $campusId=in_array($id,[5,9])?3:(in_array($id,[7,8])?2:1);
+            DB::table('users')->insert(['id'=>$id,'name'=>$name,'active_campus_id'=>$campusId]);
+            DB::table('access_user_campuses')->insert(['user_id'=>$id,'campus_id'=>$campusId]);
+            ($this->grant)($id,['students.view','view']);
+        }
+        DB::table('access_user_campuses')->insert(['user_id'=>7,'campus_id'=>3]);
+        \App\Models\SkippingGradeCampusSetting::create(['campus_id'=>1,'committee_names'=>[],'approval_steps'=>[
+            ['title'=>'KH Coordinator','user_id'=>3],['title'=>'VSP','user_id'=>4],
+        ]]);
+        \App\Models\SkippingGradeCampusSetting::create(['campus_id'=>2,'committee_names'=>[],'approval_steps'=>[['title'=>'KH Coordinator','user_id'=>8]]]);
+        \App\Models\SkippingGradeCampusSetting::create(['campus_id'=>3,'committee_names'=>[],'approval_steps'=>[['title'=>'Coordinator','user_id'=>9]]]);
+        $this->workflowSettings=fn($mode='sequential')=>['revision'=>$this->workflow->revision(),'mode'=>$mode,'campus_id'=>1,
+            'campus_steps'=>[['title'=>'KH Coordinator','user_id'=>3],['title'=>'VSP','user_id'=>4]],
+            'central_steps'=>[['title'=>'Central Reviewer','user_id'=>9]],'vice_president_id'=>5];
+        $this->workflow->saveSettings($this->central,($this->workflowSettings)());
+    };
+    $this->stepData=function ($record) { $step=$this->workflow->currentStep($record); return ['approval_step_id'=>$step->id,'approval_step_revision'=>$step->revision]; };
+    $this->scopedSettings=function () {
+        $settings=($this->workflowSettings)();
+        $settings['campus_steps'][0]=['title'=>'KH Coordinator','reviewers'=>[
+            ['user_id'=>3,'grade_scope'=>'selected','grade_ids'=>[2]],
+            ['user_id'=>6,'grade_scope'=>'selected','grade_ids'=>[1]],
+        ]];
+        $settings['central_steps']=[['title'=>'Central Reviewer','reviewers'=>[
+            ['user_id'=>9,'grade_scope'=>'selected','grade_ids'=>[2]],
+            ['user_id'=>7,'grade_scope'=>'selected','grade_ids'=>[1]],
+        ]]];
+        return $settings;
+    };
+    $this->olderStudent=function (?User $creator=null) {
+        DB::table('tb_grade')->insert(['id'=>3,'grade'=>'Grade 6','grade_short_name'=>'G6','grade_order'=>6]);
+        DB::table('tb_class')->insert(['id'=>3,'class_name'=>'A','grade_id'=>3,'academic_year_id'=>1]);
+        DB::table('tb_student')->insert(['id'=>2,'student_id'=>'2619999','full_name_en'=>'OLDER STUDENT','full_name_kh'=>'Older student KH','date_of_birth'=>'2014-03-02','gender'=>'female']);
+        DB::table('tb_student_enrollment')->insert(['id'=>2,'student_id'=>2,'campus_id'=>1,'academic_year_id'=>1,'grade_id'=>2,'class_id'=>2]);
+        return $this->service->saveDraft($creator??$this->campus,array_replace($this->data,['enrollment_id'=>2,'target_grade_id'=>3,'target_class_id'=>3]));
+    };
+});
+
+it('grade skipping alerts only current eligible reviewers and reading an alert keeps pending badges',function () {
+    ($this->workflowSetup)();
+    $this->workflow->saveSettings($this->central,($this->scopedSettings)());
+    $record=($this->pending)();
+    $alerts=\App\Models\UserNotification::all();
+    expect($alerts->pluck('user_id')->all())->toBe([6]);
+    $alert=$alerts->first();
+    expect($alert->message)->toContain('SOK DARA','2612345','Campus Registrar',$record->submitted_at->format('d-M-Y H:i'));
+    $this->actingAs(User::find(3))->get('/notifications/'.$alert->id.'/open')->assertForbidden();
+    expect($alert->fresh()->read_at)->toBeNull();
+    $this->actingAs(User::find(6))->getJson('/notifications/unread')->assertOk()->assertJsonPath('skipping_pending',1)
+        ->assertJsonPath('items.0.url',route('notifications.open',$alert));
+    $this->get('/notifications/'.$alert->id.'/open')->assertRedirect('/students/skipping-grade/'.$record->id);
+    expect($alert->fresh()->read_at)->not->toBeNull();
+    $this->getJson('/notifications/unread')->assertJsonPath('unread',0)->assertJsonPath('skipping_pending',1);
+    $page=$this->get('/students/skipping-grade/my-approvals?scope=approvals&status=pending')->assertOk()
+        ->assertViewHas('records',fn($records)=>$records->total()===1)->assertSee('data-skipping-pending-badge',false);
+    expect(substr_count($page->getContent(),'data-skipping-pending-badge'))->toBe(3);
+    $this->get('/students/skipping-grade/'.$record->id)->assertOk()->assertSee('Approve and Forward')->assertSee('Reject Request');
+    foreach ([1,3,4,5,7,9] as $id) expect(app(\App\Services\SkippingGradeNotifications::class)->pendingCount(User::find($id)))->toBe(0);
+});
+
+it('grade skipping step completion clears all eligible reviewers and notifies each next step through VP',function () {
+    ($this->workflowSetup)(); $settings=($this->workflowSettings)();
+    $settings['campus_steps'][0]=['title'=>'KH Coordinator','reviewers'=>[['user_id'=>3,'grade_scope'=>'all'],['user_id'=>6,'grade_scope'=>'all']]];
+    $this->workflow->saveSettings($this->central,$settings);
+    $record=($this->pending)(); $notifications=app(\App\Services\SkippingGradeNotifications::class);
+    $firstAlerts=\App\Models\UserNotification::all();
+    expect($firstAlerts->pluck('user_id')->all())->toBe([3,6]);
+    $notifications->awaiting($record);
+    expect(\App\Models\UserNotification::count())->toBe(2);
+    foreach ([3=>4,4=>9,9=>5] as $actor=>$next) {
+        $this->workflow->review(User::find($actor),$record->fresh(),($this->stepData)($record->fresh()));
+        expect($notifications->pendingCount(User::find($actor)))->toBe(0)->and($notifications->pendingCount(User::find($next)))->toBe(1);
+        expect(\App\Models\UserNotification::whereNull('read_at')->pluck('user_id')->all())->toBe([$next]);
+    }
+    expect($notifications->pendingCount(User::find(6)))->toBe(0);
+    $this->service->approve(User::find(5),$record->fresh(),$this->approval+($this->stepData)($record->fresh()));
+    expect($notifications->pendingCount(User::find(5)))->toBe(0);
+    $result=\App\Models\UserNotification::whereNull('read_at')->first();
+    expect($result->user_id)->toBe(1)->and($result->title)->toBe('Grade Skipping Request Approved');
+    foreach ($firstAlerts as $alert) expect($alert->fresh()->read_at)->not->toBeNull();
+    $this->actingAs(User::find(3))->get('/notifications/'.$firstAlerts->first()->id.'/open')->assertRedirect('/students/skipping-grade/'.$record->id);
+    $this->get('/students/skipping-grade/'.$record->id)->assertOk()->assertSee('Approved by Vice President')->assertDontSee('Approve and Forward');
+});
+
+it('grade skipping rejection closes reviewer alerts and notifies creator and actual submitter',function () {
+    ($this->workflowSetup)();
+    DB::table('users')->insert(['id'=>10,'name'=>'Second Requester','active_campus_id'=>1]);
+    DB::table('access_user_campuses')->insert(['user_id'=>10,'campus_id'=>1]);
+    ($this->grant)(10,['students.view','view','requests','submit']);
+    $record=$this->service->submit(User::find(10),($this->draft)(),now()->toDateString());
+    $this->service->reject(User::find(3),$record,'Missing signed document',($this->stepData)($record));
+    expect(\App\Models\UserNotification::whereNull('read_at')->pluck('user_id')->all())->toBe([1,10]);
+    foreach (\App\Models\UserNotification::whereNull('read_at')->get() as $alert) {
+        expect($alert->title)->toBe('Grade Skipping Request Rejected')->and($alert->message)->toContain('Missing signed document');
+    }
+    foreach ([3,4,9,5] as $id) expect(app(\App\Services\SkippingGradeNotifications::class)->pendingCount(User::find($id)))->toBe(0);
+});
+
+it('grade skipping reassignment moves pending alerts without notifying waiting reviewers',function () {
+    ($this->workflowSetup)(); $record=($this->pending)(); $first=$record->approvalSteps[0];
+    $this->workflow->reassign($this->central,$record,$record->approvalSteps[1]->id,['reviewer_id'=>6,'revision'=>1,'reason'=>'Future reviewer changed']);
+    expect(\App\Models\UserNotification::count())->toBe(1);
+    $this->workflow->reassign($this->central,$record,$first->id,['reviewer_id'=>6,'revision'=>1,'reason'=>'Current reviewer changed']);
+    expect(\App\Models\UserNotification::whereNull('read_at')->pluck('user_id')->all())->toBe([6]);
+    expect(app(\App\Services\SkippingGradeNotifications::class)->pendingCount(User::find(3)))->toBe(0)
+        ->and(app(\App\Services\SkippingGradeNotifications::class)->pendingCount(User::find(6)))->toBe(1);
+    $this->actingAs(User::find(3))->get('/students/skipping-grade/'.$record->id)->assertOk()->assertDontSee('Approve and Forward');
+});
+
+it('grade skipping notifications roll back with failed submission and failed decisions',function () {
+    ($this->workflowSetup)(); $draft=($this->draft)();
+    \App\Models\UserNotification::creating(function () { throw new RuntimeException('Notification write failed'); });
+    try {
+        expect(fn()=>$this->service->submit($this->campus,$draft,now()->toDateString()))->toThrow(RuntimeException::class);
+    } finally { \App\Models\UserNotification::flushEventListeners(); }
+    expect($draft->fresh()->status)->toBe('draft')->and($draft->approvalSteps()->count())->toBe(0)->and(\App\Models\UserNotification::count())->toBe(0);
+    $record=$this->service->submit($this->campus,$draft->fresh(),now()->toDateString());
+    $data=($this->stepData)($record); $data['approval_step_revision']++;
+    expect(fn()=>$this->workflow->review(User::find(3),$record,$data))->toThrow(ValidationException::class);
+    expect(\App\Models\UserNotification::count())->toBe(1)->and(\App\Models\UserNotification::first()->read_at)->toBeNull();
+});
+
+it('grade skipping current flow notifies permitted approvers and counts saved legacy requests after mode changes',function () {
+    $record=($this->pending)();
+    expect(\App\Models\UserNotification::whereNull('read_at')->pluck('user_id')->all())->toBe([2]);
+    SkippingGradeSetting::current()->update(['approval_flow_mode'=>'sequential']);
+    $alerts=app(\App\Services\SkippingGradeNotifications::class);
+    expect($alerts->pendingCount($this->central))->toBe(1)->and($alerts->pendingCount($this->campus))->toBe(0);
+    $this->actingAs($this->central)->get('/students/skipping-grade/my-approvals?scope=approvals&status=pending')
+        ->assertOk()->assertViewHas('records',fn($records)=>$records->total()===1);
+    DB::table('users')->where('id',2)->update(['status'=>0]);
+    expect($alerts->pendingCount($this->central->fresh()))->toBe(0);
+});
+
+it('grade skipping backfill restores existing pending alerts once and skips completed requests',function () {
+    ($this->workflowSetup)(); $record=($this->pending)();
+    \App\Models\UserNotification::query()->delete();
+    $this->artisan('grade-skipping:notify-pending')->assertSuccessful();
+    expect(\App\Models\UserNotification::pluck('user_id')->all())->toBe([3]);
+    \App\Models\UserNotification::first()->update(['read_at'=>now()]);
+    $this->artisan('grade-skipping:notify-pending')->assertSuccessful();
+    expect(\App\Models\UserNotification::count())->toBe(1)->and(\App\Models\UserNotification::first()->read_at)->not->toBeNull();
+    $this->service->reject(User::find(3),$record,'Rejected',($this->stepData)($record));
+    $count=\App\Models\UserNotification::count();
+    $this->artisan('grade-skipping:notify-pending')->assertSuccessful();
+    expect(\App\Models\UserNotification::count())->toBe($count);
+});
+
+it('request committee fields follow the saved flow while new requests follow the current system setting',function () {
+    $legacy=($this->draft)(); ($this->workflowSetup)();
+    $this->actingAs($this->campus)->get('/students/skipping-grade/create')->assertOk()
+        ->assertDontSee('name="committee_names[0]"',false)->assertSee('Reviewers follow the campus and Central approval flow');
+    $this->get('/students/skipping-grade/'.$legacy->id.'/edit')->assertOk()->assertSee('name="committee_names[0]"',false);
+    $sequential=($this->olderStudent)();
+    $this->workflow->saveSettings($this->central,($this->workflowSettings)('legacy'));
+    $this->get('/students/skipping-grade/'.$sequential->id.'/edit')->assertOk()->assertDontSee('name="committee_names[0]"',false);
+    $this->get('/students/skipping-grade/create')->assertOk()->assertSee('name="committee_names[0]"',false)
+        ->assertSee('name="documents[]"',false)->assertSee('enctype="multipart/form-data"',false);
+});
+
+it('campus staff can attach documents when creating a request without draft update permission',function (string $mode) {
+    if ($mode==='sequential') ($this->workflowSetup)();
+    $update=DB::table('access_permissions')->where('code','student-skipping-grade.update')->value('id');
+    DB::table('access_role_permissions')->where('role_id',1)->where('permission_id',$update)->delete();
+    $files=[UploadedFile::fake()->create('birth-certificate.pdf',10,'application/pdf'),UploadedFile::fake()->image('result.png')];
+    $this->actingAs($this->campus)->postJson('/students/skipping-grade',$this->data+['documents'=>$files])->assertOk();
+    $record=StudentSkippingGrade::firstOrFail();
+    expect($record->supporting_documents)->toHaveCount(2)->and($record->supporting_documents[0]['name'])->toBe('birth-certificate.pdf')
+        ->and($record->supporting_documents[0]['uploaded_by'])->toBe(1)->and($record->approval_flow_mode)->toBe($mode);
+    foreach ($record->supporting_documents as $document) Storage::disk('local')->assertExists($document['path']);
+    $this->get('/students/skipping-grade/'.$record->id.'/attachments/0')->assertOk()->assertHeader('X-Content-Type-Options','nosniff');
+    $record=$this->service->submit($this->campus,$record,now()->toDateString());
+    $this->actingAs($mode==='sequential'?User::find(3):$this->central)->get('/students/skipping-grade/'.$record->id.'/attachments/0')->assertOk();
+    if ($mode==='sequential') $this->actingAs(User::find(7))->getJson('/students/skipping-grade/'.$record->id.'/attachments/0')->assertForbidden();
+})->with(['legacy','sequential']);
+
+it('editing a draft appends private supporting documents while preserving earlier files',function () {
+    ($this->workflowSetup)();
+    $this->actingAs($this->campus)->postJson('/students/skipping-grade',$this->data+['documents'=>[UploadedFile::fake()->create('original.pdf',10,'application/pdf')]])->assertOk();
+    $record=StudentSkippingGrade::firstOrFail(); $original=$record->supporting_documents[0];
+    $this->get('/students/skipping-grade/'.$record->id.'/edit')->assertOk()->assertSee('original.pdf')->assertSee('Attach Supporting Documents');
+    $data=array_replace($this->data,['reason'=>'Updated evidence','documents'=>[UploadedFile::fake()->image('additional.jpg')]]);
+    $this->postJson('/students/skipping-grade/'.$record->id.'/update',$data)->assertOk();
+    expect($record->fresh()->supporting_documents)->toHaveCount(2)->and($record->fresh()->supporting_documents[0])->toBe($original)
+        ->and($record->fresh()->reason)->toBe('Updated evidence');
+    foreach ($record->fresh()->supporting_documents as $document) Storage::disk('local')->assertExists($document['path']);
+    $this->get('/students/skipping-grade/'.$record->id)->assertOk()->assertSee('original.pdf')->assertSee('additional.jpg');
+});
+
+it('request form uploads validate file type size and batch limits before saving a draft',function (string $failure) {
+    $documents=match($failure) {
+        'type'=>[UploadedFile::fake()->create('program.exe',10,'application/octet-stream')],
+        'size'=>[UploadedFile::fake()->create('large.pdf',5121,'application/pdf')],
+        'batch'=>array_map(fn($i)=>UploadedFile::fake()->create('evidence-'.$i.'.pdf',1,'application/pdf'),range(1,11)),
+    };
+    $this->actingAs($this->campus)->postJson('/students/skipping-grade',$this->data+['documents'=>$documents])->assertUnprocessable()
+        ->assertJsonValidationErrors($failure==='batch'?'documents':'documents.0');
+    expect(StudentSkippingGrade::count())->toBe(0)->and(Storage::disk('local')->allFiles('grade-skipping/attachments'))->toBe([]);
+})->with(['type','size','batch']);
+
+it('request form upload failure rolls back draft data and removes newly stored files',function () {
+    StudentSkippingGrade::updating(function ($record) { if ($record->isDirty('supporting_documents')) throw new RuntimeException('Unable to persist attachments'); });
+    try {
+        expect(fn()=>$this->service->saveDraft($this->campus,$this->data+['documents'=>[UploadedFile::fake()->create('evidence.pdf',10,'application/pdf')]]))
+            ->toThrow(RuntimeException::class,'Unable to persist attachments');
+    } finally { StudentSkippingGrade::flushEventListeners(); }
+    expect(StudentSkippingGrade::count())->toBe(0)->and(Storage::disk('local')->allFiles('grade-skipping/attachments'))->toBe([]);
+});
+
+it('draft edits reject excess attachments and submitted requests cannot receive files through the edit endpoint',function () {
+    $files=fn($start)=>array_map(fn($i)=>UploadedFile::fake()->create('evidence-'.$i.'.pdf',1,'application/pdf'),range($start,$start+9));
+    $record=$this->service->saveDraft($this->campus,$this->data+['documents'=>$files(1)]);
+    $record=$this->service->saveDraft($this->campus,$this->data+['documents'=>$files(11)],$record);
+    $newFile=[UploadedFile::fake()->create('extra.pdf',1,'application/pdf')];
+    $this->actingAs($this->campus)->postJson('/students/skipping-grade/'.$record->id.'/update',array_replace($this->data,['reason'=>'Should roll back','documents'=>$newFile]))
+        ->assertUnprocessable()->assertJsonValidationErrors('documents');
+    expect($record->fresh()->supporting_documents)->toHaveCount(20)->and($record->fresh()->reason)->toBe($this->data['reason']);
+    expect(Storage::disk('local')->allFiles('grade-skipping/attachments'))->toHaveCount(20);
+    $record=$this->service->submit($this->campus,$record->fresh(),now()->toDateString());
+    ($this->grant)(2,['central-update']);
+    $this->actingAs($this->central)->postJson('/students/skipping-grade/'.$record->id.'/update',$this->data+['documents'=>$newFile])->assertForbidden();
+    expect($record->fresh()->supporting_documents)->toHaveCount(20);
+});
+
+it('combined documents submission stores marked files and advances only the saved flow',function (string $mode) {
+    ($this->workflowSetup)();
+    if ($mode==='legacy') $this->workflow->saveSettings($this->central,($this->workflowSettings)('legacy'));
+    $record=$this->service->saveDraft($this->campus,$this->data+['documents'=>[UploadedFile::fake()->create('saved.pdf',10,'application/pdf')]]);
+    $this->actingAs($this->campus)->get('/students/skipping-grade/'.$record->id)->assertOk()
+        ->assertSee('Supporting Documents &amp; Submission',false)->assertSee('Save Documents')
+        ->assertSee('Parent-signed Request')->assertDontSee('Submit Parent-signed Request')->assertDontSee('name="signed_request"',false);
+    $this->postJson('/students/skipping-grade/'.$record->id.'/submit',[
+        'parent_signed'=>1,'parent_signed_date'=>now()->toDateString(),'document_markers'=>1,'document_count'=>1,
+        'documents'=>[UploadedFile::fake()->create('parent-signed.pdf',10,'application/pdf'),UploadedFile::fake()->image('assessment.png')],
+        'parent_signed_documents'=>[0,1],
+    ])->assertOk();
+    $record->refresh();
+    expect($record->status)->toBe('pending')->and($record->supporting_documents)->toHaveCount(3)
+        ->and(array_column($record->supporting_documents,'is_parent_signed'))->toBe([true,true,false])
+        ->and($record->parent_signed_at->toDateString())->toBe(now()->toDateString())->and($record->signed_request_path)->toBeNull()
+        ->and(StudentEnrollment::find(1)->grade_id)->toBe(1);
+    foreach ($record->supporting_documents as $document) Storage::disk('local')->assertExists($document['path']);
+    $this->get('/students/skipping-grade/'.$record->id)->assertOk()->assertSee('parent-signed.pdf')->assertSee('Parent-signed Request')
+        ->assertDontSee('Save Documents')->assertDontSee('data-skipping-documents-upload',false);
+    if ($mode==='sequential') expect($record->approvalSteps()->where('status','pending')->count())->toBe(1);
+})->with(['legacy','sequential']);
+
+it('saving documents and updating parent signed markers does not require signing or submit the draft',function () {
+    ($this->workflowSetup)(); $record=($this->draft)();
+    $this->actingAs($this->campus)->postJson('/students/skipping-grade/'.$record->id.'/attachments',[
+        'document_markers'=>1,'document_count'=>0,'documents'=>[UploadedFile::fake()->create('signed.pdf',10,'application/pdf')],'parent_signed_documents'=>[0],
+    ])->assertOk();
+    $path=$record->fresh()->supporting_documents[0]['path'];
+    expect($record->fresh()->status)->toBe('draft')->and($record->fresh()->supporting_documents[0]['is_parent_signed'])->toBeTrue()
+        ->and($record->fresh()->parent_signed_at)->toBeNull()->and($record->approvalSteps()->count())->toBe(0);
+    $this->postJson('/students/skipping-grade/'.$record->id.'/attachments',['document_markers'=>1,'document_count'=>1])->assertOk();
+    expect($record->fresh()->supporting_documents[0]['is_parent_signed'])->toBeFalse();
+    Storage::disk('local')->assertExists($path);
+    $this->postJson('/students/skipping-grade/'.$record->id.'/update',$this->data+['document_markers'=>1,'document_count'=>1,'parent_signed_documents'=>[0]])->assertOk();
+    expect($record->fresh()->supporting_documents[0]['is_parent_signed'])->toBeTrue()->and($record->fresh()->status)->toBe('draft');
+});
+
+it('combined submission validates the parent confirmation date and files before saving attachments',function (string $missing) {
+    ($this->workflowSetup)(); $record=($this->draft)();
+    $data=['parent_signed'=>1,'parent_signed_date'=>now()->toDateString(),'documents'=>[UploadedFile::fake()->create('signed.pdf',10,'application/pdf')]];
+    if ($missing==='file') $data['documents']=[UploadedFile::fake()->create('unsafe.exe',10,'application/octet-stream')];
+    else unset($data[$missing]);
+    $this->actingAs($this->campus)->postJson('/students/skipping-grade/'.$record->id.'/submit',$data)->assertUnprocessable()
+        ->assertJsonValidationErrors($missing==='file'?'documents.0':$missing);
+    expect($record->fresh()->status)->toBe('draft')->and($record->fresh()->supporting_documents)->toBeNull()->and($record->approvalSteps()->count())->toBe(0);
+    expect(Storage::disk('local')->allFiles('grade-skipping/attachments'))->toBe([]);
+})->with(['parent_signed','parent_signed_date','file']);
+
+it('failed combined submission removes new documents and captured reviewer assets while preserving saved files',function () {
+    ($this->workflowSetup)();
+    $record=$this->service->saveDraft($this->campus,$this->data+['documents'=>[UploadedFile::fake()->create('saved.pdf',10,'application/pdf')]]);
+    $old=$record->supporting_documents; $filesBefore=Storage::disk('local')->allFiles(); sort($filesBefore);
+    StudentSkippingGrade::updating(function ($request) { if ($request->isDirty('status') && $request->status==='pending') throw new RuntimeException('Submission failed'); });
+    try {
+        expect(fn()=>$this->service->submit($this->campus,$record,now()->toDateString(),null,[UploadedFile::fake()->create('new-signed.pdf',10,'application/pdf')],[1],1))
+            ->toThrow(RuntimeException::class,'Submission failed');
+    } finally { StudentSkippingGrade::flushEventListeners(); }
+    expect($record->fresh()->status)->toBe('draft')->and($record->fresh()->supporting_documents)->toBe($old)
+        ->and($record->fresh()->workflow_signer_snapshot)->toBeNull()->and($record->approvalSteps()->count())->toBe(0);
+    $filesAfter=Storage::disk('local')->allFiles(); sort($filesAfter); expect($filesAfter)->toBe($filesBefore);
+});
+
+it('invalid parent signed document indexes roll back new files and leave the draft untouched',function () {
+    ($this->workflowSetup)(); $record=($this->draft)();
+    $this->actingAs($this->campus)->postJson('/students/skipping-grade/'.$record->id.'/submit',[
+        'parent_signed'=>1,'parent_signed_date'=>now()->toDateString(),'document_markers'=>1,'document_count'=>0,
+        'documents'=>[UploadedFile::fake()->create('one.pdf',10,'application/pdf')],'parent_signed_documents'=>[1],
+    ])->assertUnprocessable()->assertJsonValidationErrors('parent_signed_documents');
+    expect($record->fresh()->status)->toBe('draft')->and($record->fresh()->supporting_documents)->toBeNull();
+    expect(Storage::disk('local')->allFiles('grade-skipping/attachments'))->toBe([]);
+});
+
+it('combined submission preserves draft edit permissions while still allowing submit only users to submit saved documents',function () {
+    ($this->workflowSetup)();
+    $record=$this->service->saveDraft($this->campus,$this->data+['documents'=>[UploadedFile::fake()->create('saved.pdf',10,'application/pdf')]]);
+    $update=DB::table('access_permissions')->where('code','student-skipping-grade.update')->value('id');
+    DB::table('access_role_permissions')->where('role_id',1)->where('permission_id',$update)->delete();
+    $this->actingAs($this->campus)->get('/students/skipping-grade/'.$record->id)->assertOk()->assertSee('Submit for Approval')->assertDontSee('data-skipping-documents-upload',false);
+    $submit=['parent_signed'=>1,'parent_signed_date'=>now()->toDateString()];
+    $this->postJson('/students/skipping-grade/'.$record->id.'/submit',$submit+['documents'=>[UploadedFile::fake()->create('forbidden.pdf',10,'application/pdf')]])->assertForbidden();
+    $this->postJson('/students/skipping-grade/'.$record->id.'/submit',$submit+['document_markers'=>1,'parent_signed_documents'=>[0]])->assertForbidden();
+    expect($record->fresh()->status)->toBe('draft')->and($record->fresh()->supporting_documents)->toHaveCount(1);
+    $this->postJson('/students/skipping-grade/'.$record->id.'/submit',$submit)->assertOk();
+    expect($record->fresh()->status)->toBe('pending');
+});
+
+it('stale document selection cannot mark a different file or submit the request',function () {
+    ($this->workflowSetup)();
+    $record=$this->service->saveDraft($this->campus,$this->data+['document_markers'=>1,'documents'=>[UploadedFile::fake()->create('saved.pdf',10,'application/pdf')],'parent_signed_documents'=>[0]]);
+    $old=$record->supporting_documents;
+    $this->actingAs($this->campus)->postJson('/students/skipping-grade/'.$record->id.'/submit',[
+        'parent_signed'=>1,'parent_signed_date'=>now()->toDateString(),'document_markers'=>1,'document_count'=>0,
+        'documents'=>[UploadedFile::fake()->create('queued.pdf',10,'application/pdf')],'parent_signed_documents'=>[0],
+    ])->assertUnprocessable()->assertJsonValidationErrors('documents');
+    expect($record->fresh()->status)->toBe('draft')->and($record->fresh()->supporting_documents)->toBe($old);
+    expect(Storage::disk('local')->allFiles('grade-skipping/attachments/'.$record->id))->toHaveCount(1);
+});
+
+it('campus staff with no selected campus can open the menu create and submit within assigned campus',function () {
+    ($this->workflowSetup)();
+    DB::table('users')->where('id',1)->update(['active_campus_id'=>null]);
+    $user=User::find(1);
+    $this->actingAs($user)->get('/students/skipping-grade')->assertOk();
+    $this->get('/students/skipping-grade/create')->assertOk();
+    $this->postJson('/students/skipping-grade',$this->data)->assertOk();
+    $record=StudentSkippingGrade::firstOrFail();
+    $this->postJson('/students/skipping-grade/'.$record->id.'/submit',['parent_signed'=>1,'parent_signed_date'=>now()->toDateString()])->assertOk();
+    expect($record->fresh()->status)->toBe('pending')->and($record->approvalSteps->pluck('reviewer_id')->all())->toBe([3,4,9,5]);
+    DB::table('tb_student_enrollment')->insert(['id'=>2,'student_id'=>1,'campus_id'=>2,'academic_year_id'=>1,'grade_id'=>1,'class_id'=>1]);
+    $this->postJson('/students/skipping-grade',array_replace($this->data,['enrollment_id'=>2]))->assertForbidden();
+    $this->getJson('/students/skipping-grade/approval-flow')->assertForbidden();
+});
+
+it('campus reviewers with no selected campus can open their inbox and decide only their current step',function () {
+    ($this->workflowSetup)(); $record=($this->pending)();
+    DB::table('access_roles')->insert(['id'=>3,'code'=>'campus-reviewer','name'=>'Campus Reviewer']);
+    foreach (DB::table('access_permissions')->whereIn('code',['students.view','student-skipping-grade.view'])->pluck('id') as $permission) {
+        DB::table('access_role_permissions')->insert(['role_id'=>3,'permission_id'=>$permission]);
+    }
+    foreach ([3,4] as $userId) {
+        DB::table('access_user_permission_overrides')->where('user_id',$userId)->delete();
+        DB::table('access_user_roles')->insert(['user_id'=>$userId,'role_id'=>3,'campus_id'=>1]);
+        DB::table('users')->where('id',$userId)->update(['active_campus_id'=>null]);
+    }
+    $this->actingAs(User::find(3))->get('/students/skipping-grade')->assertRedirect('/students/skipping-grade/my-approvals');
+    $this->get('/students/skipping-grade/my-approvals')->assertOk()->assertSee('SOK DARA');
+    $this->get('/students/skipping-grade/'.$record->id)->assertOk()->assertSee('Approve and Forward');
+    $data=($this->stepData)($record);
+    $this->actingAs(User::find(4))->postJson('/students/skipping-grade/'.$record->id.'/review',$data)->assertForbidden();
+    $this->actingAs(User::find(3))->postJson('/students/skipping-grade/'.$record->id.'/review',$data)->assertOk();
+    expect($record->fresh()->approvalSteps->first()->acted_by)->toBe(3);
+    $this->postJson('/students/skipping-grade/'.$record->id.'/review',($this->stepData)($record->fresh()))->assertForbidden();
+});
+
+it('menu permission fallback uses the primary active assignment and requires explicit module permissions',function () {
+    DB::table('access_user_campuses')->where('user_id',1)->update(['is_primary'=>false]);
+    DB::table('access_user_campuses')->insert(['user_id'=>1,'campus_id'=>2,'is_primary'=>true]);
+    DB::table('users')->where('id',1)->update(['active_campus_id'=>null]);
+    $user=User::find(1);
+    expect(StudentSkippingGradePermissions::permissionCampus($user))->toBe(2);
+    $this->actingAs($user)->getJson('/students/skipping-grade')->assertForbidden();
+    DB::table('access_user_roles')->insert(['user_id'=>1,'role_id'=>1,'campus_id'=>2]);
+    $this->get('/students/skipping-grade')->assertOk();
+    DB::table('tb_school_info')->where('id',2)->update(['status'=>0]);
+    expect(StudentSkippingGradePermissions::permissionCampus($user))->toBe(1);
+    $this->get('/students/skipping-grade')->assertOk();
+    $permission=DB::table('access_permissions')->where('code','student-skipping-grade.view')->value('id');
+    DB::table('access_role_permissions')->where('role_id',1)->where('permission_id',$permission)->delete();
+    $this->getJson('/students/skipping-grade')->assertForbidden();
+});
+
+it('campus assignment restricts request creation despite global access',function (string $access) {
+    if ($access==='user') DB::table('users')->where('id',1)->update(['is_global'=>true]);
+    else DB::table('access_roles')->where('id',1)->update(['is_global'=>true]);
+    $user=User::find(1);
+    expect($user->canAccessCampus(2))->toBeTrue();
+    DB::table('tb_student_enrollment')->where('id',1)->update(['campus_id'=>2]);
+    $this->actingAs($user)->postJson('/students/skipping-grade',$this->data)->assertForbidden();
+    expect(StudentSkippingGrade::count())->toBe(0);
+    DB::table('access_user_campuses')->insert(['user_id'=>1,'campus_id'=>2]);
+    $this->postJson('/students/skipping-grade',$this->data)->assertOk();
+    $record=StudentSkippingGrade::firstOrFail();
+    DB::table('access_user_campuses')->where('user_id',1)->where('campus_id',2)->delete();
+    $this->postJson('/students/skipping-grade/'.$record->id.'/submit',['parent_signed'=>1,'parent_signed_date'=>now()->toDateString()])->assertForbidden();
+})->with(['user','role']);
+
+it('reviewer dropdowns use actual campus assignments including central and final approvers',function () {
+    ($this->workflowSetup)();
+    DB::table('users')->where('id',8)->update(['is_global'=>true]);
+    expect(User::find(8)->canAccessCampus(1))->toBeTrue();
+    $page=$this->actingAs($this->central)->get('/students/skipping-grade/approval-flow?campus_id=1')->assertOk();
+    expect($page->viewData('campusReviewerOptions')->pluck('id')->all())->toEqualCanonicalizing([1,2,3,4,6]);
+    expect($page->viewData('centralReviewerOptions')->pluck('id')->all())->toEqualCanonicalizing([5,7,9]);
+    $page=$this->get('/students/skipping-grade/approval-flow?campus_id=2')->assertOk();
+    expect($page->viewData('campusReviewerOptions')->pluck('id')->all())->toEqualCanonicalizing([7,8]);
+    $html=$page->getContent();
+    preg_match('/<select id="flowVP"[^>]*>(.*?)<\/select>/s',$html,$matches);
+    expect($matches[1])->toContain('Vice President','Central Reviewer')->not->toContain('Campus VSP','DNG Coordinator','Central Office</option>');
+});
+
+it('reviewer eligibility checks assigned campus permissions before the reviewer has logged in',function () {
+    ($this->workflowSetup)();
+    DB::table('access_roles')->insert(['id'=>3,'code'=>'coordinator','name'=>'Coordinator']);
+    foreach (DB::table('access_permissions')->whereIn('code',['students.view','student-skipping-grade.view'])->pluck('id') as $id) {
+        DB::table('access_role_permissions')->insert(['role_id'=>3,'permission_id'=>$id]);
+    }
+    foreach ([3=>1,9=>3] as $userId=>$campusId) {
+        DB::table('access_user_permission_overrides')->where('user_id',$userId)->delete();
+        DB::table('access_user_roles')->insert(['user_id'=>$userId,'role_id'=>3,'campus_id'=>$campusId]);
+        DB::table('users')->where('id',$userId)->update(['active_campus_id'=>null]);
+    }
+    expect(\App\Support\StudentSkippingGradePermissions::allows(User::find(3),'view'))->toBeTrue();
+    $page=$this->actingAs($this->central)->get('/students/skipping-grade/approval-flow?campus_id=1')->assertOk();
+    expect($page->viewData('campusReviewerOptions')->pluck('id')->all())->toContain(3);
+    expect($page->viewData('centralReviewerOptions')->pluck('id')->all())->toContain(9);
+    $this->postJson('/students/skipping-grade/approval-flow',($this->workflowSettings)())->assertOk();
+    $record=($this->pending)();
+    expect($record->approvalSteps->pluck('reviewer_id')->all())->toBe([3,4,9,5]);
+    // Selection of another campus in a previous session must not hide assigned reviewers either.
+    DB::table('users')->whereIn('id',[3,9])->update(['active_campus_id'=>2]);
+    expect($this->workflow->reviewerIsEligible(User::find(3),1))->toBeTrue()
+        ->and($this->workflow->reviewerIsEligible(User::find(9),null))->toBeTrue();
+});
+
+it('reviewer eligibility cannot use permissions from a different campus',function () {
+    ($this->workflowSetup)();
+    DB::table('access_roles')->insert(['id'=>3,'code'=>'other-campus-viewer','name'=>'Other Campus Viewer']);
+    foreach (DB::table('access_permissions')->whereIn('code',['students.view','student-skipping-grade.view'])->pluck('id') as $id) {
+        DB::table('access_role_permissions')->insert(['role_id'=>3,'permission_id'=>$id]);
+    }
+    DB::table('access_user_permission_overrides')->where('user_id',6)->delete();
+    DB::table('access_user_roles')->insert(['user_id'=>6,'role_id'=>3,'campus_id'=>2]);
+    DB::table('users')->where('id',6)->update(['active_campus_id'=>2]);
+    expect(\App\Support\StudentSkippingGradePermissions::allows(User::find(6),'view'))->toBeTrue();
+    $page=$this->actingAs($this->central)->get('/students/skipping-grade/approval-flow?campus_id=1')->assertOk();
+    expect($page->viewData('campusReviewerOptions')->pluck('id')->all())->not->toContain(6);
+    $settings=($this->workflowSettings)(); $settings['campus_steps'][0]['user_id']=6;
+    $this->postJson('/students/skipping-grade/approval-flow',$settings)->assertUnprocessable()->assertJsonValidationErrors('campus_steps');
+});
+
+it('approval position dropdowns list active system positions and preserve existing custom step titles',function () {
+    ($this->workflowSetup)();
+    $page=$this->actingAs($this->central)->get('/students/skipping-grade/approval-flow?campus_id=1')->assertOk();
+    $html=$page->getContent();
+    preg_match('/<select id="campus_steps-0-member-0-title"[^>]*>(.*?)<\/select>/s',$html,$matches);
+    expect($matches[1])->toContain('KH-Coordinator','Vice School Principal','School Principal','value="KH Coordinator" selected')
+        ->not->toContain('Inactive Position');
+    $settings=($this->workflowSettings)(); $settings['campus_steps'][0]['title']='KH-Coordinator';
+    $this->postJson('/students/skipping-grade/approval-flow',$settings)->assertOk();
+    expect(\App\Models\SkippingGradeCampusSetting::where('campus_id',1)->first()->approval_steps[0]['title'])->toBe('KH-Coordinator');
+});
+
+it('central reviewers save separate roles render every role selector and retain roles in approval history',function () {
+    ($this->workflowSetup)(); $settings=($this->workflowSettings)();
+    $settings['central_steps']=[['title'=>'Registrar Director','reviewers'=>[
+        ['user_id'=>9,'title'=>'Registrar Director','grade_scope'=>'all'],
+        ['user_id'=>7,'title'=>'International Program Director','grade_scope'=>'all'],
+    ]]];
+    $this->actingAs($this->central)->postJson('/students/skipping-grade/approval-flow',$settings)->assertOk();
+    expect(array_column(SkippingGradeSetting::current()->central_approval_steps[0]['reviewers'],'title'))
+        ->toBe(['Registrar Director','International Program Director']);
+    $page=$this->get('/students/skipping-grade/approval-flow?campus_id=1')->assertOk();
+    $html=$page->getContent();
+    foreach ([0=>'Registrar Director',1=>'International Program Director'] as $index=>$title) {
+        preg_match('/<select id="central_steps-0-member-'.$index.'-title"[^>]*>(.*?)<\/select>/s',$html,$matches);
+        expect($matches[1])->toContain('value="'.$title.'" selected');
+    }
+    // The template cloned by Add Reviewer also contains an independent, initially empty selector.
+    preg_match('/<select id="central_steps-0-member-new-title"[^>]*>(.*?)<\/select>/s',$html,$matches);
+    expect($matches[1])->toContain('Select Position / Role')->not->toContain('selected');
+    $record=($this->pending)(); $step=$record->approvalSteps[2];
+    expect(array_column($step->reviewerPeople(),'title'))->toBe(['Registrar Director','International Program Director']);
+    $settings['revision']=$this->workflow->revision(); $settings['central_steps'][0]['reviewers'][1]['title']='School Principal';
+    $this->postJson('/students/skipping-grade/approval-flow',$settings)->assertOk();
+    expect(array_column($step->fresh()->reviewerPeople(),'title'))->toBe(['Registrar Director','International Program Director']);
+    $this->workflow->reassign($this->central,$record,$step->id,['reviewer_id'=>5,'member_id'=>$step->reviewers[1]->id,'revision'=>1,'reason'=>'Central appointment changed']);
+    expect($step->fresh()->reviewers[1]->reviewer_snapshot['title'])->toBe('International Program Director')
+        ->and($step->fresh()->reassignments->first()->replacement_reviewer['title'])->toBe('International Program Director');
+    foreach ([3,4,5] as $id) $this->workflow->review(User::find($id),$record->fresh(),($this->stepData)($record->fresh()));
+    expect($step->fresh()->actor_snapshot['title'])->toBe('International Program Director')
+        ->and($record->fresh()->approvalSteps->last()->status)->toBe('pending');
+});
+
+it('campus reviewers retain their individual role when current grade matching selects another member',function () {
+    ($this->workflowSetup)(); $settings=($this->scopedSettings)();
+    $settings['campus_steps'][0]['reviewers'][0]['title']='KH-Coordinator';
+    $settings['campus_steps'][0]['reviewers'][1]['title']='Vice School Principal';
+    $this->actingAs($this->central)->postJson('/students/skipping-grade/approval-flow',$settings)->assertOk();
+    $record=($this->pending)();
+    expect($record->approvalSteps->first()->reviewer_snapshot['title'])->toBe('Vice School Principal');
+    $this->workflow->review(User::find(6),$record,($this->stepData)($record));
+    expect($record->fresh()->approvalSteps->first()->actor_snapshot['title'])->toBe('Vice School Principal');
+});
+
+it('starts the approval timeline with the saved requester and submission time for reviewers',function () {
+    ($this->workflowSetup)();
+    $photo=UploadedFile::fake()->image('requester.png');
+    Storage::disk('public')->put('requester.png',file_get_contents($photo->getRealPath()));
+    $this->campus->update(['photo_path'=>'requester.png']);
+    $record=($this->pending)();
+    $requester=$record->student_snapshot['requester'];
+    expect($requester['user_id'])->toBe(1)->and($requester['name'])->toBe('Campus Registrar')
+        ->and($requester['photo'])->toStartWith('data:image/jpeg;base64,');
+    $this->campus->update(['name'=>'Changed Staff Name','photo_path'=>null]);
+    Storage::disk('public')->delete('requester.png');
+    $page=$this->actingAs(User::find(3))->get('/students/skipping-grade/'.$record->id)->assertOk();
+    preg_match_all('/<li class="skipping-workflow-node[^\"]*">(.*?)<\/li>/s',$page->getContent(),$matches);
+    expect($matches[1])->toHaveCount(5)->and($matches[1][0])->toContain('<strong>Campus Registrar</strong>',
+        '<span>Requester</span>','src="'.$requester['photo'].'"','>Submitted</span>',
+        $record->submitted_at->format('d-M-Y H:i'))->not->toContain('Changed Staff Name','Submitted by','>BCH</small>');
+    expect($matches[1][1])->toContain('KH Coordinator','Awaiting Approval');
+    expect($record->fresh()->approvalSteps)->toHaveCount(4);
+    foreach (['/students/skipping-grade','/students/skipping-grade/my-approvals?status=all'] as $url) {
+        $page=$this->actingAs(str_contains($url,'my-approvals')?User::find(3):$this->campus)->get($url)->assertOk();
+        preg_match('/<div class="skipping-workflow-reviewer"[^>]*>(.*?)<\/div>/s',$page->getContent(),$card);
+        expect($card[1])->toContain('Campus Registrar: Requester','src="'.$requester['photo'].'"',
+            'datetime="'.$record->submitted_at->toIso8601String().'"','>'.$record->submitted_at->format('d-M-Y').'</time>')
+            ->not->toContain('Changed Staff Name');
+    }
+});
+
+it('shows the actual submitter when another assigned staff member submits the request',function () {
+    ($this->workflowSetup)();
+    DB::table('users')->insert(['id'=>10,'name'=>'Second Campus Registrar','active_campus_id'=>1]);
+    DB::table('access_user_campuses')->insert(['user_id'=>10,'campus_id'=>1]);
+    DB::table('access_user_roles')->insert(['user_id'=>10,'role_id'=>1,'campus_id'=>1]);
+    $record=$this->service->submit(User::find(10),($this->draft)(),now()->toDateString());
+    expect($record->created_by)->toBe(1)->and($record->submitted_by)->toBe(10)
+        ->and($record->student_snapshot['submitter']['name'])->toBe('Second Campus Registrar');
+    User::find(10)->update(['name'=>'Changed Submitter']);
+    $this->actingAs(User::find(9))->get('/students/skipping-grade/'.$record->id)->assertOk()
+        ->assertSee('Campus Registrar')->assertSee('Submitted by Second Campus Registrar')->assertDontSee('Changed Submitter');
+});
+
+it('displays the recorded requester and submission time on older requests without identity snapshots',function () {
+    ($this->workflowSetup)(); $record=($this->pending)();
+    $snapshot=$record->student_snapshot;
+    unset($snapshot['requester'],$snapshot['submitter']);
+    $record->update(['student_snapshot'=>$snapshot]);
+    $page=$this->actingAs(User::find(3))->get('/students/skipping-grade/'.$record->id)->assertOk();
+    preg_match('/<li class="skipping-workflow-node skipping-workflow-submitted">(.*?)<\/li>/s',$page->getContent(),$matches);
+    expect($matches[1])->toContain('Campus Registrar','Requester',$record->submitted_at->format('d-M-Y H:i'));
+    $this->actingAs($this->campus)->get('/students/skipping-grade')->assertOk()
+        ->assertSee('title="Campus Registrar · Requester · Submitted · '.$record->submitted_at->format('d-M-Y H:i').'"',false);
+});
+
+it('preserves saved requester identities when a submitted current-flow request is edited',function () {
+    $record=($this->pending)(); $before=$record->student_snapshot;
+    ($this->grant)(2,['central-update']);
+    $this->campus->update(['name'=>'Changed Staff Name']);
+    $record=$this->service->saveDraft($this->central,array_replace($this->data,['reason'=>'Corrected reason']),$record);
+    expect($record->student_snapshot['requester'])->toBe($before['requester'])
+        ->and($record->student_snapshot['submitter'])->toBe($before['submitter'])
+        ->and($record->reason)->toBe('Corrected reason')->and($record->status)->toBe('pending');
+});
+
+it('central approval tracking displays each saved reviewer with their own photo and role in details and lists',function () {
+    ($this->workflowSetup)(); $settings=($this->workflowSettings)();
+    $settings['central_steps']=[['title'=>'Registrar Director','reviewers'=>[
+        ['user_id'=>9,'title'=>'Registrar Director','grade_scope'=>'all'],
+        ['user_id'=>7,'title'=>'International Program Director','grade_scope'=>'all'],
+    ]]];
+    foreach ([9,7] as $id) {
+        $photo=UploadedFile::fake()->image('reviewer-'.$id.'.png');
+        Storage::disk('public')->put('reviewer-'.$id.'.png',file_get_contents($photo->getRealPath()));
+        User::find($id)->update(['photo_path'=>'reviewer-'.$id.'.png']);
+    }
+    $this->workflow->saveSettings($this->central,$settings); $record=($this->pending)();
+    $step=$record->approvalSteps[2];
+    expect(array_column($step->trackingEntries(),'name'))->toBe(['Central Reviewer','Other Campus Viewer']);
+    // Later staff changes must not change the people or roles in the saved request.
+    User::find(9)->update(['name'=>'New Staff Name','photo_path'=>null]);
+    $page=$this->actingAs($this->campus)->get('/students/skipping-grade/'.$record->id)->assertOk();
+    preg_match_all('/<li class="skipping-workflow-node[^\"]*">(.*?)<\/li>/s',$page->getContent(),$matches);
+    expect($matches[1])->toHaveCount(6);
+    foreach ([0=>['Central Reviewer','Registrar Director'],1=>['Other Campus Viewer','International Program Director']] as $index=>$details) {
+        $card=$matches[1][3+$index];
+        expect($card)->toContain('<strong>'.$details[0].'</strong>','<span>'.$details[1].'</span>','src="'.$step->reviewerPeople()[$index]['photo'].'"')
+            ->not->toContain($index===0?'Other Campus Viewer':'Central Reviewer,');
+    }
+    foreach (['/students/skipping-grade','/students/skipping-grade/my-approvals?status=all'] as $url) {
+        $page=$this->actingAs(str_contains($url,'my-approvals')?User::find(7):$this->campus)->get($url)->assertOk();
+        expect($page->getContent())->toContain('title="Central Reviewer · Registrar Director · Waiting"','title="Other Campus Viewer · International Program Director · Waiting"')
+            ->not->toContain('title="Central Reviewer, Other Campus Viewer');
+    }
+});
+
+it('central tracking records the actual decision separately from other members in the same step',function (string $decision) {
+    ($this->workflowSetup)(); $settings=($this->workflowSettings)();
+    $settings['central_steps']=[['title'=>'Central Reviewer','reviewers'=>[
+        ['user_id'=>9,'title'=>'Registrar Director','grade_scope'=>'all'],
+        ['user_id'=>7,'title'=>'International Program Director','grade_scope'=>'all'],
+    ]]];
+    $this->workflow->saveSettings($this->central,$settings); $record=($this->pending)();
+    foreach ([3,4] as $id) $this->workflow->review(User::find($id),$record->fresh(),($this->stepData)($record->fresh()));
+    $step=$record->fresh()->approvalSteps[2];
+    expect(array_column($step->trackingEntries(),'label'))->toBe(['Awaiting Approval','Awaiting Approval']);
+    if ($decision==='approved') $this->workflow->review(User::find(7),$record->fresh(),($this->stepData)($record->fresh())+['comments'=>'Central review complete']);
+    else $this->service->reject(User::find(7),$record->fresh(),'Evidence rejected',($this->stepData)($record->fresh()));
+    $entries=$step->fresh()->trackingEntries();
+    expect($entries[0]['status'])->toBe('cancelled')->and($entries[0]['label'])->toBe($decision==='approved'?'Step completed':'Step closed')
+        ->and($entries[0]['acted_at'])->toBeNull()->and($entries[0]['comments'])->toBeNull()
+        ->and($entries[1]['status'])->toBe($decision)->and($entries[1]['person']['title'])->toBe('International Program Director')
+        ->and($entries[1]['acted_at'])->not->toBeNull()->and($entries[1]['comments'])->toBe($decision==='approved'?'Central review complete':'Evidence rejected')
+        ->and(StudentEnrollment::find(1)->grade_id)->toBe(1);
+    expect($record->fresh()->status)->toBe($decision==='approved'?'pending':'rejected')
+        ->and($record->fresh()->approvalSteps->last()->status)->toBe($decision==='approved'?'pending':'cancelled');
+    $this->actingAs($this->campus)->get('/students/skipping-grade/'.$record->id)->assertOk()->assertSee($entries[0]['label'])->assertSee($entries[1]['comments']);
+    foreach (['/students/skipping-grade','/students/skipping-grade/my-approvals?status=all'] as $url) {
+        $page=$this->actingAs(str_contains($url,'my-approvals')?User::find(7):$this->campus)->get($url)->assertOk();
+        preg_match_all('/<div class="skipping-workflow-reviewer"[^>]*>(.*?)<\/div>/s',$page->getContent(),$cards);
+        expect($cards[1])->toHaveCount(6)->and($cards[1][3])->not->toContain('<time')
+            ->and($cards[1][4])->toContain('datetime="'.$entries[1]['acted_at']->toIso8601String().'"',
+                '>'.$entries[1]['acted_at']->format('d-M-Y').'</time>');
+        if ($url==='/students/skipping-grade') $page->assertDontSee('<th>Parent / Guardian</th>',false);
+    }
+    $this->actingAs(User::find(9))->postJson('/students/skipping-grade/'.$record->id.'/review',[
+        'approval_step_id'=>$step->id,'approval_step_revision'=>$step->revision,
+    ])->assertForbidden();
+})->with(['approved','rejected']);
+
+it('central tracking preserves historical single reviewer steps without saved pool members',function () {
+    ($this->workflowSetup)(); $record=($this->pending)(); $step=$record->approvalSteps[2];
+    $step->reviewers()->delete();
+    $entries=$step->fresh()->trackingEntries();
+    expect($entries)->toHaveCount(1)->and($entries[0]['name'])->toBe('Central Reviewer')->and($entries[0]['person']['title'])->toBe('Central Reviewer');
+    $this->actingAs($this->campus)->get('/students/skipping-grade/'.$record->id)->assertOk()->assertSee('Central Reviewer');
+});
+
+it('approval flow validates the role for each added reviewer',function () {
+    ($this->workflowSetup)(); $settings=($this->workflowSettings)();
+    $settings['central_steps']=[['title'=>'Central Reviewer','reviewers'=>[
+        ['user_id'=>9,'title'=>'Registrar Director','grade_scope'=>'all'],
+        ['user_id'=>7,'title'=>'','grade_scope'=>'all'],
+    ]]];
+    $this->actingAs($this->central)->postJson('/students/skipping-grade/approval-flow',$settings)
+        ->assertUnprocessable()->assertJsonValidationErrors('central_steps.0.reviewers.1.title');
+    $settings['central_steps'][0]['reviewers'][1]['title']=str_repeat('x',121);
+    $this->postJson('/students/skipping-grade/approval-flow',$settings)
+        ->assertUnprocessable()->assertJsonValidationErrors('central_steps.0.reviewers.1.title');
+    expect($this->workflow->revision())->toBe($settings['revision']);
+});
+
+it('reviewer configuration rejects global users without assignments and campus users for central approval',function () {
+    ($this->workflowSetup)();
+    DB::table('users')->where('id',8)->update(['is_global'=>true]);
+    $url='/students/skipping-grade/approval-flow';
+    $settings=($this->workflowSettings)(); $settings['campus_steps'][0]['user_id']=8;
+    $this->actingAs($this->central)->postJson($url,$settings)->assertUnprocessable()->assertJsonValidationErrors('campus_steps');
+    $settings=($this->workflowSettings)(); $settings['campus_steps'][0]['user_id']=2;
+    $settings['campus_id']=2;
+    $this->postJson($url,$settings)->assertUnprocessable()->assertJsonValidationErrors('campus_steps');
+    $settings=($this->workflowSettings)(); $settings['central_steps'][0]['user_id']=4;
+    $this->postJson($url,$settings)->assertUnprocessable()->assertJsonValidationErrors('central_steps');
+    $settings=($this->workflowSettings)(); $settings['vice_president_id']=8;
+    $this->postJson($url,$settings)->assertUnprocessable()->assertJsonValidationErrors('vice_president_id');
+    expect($this->workflow->revision())->toBe($settings['revision']);
+});
+
+it('pending reviewer reassignment enforces campus and central membership without changing saved history',function () {
+    ($this->workflowSetup)(); $record=($this->pending)();
+    $campusStep=$record->approvalSteps[1]; $centralStep=$record->approvalSteps[2];
+    DB::table('users')->where('id',8)->update(['is_global'=>true]);
+    $url='/students/skipping-grade/'.$record->id.'/reviewers/';
+    $this->actingAs($this->central)->postJson($url.$campusStep->id.'/reassign',['reviewer_id'=>8,'revision'=>1,'reason'=>'Campus replacement'])->assertUnprocessable()->assertJsonValidationErrors('reviewer_id');
+    $this->postJson($url.$centralStep->id.'/reassign',['reviewer_id'=>4,'revision'=>1,'reason'=>'Central replacement'])->assertUnprocessable()->assertJsonValidationErrors('reviewer_id');
+    expect($campusStep->fresh()->reviewer_id)->toBe(4)->and($centralStep->fresh()->reviewer_id)->toBe(9)
+        ->and(\App\Models\SkippingGradeReassignment::count())->toBe(0);
+    $this->postJson($url.$centralStep->id.'/reassign',['reviewer_id'=>7,'revision'=>1,'reason'=>'Central appointment'])->assertOk();
+    expect($centralStep->fresh()->reviewer_id)->toBe(7);
+});
+
+it('grade scoped campus and central reviewers are matched to current grade rather than destination grade',function () {
+    ($this->workflowSetup)();
+    $this->actingAs($this->central)->postJson('/students/skipping-grade/approval-flow',($this->scopedSettings)())->assertOk();
+    $record=($this->pending)();
+    expect($record->source_grade_id)->toBe(1)->and($record->target_grade_id)->toBe(2)
+        ->and($record->approvalSteps->pluck('reviewer_id')->all())->toBe([6,4,7,5])
+        ->and($record->approvalSteps->first()->reviewers->pluck('user_id')->all())->toBe([6]);
+    $this->actingAs(User::find(3))->getJson('/students/skipping-grade/'.$record->id)->assertForbidden();
+    $this->postJson('/students/skipping-grade/'.$record->id.'/review',($this->stepData)($record))->assertForbidden();
+    $this->actingAs(User::find(6))->get('/students/skipping-grade/my-approvals')->assertOk()->assertSee('SOK DARA');
+    $this->postJson('/students/skipping-grade/'.$record->id.'/review',($this->stepData)($record))->assertOk();
+    $this->workflow->review(User::find(4),$record->fresh(),($this->stepData)($record->fresh()));
+    $this->actingAs(User::find(9))->getJson('/students/skipping-grade/'.$record->id)->assertForbidden();
+    $this->actingAs(User::find(7))->postJson('/students/skipping-grade/'.$record->id.'/review',($this->stepData)($record->fresh()))->assertOk();
+    expect($record->fresh()->approvalSteps[2]->actor_snapshot['name'])->toBe('Other Campus Viewer');
+});
+
+it('grade scoped groups need only one eligible approval and prevent a duplicate decision',function () {
+    ($this->workflowSetup)(); $settings=($this->workflowSettings)();
+    $settings['campus_steps'][0]=['title'=>'KH Coordinator','reviewers'=>[
+        ['user_id'=>3,'grade_scope'=>'selected','grade_ids'=>[1]],['user_id'=>6,'grade_scope'=>'all'],
+    ]];
+    $this->workflow->saveSettings($this->central,$settings);
+    $record=($this->pending)(); $data=($this->stepData)($record); $url='/students/skipping-grade/'.$record->id;
+    expect($record->approvalSteps->first()->reviewers->pluck('user_id')->all())->toBe([3,6]);
+    foreach ([3,6] as $id) $this->actingAs(User::find($id))->get('/students/skipping-grade/my-approvals')->assertOk()->assertSee('SOK DARA');
+    $this->get($url)->assertOk()->assertSee('One of 2 eligible reviewers');
+    $this->postJson($url.'/review',$data)->assertOk();
+    $first=$record->fresh()->approvalSteps->first();
+    expect($first->status)->toBe('approved')->and($first->acted_by)->toBe(6)->and($first->actor_snapshot['name'])->toBe('Replacement VSP')
+        ->and($this->workflow->currentStep($record->fresh())->reviewer_id)->toBe(4)
+        ->and(StudentEnrollment::find(1)->grade_id)->toBe(1);
+    $this->actingAs(User::find(3))->postJson($url.'/review',$data)->assertForbidden();
+    $this->get('/students/skipping-grade/my-approvals?status=approved')->assertOk()->assertViewHas('records',fn($records)=>$records->getCollection()->every(fn($record)=>($record->student_snapshot['name_en']??null)!=='SOK DARA'));
+    $this->actingAs(User::find(6))->get('/students/skipping-grade/my-approvals?status=approved')->assertOk()->assertSee('SOK DARA');
+});
+
+it('grade scoped groups stop the entire workflow when one eligible reviewer rejects',function () {
+    ($this->workflowSetup)(); $settings=($this->workflowSettings)();
+    $settings['campus_steps'][0]=['title'=>'KH Coordinator','reviewers'=>[['user_id'=>3,'grade_scope'=>'all'],['user_id'=>6,'grade_scope'=>'all']]];
+    $this->workflow->saveSettings($this->central,$settings); $record=($this->pending)();
+    $this->actingAs(User::find(6))->postJson('/students/skipping-grade/'.$record->id.'/reject',($this->stepData)($record)+['rejection_reason'=>'Insufficient evidence'])->assertOk();
+    expect($record->fresh()->status)->toBe('rejected')->and($record->fresh()->approvalSteps->first()->acted_by)->toBe(6)
+        ->and($record->approvalSteps()->where('status','cancelled')->count())->toBe(3)->and(StudentEnrollment::find(1)->grade_id)->toBe(1);
+});
+
+it('grade scoped viewers cannot bypass assignments through requests reports exports or attachments',function () {
+    ($this->workflowSetup)();
+    (require database_path('migrations/2026_10_10_000001_add_skipping_report_permissions.php'))->up();
+    (require database_path('migrations/2026_10_10_000002_move_skipping_report_into_requests.php'))->up();
+    $this->workflow->saveSettings($this->central,($this->scopedSettings)());
+    $allowed=($this->pending)(); $older=($this->olderStudent)();
+    $this->actingAs($this->campus)->post('/students/skipping-grade/'.$older->id.'/attachments',['documents'=>[UploadedFile::fake()->create('private-evidence.pdf',10,'application/pdf')]])->assertRedirect();
+    $other=$this->service->submit($this->campus,$older->fresh(),now()->toDateString(),UploadedFile::fake()->create('private-signed.pdf',10,'application/pdf'));
+    ($this->grant)(6,['requests','print','print-reports','central-update']);
+    ($this->grant)(3,['requests']);
+    $this->actingAs(User::find(6));
+    $page=$this->get('/students/skipping-grade')->assertOk()->assertSee('SOK DARA')->assertViewHas('records',fn($records)=>$records->getCollection()->every(fn($record)=>($record->student_snapshot['name_en']??null)!=='OLDER STUDENT'));
+    expect($page->viewData('records')->pluck('id')->all())->toBe([$allowed->id]);
+    foreach (['','/attachments/0','/signed-request','/print/request','/edit','/share/approval'] as $path) $this->getJson('/students/skipping-grade/'.$other->id.$path)->assertForbidden();
+    $this->postJson('/students/skipping-grade/'.$other->id.'/review',($this->stepData)($other))->assertForbidden();
+    foreach (['/print-report','/print-statistics'] as $path) {
+        $preview=$this->get('/students/skipping-grade'.$path.'?status=')->assertOk();
+        expect($preview->viewData('records')->pluck('id')->all())->toBe($path==='/print-statistics'?[]:[$allowed->id]);
+    }
+    $export=$this->get('/students/skipping-grade/reports/list/export/xlsx')->assertOk();
+    $path=tempnam(sys_get_temp_dir(),'skipping-scope');
+    try {
+        file_put_contents($path,$export->getContent()); $zip=new ZipArchive(); expect($zip->open($path))->toBeTrue();
+        expect($zip->getFromName('xl/worksheets/sheet1.xml'))->toContain('SOK DARA')->not->toContain('OLDER STUDENT','2619999'); $zip->close();
+    } finally { unlink($path); }
+    $draft=$other->replicate()->forceFill(['status'=>'draft','submitted_at'=>null,'signed_request_path'=>null]); $draft->save();
+    $this->getJson('/students/skipping-grade/'.$draft->id.'/edit')->assertForbidden();
+    $this->actingAs(User::find(3))->get('/students/skipping-grade')->assertOk()->assertSee('OLDER STUDENT')->assertViewHas('records',fn($records)=>$records->getCollection()->every(fn($record)=>($record->student_snapshot['name_en']??null)!=='SOK DARA'));
+    $this->actingAs($this->central)->get('/students/skipping-grade')->assertOk()->assertSee('OLDER STUDENT')->assertSee('SOK DARA');
+});
+
+it('grade scoped assignments validate users grades and uncovered request steps',function () {
+    ($this->workflowSetup)(); $settings=($this->scopedSettings)(); $url='/students/skipping-grade/approval-flow';
+    $this->actingAs($this->central)->get($url)->assertOk()->assertSee('Add Reviewer to This Step')->assertSee('Current Grade Access')->assertSee('Apply Range');
+    $settings['campus_steps'][0]['reviewers'][0]['grade_ids']=[];
+    $this->postJson($url,$settings)->assertUnprocessable()->assertJsonValidationErrors('campus_steps');
+    $settings['campus_steps'][0]['reviewers'][0]['grade_ids']=[99999];
+    $this->postJson($url,$settings)->assertUnprocessable()->assertJsonValidationErrors('campus_steps');
+    $settings=($this->scopedSettings)(); $settings['campus_steps'][0]['reviewers'][1]['user_id']=3;
+    $this->postJson($url,$settings)->assertUnprocessable()->assertJsonValidationErrors('campus_steps');
+    $settings['campus_steps'][0]['reviewers'][1]['user_id']=7;
+    $this->postJson($url,$settings)->assertUnprocessable()->assertJsonValidationErrors('campus_steps');
+    $settings=($this->scopedSettings)(); array_pop($settings['campus_steps'][0]['reviewers']);
+    $this->postJson($url,$settings)->assertOk(); $draft=($this->draft)();
+    $this->actingAs($this->campus)->postJson('/students/skipping-grade/'.$draft->id.'/submit',['parent_signed'=>1,'parent_signed_date'=>now()->toDateString()])->assertUnprocessable()->assertJsonValidationErrors('settings');
+    expect($draft->fresh()->status)->toBe('draft')->and($draft->approvalSteps()->count())->toBe(0);
+});
+
+it('grade scoped requests preserve saved members when assignments change and audit individual replacements',function () {
+    ($this->workflowSetup)(); $settings=($this->scopedSettings)();
+    $settings['campus_steps'][0]['reviewers'][]=['user_id'=>4,'grade_scope'=>'all'];
+    $this->workflow->saveSettings($this->central,$settings); $record=($this->pending)(); $first=$record->approvalSteps->first(); $members=$first->reviewers;
+    expect($members->pluck('user_id')->all())->toBe([6,4]);
+    $this->workflow->saveSettings($this->central,($this->workflowSettings)());
+    expect($record->fresh()->approvalSteps->first()->reviewers->pluck('user_id')->all())->toBe([6,4]);
+    $url='/students/skipping-grade/'.$record->id.'/reviewers/'.$first->id.'/reassign';
+    $this->actingAs($this->central)->postJson($url,['reviewer_id'=>9,'revision'=>1,'reason'=>'New campus appointment'])->assertUnprocessable()->assertJsonValidationErrors('member_id');
+    $replacement=['reviewer_id'=>3,'member_id'=>$members[0]->id,'revision'=>1,'reason'=>'New campus appointment'];
+    $this->postJson($url,$replacement)->assertOk();
+    $updated=$first->fresh();
+    expect($updated->reviewers->pluck('user_id')->all())->toBe([3,4])->and($updated->reviewer_id)->toBe(3)
+        ->and($updated->reviewers->first()->grade_ids)->toBe([1])
+        ->and($updated->reassignments->first()->previous_reviewer['grade_ids'])->toBe([1]);
+    $this->actingAs(User::find(6))->getJson('/students/skipping-grade/'.$record->id)->assertForbidden();
+    $this->actingAs(User::find(4))->postJson('/students/skipping-grade/'.$record->id.'/review',($this->stepData)($record->fresh()))->assertOk();
+    expect($first->fresh()->actor_snapshot['name'])->toBe('Campus VSP');
+});
+
+it('grade skipping permits multiple request creators at the same campus',function () {
+    ($this->workflowSetup)(); ($this->grant)(6,['requests','create','update','submit']);
+    $first=($this->draft)(); $second=($this->olderStudent)(User::find(6));
+    expect($first->created_by)->toBe(1)->and($second->created_by)->toBe(6)->and($first->campus_id)->toBe(1)->and($second->campus_id)->toBe(1);
+    $this->actingAs($this->campus)->postJson('/students/skipping-grade/'.$first->id.'/submit',['parent_signed'=>1,'parent_signed_date'=>now()->toDateString()])->assertOk();
+    $this->actingAs(User::find(6))->postJson('/students/skipping-grade/'.$second->id.'/submit',['parent_signed'=>1,'parent_signed_date'=>now()->toDateString()])->assertOk();
+    expect($first->fresh()->status)->toBe('pending')->and($second->fresh()->status)->toBe('pending');
+});
+
+it('grade scoped ranges include nursery and kindergarten using the system grade IDs',function () {
+    ($this->workflowSetup)();
+    DB::table('tb_grade')->where('id',1)->update(['grade_order'=>6]);
+    DB::table('tb_grade')->where('id',2)->update(['grade_order'=>8]);
+    foreach ([3=>'N',4=>'K1',5=>'K2',6=>'K3'] as $id=>$label) DB::table('tb_grade')->insert(['id'=>$id,'grade'=>$label,'grade_short_name'=>$label,'grade_order'=>$id-2]);
+    $settings=($this->workflowSettings)();
+    $settings['campus_steps'][0]=['title'=>'KH Coordinator','reviewers'=>[
+        ['user_id'=>3,'grade_scope'=>'selected','grade_ids'=>[3,4,5,6]],['user_id'=>6,'grade_scope'=>'selected','grade_ids'=>[1,2]],
+    ]];
+    $this->workflow->saveSettings($this->central,$settings);
+    $older=($this->pending)();
+    DB::table('tb_student')->insert(['id'=>2,'student_id'=>'2617777','full_name_en'=>'NURSERY STUDENT','full_name_kh'=>'Nursery student KH','date_of_birth'=>'2023-03-02','gender'=>'male']);
+    DB::table('tb_class')->insert(['id'=>3,'class_name'=>'A','grade_id'=>3,'academic_year_id'=>1]);
+    DB::table('tb_student_enrollment')->insert(['id'=>2,'student_id'=>2,'campus_id'=>1,'academic_year_id'=>1,'grade_id'=>3,'class_id'=>3]);
+    $nurseryDraft=$this->service->saveDraft($this->campus,array_replace($this->data,['enrollment_id'=>2]));
+    $nursery=$this->service->submit($this->campus,$nurseryDraft,now()->toDateString());
+    expect($nursery->approvalSteps->first()->reviewer_id)->toBe(3)
+        ->and($nursery->approvalSteps->first()->reviewers->first()->reviewer_snapshot['grades'])->toBe(['N','K1','K2','K3'])
+        ->and($older->approvalSteps->first()->reviewer_id)->toBe(6);
+    $this->actingAs(User::find(3))->get('/students/skipping-grade/my-approvals')->assertOk()->assertSee('NURSERY STUDENT')->assertViewHas('records',fn($records)=>$records->getCollection()->every(fn($record)=>($record->student_snapshot['name_en']??null)!=='SOK DARA'));
+    $this->actingAs(User::find(4))->get('/students/skipping-grade/my-approvals?status=all')->assertOk()->assertSee('NURSERY STUDENT')->assertSee('SOK DARA');
+});
+
+it('grade scoped enhancement retains earlier single reviewer requests and their reassignment behavior',function () {
+    ($this->workflowSetup)(); $record=($this->pending)();
+    foreach ($record->approvalSteps as $step) $step->reviewers()->delete();
+    $this->workflow->saveSettings($this->central,($this->scopedSettings)());
+    $this->actingAs(User::find(3))->get('/students/skipping-grade/my-approvals')->assertOk()->assertSee('SOK DARA');
+    $this->get('/students/skipping-grade/'.$record->id)->assertOk()->assertSee('Approve and Forward');
+    $this->postJson('/students/skipping-grade/'.$record->id.'/review',($this->stepData)($record))->assertOk();
+    $vsp=$this->workflow->currentStep($record->fresh());
+    $this->workflow->reassign($this->central,$record->fresh(),$vsp->id,['reviewer_id'=>6,'revision'=>1,'reason'=>'Replace original single reviewer']);
+    expect($vsp->fresh()->reviewer_id)->toBe(6)->and($vsp->reviewers()->count())->toBe(0)
+        ->and($record->fresh()->approvalSteps->first()->actor_snapshot['name'])->toBe('KH Coordinator');
+    $this->actingAs(User::find(6))->postJson('/students/skipping-grade/'.$record->id.'/review',($this->stepData)($record->fresh()))->assertOk();
+});
+
+it('sequential workflow captures the mode at creation and reviewers at submission',function () {
+    $legacy=($this->draft)();
+    ($this->workflowSetup)();
+    expect($legacy->fresh()->approval_flow_mode)->toBe('legacy');
+    $this->service->submit($this->campus,$legacy,now()->toDateString());
+    expect($legacy->approvalSteps()->count())->toBe(0);
+    $this->service->reject($this->central,$legacy->fresh(),'Legacy decision');
+    $draft=($this->draft)();
+    $this->workflow->saveSettings($this->central,($this->workflowSettings)('legacy'));
+    $draft=$this->service->saveDraft($this->campus,$this->data,$draft);
+    expect($draft->approval_flow_mode)->toBe('sequential')->and($draft->approvalSteps()->count())->toBe(0);
+    \App\Models\SkippingGradeCampusSetting::where('campus_id',1)->update(['approval_steps'=>json_encode([['title'=>'New KH Coordinator','user_id'=>6]])]);
+    $pending=$this->service->submit($this->campus,$draft,now()->toDateString());
+    expect($pending->approvalSteps->pluck('reviewer_id')->all())->toBe([6,9,5])
+        ->and($pending->approvalSteps->pluck('status')->all())->toBe(['pending','waiting','waiting'])
+        ->and($pending->approvalSteps->last()->is_final)->toBeTrue();
+    \App\Models\SkippingGradeCampusSetting::where('campus_id',1)->update(['approval_steps'=>json_encode([['title'=>'Another Coordinator','user_id'=>3]])]);
+    expect($pending->fresh()->approvalSteps->first()->reviewer_snapshot['name'])->toBe('Replacement VSP');
+});
+
+it('sequential workflow advances only in order and changes enrollment only at final approval',function () {
+    ($this->workflowSetup)();
+    $record=($this->pending)(); $url='/students/skipping-grade/'.$record->id;
+    $first=($this->stepData)($record);
+    $this->actingAs(User::find(4))->postJson($url.'/review',$first)->assertForbidden();
+    $this->actingAs($this->central)->postJson($url.'/approve',$this->approval+$first)->assertForbidden();
+    $this->actingAs(User::find(3))->postJson($url.'/approve',$this->approval+$first)->assertUnprocessable()->assertJsonValidationErrors('status');
+    foreach ([3,4,9] as $id) {
+        $this->actingAs(User::find($id))->get($url)->assertOk()->assertSee('Approve and Forward')->assertDontSee('Approve and Move Grade');
+        $data=($this->stepData)($record->fresh());
+        $this->postJson($url.'/review',$data+['comments'=>'Reviewed attachments'])->assertOk();
+        expect($record->fresh()->status)->toBe('pending')->and(StudentEnrollment::find(1)->grade_id)->toBe(1)
+            ->and(DB::table('tb_student_enrollment_history')->count())->toBe(0);
+        $this->postJson($url.'/review',$data)->assertForbidden();
+    }
+    $this->actingAs(User::find(5))->get($url)->assertOk()->assertSee('Approve and Move Grade');
+    $this->postJson($url.'/approve',$this->approval+($this->stepData)($record->fresh()))->assertOk();
+    $approved=$record->fresh();
+    expect($approved->status)->toBe('approved')->and($approved->approved_by)->toBe(5)
+        ->and(StudentEnrollment::find(1)->grade_id)->toBe(2)->and(DB::table('tb_student_enrollment_history')->count())->toBe(2)
+        ->and($approved->approvalSteps->pluck('status')->all())->toBe(['approved','approved','approved','approved']);
+    DB::table('users')->whereIn('id',[3,5])->update(['name'=>'Changed Staff Name']);
+    $this->get($url)->assertOk()->assertSee('KH Coordinator')->assertSee('Approved by Vice President');
+    expect($approved->fresh()->approvalSteps->first()->actor_snapshot['name'])->toBe('KH Coordinator');
+    $this->actingAs($this->central)->postJson($url.'/reviewers/'.$approved->approvalSteps->first()->id.'/reassign',['reviewer_id'=>6,'revision'=>1,'reason'=>'New staff'])->assertUnprocessable();
+});
+
+it('sequential workflow rejection at any reviewer stops later steps without moving grade',function ($rejectAt) {
+    ($this->workflowSetup)(); $record=($this->pending)();
+    foreach ([3,4,9,5] as $index=>$userId) {
+        if ($index===$rejectAt) {
+            $this->service->reject(User::find($userId),$record->fresh(),'Missing evidence',($this->stepData)($record->fresh()));
+            break;
+        }
+        $this->workflow->review(User::find($userId),$record->fresh(),($this->stepData)($record->fresh()));
+    }
+    expect($record->fresh()->status)->toBe('rejected')->and(StudentEnrollment::find(1)->grade_id)->toBe(1)
+        ->and(DB::table('tb_student_enrollment_history')->count())->toBe(0)
+        ->and($record->approvalSteps()->whereIn('status',['pending','waiting'])->count())->toBe(0)
+        ->and($record->approvalSteps()->where('status','rejected')->count())->toBe(1);
+    $this->actingAs(User::find(5))->postJson('/students/skipping-grade/'.$record->id.'/approve',$this->approval)->assertForbidden();
+})->with([0,1,2,3]);
+
+it('sequential workflow settings require Super Admin the selected campus and a final Vice President',function () {
+    ($this->workflowSetup)(); $url='/students/skipping-grade/approval-flow';
+    $this->actingAs(User::find(3))->getJson($url)->assertForbidden();
+    $this->postJson($url,($this->workflowSettings)())->assertForbidden();
+    $this->actingAs($this->central)->get($url)->assertOk()->assertSee('System Approval Flow')->assertSee('Vice President');
+    $data=($this->workflowSettings)();
+    $this->postJson($url,array_replace($data,['vice_president_id'=>null]))->assertUnprocessable()->assertJsonValidationErrors('vice_president_id');
+    $this->postJson($url,array_replace($data,['campus_steps'=>[['title'=>'Invalid Campus','user_id'=>7]]]))->assertUnprocessable()->assertJsonValidationErrors('campus_steps');
+    \App\Models\SkippingGradeCampusSetting::where('campus_id',2)->delete();
+    $data=($this->workflowSettings)();
+    $this->postJson($url,array_replace($data,['campus_steps'=>[]]))->assertUnprocessable()->assertJsonValidationErrors('campus_steps');
+    $changed=$data; $changed['campus_steps'][0]['title']='Campus KH Coordinator';
+    $this->postJson($url,$changed)->assertOk();
+    $this->postJson($url,$data)->assertUnprocessable()->assertJsonValidationErrors('revision');
+    $data=($this->workflowSettings)('legacy'); $data['campus_id']=2; $data['campus_steps']=[['title'=>'KH Coordinator','user_id'=>8]];
+    $this->postJson($url,$data)->assertOk();
+    expect(\App\Models\SkippingGradeCampusSetting::where('campus_id',2)->first()->committee_names)->toBe(['','','','']);
+    DB::table('users')->where('id',8)->update(['status'=>0]);
+    $data=($this->workflowSettings)(); $data['campus_id']=2; $data['campus_steps']=[['title'=>'KH Coordinator','user_id'=>8]];
+    $this->postJson($url,$data)->assertUnprocessable()->assertJsonValidationErrors('campus_steps');
+    expect(SkippingGradeSetting::current()->approval_flow_mode)->toBe('legacy');
+});
+
+it('saving one campus enables its workflow without requiring other campuses to be configured',function () {
+    ($this->workflowSetup)();
+    $this->workflow->saveSettings($this->central,($this->workflowSettings)('legacy'));
+    $legacy=($this->draft)();
+    $this->service->submit($this->campus,$legacy,now()->toDateString());
+    \App\Models\SkippingGradeCampusSetting::whereIn('campus_id',[2,3])->delete();
+    DB::table('tb_school_info')->insert(['id'=>4,'campus_name_en'=>'STD','status'=>1]);
+    $this->actingAs($this->central)->postJson('/students/skipping-grade/approval-flow',($this->workflowSettings)())->assertOk();
+    expect(SkippingGradeSetting::current()->approval_flow_mode)->toBe('sequential')
+        ->and($legacy->fresh()->approval_flow_mode)->toBe('legacy')
+        ->and($legacy->approvalSteps()->count())->toBe(0)
+        ->and(\App\Models\SkippingGradeCampusSetting::where('campus_id',4)->exists())->toBeFalse();
+    $this->service->reject($this->central,$legacy->fresh(),'Legacy decision');
+    $pending=($this->pending)();
+    expect($pending->approval_flow_mode)->toBe('sequential')
+        ->and($pending->approvalSteps->pluck('reviewer_id')->all())->toBe([3,4,9,5]);
+});
+
+it('saving one campus ignores invalid reviewers in another campus but validates them on that campus submission',function () {
+    ($this->workflowSetup)();
+    DB::table('users')->where('id',8)->update(['status'=>0]);
+    $this->actingAs($this->central)->postJson('/students/skipping-grade/approval-flow',($this->workflowSettings)())->assertOk();
+    DB::table('tb_student')->insert(['id'=>2,'student_id'=>'DNG-STUDENT','full_name_en'=>'DNG STUDENT','full_name_kh'=>'DNG Student KH','date_of_birth'=>'2017-03-02']);
+    DB::table('tb_student_enrollment')->insert(['id'=>2,'student_id'=>2,'campus_id'=>2,'academic_year_id'=>1,'grade_id'=>1,'class_id'=>1]);
+    $draft=$this->service->saveDraft($this->central,array_replace($this->data,['enrollment_id'=>2]));
+    $url='/students/skipping-grade/'.$draft->id.'/submit';
+    $this->postJson($url,['parent_signed'=>1,'parent_signed_date'=>now()->toDateString()])->assertUnprocessable()->assertJsonValidationErrors('settings');
+    expect($draft->fresh()->status)->toBe('draft')->and($draft->approvalSteps()->count())->toBe(0);
+    \App\Models\SkippingGradeCampusSetting::where('campus_id',2)->delete();
+    $this->postJson($url,['parent_signed'=>1,'parent_signed_date'=>now()->toDateString()])->assertUnprocessable()->assertJsonValidationErrors('settings');
+    expect($draft->fresh()->status)->toBe('draft')->and($draft->approvalSteps()->count())->toBe(0);
+    DB::table('users')->where('id',8)->update(['status'=>1]);
+    $data=($this->workflowSettings)(); $data['campus_id']=2; $data['campus_steps']=[['title'=>'KH Coordinator','user_id'=>8]];
+    $this->postJson('/students/skipping-grade/approval-flow',$data)->assertOk();
+    $this->postJson($url,['parent_signed'=>1,'parent_signed_date'=>now()->toDateString()])->assertOk();
+    expect($draft->fresh()->approvalSteps->pluck('reviewer_id')->all())->toBe([8,9,5]);
+});
+
+it('sequential workflow reassignment audits changes and cannot replace completed or stale steps',function () {
+    ($this->workflowSetup)(); $record=($this->pending)(); $first=$record->approvalSteps->first(); $vsp=$record->approvalSteps[1];
+    $this->workflow->review(User::find(3),$record,($this->stepData)($record));
+    $url='/students/skipping-grade/'.$record->id.'/reviewers/';
+    $replacement=['reviewer_id'=>6,'revision'=>1,'reason'=>'Campus VSP changed'];
+    $this->actingAs(User::find(4))->postJson($url.$vsp->id.'/reassign',$replacement)->assertForbidden();
+    $this->actingAs($this->central)->postJson($url.$first->id.'/reassign',$replacement)->assertUnprocessable();
+    $this->postJson($url.$vsp->id.'/reassign',array_replace($replacement,['reviewer_id'=>7]))->assertUnprocessable()->assertJsonValidationErrors('reviewer_id');
+    $oldData=($this->stepData)($record->fresh());
+    $this->postJson($url.$vsp->id.'/reassign',$replacement)->assertOk();
+    $step=$vsp->fresh(); $audit=$step->reassignments->first();
+    expect($step->reviewer_id)->toBe(6)->and($step->revision)->toBe(2)->and($step->status)->toBe('pending')
+        ->and($audit->previous_reviewer['name'])->toBe('Campus VSP')->and($audit->replacement_reviewer['name'])->toBe('Replacement VSP')
+        ->and($audit->changed_by_name)->toBe('Central Office')->and($first->fresh()->actor_snapshot['name'])->toBe('KH Coordinator');
+    $this->postJson($url.$vsp->id.'/reassign',$replacement)->assertUnprocessable()->assertJsonValidationErrors('revision');
+    $this->actingAs(User::find(4))->postJson('/students/skipping-grade/'.$record->id.'/review',$oldData)->assertForbidden();
+    $this->actingAs(User::find(6))->postJson('/students/skipping-grade/'.$record->id.'/review',$oldData)->assertUnprocessable()->assertJsonValidationErrors('status');
+    $this->get('/students/skipping-grade/'.$record->id)->assertOk()->assertSee('Reviewer Change History')->assertSee('Campus VSP changed');
+    $this->postJson('/students/skipping-grade/'.$record->id.'/review',($this->stepData)($record->fresh()))->assertOk();
+});
+
+it('sequential workflow inbox and private attachments are limited to assigned requests',function () {
+    ($this->workflowSetup)(); $draft=($this->draft)(); $url='/students/skipping-grade/'.$draft->id;
+    $this->actingAs($this->campus)->post($url.'/attachments',['documents'=>[UploadedFile::fake()->create('birth-certificate.pdf',10,'application/pdf')]])->assertRedirect();
+    $record=$this->service->submit($this->campus,$draft->fresh(),now()->toDateString(),UploadedFile::fake()->create('signed-request.pdf',10,'application/pdf'));
+    $this->actingAs(User::find(3))->get('/students/skipping-grade')->assertRedirect('/students/skipping-grade/my-approvals');
+    $this->get('/students/skipping-grade/my-approvals')->assertOk()->assertSee('SOK DARA');
+    $this->get('/students/skipping-grade/my-approvals?search=missing')->assertOk()->assertViewHas('records',fn($records)=>$records->getCollection()->every(fn($record)=>($record->student_snapshot['name_en']??null)!=='SOK DARA'));
+    $this->get($url)->assertOk()->assertSee('birth-certificate.pdf')->assertSee('View Signed Request');
+    $this->get($url.'/attachments/0')->assertOk()->assertHeader('X-Content-Type-Options','nosniff');
+    $this->get($url.'/signed-request')->assertOk();
+    $this->getJson($url.'/attachments/99')->assertNotFound();
+    $this->actingAs(User::find(4))->get('/students/skipping-grade/my-approvals?status=pending')->assertOk()->assertViewHas('records',fn($records)=>$records->getCollection()->every(fn($record)=>($record->student_snapshot['name_en']??null)!=='SOK DARA'));
+    $this->get('/students/skipping-grade/my-approvals?status=all')->assertOk()->assertSee('SOK DARA');
+    $this->get($url)->assertOk()->assertDontSee('Approve and Forward');
+    $this->actingAs(User::find(7))->getJson($url)->assertForbidden();
+    $this->getJson($url.'/attachments/0')->assertForbidden();
+    $this->getJson($url.'/signed-request')->assertForbidden();
+    $this->actingAs($this->central)->postJson($url.'/update',$this->data)->assertForbidden();
+    $this->post($url.'/attachments',['documents'=>[UploadedFile::fake()->create('late.pdf',10,'application/pdf')]])->assertForbidden();
+    $this->workflow->review(User::find(3),$record,($this->stepData)($record));
+    $this->actingAs(User::find(3))->get('/students/skipping-grade/my-approvals?status=approved')->assertOk()->assertSee('SOK DARA');
+});
+
+it('my approvals opens with review history and retains an explicit awaiting approval filter',function () {
+    ($this->workflowSetup)(); $record=($this->pending)();
+    $this->workflow->review(User::find(3),$record,($this->stepData)($record));
+    $page=$this->actingAs(User::find(3))->get('/students/skipping-grade/my-approvals')->assertOk()->assertSee('SOK DARA');
+    expect($page->viewData('scope'))->toBe('approvals')->and($page->viewData('status'))->toBe('all');
+    $this->get('/students/skipping-grade/my-approvals?status=pending')->assertOk()->assertViewHas('records',fn($records)=>$records->getCollection()->every(fn($record)=>($record->student_snapshot['name_en']??null)!=='SOK DARA'));
+    $this->get('/students/skipping-grade/my-approvals?status=approved')->assertOk()->assertSee('SOK DARA');
+    $this->actingAs(User::find(9))->get('/students/skipping-grade/my-approvals')->assertOk()->assertSee('SOK DARA');
+    $this->get('/students/skipping-grade/my-approvals?status=pending')->assertOk()->assertViewHas('records',fn($records)=>$records->getCollection()->every(fn($record)=>($record->student_snapshot['name_en']??null)!=='SOK DARA'));
+});
+
+it('my requests includes created and submitted requests without requiring reviewer assignment',function () {
+    ($this->workflowSetup)(); ($this->grant)(6,['requests','submit']);
+    $record=$this->service->submit(User::find(6),($this->draft)(),now()->toDateString());
+    $other=$this->service->submit($this->campus,($this->olderStudent)(),now()->toDateString());
+    $page=$this->actingAs(User::find(6))->get('/students/skipping-grade/my-approvals')->assertOk()->assertSee('SOK DARA')->assertViewHas('records',fn($records)=>$records->getCollection()->every(fn($record)=>($record->student_snapshot['name_en']??null)!=='OLDER STUDENT'));
+    expect($page->viewData('scope'))->toBe('requests')->and($page->viewData('records')->pluck('id')->all())->toBe([$record->id]);
+    $this->get('/students/skipping-grade/'.$record->id)->assertOk();
+    $this->get('/students/skipping-grade/my-approvals?scope=requests&status=draft')->assertOk()->assertViewHas('records',fn($records)=>$records->getCollection()->every(fn($record)=>($record->student_snapshot['name_en']??null)!=='SOK DARA'));
+    $this->actingAs($this->campus)->get('/students/skipping-grade/my-approvals?scope=requests')->assertOk()->assertSee('SOK DARA')->assertSee('OLDER STUDENT');
+    $this->get('/students/skipping-grade/my-approvals?scope=approvals')->assertOk()->assertViewHas('records',fn($records)=>$records->getCollection()->every(fn($record)=>($record->student_snapshot['name_en']??null)!=='SOK DARA'))->assertViewHas('records',fn($records)=>$records->getCollection()->every(fn($record)=>($record->student_snapshot['name_en']??null)!=='OLDER STUDENT'));
+});
+
+it('campus requests respects assigned campuses and grades and opens eligible current flow records',function () {
+    ($this->workflowSetup)(); $this->workflow->saveSettings($this->central,($this->scopedSettings)());
+    $allowed=($this->pending)();
+    $older=$this->service->submit($this->campus,($this->olderStudent)(),now()->toDateString());
+    $legacy=$allowed->replicate()->forceFill(['approval_flow_mode'=>'legacy','status'=>'approved','approved_at'=>now(),'effective_date'=>now()->toDateString(),'student_snapshot'=>array_replace($allowed->student_snapshot,['name_en'=>'LEGACY CAMPUS STUDENT'])]); $legacy->save();
+    $outside=$allowed->replicate()->forceFill(['campus_id'=>2,'student_snapshot'=>array_replace($allowed->student_snapshot,['name_en'=>'OTHER CAMPUS STUDENT','campus_en'=>'DNG'])]); $outside->save();
+    $page=$this->actingAs(User::find(6))->get('/students/skipping-grade/my-approvals?scope=campus')->assertOk()
+        ->assertSee('SOK DARA')->assertSee('LEGACY CAMPUS STUDENT')->assertViewHas('records',fn($records)=>$records->getCollection()->every(fn($record)=>($record->student_snapshot['name_en']??null)!=='OLDER STUDENT'))->assertDontSee('OTHER CAMPUS STUDENT');
+    expect($page->viewData('records')->pluck('id')->all())->toEqualCanonicalizing([$allowed->id,$legacy->id]);
+    $this->get('/students/skipping-grade/'.$legacy->id)->assertOk();
+    foreach ([$older,$outside] as $hidden) $this->getJson('/students/skipping-grade/'.$hidden->id)->assertForbidden();
+    $this->get('/students/skipping-grade/my-approvals?scope=campus&status=approved')->assertOk()->assertSee('LEGACY CAMPUS STUDENT')->assertViewHas('records',fn($records)=>$records->getCollection()->every(fn($record)=>($record->student_snapshot['name_en']??null)!=='SOK DARA'));
+    $this->get('/students/skipping-grade/my-approvals?scope=campus&search=2612345')->assertOk()->assertSee('SOK DARA');
+    $this->get('/students/skipping-grade/my-approvals?scope=campus&search=missing')->assertOk()->assertViewHas('records',fn($records)=>$records->getCollection()->every(fn($record)=>($record->student_snapshot['name_en']??null)!=='SOK DARA'));
+    $this->actingAs(User::find(8))->get('/students/skipping-grade/my-approvals?scope=campus')->assertOk()
+        ->assertSee('OTHER CAMPUS STUDENT')->assertDontSee('LEGACY CAMPUS STUDENT')->assertViewHas('records',fn($records)=>$records->getCollection()->every(fn($record)=>($record->student_snapshot['name_en']??null)!=='OLDER STUDENT'));
+});
+
+it('campus requesters can browse their assigned campus and their own drafts',function () {
+    ($this->workflowSetup)(); $record=($this->draft)();
+    $other=$record->replicate()->forceFill(['campus_id'=>2,'created_by'=>8,'student_snapshot'=>array_replace($record->student_snapshot,['name_en'=>'OTHER CAMPUS STUDENT'])]); $other->save();
+    $page=$this->actingAs($this->campus)->get('/students/skipping-grade/my-approvals?scope=campus')->assertOk()->assertSee('SOK DARA')->assertDontSee('OTHER CAMPUS STUDENT');
+    expect($page->viewData('records')->pluck('id')->all())->toBe([$record->id]);
+    $this->get('/students/skipping-grade/my-approvals?scope=requests&status=draft')->assertOk()->assertSee('SOK DARA');
+    $this->getJson('/students/skipping-grade/my-approvals?scope=unknown')->assertUnprocessable();
+});
+
+it('current flow approvals remain available in personal review history',function (string $decision) {
+    ($this->configure)(); $record=($this->pending)();
+    $this->actingAs($this->central)->get('/students/skipping-grade/my-approvals?scope=approvals&status=pending')->assertOk()->assertSee('SOK DARA');
+    if ($decision==='approved') $this->service->approve($this->central,$record,$this->approval);
+    else $this->service->reject($this->central,$record,'Incomplete evidence');
+    $this->get('/students/skipping-grade/my-approvals?scope=approvals&status='.$decision)->assertOk()->assertSee('SOK DARA');
+    $this->get('/students/skipping-grade/my-approvals?scope=approvals&status=all')->assertOk()->assertSee('SOK DARA');
+    $this->get('/students/skipping-grade/my-approvals?scope=approvals&status=pending')->assertOk()->assertViewHas('records',fn($records)=>$records->getCollection()->every(fn($record)=>($record->student_snapshot['name_en']??null)!=='SOK DARA'));
+    $rejected=$this->get('/students/skipping-grade/my-approvals?scope=rejected')->assertOk();
+    if ($decision==='rejected') $rejected->assertSee('SOK DARA');
+    else $rejected->assertViewHas('records',fn($records)=>$records->getCollection()->every(fn($record)=>($record->student_snapshot['name_en']??null)!=='SOK DARA'));
+})->with(['approved','rejected']);
+
+it('personal request view choices follow requester and reviewer roles',function () {
+    ($this->workflowSetup)();
+    $reviewer=$this->actingAs(User::find(3))->get('/students/skipping-grade/my-approvals')->assertOk();
+    expect($reviewer->viewData('scopeOptions'))->toBe(['campus'=>'Campus Requests','approvals'=>'My Approval','rejected'=>'My Rejected']);
+    $requester=$this->actingAs($this->campus)->get('/students/skipping-grade/my-approvals')->assertOk();
+    expect($requester->viewData('scopeOptions'))->toBe(['campus'=>'Campus Requests','requests'=>'My Requested']);
+    ($this->grant)(3,['requests','create']);
+    $both=$this->actingAs(User::find(3))->get('/students/skipping-grade/my-approvals')->assertOk();
+    expect($both->viewData('scopeOptions'))->toBe(['campus'=>'Campus Requests','approvals'=>'My Approval','rejected'=>'My Rejected','requests'=>'My Requested']);
+});
+
+it('my rejected filters by the acting reviewer rather than the overall request status',function () {
+    ($this->workflowSetup)(); $record=($this->pending)();
+    $this->service->reject(User::find(3),$record,'Missing evidence',($this->stepData)($record));
+    $other=$this->service->submit($this->campus,($this->olderStudent)(),now()->toDateString());
+    $this->workflow->review(User::find(3),$other,($this->stepData)($other));
+    $this->service->reject(User::find(4),$other->fresh(),'Rejected at next step',($this->stepData)($other->fresh()));
+    $page=$this->actingAs(User::find(3))->get('/students/skipping-grade/my-approvals?scope=rejected&status=all')->assertOk()
+        ->assertSee('SOK DARA')->assertViewHas('records',fn($records)=>$records->getCollection()->every(fn($record)=>($record->student_snapshot['name_en']??null)!=='OLDER STUDENT'));
+    expect($page->viewData('status'))->toBe('rejected')->and($page->viewData('records')->pluck('id')->all())->toBe([$record->id]);
+    $this->get('/students/skipping-grade/my-approvals?scope=approvals&status=approved')->assertOk()->assertSee('OLDER STUDENT')->assertViewHas('records',fn($records)=>$records->getCollection()->every(fn($record)=>($record->student_snapshot['name_en']??null)!=='SOK DARA'));
+    $this->actingAs(User::find(4))->get('/students/skipping-grade/my-approvals?scope=rejected')->assertOk()->assertSee('OLDER STUDENT')->assertViewHas('records',fn($records)=>$records->getCollection()->every(fn($record)=>($record->student_snapshot['name_en']??null)!=='SOK DARA'));
+});
+
+it('personal approval and rejection lists show student photos and recorded current and skipped grades',function (string $decision) {
+    ($this->workflowSetup)();
+    DB::table('tb_academic_year')->insert(['id'=>2,'academic_year'=>'2026-2027','academic_year_code'=>'2627','lifecycle_status'=>'pending']);
+    DB::table('tb_class')->where('id',2)->update(['academic_year_id'=>2]);
+    DB::table('tb_session')->insert(['id'=>1,'session_name'=>'III']);
+    StudentEnrollment::whereKey(1)->update(['session_id'=>1]);
+    $photo=UploadedFile::fake()->image('inbox-student.png');
+    Storage::disk('public')->put('students/inbox-student.png',file_get_contents($photo->getRealPath()));
+    \App\Models\Student::find(1)->update(['photo_path'=>'students/inbox-student.png']);
+    $draft=$this->service->saveDraft($this->campus,array_replace($this->data,['target_academic_year_id'=>2,'target_session_id'=>1]));
+    $record=$this->service->submit($this->campus,$draft,now()->toDateString());
+    if ($decision==='approved') $this->workflow->review(User::find(3),$record,($this->stepData)($record));
+    else $this->service->reject(User::find(3),$record,'Missing evidence',($this->stepData)($record));
+    $url='/students/skipping-grade/my-approvals?'.http_build_query(['scope'=>$decision==='approved'?'approvals':'rejected','status'=>$decision]);
+    $page=$this->actingAs(User::find(3))->get($url)->assertOk()->assertSee('students/inbox-student.png')
+        ->assertSee('<th scope="col">Student Photo</th><th scope="col">Student</th><th scope="col">Current Grade</th><th scope="col">Skipped Grade</th>',false)
+        ->assertSee('<div>2025-2026</div><div>BCH-2A-III</div>',false)
+        ->assertSee('<div>2026-2027</div><div>BCH-4B-III</div>',false)->assertDontSee('<th>Campus / Year</th>',false);
+    expect($page->viewData('reportRows')[$record->id])->toMatchArray(['source_grade'=>'2A-III','target_grade'=>'4B-III']);
+    Storage::disk('public')->delete('students/inbox-student.png');
+    $this->get($url)->assertOk()->assertSee('No photo')->assertDontSee('students/inbox-student.png');
+})->with(['approved','rejected']);
+
+it('sequential workflow freezes reviewer photos and VP signer assets for pending requests',function () {
+    ($this->workflowSetup)();
+    $photoFile=UploadedFile::fake()->image('coordinator.png',80,80);
+    $photo=file_get_contents($photoFile->getRealPath());
+    Storage::disk('public')->put('staff/coordinator.png',$photo);
+    DB::table('users')->where('id',3)->update(['photo_path'=>'staff/coordinator.png']);
+    $record=($this->pending)(); $saved=$record->workflow_signer_snapshot;
+    expect($record->approvalSteps->first()->reviewer_snapshot['photo'])->toStartWith('data:image/jpeg;base64,');
+    Storage::disk('public')->delete('staff/coordinator.png');
+    Storage::disk('local')->delete(['settings/signature.png','settings/stamp.png']);
+    SkippingGradeSetting::current()->update(['signer_name_en'=>'New VP Name','signer_name_kh'=>'New VP KH']);
+    foreach ([3,4,9] as $id) $this->workflow->review(User::find($id),$record->fresh(),($this->stepData)($record->fresh()));
+    $approved=$this->service->approve(User::find(5),$record->fresh(),$this->approval+($this->stepData)($record->fresh()));
+    expect($approved->approval_snapshot['signer_name_en'])->toBe('KING ROTH MONY')
+        ->and(Storage::disk('local')->get($approved->approval_snapshot['signature_path']))->toBe(Storage::disk('local')->get($saved['signature_path']));
+});
+
+it('sequential workflow final approval rolls back the decision if enrollment validation fails',function () {
+    ($this->workflowSetup)(); $record=($this->pending)();
+    foreach ([3,4,9] as $id) $this->workflow->review(User::find($id),$record->fresh(),($this->stepData)($record->fresh()));
+    StudentEnrollment::find(1)->update(['class_id'=>2]);
+    $this->actingAs(User::find(5))->postJson('/students/skipping-grade/'.$record->id.'/approve',$this->approval+($this->stepData)($record->fresh()))->assertUnprocessable();
+    expect($record->fresh()->status)->toBe('pending')->and($record->fresh()->approvalSteps->last()->status)->toBe('pending')
+        ->and(DB::table('tb_student_enrollment_history')->count())->toBe(0)->and(Storage::disk('local')->allFiles('grade-skipping/approvals'))->toBe([]);
+});
+
+it('sequential workflow can reassign a waiting final reviewer and retain the earlier decisions',function () {
+    ($this->workflowSetup)(); $record=($this->pending)(); $final=$record->approvalSteps->last();
+    $originalSigner=$record->workflow_signer_snapshot;
+    SkippingGradeSetting::current()->update(['signer_name_kh'=>'Replacement VP KH','signer_name_en'=>'Replacement VP']);
+    $url='/students/skipping-grade/'.$record->id.'/reviewers/'.$final->id.'/reassign';
+    $this->actingAs($this->central)->postJson($url,['reviewer_id'=>9,'revision'=>1,'reason'=>'Vice President appointment changed'])->assertOk();
+    expect($final->fresh()->status)->toBe('waiting')->and($record->fresh()->workflow_signer_snapshot['signer_name_en'])->toBe('Replacement VP')
+        ->and(Storage::disk('local')->exists($originalSigner['signature_path']))->toBeTrue();
+    foreach ([3,4,9] as $id) $this->workflow->review(User::find($id),$record->fresh(),($this->stepData)($record->fresh()));
+    $this->actingAs(User::find(5))->postJson('/students/skipping-grade/'.$record->id.'/approve',$this->approval+($this->stepData)($record->fresh()))->assertForbidden();
+    $this->actingAs(User::find(9))->postJson('/students/skipping-grade/'.$record->id.'/approve',$this->approval+($this->stepData)($record->fresh()))->assertOk();
+    expect($record->fresh()->approval_snapshot['signer_name_en'])->toBe('Replacement VP')->and($record->fresh()->approvalSteps->first()->actor_snapshot['name'])->toBe('KH Coordinator');
+});
+
+it('sequential workflow blocks inactive reviewers and validates the latest configuration on submission',function () {
+    ($this->workflowSetup)(); $draft=($this->draft)();
+    DB::table('users')->where('id',4)->update(['status'=>0]);
+    $this->actingAs($this->campus)->postJson('/students/skipping-grade/'.$draft->id.'/submit',['parent_signed'=>1,'parent_signed_date'=>now()->toDateString()])->assertUnprocessable();
+    expect($draft->fresh()->status)->toBe('draft')->and($draft->approvalSteps()->count())->toBe(0)
+        ->and(Storage::disk('local')->allFiles('grade-skipping/workflow-signers'))->toBe([]);
+    DB::table('users')->where('id',4)->update(['status'=>1]);
+    $record=$this->service->submit($this->campus,$draft->fresh(),now()->toDateString());
+    DB::table('users')->where('id',3)->update(['status'=>0]);
+    expect($this->workflow->canAct(User::find(3),$record))->toBeFalse();
+    $first=$record->approvalSteps->first();
+    $this->workflow->reassign($this->central,$record,$first->id,['reviewer_id'=>6,'revision'=>1,'reason'=>'Reviewer account deactivated']);
+    expect($this->workflow->canAct(User::find(6),$record->fresh()))->toBeTrue();
+});
+
+it('sequential workflow leaves the original flow usable for requests created after switching back',function () {
+    ($this->workflowSetup)();
+    $this->workflow->saveSettings($this->central,($this->workflowSettings)('legacy'));
+    $legacy=($this->pending)();
+    expect($legacy->approval_flow_mode)->toBe('legacy')->and($legacy->approvalSteps()->count())->toBe(0);
+    $approved=$this->service->approve($this->central,$legacy,$this->approval);
+    expect($approved->status)->toBe('approved')->and($approved->approvalSteps()->count())->toBe(0)->and(StudentEnrollment::find(1)->grade_id)->toBe(2);
+});
+
+it('sequential workflow rejects a repeated decision when the same person has consecutive roles',function () {
+    ($this->workflowSetup)();
+    \App\Models\SkippingGradeCampusSetting::where('campus_id',1)->update(['approval_steps'=>json_encode([
+        ['title'=>'KH Coordinator','user_id'=>3],['title'=>'Acting VSP','user_id'=>3],
+    ])]);
+    $record=($this->pending)(); $data=($this->stepData)($record); $url='/students/skipping-grade/'.$record->id.'/review';
+    $this->actingAs(User::find(3))->postJson($url,$data)->assertOk();
+    $this->postJson($url,$data)->assertUnprocessable()->assertJsonValidationErrors('status');
+    expect($record->approvalSteps()->where('status','approved')->count())->toBe(1)
+        ->and($this->workflow->currentStep($record->fresh())->title)->toBe('Acting VSP');
+});
+
+it('prints the same approved requests filtered by current year campus class group approval and search', function () {
+    (require database_path('migrations/2026_10_10_000001_add_skipping_report_permissions.php'))->up();
+    (require database_path('migrations/2026_10_10_000002_move_skipping_report_into_requests.php'))->up();
+    DB::table('tb_academic_year')->insert(['id'=>2,'academic_year'=>'2026-2027','academic_year_code'=>'2627']);
+    DB::table('tb_session')->insert(['id'=>1,'session_name'=>'III']);
+    Storage::fake('public');
+    Storage::disk('public')->put('students/report-photo.png',base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j3ioAAAAASUVORK5CYII='));
+    DB::table('tb_student')->where('id',1)->update(['photo_path'=>'students/report-photo.png']);
+    $draft=($this->draft)();
+    $snapshot=$draft->student_snapshot;
+    $snapshot['target_academic_year']='2026-2027';
+    $snapshot['source_session']='M';
+    $snapshot['target_session']='III';
+    $approved=$draft->replicate()->forceFill(['status'=>'approved','reference_number'=>'BCH-2627-001','target_academic_year_id'=>2,'target_session_id'=>1,'source_session_id'=>1,'student_snapshot'=>$snapshot]);
+    $approved->save();
+    $otherCampus=$approved->replicate()->forceFill(['campus_id'=>2,'reference_number'=>'DNG-2627-002']); $otherCampus->save();
+    $otherGroup=$approved->replicate()->forceFill(['source_session_id'=>null,'reference_number'=>'BCH-2627-003']); $otherGroup->save();
+    foreach (['pending','rejected'] as $status) $approved->replicate()->forceFill(['status'=>$status,'reference_number'=>null])->save();
+    $this->actingAs($this->central);
+    $this->get('/students/skipping-grade')->assertOk()->assertDontSee('Skipping Reports')->assertDontSee('Print Reports')
+        ->assertSee('Print List')->assertSee('Print Statistics')->assertSee('Excel')->assertSee('PDF')->assertSee('Share Statistics')
+        ->assertSee('data-skipping-report-print',false)->assertSee('data-skipping-share-statistics',false);
+    $this->get('/students/skipping-grade?academic_year_id=2&status=approved')->assertOk()->assertViewHas('records',fn($rows)=>$rows->isEmpty());
+    $year=$this->get('/students/skipping-grade?academic_year_id=1&status=approved')->assertOk()->assertSee('students/report-photo.png')->assertSee('data-skipping-report-print',false);
+    expect($year->viewData('records')->total())->toBe(3)
+        ->and($year->viewData('campuses')->pluck('id')->all())->toBe([1,2])
+        ->and($year->viewData('reportRows')[$approved->id])->toMatchArray(['source_grade'=>'2A-M','target_grade'=>'4B-III','dob'=>'02-Mar-2017']);
+    $query=['academic_year_id'=>1,'campus_id'=>1,'status'=>'approved','grade_class'=>'1:1:1','approval_number'=>'BCH-2627-001'];
+    $actions=$this->get('/students/skipping-grade?'.http_build_query($query))->assertOk();
+    foreach (['data-skipping-report-print','data-skipping-statistics-print'] as $attribute) {
+        preg_match('/href="([^"]+)" '.$attribute.'/', $actions->getContent(), $printLink);
+        expect($printLink)->toHaveCount(2);
+        parse_str(parse_url(html_entity_decode($printLink[1]),PHP_URL_QUERY),$printQuery);
+        expect($printQuery)->toMatchArray($query+['autoprint'=>'1'])->not->toHaveKey('per_page');
+    }
+    foreach (['xlsx','pdf'] as $format) {
+        foreach (['list','statistics'] as $kind) {
+            preg_match('/href="([^"]+\/reports\/'.$kind.'\/export\/'.$format.'[^"]*)"/', $actions->getContent(), $exportLink);
+            expect($exportLink)->toHaveCount(2);
+            parse_str(parse_url(html_entity_decode($exportLink[1]),PHP_URL_QUERY),$exportQuery);
+            expect($exportQuery)->toMatchArray($query)->not->toHaveKey('per_page')->not->toHaveKey('autoprint');
+        }
+    }
+    $actions->assertSee(route('student-skipping-grade.statistics.print',\Illuminate\Support\Arr::except($query,['status'])+['status'=>'approved']));
+    foreach (['SOK DARA','2612345','BCH-2627-001','SOK RITH','012345678',$snapshot['name_kh']] as $term) {
+        $page=$this->get('/students/skipping-grade?'.http_build_query($query+['search'=>$term]))->assertOk();
+        expect($page->viewData('records')->pluck('id')->all())->toBe([$approved->id]);
+        $print=$this->get('/students/skipping-grade/print-report?'.http_build_query($query+['search'=>$term]))->assertOk();
+        expect($print->viewData('records')->pluck('id')->all())->toBe([$approved->id]);
+    }
+    $this->get('/students/skipping-grade?'.http_build_query($query+['search'=>'missing']))->assertOk()->assertViewHas('records',fn($rows)=>$rows->isEmpty());
+    $print=$this->get('/students/skipping-grade/print-report?'.http_build_query($query))->assertOk()->assertSee('Skipped To')->assertSee('02-Mar-2017')->assertSee('2A-M')->assertSee('4B-III')->assertSee('2025-2026')->assertSee('2026-2027')->assertDontSee('Data Filters');
+    expect($print->viewData('records')->pluck('id')->all())->toBe([$approved->id]);
+    $this->get('/students/skipping-grade/print-report')->assertOk()->assertSee('Status: All Statuses');
+    $this->getJson('/students/skipping-grade/print-report?status=invalid')->assertUnprocessable()->assertJsonValidationErrors('status');
+    $this->getJson('/students/skipping-grade?grade_class=bad')->assertUnprocessable()->assertJsonValidationErrors('grade_class');
+    for ($i=1;$i<=24;$i++) $approved->replicate()->forceFill(['reference_number'=>'BCH-BULK-'.$i])->save();
+    $list=$this->get('/students/skipping-grade?academic_year_id=1&campus_id=1&grade_class=1:1:1&status=approved&per_page=20')->assertOk();
+    expect($list->viewData('records')->count())->toBe(20)->and($list->viewData('records')->total())->toBe(25);
+    $all=$this->get('/students/skipping-grade/print-report?academic_year_id=1&campus_id=1&grade_class=1:1:1&status=approved&per_page=20&page=2')->assertOk();
+    expect($all->viewData('records'))->toHaveCount(25);
+    expect($this->get('/students/skipping-grade/print-report?status=approved')->assertOk()->viewData('records'))->toHaveCount(27);
+});
+
+it('prints every selected status using the same filters and link as the request list', function () {
+    (require database_path('migrations/2026_10_10_000001_add_skipping_report_permissions.php'))->up();
+    (require database_path('migrations/2026_10_10_000002_move_skipping_report_into_requests.php'))->up();
+    $draft=($this->draft)();
+    $approved=$draft->replicate()->forceFill(['status'=>'approved','reference_number'=>'BCH-PRINT-001']); $approved->save();
+    foreach (['pending','rejected'] as $status) $draft->replicate()->forceFill(['status'=>$status])->save();
+    $draft->replicate()->forceFill(['campus_id'=>2])->save();
+    $this->actingAs($this->central);
+    foreach ([''=>'All Statuses','draft'=>'Draft','pending'=>'Submitted','approved'=>'Approved','rejected'=>'Rejected'] as $status=>$label) {
+        $query=['academic_year_id'=>1,'campus_id'=>1,'status'=>$status,'grade_class'=>'1:1:none','search'=>'012345678','per_page'=>20];
+        $page=$this->get('/students/skipping-grade?'.http_build_query($query))->assertOk()->assertSee('data-skipping-report-print',false);
+        preg_match('/href="([^"]+)" data-skipping-report-print/', $page->getContent(), $link);
+        expect($link)->toHaveCount(2);
+        $url=html_entity_decode($link[1],ENT_QUOTES);
+        parse_str(parse_url($url,PHP_URL_QUERY),$params);
+        expect($params)->toMatchArray(['academic_year_id'=>'1','campus_id'=>'1','grade_class'=>'1:1:none','search'=>'012345678'])
+            ->and($params['status']??'')->toBe($status)->and($params)->not->toHaveKey('per_page');
+        $print=$this->get($url)->assertOk()->assertSee('Status: '.$label)->assertSee('BCH');
+        expect($print->viewData('records')->pluck('id')->all())->toBe($page->viewData('records')->pluck('id')->all())
+            ->and($print->viewData('records'))->toHaveCount($status===''?4:1);
+        if ($status==='') {
+            foreach (['Draft','Submitted','Approved','Rejected'] as $rowStatus) $print->assertSee('Status: '.$rowStatus);
+            $print->assertSee('Total Student: 4 ( Approved: 1 | Rejected: 1 | Draft: 1 | Submitted: 1 )');
+        } else {
+            $print->assertSee('Total Student: 1')->assertDontSee('( Approved:');
+        }
+    }
+    $this->get('/students/skipping-grade?academic_year_id=1')->assertOk()->assertSee('data-skipping-report-print',false);
+    expect($this->get('/students/skipping-grade/print-report?academic_year_id=1')->assertOk()->viewData('records'))->toHaveCount(5);
+    $this->get('/students/skipping-grade/print-report?academic_year_id=1')->assertOk()
+        ->assertSee('Total Student: 5 ( Approved: 1 | Rejected: 1 | Draft: 2 | Submitted: 1 )');
+    $this->get('/students/skipping-grade?academic_year_id=1&status=draft')->assertOk()
+        ->assertSee('data-skipping-report-print',false);
+    $this->get('/students/skipping-grade?academic_year_id=1&search=missing')->assertOk()
+        ->assertSee('data-skipping-report-help',false)->assertDontSee('data-skipping-report-print',false)
+        ->assertSee('data-skipping-report-export="statistics"',false)->assertDontSee('data-skipping-report-export="list"',false);
+});
+
+it('requires requests and print permission for A4 reports and removes the former report tab permission', function () {
+    (require database_path('migrations/2026_10_10_000001_add_skipping_report_permissions.php'))->up();
+    (require database_path('migrations/2026_10_10_000002_move_skipping_report_into_requests.php'))->up();
+    $this->actingAs($this->campus)->get('/students/skipping-grade')->assertOk();
+    expect(DB::table('access_permissions')->where('code','student-skipping-grade.reports')->exists())->toBeFalse();
+    $this->get('/students/skipping-grade/reports')->assertNotFound();
+    $printId=DB::table('access_permissions')->where('code','student-skipping-grade.print-reports')->value('id');
+    DB::table('access_role_permissions')->where('permission_id',$printId)->where('role_id',1)->delete();
+    $this->get('/students/skipping-grade')->assertOk()->assertDontSee('data-skipping-report-export',false)->assertDontSee('data-skipping-share-statistics',false);
+    $this->getJson('/students/skipping-grade/print-report?status=approved&academic_year_id=1')->assertForbidden();
+    ($this->grant)(1,['print-reports']);
+    $this->get('/students/skipping-grade/print-report?status=approved&academic_year_id=1')->assertOk();
+    foreach (['requests'] as $action) {
+        $id=DB::table('access_permissions')->where('code','student-skipping-grade.'.$action)->value('id');
+        DB::table('access_user_permission_overrides')->updateOrInsert(['user_id'=>1,'permission_id'=>$id],['allowed'=>false]);
+        DB::table('access_role_permissions')->where('permission_id',$id)->where('role_id',1)->delete();
+    }
+    $this->getJson('/students/skipping-grade')->assertForbidden();
+    $this->getJson('/students/skipping-grade/print-report?status=approved&academic_year_id=1')->assertForbidden();
+});
+
+it('summarizes unique skipping students by current grade campus and gender using the report filters', function () {
+    (require database_path('migrations/2026_10_10_000001_add_skipping_report_permissions.php'))->up();
+    (require database_path('migrations/2026_10_10_000002_move_skipping_report_into_requests.php'))->up();
+    $draft = ($this->draft)();
+    $approved = $draft->replicate()->forceFill(['status'=>'approved','reference_number'=>'BCH-STAT-001']); $approved->save();
+    $approved->replicate()->forceFill(['reference_number'=>'BCH-STAT-002'])->save(); // A second matching request must not count the same student twice.
+    foreach ([2=>['2','4',1,1],3=>['4','6',1,2],4=>['N','K2',2,1]] as $id=>$placement) {
+        DB::table('tb_student')->insert(['id'=>$id,'student_id'=>'STAT-'.$id,'full_name_en'=>'STUDENT '.$id,'full_name_kh'=>'សិស្ស','date_of_birth'=>'2017-03-02','gender'=>'female']);
+        $snapshot = array_replace($draft->student_snapshot, ['student_id'=>'STAT-'.$id,'name_en'=>'STUDENT '.$id,'gender'=>'female','source_grade'=>$placement[0],'target_grade'=>$placement[1],'campus_en'=>$placement[2]===1?'BCH':'DNG']);
+        $approved->replicate()->forceFill(['student_id'=>$id,'campus_id'=>$placement[2],'source_grade_id'=>$placement[3],'reference_number'=>'STAT-'.$id,'student_snapshot'=>$snapshot])->save();
+    }
+    DB::table('tb_student')->insert(['id'=>5,'student_id'=>'DRAFT-5','full_name_en'=>'DRAFT STUDENT','full_name_kh'=>'សិស្ស','date_of_birth'=>'2017-03-02','gender'=>'male']);
+    $draft->replicate()->forceFill(['student_id'=>5])->save();
+    $this->actingAs($this->central);
+    $preview = $this->get('/students/skipping-grade/print-statistics?academic_year_id=1')->assertOk()->assertSee('Statistics of Students Skipping Grades')->assertSee('Status: Approved')->assertDontSee('2 skipped to 4')->assertDontSee('3 skipped to 5')->assertSee('4 skipped to 6')->assertSee('N skipped to K2')->assertSee('Share / A4 Image')->assertSee('Excel')->assertSee('PDF');
+    $stats = $preview->viewData('statistics');
+    preg_match_all('/<th[^>]*statistics-grade-header[^>]*>(.*?)<\/th>/s',$preview->getContent(),$gradeHeaders);
+    $expectedHeaders=['N→K2','K1→K3','K2→G1','K3→G2',...array_map(fn($grade)=>'G'.$grade.'→G'.($grade+2),range(1,10))];
+    expect(array_map(fn($header)=>trim(preg_replace('/\s+/u',' ',strip_tags($header))),$gradeHeaders[1]))->toBe($expectedHeaders);
+    expect($stats['total'])->toBe(4)->and($stats['female'])->toBe(3)
+        ->and($stats['totals']['2'])->toBe(['total'=>2,'female'=>1])
+        ->and($stats['totals']['4'])->toBe(['total'=>1,'female'=>1])
+        ->and($stats['totals']['N'])->toBe(['total'=>1,'female'=>1])
+        ->and($stats['rows'][0])->toMatchArray(['campus'=>'BCH','total'=>3,'female'=>2])
+        ->and($stats['rows'][1])->toMatchArray(['campus'=>'DNG','total'=>1,'female'=>1])
+        ->and($stats['groupTotals']['primary'])->toMatchArray(['total'=>3,'female'=>2]);
+    foreach (['','draft','pending','approved','rejected'] as $status) {
+        $approvedOnly=$this->get('/students/skipping-grade/print-statistics?academic_year_id=1&status='.$status)->assertOk()
+            ->assertSee('Status: Approved')->assertDontSee('statisticsStatus')->assertDontSee('Status: All Statuses');
+        expect($approvedOnly->viewData('statistics')['total'])->toBe(4)
+            ->and($approvedOnly->viewData('records')->pluck('status')->unique()->all())->toBe(['approved'])
+            ->and($approvedOnly->viewData('exportFilters')['status'])->toBe('approved');
+    }
+    foreach (['campus_id=2','approval_number=STAT-4','search=STAT-4'] as $filter) {
+        $stats = $this->get('/students/skipping-grade/print-statistics?academic_year_id=1&'.$filter)->assertOk()->viewData('statistics');
+        expect($stats['total'])->toBe(1)->and($stats['female'])->toBe(1);
+    }
+    expect($this->get('/students/skipping-grade/print-statistics?grade_class=2:1:none')->assertOk()->viewData('statistics')['total'])->toBe(1);
+    expect($this->get('/students/skipping-grade/print-statistics?search=missing')->assertOk()->viewData('statistics')['total'])->toBe(0);
+    $this->getJson('/students/skipping-grade/print-statistics?status=invalid')->assertUnprocessable();
+    DB::table('tb_academic_year')->insert(['id'=>2,'academic_year'=>'2026-2027','academic_year_code'=>'2627']);
+    $approved->replicate()->forceFill(['academic_year_id'=>2,'reference_number'=>'BCH-NEXT-YEAR'])->save();
+    expect($this->get('/students/skipping-grade/print-statistics')->assertOk()->viewData('statistics')['total'])->toBe(5);
+});
+
+it('exports filtered skipping lists and statistics as real A4 PDFs and Excel workbooks with permission checks', function () {
+    (require database_path('migrations/2026_10_10_000001_add_skipping_report_permissions.php'))->up();
+    (require database_path('migrations/2026_10_10_000002_move_skipping_report_into_requests.php'))->up();
+    Storage::fake('public');
+    $image = imagecreatetruecolor(20, 30); ob_start(); imagepng($image); $png = ob_get_clean(); imagedestroy($image);
+    Storage::disk('public')->put('students/export-photo.png', $png);
+    DB::table('tb_student')->where('id',1)->update(['photo_path'=>'students/export-photo.png']);
+    DB::table('tb_academic_year')->insert(['id'=>2,'academic_year'=>'2026-2027','academic_year_code'=>'2627','lifecycle_status'=>'pending']);
+    DB::table('tb_class')->where('id',2)->update(['academic_year_id'=>2]);
+    $draft = $this->service->saveDraft($this->campus,array_replace($this->data,['target_academic_year_id'=>2]));
+    $approved = $draft->replicate()->forceFill(['status'=>'approved','reference_number'=>'EXPORT-001','approval_date'=>'2026-09-25']); $approved->save();
+    $this->actingAs($this->central);
+    $this->get('/students/skipping-grade/print-report?status=approved')->assertOk()->assertSee('25-Sep-2026')->assertSee('Stu. ID:')->assertSee('No.:')->assertDontSee('Approved No.:');
+    $yearSubtitle='From Academic Year: 2025-2026 Skipped to Academic Year: 2026-2027';
+    $this->get('/students/skipping-grade/print-statistics?academic_year_id=1')->assertOk()->assertSee($yearSubtitle);
+    $this->get('/students/skipping-grade/print-statistics?academic_year_id=1&search=missing')->assertOk()
+        ->assertSee('From Academic Year: 2025-2026 Skipped to Academic Year: —')->assertDontSee($yearSubtitle);
+    foreach (['list','statistics'] as $kind) {
+        $query = '?academic_year_id=1&campus_id=1&status='.($kind==='statistics'?'rejected':'approved').'&approval_number=EXPORT-001';
+        $xlsx = $this->get('/students/skipping-grade/reports/'.$kind.'/export/xlsx'.$query)->assertOk()->assertHeader('Content-Type','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        $path = tempnam(sys_get_temp_dir(), 'skipping-test-');
+        try {
+            file_put_contents($path,$xlsx->getContent()); $zip = new ZipArchive(); expect($zip->open($path))->toBeTrue();
+            foreach (['[Content_Types].xml','xl/workbook.xml','xl/styles.xml','xl/worksheets/sheet1.xml'] as $part) expect(simplexml_load_string($zip->getFromName($part)))->not->toBeFalse();
+            $sheet = $zip->getFromName('xl/worksheets/sheet1.xml');
+            expect($sheet)->toContain('BCH','EXPORT-001','paperSize="9"','orientation="'.($kind==='statistics'?'landscape':'portrait').'"')->not->toContain('<f>');
+            if ($kind==='list') expect($sheet)->toContain('SOK DARA','សុខ ដារា','012345678','25-Sep-2026')->and($zip->getFromName('xl/media/image1.png'))->not->toBeFalse();
+            else expect($sheet)->toContain($yearSubtitle,'Grand Total','Female: 0','N→K2','K1→K3','K2→G1','K3→G2',...array_map(fn($grade)=>'G'.$grade.'→G'.($grade+2),range(1,10)))->not->toContain('2 skipped to 4','3 skipped to 5');
+            $zip->close();
+        } finally { unlink($path); }
+        $pdf = $this->get('/students/skipping-grade/reports/'.$kind.'/export/pdf'.$query)->assertOk()->assertHeader('Content-Type','application/pdf');
+        expect(substr($pdf->getContent(), 0, 5))->toBe('%PDF-');
+        preg_match('/\/MediaBox \[0 0 ([\d.]+) ([\d.]+)\]/', $pdf->getContent(), $box);
+        expect(round((float)$box[1], 1))->toBe($kind==='statistics'?841.9:595.3)
+            ->and(round((float)$box[2], 1))->toBe($kind==='statistics'?595.3:841.9);
+    }
+    $this->get('/students/skipping-grade/reports/statistics/export/xlsx?status=')->assertOk();
+    $this->get('/students/skipping-grade/reports/list/export/csv')->assertNotFound();
+    $this->actingAs($this->campus);
+    $printId = DB::table('access_permissions')->where('code','student-skipping-grade.print-reports')->value('id');
+    DB::table('access_role_permissions')->where('permission_id',$printId)->where('role_id',1)->delete();
+    foreach (['/print-statistics','/reports/list/export/pdf','/reports/list/export/xlsx','/reports/statistics/export/pdf','/reports/statistics/export/xlsx'] as $path) $this->getJson('/students/skipping-grade'.$path)->assertForbidden();
+    ($this->grant)(1, ['print-reports']);
+    $requestsId = DB::table('access_permissions')->where('code','student-skipping-grade.requests')->value('id');
+    DB::table('access_user_permission_overrides')->updateOrInsert(['user_id'=>1,'permission_id'=>$requestsId],['allowed'=>false]);
+    DB::table('access_role_permissions')->where('permission_id',$requestsId)->where('role_id',1)->delete();
+    foreach (['/print-statistics','/reports/list/export/pdf','/reports/list/export/xlsx','/reports/statistics/export/pdf','/reports/statistics/export/xlsx'] as $path) $this->getJson('/students/skipping-grade'.$path)->assertForbidden();
 });
 
 it('paginates skipping requests with a default of 20 and supports all rows without losing filters', function () {
-    Schema::create('user_notifications', function (Blueprint $t) { $t->id(); $t->integer('user_id'); $t->timestamp('read_at')->nullable(); $t->timestamps(); });
     $record=($this->draft)();
     for ($i=0;$i<100;$i++) $record->replicate()->save();
     $otherCampus=$record->replicate();
@@ -102,7 +1523,6 @@ it('paginates skipping requests with a default of 20 and supports all rows witho
 });
 
 it('scopes list campuses by year and statuses by year and campus without narrowing options by text search', function () {
-    Schema::create('user_notifications', function (Blueprint $t) { $t->id(); $t->integer('user_id'); $t->timestamp('read_at')->nullable(); $t->timestamps(); });
     DB::table('tb_academic_year')->insert(['id'=>2,'academic_year'=>'2026-2027','academic_year_code'=>'2627']);
     DB::table('tb_school_info')->insert(['id'=>3,'campus_name_en'=>'TK','campus_name_kh'=>'ទួលគោក']);
     $draft=($this->draft)();
@@ -132,7 +1552,6 @@ it('scopes list campuses by year and statuses by year and campus without narrowi
 });
 
 it('protects campus settings with separate tab and save permissions and assigned campus checks', function () {
-    Schema::create('user_notifications', function (Blueprint $t) { $t->id(); $t->integer('user_id'); $t->timestamp('read_at')->nullable(); $t->timestamps(); });
     $this->actingAs($this->campus)->getJson('/students/skipping-grade/campus-settings')->assertForbidden();
     ($this->grant)(1,['campus-settings']);
     $page=$this->get('/students/skipping-grade/campus-settings')->assertOk()->assertSee('Campus Committee')->assertDontSee('Save Campus Settings');
@@ -185,7 +1604,6 @@ it('restricts both template editors previews and saves to explicit template perm
 });
 
 it('renders every editable block in both sample previews without creating a request or moving a student', function () {
-    Schema::create('user_notifications', function (Blueprint $t) { $t->id(); $t->integer('user_id'); $t->timestamp('read_at')->nullable(); $t->timestamps(); });
     DB::table('tb_academic_year')->insert(['id'=>2,'academic_year'=>'2026-2027','academic_year_code'=>'AY26-27','lifecycle_status'=>'pending']);
     ($this->configure)();
     SkippingGradeSetting::current()->update(['number_prefix'=>'SK','signer_name_kh'=>'គីង រដ្ឋមុនី']);
@@ -307,7 +1725,6 @@ it('saves independent templates and safely renders automatic values in actual re
 });
 
 it('saves school logo position size and removal separately in both form templates and printouts', function ($form) {
-    Schema::create('user_notifications', function (Blueprint $t) { $t->id(); $t->integer('user_id'); $t->timestamp('read_at')->nullable(); $t->timestamps(); });
     $templates=app(\App\Services\SkippingGradeTemplateService::class);
     $record=($this->pending)();
     ($this->configure)();
@@ -477,7 +1894,6 @@ it('persists added checkbox states geometry and deletion in both previews and ac
 });
 
 it('links replacement checkboxes to saved request and approval values without adding duplicate entry options', function () {
-    Schema::create('user_notifications', function (Blueprint $t) { $t->id(); $t->integer('user_id'); $t->timestamp('read_at')->nullable(); $t->timestamps(); });
     $templates=app(\App\Services\SkippingGradeTemplateService::class);
     $criteria=['age'=>false,'average'=>true,'documents'=>false,'recommendation'=>true];
     $record=$this->service->saveDraft($this->campus,array_replace($this->data,['criteria'=>$criteria]));
@@ -539,7 +1955,6 @@ it('rejects invalid checkbox bindings and bindings on other object types', funct
 ]);
 
 it('shows template checkbox options on request entry and saves editable selections for the student printout', function () {
-    Schema::create('user_notifications', function (Blueprint $t) { $t->id(); $t->integer('user_id'); $t->timestamp('read_at')->nullable(); $t->timestamps(); });
     $template=[
         'custom-extra'=>['type'=>'checkbox','option_label'=>'Additional document verified','checked'=>true,'left'=>20,'top'=>160,'width'=>4,'height'=>4],
         'custom-second'=>['type'=>'checkbox','option_label'=>'ពិនិត្យឯកសារ <b>extra</b>','left'=>20,'top'=>170,'width'=>4,'height'=>4],
@@ -572,7 +1987,6 @@ it('shows template checkbox options on request entry and saves editable selectio
 });
 
 it('saves approval checkbox choices separately from request choices and keeps their labels on the approved record', function () {
-    Schema::create('user_notifications', function (Blueprint $t) { $t->id(); $t->integer('user_id'); $t->timestamp('read_at')->nullable(); $t->timestamps(); });
     $checkbox=['type'=>'checkbox','left'=>20,'top'=>180,'width'=>4,'height'=>4,'checked'=>true];
     SkippingGradeSetting::current()->update([
         'request_template'=>['custom-shared'=>$checkbox+['option_label'=>'Request extra option']],
@@ -789,11 +2203,13 @@ it('saves a draft snapshot and preserves the current enrollment until final appr
 });
 
 it('shows all campus students and requests but only permits campus changes for assigned campuses', function () {
-    Schema::create('user_notifications', function (Blueprint $t) { $t->id(); $t->integer('user_id'); $t->timestamp('read_at')->nullable(); $t->timestamps(); });
     DB::table('tb_student')->insert(['id'=>2,'student_id'=>'OTHER123','full_name_en'=>'OTHER CAMPUS STUDENT','full_name_kh'=>'សុខ','date_of_birth'=>'2017-03-02']);
     DB::table('tb_student_enrollment')->insert(['id'=>2,'student_id'=>2,'campus_id'=>2,'academic_year_id'=>1,'grade_id'=>1,'class_id'=>1]);
     $data=array_replace($this->data,['enrollment_id'=>2]);
-    $this->actingAs($this->campus)->get('/students/skipping-grade/create')->assertOk()->assertSee('DNG');
+    $this->actingAs($this->campus)->get('/students/skipping-grade/create')->assertOk()->assertDontSee('DNG')->assertSee('request_action=create',false);
+    $this->getJson('/students/skipping-grade/students?request_action=create&campus_id=2')->assertOk()->assertJsonCount(0,'students');
+    $this->getJson('/students/skipping-grade/source-classes?request_action=create&campus_id=2')->assertOk()->assertJsonCount(0,'classes');
+    $this->getJson('/students/skipping-grade/enrollment/2?request_action=create')->assertForbidden();
     $this->getJson('/students/skipping-grade/students?campus_id=2')->assertOk()->assertJsonPath('students.0.label','OTHER CAMPUS STUDENT');
     $this->getJson('/students/skipping-grade/source-classes?campus_id=2')->assertOk()->assertJsonPath('classes.0.value','1:1');
     $this->getJson('/students/skipping-grade/enrollment/2')->assertOk()->assertJsonPath('can_request',false);
@@ -818,7 +2234,6 @@ it('shows all campus students and requests but only permits campus changes for a
 });
 
 it('offers table editing only for authorized campus drafts and locks edits once submitted to central office', function () {
-    Schema::create('user_notifications', function (Blueprint $t) { $t->id(); $t->integer('user_id'); $t->timestamp('read_at')->nullable(); $t->timestamps(); });
     $record=($this->draft)();
     $editUrl=route('student-skipping-grade.edit',$record);
     $updateUrl=route('student-skipping-grade.update',$record);
@@ -854,7 +2269,6 @@ it('allows explicitly authorized central approval across campuses without campus
 });
 
 it('lets central editors change draft and submitted requests across campuses while preserving submission and enrollment', function ($status) {
-    Schema::create('user_notifications', function (Blueprint $t) { $t->id(); $t->integer('user_id'); $t->timestamp('read_at')->nullable(); $t->timestamps(); });
     DB::table('access_user_campuses')->insert(['user_id'=>1,'campus_id'=>2]);
     StudentEnrollment::whereKey(1)->update(['campus_id'=>2]);
     $record=($this->draft)();
@@ -890,7 +2304,6 @@ it('lets central editors change draft and submitted requests across campuses whi
 })->with(['draft','pending']);
 
 it('controls each tab independently and prevents view-only settings and template users from saving', function () {
-    Schema::create('user_notifications', function (Blueprint $t) { $t->id(); $t->integer('user_id'); $t->timestamp('read_at')->nullable(); $t->timestamps(); });
     $requestsId=DB::table('access_permissions')->where('code','student-skipping-grade.requests')->value('id');
     DB::table('access_role_permissions')->where('role_id',1)->where('permission_id',$requestsId)->delete();
     ($this->grant)(1,['request-template']);
@@ -1089,7 +2502,6 @@ it('sorts student choices A to Z by English name before applying the result limi
 });
 
 it('includes the current student photo in the selected student preview with a safe missing-photo fallback', function () {
-    Schema::create('user_notifications', function (Blueprint $t) { $t->id(); $t->integer('user_id'); $t->timestamp('read_at')->nullable(); $t->timestamps(); });
     Storage::fake('public');
     Storage::disk('public')->put('students/new-photo.png','photo');
     DB::table('tb_student')->where('id',1)->update(['photo_path'=>'students/new-photo.png','updated_at'=>'2026-10-07 12:00:00']);
@@ -1107,7 +2519,6 @@ it('includes the current student photo in the selected student preview with a sa
 });
 
 it('offers current and next requested years and scopes requested classes to the chosen year', function () {
-    Schema::create('user_notifications', function (Blueprint $t) { $t->id(); $t->integer('user_id'); $t->timestamp('read_at')->nullable(); $t->timestamps(); });
     DB::table('tb_academic_year')->insert([
         ['id'=>2,'academic_year'=>'2026-2027','period_type'=>'regular','lifecycle_status'=>'pending'],
         ['id'=>3,'academic_year'=>'2027-2028','period_type'=>'regular','lifecycle_status'=>'pending'],
@@ -1409,7 +2820,6 @@ it('rejects a pending request without moving grade and allows a replacement draf
 });
 
 it('prints the approved option and blocks printing for rejected requests', function ($status) {
-    Schema::create('user_notifications', function (Blueprint $t) { $t->id(); $t->integer('user_id'); $t->timestamp('read_at')->nullable(); $t->timestamps(); });
     $record=($this->pending)();
     $url='/students/skipping-grade/'.$record->id.'/print/approval';
     $this->actingAs($this->campus)->getJson($url)->assertForbidden();
@@ -1461,7 +2871,6 @@ it('keeps signed requests private and prints approval only after final approval'
 });
 
 it('allows campus users to print another campus approval with print permission only after approval', function () {
-    Schema::create('user_notifications', function (Blueprint $t) { $t->id(); $t->integer('user_id'); $t->timestamp('read_at')->nullable(); $t->timestamps(); });
     DB::table('access_user_campuses')->insert(['user_id'=>1,'campus_id'=>2]);
     DB::table('tb_student_enrollment')->where('id',1)->update(['campus_id'=>2]);
     $record=($this->pending)();
@@ -1481,7 +2890,6 @@ it('allows campus users to print another campus approval with print permission o
 });
 
 it('shares an approved A4 form across campuses with the saved template and issued signing images', function () {
-    Schema::create('user_notifications', function (Blueprint $t) { $t->id(); $t->integer('user_id'); $t->timestamp('read_at')->nullable(); $t->timestamps(); });
     ($this->configure)();
     $record=$this->service->approve($this->central,($this->pending)(),$this->approval);
     $record->update(['campus_id'=>2]);
@@ -1505,7 +2913,6 @@ it('shares an approved A4 form across campuses with the saved template and issue
 });
 
 it('does not expose sharing before approval or for rejected requests', function ($status) {
-    Schema::create('user_notifications', function (Blueprint $t) { $t->id(); $t->integer('user_id'); $t->timestamp('read_at')->nullable(); $t->timestamps(); });
     $record=($this->draft)();
     $record->update(['status'=>$status]);
     $this->actingAs($this->campus)->getJson(route('student-skipping-grade.share-approval',$record))->assertForbidden();
@@ -1555,7 +2962,6 @@ it('approves through the actual JSON endpoint and saves the selected letter cond
 });
 
 it('validates the approval date sequence and letter choices before changing enrollment', function () {
-    Schema::create('user_notifications', function (Blueprint $t) { $t->id(); $t->integer('user_id'); $t->timestamp('read_at')->nullable(); $t->timestamps(); });
     ($this->configure)(); $record=($this->pending)();
     $page=$this->actingAs($this->central)->get('/students/skipping-grade/'.$record->id)->assertOk()
         ->assertSee('skipping-approval-date-grid')->assertDontSee('type="date"',false)->assertSee('value="'.now()->format('d-M-Y').'"',false);
@@ -1760,7 +3166,6 @@ describe('promotion with approved grade-skipping placements', function () {
 
 describe('grade skipping after normal promotion', function () {
     beforeEach(function () {
-        Schema::create('user_notifications', function (Blueprint $t) { $t->id(); $t->integer('user_id'); $t->timestamp('read_at')->nullable(); $t->timestamps(); });
         Schema::table('tb_student_enrollment', function (Blueprint $t) {
             $t->date('ended_on')->nullable(); $t->string('exit_reason')->nullable();
             $t->unique(['student_id','academic_year_id']);

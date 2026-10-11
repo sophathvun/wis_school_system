@@ -10,6 +10,7 @@ class StudentSkippingGrade extends Model
     protected $guarded = ['id'];
     protected $casts = [
         'student_snapshot'=>'array','criteria'=>'array','committee_names'=>'array','approval_snapshot'=>'array',
+        'workflow_signer_snapshot'=>'array','supporting_documents'=>'array',
         'application_date'=>'date','approval_date'=>'date','received_date'=>'date','review_date'=>'date','effective_date'=>'date',
         'parent_signed_at'=>'datetime','submitted_at'=>'datetime','approved_at'=>'datetime','rejected_at'=>'datetime',
     ];
@@ -22,5 +23,8 @@ class StudentSkippingGrade extends Model
     public function targetEnrollment() { return $this->belongsTo(StudentEnrollment::class,'target_enrollment_id'); }
     public function targetClass() { return $this->belongsTo(SchoolClass::class,'target_class_id'); }
     public function creator() { return $this->belongsTo(User::class,'created_by'); }
+    public function submitter() { return $this->belongsTo(User::class,'submitted_by'); }
     public function approver() { return $this->belongsTo(User::class,'approved_by'); }
+    public function approvalSteps() { return $this->hasMany(SkippingGradeApprovalStep::class, 'request_id')->orderBy('sequence'); }
+    public function usesSequentialFlow(): bool { return $this->approval_flow_mode === 'sequential'; }
 }

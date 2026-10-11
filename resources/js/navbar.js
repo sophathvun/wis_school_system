@@ -53,9 +53,11 @@
     };
 
     const renderNotificationBadge = (count) => {
-        if (!notificationBadge) return;
-        notificationBadge.textContent = count > 99 ? "99+" : count || "";
-        notificationBadge.classList.toggle("d-none", !count);
+        [notificationBadge, document.querySelector('[data-navbar-mobile-notification-badge]')].forEach((badge) => {
+            if (!badge) return;
+            badge.textContent = count > 99 ? "99+" : count || "";
+            badge.classList.toggle("d-none", !count);
+        });
     };
 
     const escapeHtml = (value = "") =>
@@ -131,6 +133,11 @@
             const data = await response.json();
             const unreadCount = Number(data.unread || 0);
             const latest = data.latest || null;
+            const skippingPending = Number(data.skipping_pending || 0);
+            document.querySelectorAll('[data-skipping-pending-badge]').forEach((badge) => {
+                badge.textContent = skippingPending;
+                badge.classList.toggle('d-none', skippingPending === 0);
+            });
             const refreshedItems = Array.isArray(data.items) ? data.items : [];
             renderNotificationBadge(unreadCount);
             renderNotificationList(refreshedItems);

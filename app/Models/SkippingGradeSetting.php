@@ -8,7 +8,7 @@ class SkippingGradeSetting extends Model
 {
     protected $table = 'tb_skipping_grade_settings';
     protected $guarded = ['id'];
-    protected $casts = ['committee_names'=>'array', 'request_template'=>'array', 'approval_template'=>'array'];
+    protected $casts = ['committee_names'=>'array', 'request_template'=>'array', 'approval_template'=>'array', 'central_approval_steps'=>'array'];
     public const CAMPUS_COMMITTEE = [0=>'Class Teacher',1=>'KH-Coordinator',2=>'VSP',3=>'School Principal'];
     public const CENTRAL_COMMITTEE = [4=>'IP Director',5=>'Registrar Director',6=>'Academic Directors',7=>'(Vice) President'];
     public const COMMITTEE = self::CAMPUS_COMMITTEE + self::CENTRAL_COMMITTEE;
