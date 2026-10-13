@@ -4,7 +4,7 @@
     <div class="container-fluid">
         <div class="row g-2 align-items-center">
             <div class="col">
-                <div class="page-pretitle">Administrator</div>
+                <div class="page-pretitle">HRM</div>
                 <h2 class="page-title">Departments</h2>
             </div>
             <div class="col-auto">
@@ -94,25 +94,27 @@
                                     Status {!! $sortIcon('status') !!}
                                 </a>
                             </th>
+                            <th>Parent Department</th>
                             <th class="text-center">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         @forelse($departments as $department)
                             @php
-                                $linkedCount = $department->permissions_count + $department->roles_count + $department->users_count;
+                                $linkedCount = $department->permissions_count + $department->roles_count + $department->users_count + $department->children_count + $department->positions_count + $department->staff_count;
                                 $cannotDelete = $linkedCount > 0;
                                 $deleteTooltip = $cannotDelete
-                                    ? "Cannot delete: linked to {$department->permissions_count} permission(s), {$department->roles_count} role(s), and {$department->users_count} user(s)."
+                                    ? 'Cannot delete: linked to subdepartments, staff, positions, permissions, roles, or users.'
                                     : 'Delete this department';
                             @endphp
                             <tr>
                                 <td>{{ $departments->firstItem() + $loop->index }}</td>
-                                <td>{{ $department->name }}</td>
+                                <td>{{ $department->hierarchy_name }}</td>
                                 <td>{{ $department->code }}</td>
                                 <td><span
                                         class="badge bg-{{ $department->status ? 'success' : 'secondary' }}">{{ $department->status ? 'Active' : 'Inactive' }}</span>
                                 </td>
+                                <td>{{ $department->parent?->hierarchy_name ?? 'Main Department' }}</td>
                                 <td class="text-center"><a class="btn btn-sm btn-outline-primary"
                                         href="{{ route('departments.index', ['edit' => $department->id]) }}"><i
                                             class="ti ti-edit"></i></a>
@@ -127,7 +129,7 @@
                                     </span>
                                 </td>
                         </tr>@empty<tr>
-                                <td colspan="5" class="text-center text-secondary py-4">No departments found.</td>
+                                <td colspan="6" class="text-center text-secondary py-4">No departments found.</td>
                             </tr>
                         @endforelse
                     </tbody>
@@ -149,6 +151,10 @@
                                     required></div>
                             <div class="department-field"><label class="form-label">Code</label><input class="form-control"
                                     name="code" value="{{ old('code', $editDepartment?->code) }}" required></div>
+                            <div class="department-field has-value"><label class="form-label" for="departmentParent">Parent Department</label><select class="form-select" id="departmentParent" name="parent_id">
+                                <option value="">None — Main Department</option>
+                                @foreach($parentDepartments as $parent)<option value="{{ $parent->id }}" @selected(old('parent_id', $editDepartment?->parent_id) == $parent->id)>{{ $parent->hierarchy_name }}{{ $parent->status ? '' : ' (Inactive)' }}</option>@endforeach
+                            </select></div>
                             <div class="department-status-row"><select class="d-none" name="status">
                                     <option value="1" @selected((string) $departmentStatus === '1')>Active</option>
                                     <option value="0" @selected((string) $departmentStatus === '0')>Inactive</option>

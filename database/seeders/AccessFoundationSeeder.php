@@ -130,6 +130,10 @@ class AccessFoundationSeeder extends Seeder
             Permission::updateOrCreate(['code' => $permission['code']], $permission);
         }
 
+        foreach (\App\Support\HrmPermissions::catalog() as $module=>$actions) {
+            foreach ($actions as $action=>$name) Permission::updateOrCreate(['code'=>$module.'.'.$action],['module'=>$module,'action'=>$action,'name'=>$name]);
+        }
+
         $roles = [
             ['code' => 'super-admin', 'name' => 'Super Administrator', 'is_global' => true],
             ['code' => 'central-office-admin', 'name' => 'Central Office Administrator', 'is_global' => true],
@@ -147,10 +151,12 @@ class AccessFoundationSeeder extends Seeder
             $role = Role::updateOrCreate(['code' => $roleData['code']], $roleData + ['is_system' => true, 'status' => 1]);
             // These shared certificate actions require an explicit grant to non-super roles.
             $rolePermissions = $role->code === 'super-admin' ? $allPermissions : $allPermissions->filter(
-                fn ($permission) => in_array($permission->code, $reportTabCodes, true)
+                fn ($permission) => isset(\App\Support\HrmPermissions::catalog()[$permission->module])
+                    ? $role->permissions->contains('id', $permission->id)
+                    : (in_array($permission->code, $reportTabCodes, true)
                     // New seeded roles keep the standard defaults; existing roles keep their selected tabs.
                     ? ($role->wasRecentlyCreated || $role->permissions->contains('id', $permission->id))
-                    : ((!in_array($permission->code, $skippingCentralCodes, true) && !in_array($permission->code, $idCardActionCodes, true) && !array_key_exists($permission->code, K3CertificatePermissions::catalog()) && !array_key_exists($permission->code, G9CertificatePermissions::catalog()) && !array_key_exists($permission->code, G12CertificatePermissions::catalog())) || $role->permissions->contains('id', $permission->id))
+                    : ((!in_array($permission->code, $skippingCentralCodes, true) && !in_array($permission->code, $idCardActionCodes, true) && !array_key_exists($permission->code, K3CertificatePermissions::catalog()) && !array_key_exists($permission->code, G9CertificatePermissions::catalog()) && !array_key_exists($permission->code, G12CertificatePermissions::catalog())) || $role->permissions->contains('id', $permission->id)))
             );
             $role->permissions()->sync($rolePermissions->modelKeys());
         }

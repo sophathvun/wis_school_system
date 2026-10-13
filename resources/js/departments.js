@@ -3,9 +3,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!modal) return;
 
     modal.querySelectorAll('.department-field').forEach((field) => {
-        const control = field.querySelector('input');
+        const control = field.querySelector('input,select');
         if (!control) return;
-        const sync = () => field.classList.toggle('has-value', Boolean(control.value));
+        const sync = () => field.classList.toggle('has-value', control.tagName === 'SELECT' || Boolean(control.value));
         control.addEventListener('input', sync);
         sync();
     });

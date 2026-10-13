@@ -10,7 +10,7 @@ class StaffEducation extends Model
     protected $table = 'hrm_staff_educations';
 
     protected $fillable = [
-        'staff_id', 'institution_name', 'degree', 'field_of_study', 'started_on', 'ended_on', 'grade_or_result', 'notes',
+        'staff_id', 'institution_name', 'degree', 'field_of_study', 'started_on', 'ended_on', 'grade_or_result', 'notes', 'country', 'graduated_year',
     ];
 
     protected $casts = [

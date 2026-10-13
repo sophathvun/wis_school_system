@@ -1,4 +1,4 @@
-﻿@extends('layouts.app')
+@extends('layouts.app')
 @section('title', 'Roles')
 @section('page-header')<div class="container-fluid">
         <div class="row g-2 align-items-center">
@@ -113,7 +113,7 @@
                                 <td>{{ $roles->firstItem() + $loop->index }}</td>
                                 <td>{{ $role->name }}</td>
                                 <td>{{ $role->code }}</td>
-                                <td>{{ $role->department?->name ?? '—' }}</td>
+                                <td>{{ $role->department?->hierarchy_name ?? '—' }}</td>
                                 <td>{{ $role->is_global ? 'Global' : 'Campus' }}</td>
                                 <td><span
                                         class="badge bg-{{ $role->status ? 'success' : 'secondary' }}">{{ $role->status ? 'Active' : 'Inactive' }}</span>
@@ -155,7 +155,7 @@
                                 class="form-select mb-3" name="department_id">
                                 <option value="">No Department</option>
                                 @foreach ($departments as $d)
-                                    <option value="{{ $d->id }}" @selected(old('department_id', $editRole?->department_id) == $d->id)>{{ $d->name }}
+                                    <option value="{{ $d->id }}" @selected(old('department_id', $editRole?->department_id) == $d->id)>{{ $d->hierarchy_name }}
                                     </option>
                                 @endforeach
                             </select><label class="form-check mb-3"><input class="form-check-input" type="checkbox"

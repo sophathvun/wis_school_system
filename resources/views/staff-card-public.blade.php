@@ -5,10 +5,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ $staff->name }} - Staff Name Card</title>
-    <meta name="description" content="{{ $staff->name }} - {{ $staff->position?->name ?: $staff->department?->name ?: 'Western International School' }}">
+    <meta name="description" content="{{ $staff->name }} - {{ $staff->position?->name ?: $staff->department?->hierarchy_name ?: 'Western International School' }}">
     <meta property="og:type" content="profile">
     <meta property="og:title" content="{{ $staff->name }} - Name Card">
-    <meta property="og:description" content="{{ $staff->position?->name ?: $staff->department?->name ?: 'Western International School' }}">
+    <meta property="og:description" content="{{ $staff->position?->name ?: $staff->department?->hierarchy_name ?: 'Western International School' }}">
     <meta property="og:url" content="{{ $publicCardShareUrl }}">
     <meta property="og:image" content="{{ $publicCardShareImageUrl }}">
     <meta property="og:image:secure_url" content="{{ $publicCardShareImageUrl }}">
@@ -17,7 +17,7 @@
     <meta property="og:image:height" content="1600">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="{{ $staff->name }} - Name Card">
-    <meta name="twitter:description" content="{{ $staff->position?->name ?: $staff->department?->name ?: 'Western International School' }}">
+    <meta name="twitter:description" content="{{ $staff->position?->name ?: $staff->department?->hierarchy_name ?: 'Western International School' }}">
     <meta name="twitter:image" content="{{ $publicCardShareImageUrl }}">
     <link rel="image_src" href="{{ $publicCardShareImageUrl }}">
     @vite('resources/css/pages/staff-card.css')
@@ -144,11 +144,11 @@
 
                 <div class="staff-card-info" style="grid-column: 2; grid-row: 2;">
                     <h1>{{ $staff->name }}</h1>
-                    <p class="staff-card-position">{{ $staff->position?->name ?: $staff->department?->name ?: 'Staff / Teacher' }}</p>
+                    <p class="staff-card-position">{{ $staff->position?->name ?: $staff->department?->hierarchy_name ?: 'Staff / Teacher' }}</p>
 
                     <div class="staff-card-meta" style="display: none !important;">
-                        @if ($staff->department?->name)
-                            <div><i>🏢</i><span>{{ $staff->department->name }}</span></div>
+                        @if ($staff->department?->hierarchy_name)
+                            <div><i>🏢</i><span>{{ $staff->department->hierarchy_name }}</span></div>
                         @endif
                         @if ($campusNames)
                             <div><i>📍</i><span>{{ $campusNames }}</span></div>

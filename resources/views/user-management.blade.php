@@ -71,11 +71,11 @@
                                     <div class="logo-dropzone" id="staffPhotoDropzone" tabindex="0">
                                         <div class="user-photo-dropzone-content">
                                             <i class="ti ti-cloud-upload logo-dropzone-icon"></i>
-                                            <div><strong>Drag and drop staff photo here</strong></div>
+                                            <div><strong>Drag and drop login photo here</strong></div>
                                             <div class="text-secondary">or click, paste, or upload a file</div>
                                         </div>
                                         <div class="form-hint user-photo-dropzone-hint">JPG, PNG, or WEBP. Maximum
-                                            size: 2 MB.</div>
+                                            size: 2 MB. This changes the user photo only; the HRM staff photo stays separate.</div>
                                         <input type="file" class="d-none" name="photo" id="staff_photo"
                                             accept="image/jpeg,image/png,image/webp">
                                     </div>
@@ -95,15 +95,17 @@
                                             data-gender="{{ $staffProfile->gender }}"
                                             data-date-of-birth="{{ $staffProfile->date_of_birth?->format('Y-m-d') }}"
                                             data-phone="{{ $staffProfile->phone }}"
-                                            data-email="{{ $staffProfile->email }}"
+                                            data-email="{{ $staffProfile->work_email?:$staffProfile->email }}"
                                             data-position-id="{{ $staffProfile->position_id }}"
                                             data-department-id="{{ $staffProfile->department_id }}"
+                                            data-position-name="{{ $staffProfile->position?->name }}"
+                                            data-department-name="{{ $staffProfile->department?->hierarchy_name }}"
                                             @selected(old('staff_profile_id', $editUser?->staff_profile_id) == $staffProfile->id)>
                                             {{ $staffProfile->staff_code }} - {{ $staffProfile->name_en }}{{ $staffProfile->campuses->isNotEmpty() ? ' - '.$staffProfile->campuses->pluck('campus_name_en')->join(', ') : '' }}
                                         </option>
                                     @endforeach
                                 </select>
-                                <div class="form-hint">User account is only for login and permissions. Staff information is managed in HRM > Staff Management.</div>
+                                <div class="form-hint">Select a staff profile to fill staff ID, name, gender, date of birth, phone, email, department, and position. HRM staff information is preserved. Assign login permissions and campuses below.</div>
                             </div>
                             <div class="col-md-3"><label class="form-label">Staff ID</label><input class="form-control"
                                     name="staff_id" value="{{ old('staff_id', $editUser?->staff_id) }}" required></div>
@@ -151,7 +153,7 @@
                                     <option value=""></option>
                                     @foreach ($departments as $d)
                                         <option value="{{ $d->id }}" @selected(old('department_id', $editUser?->department_id) == $d->id)>
-                                            {{ $d->name }}</option>
+                                            {{ $d->hierarchy_name }}</option>
                                     @endforeach
                                 </select>
                             </div>
@@ -385,7 +387,7 @@
                         </div>
                     </div>
                     <div class="user-management-mobile-extra">
-                        <div><span>Department</span><strong>{{ $user->department?->name ?: '' }}</strong></div>
+                        <div><span>Department</span><strong>{{ $user->department?->hierarchy_name ?: '' }}</strong></div>
                         <div><span>Login</span><strong>{{ $user->login_identifier === 'both' ? 'Username / Email' : ucfirst($user->login_identifier) }}</strong></div>
                     </div>
                     <div class="user-management-mobile-actions">
@@ -455,7 +457,7 @@
                                 <div class="text-secondary small user-list-meta-row" title="Role"><i class="ti ti-shield-check"></i><span>{{ $user->roles->pluck('name')->unique()->join(', ') ?: '' }}</span></div>
                             </td>
                             <td>{{ $user->position?->name ?: '' }}
-                                <div class="text-secondary small">Dept: {{ $user->department?->name ?: '' }}</div>
+                                <div class="text-secondary small">Dept: {{ $user->department?->hierarchy_name ?: '' }}</div>
                             </td>
                             <td>{{ $user->is_global ? 'All Campuses' : ($user->campuses->pluck('campus_name_en')->filter()->join(', ') ?: '') }}</td>
                             <td><button type="button"
@@ -487,35 +489,6 @@
     </div>
     <script>
         (() => {
-            const staffSelect = document.getElementById('linked_staff_profile');
-            staffSelect?.addEventListener('change', () => {
-                const option = staffSelect.selectedOptions[0];
-                if (!option || !option.value) return;
-
-                const setValue = (selector, value) => {
-                    const field = document.querySelector(selector);
-                    if (field && value !== undefined && value !== null && value !== '') {
-                        field.value = value;
-                        field.dispatchEvent(new Event('change', { bubbles: true }));
-                    }
-                };
-
-                setValue('input[name="staff_id"]', option.dataset.staffCode);
-                setValue('input[name="name"]', option.dataset.name);
-                setValue('select[name="gender"]', option.dataset.gender);
-                setValue('input[name="date_of_birth"]', option.dataset.dateOfBirth);
-                setValue('input[name="email"]', option.dataset.email);
-                setValue('select[name="position_id"]', option.dataset.positionId);
-                setValue('select[name="department_id"]', option.dataset.departmentId);
-
-                const visiblePhone = document.getElementById('user_phone_number');
-                const hiddenPhone = document.getElementById('user_phone');
-                if (option.dataset.phone && visiblePhone && hiddenPhone) {
-                    visiblePhone.value = option.dataset.phone;
-                    hiddenPhone.value = option.dataset.phone;
-                }
-            });
-
             const keepUserComboboxMenuInsideModal = (target) => {
                 const menu = target?.closest?.('.location-combobox-menu');
                 if (!menu || menu.closest('#userModal')) return;

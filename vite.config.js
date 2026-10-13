@@ -33,6 +33,8 @@ export default defineConfig({
                 "resources/js/nationality.js",
                 "resources/js/brandingSettings.js",
                 "resources/js/userManagement.js",
+                "resources/js/staffManagement.js",
+                "resources/js/hrmSettings.js",
                 "resources/js/authLogin.js",
                 "resources/js/accessManagement.js",
                 "resources/js/printPage.js",

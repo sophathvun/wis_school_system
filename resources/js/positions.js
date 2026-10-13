@@ -35,7 +35,21 @@ document.addEventListener('DOMContentLoaded', () => {
         const render = () => {
             const term = search.value.toLowerCase().trim();
             const options = [...department.options].filter(option => option.value && (!term || option.textContent.toLowerCase().includes(term)));
-            results.innerHTML = options.length ? options.map(option => `<button type="button" class="position-combobox-option" data-value="${option.value}">${option.textContent}</button>`).join('') : '<div class="text-secondary px-2 py-2">No departments found</div>';
+            results.replaceChildren();
+            options.forEach(option => {
+                const item = document.createElement('button');
+                item.type = 'button';
+                item.className = 'position-combobox-option';
+                item.dataset.value = option.value;
+                item.textContent = option.textContent;
+                results.appendChild(item);
+            });
+            if (!options.length) {
+                const empty = document.createElement('div');
+                empty.className = 'text-secondary px-2 py-2';
+                empty.textContent = 'No departments found';
+                results.appendChild(empty);
+            }
         };
 
         button.addEventListener('click', () => {

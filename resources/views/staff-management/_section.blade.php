@@ -1,0 +1,1 @@
+<div class="staff-section-heading"><span class="staff-section-icon"><i class="ti {{ $icon??'ti-id-badge-2' }}" aria-hidden="true"></i></span><div><h3>{{ $title }}</h3>@if(!empty($hint))<p>{{ $hint }}</p>@endif</div></div>

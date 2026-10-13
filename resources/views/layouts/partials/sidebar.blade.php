@@ -2,6 +2,7 @@
     @php
     $sidebarPermissionCodes = $permissionCodes ?? [];
     $canView = fn(string $permission) => in_array('*', $sidebarPermissionCodes, true) || in_array($permission, $sidebarPermissionCodes, true);
+    $hrmActive = request()->routeIs('hrm.*','staff-management.*','departments.*','positions.*');
     $moeysMenuIcon = asset('images/moeys_logo.png') . '?v=' . filemtime(public_path('images/moeys_logo.png'));
     $wmiMenuIcon = asset('images/wmi_logo.png') . '?v=' . filemtime(public_path('images/wmi_logo.png'));
 @endphp
@@ -89,8 +90,6 @@
                     <li
                         class="nav-item dropdown {{ request()->routeIs('access-management.*') ||
                         request()->routeIs('users.*') ||
-                        request()->routeIs('departments.*') ||
-                        request()->routeIs('positions.*') ||
                         request()->routeIs('roles.*') ||
                         request()->routeIs('dashboard-templates.*') ||
                         request()->routeIs('branding-settings.*') ||
@@ -107,8 +106,6 @@
                         <div
                             class="dropdown-menu {{ request()->routeIs('access-management.*') ||
                             request()->routeIs('users.*') ||
-                            request()->routeIs('departments.*') ||
-                            request()->routeIs('positions.*') ||
                             request()->routeIs('roles.*') ||
                             request()->routeIs('dashboard-templates.*') ||
                             request()->routeIs('branding-settings.*') ||
@@ -127,18 +124,6 @@
                                         <a class="dropdown-item {{ request()->routeIs('access-management.*') ? 'active' : '' }}"
                                             href="{{ route('access-management.index') }}">
                                             <i class="ti ti-shield-lock me-2"></i> Roles &amp; Permissions
-                                        </a>
-                                    @endif
-                                    @if ($canView('departments.view'))
-                                        <a class="dropdown-item {{ request()->routeIs('departments.*') ? 'active' : '' }}"
-                                            href="{{ route('departments.index') }}">
-                                            <i class="ti ti-building-community me-2"></i> Departments
-                                        </a>
-                                    @endif
-                                    @if ($canView('positions.view'))
-                                        <a class="dropdown-item {{ request()->routeIs('positions.*') ? 'active' : '' }}"
-                                            href="{{ route('positions.index') }}">
-                                            <i class="ti ti-id-badge me-2"></i> Positions
                                         </a>
                                     @endif
                                     @if ($canView('roles.view'))
@@ -488,40 +473,49 @@
                         </a>
                     </li>
                 @endif
-                @if ($canView('staff.view') || $canView('attendance.view'))
-                    <li class="nav-item dropdown {{ request()->routeIs('hrm.*') || request()->routeIs('staff-management.*') ? 'active' : '' }}">
+                @if ($canView('hrm.view'))
+                    <li class="nav-item dropdown {{ $hrmActive ? 'active' : '' }}">
                         <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown"
-                            data-bs-auto-close="false" role="button" aria-expanded="{{ request()->routeIs('hrm.*') || request()->routeIs('staff-management.*') ? 'true' : 'false' }}">
+                            data-bs-auto-close="false" role="button" aria-expanded="{{ $hrmActive ? 'true' : 'false' }}">
                             <span class="nav-link-icon d-md-none d-lg-inline-block"><i class="ti ti-users-group icon"></i></span>
                             <span class="nav-link-title">HRM</span>
                         </a>
-                        <div class="dropdown-menu {{ request()->routeIs('hrm.*') || request()->routeIs('staff-management.*') ? 'show' : '' }}">
+                        <div class="dropdown-menu {{ $hrmActive ? 'show' : '' }}">
                             @if ($canView('staff.view'))
                                 <a class="dropdown-item {{ request()->routeIs('staff-management.*') ? 'active' : '' }}" href="{{ route('staff-management.index') }}">
                                     <i class="ti ti-id-badge-2 me-2"></i> Staff Management
                                 </a>
                             @endif
+                            @if ($canView('hrm-staff-attendance.view'))
                             <a class="dropdown-item {{ request()->routeIs('hrm.staff-attendance') ? 'active' : '' }}" href="{{ route('hrm.staff-attendance') }}">
                                 <i class="ti ti-user-check me-2"></i> Staff Attendance
                             </a>
-                            <a class="dropdown-item {{ request()->routeIs('departments.*') ? 'active' : '' }}" href="{{ route('departments.index') }}">
-                                <i class="ti ti-building-community me-2"></i> Departments
+                            @endif
+                            @if ($canView('hrm-settings.view') && ($canView('departments.view') || $canView('positions.view') || ($canView('hrm-staff-data.view') && $canView('staff.view'))))
+                            <a class="dropdown-item {{ request()->routeIs('hrm.settings.*','departments.*','positions.*') ? 'active' : '' }}" href="{{ route('hrm.settings.index', ['tab' => $canView('departments.view') ? 'departments' : ($canView('positions.view')?'positions':'import-export')]) }}">
+                                <i class="ti ti-settings me-2"></i> HRM Settings
                             </a>
-                            <a class="dropdown-item {{ request()->routeIs('positions.*') ? 'active' : '' }}" href="{{ route('positions.index') }}">
-                                <i class="ti ti-briefcase me-2"></i> Positions
-                            </a>
+                            @endif
+                            @if ($canView('hrm-payroll.view'))
                             <a class="dropdown-item {{ request()->routeIs('hrm.payroll') ? 'active' : '' }}" href="{{ route('hrm.payroll') }}">
                                 <i class="ti ti-cash-banknote me-2"></i> Payroll
                             </a>
+                            @endif
+                            @if ($canView('hrm-leave-requests.view'))
                             <a class="dropdown-item {{ request()->routeIs('hrm.leave-requests') ? 'active' : '' }}" href="{{ route('hrm.leave-requests') }}">
                                 <i class="ti ti-calendar-minus me-2"></i> Leave Requests
                             </a>
+                            @endif
+                            @if ($canView('hrm-performance-reviews.view'))
                             <a class="dropdown-item {{ request()->routeIs('hrm.performance-reviews') ? 'active' : '' }}" href="{{ route('hrm.performance-reviews') }}">
                                 <i class="ti ti-chart-bar me-2"></i> Performance Reviews
                             </a>
+                            @endif
+                            @if ($canView('hrm-staff-reports.view'))
                             <a class="dropdown-item {{ request()->routeIs('hrm.staff-reports') ? 'active' : '' }}" href="{{ route('hrm.staff-reports') }}">
                                 <i class="ti ti-report-analytics me-2"></i> Staff Reports
                             </a>
+                            @endif
                         </div>
                     </li>
                 @endif

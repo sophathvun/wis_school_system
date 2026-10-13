@@ -79,6 +79,7 @@ class StatusController
         $canToggleStatus = $user?->isSuperAdmin()
             || ($permissionModule && $user->hasPermission($permissionModule.'.status'))
             || ($data['entity'] === 'position' && $user?->hasPermission('positions.manage'));
+        if (in_array($data['entity'],['department','position'],true)) $canToggleStatus=\App\Support\HrmPermissions::allows($user,$permissionModule,'status');
         abort_unless($canToggleStatus, 403);
         if ($data['entity'] === 'user' && (int) $data['id'] === (int) $user->id && !$data['status']) {
             return response()->json([

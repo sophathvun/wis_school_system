@@ -137,7 +137,7 @@
                     <td>{{ $index + 1 }}</td>
                     <td class="text-start">{{ $role->name ?: '-' }}</td>
                     <td>{{ $role->code ?: '-' }}</td>
-                    <td class="text-start">{{ $role->department?->name ?: '-' }}</td>
+                    <td class="text-start">{{ $role->department?->hierarchy_name ?: '-' }}</td>
                     <td>{{ $role->is_global ? 'Global' : 'Campus' }}</td>
                     <td>
                         <span class="status-badge {{ $role->status ? 'status-active' : 'status-inactive' }}">

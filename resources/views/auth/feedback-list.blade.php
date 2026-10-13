@@ -32,7 +32,7 @@
                             <td>{{ $feedbackItems->firstItem() + $loop->index }}</td>
                             <td>
                                 <div class="fw-semibold">{{ $item->user?->name ?? 'Unknown user' }}</div>
-                                <div class="text-secondary small">{{ $item->user?->department?->name ?? 'No department' }}</div>
+                                <div class="text-secondary small">{{ $item->user?->department?->hierarchy_name ?? 'No department' }}</div>
                             </td>
                             <td>{{ $item->subject }}</td>
                             <td>

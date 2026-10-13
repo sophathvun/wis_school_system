@@ -55,7 +55,7 @@ class DashboardTemplateController
             'templates' => $templates,
             'editTemplate' => $editTemplate,
             'widgets' => DashboardWidget::where('status', 1)->orderBy('name')->get(),
-            'departments' => Department::where('status', 1)->orderBy('name')->get(),
+            'departments' => \App\Support\DepartmentHierarchy::options(),
             'roles' => Role::where('status', 1)->orderBy('name')->get(),
             'users' => User::where('status', 1)->orderBy('name')->get(['id', 'name', 'username']),
             'sortBy' => $sortBy,

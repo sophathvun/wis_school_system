@@ -42,6 +42,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ReportsController;
 use App\Http\Controllers\HomeroomController;
 use App\Http\Controllers\StaffManagementController;
+use App\Http\Controllers\HrmSettingsController;
 use App\Http\Controllers\StudentIdCardQrController;
 
 Route::get('/app-icon.svg', function () {
@@ -306,6 +307,7 @@ Route::middleware(['auth', 'active.user'])->group(function () {
     Route::patch('/homeroom-activities/records/{record}', [HomeroomController::class, 'updateRecord'])->middleware('permission:homeroom.view')->name('homeroom-activities.records.update');
 
     Route::get('/hrm/staff-management', [StaffManagementController::class, 'index'])->middleware('permission:staff.view')->name('staff-management.index');
+    Route::get('/hrm/staff-management/address-options', [StaffManagementController::class, 'addressOptions'])->middleware('permission:staff.view')->name('staff-management.address-options');
     Route::post('/hrm/staff-management', [StaffManagementController::class, 'save'])->middleware('permission:staff.view')->name('staff-management.save');
     Route::delete('/hrm/staff-management/{staff}', [StaffManagementController::class, 'delete'])->middleware('permission:staff.delete')->name('staff-management.delete');
     Route::view('/hrm/staff-attendance', 'academic-module-placeholder', [
@@ -313,33 +315,43 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         'pretitle' => 'HRM',
         'icon' => 'ti-user-check',
         'description' => 'Use this module to manage staff attendance records.',
-    ])->name('hrm.staff-attendance');
-    Route::redirect('/hrm/departments', '/settings/departments')->name('hrm.departments');
-    Route::redirect('/hrm/positions', '/settings/positions')->name('hrm.positions');
+    ])->middleware(['permission:hrm.view','permission:hrm-staff-attendance.view'])->name('hrm.staff-attendance');
+    Route::get('/hrm/settings', [HrmSettingsController::class, 'index'])->name('hrm.settings.index');
+    Route::get('/hrm/settings/staff-data/template', [\App\Http\Controllers\StaffDataController::class, 'template'])->name('hrm.settings.staff-data.template');
+    Route::get('/hrm/settings/staff-data/excel', [\App\Http\Controllers\StaffDataController::class, 'excel'])->name('hrm.settings.staff-data.excel');
+    Route::post('/hrm/settings/staff-data/import', [\App\Http\Controllers\StaffDataController::class, 'import'])->name('hrm.settings.staff-data.import');
+    Route::get('/hrm/settings/staff-data/errors', [\App\Http\Controllers\StaffDataController::class, 'errors'])->name('hrm.settings.staff-data.errors');
+    Route::get('/hrm/settings/staff-data/failed-records', [\App\Http\Controllers\StaffDataController::class, 'failedRecords'])->name('hrm.settings.staff-data.failed-records');
+    Route::post('/hrm/settings/departments', [DepartmentManagementController::class, 'save'])->name('hrm.settings.departments.save');
+    Route::delete('/hrm/settings/departments/{department}', [DepartmentManagementController::class, 'delete'])->name('hrm.settings.departments.delete');
+    Route::post('/hrm/settings/positions', [PositionManagementController::class, 'save'])->name('hrm.settings.positions.save');
+    Route::delete('/hrm/settings/positions/{position}', [PositionManagementController::class, 'delete'])->name('hrm.settings.positions.delete');
+    Route::redirect('/hrm/departments', '/hrm/settings?tab=departments')->name('hrm.departments');
+    Route::redirect('/hrm/positions', '/hrm/settings?tab=positions')->name('hrm.positions');
     Route::view('/hrm/payroll', 'academic-module-placeholder', [
         'title' => 'Payroll',
         'pretitle' => 'HRM',
         'icon' => 'ti-cash-banknote',
         'description' => 'Use this module to manage staff salary, allowances, deductions, and payroll records.',
-    ])->name('hrm.payroll');
+    ])->middleware(['permission:hrm.view','permission:hrm-payroll.view'])->name('hrm.payroll');
     Route::view('/hrm/leave-requests', 'academic-module-placeholder', [
         'title' => 'Leave Requests',
         'pretitle' => 'HRM',
         'icon' => 'ti-calendar-minus',
         'description' => 'Use this module to submit, approve, and review staff leave requests.',
-    ])->name('hrm.leave-requests');
+    ])->middleware(['permission:hrm.view','permission:hrm-leave-requests.view'])->name('hrm.leave-requests');
     Route::view('/hrm/performance-reviews', 'academic-module-placeholder', [
         'title' => 'Performance Reviews',
         'pretitle' => 'HRM',
         'icon' => 'ti-chart-bar',
         'description' => 'Use this module to record staff evaluations and performance reviews.',
-    ])->name('hrm.performance-reviews');
+    ])->middleware(['permission:hrm.view','permission:hrm-performance-reviews.view'])->name('hrm.performance-reviews');
     Route::view('/hrm/staff-reports', 'academic-module-placeholder', [
         'title' => 'Staff Reports',
         'pretitle' => 'HRM',
         'icon' => 'ti-report-analytics',
         'description' => 'Use this module to review and print HRM staff reports.',
-    ])->name('hrm.staff-reports');
+    ])->middleware(['permission:hrm.view','permission:hrm-staff-reports.view'])->name('hrm.staff-reports');
 
     Route::view('/financial-management/school-fee', 'academic-module-placeholder', [
         'title' => 'School Fee',

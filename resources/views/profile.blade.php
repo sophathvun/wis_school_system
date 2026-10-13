@@ -287,19 +287,19 @@
                         </div>
                         <div class="profile-readonly-columns">
                             <div class="profile-readonly-column">
-                                <div class="profile-readonly-row"><span>Staff ID</span><strong>{{ $profileUser->staff_id ?: '—' }}</strong></div>
-                                <div class="profile-readonly-row"><span>Staff Name</span><strong>{{ $profileUser->name ?: '—' }}</strong></div>
-                                <div class="profile-readonly-row"><span>Gender</span><strong>{{ $profileUser->gender ? ucfirst(strtolower($profileUser->gender)) : '—' }}</strong></div>
-                                <div class="profile-readonly-row"><span>Date of Birth</span><strong>{{ $profileUser->date_of_birth?->format('d-M-Y') ?: '—' }}</strong></div>
-                                <div class="profile-readonly-row"><span>Phone</span><strong>{{ $profileUser->phone ?: '—' }}</strong></div>
-                                <div class="profile-readonly-row"><span>Email</span><strong>{{ $profileUser->email ?: '—' }}</strong></div>
+                                <div class="profile-readonly-row"><span>Staff ID</span><strong>{{ $profileUser->staff_id ?: 'â€”' }}</strong></div>
+                                <div class="profile-readonly-row"><span>Staff Name</span><strong>{{ $profileUser->name ?: 'â€”' }}</strong></div>
+                                <div class="profile-readonly-row"><span>Gender</span><strong>{{ $profileUser->gender ? ucfirst(strtolower($profileUser->gender)) : 'â€”' }}</strong></div>
+                                <div class="profile-readonly-row"><span>Date of Birth</span><strong>{{ $profileUser->date_of_birth?->format('d-M-Y') ?: 'â€”' }}</strong></div>
+                                <div class="profile-readonly-row"><span>Phone</span><strong>{{ $profileUser->phone ?: 'â€”' }}</strong></div>
+                                <div class="profile-readonly-row"><span>Email</span><strong>{{ $profileUser->email ?: 'â€”' }}</strong></div>
                             </div>
                             <div class="profile-readonly-column">
-                                <div class="profile-readonly-row"><span>Position</span><strong>{{ $profileUser->position?->name ?: '—' }}</strong></div>
-                                <div class="profile-readonly-row"><span>Department</span><strong>{{ $profileUser->department?->name ?: '—' }}</strong></div>
-                                <div class="profile-readonly-row"><span>Campus Assign</span><strong>{{ $profileUser->campuses->pluck('campus_name_en')->filter()->join(', ') ?: '—' }}</strong></div>
-                                <div class="profile-readonly-row"><span>Username</span><strong>{{ $profileUser->username ?: '—' }}</strong></div>
-                                <div class="profile-readonly-row"><span>Role</span><strong>{{ $profileUser->roles->pluck('name')->filter()->join(', ') ?: '—' }}</strong></div>
+                                <div class="profile-readonly-row"><span>Position</span><strong>{{ $profileUser->position?->name ?: 'â€”' }}</strong></div>
+                                <div class="profile-readonly-row"><span>Department</span><strong>{{ $profileUser->department?->hierarchy_name ?: 'â€”' }}</strong></div>
+                                <div class="profile-readonly-row"><span>Campus Assign</span><strong>{{ $profileUser->campuses->pluck('campus_name_en')->filter()->join(', ') ?: 'â€”' }}</strong></div>
+                                <div class="profile-readonly-row"><span>Username</span><strong>{{ $profileUser->username ?: 'â€”' }}</strong></div>
+                                <div class="profile-readonly-row"><span>Role</span><strong>{{ $profileUser->roles->pluck('name')->filter()->join(', ') ?: 'â€”' }}</strong></div>
                                 <div class="profile-readonly-row"><span>Account Status</span><strong>{{ $profileUser->status ? 'Active' : 'Inactive' }}</strong></div>
                             </div>
                         </div>
@@ -333,7 +333,7 @@
                                 class="profile-photo-preview-image">
                         </div><input class="d-none" type="file" name="photo" id="profile_photo"
                             accept="image/jpeg,image/png,image/webp">
-                    </div><small class="form-hint">JPG, PNG, or WEBP. Maximum size: 2 MB. Crop output: 400 × 400
+                    </div><small class="form-hint">JPG, PNG, or WEBP. Maximum size: 2 MB. Crop output: 400 Ã— 400
                         px.</small>
                 </div>
                 <div class="row g-3 profile-edit-layout">
@@ -343,7 +343,7 @@
                             <div class="card-body">
                                 <div class="row g-3">
                                     <div class="col-md-6 premium-form-field"><label class="form-label">Staff ID</label><input class="form-control"
-                                            value="{{ $profileUser->staff_id ?: '—' }}" readonly></div>
+                                            value="{{ $profileUser->staff_id ?: 'â€”' }}" readonly></div>
                                     <div class="col-md-6 premium-form-field"><label class="form-label">Staff Name</label><input class="form-control"
                                             name="name" value="{{ old('name', $profileUser->name) }}" required></div>
                                     <div class="col-md-6 premium-form-field"><label class="form-label">Gender</label><select class="form-select" name="gender">
@@ -355,15 +355,15 @@
                                     <div class="col-md-6 premium-form-field"><label class="form-label">Date of Birth</label><input class="form-control"
                                             type="date" name="date_of_birth" value="{{ old('date_of_birth', $profileUser->date_of_birth?->format('Y-m-d')) }}"></div>
                                     <div class="col-md-6 premium-form-field"><label class="form-label">Position</label><input class="form-control"
-                                            value="{{ $profileUser->position?->name ?: '—' }}" readonly></div>
+                                            value="{{ $profileUser->position?->name ?: 'â€”' }}" readonly></div>
                                     <div class="col-md-6 premium-form-field"><label class="form-label">Department</label><input class="form-control"
-                                            value="{{ $profileUser->department?->name ?: '—' }}" readonly></div>
+                                            value="{{ $profileUser->department?->hierarchy_name ?: 'â€”' }}" readonly></div>
                                     <div class="col-md-6 premium-form-field"><label class="form-label">Phone Number</label><input class="form-control"
                                             type="tel" name="phone" value="{{ old('phone', $profileUser->phone) }}"></div>
                                     <div class="col-md-6 premium-form-field"><label class="form-label">Email</label><input class="form-control" type="email"
                                             name="email" value="{{ old('email', $profileUser->email) }}" required></div>
                                     <div class="col-md-6 premium-form-field"><label class="form-label">Role</label><input class="form-control"
-                                            value="{{ $profileUser->roles->pluck('name')->filter()->join(', ') ?: '—' }}" readonly></div>
+                                            value="{{ $profileUser->roles->pluck('name')->filter()->join(', ') ?: 'â€”' }}" readonly></div>
                                     <div class="col-md-6 premium-form-field profile-select-arrow-field"><label class="form-label">Login Method</label><select class="form-select" name="login_identifier">
                                             <option value="username" @selected(old('login_identifier', $profileUser->login_identifier ?: 'username') === 'username')>Username only</option>
                                             <option value="email" @selected(old('login_identifier', $profileUser->login_identifier) === 'email')>Email only</option>

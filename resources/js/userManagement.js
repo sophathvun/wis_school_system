@@ -180,7 +180,9 @@ const initStaffPhotoUploader = () => {
                         ? "Position"
                         : select.name === "login_identifier"
                           ? "Allowed Login Method"
-                          : "option";
+                          : select.name === "staff_profile_id"
+                            ? "Linked Staff Profile"
+                            : "option";
         const wrapper = document.createElement("div");
         wrapper.className =
             "location-combobox position-combobox user-searchable-combobox";
@@ -247,7 +249,7 @@ const initStaffPhotoUploader = () => {
         const render = () => {
             const term = normalizeSearchText(search.value);
             const options = [...select.options].filter(
-                (option) => option.value && optionSearchText(option).includes(term),
+                (option) => (option.value || select.name === "staff_profile_id") && optionSearchText(option).includes(term),
             );
             results.innerHTML = options.length
                 ? options
@@ -585,6 +587,17 @@ const initStaffPhotoUploader = () => {
                 }
             });
             if (initialValue) picker.classList.add("has-value");
+            hiddenDate.addEventListener("change", () => {
+                const value = hiddenDate.value;
+                directInput.value = value ? value.split("-").reverse().join("-") : "";
+                picker.classList.toggle("has-value", Boolean(value));
+                dateColumn.classList.toggle("has-value", Boolean(value));
+                if (value) {
+                    const date = new Date(`${value}T00:00:00`);
+                    cursor = new Date(date.getFullYear(),date.getMonth(),1);
+                }
+                render();
+            });
             render();
         }
     }
@@ -951,6 +964,39 @@ const initStaffPhotoUploader = () => {
     searchableSelects.forEach(([select, multiple]) =>
         makeUserSearchableSelect(select, multiple),
     );
+    const linkedStaffSelect = document.getElementById("linked_staff_profile");
+    if (linkedStaffSelect?.options[0]?.value === "") linkedStaffSelect.options[0].textContent = "No linked staff profile";
+    const userForm = document.querySelector("#userModal form");
+    linkedStaffSelect?.addEventListener("change", () => {
+        const option = linkedStaffSelect.selectedOptions[0];
+        if (!option?.value || !userForm) return;
+        const setValue = (name,value,label) => {
+            const input = userForm.elements.namedItem(name);
+            if (!input) return;
+            const nextValue = String(value ?? "");
+            if (input instanceof HTMLSelectElement && nextValue && ![...input.options].some(item => item.value===nextValue)) {
+                input.add(new Option(label || nextValue,nextValue));
+            }
+            input.value = nextValue;
+            input.dispatchEvent(new Event("input",{bubbles:true}));
+            input.dispatchEvent(new Event("change",{bubbles:true}));
+        };
+        const gender = (option.dataset.gender || "").toLowerCase();
+        setValue("staff_id",option.dataset.staffCode);
+        setValue("name",option.dataset.name);
+        setValue("gender",gender ? gender[0].toUpperCase()+gender.slice(1) : "");
+        setValue("date_of_birth",option.dataset.dateOfBirth);
+        setValue("email",option.dataset.email);
+        setValue("department_id",option.dataset.departmentId,option.dataset.departmentName);
+        setValue("position_id",option.dataset.positionId,option.dataset.positionName);
+        const phone = option.dataset.phone || "";
+        userPhoneIntl?.setNumber(phone);
+        if (userPhoneVisible) userPhoneVisible.value = formatCambodiaPhoneDisplay(phone);
+        if (userPhoneHidden) userPhoneHidden.value = phone;
+        userPhoneVisible?.dispatchEvent(new Event("input",{bubbles:true}));
+        userPhoneHidden?.dispatchEvent(new Event("change",{bubbles:true}));
+    });
+    makeUserSearchableSelect(linkedStaffSelect);
 
     const showStaffPhotoPreview = (file) => {
         if (!staffPhotoPreview || !staffPhotoPreviewContainer || !file) return;

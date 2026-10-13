@@ -21,7 +21,7 @@ class NotificationController
         $this->authorizeAdmin($request);
         return view('notification-send', [
             'users' => User::with(['department', 'position'])->where('status', 1)->orderBy('name')->get(['id', 'name', 'username', 'email', 'department_id', 'position_id', 'photo_path', 'last_seen_at']),
-            'departments' => Department::where('status', 1)->orderBy('name')->get(),
+            'departments' => \App\Support\DepartmentHierarchy::options(),
         ]);
     }
 

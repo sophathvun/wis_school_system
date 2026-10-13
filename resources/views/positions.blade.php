@@ -1,10 +1,10 @@
-﻿@extends('layouts.app')
+@extends('layouts.app')
 @section('title', 'Positions')
 @section('page-header')
     <div class="container-fluid">
         <div class="row g-2 align-items-center">
             <div class="col">
-                <div class="page-pretitle">Administrator</div>
+                <div class="page-pretitle">HRM</div>
                 <h2 class="page-title">Positions</h2>
             </div>
             <div class="col-auto">
@@ -104,7 +104,7 @@
                         <tr>
                             <td>{{ $positions->firstItem() + $loop->index }}</td>
                             <td>{{ $position->name }}</td>
-                            <td>{{ $position->department?->name ?? '—' }}</td>
+                            <td>{{ $position->department?->hierarchy_name ?? '—' }}</td>
                             <td>{{ $position->code }}</td>
                             <td><button type="button" class="status-toggle {{ $position->status ? 'is-active' : '' }}"
                                     data-status-toggle data-status-entity="position" data-status-id="{{ $position->id }}"
@@ -152,7 +152,7 @@
                                 <option value=""> </option>
                                 @foreach ($departments as $department)
                                     <option value="{{ $department->id }}" @selected(old('department_id', $editPosition?->department_id) == $department->id)>
-                                        {{ $department->name }}</option>
+                                        {{ $department->hierarchy_name }}</option>
                                 @endforeach
                             </select></div>
                         <div class="position-status-row"><select class="d-none" name="status">

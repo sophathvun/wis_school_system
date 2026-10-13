@@ -10,14 +10,16 @@ use Illuminate\Http\Request;
 
 class PositionManagementController
 {
-    private function authorizeAdmin(Request $request): void
+    private function authorizeAction(Request $request, string $action = 'view'): void
     {
-        abort_unless($request->user()->isSuperAdmin(), 403);
+        abort_unless(\App\Support\HrmPermissions::allows($request->user(),'positions',$action),403);
     }
 
     public function index(Request $request)
     {
-        $this->authorizeAdmin($request);
+        $this->authorizeAction($request);
+        if ($request->integer('edit')) $this->authorizeAction($request,'update');
+        if (!$request->user()->isSuperAdmin() && !$request->routeIs('hrm.settings.index')) return redirect()->route('hrm.settings.index',$request->query()+['tab'=>'positions']);
 
         $search = trim((string) $request->query('search'));
         $perPage = min(max($request->integer('per_page', 10), 10), 100);
@@ -46,9 +48,10 @@ class PositionManagementController
 
         return view('positions', [
             'positions' => $positions,
-            'positionDepartments' => $positions->getCollection()->map(fn ($position) => $position->department?->name ?: '-')->values(),
+            'positionDepartments' => $positions->getCollection()->map(fn ($position) => $position->department?->hierarchy_name ?: '-')->values(),
             'editPosition' => $request->integer('edit') ? Position::find($request->integer('edit')) : null,
-            'departments' => Department::where('status', 1)->orderBy('name')->get(),
+            'departments' => \App\Support\DepartmentHierarchy::options(),
+            ...\App\Support\HrmPermissions::settingFlags($request->user(),'positions'),
             'sortBy' => $sortBy,
             'sortDir' => $sortDir,
         ]);
@@ -56,7 +59,7 @@ class PositionManagementController
 
     public function print(Request $request)
     {
-        $this->authorizeAdmin($request);
+        $this->authorizeAction($request,'print');
 
         return view('positions-pdf', [
             'positions' => $this->positionReportRows(),
@@ -67,7 +70,7 @@ class PositionManagementController
 
     public function exportExcel(Request $request)
     {
-        $this->authorizeAdmin($request);
+        $this->authorizeAction($request,'export');
 
         $filename = 'position-list-' . now('Asia/Phnom_Penh')->format('Ymd-His') . '.xlsx';
         $path = $this->positionExcelPath($this->positionReportRows());
@@ -81,7 +84,7 @@ class PositionManagementController
 
     public function save(Request $request)
     {
-        $this->authorizeAdmin($request);
+        $this->authorizeAction($request,$request->integer('position_id') ? 'update' : 'create');
 
         $id = $request->integer('position_id');
         if (!$id && !$request->has('status')) {
@@ -95,15 +98,20 @@ class PositionManagementController
             'department_id' => ['required', 'exists:access_departments,id'],
             'status' => ['required', 'in:0,1'],
         ]);
+        $currentStatus=$id ? (int)Position::findOrFail($id)->status : 1;
+        if ((int)$data['status']!==$currentStatus) $this->authorizeAction($request,'status');
 
         Position::updateOrCreate(['id' => $id ?: null], collect($data)->except('position_id')->toArray());
 
-        return redirect()->route('positions.index')->with('success', $id ? 'Position updated successfully.' : 'Position created successfully.');
+        return ($request->routeIs('hrm.settings.*')
+            ? redirect()->route('hrm.settings.index', ['tab' => 'positions'])
+            : redirect()->route('positions.index'))
+            ->with('success', $id ? 'Position updated successfully.' : 'Position created successfully.');
     }
 
     public function delete(Request $request, Position $position)
     {
-        $this->authorizeAdmin($request);
+        $this->authorizeAction($request,'delete');
 
         if ($position->users()->exists()) {
             return back()->withErrors(['position' => 'This position cannot be deleted because it is assigned to users.']);
@@ -203,7 +211,7 @@ class PositionManagementController
             $rows[] = $this->xlsxRow($index + 10, [
                 ['A', (string) ($index + 1), 5],
                 ['B', $position->name ?: '-', 5],
-                ['C', $position->department?->name ?: '-', 5],
+                ['C', $position->department?->hierarchy_name ?: '-', 5],
                 ['D', $position->code ?: '-', 5],
                 ['E', $position->status ? 'Active' : 'Inactive', 5],
             ], 22);

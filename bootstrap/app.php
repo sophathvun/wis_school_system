@@ -30,6 +30,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*')
+                || $request->is('hrm/staff-management/address-options')
                 || ($request->is('student-enrollments/save', 'students/skipping-grade', 'students/skipping-grade/*', 'student-enrollment-workflows/*', 'communication/chat/*') && $request->expectsJson()),
         );
 

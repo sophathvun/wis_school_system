@@ -1,4 +1,4 @@
-﻿@extends('layouts.app')
+@extends('layouts.app')
 
 @section('title', 'Roles and Permissions')
 
@@ -239,7 +239,7 @@
                                     <td>{{ $listedUser->is_global ? 'Global Administrator' : '-' }}</td>
                                     <td>{{ $listedUser->is_global ? 'All Campuses' : ($listedUser->campuses->pluck('campus_name_en')->join(', ') ?: '-') }}
                                     </td>
-                                    <td>{{ $listedUser->department?->name ?: '-' }}</td>
+                                    <td>{{ $listedUser->department?->hierarchy_name ?: '-' }}</td>
                                     <td>{{ $listedUser->roles->pluck('name')->join(', ') ?: '-' }}</td>
                                     <td><button type="button"
                                             class="status-toggle {{ $listedUser->status ? 'is-active' : '' }}"
@@ -304,7 +304,7 @@
                                     <option value="">No Department</option>
                                     @foreach ($departments as $item)
                                         <option value="{{ $item->id }}" @selected($role?->department_id === $item->id)>
-                                            {{ $item->name }}</option>
+                                            {{ $item->hierarchy_name }}</option>
                                     @endforeach
                                 </select>
                             </div>
@@ -327,7 +327,7 @@
                         <div class="permission-campus-picker permission-department-picker has-value" data-department-picker>
                             <button type="button" class="permission-campus-picker-toggle" data-department-picker-toggle aria-expanded="false">
                                 <span class="permission-campus-picker-field-label">Select Department</span>
-                                <span data-department-picker-label>{{ $department?->name }}</span><i class="ti ti-chevron-down"></i>
+                                <span data-department-picker-label>{{ $department?->hierarchy_name }}</span><i class="ti ti-chevron-down"></i>
                             </button>
                             <div class="permission-campus-picker-menu d-none" data-department-picker-menu>
                                 <div class="input-icon"><span class="input-icon-addon"><i class="ti ti-search"></i></span>
@@ -335,7 +335,7 @@
                                 </div>
                                 <div class="permission-campus-picker-results" data-department-picker-results>
                                     @foreach ($departments as $item)
-                                        <button type="button" class="permission-department-option" data-department-id="{{ $item->id }}">{{ $item->name }}</button>
+                                        <button type="button" class="permission-department-option" data-department-id="{{ $item->id }}">{{ $item->hierarchy_name }}</button>
                                     @endforeach
                                 </div>
                             </div>

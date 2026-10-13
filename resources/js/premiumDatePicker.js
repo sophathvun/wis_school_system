@@ -32,6 +32,8 @@ export function initPremiumDatePicker(picker) {
     };
     const display = (date) => `${pad(date.getDate())}-${namedMonth ? shortMonths[date.getMonth()] : pad(date.getMonth() + 1)}-${date.getFullYear()}`;
     const initial = parse(value.value);
+    const maximum = parse(picker.dataset.premiumDateMax);
+    const minimumDate = () => parse(picker.dataset.premiumDateMin);
     let cursor = initial || new Date();
     cursor = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
 
@@ -43,21 +45,30 @@ export function initPremiumDatePicker(picker) {
     };
     const position = () => {
         popup.style.left = '0';
+        const boundarySelector = picker.dataset.premiumDateBoundary;
+        const boundary = boundarySelector ? picker.closest(boundarySelector)?.getBoundingClientRect() : null;
+        const scrollArea = boundarySelector ? picker.closest('.modal-body')?.getBoundingClientRect() : null;
+        // Keep staff calendars inside both the card and the scrolling modal,
+        // including the last column where the popup is wider than its field.
+        const leftEdge = Math.max(12, boundary ? boundary.left + 12 : 12, scrollArea ? scrollArea.left + 12 : 12);
+        const rightEdge = Math.min(window.innerWidth - 12, boundary ? boundary.right - 12 : window.innerWidth - 12, scrollArea ? scrollArea.right - 12 : window.innerWidth - 12);
+        if (boundarySelector) popup.style.maxWidth = `${Math.max(0, rightEdge - leftEdge)}px`;
         const bounds = popup.getBoundingClientRect();
-        const rightOverflow = Math.max(0, bounds.right - window.innerWidth + 12);
-        const leftOverflow = Math.max(0, 12 - bounds.left);
+        const rightOverflow = Math.max(0, bounds.right - rightEdge);
+        const leftOverflow = Math.max(0, leftEdge - bounds.left);
         popup.style.left = `${leftOverflow - rightOverflow}px`;
     };
     const render = () => {
+        const minimum = minimumDate();
         month.textContent = cursor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
         const first = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
         const start = new Date(cursor.getFullYear(), cursor.getMonth(), 1 - first.getDay());
         days.innerHTML = Array.from({ length: 42 }, (_, index) => {
             const date = new Date(start.getFullYear(), start.getMonth(), start.getDate() + index);
             const selected = iso(date) === value.value;
-            return `<button type="button" class="date-picker-day${date.getMonth() !== cursor.getMonth() ? ' is-outside' : ''}${selected ? ' is-selected' : ''}" data-premium-day="${iso(date)}" aria-label="${date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}" aria-pressed="${selected}">${date.getDate()}</button>`;
+            return `<button type="button" class="date-picker-day${date.getMonth() !== cursor.getMonth() ? ' is-outside' : ''}${selected ? ' is-selected' : ''}" data-premium-day="${iso(date)}" aria-label="${date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}" aria-pressed="${selected}"${(maximum && date > maximum) || (minimum && date < minimum) ? ' disabled' : ''}>${date.getDate()}</button>`;
         }).join('');
-        const end = Math.max(new Date().getFullYear() + 10, cursor.getFullYear());
+        const end = maximum ? maximum.getFullYear() : Math.max(new Date().getFullYear() + 10, cursor.getFullYear());
         years.innerHTML = Array.from({ length: end - 1900 + 1 }, (_, index) => {
             const year = 1900 + index;
             return `<button type="button" class="date-picker-year${year === cursor.getFullYear() ? ' is-selected' : ''}" data-premium-year="${year}">${year}</button>`;
@@ -73,9 +84,14 @@ export function initPremiumDatePicker(picker) {
         value.dispatchEvent(new Event('change', { bubbles: true }));
     };
     const syncTyped = (format = true) => {
-        const parsed = parseTyped();
+        const typed = parseTyped();
+        const minimum = minimumDate();
+        const parsed = typed && (!maximum || typed <= maximum) && (!minimum || typed >= minimum) ? typed : null;
         value.value = parsed ? iso(parsed) : '';
-        input.setCustomValidity(input.value.trim() && !parsed ? `Enter a valid date as ${displayFormat}.` : '');
+        input.setCustomValidity(typed && maximum && typed > maximum
+            ? `Enter a date on or before ${display(maximum)}.`
+            : typed && minimum && typed < minimum ? `Enter a date on or after ${display(minimum)}.`
+            : input.value.trim() && !parsed ? `Enter a valid date as ${displayFormat}.` : '');
         picker.classList.toggle('has-value', Boolean(parsed));
         if (parsed && format) {
             input.value = display(parsed);
@@ -98,6 +114,8 @@ export function initPremiumDatePicker(picker) {
         position();
     };
     toggle.addEventListener('click', () => popup.classList.contains('d-none') ? open() : close());
+    picker.addEventListener('premium-date-range-change',() => { syncTyped(false); render(); });
+    picker.closest('.modal')?.addEventListener('hide.bs.modal',close);
     input.addEventListener('focus', open);
     input.addEventListener('input', () => syncTyped(false));
     input.addEventListener('change', () => syncTyped());

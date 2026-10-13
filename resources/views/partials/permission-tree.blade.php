@@ -5,6 +5,11 @@
 @php($mainMenuIcons = ['administrator' => 'ti-shield-lock', 'communication' => 'ti-messages', 'settings' => 'ti-settings', 'students' => 'ti-user', 'dashboard' => 'ti-dashboard'])
 @php($submenuIcons = ['users' => 'ti-users', 'departments' => 'ti-building-community', 'positions' => 'ti-briefcase', 'roles' => 'ti-shield', 'dashboard-templates' => 'ti-layout-dashboard', 'notifications' => 'ti-bell', 'chat' => 'ti-message-circle', 'academic-years' => 'ti-calendar', 'grades' => 'ti-school', 'classes' => 'ti-door', 'sessions' => 'ti-clock', 'education-levels' => 'ti-school', 'programs' => 'ti-books', 'school-info' => 'ti-building-community', 'locations' => 'ti-map-pin', 'occupations' => 'ti-briefcase', 'academic-tracks' => 'ti-route', 'withdrawal-reasons' => 'ti-user-minus', 'student-document-types' => 'ti-file-description', 'branding' => 'ti-palette', 'database-backups' => 'ti-database', 'students.search' => 'ti-search', 'students.enrollment' => 'ti-user-plus', 'families' => 'ti-users-group', 'students.promotion' => 'ti-arrows-transfer-up', 'students.transfer' => 'ti-arrows-left-right', 'students.graduation' => 'ti-certificate', 'student-reentry' => 'ti-user-check', 'student-documents' => 'ti-files', 'student-data-transfer' => 'ti-file-import'])
 <div class="row g-3 align-items-start mb-3">
+@php($mainMenuIcons['hrm']='ti-users-group')
+@php($submenuIcons['hrm-staff-data']='ti-file-import')
+@php($submenuIcons=array_merge($submenuIcons,['staff'=>'ti-id-badge-2','hrm-settings'=>'ti-settings','hrm-staff-attendance'=>'ti-user-check','hrm-payroll'=>'ti-cash-banknote','hrm-leave-requests'=>'ti-calendar-minus','hrm-performance-reviews'=>'ti-chart-bar','hrm-staff-reports'=>'ti-report-analytics']))
+@php($mainMenuIcons['hrm']='ti-users-group')
+@php($submenuIcons=array_merge($submenuIcons,['staff'=>'ti-id-badge-2','hrm-settings'=>'ti-settings','hrm-staff-attendance'=>'ti-user-check','hrm-payroll'=>'ti-cash-banknote','hrm-leave-requests'=>'ti-calendar-minus','hrm-performance-reviews'=>'ti-chart-bar','hrm-staff-reports'=>'ti-report-analytics']))
 @php($permissionUser = $listedUser ?? ($selectedUser ?? null))
 @if (($showCampusAssignment ?? false) && $permissionUser)
     <div class="col-md-6">
@@ -80,6 +85,10 @@
                                 <button type="button" class="status-toggle {{ $submenuOn ? 'is-active' : '' }}"
                                     data-permission-toggle data-permission-level="submenu"
                                     data-permission-id="{{ $submenuId }}"
+                                    data-permission-code="{{ $module['permission']->code }}"
+                                    @if($moduleKey==='hrm-staff-data') data-requires-permissions="hrm-settings.view,staff.view" @elseif(in_array($moduleKey,['departments','positions'],true)) data-requires-permission="hrm-settings.view" @endif
+                                    data-permission-code="{{ $module['permission']->code }}"
+                                    @if(in_array($moduleKey,['departments','positions'],true)) data-requires-permission="hrm-settings.view" @endif
                                     data-parent-permission="{{ $mainId }}"
                                     data-status="{{ $submenuOn ? 1 : 0 }}"
                                     aria-pressed="{{ $submenuOn ? 'true' : 'false' }}">
@@ -97,7 +106,7 @@
                                     <button type="button" class="status-toggle {{ $actionOn ? 'is-active' : '' }}"
                                         data-permission-toggle data-permission-level="action"
                                         data-permission-code="{{ $action->code }}"
-                                        @if($skippingParent) data-requires-permission="student-skipping-grade.{{ $skippingParent }}" @endif
+                                        @if($skippingParent) data-requires-permission="student-skipping-grade.{{ $skippingParent }}" @elseif($moduleKey==='hrm-staff-data' && $action->action==='import') data-requires-permission="staff.create" @endif
                                         data-parent-permission="{{ $submenuId }}"
                                         data-status="{{ $actionOn ? 1 : 0 }}"
                                         aria-pressed="{{ $actionOn ? 'true' : 'false' }}">

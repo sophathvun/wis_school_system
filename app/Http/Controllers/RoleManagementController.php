@@ -47,7 +47,7 @@ class RoleManagementController
         return view('roles', [
             'roles' => $roles,
             'editRole' => $request->integer('edit') ? Role::find($request->integer('edit')) : null,
-            'departments' => Department::where('status', 1)->orderBy('name')->get(),
+            'departments' => \App\Support\DepartmentHierarchy::options(),
             'sortBy' => $sortBy,
             'sortDir' => $sortDir,
         ]);
@@ -213,7 +213,7 @@ class RoleManagementController
                 ['A', (string) ($index + 1), 5],
                 ['B', $role->name ?: '-', 5],
                 ['C', $role->code ?: '-', 5],
-                ['D', $role->department?->name ?: '-', 5],
+                ['D', $role->department?->hierarchy_name ?: '-', 5],
                 ['E', $role->is_global ? 'Global' : 'Campus', 5],
                 ['F', $role->status ? 'Active' : 'Inactive', 5],
             ], 22);

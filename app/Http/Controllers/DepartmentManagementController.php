@@ -6,29 +6,39 @@ use App\Models\BrandingSetting;
 use App\Models\Department;
 use App\Models\SchoolInfo;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use App\Support\DepartmentHierarchy;
 
 class DepartmentManagementController
 {
-    private function authorizeAdmin(Request $request): void
+    private function authorizeAction(Request $request, string $action = 'view'): void
     {
-        abort_unless($request->user()->isSuperAdmin(), 403);
+        abort_unless(\App\Support\HrmPermissions::allows($request->user(),'departments',$action),403);
     }
 
     public function index(Request $request)
     {
-        $this->authorizeAdmin($request);
+        $this->authorizeAction($request);
+        if ($request->integer('edit')) $this->authorizeAction($request,'update');
+        if (!$request->user()->isSuperAdmin() && !$request->routeIs('hrm.settings.index')) return redirect()->route('hrm.settings.index',$request->query()+['tab'=>'departments']);
         $search = trim((string) $request->query('search'));
         $perPage = min(max($request->integer('per_page', 10), 10), 100);
         $sortBy = in_array($request->query('sortBy', 'name'), ['name', 'code', 'status'], true) ? $request->query('sortBy', 'name') : 'name';
         $sortDir = strtolower($request->query('sortDir', 'asc')) === 'desc' ? 'desc' : 'asc';
 
-        return view('departments', [
-            'departments' => Department::withCount(['permissions', 'roles', 'users'])
-                ->when($search, fn ($q) => $q->where('name', 'like', "%{$search}%")->orWhere('code', 'like', "%{$search}%"))
+        $departments = Department::withCount(['permissions', 'roles', 'users', 'children', 'positions', 'staff'])
+                ->when($search, fn ($q) => $q->where(fn ($q) => $q->where('name', 'like', "%{$search}%")->orWhere('code', 'like', "%{$search}%")
+                    ->orWhereHas('parent', fn ($parent) => $parent->where('name', 'like', "%{$search}%"))))
                 ->orderBy($sortBy, $sortDir)
                 ->orderBy('name')
-                ->paginate($perPage)->withQueryString(),
+                ->paginate($perPage)->withQueryString();
+        DepartmentHierarchy::attachParents($departments->getCollection());
+        return view('departments', [
+            'departments' => $departments,
+            'parentDepartments' => DepartmentHierarchy::options(false, $request->integer('edit') ?: null),
+            'allParentDepartments' => DepartmentHierarchy::options(false),
             'editDepartment' => $request->integer('edit') ? Department::find($request->integer('edit')) : null,
+            ...\App\Support\HrmPermissions::settingFlags($request->user(),'departments'),
             'sortBy' => $sortBy,
             'sortDir' => $sortDir,
         ]);
@@ -36,7 +46,7 @@ class DepartmentManagementController
 
     public function print(Request $request)
     {
-        $this->authorizeAdmin($request);
+        $this->authorizeAction($request,'print');
 
         return view('departments-pdf', [
             'departments' => $this->departmentReportRows(),
@@ -47,7 +57,7 @@ class DepartmentManagementController
 
     public function exportExcel(Request $request)
     {
-        $this->authorizeAdmin($request);
+        $this->authorizeAction($request,'export');
         $filename = 'department-list-' . now('Asia/Phnom_Penh')->format('Ymd-His') . '.xlsx';
         $path = $this->departmentExcelPath($this->departmentReportRows());
 
@@ -60,7 +70,7 @@ class DepartmentManagementController
 
     public function save(Request $request)
     {
-        $this->authorizeAdmin($request);
+        $this->authorizeAction($request,$request->integer('department_id') ? 'update' : 'create');
         $id = $request->integer('department_id');
         if (!$id && !$request->has('status')) $request->merge(['status' => '1']);
         $data = $request->validate([
@@ -68,25 +78,39 @@ class DepartmentManagementController
             'name' => ['required', 'string', 'max:120'],
             'code' => ['required', 'alpha_dash', 'max:80', 'unique:access_departments,code,'.$id],
             'status' => ['required', 'in:0,1'],
+            'parent_id' => ['nullable', 'integer', 'exists:access_departments,id'],
         ]);
-        Department::updateOrCreate(['id' => $id ?: null], collect($data)->except('department_id')->toArray());
-        return redirect()->route('departments.index')->with('success', $id ? 'Department updated successfully.' : 'Department created successfully.');
+        $currentStatus=$id ? (int)Department::findOrFail($id)->status : 1;
+        if ((int)$data['status']!==$currentStatus) $this->authorizeAction($request,'status');
+        DB::transaction(function () use ($id, $data) {
+            // Serialize hierarchy edits so two simultaneous changes cannot create a cycle.
+            $departments = Department::orderBy('id')->lockForUpdate()->get(['id', 'parent_id']);
+            if (array_key_exists('parent_id', $data)) DepartmentHierarchy::assertValidParent($id ?: null, $data['parent_id'] ? (int) $data['parent_id'] : null, $departments);
+            Department::updateOrCreate(['id' => $id ?: null], collect($data)->except('department_id')->toArray());
+        });
+        return ($request->routeIs('hrm.settings.*')
+            ? redirect()->route('hrm.settings.index', ['tab' => 'departments'])
+            : redirect()->route('departments.index'))
+            ->with('success', $id ? 'Department updated successfully.' : 'Department created successfully.');
     }
 
     public function delete(Request $request, Department $department)
     {
-        $this->authorizeAdmin($request);
+        $this->authorizeAction($request,'delete');
+        if ($department->children()->exists()) return back()->withErrors(['department' => 'Move or remove the subdepartments before deleting their parent department.']);
         $used = $department->permissions()->exists()
             || $department->roles()->exists()
-            || $department->users()->exists();
-        if ($used) return back()->withErrors(['department' => 'This department cannot be deleted because it is assigned to users, roles, or permissions.']);
+            || $department->users()->exists()
+            || $department->positions()->exists()
+            || $department->staff()->exists();
+        if ($used) return back()->withErrors(['department' => 'This department cannot be deleted because it is assigned to staff, positions, users, roles, or permissions.']);
         $department->delete();
         return back()->with('success', 'Department deleted successfully.');
     }
 
     private function departmentReportRows()
     {
-        return Department::orderBy('name')->get();
+        return DepartmentHierarchy::options(false);
     }
 
     private function departmentReportLogoSrc(): ?string
@@ -169,7 +193,7 @@ class DepartmentManagementController
         foreach ($departments as $index => $department) {
             $rows[] = $this->xlsxRow($index + 10, [
                 ['A', (string) ($index + 1), 5],
-                ['B', $department->name ?: '-', 5],
+                ['B', $department->hierarchy_name ?: '-', 5],
                 ['C', $department->code ?: '-', 5],
                 ['D', $department->status ? 'Active' : 'Inactive', 5],
             ], 22);

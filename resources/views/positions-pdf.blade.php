@@ -137,7 +137,7 @@
                 <tr>
                     <td>{{ $index + 1 }}</td>
                     <td class="text-start">{{ $position->name ?: '-' }}</td>
-                    <td class="text-start">{{ $position->department?->name ?: '-' }}</td>
+                    <td class="text-start">{{ $position->department?->hierarchy_name ?: '-' }}</td>
                     <td>{{ $position->code ?: '-' }}</td>
                     <td>
                         <span class="status-badge {{ $position->status ? 'status-active' : 'status-inactive' }}">

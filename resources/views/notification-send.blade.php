@@ -158,7 +158,7 @@
                     <div class="col-md-6" id="departmentBox"><select class="form-select d-none" name="department_ids[]"
                             multiple size="7">
                             @foreach ($departments as $department)
-                                <option value="{{ $department->id }}" @selected($oldDepartmentIds->contains((string) $department->id))>{{ $department->name }}
+                                <option value="{{ $department->id }}" @selected($oldDepartmentIds->contains((string) $department->id))>{{ $department->hierarchy_name }}
                                 </option>
                             @endforeach
                         </select>

@@ -20,7 +20,9 @@ class PermissionHierarchy
             'students.search' => 'Search Students', 'students.enrollment' => 'Student Enrollment', 'families' => 'Family Management',
             'students.promotion' => 'Student Promotion', 'students.transfer' => 'Student Transfer', 'students.graduation' => 'Student Graduation',
             'student-reentry' => 'Student Re-entry', 'student-skipping-grade' => 'Stu. Skipping Grade', 'student-id-card-qr' => 'Stu. ID Card (QR)', 'student-documents' => 'Student Documents', 'student-data-transfer' => 'Import / Export Data', 'homeroom' => 'Homeroom Activities',
-            'staff' => 'Staff Management',
+            'staff' => 'Staff Management', 'hrm-settings' => 'HRM Settings', 'hrm-staff-data'=>'Staff Import / Export',
+            'hrm-staff-attendance' => 'Staff Attendance', 'hrm-payroll' => 'Payroll', 'hrm-leave-requests' => 'Leave Requests',
+            'hrm-performance-reviews' => 'Performance Reviews', 'hrm-staff-reports' => 'Staff Reports',
         ], AcademicReportPermissions::moduleLabels());
     }
 
@@ -29,7 +31,7 @@ class PermissionHierarchy
         return [
             'administrator' => [
                 'label' => 'Administrator', 'permission' => 'administrator.view',
-                'modules' => ['users', 'departments', 'positions', 'roles', 'dashboard-templates', 'branding', 'database-backups', 'campuses'],
+                'modules' => ['users', 'roles', 'dashboard-templates', 'branding', 'database-backups', 'campuses'],
                 'actions' => [],
             ],
             'communication' => [
@@ -68,9 +70,9 @@ class PermissionHierarchy
                 'actions' => ['grading-system.manage'],
             ],
             'hrm' => [
-                'label' => 'HRM', 'permission' => 'staff.view',
-                'modules' => [],
-                'actions' => ['staff.create', 'staff.edit', 'staff.delete'],
+                'label' => 'HRM', 'permission' => 'hrm.view',
+                'modules' => ['staff', 'hrm-settings', 'departments', 'positions', 'hrm-staff-data', 'hrm-staff-attendance', 'hrm-payroll', 'hrm-leave-requests', 'hrm-performance-reviews', 'hrm-staff-reports'],
+                'actions' => [],
             ],
             'reports' => [
                 'label' => 'Reports', 'permission' => 'reports.view',
@@ -160,6 +162,16 @@ class PermissionHierarchy
         foreach (StudentSkippingGradePermissions::PARENTS as $action=>$parent) {
             if (!$codes->has(StudentSkippingGradePermissions::MODULE.'.'.$parent)) $codes->forget(StudentSkippingGradePermissions::MODULE.'.'.$action);
         }
+
+        if (!$codes->has('hrm-settings.view')) {
+            foreach ($codes->keys() as $code) {
+                if (str_starts_with($code,'departments.') || str_starts_with($code,'positions.') || str_starts_with($code,'hrm-staff-data.')) $codes->forget($code);
+            }
+        }
+        if (!$codes->has('staff.view')) {
+            foreach($codes->keys() as $code) if (str_starts_with($code,'hrm-staff-data.')) $codes->forget($code);
+        }
+        if (!$codes->has('staff.create')) $codes->forget('hrm-staff-data.import');
 
         return $codes->keys()->map(fn ($code) => $byId->firstWhere('code', $code)->id)->values()->all();
     }

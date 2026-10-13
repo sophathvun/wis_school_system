@@ -18,7 +18,7 @@ class AccessManagementController
     public function index(Request $request)
     {
         $role = Role::with('permissions')->find($request->integer('role_id')) ?? Role::with('permissions')->orderBy('name')->first();
-        $departments = DB::table('access_departments')->where('status', 1)->orderBy('name')->get();
+        $departments = \App\Support\DepartmentHierarchy::options();
         $department = Department::with('permissions')->find($request->integer('department_id')) ?? Department::where('status', 1)->orderBy('name')->first();
         $selectedUser = User::with('permissionOverrides')->find($request->integer('user_id')) ?? User::where('status', 1)->orderBy('name')->first();
         $permissionList = Permission::orderBy('module')->orderBy('action')->get();
@@ -84,8 +84,8 @@ class AccessManagementController
 
     public function saveDepartment(Request $request)
     {
-        $data = $request->validate(['name' => ['required', 'string', 'max:120'], 'code' => ['nullable', 'alpha_dash', 'max:80', 'unique:access_departments,code']]);
-        Department::create(['name' => $data['name'], 'code' => $data['code'] ?: Str::slug($data['name']), 'status' => 1]);
+        $data = $request->validate(['name' => ['required', 'string', 'max:120'], 'code' => ['nullable', 'alpha_dash', 'max:80', 'unique:access_departments,code'], 'parent_id' => ['nullable', 'integer', 'exists:access_departments,id']]);
+        Department::create(['name' => $data['name'], 'code' => ($data['code'] ?? null) ?: Str::slug($data['name']), 'status' => 1, 'parent_id' => $data['parent_id'] ?? null]);
         return back()->with('success', 'Department created successfully.');
     }
 
@@ -197,12 +197,12 @@ class AccessManagementController
         Department::with('permissions')->orderBy('name')->get()->each(function (Department $department) use (&$rows) {
             $permissions = $department->permissions->sortBy([['module', 'asc'], ['action', 'asc'], ['code', 'asc']])->values();
             if ($permissions->isEmpty()) {
-                $rows[] = [$department->name, $department->code, '-', '-', '-', '-'];
+                $rows[] = [$department->hierarchy_name, $department->code, '-', '-', '-', '-'];
                 return;
             }
 
             foreach ($permissions as $permission) {
-                $rows[] = [$department->name, $department->code, $permission->module, $permission->code, $permission->name, $permission->action];
+                $rows[] = [$department->hierarchy_name, $department->code, $permission->module, $permission->code, $permission->name, $permission->action];
             }
         });
 
@@ -220,12 +220,12 @@ class AccessManagementController
         Role::with(['department', 'permissions'])->orderBy('name')->get()->each(function (Role $role) use (&$rows) {
             $permissions = $role->permissions->sortBy([['module', 'asc'], ['action', 'asc'], ['code', 'asc']])->values();
             if ($permissions->isEmpty()) {
-                $rows[] = [$role->name, $role->code, $role->department?->name ?: '-', '-', '-', '-', '-'];
+                $rows[] = [$role->name, $role->code, $role->department?->hierarchy_name ?: '-', '-', '-', '-', '-'];
                 return;
             }
 
             foreach ($permissions as $permission) {
-                $rows[] = [$role->name, $role->code, $role->department?->name ?: '-', $permission->module, $permission->code, $permission->name, $permission->action];
+                $rows[] = [$role->name, $role->code, $role->department?->hierarchy_name ?: '-', $permission->module, $permission->code, $permission->name, $permission->action];
             }
         });
 
@@ -244,12 +244,12 @@ class AccessManagementController
         User::with(['department', 'roles', 'campuses', 'permissionOverrides'])->orderBy('name')->get()->each(function (User $user) use (&$rows, $allPermissions) {
             $permissions = $user->isSuperAdmin() ? $allPermissions : $user->permissionOverrides->where('pivot.allowed', true);
             if ($permissions->isEmpty()) {
-                $rows[] = [$user->name, $user->username, $user->department?->name ?: '-', $user->roles->pluck('name')->unique()->join(', ') ?: '-', $this->campusLabel($user), '-', '-', '-'];
+                $rows[] = [$user->name, $user->username, $user->department?->hierarchy_name ?: '-', $user->roles->pluck('name')->unique()->join(', ') ?: '-', $this->campusLabel($user), '-', '-', '-'];
                 return;
             }
 
             foreach ($permissions as $permission) {
-                $rows[] = [$user->name, $user->username, $user->department?->name ?: '-', $user->roles->pluck('name')->unique()->join(', ') ?: '-', $this->campusLabel($user), $permission->code, $permission->name, $user->isSuperAdmin() ? 'Full Access' : 'Allowed'];
+                $rows[] = [$user->name, $user->username, $user->department?->hierarchy_name ?: '-', $user->roles->pluck('name')->unique()->join(', ') ?: '-', $this->campusLabel($user), $permission->code, $permission->name, $user->isSuperAdmin() ? 'Full Access' : 'Allowed'];
             }
         });
 

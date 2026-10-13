@@ -551,6 +551,60 @@
     background: #eaf1ff;
 }
 
+[data-bs-theme="dark"] .date-picker-popup {
+    border-color: var(--tblr-border-color);
+    color: var(--tblr-body-color);
+    background: var(--tblr-bg-surface);
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.4);
+}
+
+[data-bs-theme="dark"] .date-picker-header {
+    color: var(--tblr-body-color);
+    background: linear-gradient(180deg, rgba(var(--tblr-primary-rgb), 0.35), rgba(var(--tblr-primary-rgb), 0.2));
+    border-bottom: 1px solid var(--tblr-border-color);
+}
+
+[data-bs-theme="dark"] .date-picker-year-popup {
+    border-color: var(--tblr-border-color);
+    background: var(--tblr-bg-surface-secondary);
+}
+
+[data-bs-theme="dark"] .date-picker-weekdays {
+    color: var(--tblr-secondary-color);
+}
+
+[data-bs-theme="dark"] .date-picker-day,
+[data-bs-theme="dark"] .date-picker-year {
+    color: var(--tblr-body-color);
+}
+
+[data-bs-theme="dark"] .date-picker-day.is-outside {
+    color: var(--tblr-secondary-color);
+}
+
+[data-bs-theme="dark"] .date-picker-day:not(:disabled):hover,
+[data-bs-theme="dark"] .date-picker-year:hover {
+    background: rgba(var(--tblr-primary-rgb), 0.2);
+}
+
+[data-bs-theme="dark"] .date-picker-day.is-selected,
+[data-bs-theme="dark"] .date-picker-year.is-selected {
+    color: #fff;
+    background: #416ec5;
+}
+
+[data-bs-theme="dark"] .date-picker-day.is-selected {
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.18) inset;
+}
+
+[data-bs-theme="dark"] .date-picker-day:focus-visible,
+[data-bs-theme="dark"] .date-picker-year:focus-visible,
+[data-bs-theme="dark"] .date-picker-nav:focus-visible,
+[data-bs-theme="dark"] .date-picker-year-toggle:focus-visible {
+    outline: 2px solid #8cb4ff;
+    outline-offset: -2px;
+}
+
 .student-photo-upload-row {
     display: flex;
     flex-wrap: nowrap;

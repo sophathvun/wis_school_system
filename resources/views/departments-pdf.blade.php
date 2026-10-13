@@ -135,7 +135,7 @@
             @foreach ($departments as $index => $department)
                 <tr>
                     <td>{{ $index + 1 }}</td>
-                    <td class="text-start">{{ $department->name ?: '-' }}</td>
+                    <td class="text-start">{{ $department->hierarchy_name ?: '-' }}</td>
                     <td>{{ $department->code ?: '-' }}</td>
                     <td>
                         <span class="status-badge {{ $department->status ? 'status-active' : 'status-inactive' }}">

@@ -326,7 +326,7 @@
                                     <label class="form-check">
                                         <input class="form-check-input" type="checkbox" name="assignments[departments][]"
                                             value="{{ $department->id }}" @checked(in_array($department->id, $selectedDepartments, true))>
-                                        <span class="form-check-label">{{ $department->name }}</span>
+                                        <span class="form-check-label">{{ $department->hierarchy_name }}</span>
                                     </label>
                                 @empty
                                     <div class="text-secondary">No departments found.</div>

@@ -59,6 +59,13 @@ document.addEventListener("DOMContentLoaded", () => {
         if (input) input.checked = active;
     };
 
+    const missingDependency = (form,button) => {
+        const codes=[button.dataset.requiresPermission,...(button.dataset.requiresPermissions?.split(',')||[])].filter(Boolean);
+        return codes.some(code => {
+            const parent=form.querySelector(`[data-permission-code="${code}"]`);
+            return !parent || parent.disabled || parent.dataset.status!=='1';
+        });
+    };
     const refreshHierarchy = (form) => {
         const fullAccess = form.querySelector("[data-full-access]");
         if (fullAccess?.dataset.status === "1") {
@@ -81,6 +88,15 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (!mainOn) setToggle(childButton, false);
             });
         });
+        form.querySelectorAll('[data-permission-level="submenu"][data-requires-permission],[data-permission-level="submenu"][data-requires-permissions]').forEach((button) => {
+            button.disabled = button.disabled || missingDependency(form,button);
+            if (button.disabled) setToggle(button, false);
+        });
+        form.querySelectorAll('[data-permission-level="submenu"][data-requires-permission]').forEach((button) => {
+            const parent = form.querySelector(`[data-permission-code="${button.dataset.requiresPermission}"]`);
+            button.disabled = button.disabled || !parent || parent.disabled || parent.dataset.status !== '1';
+            if (button.disabled) setToggle(button, false);
+        });
         form.querySelectorAll('[data-permission-toggle][data-permission-level="submenu"]').forEach((submenu) => {
             const submenuOn = submenu.dataset.status === "1";
             form.querySelectorAll(`[data-action-parent="${submenu.dataset.permissionId}"]`).forEach((action) => {
@@ -90,9 +106,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (!submenuOn || submenu.disabled) setToggle(actionButton, false);
             });
         });
-        form.querySelectorAll('[data-requires-permission]').forEach((button) => {
-            const parent = form.querySelector(`[data-permission-code="${button.dataset.requiresPermission}"]`);
-            button.disabled = button.disabled || !parent || parent.disabled || parent.dataset.status !== '1';
+        form.querySelectorAll('[data-requires-permission],[data-requires-permissions]').forEach((button) => {
+            button.disabled = button.disabled || missingDependency(form,button);
             if (button.disabled) setToggle(button, false);
         });
     };

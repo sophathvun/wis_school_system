@@ -14,6 +14,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 
 class UserManagementController
 {
@@ -46,12 +47,16 @@ class UserManagementController
             'position' => $user->position?->name ?: '',
             'campus' => $user->is_global ? 'All Campuses' : $user->campuses->pluck('campus_name_en')->join(', '),
         ])->values();
+        $editUser = $request->integer('edit') ? User::with(['campuses','position','roles','permissionOverrides','staffProfile'])->findOrFail($request->integer('edit')) : null;
         return view('user-management', [
             'users' => $users,
-            'editUser' => $request->integer('edit') ? User::with(['campuses', 'position', 'roles', 'permissionOverrides', 'staffProfile'])->find($request->integer('edit')) : null,
+            'editUser' => $editUser,
             'createUser' => $request->boolean('create'),
-            'staffProfiles' => Staff::with('campuses')->where('status', 1)->orderBy('name_en')->get(),
-            'departments' => Department::where('status', 1)->orderBy('name')->get(),
+            'staffProfiles' => Staff::with(['campuses','position','department'])
+                ->where(fn($query)=>$query->where(fn($query)=>$query->where('status',1)->whereDoesntHave('user'))
+                    ->when($editUser?->staff_profile_id,fn($query)=>$query->orWhere('id',$editUser->staff_profile_id)))
+                ->orderBy('name_en')->get(),
+            'departments' => \App\Support\DepartmentHierarchy::options(),
             'positions' => Position::with('department')->where('status', 1)->orderBy('name')->get(),
             'roles' => Role::where('status', 1)->orderBy('name')->get(),
             'campuses' => SchoolInfo::where('status', 1)->orderBy('campus_name_en')->get(),
@@ -88,11 +93,17 @@ class UserManagementController
     {
         abort_unless($request->user()->isSuperAdmin(), 403);
         $userId = $request->integer('user_id');
+        if (!$userId && ($staffId=filter_var($request->input('staff_profile_id'),FILTER_VALIDATE_INT)) && ($staff=Staff::find($staffId))) {
+            $defaults=['staff_id'=>$staff->staff_code,'name'=>$staff->name_en,'gender'=>$staff->gender,
+                'date_of_birth'=>$staff->date_of_birth?->format('Y-m-d'),'phone'=>$staff->phone,
+                'position_id'=>$staff->position_id,'department_id'=>$staff->department_id,'email'=>$staff->work_email?:$staff->email];
+            $request->merge(array_filter($defaults,fn($key)=>!$request->has($key),ARRAY_FILTER_USE_KEY));
+        }
         if (!$userId && !$request->has('status')) {
             $request->merge(['status' => '1']);
         }
         $data = $request->validate([
-            'user_id' => ['nullable', 'exists:users,id'], 'staff_profile_id' => ['nullable', 'exists:hrm_staff,id', 'unique:users,staff_profile_id,'.$userId], 'staff_id' => ['required', 'string', 'max:50', 'unique:users,staff_id,'.$userId], 'name' => ['required', 'string', 'max:255'],
+            'user_id' => ['nullable', 'exists:users,id'], 'staff_profile_id' => ['nullable', 'integer', Rule::exists('hrm_staff','id')->whereNull('deleted_at'), 'unique:users,staff_profile_id,'.$userId], 'staff_id' => ['required', 'string', 'max:50', 'unique:users,staff_id,'.$userId], 'name' => ['required', 'string', 'max:255'],
             'gender' => ['nullable', 'in:Male,Female,Other,male,female,other'], 'date_of_birth' => ['nullable', 'date'], 'phone' => ['nullable', 'string', 'max:50'], 'position_id' => ['nullable', 'exists:access_positions,id'],
             'username' => ['required', 'string', 'max:80', 'unique:users,username,'.$userId],
             'email' => ['required', 'email', 'max:255', 'unique:users,email,'.$userId],
@@ -103,8 +114,8 @@ class UserManagementController
             'status' => ['required', 'in:0,1'], 'login_identifier' => ['required', 'in:username,email,both'],
             'is_global' => ['nullable', 'boolean'], 'photo' => ['nullable', 'image', 'max:2048'],
         ]);
-        $data['phone'] = $this->normalizeCambodiaPhone($data['phone'] ?? null);
-        $data['gender'] = $this->normalizeGender($data['gender'] ?? null);
+        if (array_key_exists('phone',$data)) $data['phone'] = $this->normalizeCambodiaPhone($data['phone']);
+        if (array_key_exists('gender',$data)) $data['gender'] = $this->normalizeGender($data['gender']);
 
         if ($userId && (int) $userId === (int) $request->user()->id && (string) $data['status'] === '0') {
             return back()->withInput()->withErrors(['status' => 'You cannot deactivate your own account while you are logged in.']);
@@ -113,7 +124,7 @@ class UserManagementController
         $data['is_global'] = $request->boolean('is_global');
         DB::transaction(function () use ($request, $data, $userId) {
             $user = $userId ? User::findOrFail($userId) : new User();
-            $user->fill(collect($data)->except(['user_id', 'role_id', 'campuses', 'permission_ids', 'photo', 'password'])->filter(fn ($value) => $value !== null && $value !== '')->toArray());
+            $user->fill(collect($data)->except(['user_id', 'role_id', 'campuses', 'permission_ids', 'photo', 'password'])->toArray());
             if (!empty($data['password'])) {
                 $user->password = $data['password'];
                 $user->must_change_password = false;
