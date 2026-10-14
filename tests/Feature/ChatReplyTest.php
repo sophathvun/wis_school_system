@@ -120,3 +120,40 @@ it('requires current conversation membership and authentication for replies', fu
     $this->postJson(route('chat.messages.send',$this->conversation),$data)->assertUnauthorized();
     expect(ChatMessage::count())->toBe(1);
 });
+
+it('links message push notifications directly to the shared chat drawer', function ($type) {
+    $this->mock(WebPushService::class, function ($mock) {
+        $mock->shouldReceive('sendToUsers')->once()->withArgs(fn ($recipients, $payload) =>
+            $recipients->values()->all() === [1]
+            && $payload['url'] === route('chat.index', ['widget' => 1, 'conversation' => $this->conversation->id])
+            && $payload['tag'] === 'school-chat-'.$this->conversation->id
+        )->andReturnNull();
+    });
+    if ($type === 'voice') {
+        $this->postJson(route('chat.voice.send', $this->conversation), ['audio' => UploadedFile::fake()->create('voice.webm', 12, 'audio/webm')])->assertOk();
+    } else {
+        $this->postJson(route('chat.messages.send', $this->conversation), ['message' => 'Notification link test'])->assertOk();
+    }
+})->with(['text', 'voice']);
+
+it('opens a dedicated shared chat view for a notification without loading the desktop chat view', function () {
+    $request = \Illuminate\Http\Request::create(route('chat.index', ['widget' => 1, 'conversation' => $this->conversation->id]));
+    $request->setUserResolver(fn () => User::find(2));
+    $view = app(\App\Http\Controllers\ChatController::class)->index($request);
+    expect($view->name())->toBe('chat-notification')->and($view->getData()['initialChatConversationId'])->toBe($this->conversation->id);
+});
+
+it('blocks nonmembers and invalid conversation identifiers in notification links', function () {
+    $this->actingAs(User::find(3))->getJson(route('chat.index', ['widget' => 1, 'conversation' => $this->conversation->id]))->assertForbidden();
+    $this->actingAs(User::find(2))->getJson(route('chat.index', ['widget' => 1, 'conversation' => 999]))->assertNotFound();
+    $this->getJson(route('chat.index', ['widget' => 1, 'conversation' => 'invalid']))->assertUnprocessable();
+});
+
+it('foreground notifications target only a current unread conversation belonging to the recipient', function () {
+    $other = ChatConversation::create(['type' => 'direct', 'created_by' => 3]);
+    $other->users()->attach([1, 3]);
+    $other->messages()->create(['user_id' => 3, 'message' => 'Private conversation']);
+    $this->getJson(route('chat.unread'))->assertOk()->assertJsonPath('unread', 1)->assertJsonPath('latest_conversation_id', $this->conversation->id);
+    $this->message->delete();
+    $this->getJson(route('chat.unread'))->assertOk()->assertJsonPath('unread', 0)->assertJsonPath('latest_conversation_id', null);
+});

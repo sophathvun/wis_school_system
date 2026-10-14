@@ -24,6 +24,16 @@ class ChatController
         $this->touch($request);
         $user = $request->user();
 
+        if ($request->boolean('widget')) {
+            $data = $request->validate(['conversation' => ['nullable', 'integer', 'min:1']]);
+            $conversationId = isset($data['conversation']) ? (int) $data['conversation'] : null;
+            if ($conversationId) {
+                $this->authorizeMember($request, ChatConversation::findOrFail($conversationId));
+            }
+
+            return view('chat-notification', ['initialChatConversationId' => $conversationId]);
+        }
+
         return view('chat', [
             'users' => $this->availableUsers($request),
             'currentChatUserId' => $user->id,
@@ -84,19 +94,22 @@ class ChatController
         $this->touch($request);
 
         $userId = (int) $request->user()->id;
-        $total = DB::table('chat_messages as messages')
+        $unread = DB::table('chat_messages as messages')
             ->join('chat_conversation_users as readers', function ($join) use ($userId) {
                 $join->on('readers.conversation_id', '=', 'messages.conversation_id')
                     ->where('readers.user_id', '=', $userId);
             })
             ->where('messages.user_id', '!=', $userId)
+            ->whereNull('messages.deleted_at')
             ->where(function ($query) {
                 $query->whereNull('readers.last_read_at')
                     ->orWhereColumn('messages.created_at', '>', 'readers.last_read_at');
-            })
-            ->count('messages.id');
+            });
 
-        return response()->json(['unread' => $total]);
+        return response()->json([
+            'unread' => (clone $unread)->count('messages.id'),
+            'latest_conversation_id' => (clone $unread)->orderByDesc('messages.id')->value('messages.conversation_id'),
+        ]);
     }
 
     public function create(Request $request)
@@ -578,7 +591,7 @@ class ChatController
         app(WebPushService::class)->sendToUsers($recipientIds, [
             'title' => $conversation->type === 'group' ? ($conversation->title ?: 'Group chat') : ($message->user?->name ?: 'New chat message'),
             'body' => $message->message_type === 'voice' ? 'Voice message' : Str::limit(strip_tags($message->message), 120),
-            'url' => route('chat.index'),
+            'url' => route('chat.index', ['widget' => 1, 'conversation' => $conversation->id]),
             'tag' => 'school-chat-'.$conversation->id,
         ]);
     }

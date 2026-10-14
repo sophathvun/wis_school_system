@@ -17,7 +17,17 @@ self.addEventListener("fetch", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
     event.notification.close();
-    const targetUrl = event.notification.data?.url || "/";
+    let targetUrl = event.notification.data?.url || "/";
+    // Older chat alerts linked to the desktop list. Open those in the shared drawer too.
+    try {
+        const target = new URL(targetUrl, self.location.origin);
+        if (target.origin === self.location.origin && target.pathname.replace(/\/$/, '') === '/communication/chat') {
+            target.searchParams.set('widget', '1');
+            const conversationId = /^school-chat-(\d+)$/.exec(event.notification.tag || '')?.[1];
+            if (!target.searchParams.has('conversation') && conversationId) target.searchParams.set('conversation', conversationId);
+            targetUrl = target.href;
+        }
+    } catch {}
     event.waitUntil((async () => {
         const windowClients = await clients.matchAll({ type: "window", includeUncontrolled: true });
         for (const client of windowClients) {

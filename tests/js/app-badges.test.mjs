@@ -7,20 +7,28 @@ const workerSource = readFileSync(new URL('../../public/sw.js', import.meta.url)
 const navbarSource = readFileSync(new URL('../../resources/js/navbar.js', import.meta.url), 'utf8');
 
 function worker({ supported = true, denied = false } = {}) {
-    const handlers = {}, badges = [], notifications = [];
+    const handlers = {}, badges = [], notifications = [], opened = [];
     const navigator = supported ? { setAppBadge: async count => {
         if (denied) throw new Error('Badges disabled');
         badges.push(count);
     } } : {};
     vm.runInNewContext(workerSource, {
+        URL,
+        clients: { matchAll: async () => [], openWindow: async url => opened.push(url) },
         self: {
             navigator,
+            location: { origin: 'https://school.test' },
             addEventListener: (type, handler) => { handlers[type] = handler; },
             registration: { showNotification: async (...args) => notifications.push(args) },
         },
     });
     return {
-        badges, notifications,
+        badges, notifications, opened,
+        async click(notification) {
+            const work = [];
+            handlers.notificationclick({ notification: { close() {}, ...notification }, waitUntil: promise => work.push(promise) });
+            await Promise.all(work);
+        },
         async push(payload) {
             const work = [];
             handlers.push({ data: { json: () => payload }, waitUntil: promise => work.push(promise) });
@@ -57,6 +65,20 @@ test('pushes with no unread count do not accidentally clear an existing badge', 
     assert.equal(app.notifications.length, 1);
 });
 
+test('tapping new and older chat notifications opens the shared drawer in the correct conversation', async () => {
+    const app = worker();
+    await app.click({ data: { url: 'https://school.test/communication/chat?widget=1&conversation=42' }, tag: 'school-chat-42' });
+    await app.click({ data: { url: '/communication/chat' }, tag: 'school-chat-19' });
+    await app.click({ data: { url: '/communication/chat' }, tag: 'school-chat' });
+    await app.click({ data: { url: '/notifications/7/open' }, tag: 'school-notification-7' });
+    assert.deepEqual(app.opened, [
+        'https://school.test/communication/chat?widget=1&conversation=42',
+        'https://school.test/communication/chat?widget=1&conversation=19',
+        'https://school.test/communication/chat?widget=1',
+        '/notifications/7/open',
+    ]);
+});
+
 class Element extends EventTarget {
     textContent = '';
     classes = new Set();
@@ -80,7 +102,7 @@ function navbar({ registration = true, permission = 'granted', navbarChat = true
         }
     }
     const context = {
-        Event, Notification,
+        Event, Notification, URL,
         CustomEvent: class extends Event { constructor(type, options) { super(type); this.detail = options.detail; } },
         document: {
             addEventListener: (type, handler) => handler(),
@@ -102,6 +124,7 @@ function navbar({ registration = true, permission = 'granted', navbarChat = true
         },
         window: {
             Notification,
+            location: { origin: 'https://school.test' },
             addEventListener() {},
             dispatchEvent() {},
             setInterval: (callback, delay) => intervals.set(delay, callback),
@@ -109,6 +132,7 @@ function navbar({ registration = true, permission = 'granted', navbarChat = true
         },
         fetch: async url => ({ ok: true, json: async () => ({
             unread: url.includes('/chat/') ? unread.chat : unread.notifications,
+            latest_conversation_id: url.includes('/chat/') ? 17 : null,
             latest: { id: unread.notifications, title: 'School update' }, items: [],
         }) }),
     };
@@ -135,6 +159,7 @@ test('mobile foreground polling badges notifications plus messages and clears af
     assert.equal(app.chat.textContent, 4);
     assert.equal(app.notification.textContent, 5);
     assert.equal(app.shown.length, 2, 'mobile notifications use the service worker');
+    assert.equal(app.shown.find(([title]) => title === 'New chat message')[1].data.url, '/communication/chat?widget=1&conversation=17');
     await app.refresh({ chat: 0, notifications: 0 });
     assert.equal(app.badges.at(-1), 0);
 });

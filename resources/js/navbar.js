@@ -114,10 +114,14 @@
                 badge.classList.toggle("d-none", unreadCount === 0);
             });
             if (refreshChatUnread.previousUnread !== null && unreadCount > refreshChatUnread.previousUnread) {
+                const chatUrl = new URL('/communication/chat', window.location.origin);
+                chatUrl.searchParams.set('widget', '1');
+                const conversationId = Number(data.latest_conversation_id);
+                if (Number.isSafeInteger(conversationId) && conversationId > 0) chatUrl.searchParams.set('conversation', String(conversationId));
                 showBrowserNotification("New chat message", {
                     body: "You have a new unread chat message.",
                     tag: "school-chat",
-                    data: { url: "/communication/chat" },
+                    data: { url: chatUrl.pathname + chatUrl.search },
                 });
             }
             refreshChatUnread.previousUnread = unreadCount;

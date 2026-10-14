@@ -1595,4 +1595,24 @@ import { bindChatImageEditor } from './helpers/chatImageEditor.js';
                 window.addEventListener('resize', dockLauncher);
 
                 setTab('conversations');
+                const openNotificationChat = async () => {
+                    try {
+                        const id = Number(widget.dataset.initialConversation || 0);
+                        if (Number.isSafeInteger(id) && id > 0) {
+                            await openConversation(id);
+                            // Populate the Back-to-chats list without delaying the conversation.
+                            await refreshData();
+                        } else await openDrawer();
+                    } catch (error) {
+                        activeConversationId = null;
+                        activeConversation = null;
+                        conversationPane.classList.add('d-none');
+                        conversationPane.classList.remove('d-flex');
+                        setTab('conversations');
+                        await openDrawer();
+                        await showChatAlert('Unable to open conversation', error.message || 'Choose a conversation from the chat list.', 'error');
+                    }
+                };
+                document.getElementById('chat-open-notification')?.addEventListener('click', openNotificationChat);
+                if (widget.dataset.openOnLoad === 'true') openNotificationChat();
             });

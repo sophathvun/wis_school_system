@@ -1,7 +1,9 @@
-@if (auth()->check() && !request()->routeIs('chat.index'))
+@if (auth()->check() && (!request()->routeIs('chat.index') || request()->boolean('widget')))
 
 
     <div id="school-chat-widget" class="school-chat-widget"
+        data-open-on-load="{{ request()->routeIs('chat.index') && request()->boolean('widget') ? 'true' : 'false' }}"
+        data-initial-conversation="{{ $initialChatConversationId ?? '' }}"
         data-users-url="{{ route('chat.users') }}"
         data-conversations-url="{{ route('chat.conversations') }}"
         data-unread-url="{{ route('chat.unread') }}"
