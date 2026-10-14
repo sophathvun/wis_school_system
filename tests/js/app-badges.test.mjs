@@ -59,12 +59,13 @@ test('pushes with no unread count do not accidentally clear an existing badge', 
 
 class Element extends EventTarget {
     textContent = '';
-    classList = { toggle() {} };
+    classes = new Set();
+    classList = { toggle: (name, enabled) => enabled ? this.classes.add(name) : this.classes.delete(name) };
     closest() { return this.link; }
 }
 
-function navbar({ registration = true, permission = 'granted' } = {}) {
-    const chat = new Element(), notification = new Element(), mobile = new Element();
+function navbar({ registration = true, permission = 'granted', navbarChat = true } = {}) {
+    const chat = new Element(), launcher = new Element(), notification = new Element(), mobile = new Element();
     const install = new Element(), chatLink = new Element(), notificationToggle = new Element();
     mobile.link = new Element();
     const intervals = new Map(), badges = [], shown = [];
@@ -83,7 +84,7 @@ function navbar({ registration = true, permission = 'granted' } = {}) {
         CustomEvent: class extends Event { constructor(type, options) { super(type); this.detail = options.detail; } },
         document: {
             addEventListener: (type, handler) => handler(),
-            getElementById: id => id === 'chat-unread-badge' ? chat : id === 'installAppShortcut' ? install : null,
+            getElementById: id => id === 'chat-unread-badge' ? (navbarChat ? chat : null) : id === 'school-chat-unread-badge' ? launcher : id === 'installAppShortcut' ? install : null,
             querySelectorAll: () => [],
             querySelector: selector => ({
                 '[data-navbar-notification-badge]': notification,
@@ -113,7 +114,7 @@ function navbar({ registration = true, permission = 'granted' } = {}) {
     };
     vm.runInNewContext(navbarSource, context);
     return {
-        chat, notification, mobile, badges, shown, install, chatLink, notificationToggle,
+        chat, launcher, notification, mobile, badges, shown, install, chatLink, notificationToggle,
         subscriptionCount: () => subscriptions,
         permissionRequestCount: () => permissionRequests,
         async settle() { await new Promise(resolve => setImmediate(resolve)); },
@@ -143,6 +144,19 @@ test('an unavailable notification constructor cannot interrupt foreground unread
     await app.settle();
     await app.refresh({ chat: 3, notifications: 4 });
     assert.equal(app.badges.at(-1), 7);
+});
+
+test('the closed message launcher shows unread messages independently of notification counts and clears after reading', async () => {
+    const app = navbar({ navbarChat: false });
+    await app.settle();
+    assert.equal(app.launcher.textContent, 2);
+    assert.equal(app.launcher.classes.has('d-none'), false);
+    await app.refresh({ chat: 105, notifications: 3 });
+    assert.equal(app.launcher.textContent, '99+');
+    assert.equal(app.notification.textContent, 3);
+    await app.refresh({ chat: 0, notifications: 3 });
+    assert.equal(app.launcher.classes.has('d-none'), true);
+    assert.equal(app.badges.at(-1), 3);
 });
 
 test('installing or opening messages and notifications never requests permission before guided consent', async () => {

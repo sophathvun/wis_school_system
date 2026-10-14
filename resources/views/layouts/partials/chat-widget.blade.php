@@ -19,7 +19,7 @@
             style="position:fixed;right:1.25rem;bottom:1.75rem;left:auto;top:auto;z-index:2147483646;">
             <i class="ti ti-messages fs-3"></i>
             <span id="school-chat-unread-badge"
-                class="badge bg-red position-absolute top-0 start-100 translate-middle d-none">0</span>
+                class="badge bg-red school-chat-launcher-badge d-none" aria-live="polite" aria-atomic="true">0</span>
         </button>
 
         <div id="school-chat-drawer" class="school-chat-drawer d-none">

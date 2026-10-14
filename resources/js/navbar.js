@@ -5,6 +5,7 @@
     const notificationToggle = document.querySelector("[data-navbar-notification-toggle]");
     const notificationClose = document.querySelector("[data-navbar-notification-close]");
     const chatBadge = document.getElementById("chat-unread-badge");
+    const chatLauncherBadge = document.getElementById("school-chat-unread-badge");
     const appIconUrl = document.querySelector('link[rel="apple-touch-icon"]')?.href || "/app-icon.svg";
 
     const items = notificationMenu ? JSON.parse(notificationMenu.dataset.navbarNotificationPayload || "[]") : [];
@@ -99,7 +100,7 @@
     renderNotificationList(items);
 
     const refreshChatUnread = async () => {
-        if (!chatBadge) return;
+        if (!chatBadge && !chatLauncherBadge) return;
         try {
             const response = await fetch("/communication/chat/unread", {
                 headers: { Accept: "application/json" },
@@ -107,8 +108,11 @@
             if (!response.ok) return;
             const data = await response.json();
             const unreadCount = Number(data.unread || 0);
-            chatBadge.textContent = unreadCount > 99 ? "99+" : unreadCount;
-            chatBadge.classList.toggle("d-none", unreadCount === 0);
+            [chatBadge, chatLauncherBadge].forEach((badge) => {
+                if (!badge) return;
+                badge.textContent = unreadCount > 99 ? "99+" : unreadCount;
+                badge.classList.toggle("d-none", unreadCount === 0);
+            });
             if (refreshChatUnread.previousUnread !== null && unreadCount > refreshChatUnread.previousUnread) {
                 showBrowserNotification("New chat message", {
                     body: "You have a new unread chat message.",
