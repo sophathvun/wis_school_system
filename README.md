@@ -39,12 +39,18 @@ and restart its services; that URL is http://school_system.test:8080/.
 
 ## Server upload limits
 
-Central Grade Skipping Settings accepts a digital signature and school stamp of
-up to 2 MB **each**. Both files are sent in one multipart request. An HTTP 413
-response means the web server or PHP rejected the request before the application's
-per-file validation could run.
+Grade Skipping supporting documents allow up to 25 MB **per file**, with up to
+10 new documents in one upload. Submission can also include a separate signed
+request of up to 25 MB. Central Settings signature/stamp images remain limited
+to 2 MB each by the application.
 
-For Nginx, set `client_max_body_size 8m;` in the school site's active `server`
+All selected files are sent together in one multipart request. An HTTP 413
+response means an upload limit was exceeded in the web server, a proxy, or PHP,
+before the controller's per-file validation could run. Files individually below
+25 MB can still exceed the combined request limit. For example, 350 KB + 4.95 MB
++ 4.89 MB exceeds the previously documented 8 MB request limit.
+
+For Nginx, set `client_max_body_size 300m;` in the school site's active `server`
 block (including the HTTPS server block). Nginx defaults to 1 MB for the entire
 request. Check for a smaller override in a matching `location` block.
 Validate the configuration with `sudo nginx -t`, then reload with
@@ -53,18 +59,34 @@ Validate the configuration with `sudo nginx -t`, then reload with
 In the **PHP-FPM configuration used by the site**, set:
 
 ```ini
-upload_max_filesize = 2M
-post_max_size = 8M
+upload_max_filesize = 25M
+post_max_size = 300M
 ```
 
 Reload the site's PHP-FPM service after changing its configuration. The CLI
 `php --ini` output may point to a different configuration from PHP-FPM.
-The application still enforces 2 MB per signature/stamp image. These settings
-only provide sufficient space for the complete request; a Git pull does not
-update the server's Nginx or PHP-FPM configuration.
+These values provide space for the maximum file batch, a separate signed request,
+and multipart fields. Keep any existing higher limits needed by other modules.
+The application still enforces each module's own file and count limits. A Git
+pull, rebuilding assets, and clearing Laravel caches do not update the server's
+Nginx or PHP-FPM configuration.
+
+If the site uses Apache, a hosting panel, or another reverse proxy, update its
+equivalent request-body limit as well. Confirm the effective settings in the
+site's web PHP handler, rather than relying on the local or server CLI settings.
+If using CGI/FastCGI and the host permits `.user.ini` overrides, the PHP values
+above can go in `public/.user.ini`; this does not change Nginx/proxy limits and
+may take up to five minutes to be picked up. PHP-FPM pool admin settings can
+prevent per-directory overrides.
+
+After applying the live configuration, retry the failing three-file upload.
+If it still returns 413, inspect the HTTPS virtual host, matching location, and
+upstream proxy logs for the remaining lower limit. Do not expose a public
+`phpinfo()` page to diagnose this.
 
 References: [Nginx request body limit](https://nginx.org/en/docs/http/ngx_http_core_module.html#client_max_body_size),
-[PHP upload and POST limits](https://www.php.net/manual/en/ini.core.php#ini.post-max-size).
+[PHP upload and POST limits](https://www.php.net/manual/en/ini.core.php#ini.post-max-size),
+[PHP per-directory overrides](https://www.php.net/manual/en/configuration.file.per-user.php).
 
 ## About Laravel
 
