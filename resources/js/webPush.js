@@ -1,5 +1,6 @@
 import Swal from 'sweetalert2';
 import { isIosDevice } from './installShortcut';
+import { initPhoneNotificationOnboarding } from './phoneNotificationOnboarding';
 
 export function setupWebPush() {
     const buttons = [...document.querySelectorAll('[data-enable-phone-notifications]')];
@@ -100,4 +101,5 @@ export function setupWebPush() {
             }
         }).catch(() => {});
     }
+    initPhoneNotificationOnboarding(window.schoolEnsurePushSubscription);
 }

@@ -32,6 +32,7 @@ function setup({ permission = 'default', configured = true, iosBrowser = false, 
             querySelectorAll: selector => selector === '[data-enable-phone-notifications]' ? [button] : [testButton], querySelector: () => ({ content: 'csrf' }),
         },
         isIosDevice: () => iosBrowser,
+        initPhoneNotificationOnboarding() {},
         Swal: { fire: async options => dialogs.push(options) },
         fetch: async (url, options) => { requests.push({ url, options }); return url === '/push/test' ? { ok: testOk, json: async () => ({ ok: testOk, message: 'Push rejected (HTTP 403)' }) } : { ok: saveOk }; },
     });
