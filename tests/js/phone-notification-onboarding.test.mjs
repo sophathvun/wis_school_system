@@ -10,7 +10,8 @@ function setup({ ios = false, android = true, installed = true, permission = 'de
     supported = true, storage = new Map(), now = 1000000000, otherDialog = false, hidden = false, fail = false } = {}) {
     const window = new EventTarget(), document = new EventTarget(), mode = new EventTarget();
     const dialogs = [], validation = [], timers = new Map(), enabledEvents = [], confirmButton = new EventTarget();
-    let timerId = 0, requests = 0, resolveDialog, tapping = false, gesturePreserved = false;
+    const container = { style: {} };
+    let timerId = 0, requests = 0, resolveDialog, tapping = false, gesturePreserved = false, guideHiddenBeforePermission = false;
     window.navigator = { standalone: ios && installed };
     mode.matches = installed;
     window.matchMedia = () => mode;
@@ -29,6 +30,7 @@ function setup({ ios = false, android = true, installed = true, permission = 'de
         enableNotifications: () => {
             requests++;
             gesturePreserved = tapping;
+            guideHiddenBeforePermission = container.style.display === 'none';
             return fail ? Promise.reject(new Error('Allow notifications in phone settings.')) : Promise.resolve();
         },
         Swal: {
@@ -36,6 +38,7 @@ function setup({ ios = false, android = true, installed = true, permission = 'de
             isLoading: () => false,
             showValidationMessage: message => validation.push(message),
             getConfirmButton: () => confirmButton,
+            getContainer: () => container,
             fire: options => {
                 dialogs.push(options);
                 options.didOpen?.();
@@ -46,15 +49,14 @@ function setup({ ios = false, android = true, installed = true, permission = 'de
     return {
         window, document, mode, dialogs, validation, enabledEvents, state,
         requests: () => requests, gesturePreserved: () => gesturePreserved,
+        guideHiddenBeforePermission: () => guideHiddenBeforePermission,
         async timers() { const pending = [...timers.values()]; timers.clear(); pending.forEach(callback => callback()); await this.settle(); },
         settle: () => new Promise(resolve => setImmediate(resolve)),
         async confirm() {
             tapping = true;
             confirmButton.dispatchEvent(new Event('click'));
-            const pending = dialogs[0].preConfirm();
             tapping = false;
-            const result = await pending;
-            if (result !== false) resolveDialog({ isConfirmed: true });
+            resolveDialog({ isConfirmed: true });
             await this.settle();
         },
         async later() { resolveDialog({ isConfirmed: false }); await this.settle(); },
@@ -70,6 +72,7 @@ test('first Android Home Screen launch offers a guided opt-in without requesting
     await app.confirm();
     assert.equal(app.requests(), 1);
     assert.equal(app.gesturePreserved(), true, 'native permission request must run directly from confirmation');
+    assert.equal(app.guideHiddenBeforePermission(), true, 'guide must disappear before the native prompt is requested');
     assert.equal(app.dialogs[1].toast, true);
     assert.equal(app.dialogs[1].title, 'Notifications enabled!');
     assert.deepEqual(app.enabledEvents, ['school:notifications-enabled']);
@@ -115,12 +118,14 @@ test('granted, denied, signed-out, unconfigured, unsupported and desktop session
     }
 });
 
-test('subscription failure leaves the guide open with the error and never announces success', async () => {
+test('subscription failure opens guidance after the native prompt and never announces success', async () => {
     const app = setup({ fail: true });
     await app.timers();
     await app.confirm();
-    assert.deepEqual(app.validation, ['Allow notifications in phone settings.']);
-    assert.equal(app.dialogs.length, 1);
+    assert.equal(app.guideHiddenBeforePermission(), true);
+    assert.equal(app.dialogs.length, 2);
+    assert.equal(app.dialogs[1].text, 'Allow notifications in phone settings.');
+    assert.equal(app.dialogs[1].title, 'Enable phone notifications');
     assert.deepEqual(app.enabledEvents, []);
 });
 

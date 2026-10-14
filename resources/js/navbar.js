@@ -5,7 +5,6 @@
     const notificationToggle = document.querySelector("[data-navbar-notification-toggle]");
     const notificationClose = document.querySelector("[data-navbar-notification-close]");
     const chatBadge = document.getElementById("chat-unread-badge");
-    const chatLink = document.querySelector("[data-navbar-chat-link]");
     const appIconUrl = document.querySelector('link[rel="apple-touch-icon"]')?.href || "/app-icon.svg";
 
     const items = notificationMenu ? JSON.parse(notificationMenu.dataset.navbarNotificationPayload || "[]") : [];
@@ -13,17 +12,6 @@
     let latestNotificationId = items[0]?.id || null;
     let chatUnread = 0;
     let notificationUnread = initialNotificationUnread;
-
-    const requestNotificationPermission = () => {
-        if ("Notification" in window && Notification.permission === "default") {
-            Notification.requestPermission().then((permission) => {
-                if (permission === "granted") {
-                    updateAppBadge();
-                    return window.schoolEnsurePushSubscription?.();
-                }
-            }).catch(() => null);
-        }
-    };
 
     const showBrowserNotification = async (title, options = {}) => {
         if (!("Notification" in window) || Notification.permission !== "granted") return;
@@ -109,11 +97,6 @@
 
     renderNotificationBadge(notificationUnread);
     renderNotificationList(items);
-
-    const mobileNotificationLink = document.querySelector('[data-navbar-mobile-notification-badge]')?.closest('a');
-    [chatLink, notificationToggle, mobileNotificationLink, document.getElementById("installAppShortcut")].forEach((element) => {
-        element?.addEventListener("click", requestNotificationPermission, { once: true });
-    });
 
     const refreshChatUnread = async () => {
         if (!chatBadge) return;

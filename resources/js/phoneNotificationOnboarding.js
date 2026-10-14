@@ -35,30 +35,29 @@ export function initPhoneNotificationOnboarding(enableNotifications) {
             title: 'Enable notifications?',
             text: 'Receive new messages and important school updates on this phone. Tap “Yes, enable!” and then choose “Allow” when your phone asks.',
             confirmButtonText: 'Yes, enable!', cancelButtonText: 'Later', showCancelButton: true,
-            showLoaderOnConfirm: true,
-            allowOutsideClick: () => !Swal.isLoading(),
-            allowEscapeKey: () => !Swal.isLoading(),
             didOpen: () => {
-                // Start the native permission request inside the actual tap handler,
-                // before SweetAlert defers preConfirm to a promise callback.
+                // Hide our guide before the phone opens its permission prompt, while
+                // retaining the actual confirmation tap required by iOS.
                 Swal.getConfirmButton().addEventListener('click', () => {
+                    Swal.getContainer().style.display = 'none';
                     enableAttempt = enableNotifications();
                     enableAttempt.catch(() => {});
                 }, { capture: true });
             },
-            preConfirm: () => (enableAttempt || enableNotifications()).then(() => true).catch(error => {
-                Swal.showValidationMessage(error.message || 'Unable to enable notifications. Please try again.');
-                return false;
-            }),
         });
-        if (result.isConfirmed) {
-            window.dispatchEvent(new Event('school:notifications-enabled'));
-            await Swal.fire({
-                icon: 'success', title: 'Notifications enabled!',
-                text: 'New messages and important updates can now reach this phone.',
-                toast: true, position: 'top-end', showConfirmButton: false,
-                timer: 4500, timerProgressBar: true,
-            });
+        if (result.isConfirmed && enableAttempt) {
+            try {
+                await enableAttempt;
+                window.dispatchEvent(new Event('school:notifications-enabled'));
+                await Swal.fire({
+                    icon: 'success', title: 'Notifications enabled!',
+                    text: 'New messages and important updates can now reach this phone.',
+                    toast: true, position: 'top-end', showConfirmButton: false,
+                    timer: 4500, timerProgressBar: true,
+                });
+            } catch (error) {
+                await Swal.fire({ icon: 'info', title: 'Enable phone notifications', text: error.message || 'Unable to enable notifications. Please try again.' });
+            }
         }
     };
     const schedule = () => {

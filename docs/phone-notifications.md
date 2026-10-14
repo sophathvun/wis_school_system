@@ -23,6 +23,8 @@ The site must use HTTPS, and the server must allow outbound HTTPS to the browser
 
 After an Android installation, or the first signed-in launch from an iPhone/Android Home Screen icon, WIS School offers **Enable notifications?** automatically when supported and server push is configured. Select **Yes, enable!**, then **Allow** in the phone's permission prompt. The app confirms success only after the device subscription is saved. Selecting **Later** postpones the automatic offer for seven days on that browser/device and account; the profile and Notifications page buttons remain available. Users who already allowed notifications are registered silently, and users who blocked permission are not repeatedly prompted.
 
+The guide closes before the native permission prompt opens. Installing the app or opening the bell/messages does not itself request notification permission; the request starts only from **Yes, enable!**, **Enable Phone Notifications**, or an explicit phone notification test.
+
 1. Install WIS School on Android, or on iPhone use Safari → Share → Add to Home Screen.
 2. Open WIS School from its Home Screen icon and sign in.
 3. Open the profile menu or Notifications page and select **Enable Phone Notifications**. Choose **Allow** when the phone asks.

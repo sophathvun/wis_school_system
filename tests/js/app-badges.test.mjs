@@ -65,6 +65,7 @@ class Element extends EventTarget {
 
 function navbar({ registration = true, permission = 'granted' } = {}) {
     const chat = new Element(), notification = new Element(), mobile = new Element();
+    const install = new Element(), chatLink = new Element(), notificationToggle = new Element();
     mobile.link = new Element();
     const intervals = new Map(), badges = [], shown = [];
     let unread = { chat: 2, notifications: 3 }, subscriptions = 0, permissionRequests = 0;
@@ -82,11 +83,13 @@ function navbar({ registration = true, permission = 'granted' } = {}) {
         CustomEvent: class extends Event { constructor(type, options) { super(type); this.detail = options.detail; } },
         document: {
             addEventListener: (type, handler) => handler(),
-            getElementById: id => id === 'chat-unread-badge' ? chat : null,
+            getElementById: id => id === 'chat-unread-badge' ? chat : id === 'installAppShortcut' ? install : null,
             querySelectorAll: () => [],
             querySelector: selector => ({
                 '[data-navbar-notification-badge]': notification,
                 '[data-navbar-mobile-notification-badge]': mobile,
+                '[data-navbar-chat-link]': chatLink,
+                '[data-navbar-notification-toggle]': notificationToggle,
             })[selector] || null,
         },
         navigator: {
@@ -110,7 +113,7 @@ function navbar({ registration = true, permission = 'granted' } = {}) {
     };
     vm.runInNewContext(navbarSource, context);
     return {
-        chat, notification, mobile, badges, shown,
+        chat, notification, mobile, badges, shown, install, chatLink, notificationToggle,
         subscriptionCount: () => subscriptions,
         permissionRequestCount: () => permissionRequests,
         async settle() { await new Promise(resolve => setImmediate(resolve)); },
@@ -142,11 +145,11 @@ test('an unavailable notification constructor cannot interrupt foreground unread
     assert.equal(app.badges.at(-1), 7);
 });
 
-test('tapping the mobile notification bell can enable notifications and push subscriptions', async () => {
+test('installing or opening messages and notifications never requests permission before guided consent', async () => {
     const app = navbar({ permission: 'default' });
     await app.settle();
-    app.mobile.link.dispatchEvent(new Event('click'));
+    for (const trigger of [app.mobile.link, app.install, app.chatLink, app.notificationToggle]) trigger.dispatchEvent(new Event('click'));
     await app.settle();
-    assert.equal(app.permissionRequestCount(), 1);
-    assert.equal(app.subscriptionCount(), 1);
+    assert.equal(app.permissionRequestCount(), 0);
+    assert.equal(app.subscriptionCount(), 0);
 });
