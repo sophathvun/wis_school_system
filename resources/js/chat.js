@@ -5,6 +5,7 @@ import { bindChatScrollToLatest } from './helpers/chatScrollToLatest.js';
 import { bindChatComposerResize } from './helpers/chatComposerResize.js';
 import { renderGroupActions, showGroupMembers } from './helpers/chatGroupMembers.js';
 import { bindChatAttachmentPaste, prepareChatAttachment } from './helpers/chatAttachmentPaste.js';
+import { bindChatImageEditor } from './helpers/chatImageEditor.js';
 
 document.addEventListener("DOMContentLoaded", () => {
     const shell = document.getElementById("chat-shell");
@@ -264,7 +265,7 @@ document.addEventListener("DOMContentLoaded", () => {
             return `<div class="chat-call-card"><i class="ti ${icon}"></i><span>${esc(message.message || "Voice call")}</span></div>`;
         }
         if (message.message_type === "image" && message.media_url) {
-            return `<a href="${esc(message.media_url)}" target="_blank" rel="noopener"><img src="${esc(message.media_url)}" alt="${esc(message.media_name || "Attached image")}" class="chat-image"></a><div class="chat-attachment-actions"><a href="${esc(message.media_url)}" target="_blank" rel="noopener"><i class="ti ti-eye"></i> View</a><a href="${esc(downloadUrl)}"><i class="ti ti-download"></i> Download</a></div>${text}`;
+            return `<a href="${esc(message.media_url)}" data-chat-image data-image-name="${esc(message.media_name || 'image')}" target="_blank" rel="noopener"><img src="${esc(message.media_url)}" alt="${esc(message.media_name || "Attached image")}" class="chat-image"></a><div class="chat-attachment-actions"><a href="${esc(message.media_url)}" data-chat-image data-image-name="${esc(message.media_name || 'image')}" target="_blank" rel="noopener"><i class="ti ti-eye"></i> View</a><a href="${esc(downloadUrl)}"><i class="ti ti-download"></i> Download</a></div>${text}`;
         }
         if (message.message_type === "file" && message.media_url) {
             return `<div class="chat-file-card"><i class="ti ti-file-description fs-3"></i><a href="${esc(message.media_url)}" target="_blank" rel="noopener"><span class="file-name">${esc(message.media_name || "Attached file")}</span><small>Open attachment</small></a><a class="chat-file-download" href="${esc(downloadUrl)}" title="Download attachment"><i class="ti ti-download"></i></a></div>${text}`;
@@ -513,6 +514,12 @@ document.addEventListener("DOMContentLoaded", () => {
         enabled: () => Boolean(activeId),
         selectFile: selectAttachment,
         onError: (text) => showChatAlert('Unable to attach file', text, 'warning'),
+    });
+    bindChatImageEditor(chatMessages, {
+        getConversationId: () => activeId,
+        onAccept: selectAttachment,
+        getComposer: () => messageInput,
+        hasAttachment: () => Boolean(selectedAttachment),
     });
     const uploadVoiceNote = async (blob, durationSeconds, mimeType = "audio/webm") => {
         if (!activeId) return;

@@ -3,6 +3,7 @@
 @import "../components/chat-scroll.css";
 @import "../components/chat-composer.css";
 @import "../components/chat-group-members.css";
+@import "../components/chat-image-editor.css";
 /* Extracted from resources/views/chat.blade.php. Keep page-specific styles in this file. */
 
 .chat-shell {

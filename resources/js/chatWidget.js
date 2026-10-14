@@ -5,6 +5,7 @@ import { bindChatScrollToLatest } from './helpers/chatScrollToLatest.js';
 import { bindChatComposerResize } from './helpers/chatComposerResize.js';
 import { renderGroupActions, showGroupMembers } from './helpers/chatGroupMembers.js';
 import { bindChatAttachmentPaste, prepareChatAttachment } from './helpers/chatAttachmentPaste.js';
+import { bindChatImageEditor } from './helpers/chatImageEditor.js';
 
             document.addEventListener('DOMContentLoaded', () => {
                 const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
@@ -576,7 +577,7 @@ import { bindChatAttachmentPaste, prepareChatAttachment } from './helpers/chatAt
                             `<div class="chat-mini-message-text">${esc(message.message)}</div>` : '';
                         const downloadUrl = message.media_download_url || message.media_url;
                         if (message.message_type === 'image' && message.media_url) {
-                            return `<a href="${esc(message.media_url)}" target="_blank" rel="noopener"><img src="${esc(message.media_url)}" alt="${esc(message.media_name || 'Attached image')}" class="chat-mini-message-image"></a><div class="chat-mini-attachment-actions"><a href="${esc(message.media_url)}" target="_blank" rel="noopener"><i class="ti ti-eye"></i> View</a><a href="${esc(downloadUrl)}" rel="noopener"><i class="ti ti-download"></i> Download</a></div>${text}`;
+                            return `<a href="${esc(message.media_url)}" data-chat-image data-image-name="${esc(message.media_name || 'image')}" target="_blank" rel="noopener"><img src="${esc(message.media_url)}" alt="${esc(message.media_name || 'Attached image')}" class="chat-mini-message-image"></a><div class="chat-mini-attachment-actions"><a href="${esc(message.media_url)}" data-chat-image data-image-name="${esc(message.media_name || 'image')}" target="_blank" rel="noopener"><i class="ti ti-eye"></i> View</a><a href="${esc(downloadUrl)}" rel="noopener"><i class="ti ti-download"></i> Download</a></div>${text}`;
                         }
                         if (message.message_type === 'file' && message.media_url) {
                             return `<div class="chat-mini-file-card"><i class="ti ti-file-description fs-3"></i><a href="${esc(message.media_url)}" target="_blank" rel="noopener"><span class="file-name">${esc(message.media_name || 'Attached file')}</span><small>Open attachment</small></a><a class="chat-mini-file-download" href="${esc(downloadUrl)}" rel="noopener" title="Download attachment"><i class="ti ti-download"></i></a></div>${text}`;
@@ -1463,6 +1464,12 @@ import { bindChatAttachmentPaste, prepareChatAttachment } from './helpers/chatAt
                     enabled: () => Boolean(activeConversationId),
                     selectFile: selectAttachment,
                     onError: (text) => showChatAlert('Unable to attach file', text, 'warning'),
+                });
+                bindChatImageEditor(messagesBox, {
+                    getConversationId: () => activeConversationId,
+                    onAccept: selectAttachment,
+                    getComposer: () => input,
+                    hasAttachment: () => Boolean(selectedAttachment),
                 });
 
                 // Use Unicode escapes so emoji remain valid regardless of the
