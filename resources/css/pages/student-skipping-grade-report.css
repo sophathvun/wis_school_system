@@ -119,6 +119,8 @@
   .skipping-requests-table .skipping-cell-detail { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); align-items: start; gap: .75rem; padding-top: .45rem; font-size: .9rem; }
   .skipping-cell-detail::before { content: attr(data-label); color: var(--tblr-secondary-color); font-size: .72rem; font-weight: 600; text-transform: uppercase; }
   .skipping-cell-value { min-width: 0; text-align: right; }
+  .skipping-requests-table .skipping-cell-status { position: absolute; top: .4rem; right: .85rem; display: block; width: auto; max-width: calc(100% - 4.95rem); padding: 0; }
+  .skipping-cell-status::before { display: none; }
   .skipping-requests-table .skipping-cell-grade { display: flex; flex-direction: column; align-items: flex-start; gap: .35rem; }
   .skipping-requests-table .skipping-cell-current { grid-column: 1; grid-row: 2; }
   .skipping-requests-table .skipping-cell-skipped { grid-column: 2; grid-row: 2; }
