@@ -48,9 +48,12 @@ self.addEventListener("push", (event) => {
         data: { url: payload.url || "/" },
     };
 
-    if (Number(payload.badgeCount || 0) > 0 && self.registration.setAppBadge) {
-        event.waitUntil(self.registration.setAppBadge(Number(payload.badgeCount)).catch(() => {}));
+    const work = [self.registration.showNotification(title, options)];
+    const badgeCount = Number(payload.badgeCount);
+    if (Number.isSafeInteger(badgeCount) && badgeCount >= 0 && typeof self.navigator?.setAppBadge === 'function') {
+        // The Badging API belongs to WorkerNavigator, including on iOS Home Screen apps.
+        work.push(Promise.resolve().then(() => self.navigator.setAppBadge(badgeCount)).catch(() => {}));
     }
 
-    event.waitUntil(self.registration.showNotification(title, options));
+    event.waitUntil(Promise.all(work));
 });

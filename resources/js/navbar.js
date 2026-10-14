@@ -17,24 +17,38 @@
     const requestNotificationPermission = () => {
         if ("Notification" in window && Notification.permission === "default") {
             Notification.requestPermission().then((permission) => {
-                if (permission === "granted") window.schoolEnsurePushSubscription?.();
+                if (permission === "granted") {
+                    updateAppBadge();
+                    return window.schoolEnsurePushSubscription?.();
+                }
             }).catch(() => null);
         }
     };
 
-    const showBrowserNotification = (title, options = {}) => {
+    const showBrowserNotification = async (title, options = {}) => {
         if (!("Notification" in window) || Notification.permission !== "granted") return;
-        const notification = new Notification(title, {
+        const notificationOptions = {
             icon: appIconUrl,
             badge: appIconUrl,
             ...options,
-        });
-        if (options.data?.url) {
-            notification.onclick = () => {
-                window.focus();
-                window.location.href = options.data.url;
-                notification.close();
-            };
+        };
+        try {
+            // Mobile browsers require persistent notifications through the service worker.
+            const registration = await navigator.serviceWorker?.getRegistration();
+            if (registration?.active) {
+                await registration.showNotification(title, notificationOptions);
+                return;
+            }
+            const notification = new Notification(title, notificationOptions);
+            if (options.data?.url) {
+                notification.onclick = () => {
+                    window.focus();
+                    window.location.href = options.data.url;
+                    notification.close();
+                };
+            }
+        } catch {
+            // Notification display must not interrupt unread counts or icon badging.
         }
     };
 
@@ -96,7 +110,8 @@
     renderNotificationBadge(notificationUnread);
     renderNotificationList(items);
 
-    [chatLink, notificationToggle, document.getElementById("installAppShortcut")].forEach((element) => {
+    const mobileNotificationLink = document.querySelector('[data-navbar-mobile-notification-badge]')?.closest('a');
+    [chatLink, notificationToggle, mobileNotificationLink, document.getElementById("installAppShortcut")].forEach((element) => {
         element?.addEventListener("click", requestNotificationPermission, { once: true });
     });
 
