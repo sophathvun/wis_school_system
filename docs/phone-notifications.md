@@ -8,6 +8,8 @@ Deploy the application changes, including `public/sw.js`, and the Vite build. In
 
 ```sh
 php artisan migrate --force
+php artisan route:clear
+php artisan view:clear
 php artisan webpush:setup
 php artisan config:cache
 php artisan webpush:setup --check
@@ -27,6 +29,10 @@ The site must use HTTPS, and the server must allow outbound HTTPS to the browser
 Each device needs permission and its own subscription. iPhone supports a numeric badge; Android normally shows a dot for active notifications and the launcher controls any numeric display. The browser's Share button itself does not receive a badge. Phone Focus/Do Not Disturb and per-app settings can suppress alerts or badges.
 
 ## Delivery check
+
+The Notifications page includes **Test Phone Notifications**. This registers the current device and asks the server to send a visible test push to that device only. It reports whether the push service accepted the request, rejected it (including the HTTP status), or reported an expired subscription. Acceptance by the push service is not proof that the phone displayed the alert. Test requests are limited to three per minute per user and do not add unread messages or notifications. Therefore an iPhone with zero unread items can show the test alert without an icon count.
+
+If Android shows no system notification, investigate delivery first. A shortcut badge depends on an active notification reaching the device; enabling icon badges alone cannot create one. If the test is accepted but no alert arrives, check the browser and installed app notification permissions, background/battery restrictions, and whether the icon is an installed app or just a browser shortcut. If a visible alert arrives but the icon has no dot, check the launcher's badge settings. Existing device subscriptions using an older server key are renewed automatically when enabling notifications or reopening the signed-in app.
 
 Use a test recipient who has enabled notifications on their installed app. Send a notification or chat message to that recipient, then check the phone with the app closed. Confirm the alert opens the correct page and, on iPhone, the combined unread number appears on the app icon. Read the items, reopen the app, and confirm the number decreases or clears. Repeat on Android, expecting a dot where numeric badges are unavailable. No command sends a test message automatically.
 

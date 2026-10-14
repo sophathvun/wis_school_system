@@ -146,6 +146,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/notifications/{notification}/read', [NotificationController::class, 'read'])->name('notifications.read');
     Route::get('/push/vapid-public-key', [PushSubscriptionController::class, 'publicKey'])->name('push.public-key');
     Route::post('/push/subscriptions', [PushSubscriptionController::class, 'store'])->name('push.subscriptions.store');
+    Route::post('/push/test', [PushSubscriptionController::class, 'test'])->middleware('throttle:3,1')->name('push.test');
     Route::delete('/push/subscriptions', [PushSubscriptionController::class, 'destroy'])->name('push.subscriptions.destroy');
     Route::get('/communication/chat', [ChatController::class, 'index'])->name('chat.index');
     Route::get('/communication/chat/users', [ChatController::class, 'users'])->name('chat.users');

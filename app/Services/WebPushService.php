@@ -42,9 +42,16 @@ class WebPushService
         }
     }
 
-    public function sendToSubscriptions(Collection $subscriptions, array $payload): void
+    public function unreadBadgeCountForUser(int $userId): int
     {
-        if (!$this->enabled() || $subscriptions->isEmpty()) return;
+        return $this->badgeCountsForUsers([$userId])[$userId] ?? 0;
+    }
+
+    public function sendToSubscriptions(Collection $subscriptions, array $payload): array
+    {
+        $result = ['accepted' => 0, 'failed' => 0, 'expired' => 0, 'status' => null, 'error' => null];
+        if (!$this->enabled()) return [...$result, 'error' => 'not_configured'];
+        if ($subscriptions->isEmpty()) return [...$result, 'error' => 'no_subscription'];
 
         try {
             $webPush = new WebPush([
@@ -80,11 +87,15 @@ class WebPushService
                 if (!$subscription) continue;
 
                 if ($report->isSuccess()) {
+                    $result['accepted']++;
                     $subscription->forceFill(['last_used_at' => now()])->saveQuietly();
                     continue;
                 }
 
+                $result['failed']++;
+                $result['status'] = $report->getResponse()?->getStatusCode();
                 if ($report->isSubscriptionExpired()) {
+                    $result['expired']++;
                     $subscription->delete();
                     continue;
                 }
@@ -95,10 +106,12 @@ class WebPushService
                 ]);
             }
         } catch (\Throwable $e) {
+            $result['error'] = 'dispatch_failed';
             Log::warning('Web push notification dispatch failed.', [
                 'message' => $e->getMessage(),
             ]);
         }
+        return $result;
     }
 
     private function badgeCountsForUsers(iterable $userIds): array

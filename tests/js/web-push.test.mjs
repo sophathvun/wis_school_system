@@ -6,12 +6,13 @@ import vm from 'node:vm';
 const source = readFileSync(new URL('../../resources/js/webPush.js', import.meta.url), 'utf8')
     .replace(/^import .*;\r?\n/gm, '').replace('export function', 'function');
 
-function setup({ permission = 'default', configured = true, iosBrowser = false, saveOk = true } = {}) {
-    const button = new EventTarget(), dialogs = [], requests = [], events = [];
-    let requested = false, subscribed = 0;
+function setup({ permission = 'default', configured = true, iosBrowser = false, saveOk = true, previousKey = null, testOk = true } = {}) {
+    const button = new EventTarget(), testButton = new EventTarget(), dialogs = [], requests = [], events = [];
+    let requested = false, subscribed = 0, unsubscribed = 0;
     const subscription = { toJSON: () => ({ endpoint: 'https://push.example.test/device' }) };
+    const existing = previousKey ? { ...subscription, options: { applicationServerKey: Uint8Array.from(previousKey).buffer }, unsubscribe: async () => { unsubscribed++; return true; } } : null;
     const registration = { pushManager: {
-        getSubscription: async () => null,
+        getSubscription: async () => existing,
         subscribe: async () => { subscribed++; return subscription; },
     } };
     class Notification {
@@ -28,13 +29,13 @@ function setup({ permission = 'default', configured = true, iosBrowser = false, 
         navigator: { serviceWorker: { register: async () => ({}), ready: Promise.resolve(registration) } },
         document: {
             body: { dataset: { webPushPublicKey: configured ? 'YWJj' : '' } },
-            querySelectorAll: () => [button], querySelector: () => ({ content: 'csrf' }),
+            querySelectorAll: selector => selector === '[data-enable-phone-notifications]' ? [button] : [testButton], querySelector: () => ({ content: 'csrf' }),
         },
         isIosDevice: () => iosBrowser,
         Swal: { fire: async options => dialogs.push(options) },
-        fetch: async (url, options) => { requests.push({ url, options }); return { ok: saveOk }; },
+        fetch: async (url, options) => { requests.push({ url, options }); return url === '/push/test' ? { ok: testOk, json: async () => ({ ok: testOk, message: 'Push rejected (HTTP 403)' }) } : { ok: saveOk }; },
     });
-    return { button, dialogs, requests, events, requested: () => requested, subscribed: () => subscribed,
+    return { button, testButton, dialogs, requests, events, requested: () => requested, subscribed: () => subscribed, unsubscribed: () => unsubscribed,
         settle: () => new Promise(resolve => setImmediate(resolve)) };
 }
 
@@ -76,4 +77,33 @@ test('subscription save failure never displays a success message and enables ret
     assert.match(app.dialogs[0].text, /Unable to save/);
     assert.equal(app.button.disabled, false);
     assert.deepEqual(app.events, []);
+});
+
+test('a subscription with an old server key is renewed while a matching subscription is retained', async () => {
+    for (const [key, renew] of [[[1, 2, 3], 1], [[97, 98, 99], 0]]) {
+        const app = setup({ previousKey: key });
+        app.button.dispatchEvent(new Event('click'));
+        await app.settle();
+        assert.equal(app.unsubscribed(), renew);
+        assert.equal(app.subscribed(), renew);
+    }
+});
+
+test('device test registers this device and reports push acceptance separately from phone delivery', async () => {
+    const app = setup();
+    app.testButton.dispatchEvent(new Event('click'));
+    await app.settle();
+    assert.deepEqual(app.requests.map(request => request.url), ['/push/subscriptions', '/push/test']);
+    assert.equal(JSON.parse(app.requests[1].options.body).endpoint, 'https://push.example.test/device');
+    assert.equal(app.dialogs[0].title, 'Push service accepted the test');
+    assert.match(app.dialogs[0].text, /has not reached your phone yet/);
+});
+
+test('device test surfaces a server push rejection without claiming success', async () => {
+    const app = setup({ testOk: false });
+    app.testButton.dispatchEvent(new Event('click'));
+    await app.settle();
+    assert.equal(app.dialogs[0].icon, 'error');
+    assert.match(app.dialogs[0].text, /403/);
+    assert.equal(app.testButton.disabled, false);
 });
