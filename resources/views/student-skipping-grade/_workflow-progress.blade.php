@@ -3,8 +3,9 @@
         $progressRequester=$record->student_snapshot['requester']??($record->creator?app(\App\Services\SkippingGradeWorkflow::class)->snapshot($record->creator,'Requester','campus',$record->campus_id):null);
         $requesterName=$progressRequester['name']??'Unavailable';
         $submissionLabel=$record->submitted_at?'Submitted':'Draft';
+        $progressReviewerCount=1+$record->approvalSteps->sum(fn($step)=>count($step->trackingEntries()));
     @endphp
-    <div class="skipping-workflow-progress" aria-label="Approval progress">
+    <div class="skipping-workflow-progress" aria-label="Approval progress" style="--skipping-progress-count: {{ $progressReviewerCount }}">
         <div class="skipping-workflow-reviewer" title="{{ $requesterName }} · Requester · {{ $submissionLabel }}{{ $record->submitted_at?' · '.$record->submitted_at->format('d-M-Y H:i'):'' }}">
             <span class="skipping-workflow-person skipping-workflow-{{ $record->submitted_at?'submitted':'draft' }}">
                 @if($progressRequester['photo']??null)<img src="{{ $progressRequester['photo'] }}" alt="{{ $requesterName }}" width="30" height="30">@else<i class="ti ti-user" aria-hidden="true"></i>@endif

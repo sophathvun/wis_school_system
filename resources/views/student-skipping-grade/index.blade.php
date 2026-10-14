@@ -50,24 +50,24 @@
         </div>
         </div>
     </div>
-    <div class="table-responsive"><table class="table table-vcenter skipping-table"><thead><tr><th>No.</th><th>Photo</th><th>Student</th><th>Current Grade</th><th>Requested Grade</th><th>Approvals</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+    <div class="table-responsive skipping-requests-table-wrap"><table class="table table-vcenter skipping-table skipping-requests-table" role="table"><thead><tr><th scope="col">No.</th><th scope="col">Photo</th><th scope="col">Student</th><th scope="col">Current Grade</th><th scope="col">Skipped Grade</th><th scope="col">Approvals</th><th scope="col">Status</th><th scope="col">Actions</th></tr></thead><tbody role="rowgroup">
         @forelse($records as $record)
             @php($s=$record->student_snapshot)
-            <tr><td>{{ $records->firstItem()+$loop->index }}</td>
-            <td><div class="skipping-list-photo">
+            <tr class="skipping-request-card" role="row"><td class="skipping-cell-number" role="cell">{{ $records->firstItem()+$loop->index }}</td>
+            <td class="skipping-cell-photo" role="cell"><div class="skipping-list-photo">
                 @if($photoUrls[$record->id])<img src="{{ $photoUrls[$record->id] }}" alt="Student photo: {{ $s['name_en'] }}" loading="lazy" width="60" height="80">
                 @else<span><i class="ti ti-user" aria-hidden="true"></i>No photo</span>@endif
             </div></td>
-            <td><div class="fw-semibold">{{ $s['student_id'] }}</div><div class="skipping-kh">{{ $s['name_kh'] }}</div><div>{{ $s['name_en'] }}</div><div class="text-secondary">{{ ucfirst($s['gender']??'—') }}</div><div class="text-secondary">{{ $reportRows[$record->id]['dob'] }}</div></td>
-            <td><div>{{ $s['academic_year'] }}</div><div class="text-secondary">{{ $s['campus_en'] }}</div><div>{{ $reportRows[$record->id]['source_grade'] }}</div></td>
-            <td><div>{{ $s['target_academic_year']??$s['academic_year'] }}</div><div class="text-secondary">{{ $s['campus_en'] }}</div><div>{{ $reportRows[$record->id]['target_grade'] }}</div></td>
-            <td>@include('student-skipping-grade._workflow-progress')</td>
-            <td><span class="badge skipping-status-{{ $record->status }}">{{ $record->status==='pending'?'Submitted':ucfirst($record->status) }}</span>@if($record->reference_number)<div class="text-secondary small mt-1">{{ $record->reference_number }}</div>@endif</td>
-            <td><div class="skipping-actions"><a class="btn btn-sm btn-outline-primary" href="{{ route('student-skipping-grade.show',$record) }}"><i class="ti ti-eye me-1" aria-hidden="true"></i>View</a>
+            <td class="skipping-cell-student" role="cell"><div class="fw-semibold skipping-card-student-id">{{ $s['student_id'] }}</div><div class="skipping-kh skipping-card-student-kh">{{ $s['name_kh'] }}</div><div class="skipping-card-student-en">{{ $s['name_en'] }}</div><div class="text-secondary skipping-card-personal"><div>{{ ucfirst($s['gender']??'—') }}</div><div>{{ $reportRows[$record->id]['dob'] }}</div></div></td>
+            <td class="skipping-cell-detail skipping-cell-grade skipping-cell-current" data-label="Current Grade" role="cell"><div class="skipping-cell-value"><div>{{ $s['academic_year'] }}</div><div>{{ $s['campus_en'] }}-{{ $reportRows[$record->id]['source_grade'] }}</div></div></td>
+            <td class="skipping-cell-detail skipping-cell-grade skipping-cell-skipped" data-label="Skipped Grade" role="cell"><div class="skipping-cell-value"><div>{{ $s['target_academic_year']??$s['academic_year'] }}</div><div>{{ $s['campus_en'] }}-{{ $reportRows[$record->id]['target_grade'] }}</div></div></td>
+            <td class="skipping-cell-detail skipping-cell-approvals" data-label="Approvals" role="cell"><div class="skipping-cell-value">@include('student-skipping-grade._workflow-progress')</div></td>
+            <td class="skipping-cell-detail" data-label="Status" role="cell"><div class="skipping-cell-value"><span class="badge skipping-status-{{ $record->status }}">{{ $record->status==='pending'?'Submitted':ucfirst($record->status) }}</span>@if($record->reference_number)<div class="text-secondary small mt-1">{{ $record->reference_number }}</div>@endif</div></td>
+            <td class="skipping-cell-actions" role="cell"><div class="skipping-actions"><a class="btn btn-sm btn-outline-primary" href="{{ route('student-skipping-grade.show',$record) }}"><i class="ti ti-eye me-1" aria-hidden="true"></i>View</a>
             @if(\App\Support\StudentSkippingGradePermissions::canEdit(auth()->user(),$record))<a class="btn btn-sm btn-outline-primary" data-action-normalized="true" href="{{ route('student-skipping-grade.edit',$record) }}"><i class="ti ti-edit me-1"></i>Edit</a>@endif
             @if($permissions['print'] && $record->status!=='rejected')<a class="btn btn-sm btn-outline-secondary" target="_blank" href="{{ route('student-skipping-grade.print',['skipping'=>$record,'form'=>$record->status==='approved'?'approval':'request']) }}"><i class="ti ti-printer me-1"></i>{{ $record->status==='approved'?'Approval':'Request' }}</a>@endif
             @if($permissions['print'] && $record->status==='approved')<button type="button" class="btn btn-sm btn-outline-primary" data-skipping-share-approval="{{ route('student-skipping-grade.share-approval',$record) }}"><i class="ti ti-share me-1"></i>Share</button>@endif</div></td></tr>
-        @empty<tr><td colspan="8" class="text-center text-secondary py-5">No grade skipping requests found.</td></tr>@endforelse
+        @empty<tr class="skipping-request-empty" role="row"><td colspan="8" class="text-center text-secondary py-5" role="cell">No grade skipping requests found.</td></tr>@endforelse
     </tbody></table></div>
     @include('student-skipping-grade._pagination')
     </div>

@@ -30,6 +30,106 @@
   .skipping-list-toolbar .skipping-total { padding-inline: 12px; }
   .skipping-list-header-actions .btn { padding-inline: 12px; font-size: .8125rem; }
 }
+@media (max-width: 767.98px) {
+  .skipping-page .skipping-list-header {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    min-width: 0;
+  }
+  .skipping-list-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+    gap: 10px;
+    overflow: visible;
+    padding-bottom: 0;
+  }
+  .skipping-list-toolbar .skipping-total {
+    grid-column: 1 / -1;
+    width: 100%;
+    justify-self: stretch;
+  }
+  .skipping-list-header-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+    margin-left: 0;
+  }
+  .skipping-list-header-actions > * { min-width: 0; }
+  .skipping-list-header-actions .btn {
+    width: 100%;
+    min-width: 0;
+    height: auto;
+    min-height: 44px;
+    padding: 9px 8px;
+    white-space: normal;
+    justify-content: center;
+  }
+  .skipping-list-header-actions .skipping-new-request {
+    grid-column: 1 / -1;
+    justify-self: stretch;
+  }
+  .skipping-requests-table-wrap { overflow: visible; }
+  .skipping-requests-table { display: block; width: 100%; margin: 0; background: transparent; }
+  .skipping-requests-table thead { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); }
+  .skipping-requests-table tbody { display: grid; grid-template-columns: minmax(0, 1fr); width: 100%; gap: .85rem; padding: .85rem 0; background: var(--tblr-bg-surface-secondary); }
+  .skipping-requests-table .skipping-request-card {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .35rem .65rem;
+    min-width: 0;
+    width: 100%;
+    padding: 3.75rem .85rem 1rem;
+    border: 1px solid rgba(var(--tblr-primary-rgb), .18);
+    border-radius: .45rem;
+    background: var(--tblr-bg-surface);
+    box-shadow: 0 8px 18px rgba(31, 63, 104, .08);
+    overflow: hidden;
+  }
+  .skipping-request-card::after { content: ''; position: absolute; inset-inline: 0; bottom: 0; height: .28rem; background: var(--tblr-primary); }
+  .skipping-requests-table tbody td { display: block; min-width: 0; width: 100%; padding: 0; border: 0 !important; background: transparent !important; box-shadow: none; white-space: normal; overflow-wrap: anywhere; }
+  .skipping-requests-table .skipping-cell-number { position: absolute; top: 0; left: 0; display: grid; place-items: center; width: 3.25rem; height: 3.25rem; color: #fff; background: var(--tblr-primary) !important; font-size: 1.25rem; font-weight: 800; line-height: 1; }
+  .skipping-requests-table .skipping-cell-photo { grid-column: 1; grid-row: 1; width: 3.25rem; align-self: start; margin-top: .35rem; }
+  .skipping-cell-photo .skipping-list-photo { width: 3.25rem; height: 3.25rem; aspect-ratio: 1; border-radius: .75rem; }
+  .skipping-cell-photo .skipping-list-photo img { object-fit: cover; }
+  .skipping-requests-table .skipping-cell-student { grid-column: 1 / -1; grid-row: 1; padding-left: 3.9rem; padding-bottom: .5rem; }
+  .skipping-card-student-id { margin-bottom: .2rem; color: var(--tblr-secondary-color); font-size: .8rem; font-weight: 500 !important; }
+  .skipping-card-student-id::before { content: 'Student ID: '; text-transform: uppercase; }
+  .skipping-card-student-kh { font-size: 1rem; }
+  .skipping-card-student-en { margin-top: .15rem; font-size: .9rem; font-weight: 500; }
+  .skipping-card-personal { display: flex; flex-wrap: wrap; gap: 2px 10px; margin-top: .25rem; font-size: .8rem; }
+  .skipping-requests-table .skipping-cell-detail { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); align-items: start; gap: .75rem; padding-top: .45rem; font-size: .9rem; }
+  .skipping-cell-detail::before { content: attr(data-label); color: var(--tblr-secondary-color); font-size: .72rem; font-weight: 600; text-transform: uppercase; }
+  .skipping-cell-value { min-width: 0; text-align: right; }
+  .skipping-requests-table .skipping-cell-grade { display: flex; flex-direction: column; align-items: flex-start; gap: .35rem; }
+  .skipping-requests-table .skipping-cell-current { grid-column: 1; grid-row: 2; }
+  .skipping-requests-table .skipping-cell-skipped { grid-column: 2; grid-row: 2; }
+  .skipping-cell-grade .skipping-cell-value { text-align: left; }
+  .skipping-requests-table .skipping-cell-approvals { grid-template-columns: minmax(0, 1fr); gap: .5rem; }
+  .skipping-cell-approvals .skipping-cell-value { container-type: inline-size; text-align: left; }
+  .skipping-cell-approvals .skipping-workflow-progress {
+    --skipping-progress-gap: clamp(2px, 1cqi, 6px);
+    display: grid;
+    grid-template-columns: repeat(var(--skipping-progress-count, 1), minmax(0, 1fr));
+    width: 100%;
+    max-width: calc(var(--skipping-progress-count, 1) * 58px);
+    min-width: 0;
+    gap: var(--skipping-progress-gap);
+  }
+  .skipping-cell-approvals .skipping-workflow-reviewer { min-width: 0; width: 100%; gap: 4px; }
+  .skipping-cell-approvals .skipping-workflow-person { width: min(34px, 100%); height: auto; aspect-ratio: 1; border-width: clamp(1px, .5cqi, 2px); font-size: min(20px, calc(65cqi / var(--skipping-progress-count, 1))); }
+  .skipping-cell-approvals .skipping-workflow-review-date { max-width: 100%; font-size: min(9px, calc((100cqi - (var(--skipping-progress-count, 1) - 1) * var(--skipping-progress-gap)) / var(--skipping-progress-count, 1) / 6)); }
+  .skipping-cell-approvals .skipping-workflow-reviewer > small { font-size: min(9px, calc(80cqi / var(--skipping-progress-count, 1))); }
+  .skipping-requests-table .skipping-cell-actions { grid-column: 1 / -1; padding-top: .75rem; }
+  .skipping-cell-actions .skipping-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; gap: .5rem; }
+  .skipping-cell-actions [data-skipping-share-approval] { grid-column: 1 / -1; }
+  .skipping-cell-actions .btn { width: 100%; min-width: 0; min-height: 2.65rem; justify-content: center; white-space: normal; font-size: .9rem; }
+  .skipping-request-empty { display: block; border-radius: .45rem; background: var(--tblr-bg-surface); }
+}
 .skipping-report-table { width: 100%; table-layout: fixed; margin: 0; }
 .skipping-report-table .report-number { width: 4%; }
 .skipping-report-table .report-photo { width: 8%; }
