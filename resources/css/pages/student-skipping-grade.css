@@ -1059,7 +1059,7 @@
 .skipping-workflow-person img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
 .skipping-workflow-badge-approved, .skipping-workflow-badge-submitted { background: #dff4e3; color: #237c32; }
 .skipping-workflow-badge-rejected { background: #fbe2e2; color: #a02525; }
-.skipping-workflow-badge-pending { background: #f76707; color: #211407; }
+.skipping-workflow-badge-pending { background: #fff0e1; color: #a84300; }
 .skipping-workflow-badge-waiting, .skipping-workflow-badge-cancelled { background: #eef0f3; color: #526171; }
 .skipping-reassignment-form, .skipping-reassignment-history { padding: 14px 0; border-top: 1px solid var(--tblr-border-color, #dee2e6); }
 @media (max-width: 767px) { .skipping-flow-step-fields { grid-template-columns: 25px minmax(0, 1fr); } .skipping-flow-row-actions { grid-column: 2; justify-self: end; } .skipping-flow-member { grid-template-columns: minmax(0, 1fr) auto; } .skipping-flow-member > .premium-form-field { grid-column: 1; } .skipping-flow-member > [data-flow-remove-member] { grid-column: 2; grid-row: 1 / 4; } .skipping-flow-range { grid-template-columns: 1fr; } }
