@@ -200,7 +200,7 @@
                         @else
                         Guest @endauth
                     </div>
-                    <div class="mt-1 small text-secondary">@auth{{ auth()->user()->department?->name ?? 'Staff' }}
+                    <div class="mt-1 small text-secondary">@auth{{ auth()->user()->position?->name ?? 'Staff' }}
                     @else
                     Sign in @endauth
                 </div>

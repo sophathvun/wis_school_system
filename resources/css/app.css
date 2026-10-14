@@ -1615,6 +1615,11 @@ body {
         margin-left: 0 !important;
     }
 
+    /* Reserve room for the unread badge before the mobile profile photo. */
+    .navbar-vertical .navbar-nav.flex-row .mobile-navbar-notifications {
+        margin-right: .75rem;
+    }
+
     .navbar-vertical #sidebar-menu {
         max-height: calc(100vh - 4.75rem);
         overflow-y: auto;

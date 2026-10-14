@@ -30,7 +30,7 @@
                     <i class="ti ti-sun icon"></i>
                 </a>
             </div>
-            <div class="nav-item ms-3">
+            <div class="nav-item ms-3 mobile-navbar-notifications">
                 <a href="{{ route('notifications.index') }}" class="nav-link px-0 position-relative" title="Notifications" data-bs-toggle="tooltip"
                     data-bs-placement="bottom" aria-label="Notifications">
                     <i class="ti ti-bell icon"></i>

@@ -214,7 +214,7 @@ if (root) {
         const refresh = () => {
             toggle.textContent = select.selectedOptions[0]?.textContent || label;
             select.parentElement.classList.toggle('has-value', Boolean(select.value));
-            if (floatingLabel) floatingLabel.textContent = select.value ? label : select.options[0]?.textContent || label;
+            if (floatingLabel) floatingLabel.textContent = select.value || select.hasAttribute('data-skipping-fixed-label') ? label : select.options[0]?.textContent || label;
             toggle.setAttribute('aria-label', `${label}: ${toggle.textContent}`);
             const term = input.value.trim().toLocaleLowerCase();
             results.replaceChildren();

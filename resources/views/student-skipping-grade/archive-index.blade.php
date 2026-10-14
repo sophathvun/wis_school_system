@@ -8,10 +8,24 @@
         <div class="card-header skipping-header"><h3 class="card-title"><i class="ti ti-archive me-2"></i>Supporting Document Archive</h3></div>
         <div class="card-body">
             <p>Back up supporting documents by requested academic year and campus. Student records and approvals remain available after documents are archived.</p>
-            <div class="alert alert-info">Keep the current and previous academic years online. Current academic year: <strong>{{ $retention['current']??'Not configured — deletion is disabled' }}</strong>. Draft and awaiting-approval requests are excluded. Archive older years annually, or whenever your backup schedule requires.</div>
-            <form method="get" action="{{ route('student-skipping-grade.archive.index') }}" class="row g-3">
-                <div class="col-12 col-md-6"><label class="form-label" for="archiveYear">Requested Academic Year</label><select id="archiveYear" name="academic_year_id" class="form-select" onchange="this.form.submit()">@foreach($years as $year)<option value="{{ $year->id }}" @selected((int)$yearId===(int)$year->id)>{{ $year->academic_year }}</option>@endforeach</select></div>
-                <div class="col-12 col-md-6"><label class="form-label" for="archiveCampus">Campus</label><select id="archiveCampus" name="campus_id" class="form-select" onchange="this.form.submit()"><option value="">All Campuses</option>@foreach($campuses as $campus)<option value="{{ $campus->id }}" @selected((int)$campusId===(int)$campus->id)>{{ $campus->campus_name_en }}</option>@endforeach</select></div>
+            <aside class="skipping-archive-note" aria-labelledby="archiveRetentionTitle">
+                <span class="skipping-archive-note-icon" aria-hidden="true"><i class="ti ti-shield-check"></i></span>
+                <div class="skipping-archive-note-content">
+                    <div class="skipping-archive-note-heading">
+                        <h4 id="archiveRetentionTitle">Document Retention</h4>
+                        <span class="skipping-archive-year"><i class="ti ti-calendar" aria-hidden="true"></i><span>Current academic year</span><strong>{{ $retention['current']??'Not configured' }}</strong></span>
+                    </div>
+                    <p class="skipping-archive-note-summary">Keep the <strong>current and previous academic years</strong> online.</p>
+                    <div class="skipping-archive-note-details">
+                        <p><i class="ti ti-clock-pause" aria-hidden="true"></i><span>Draft and awaiting-approval requests are excluded.</span></p>
+                        <p><i class="ti ti-archive" aria-hidden="true"></i><span>Archive older years annually, or whenever your backup schedule requires.</span></p>
+                    </div>
+                    @unless($retention['current'])<p class="skipping-archive-note-warning"><i class="ti ti-alert-triangle me-1" aria-hidden="true"></i>Deletion is disabled until a current academic year is configured.</p>@endunless
+                </div>
+            </aside>
+            <form method="get" action="{{ route('student-skipping-grade.archive.index') }}" class="row g-3 skipping-archive-filters">
+                <div class="col-12 col-md-6"><label class="form-label" for="archiveYear">Requested Academic Year</label><select id="archiveYear" name="academic_year_id" class="form-select" data-skipping-searchable="Requested Academic Year" data-skipping-fixed-label onchange="this.form.submit()">@foreach($years as $year)<option value="{{ $year->id }}" @selected((int)$yearId===(int)$year->id)>{{ $year->academic_year }}</option>@endforeach</select></div>
+                <div class="col-12 col-md-6"><label class="form-label" for="archiveCampus">Campus</label><select id="archiveCampus" name="campus_id" class="form-select" data-skipping-searchable="Campus" data-skipping-fixed-label onchange="this.form.submit()"><option value="">All Campuses</option>@foreach($campuses as $campus)<option value="{{ $campus->id }}" @selected((int)$campusId===(int)$campus->id)>{{ $campus->campus_name_en }}</option>@endforeach</select></div>
             </form>
             <div class="row g-3 mt-1">
                 @foreach(['Completed requests'=>$summary['requests'],'Online documents'=>$summary['documents'],'Online size'=>number_format($summary['bytes']/1048576,2).' MB','Archived documents'=>$summary['archived']] as $label=>$value)
