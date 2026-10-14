@@ -264,7 +264,12 @@ if (root) {
     });
     document.addEventListener('click', (event) => { if (!event.target.closest('.skipping-searchable')) searchableFilters.forEach((item) => item.close()); });
     if (root.querySelector('.skipping-request-report-filters')) {
-        window.addEventListener('resize', () => searchableFilters.forEach((item) => item.close()));
+        let filterViewportWidth = window.innerWidth;
+        window.addEventListener('resize', () => {
+            if (window.innerWidth === filterViewportWidth) return;
+            filterViewportWidth = window.innerWidth;
+            searchableFilters.forEach((item) => item.close());
+        });
         root.querySelector('.skipping-request-report-filters').parentElement.addEventListener('scroll', () => searchableFilters.forEach((item) => item.close()));
     }
     const listFilters = root.querySelector('[data-skipping-list-filters]');
@@ -273,7 +278,16 @@ if (root) {
         const filterToggle = filterCard?.querySelector('[data-skipping-filters-toggle]');
         const filterBody = filterCard?.querySelector('.skipping-filter-body');
         if (filterToggle && filterBody) {
+            const submittedPanelStateKey = `skipping-filters:${window.location.pathname}:after-submit`;
             let expanded = window.matchMedia('(min-width: 992px)').matches;
+            // Restore the panel after filtering, while keeping the default on a fresh visit.
+            try {
+                const submittedPanelState = window.sessionStorage.getItem(submittedPanelStateKey);
+                window.sessionStorage.removeItem(submittedPanelStateKey);
+                if (submittedPanelState !== null) expanded = submittedPanelState === '1';
+            } catch {
+                // Filtering remains available when browser storage is disabled.
+            }
             const syncFilterPanel = () => {
                 filterCard.classList.toggle('skipping-filters-expanded', expanded);
                 filterBody.hidden = !expanded;
@@ -283,6 +297,13 @@ if (root) {
                 if (!expanded) searchableFilters.forEach((item) => item.close());
             };
             filterToggle.addEventListener('click', () => { expanded = !expanded; syncFilterPanel(); });
+            listFilters.addEventListener('submit', () => {
+                try {
+                    window.sessionStorage.setItem(submittedPanelStateKey, expanded ? '1' : '0');
+                } catch {
+                    // Browser storage is optional.
+                }
+            });
             syncFilterPanel();
         }
         const yearFilter = listFilters.querySelector('[name="academic_year_id"]');

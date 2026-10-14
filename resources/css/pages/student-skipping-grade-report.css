@@ -30,7 +30,21 @@
   .skipping-list-toolbar .skipping-total { padding-inline: 12px; }
   .skipping-list-header-actions .btn { padding-inline: 12px; font-size: .8125rem; }
 }
+@media (max-width: 1100px) {
+  .skipping-filter-grid.skipping-request-report-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    min-width: 0;
+    width: 100%;
+  }
+  .skipping-filter-card .skipping-filter-body { min-width: 0; overflow: visible; }
+  .skipping-request-report-filters > *,
+  .skipping-request-report-filters .skipping-searchable { min-width: 0; }
+  .skipping-request-report-filters .skipping-searchable-menu { max-width: calc(100vw - 24px); }
+}
 @media (max-width: 767.98px) {
+  .skipping-filter-grid.skipping-request-report-filters {
+    grid-template-columns: minmax(0, 1fr);
+  }
   .skipping-page .skipping-list-header {
     grid-template-columns: minmax(0, 1fr);
     gap: 12px;
