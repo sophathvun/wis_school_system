@@ -34,18 +34,18 @@
         <div class="card-body">
             <div class="row g-3 align-items-end">
                 <div class="col-md-3">
-                    <label class="dashboard-filter-field">
-                        <span>Period</span>
-                        <select class="form-select" name="period_type" data-dashboard-auto-submit data-dashboard-searchable-select>
+                    <div class="dashboard-filter-field premium-form-field has-value">
+                        <label class="form-label" for="dashboardPeriod">Period</label>
+                        <select id="dashboardPeriod" class="form-select" name="period_type" data-dashboard-auto-submit data-dashboard-searchable-select>
                             <option value="regular" @selected($selectedPeriodType === 'regular')>Regular School Year</option>
                             <option value="summer" @selected($selectedPeriodType === 'summer')>Summer School</option>
                         </select>
-                    </label>
+                    </div>
                 </div>
                 <div class="col-md-3">
-                    <label class="dashboard-filter-field">
-                        <span>Academic Year</span>
-                        <select class="form-select" name="academic_year_id" data-dashboard-auto-submit data-dashboard-searchable-select>
+                    <div class="dashboard-filter-field premium-form-field {{ $academicYears->isNotEmpty() ? 'has-value' : '' }}">
+                        <label class="form-label" for="dashboardAcademicYear">Academic Year</label>
+                        <select id="dashboardAcademicYear" class="form-select" name="academic_year_id" data-dashboard-auto-submit data-dashboard-searchable-select>
                             @foreach ($academicYears as $academicYear)
                                 <option value="{{ $academicYear->id }}" @selected((int) $selectedAcademicYearId === (int) $academicYear->id)>
                                     {{ $academicYear->academic_year }}
@@ -59,13 +59,13 @@
                                 </option>
                             @endforeach
                         </select>
-                    </label>
+                    </div>
                 </div>
                 @if ($canSelectCampus)
                     <div class="col-md-3">
-                        <label class="dashboard-filter-field">
-                            <span>Campus</span>
-                            <select class="form-select" name="campus_id" data-dashboard-auto-submit data-dashboard-searchable-select>
+                        <div class="dashboard-filter-field premium-form-field has-value">
+                            <label class="form-label" for="dashboardCampus">Campus</label>
+                            <select id="dashboardCampus" class="form-select" name="campus_id" data-dashboard-auto-submit data-dashboard-searchable-select>
                                 <option value="">{{ auth()->user()->isSuperAdmin() || auth()->user()->is_global ? 'All Campuses' : 'All Assigned Campuses' }}</option>
                                 @foreach ($campuses as $campus)
                                     <option value="{{ $campus->id }}" @selected((int) $selectedCampusId === (int) $campus->id)>
@@ -73,7 +73,7 @@
                                     </option>
                                 @endforeach
                             </select>
-                        </label>
+                        </div>
                     </div>
                 @endif
                 <div class="col-md-3">
@@ -186,35 +186,35 @@
                                         <div class="premium-dashboard-label mb-3">{{ $widget->name }}</div>
                                         <div class="row g-3">
                                             <div class="col-md-4">
-                                                <label class="dashboard-filter-field">
-                                                    <span>Period</span>
-                                                    <select class="form-select" name="period_type" data-dashboard-auto-submit data-dashboard-searchable-select>
+                                                <div class="dashboard-filter-field premium-form-field has-value">
+                                                    <label class="form-label" for="dashboardWidgetPeriod">Period</label>
+                                                    <select id="dashboardWidgetPeriod" class="form-select" name="period_type" data-dashboard-auto-submit data-dashboard-searchable-select>
                                                         <option value="regular" @selected($selectedPeriodType === 'regular')>Regular School Year</option>
                                                         <option value="summer" @selected($selectedPeriodType === 'summer')>Summer School</option>
                                                     </select>
-                                                </label>
+                                                </div>
                                             </div>
                                             <div class="col-md-4">
-                                                <label class="dashboard-filter-field">
-                                                    <span>Academic Year</span>
-                                                    <select class="form-select" name="academic_year_id" data-dashboard-auto-submit data-dashboard-searchable-select>
+                                                <div class="dashboard-filter-field premium-form-field {{ $academicYears->isNotEmpty() ? 'has-value' : '' }}">
+                                                    <label class="form-label" for="dashboardWidgetAcademicYear">Academic Year</label>
+                                                    <select id="dashboardWidgetAcademicYear" class="form-select" name="academic_year_id" data-dashboard-auto-submit data-dashboard-searchable-select>
                                                         @foreach ($academicYears as $academicYear)
                                                             <option value="{{ $academicYear->id }}" @selected((int) $selectedAcademicYearId === (int) $academicYear->id)>{{ $academicYear->academic_year }}</option>
                                                         @endforeach
                                                     </select>
-                                                </label>
+                                                </div>
                                             </div>
                                             @if ($canSelectCampus)
                                                 <div class="col-md-4">
-                                                    <label class="dashboard-filter-field">
-                                                        <span>Campus</span>
-                                                        <select class="form-select" name="campus_id" data-dashboard-auto-submit data-dashboard-searchable-select>
+                                                    <div class="dashboard-filter-field premium-form-field has-value">
+                                                        <label class="form-label" for="dashboardWidgetCampus">Campus</label>
+                                                        <select id="dashboardWidgetCampus" class="form-select" name="campus_id" data-dashboard-auto-submit data-dashboard-searchable-select>
                                                             <option value="">{{ auth()->user()->isSuperAdmin() || auth()->user()->is_global ? 'All Campuses' : 'All Assigned Campuses' }}</option>
                                                             @foreach ($campuses as $campus)
                                                                 <option value="{{ $campus->id }}" @selected((int) $selectedCampusId === (int) $campus->id)>{{ $campus->campus_name_en }}</option>
                                                             @endforeach
                                                         </select>
-                                                    </label>
+                                                    </div>
                                                 </div>
                                             @endif
                                         </div>
@@ -529,12 +529,12 @@
                                 </div>
                             @else
                                 @php
-                                    $accentStatCodes = ['total_students', 'new_students', 'withdrawn_students', 'new_enrollments', 'graduated_students'];
+                                    $accentStatCodes = ['total_students', 'active_students', 'new_students', 'withdrawn_students', 'new_enrollments', 'graduated_students'];
                                     $accentStatClass = in_array($widget->code, $accentStatCodes, true)
                                         ? 'premium-stat-card--' . $widget->code
                                         : '';
                                 @endphp
-                                <a class="card premium-dashboard-card premium-stat-card {{ $accentStatClass }} h-100" href="{{ $metric['url'] ?? route('dashboard') }}">
+                                <a class="card premium-dashboard-card premium-stat-card {{ $accentStatClass }} h-100" href="{{ $metric['url'] ?? route('dashboard') }}" @if (in_array($widget->code, ['new_students', 'active_students'], true)) style="--premium-stat-accent: var(--tblr-{{ $widget->color ?: 'blue' }}, var(--tblr-blue, #206bc4));" @endif>
                                     <div class="card-body">
                                         <div class="d-flex align-items-center justify-content-between gap-3" @if ($widget->code === 'new_enrollments') style="display: block !important; position: relative;" @endif>
                                             <div @if ($widget->code === 'new_enrollments') style="width: 100%;" @endif>
@@ -544,17 +544,19 @@
                                                         <span class="badge bg-blue-lt">{{ $metric['badge'] }}</span>
                                                     @endif
                                                 </div>
-                                                <div class="premium-dashboard-value" @if (in_array($widget->code, ['total_students', 'new_students', 'withdrawn_students', 'new_enrollments'], true)) style="color: var(--premium-stat-accent) !important;" @endif>{{ $metric['value'] ?? '-' }}</div>
-                                                @if (in_array($widget->code, ['total_students', 'new_students', 'withdrawn_students', 'new_enrollments', 'graduated_students'], true))
+                                                <div class="premium-dashboard-value" @if (in_array($widget->code, ['total_students', 'active_students', 'new_students', 'withdrawn_students', 'new_enrollments', 'graduated_students'], true)) style="color: var(--premium-stat-accent) !important;" @endif>{{ $metric['value'] ?? '-' }}</div>
+                                                @if (in_array($widget->code, ['total_students', 'active_students', 'new_students', 'withdrawn_students', 'new_enrollments', 'graduated_students'], true))
                                                     <div class="premium-dashboard-gender-summary">
                                                         <span>Male: {{ number_format((int) ($metric['male'] ?? 0)) }}</span>
                                                         <span class="premium-dashboard-gender-separator">|</span>
                                                         <span>Female: {{ number_format((int) ($metric['female'] ?? 0)) }}</span>
                                                     </div>
                                                 @endif
-                                                <div class="text-secondary">{{ $metric['subtitle'] ?? '' }}</div>
+                                                @if (!in_array($widget->code, ['active_students', 'new_enrollments', 'total_students', 'withdrawn_students', 'new_students', 'graduated_students'], true))
+                                                    <div class="text-secondary">{{ $metric['subtitle'] ?? '' }}</div>
+                                                @endif
                                             </div>
-                                            <span class="premium-dashboard-icon bg-{{ $widget->color ?: 'blue' }}-lt" @if ($widget->code === 'new_enrollments') style="position: absolute; top: 1.5rem; right: 0;" @endif>
+                                            <span class="premium-dashboard-icon bg-{{ $widget->code === 'graduated_students' ? 'purple' : ($widget->color ?: 'blue') }}-lt" @if ($widget->code === 'new_enrollments') style="position: absolute; top: 1.5rem; right: 0;" @endif>
                                                 <i class="ti {{ $widget->icon ?: 'ti-chart-bar' }}"></i>
                                             </span>
                                         </div>

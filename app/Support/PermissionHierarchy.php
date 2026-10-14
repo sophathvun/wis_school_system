@@ -44,6 +44,11 @@ class PermissionHierarchy
                 'modules' => ['academic-years', 'grades', 'classes', 'sessions', 'education-levels', 'programs', 'groups', 'terms', 'school-info', 'locations', 'occupations', 'nationalities', 'academic-tracks', 'withdrawal-reasons', 'student-document-types'],
                 'actions' => ['settings.manage'],
             ],
+            'pr-request' => [
+                'label' => 'PR Request', 'permission' => 'pr-request.view',
+                'modules' => [],
+                'actions' => [],
+            ],
             'students' => [
                 'label' => 'Students', 'permission' => 'students.view',
                 'modules' => ['students.search', 'students.enrollment', 'summer-school', 'families', 'students.promotion', 'students.transfer', 'students.graduation', 'student-withdrawals', 'student-reentry', 'student-skipping-grade', 'student-id-card-qr', 'student-documents', 'homeroom', 'student-data-transfer'],

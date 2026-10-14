@@ -2,7 +2,7 @@
     'fullAccess' => $fullAccess ?? false,
     'fullAccessLocked' => $fullAccessLocked ?? false,
 ])
-@php($mainMenuIcons = ['administrator' => 'ti-shield-lock', 'communication' => 'ti-messages', 'settings' => 'ti-settings', 'students' => 'ti-user', 'dashboard' => 'ti-dashboard'])
+@php($mainMenuIcons = ['administrator' => 'ti-shield-lock', 'communication' => 'ti-messages', 'settings' => 'ti-settings', 'pr-request' => 'ti-shopping-cart', 'students' => 'ti-user', 'dashboard' => 'ti-dashboard'])
 @php($submenuIcons = ['users' => 'ti-users', 'departments' => 'ti-building-community', 'positions' => 'ti-briefcase', 'roles' => 'ti-shield', 'dashboard-templates' => 'ti-layout-dashboard', 'notifications' => 'ti-bell', 'chat' => 'ti-message-circle', 'academic-years' => 'ti-calendar', 'grades' => 'ti-school', 'classes' => 'ti-door', 'sessions' => 'ti-clock', 'education-levels' => 'ti-school', 'programs' => 'ti-books', 'school-info' => 'ti-building-community', 'locations' => 'ti-map-pin', 'occupations' => 'ti-briefcase', 'academic-tracks' => 'ti-route', 'withdrawal-reasons' => 'ti-user-minus', 'student-document-types' => 'ti-file-description', 'branding' => 'ti-palette', 'database-backups' => 'ti-database', 'students.search' => 'ti-search', 'students.enrollment' => 'ti-user-plus', 'families' => 'ti-users-group', 'students.promotion' => 'ti-arrows-transfer-up', 'students.transfer' => 'ti-arrows-left-right', 'students.graduation' => 'ti-certificate', 'student-reentry' => 'ti-user-check', 'student-documents' => 'ti-files', 'student-data-transfer' => 'ti-file-import'])
 <div class="row g-3 align-items-start mb-3">
 @php($mainMenuIcons['hrm']='ti-users-group')

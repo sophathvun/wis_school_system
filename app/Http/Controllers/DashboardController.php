@@ -255,11 +255,7 @@ class DashboardController
         $studentStatisticsByCampusGrade = $this->studentStatisticsByCampusGrade($enrollmentScope);
         $studentsByTrackChart = $this->studentsByTrackChart($enrollmentScope);
         $graduatedStudentGenderCounts = $this->graduatedStudentsGenderCounts($academicYearId, $campusId, $campusIds);
-        $totalStudentGenderCounts = (clone $enrollmentScope)
-            ->join('tb_student', 'tb_student.id', '=', 'tb_student_enrollment.student_id')
-            ->selectRaw("COUNT(DISTINCT CASE WHEN LOWER(COALESCE(tb_student.gender, '')) IN ('male', 'm') OR COALESCE(tb_student.gender_kh, '') LIKE '%ប្រុស%' THEN tb_student_enrollment.student_id END) as male")
-            ->selectRaw("COUNT(DISTINCT CASE WHEN LOWER(COALESCE(tb_student.gender, '')) IN ('female', 'f') OR COALESCE(tb_student.gender_kh, '') LIKE '%ស្រី%' THEN tb_student_enrollment.student_id END) as female")
-            ->first();
+        $totalStudentGenderCounts = $this->enrolledStudentsGenderCounts($enrollmentScope);
         $newStudentGenderCounts = (clone $enrollmentScope)
             ->where('tb_student_enrollment.student_type', 'new')
             ->join('tb_student', 'tb_student.id', '=', 'tb_student_enrollment.student_id')
@@ -304,6 +300,8 @@ class DashboardController
             'active_students' => [
                 'value' => number_format((int) ($summary->active_students ?? 0)),
                 'subtitle' => 'Active in selected scope',
+                'male' => (int) ($totalStudentGenderCounts->active_male ?? 0),
+                'female' => (int) ($totalStudentGenderCounts->active_female ?? 0),
                 'url' => route('searchStudent.index', $studentFilters),
             ],
             'new_enrollments' => [
@@ -601,6 +599,17 @@ class DashboardController
             ->when(!$campusId, fn ($query) => $query->whereIn('campus_id', $campusIds))
             ->distinct('student_id')
             ->count('student_id');
+    }
+
+    private function enrolledStudentsGenderCounts($enrollmentScope): object
+    {
+        return (clone $enrollmentScope)
+            ->join('tb_student', 'tb_student.id', '=', 'tb_student_enrollment.student_id')
+            ->selectRaw("COUNT(DISTINCT CASE WHEN LOWER(COALESCE(tb_student.gender, '')) IN ('male', 'm') OR COALESCE(tb_student.gender_kh, '') LIKE '%ប្រុស%' THEN tb_student_enrollment.student_id END) as male")
+            ->selectRaw("COUNT(DISTINCT CASE WHEN LOWER(COALESCE(tb_student.gender, '')) IN ('female', 'f') OR COALESCE(tb_student.gender_kh, '') LIKE '%ស្រី%' THEN tb_student_enrollment.student_id END) as female")
+            ->selectRaw("COUNT(DISTINCT CASE WHEN tb_student_enrollment.enrollment_status = 'active' AND (LOWER(COALESCE(tb_student.gender, '')) IN ('male', 'm') OR COALESCE(tb_student.gender_kh, '') LIKE '%ប្រុស%') THEN tb_student_enrollment.student_id END) as active_male")
+            ->selectRaw("COUNT(DISTINCT CASE WHEN tb_student_enrollment.enrollment_status = 'active' AND (LOWER(COALESCE(tb_student.gender, '')) IN ('female', 'f') OR COALESCE(tb_student.gender_kh, '') LIKE '%ស្រី%') THEN tb_student_enrollment.student_id END) as active_female")
+            ->first();
     }
 
     private function graduatedStudentsGenderCounts(?int $academicYearId, ?int $campusId, array $campusIds): object

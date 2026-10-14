@@ -18,6 +18,7 @@ class AccessFoundationSeeder extends Seeder
             ['code' => 'dashboard.view', 'module' => 'dashboard', 'action' => 'view', 'name' => 'View dashboard'],
             ['code' => 'dashboard.customize', 'module' => 'dashboard', 'action' => 'customize', 'name' => 'Customize Own Dashboard'],
             ['code' => 'dashboard.reset', 'module' => 'dashboard', 'action' => 'reset', 'name' => 'Reset Own Dashboard'],
+            ['code' => 'pr-request.view', 'module' => 'pr-request', 'action' => 'view', 'name' => 'View PR Request menu'],
             ['code' => 'students.view', 'module' => 'students', 'action' => 'view', 'name' => 'View students'],
             ['code' => 'students.manage', 'module' => 'students', 'action' => 'manage', 'name' => 'Manage students'],
             ['code' => 'settings.view', 'module' => 'settings', 'action' => 'view', 'name' => 'View Settings menu'],
@@ -151,7 +152,7 @@ class AccessFoundationSeeder extends Seeder
             $role = Role::updateOrCreate(['code' => $roleData['code']], $roleData + ['is_system' => true, 'status' => 1]);
             // These shared certificate actions require an explicit grant to non-super roles.
             $rolePermissions = $role->code === 'super-admin' ? $allPermissions : $allPermissions->filter(
-                fn ($permission) => isset(\App\Support\HrmPermissions::catalog()[$permission->module])
+                fn ($permission) => $permission->code === 'pr-request.view' || isset(\App\Support\HrmPermissions::catalog()[$permission->module])
                     ? $role->permissions->contains('id', $permission->id)
                     : (in_array($permission->code, $reportTabCodes, true)
                     // New seeded roles keep the standard defaults; existing roles keep their selected tabs.

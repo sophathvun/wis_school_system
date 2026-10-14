@@ -42,6 +42,13 @@ document.addEventListener("DOMContentLoaded", () => {
         select.insertAdjacentElement("afterend", combo);
         combo.append(toggle, menu);
 
+        const field = select.closest('.dashboard-filter-field');
+        const fieldLabel = field?.querySelector(':scope > .form-label');
+        if (fieldLabel) {
+            toggle.id = `${select.id}Toggle`;
+            fieldLabel.htmlFor = toggle.id;
+        }
+
         const text = toggle.querySelector(".dashboard-searchable-select-text");
         const search = menu.querySelector(".dashboard-searchable-select-search");
         const results = menu.querySelector(".dashboard-searchable-select-results");
@@ -54,7 +61,10 @@ document.addEventListener("DOMContentLoaded", () => {
             text.textContent = select.selectedOptions[0]?.textContent
                 ?.trim()
                 .replace(/\s+[—–].*/, "") || "Select";
+            field?.classList.toggle('has-value', Boolean(select.selectedOptions[0]?.textContent?.trim()));
+            if (fieldLabel) toggle.setAttribute('aria-label', `${fieldLabel.textContent.trim()}: ${text.textContent}`);
         };
+        select.addEventListener('change', syncText);
 
         const renderOptions = () => {
             const term = search.value.trim().toLowerCase();

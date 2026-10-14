@@ -171,22 +171,20 @@
     display: block;
 }
 
-.dashboard-filter-field > span {
-    position: static;
-    display: block;
-    margin-bottom: .35rem;
-    padding: 0;
-    color: #635bff;
-    font-size: .82rem;
-    font-weight: 700;
-    line-height: 1.2;
-    background: transparent;
+.dashboard-filter-field > .form-label {
+    max-width: calc(100% - 3rem);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-.dashboard-filter-field .form-select {
-    min-height: 3.2rem;
-    border-width: 2px;
-    border-radius: 16px;
+.dashboard-filter-field:not(.has-value):not(:focus-within) .dashboard-searchable-select-text {
+    color: transparent;
+}
+
+.dashboard-filter-field .dashboard-searchable-select-search::placeholder {
+    color: var(--tblr-secondary-color);
+    opacity: 1;
 }
 
 .dashboard-searchable-select {
@@ -222,7 +220,7 @@
     padding: 0;
     color: #243b59;
     font-size: .95rem;
-    font-weight: 600;
+    font-weight: 400;
     line-height: 1.25;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1414,17 +1412,6 @@
         border-radius: 14px;
     }
 
-    .dashboard-filter-field > span {
-        margin-bottom: .3rem;
-        font-size: .78rem;
-    }
-
-    .dashboard-filter-field .form-select,
-    .dashboard-searchable-select-toggle {
-        min-height: 3rem;
-        border-radius: 14px;
-    }
-
     .dashboard-searchable-select-menu {
         width: 100%;
     }
@@ -1515,7 +1502,6 @@
     color: var(--tblr-secondary-color);
 }
 
-[data-bs-theme="dark"] .dashboard-filter-field > span,
 [data-bs-theme="dark"] .premium-dashboard-section-title,
 [data-bs-theme="dark"] .premium-dashboard-label {
     color: var(--tblr-primary) !important;
@@ -1686,16 +1672,19 @@ html[data-bs-theme="dark"] .premium-grouped-bar-bars {
     background: rgba(34, 197, 94, .18);
 }
 
-/* Keep the stat cards visually scannable with a distinct accent, as in the
-   reference card design. The accent is intentionally limited to the four
-   student metrics so other dashboard cards retain their neutral border. */
+/* Give student metric cards a distinct left-border accent. */
 .premium-dashboard-card.premium-stat-card--total_students {
     --premium-stat-accent: #206bc4;
     border-left: 4px solid var(--premium-stat-accent);
 }
 
 .premium-dashboard-card.premium-stat-card--new_students {
-    --premium-stat-accent: #2fb344;
+    --premium-stat-accent: var(--tblr-cyan, #17a2b8);
+    border-left: 4px solid var(--premium-stat-accent);
+}
+
+.premium-dashboard-card.premium-stat-card--active_students {
+    --premium-stat-accent: var(--tblr-success, #2fb344);
     border-left: 4px solid var(--premium-stat-accent);
 }
 
@@ -1710,7 +1699,7 @@ html[data-bs-theme="dark"] .premium-grouped-bar-bars {
 }
 
 .premium-dashboard-card.premium-stat-card--graduated_students {
-    --premium-stat-accent: #0ca678;
+    --premium-stat-accent: var(--tblr-purple, #ae3ec9);
     border-left: 4px solid var(--premium-stat-accent);
 }
 
@@ -1721,13 +1710,16 @@ html[data-bs-theme="dark"] .premium-grouped-bar-bars {
 
 /* Match each student total to its card's left-border accent. */
 .premium-dashboard-card.premium-stat-card--total_students .premium-dashboard-value,
+.premium-dashboard-card.premium-stat-card--active_students .premium-dashboard-value,
 .premium-dashboard-card.premium-stat-card--new_students .premium-dashboard-value,
 .premium-dashboard-card.premium-stat-card--withdrawn_students .premium-dashboard-value,
-.premium-dashboard-card.premium-stat-card--new_enrollments .premium-dashboard-value {
+.premium-dashboard-card.premium-stat-card--new_enrollments .premium-dashboard-value,
+.premium-dashboard-card.premium-stat-card--graduated_students .premium-dashboard-value {
     color: var(--premium-stat-accent);
 }
 
 .premium-dashboard-card.premium-stat-card--total_students:hover,
+.premium-dashboard-card.premium-stat-card--active_students:hover,
 .premium-dashboard-card.premium-stat-card--new_students:hover,
 .premium-dashboard-card.premium-stat-card--withdrawn_students:hover,
 .premium-dashboard-card.premium-stat-card--new_enrollments:hover,
