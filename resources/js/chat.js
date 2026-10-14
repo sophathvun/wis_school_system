@@ -242,7 +242,7 @@ document.addEventListener("DOMContentLoaded", () => {
                             <div class="fw-bold text-truncate">${esc(chat.title)}</div>
                             <div class="small text-secondary text-truncate">${chat.type === "direct" ? `${chat.online ? "Online" : "Offline"} &middot; ` : ""}${esc(chat.last_message || "No messages yet")}</div>
                         </div>
-                        ${chat.unread_messages ? `<span class="badge bg-primary rounded-pill">${chat.unread_messages > 99 ? "99+" : chat.unread_messages}</span>` : ""}
+                        ${chat.unread_messages ? `<span class="badge bg-red text-white rounded-pill">${chat.unread_messages > 99 ? "99+" : chat.unread_messages}</span>` : ""}
                     </div>
                 </div>
             `).join("") || '<div class="text-secondary text-center p-4">No conversations yet.</div>';

@@ -305,7 +305,7 @@ import { bindChatAttachmentPaste, prepareChatAttachment } from './helpers/chatAt
                             <div class="fw-semibold text-truncate">${esc(conversation.title)}</div>
                             <div class="small text-secondary text-truncate">${conversation.type === 'direct' ? (conversation.online ? 'Online' : 'Offline') + ' &bull; ' : ''}${esc(conversation.last_message || 'No messages yet')}</div>
                         </div>
-                        ${conversation.unread_messages ? `<span class="badge bg-primary">${conversation.unread_messages}</span>` : ''}
+                        ${conversation.unread_messages ? `<span class="badge bg-red text-white">${conversation.unread_messages}</span>` : ''}
                     </div>
                 </div>
             `).join('');
@@ -393,7 +393,7 @@ import { bindChatAttachmentPaste, prepareChatAttachment } from './helpers/chatAt
                             </div>
                             <div class="small text-secondary text-truncate">${esc(user.department || 'Staff')} &middot; ${isOnline ? 'Online now' : 'Offline'}</div>
                         </div>
-                        ${!isCurrentUser && !groupMode && user.unread_messages ? `<span class="badge bg-primary rounded-pill">${user.unread_messages > 99 ? '99+' : user.unread_messages}</span>` : ''}
+                        ${!isCurrentUser && !groupMode && user.unread_messages ? `<span class="badge bg-red text-white rounded-pill">${user.unread_messages > 99 ? '99+' : user.unread_messages}</span>` : ''}
                         ${action}
                     </div>
                 </div>
