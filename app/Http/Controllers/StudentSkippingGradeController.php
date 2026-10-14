@@ -29,10 +29,10 @@ use Illuminate\Validation\Rule;
 class StudentSkippingGradeController
 {
     public const CRITERIA = [
-        'age'=>['kh'=>'ត្រូវមានអាយុស្របតាមថ្នាក់ ដោយមានសំបុត្រកំណើតដើមជាភស្តុតាង។','en'=>'The student meets the legal age requirement for the requested grade, supported by the original birth certificate (for example, 6 years old for Grade 1).'],
-        'average'=>['kh'=>'មានពិន្ទុមធ្យមភាគ ៨៥% ឬខ្ពស់ជាងនេះ ក្នុងឆ្នាំសិក្សាមុន។','en'=>'The student maintained an overall average of 85% or higher in the preceding school year.'],
-        'documents'=>['kh'=>'មានឯកសារបញ្ជាក់ការបញ្ចប់ថ្នាក់ដែលស្នើសុំរំលង ពីសាលាដើម។','en'=>'Documents from another school confirm successful completion of the grade to be skipped. For example, Grade 3 must be completed before entering Grade 4.'],
-        'recommendation'=>['kh'=>'មានការណែនាំពីគ្រូប្រចាំថ្នាក់ ទាក់ទងនឹងការសិក្សា និងអាកប្បកិរិយា។','en'=>'A recommendation from the class teacher addresses both academic performance and behavior.'],
+        'age'=>['kh'=>'ត្រូវមានអាយុត្រឹមត្រូវតាមច្បាប់រដ្ឋ (មានសេចក្តីចម្លងសំបុត្របញ្ជាក់កំណើតច្បាប់ដើមជាភស្តុតាង)','en'=>'The student must meet the legal age requirement for the grade based on the original copy of their birth certificate as proof from the district authorities. (e.g. 6 years old for Grade 1).'],
+        'average'=>['kh'=>'ត្រូវមានពិន្ទុមធ្យមភាគ ៨៥% ឡើង (យកពិន្ទុប្រចាំឆ្នាំជាគោល)','en'=>'The student must have maintained an overall average of 85% or higher in the preceding school year.'],
+        'documents'=>['kh'=>'មានឯកសារពីសាលាមួយទៀតថាចប់ថ្នាក់ដែលចង់ផ្លោះដោយជោគជ័យ (សិស្សត្រូវរៀនចប់ថ្នាក់ទី៣ មុនចូលទី៤)','en'=>'The student must provide documents from another school confirming the successful completion of the grade they wish to skip. For example, the student must have completed Grade 3 before entering Grade 4.'],
+        'recommendation'=>['kh'=>'មានការគាំទ្រពីគ្រូប្រចាំថ្នាក់លើការសិក្សានិងវិន័យ','en'=>'A recommendation from the class teacher is required, addressing both academic performance and behavior.'],
     ];
 
     public function __construct(private readonly StudentSkippingGradeService $service) {}
@@ -280,7 +280,7 @@ class StudentSkippingGradeController
             'custom_options'=>['sometimes','array','max:220'],'custom_options.*'=>['boolean'],
             'average_score'=>['nullable','numeric','min:0','max:100'],'average_scale'=>['required',Rule::in([10,100])],
             'committee_names'=>['nullable','array:0,1,2,3'],'committee_names.*'=>['nullable','string','max:200'],
-            'documents'=>['nullable','array','max:10'],'documents.*'=>['file','mimes:pdf,jpg,jpeg,png,webp','max:5120'],
+            'documents'=>['nullable','array','max:10'],'documents.*'=>['file','mimes:pdf,jpg,jpeg,png,webp','max:25600'],
             'document_markers'=>['sometimes','accepted'],'parent_signed_documents'=>['sometimes','array','max:20'],
             'document_count'=>['sometimes','integer','min:0','max:20'],
             'parent_signed_documents.*'=>['integer','min:0','max:19','distinct'],
@@ -328,8 +328,8 @@ class StudentSkippingGradeController
     {
         $this->service->authorize($request->user(),'submit',$skipping->campus_id);
         $data=$request->validate(['parent_signed'=>['required','accepted'],'parent_signed_date'=>['required','date_format:Y-m-d','before_or_equal:today'],
-            'signed_request'=>['nullable','file','mimes:pdf,jpg,jpeg,png,webp','max:5120'],
-            'documents'=>['nullable','array','max:10'],'documents.*'=>['file','mimes:pdf,jpg,jpeg,png,webp','max:5120'],
+            'signed_request'=>['nullable','file','mimes:pdf,jpg,jpeg,png,webp','max:25600'],
+            'documents'=>['nullable','array','max:10'],'documents.*'=>['file','mimes:pdf,jpg,jpeg,png,webp','max:25600'],
             'document_markers'=>['sometimes','accepted'],'parent_signed_documents'=>['sometimes','array','max:20'],
             'document_count'=>['sometimes','integer','min:0','max:20'],
             'parent_signed_documents.*'=>['integer','min:0','max:19','distinct']]);
@@ -662,7 +662,7 @@ class StudentSkippingGradeController
     {
         $this->service->authorizeEdit($request->user(),$skipping);
         abort_unless($skipping->status==='draft',403,'Attachments can only be added to a draft.');
-        $data=$request->validate(['documents'=>['required_without_all:document_markers,parent_signed_documents','array','max:10'],'documents.*'=>['required','file','mimes:pdf,jpg,jpeg,png,webp','max:5120'],
+        $data=$request->validate(['documents'=>['required_without_all:document_markers,parent_signed_documents','array','max:10'],'documents.*'=>['required','file','mimes:pdf,jpg,jpeg,png,webp','max:25600'],
             'document_markers'=>['sometimes','accepted'],'parent_signed_documents'=>['sometimes','array','max:20'],
             'document_count'=>['sometimes','integer','min:0','max:20'],
             'parent_signed_documents.*'=>['integer','min:0','max:19','distinct']]);

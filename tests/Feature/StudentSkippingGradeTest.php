@@ -271,10 +271,19 @@ it('editing a draft appends private supporting documents while preserving earlie
     $this->get('/students/skipping-grade/'.$record->id)->assertOk()->assertSee('original.pdf')->assertSee('additional.jpg');
 });
 
+it('accepts a supporting document at the 25 MB limit',function () {
+    $this->actingAs($this->campus)->postJson('/students/skipping-grade',$this->data+[
+        'documents'=>[UploadedFile::fake()->create('evidence.pdf',25600,'application/pdf')],
+    ])->assertOk();
+    $record=StudentSkippingGrade::firstOrFail();
+    expect($record->supporting_documents)->toHaveCount(1);
+    Storage::disk('local')->assertExists($record->supporting_documents[0]['path']);
+});
+
 it('request form uploads validate file type size and batch limits before saving a draft',function (string $failure) {
     $documents=match($failure) {
         'type'=>[UploadedFile::fake()->create('program.exe',10,'application/octet-stream')],
-        'size'=>[UploadedFile::fake()->create('large.pdf',5121,'application/pdf')],
+        'size'=>[UploadedFile::fake()->create('large.pdf',25601,'application/pdf')],
         'batch'=>array_map(fn($i)=>UploadedFile::fake()->create('evidence-'.$i.'.pdf',1,'application/pdf'),range(1,11)),
     };
     $this->actingAs($this->campus)->postJson('/students/skipping-grade',$this->data+['documents'=>$documents])->assertUnprocessable()

@@ -56,8 +56,8 @@ export const initSkippingDocumentsUpload = (wrapper) => {
         for (const file of Array.from(files || [])) {
             if (!/\.(pdf|jpe?g|png|webp)$/i.test(file.name)) {
                 errors.push('Please choose PDF, JPG, PNG, or WEBP files.');
-            } else if (file.size > 5 * 1024 * 1024) {
-                errors.push('Each file must be 5 MB or smaller.');
+            } else if (file.size > 25 * 1024 * 1024) {
+                errors.push('Each file must be 25 MB or smaller.');
             } else if (!keys.has(fileKey(file))) {
                 if (selected.length >= 10) errors.push('Upload at most 10 files at a time.');
                 else if (existingCount + selected.length >= 20) errors.push('A request can have up to 20 supporting documents.');
