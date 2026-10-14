@@ -19,6 +19,7 @@
         <div class="alert alert-success">{{ session('success') }}</div>
     @endif
 
+    <div class="mb-3"><button type="button" class="btn btn-outline-primary" data-enable-phone-notifications><i class="ti ti-bell-ringing me-2"></i>Enable Phone Notifications</button></div>
     <div class="card notifications-page-card">
         <div class="list-group list-group-flush">
             @forelse($notifications as $notification)

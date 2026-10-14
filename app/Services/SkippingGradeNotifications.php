@@ -8,6 +8,8 @@ use App\Models\UserNotification;
 use App\Support\StudentSkippingGradePermissions;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class SkippingGradeNotifications
 {
@@ -47,11 +49,11 @@ class SkippingGradeNotifications
         $name = $record->student_snapshot['name_en'] ?? 'Student';
         $studentId = $record->student_snapshot['student_id'] ?? '';
         $submitter = $record->student_snapshot['submitter']['name'] ?? $record->submitter?->name ?? $record->creator?->name;
-        foreach ($eligible as $user) UserNotification::firstOrCreate(['user_id' => $user->id, 'type' => $type], [
+        foreach ($eligible as $user) $this->pushNewAlert(UserNotification::firstOrCreate(['user_id' => $user->id, 'type' => $type], [
             'title' => 'Grade Skipping: Awaiting Your Approval',
             'message' => e($name.' ('.$studentId.') — submitted by '.$submitter.' on '.$record->submitted_at?->format('d-M-Y H:i').'. Review the request and supporting documents.'),
             'action_url' => route('student-skipping-grade.show', $record, false),
-        ]);
+        ]));
     }
 
     public function completed(StudentSkippingGrade $record): void
@@ -62,13 +64,27 @@ class SkippingGradeNotifications
         $actor = User::find($approved ? $record->approved_by : $record->rejected_by)?->name;
         $message = ($record->student_snapshot['name_en'] ?? 'Student').' — request '.$record->id.' was '.strtolower($decision).' by '.$actor.'.';
         if (!$approved) $message .= ' Reason: '.$record->rejection_reason;
-        foreach (array_unique(array_filter([$record->created_by, $record->submitted_by])) as $userId) UserNotification::firstOrCreate([
+        foreach (array_unique(array_filter([$record->created_by, $record->submitted_by])) as $userId) $this->pushNewAlert(UserNotification::firstOrCreate([
             'user_id' => $userId, 'type' => 'grade-skipping-'.$record->id.'-'.strtolower($decision),
         ], [
             'title' => 'Grade Skipping Request '.$decision,
             'message' => e($message),
             'action_url' => route('student-skipping-grade.show', $record, false),
-        ]);
+        ]));
+    }
+
+    private function pushNewAlert(UserNotification $notification): void
+    {
+        if (!$notification->wasRecentlyCreated) return;
+        // Do not send a phone alert for a transaction that later rolls back.
+        DB::afterCommit(function () use ($notification) {
+            app(WebPushService::class)->sendToUsers([$notification->user_id], [
+                'title' => $notification->title,
+                'body' => Str::limit(html_entity_decode(strip_tags($notification->message), ENT_QUOTES | ENT_HTML5, 'UTF-8'), 120),
+                'url' => route('notifications.open', $notification),
+                'tag' => 'school-notification-'.$notification->id,
+            ]);
+        });
     }
 
     private function closeAlerts(StudentSkippingGrade $record, ?string $keepType = null, array $keepUsers = []): void

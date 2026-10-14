@@ -143,6 +143,8 @@ Deployment requires `php artisan migrate --force` (migrations `2026_10_09_000018
 
 The Messages widget and full chat page support heart, thanks, thumbs-up, laugh, surprised, and sad reactions. Right-click a message on computers or tap it on phones to open quick reactions, Reply, and Delete (when permitted). Select an emoji to react; select your current emoji again to remove it. Each conversation member has one reaction per message and can change it. Only reaction counts remain visible on the message; counts and participant names refresh with the existing chat polling. Reacting does not send a new message or push notification.
 
+Phone notifications and Home Screen badges: see [server setup and device instructions](docs/phone-notifications.md). Users can enable notifications from their profile menu or Notifications page; configure missing server keys with `php artisan webpush:setup`.
+
 Deployment requires `php artisan migrate --force` (migration `2026_10_09_000016_create_chat_message_reactions.php`) and `npm run build`. Reactions are restricted to current conversation members and visible, undeleted messages. Existing messages can receive reactions after deployment.
 
 ## Message replies

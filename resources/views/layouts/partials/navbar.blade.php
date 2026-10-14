@@ -209,6 +209,7 @@
         <div class="dropdown-menu dropdown-menu-end dropdown-menu-arrow">
             @auth
                 <a href="{{ route('profile') }}" class="dropdown-item"><i class="ti ti-user me-2"></i>My Profile</a>
+                <button type="button" class="dropdown-item" data-enable-phone-notifications><i class="ti ti-bell-ringing me-2"></i>Enable Phone Notifications</button>
                 <a href="{{ route('profile.status') }}" class="dropdown-item"><i class="ti ti-adjustments me-2"></i>Status</a>
                 <a href="{{ route('feedback') }}" class="dropdown-item"><i class="ti ti-message me-2"></i>Feedback</a>
                 <div class="dropdown-divider"></div>

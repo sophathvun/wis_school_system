@@ -122,6 +122,38 @@ beforeEach(function () {
     };
 });
 
+it('sends phone alerts for new grade skipping notifications only after commit without repeating existing alerts', function () {
+    ($this->workflowSetup)();
+    $sent = [];
+    $this->mock(\App\Services\WebPushService::class, function ($mock) use (&$sent) {
+        $mock->shouldReceive('sendToUsers')->andReturnUsing(function ($users, $payload) use (&$sent) { $sent[] = [$users, $payload]; });
+    });
+    DB::beginTransaction();
+    $record = ($this->pending)();
+    expect($sent)->toBe([]);
+    DB::commit();
+    $alert = \App\Models\UserNotification::firstOrFail();
+    expect($sent)->toHaveCount(1)
+        ->and($sent[0][0])->toBe([3])
+        ->and($sent[0][1]['url'])->toBe(route('notifications.open', $alert));
+    app(\App\Services\SkippingGradeNotifications::class)->awaiting($record->fresh());
+    expect($sent)->toHaveCount(1);
+    $this->service->reject(User::find(3), $record->fresh(), 'Missing document', ($this->stepData)($record));
+    expect($sent)->toHaveCount(2)
+        ->and($sent[1][0])->toBe([1])
+        ->and($sent[1][1]['title'])->toBe('Grade Skipping Request Rejected');
+});
+
+it('does not send a phone alert when the grade skipping transaction is rolled back', function () {
+    ($this->workflowSetup)();
+    $this->mock(\App\Services\WebPushService::class, fn ($mock) => $mock->shouldNotReceive('sendToUsers'));
+    DB::beginTransaction();
+    ($this->pending)();
+    expect(\App\Models\UserNotification::count())->toBe(1);
+    DB::rollBack();
+    expect(\App\Models\UserNotification::count())->toBe(0);
+});
+
 it('grade skipping alerts only current eligible reviewers and reading an alert keeps pending badges',function () {
     ($this->workflowSetup)();
     $this->workflow->saveSettings($this->central,($this->scopedSettings)());

@@ -98,6 +98,7 @@ function navbar({ registration = true, permission = 'granted' } = {}) {
         },
         window: {
             Notification,
+            addEventListener() {},
             dispatchEvent() {},
             setInterval: (callback, delay) => intervals.set(delay, callback),
             schoolEnsurePushSubscription: async () => subscriptions++,

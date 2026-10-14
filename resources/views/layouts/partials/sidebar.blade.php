@@ -49,6 +49,7 @@
                         <div class="dropdown-header">{{ auth()->user()->name }}</div>
                         <a href="{{ route('profile') }}" class="dropdown-item"><i class="ti ti-user me-2"></i>My Profile</a>
                         <a href="{{ route('profile.status') }}" class="dropdown-item"><i class="ti ti-adjustments me-2"></i>Status</a>
+                        <button type="button" class="dropdown-item" data-enable-phone-notifications><i class="ti ti-bell-ringing me-2"></i>Enable Phone Notifications</button>
                         <a href="{{ route('feedback') }}" class="dropdown-item"><i class="ti ti-message me-2"></i>Feedback</a>
                         <div class="dropdown-divider"></div>
                         <form method="POST" action="{{ route('logout') }}">@csrf<button class="dropdown-item" type="submit"><i class="ti ti-logout me-2"></i>Logout</button></form>

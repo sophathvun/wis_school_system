@@ -172,6 +172,10 @@
 
     refreshChatUnread.previousUnread = null;
     refreshNotificationsUnread.previousUnread = null;
+    window.addEventListener('school:notifications-enabled', () => {
+        refreshChatUnread();
+        refreshNotificationsUnread();
+    });
     refreshChatUnread();
     refreshNotificationsUnread();
     window.setInterval(refreshChatUnread, 5000);
