@@ -667,6 +667,10 @@
   margin-top: 6px;
 }
 
+@media (pointer: coarse) {
+  .skipping-searchable-menu .form-control { font-size: 16px; }
+}
+
 .skipping-searchable-options button {
   display: block;
   width: 100%;

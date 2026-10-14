@@ -237,11 +237,13 @@ if (root) {
         const open = () => {
             searchableFilters.forEach((item) => item.close());
             input.value = ''; menu.hidden = false; toggle.setAttribute('aria-expanded', 'true');
-            refresh(); input.focus();
+            refresh();
             if (root.querySelector('.skipping-request-report-filters')?.contains(select)) {
                 const bounds = toggle.getBoundingClientRect();
                 Object.assign(menu.style, { position: 'fixed', top: `${bounds.bottom + 4}px`, left: `${bounds.left}px`, width: `${bounds.width}px`, zIndex: '1050' });
             }
+            // Let touch users browse options without opening the keyboard and shifting the page.
+            if (!window.matchMedia('(pointer: coarse)').matches) input.focus({ preventScroll: true });
             if (select === studentFilter) input.dispatchEvent(new Event('input'));
         };
         toggle.addEventListener('click', () => menu.hidden ? open() : close());
@@ -258,7 +260,11 @@ if (root) {
                 buttons[Math.max(0, Math.min(buttons.length - 1, next))]?.focus();
             }
         });
-        wrapper.addEventListener('focusout', (event) => { if (!wrapper.contains(event.relatedTarget)) close(); });
+        wrapper.addEventListener('focusout', (event) => {
+            // Safari can blur the search input without focusing the tapped option.
+            // Outside clicks still close the menu through the document handler below.
+            if (event.relatedTarget && !wrapper.contains(event.relatedTarget)) close();
+        });
         searchableFilters.set(select, { refresh, close, input, toggle });
         refresh();
     });
