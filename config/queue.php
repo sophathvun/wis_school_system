@@ -31,6 +31,16 @@ return [
 
     'connections' => [
 
+        // Bounded ZIP parts may take longer than ordinary application jobs.
+        'document-archives' => [
+            'driver' => 'database',
+            'connection' => env('DB_QUEUE_CONNECTION'),
+            'table' => env('DB_QUEUE_TABLE', 'jobs'),
+            'queue' => 'document-archives',
+            'retry_after' => 1860,
+            'after_commit' => true,
+        ],
+
         'sync' => [
             'driver' => 'sync',
         ],

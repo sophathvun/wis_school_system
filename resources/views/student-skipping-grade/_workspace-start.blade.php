@@ -5,6 +5,7 @@
         'my-approvals'=>['permission'=>'view','label'=>'My Approvals','icon'=>'ti-checklist','url'=>route('student-skipping-grade.my-approvals')],
         'campus-settings'=>['permission'=>'campus-settings','label'=>'Campus Settings','icon'=>'ti-building-cog','url'=>route('student-skipping-grade.campus-settings')],
         'settings'=>['permission'=>'settings','label'=>'Approval Settings','icon'=>'ti-settings','url'=>route('student-skipping-grade.settings')],
+        'document-archive'=>['permission'=>'document-archive','label'=>'Supporting Document Archive','icon'=>'ti-archive','url'=>route('student-skipping-grade.archive.index')],
         'request'=>['permission'=>'request-template','label'=>'Customize Request Form','icon'=>'ti-file-pencil','url'=>route('student-skipping-grade.template','request')],
         'approval'=>['permission'=>'approval-template','label'=>'Customize Approval Form','icon'=>'ti-certificate','url'=>route('student-skipping-grade.template','approval')],
     ])->filter(fn($tab)=>\App\Support\StudentSkippingGradePermissions::allows(auth()->user(),$tab['permission']));

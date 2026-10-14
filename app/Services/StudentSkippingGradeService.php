@@ -143,7 +143,7 @@ class StudentSkippingGradeService
         if (count($files)>10) $this->invalid('documents','Upload at most 10 files at a time.');
         if (count($documents)+count($files)>20) $this->invalid('documents','A request can have up to 20 supporting documents.');
         foreach ($files as $file) {
-            $path=$file->store('grade-skipping/attachments/'.$record->id,'local');
+            $path=$file->store(app(SkippingGradeDocumentStorage::class)->directory($record),'local');
             if (!$path) $this->invalid('documents','Unable to save the document. Please try again.');
             $paths[]=$path;
             $documents[]=['path'=>$path,'name'=>basename($file->getClientOriginalName()),'mime'=>$file->getMimeType(),'uploaded_by'=>$user->id,'uploaded_at'=>now()->toIso8601String()];
@@ -191,7 +191,7 @@ class StudentSkippingGradeService
                 if ($record->creator) $snapshot['requester']=$workflow->snapshot($record->creator,'Requested By','campus',$record->campus_id);
                 $snapshot['submitter']=$workflow->snapshot($user,'Submitted By','campus',$record->campus_id);
                 if ($file) {
-                    $path=$file->store('grade-skipping/signed-requests','local');
+                    $path=$file->store(app(SkippingGradeDocumentStorage::class)->directory($record),'local');
                     if (!$path) $this->invalid('signed_request','Unable to store the signed request. Please try again.');
                 }
                 $record->update(['status'=>'pending','parent_signed_at'=>$signedDate,'signed_request_path'=>$path,
@@ -292,6 +292,10 @@ class StudentSkippingGradeService
                 ]);
                 if ($step) $workflow->complete($step,$user,'approved',$data['approval_notes']??null);
                 app(SkippingGradeNotifications::class)->completed($record);
+                DB::afterCommit(function () use ($record,$user) {
+                    try { \App\Jobs\ProcessSkippingDocumentArchive::dispatch('organize',$record->id,$user->id); }
+                    catch (\Throwable $e) { report($e); } // Approval remains valid if the worker is unavailable.
+                });
                 return $record->fresh();
             });
         } catch (\Throwable $e) {

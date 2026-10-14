@@ -206,6 +206,16 @@ Route::post('/dashboard/customize', [DashboardController::class, 'saveCustomizat
 Route::delete('/dashboard/customize', [DashboardController::class, 'resetCustomization'])->name('dashboard.customize.reset');
 
 Route::middleware(['auth', 'active.user'])->group(function () {
+    Route::prefix('students/skipping-grade/document-archive')->name('student-skipping-grade.archive.')
+        ->controller(\App\Http\Controllers\SkippingGradeDocumentArchiveController::class)->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::post('/', 'create')->name('create');
+            Route::get('/{archive}', 'show')->whereNumber('archive')->name('show');
+            Route::post('/{archive}/verify', 'verify')->whereNumber('archive')->name('verify');
+            Route::post('/{archive}/delete', 'delete')->whereNumber('archive')->name('delete');
+            Route::get('/{archive}/parts/{part}', 'download')->whereNumber(['archive','part'])->name('download');
+            Route::post('/{archive}/parts/{part}/restore', 'restore')->whereNumber(['archive','part'])->name('restore');
+        });
     Route::prefix('students/skipping-grade')->name('student-skipping-grade.')->controller(\App\Http\Controllers\StudentSkippingGradeController::class)->group(function () {
         Route::get('/', 'index')->name('index');
         Route::get('/create', 'create')->name('create');

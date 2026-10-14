@@ -88,6 +88,13 @@ References: [Nginx request body limit](https://nginx.org/en/docs/http/ngx_http_c
 [PHP upload and POST limits](https://www.php.net/manual/en/ini.core.php#ini.post-max-size),
 [PHP per-directory overrides](https://www.php.net/manual/en/configuration.file.per-user.php).
 
+## Grade Skipping document archives
+
+See [Supporting Document Archive](docs/grade-skipping-document-archive.md) for
+backup, verification, retention, deletion, restore, permissions and deployment.
+This feature requires its migration and dedicated background worker. Restoring
+ZIP parts also requires a higher PHP per-upload allowance than an individual document.
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:

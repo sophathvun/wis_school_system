@@ -66,6 +66,8 @@ beforeEach(function () {
     (require database_path('migrations/2026_10_08_000005_add_skipping_grade_campus_settings.php'))->up();
     (require database_path('migrations/2026_10_11_000001_add_configurable_skipping_grade_approval_flow.php'))->up();
     (require database_path('migrations/2026_10_11_000002_add_grade_scoped_skipping_reviewers.php'))->up();
+    (require database_path('migrations/2026_10_14_000001_create_skipping_grade_document_archives.php'))->up();
+    \Illuminate\Support\Facades\Queue::fake([\App\Jobs\ProcessSkippingDocumentArchive::class]);
     $this->grant=function (int $user, array $actions) { foreach ($actions as $action) { $id=DB::table('access_permissions')->where('code',$action==='students.view'?$action:'student-skipping-grade.'.$action)->value('id'); DB::table('access_user_permission_overrides')->updateOrInsert(['user_id'=>$user,'permission_id'=>$id],['allowed'=>true]); } };
     ($this->grant)(2,['students.view','view','requests','approve','reject','settings','save-settings','request-template','edit-request-template','approval-template','edit-approval-template','print']);
     $this->campus=User::find(1); $this->central=User::find(2); $this->service=app(StudentSkippingGradeService::class);
@@ -271,6 +273,226 @@ it('editing a draft appends private supporting documents while preserving earlie
     $this->get('/students/skipping-grade/'.$record->id)->assertOk()->assertSee('original.pdf')->assertSee('additional.jpg');
 });
 
+describe('supporting document archives',function () {
+    beforeEach(function () {
+        ($this->grant)(2,['document-archive','archive-backup','archive-delete','archive-restore']);
+        $this->archives=app(\App\Services\SkippingGradeDocumentArchiveService::class);
+        $this->archiveRecord=$this->service->saveDraft($this->campus,$this->data+['documents'=>[UploadedFile::fake()->create('Birth Certificate.pdf',10,'application/pdf')]]);
+        Storage::disk('local')->put('grade-skipping/signed-requests/legacy.pdf','original signed request');
+        $this->archiveRecord->update(['status'=>'approved','reference_number'=>'SG2324-001','signed_request_path'=>'grade-skipping/signed-requests/legacy.pdf','submitted_at'=>now(),'parent_signed_at'=>now(),'approved_at'=>now(),'effective_date'=>now()->toDateString(),'approved_by'=>2]);
+        DB::table('tb_academic_year')->where('id',1)->update(['academic_year'=>'2023-2024','lifecycle_status'=>'finished']);
+        DB::table('tb_academic_year')->insert([
+            ['id'=>20,'academic_year'=>'2025-2026','lifecycle_status'=>'finished'],
+            ['id'=>21,'academic_year'=>'2026-2027','lifecycle_status'=>'started'],
+            ['id'=>22,'academic_year'=>'2027-2028','lifecycle_status'=>'pending'],
+        ]);
+        $this->buildArchive=function () {
+            $archive=$this->archives->create($this->central,1,null);
+            $this->archives->prepare($archive);
+            foreach ($archive->parts()->get() as $part) $this->archives->build($part);
+            return $archive->fresh();
+        };
+        $this->downloadArchive=function ($archive) {
+            $this->actingAs($this->central);
+            foreach ($archive->parts as $part) $this->get(route('student-skipping-grade.archive.download',[$archive,$part]))->assertOk();
+            return $archive->fresh();
+        };
+    });
+
+    it('creates a private verified ZIP with year approval student manifest and original bytes',function () {
+        $archive=($this->buildArchive)(); $part=$archive->parts->first();
+        expect($archive->status)->toBe('ready')->and($archive->files()->count())->toBe(2)->and($part->verified_at)->not->toBeNull();
+        $zip=new ZipArchive; expect($zip->open(Storage::disk('local')->path($part->path)))->toBeTrue();
+        $manifest=json_decode($zip->getFromName('manifest.json'),true);
+        expect($manifest['academic_year'])->toBe('2023-2024')->and($manifest['files'][0]['student']['student_id'])->toBe('2612345');
+        foreach ($manifest['files'] as $entry) {
+            expect($entry['path'])->toStartWith('2023-2024/SG2324-001/')
+                ->and(hash('sha256',$zip->getFromName($entry['path'])))->toBe($entry['sha256']);
+        }
+        $zip->close();
+        $this->actingAs($this->central)->get('/students/skipping-grade/document-archive')->assertOk()->assertSee('Supporting Document Archive');
+        $this->get(route('student-skipping-grade.archive.show',$archive))->assertOk()->assertSee('Document List')->assertSee('SG2324-001');
+        \Illuminate\Support\Facades\Queue::assertPushed(\App\Jobs\ProcessSkippingDocumentArchive::class,fn($job)=>$job->operation==='prepare' && $job->connection==='document-archives');
+    });
+
+    it('requires separate permissions for archive viewing backup deletion and restore',function () {
+        $archive=($this->buildArchive)(); $part=$archive->parts->first();
+        $this->actingAs($this->campus)->getJson('/students/skipping-grade/document-archive')->assertForbidden();
+        $this->postJson('/students/skipping-grade/document-archive',['academic_year_id'=>1])->assertForbidden();
+        $this->getJson(route('student-skipping-grade.archive.download',[$archive,$part]))->assertForbidden();
+        $this->postJson(route('student-skipping-grade.archive.delete',$archive),['external_backup_saved'=>1,'confirmation'=>$archive->reference])->assertForbidden();
+        ($this->grant)(1,['document-archive']);
+        $this->get('/students/skipping-grade/document-archive')->assertOk();
+        $this->postJson('/students/skipping-grade/document-archive',['academic_year_id'=>1])->assertForbidden();
+        $this->postJson(route('student-skipping-grade.archive.restore',[$archive,$part]),[])->assertForbidden();
+    });
+
+    it('excludes unfinished requests and respects campus scope',function () {
+        foreach (['pending','draft','rejected'] as $status) {
+            $record=$this->archiveRecord->replicate();
+            $record->status=$status; $record->reference_number=null; $record->campus_id=2;
+            $record->supporting_documents=[['path'=>'grade-skipping/attachments/other-'.$status.'.pdf','name'=>$status.'.pdf','mime'=>'application/pdf']];
+            $record->signed_request_path=null; $record->save();
+            Storage::disk('local')->put($record->supporting_documents[0]['path'],$status);
+        }
+        $archive=$this->archives->create($this->central,1,2); $this->archives->prepare($archive);
+        expect($archive->files()->count())->toBe(1)->and($archive->files()->first()->original_name)->toBe('rejected.pdf');
+    });
+
+    it('protects the current and previous years and ignores future planning years',function () {
+        expect($this->archives->canDeleteYear('2023-2024'))->toBeTrue()
+            ->and($this->archives->canDeleteYear('2025-2026'))->toBeFalse()
+            ->and($this->archives->canDeleteYear('2026-2027'))->toBeFalse()
+            ->and($this->archives->canDeleteYear('2027-2028'))->toBeFalse();
+        $archive=($this->buildArchive)(); $archive=($this->downloadArchive)($archive);
+        foreach (['2025-2026','2026-2027'] as $year) {
+            $archive->update(['academic_year'=>$year]);
+            expect(fn()=>$this->archives->requestDeletion($archive,$this->central))->toThrow(ValidationException::class);
+        }
+        DB::table('tb_academic_year')->update(['lifecycle_status'=>'finished']);
+        expect($this->archives->canDeleteYear('2023-2024'))->toBeFalse();
+    });
+
+    it('requires all downloads and explicit external backup confirmation before deletion',function () {
+        $archive=($this->buildArchive)();
+        expect(fn()=>$this->archives->requestDeletion($archive,$this->central))->toThrow(ValidationException::class);
+        $this->actingAs($this->central)->postJson(route('student-skipping-grade.archive.delete',$archive),['confirmation'=>$archive->reference])->assertUnprocessable();
+        ($this->downloadArchive)($archive);
+        $this->postJson(route('student-skipping-grade.archive.delete',$archive),['external_backup_saved'=>1,'confirmation'=>'wrong-reference'])->assertUnprocessable();
+        expect($archive->fresh()->status)->toBe('ready');
+        Storage::disk('local')->assertExists($this->archiveRecord->supporting_documents[0]['path']);
+    });
+
+    it('blocks deletion after an academic year is renamed into a protected year',function () {
+        $archive=($this->downloadArchive)(($this->buildArchive)());
+        DB::table('tb_academic_year')->where('id',1)->update(['academic_year'=>'2025-2026']);
+        expect(fn()=>$this->archives->requestDeletion($archive,$this->central))->toThrow(ValidationException::class);
+        foreach ($archive->files as $file) Storage::disk('local')->assertExists($file->source_path);
+    });
+
+    it('stops deletion when either a ZIP or a live file changes',function (string $changed) {
+        $archive=($this->downloadArchive)(($this->buildArchive)());
+        $path=$changed==='zip'?$archive->parts->first()->path:$this->archiveRecord->supporting_documents[0]['path'];
+        Storage::disk('local')->put($path,'changed bytes');
+        $this->archives->requestDeletion($archive,$this->central);
+        expect(fn()=>$this->archives->deleteDocuments($archive->fresh(),$this->central->id))->toThrow(RuntimeException::class);
+        expect($archive->files()->whereNotNull('deleted_at')->count())->toBe(0);
+        Storage::disk('local')->assertExists('grade-skipping/signed-requests/legacy.pdf');
+    })->with(['zip','live']);
+
+    it('archives files frees server space and restores exact bytes without changing approvals',function () {
+        $archive=($this->downloadArchive)(($this->buildArchive)()); $part=$archive->parts->first();
+        $external=Storage::disk('local')->path('external-backup.zip');
+        copy(Storage::disk('local')->path($part->path),$external);
+        $before=$this->archiveRecord->fresh()->only(['reference_number','status','student_snapshot','approval_snapshot','submitted_at']);
+        $this->archives->requestDeletion($archive,$this->central);
+        $this->archives->deleteDocuments($archive->fresh(),$this->central->id);
+        foreach ($archive->files as $file) Storage::disk('local')->assertMissing($file->source_path);
+        Storage::disk('local')->assertMissing($part->path);
+        expect($archive->fresh()->status)->toBe('deleted')->and($this->archiveRecord->fresh()->only(array_keys($before)))->toEqual($before);
+        $this->actingAs($this->central)->get('/students/skipping-grade/'.$this->archiveRecord->id)->assertOk()->assertSee('Archived')->assertSee($archive->reference);
+        $this->get('/students/skipping-grade/'.$this->archiveRecord->id.'/attachments/0')->assertGone();
+        $this->get('/students/skipping-grade/'.$this->archiveRecord->id.'/signed-request')->assertGone();
+        $this->archives->restore($part->fresh(),new UploadedFile($external,'backup.zip','application/zip',null,true),$this->central);
+        foreach ($archive->files as $file) expect(hash_file('sha256',Storage::disk('local')->path($file->source_path)))->toBe($file->sha256);
+        expect($archive->fresh()->status)->toBe('restored')->and($this->archiveRecord->fresh()->supporting_documents[0])->not->toHaveKey('archived_at')
+            ->and($this->archiveRecord->fresh()->signed_request_archived_at)->toBeNull();
+        $this->get('/students/skipping-grade/'.$this->archiveRecord->id.'/attachments/0')->assertOk();
+        expect(DB::table('skipping_document_archive_events')->where('archive_id',$archive->id)->pluck('action')->all())->toContain('backup_verified','external_backup_confirmed','documents_deleted','part_restored');
+    });
+
+    it('rejects a different or tampered restore ZIP without writing any file',function () {
+        $archive=($this->downloadArchive)(($this->buildArchive)()); $part=$archive->parts->first();
+        $this->archives->requestDeletion($archive,$this->central); $this->archives->deleteDocuments($archive->fresh(),$this->central->id);
+        $bad=Storage::disk('local')->path('bad.zip'); $zip=new ZipArchive; $zip->open($bad,ZipArchive::CREATE);
+        $zip->addFromString('../outside.php','untrusted'); $zip->close();
+        expect(fn()=>$this->archives->restore($part->fresh(),new UploadedFile($bad,'bad.zip','application/zip',null,true),$this->central))->toThrow(RuntimeException::class);
+        foreach ($archive->files as $file) Storage::disk('local')->assertMissing($file->source_path);
+        expect($archive->fresh()->status)->toBe('deleted');
+    });
+
+    it('organizes existing documents by requested academic year and approval number safely',function () {
+        $storage=app(\App\Services\SkippingGradeDocumentStorage::class);
+        $originals=$this->archiveRecord->supporting_documents;
+        $storage->organize($this->archiveRecord->id);
+        $record=$this->archiveRecord->fresh();
+        expect($record->supporting_documents[0]['path'])->toStartWith('grade-skipping/attachments/2023-2024/SG2324-001/')
+            ->and($record->signed_request_path)->toStartWith('grade-skipping/attachments/2023-2024/SG2324-001/');
+        Storage::disk('local')->assertMissing($originals[0]['path']);
+        $this->archiveRecord=$record;
+        $archive=($this->buildArchive)();
+        $storage->organize($record->id);
+        expect($record->fresh()->supporting_documents)->toBe($record->supporting_documents);
+        $this->archives->verify($archive->parts->first());
+    });
+
+    it('fails a missing source backup without deleting other files and can retry',function () {
+        Storage::disk('local')->delete($this->archiveRecord->supporting_documents[0]['path']);
+        $archive=$this->archives->create($this->central,1,null);
+        $job=new \App\Jobs\ProcessSkippingDocumentArchive('prepare',$archive->id,$this->central->id);
+        try { $job->handle($this->archives); $this->fail('Expected a missing-source error'); }
+        catch (ValidationException $e) { $job->failed($e); }
+        expect($archive->fresh()->status)->toBe('failed')->and($archive->parts()->count())->toBe(0);
+        Storage::disk('local')->assertExists('grade-skipping/signed-requests/legacy.pdf');
+        $this->archives->requestVerification($archive->fresh(),$this->central);
+        expect($archive->fresh()->status)->toBe('building');
+    });
+
+    it('requires every ZIP part and restores multipart archives independently',function () {
+        $this->archives=new class extends \App\Services\SkippingGradeDocumentArchiveService { public const PART_BYTES=24; };
+        Storage::disk('local')->put($this->archiveRecord->supporting_documents[0]['path'],'twenty bytes of data');
+        $archive=($this->buildArchive)();
+        expect($archive->parts)->toHaveCount(2);
+        $first=$archive->parts[0]; $second=$archive->parts[1];
+        $external=[];
+        foreach ($archive->parts as $part) {
+            $external[$part->id]=Storage::disk('local')->path('external-'.$part->id.'.zip');
+            copy(Storage::disk('local')->path($part->path),$external[$part->id]);
+        }
+        $this->actingAs($this->central)->get(route('student-skipping-grade.archive.download',[$archive,$first]))->assertOk();
+        expect(fn()=>$this->archives->requestDeletion($archive,$this->central))->toThrow(ValidationException::class);
+        $this->get(route('student-skipping-grade.archive.download',[$archive,$second]))->assertOk();
+        $this->archives->requestDeletion($archive,$this->central); $this->archives->deleteDocuments($archive->fresh(),$this->central->id);
+        $this->archives->restore($first->fresh(),new UploadedFile($external[$first->id],'backup.zip','application/zip',null,true),$this->central);
+        expect($archive->fresh()->status)->toBe('partially_restored');
+        $this->archives->restore($second->fresh(),new UploadedFile($external[$second->id],'backup.zip','application/zip',null,true),$this->central);
+        expect($archive->fresh()->status)->toBe('restored');
+    });
+
+    it('keeps live bytes and verified ZIPs recoverable if deletion metadata cannot be saved',function () {
+        $archive=($this->downloadArchive)(($this->buildArchive)());
+        $this->archives->requestDeletion($archive,$this->central);
+        \App\Models\SkippingDocumentArchiveFile::updating(function ($file) { if ($file->isDirty('deleted_at')) throw new RuntimeException('Archive metadata write failed'); });
+        $job=new \App\Jobs\ProcessSkippingDocumentArchive('delete',$archive->id,$this->central->id);
+        try { $job->handle($this->archives); $this->fail('Expected deletion metadata failure'); }
+        catch (RuntimeException $e) { $job->failed($e); }
+        finally { \App\Models\SkippingDocumentArchiveFile::flushEventListeners(); }
+        expect($archive->fresh()->status)->toBe('delete_failed')->and($this->archiveRecord->fresh()->supporting_documents[0])->not->toHaveKey('archived_at');
+        foreach ($archive->files as $file) Storage::disk('local')->assertExists($file->source_path);
+        Storage::disk('local')->assertExists($archive->parts->first()->path);
+        $this->archives->requestDeletion($archive->fresh(),$this->central);
+        $job->handle($this->archives);
+        expect($archive->fresh()->status)->toBe('deleted');
+    });
+
+    it('queues a restore upload and rechecks the permission when the worker executes',function () {
+        $archive=($this->downloadArchive)(($this->buildArchive)()); $part=$archive->parts->first();
+        $external=Storage::disk('local')->path('external-for-queued-restore.zip');
+        copy(Storage::disk('local')->path($part->path),$external);
+        $this->archives->requestDeletion($archive,$this->central); $this->archives->deleteDocuments($archive->fresh(),$this->central->id);
+        $upload=new UploadedFile($external,'backup.zip','application/zip',null,true);
+        $this->actingAs($this->central)->postJson(route('student-skipping-grade.archive.restore',[$archive,$part]),['backup'=>$upload])->assertOk();
+        expect($archive->fresh()->status)->toBe('restoring');
+        $job=\Illuminate\Support\Facades\Queue::pushed(\App\Jobs\ProcessSkippingDocumentArchive::class)->first(fn($job)=>$job->operation==='restore');
+        expect($job)->not->toBeNull();
+        $job->handle($this->archives);
+        expect($archive->fresh()->status)->toBe('restored');
+        Storage::disk('local')->assertMissing($job->uploadPath);
+        DB::table('users')->where('id',2)->update(['status'=>0]);
+        expect(fn()=>$job->handle($this->archives))->toThrow(\Symfony\Component\HttpKernel\Exception\HttpException::class);
+    });
+});
+
 it('accepts a supporting document at the 25 MB limit',function () {
     $this->actingAs($this->campus)->postJson('/students/skipping-grade',$this->data+[
         'documents'=>[UploadedFile::fake()->create('evidence.pdf',25600,'application/pdf')],
@@ -411,7 +633,7 @@ it('stale document selection cannot mark a different file or submit the request'
         'documents'=>[UploadedFile::fake()->create('queued.pdf',10,'application/pdf')],'parent_signed_documents'=>[0],
     ])->assertUnprocessable()->assertJsonValidationErrors('documents');
     expect($record->fresh()->status)->toBe('draft')->and($record->fresh()->supporting_documents)->toBe($old);
-    expect(Storage::disk('local')->allFiles('grade-skipping/attachments/'.$record->id))->toHaveCount(1);
+    expect(Storage::disk('local')->allFiles(dirname($record->fresh()->supporting_documents[0]['path'])))->toHaveCount(1);
 });
 
 it('campus staff with no selected campus can open the menu create and submit within assigned campus',function () {
@@ -2106,7 +2328,9 @@ it('updates request field label colons while preserving formatting and unrelated
 });
 
 it('updates the printed bilingual age criterion without changing request selections or approval templates', function () {
-    $old=\App\Http\Controllers\StudentSkippingGradeController::CRITERIA['age'];
+    // Historical migrations must be tested with their original input, even when
+    // the editable form's current wording changes later.
+    $old=['kh'=>'ត្រូវមានអាយុស្របតាមថ្នាក់ ដោយមានសំបុត្រកំណើតដើមជាភស្តុតាង។','en'=>'The student meets the legal age requirement for the requested grade, supported by the original birth certificate (for example, 6 years old for Grade 1).'];
     $template=[
         'criterion-age-kh'=>['text'=>$old['kh'],'size'=>11],
         'criterion-age-en'=>['text'=>$old['en'],'left'=>4],

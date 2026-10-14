@@ -51,8 +51,8 @@ class StudentSkippingGradeController
     {
         $this->service->authorize($request->user(),'view');
         if (!StudentSkippingGradePermissions::allows($request->user(),'requests')) {
-            foreach (['campus-settings'=>'student-skipping-grade.campus-settings','settings'=>'student-skipping-grade.settings','request-template'=>'request','approval-template'=>'approval'] as $action=>$destination) {
-                if (StudentSkippingGradePermissions::allows($request->user(),$action)) return in_array($action,['campus-settings','settings'],true)
+            foreach (['document-archive'=>'student-skipping-grade.archive.index','campus-settings'=>'student-skipping-grade.campus-settings','settings'=>'student-skipping-grade.settings','request-template'=>'request','approval-template'=>'approval'] as $action=>$destination) {
+                if (StudentSkippingGradePermissions::allows($request->user(),$action)) return in_array($action,['document-archive','campus-settings','settings'],true)
                     ?redirect()->route($destination):redirect()->route('student-skipping-grade.template',$destination);
             }
             if (app(SkippingGradeWorkflow::class)->isConfiguredReviewer($request->user())) {
@@ -533,6 +533,7 @@ class StudentSkippingGradeController
     public function signedRequest(Request $request, StudentSkippingGrade $skipping)
     {
         abort_unless(app(SkippingGradeWorkflow::class)->canView($request->user(),$skipping),403);
+        abort_if($skipping->signed_request_archived_at,410,'This signed request is archived. Ask an authorized administrator to restore its backup.');
         abort_unless($skipping->signed_request_path && Storage::disk('local')->exists($skipping->signed_request_path),404);
         return Storage::disk('local')->response($skipping->signed_request_path,null,['X-Content-Type-Options'=>'nosniff']);
     }
@@ -675,6 +676,7 @@ class StudentSkippingGradeController
     {
         abort_unless(app(SkippingGradeWorkflow::class)->canView($request->user(),$skipping),403);
         $document=$skipping->supporting_documents[$index]??null;
+        abort_if(!empty($document['archived_at']),410,'This document is archived. Ask an authorized administrator to restore its backup.');
         abort_unless($document && Storage::disk('local')->exists($document['path']),404);
         return Storage::disk('local')->response($document['path'],$document['name'],['X-Content-Type-Options'=>'nosniff','Cache-Control'=>'private, no-store']);
     }

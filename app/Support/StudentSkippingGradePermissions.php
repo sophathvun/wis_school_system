@@ -15,6 +15,7 @@ class StudentSkippingGradePermissions
         'create'=>'requests', 'update'=>'requests', 'central-update'=>'requests', 'submit'=>'requests', 'approve'=>'requests', 'reject'=>'requests', 'print'=>'requests',
         'save-settings'=>'settings', 'edit-request-template'=>'request-template', 'edit-approval-template'=>'approval-template',
         'save-campus-settings'=>'campus-settings',
+        'archive-backup'=>'document-archive', 'archive-delete'=>'document-archive', 'archive-restore'=>'document-archive',
     ];
 
     public static function catalog(): array
@@ -32,6 +33,10 @@ class StudentSkippingGradePermissions
             'settings'=>'Tab: Approval Settings', 'save-settings'=>'Save Approval Settings, Committee, Signature and Stamp',
             'request-template'=>'Tab: Customize Request Form', 'edit-request-template'=>'Edit / Save / Discard / Restore Request Template',
             'approval-template'=>'Tab: Customize Approval Form', 'edit-approval-template'=>'Edit / Save / Discard / Restore Approval Template',
+            'document-archive'=>'Tab: Supporting Document Archive (All Campuses)',
+            'archive-backup'=>'Create, Verify and Download Supporting Document Backups',
+            'archive-delete'=>'Delete Verified, Externally Saved Documents from Older Academic Years',
+            'archive-restore'=>'Restore Archived Supporting Documents',
         ];
     }
 

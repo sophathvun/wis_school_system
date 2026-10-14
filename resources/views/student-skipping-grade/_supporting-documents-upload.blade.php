@@ -22,8 +22,14 @@
                 <div class="premium-document-file-item document-file-card">
                     <span class="document-file-icon"><i class="ti {{ ($document['mime']??'')==='application/pdf'?'ti-file-type-pdf':'ti-photo' }}"></i></span>
                     <div class="document-file-details">
-                        <a class="document-file-open d-block" target="_blank" rel="noopener" aria-label="View {{ $document['name'] }}" href="{{ route('student-skipping-grade.attachment',['skipping'=>$record,'index'=>$index]) }}"><span class="document-file-name d-block">{{ $document['name'] }}</span></a>
-                        <div class="document-file-meta">Uploaded</div>
+                        @if(!empty($document['archived_at']))
+                            <span class="document-file-name d-block">{{ $document['name'] }}</span>
+                            <div class="document-file-meta">Archived · {{ \Illuminate\Support\Carbon::parse($document['archived_at'])->format('d-M-Y') }}</div>
+                            <small class="text-secondary text-break">Backup: {{ $document['archive_reference']??$document['archive_id'] }}</small>
+                        @else
+                            <a class="document-file-open d-block" target="_blank" rel="noopener" aria-label="View {{ $document['name'] }}" href="{{ route('student-skipping-grade.attachment',['skipping'=>$record,'index'=>$index]) }}"><span class="document-file-name d-block">{{ $document['name'] }}</span></a>
+                            <div class="document-file-meta">Uploaded</div>
+                        @endif
                         @if($documentsEditable)
                             <label class="document-parent-signed"><input type="checkbox" class="form-check-input" name="parent_signed_documents[]" value="{{ $index }}" @checked($document['is_parent_signed']??false)> Parent-signed Request</label>
                         @elseif($document['is_parent_signed']??false)<span class="badge bg-primary-lt mt-1">Parent-signed Request</span>@endif
