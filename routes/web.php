@@ -252,12 +252,28 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         Route::get('/{skipping}/print/{form}', 'printForm')->name('print');
         Route::get('/{skipping}', 'show')->name('show');
     });
-    Route::view('/students/western-scholarship', 'academic-module-placeholder', [
-        'title' => 'WESTERN Scholarship',
-        'pretitle' => 'Students',
-        'icon' => 'ti-award',
-        'description' => 'Use this module to manage WESTERN scholarship students and records.',
-    ])->name('western-scholarship.index');
+    Route::prefix('students/western-scholarship')->name('western-scholarship.')->controller(\App\Http\Controllers\ScholarshipController::class)->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('/students', 'students')->name('students');
+        Route::get('/rank-filters', 'rankFilters')->name('rank-filters');
+        Route::get('/exam-center-campuses', 'examCenterCampuses')->name('exam-center-campuses');
+        Route::get('/ranks/print-settings','rankPrintSettings')->name('ranks.print-settings');
+        Route::post('/ranks/print-settings','saveRankPrintSettings')->name('ranks.print-settings.save');
+        Route::get('/ranks/report/{format}', 'rankReport')->where('format','print|xlsx|pdf')->name('ranks.report');
+        Route::post('/ranks', 'saveRank')->name('ranks.save');
+        Route::post('/ranks/{rank}/remove', 'removeRank')->name('ranks.remove');
+        Route::post('/exams', 'saveExam')->name('exams.save');
+        Route::post('/exams/{exam}/seats/confirm', 'lockPlan')->name('seats.confirm');
+        Route::post('/exams/{exam}/seats/reopen', 'reopenPlan')->name('seats.reopen');
+        Route::post('/exams/{exam}/scores/{candidate}', 'saveScores')->name('scores.save');
+        Route::post('/exams/{exam}/scores/{candidate}/review', 'review')->name('scores.review');
+        Route::post('/exams/{exam}/publish', 'publish')->name('results.publish');
+        Route::post('/exams/{exam}/awards/{grade}', 'saveAwards')->whereNumber('grade')->name('awards.save');
+        Route::post('/exams/{exam}/results/reopen', 'reopenResults')->name('results.reopen');
+        Route::post('/exams/{exam}/committee', 'addCommittee')->name('committee.add');
+        Route::post('/exams/{exam}/committee/{member}/remove', 'removeCommittee')->name('committee.remove');
+        Route::get('/exams/{exam}/reports/{kind}/{format}', 'report')->where('kind','seats|results')->where('format','print|xlsx|csv')->name('report');
+    });
     Route::get('/students/id-card-qr', [StudentIdCardQrController::class, 'index'])->name('student-id-card-qr.index');
     Route::post('/students/id-card-qr/template', [StudentIdCardQrController::class, 'saveTemplate'])->name('student-id-card-qr.template');
     Route::post('/students/id-card-qr/generate', [StudentIdCardQrController::class, 'generateQr'])->name('student-id-card-qr.generate');

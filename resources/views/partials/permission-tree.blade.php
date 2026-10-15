@@ -99,6 +99,7 @@
                             @foreach ($module['actions'] as $action)
                                 @php($actionOn = $assignedPermissions->contains('id', $action->id))
                                 @php($skippingParent = $moduleKey==='student-skipping-grade' ? (\App\Support\StudentSkippingGradePermissions::PARENTS[$action->action]??null) : null)
+                                @php($scholarshipParent = $moduleKey==='western-scholarship' ? (\App\Support\ScholarshipPermissions::PARENTS[$action->action]??null) : null)
                                 <div class="d-flex justify-content-between align-items-center border-top py-2 ps-3 permission-action"
                                     data-action-parent="{{ $submenuId }}">
                                     <span class="small text-secondary">{{ $action->name }}
@@ -106,7 +107,7 @@
                                     <button type="button" class="status-toggle {{ $actionOn ? 'is-active' : '' }}"
                                         data-permission-toggle data-permission-level="action"
                                         data-permission-code="{{ $action->code }}"
-                                        @if($skippingParent) data-requires-permission="student-skipping-grade.{{ $skippingParent }}" @elseif($moduleKey==='hrm-staff-data' && $action->action==='import') data-requires-permission="staff.create" @endif
+                                        @if($skippingParent) data-requires-permission="student-skipping-grade.{{ $skippingParent }}" @elseif($scholarshipParent) data-requires-permission="western-scholarship.{{ $scholarshipParent }}" @elseif($moduleKey==='hrm-staff-data' && $action->action==='import') data-requires-permission="staff.create" @endif
                                         data-parent-permission="{{ $submenuId }}"
                                         data-status="{{ $actionOn ? 1 : 0 }}"
                                         aria-pressed="{{ $actionOn ? 'true' : 'false' }}">

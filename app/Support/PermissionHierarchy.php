@@ -20,6 +20,7 @@ class PermissionHierarchy
             'students.search' => 'Search Students', 'students.enrollment' => 'Student Enrollment', 'families' => 'Family Management',
             'students.promotion' => 'Student Promotion', 'students.transfer' => 'Student Transfer', 'students.graduation' => 'Student Graduation',
             'student-reentry' => 'Student Re-entry', 'student-skipping-grade' => 'Stu. Skipping Grade', 'student-id-card-qr' => 'Stu. ID Card (QR)', 'student-documents' => 'Student Documents', 'student-data-transfer' => 'Import / Export Data', 'homeroom' => 'Homeroom Activities',
+            'western-scholarship' => 'WIS Scholarship',
             'staff' => 'Staff Management', 'hrm-settings' => 'HRM Settings', 'hrm-staff-data'=>'Staff Import / Export',
             'hrm-staff-attendance' => 'Staff Attendance', 'hrm-payroll' => 'Payroll', 'hrm-leave-requests' => 'Leave Requests',
             'hrm-performance-reviews' => 'Performance Reviews', 'hrm-staff-reports' => 'Staff Reports',
@@ -51,7 +52,7 @@ class PermissionHierarchy
             ],
             'students' => [
                 'label' => 'Students', 'permission' => 'students.view',
-                'modules' => ['students.search', 'students.enrollment', 'summer-school', 'families', 'students.promotion', 'students.transfer', 'students.graduation', 'student-withdrawals', 'student-reentry', 'student-skipping-grade', 'student-id-card-qr', 'student-documents', 'homeroom', 'student-data-transfer'],
+                'modules' => ['students.search', 'students.enrollment', 'summer-school', 'families', 'students.promotion', 'students.transfer', 'students.graduation', 'student-withdrawals', 'student-reentry', 'student-skipping-grade', 'western-scholarship', 'student-id-card-qr', 'student-documents', 'homeroom', 'student-data-transfer'],
                 'actions' => ['students.manage'],
             ],
             'dashboard' => [
@@ -166,6 +167,9 @@ class PermissionHierarchy
 
         foreach (StudentSkippingGradePermissions::PARENTS as $action=>$parent) {
             if (!$codes->has(StudentSkippingGradePermissions::MODULE.'.'.$parent)) $codes->forget(StudentSkippingGradePermissions::MODULE.'.'.$action);
+        }
+        foreach (ScholarshipPermissions::PARENTS as $action=>$parent) {
+            if (!$codes->has('western-scholarship.'.$parent)) $codes->forget('western-scholarship.'.$action);
         }
 
         if (!$codes->has('hrm-settings.view')) {

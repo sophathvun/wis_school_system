@@ -1,5 +1,5 @@
 // Pagination
-export const renderPagination = (res, selector, perPageSelector, fetchFun) => {
+export const renderPagination = (res, selector, perPageSelector, fetchFun, pageSizes = [10, 25, 50, 100]) => {
     const container = document.getElementById(selector);
     const perPageInput = document.getElementById(perPageSelector);
     if (!container || !perPageInput) return;
@@ -64,7 +64,7 @@ export const renderPagination = (res, selector, perPageSelector, fetchFun) => {
         <div class="premium-pagination-controls">
             <label class="premium-pagination-select">
                 <select class="form-select form-select-sm" aria-label="Entries per page">
-                    ${[10, 25, 50, 100].map((value) => `<option value="${value}" ${String(value) === String(perPage) ? "selected" : ""}>${value} / page</option>`).join("")}
+                    ${pageSizes.map((value) => `<option value="${value}" ${String(value) === String(perPage) ? "selected" : ""}>${value === 'all' ? 'All' : `${value} / page`}</option>`).join("")}
                 </select>
             </label>
             <label class="premium-pagination-goto">
@@ -96,7 +96,7 @@ export const renderPagination = (res, selector, perPageSelector, fetchFun) => {
     );
     pageSizeSelect?.addEventListener("change", (event) => {
         perPageInput.value = event.target.value;
-        fetchFun(1, parseInt(event.target.value));
+        fetchFun(1, event.target.value === 'all' ? 'all' : parseInt(event.target.value));
     });
 
     const goToInput = container.querySelector(".premium-pagination-goto input");

@@ -115,6 +115,9 @@ class AccessFoundationSeeder extends Seeder
         }
 
         $permissions = array_merge($permissions, AcademicReportPermissions::catalog());
+        foreach (\App\Support\ScholarshipPermissions::catalog() as $action => $name) {
+            $permissions[] = ['code' => 'western-scholarship.'.$action, 'module' => 'western-scholarship', 'action' => $action, 'name' => $name];
+        }
         foreach (\App\Support\StudentSkippingGradePermissions::catalog() as $action => $name) {
             $permissions[] = ['code' => 'student-skipping-grade.'.$action, 'module' => 'student-skipping-grade', 'action' => $action, 'name' => $name];
         }
@@ -152,7 +155,7 @@ class AccessFoundationSeeder extends Seeder
             $role = Role::updateOrCreate(['code' => $roleData['code']], $roleData + ['is_system' => true, 'status' => 1]);
             // These shared certificate actions require an explicit grant to non-super roles.
             $rolePermissions = $role->code === 'super-admin' ? $allPermissions : $allPermissions->filter(
-                fn ($permission) => $permission->code === 'pr-request.view' || isset(\App\Support\HrmPermissions::catalog()[$permission->module])
+                fn ($permission) => $permission->code === 'pr-request.view' || $permission->module === 'western-scholarship' || isset(\App\Support\HrmPermissions::catalog()[$permission->module])
                     ? $role->permissions->contains('id', $permission->id)
                     : (in_array($permission->code, $reportTabCodes, true)
                     // New seeded roles keep the standard defaults; existing roles keep their selected tabs.

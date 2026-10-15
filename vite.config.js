@@ -58,6 +58,7 @@ export default defineConfig({
                 "resources/js/studentDocumentTypes.js",
                 "resources/js/studentGraduation.js",
                 "resources/js/studentSkippingGrade.js",
+                "resources/js/westernScholarship.js",
                 "resources/js/studentSkippingGradePrint.js",
                 "resources/js/studentSkippingGradeEditor.js",
                 "resources/css/pages/student-skipping-grade-editor.css",

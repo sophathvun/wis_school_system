@@ -45,6 +45,7 @@ export function initPremiumDatePicker(picker) {
     };
     const position = () => {
         popup.style.left = '0';
+        popup.style.top = 'calc(100% + .5rem)';
         const boundarySelector = picker.dataset.premiumDateBoundary;
         const boundary = boundarySelector ? picker.closest(boundarySelector)?.getBoundingClientRect() : null;
         const scrollArea = boundarySelector ? picker.closest('.modal-body')?.getBoundingClientRect() : null;
@@ -57,6 +58,15 @@ export function initPremiumDatePicker(picker) {
         const rightOverflow = Math.max(0, bounds.right - rightEdge);
         const leftOverflow = Math.max(0, leftEdge - bounds.left);
         popup.style.left = `${leftOverflow - rightOverflow}px`;
+        if (picker.dataset.premiumDatePlacement === 'auto') {
+            const viewport = window.visualViewport;
+            const top = Math.max(12, scrollArea ? scrollArea.top + 8 : 12, viewport ? viewport.offsetTop + 8 : 12);
+            const bottom = Math.min(window.innerHeight - 12, scrollArea ? scrollArea.bottom - 8 : window.innerHeight - 12, viewport ? viewport.offsetTop + viewport.height - 8 : window.innerHeight - 12);
+            popup.style.maxHeight = `${Math.max(0, bottom - top)}px`;
+            const height = popup.getBoundingClientRect().height, anchor = picker.getBoundingClientRect();
+            const preferred = anchor.bottom + 8 + height <= bottom ? anchor.bottom + 8 : anchor.top - height - 8;
+            popup.style.top = `${Math.max(top, Math.min(preferred, bottom - height)) - anchor.top}px`;
+        }
     };
     const render = () => {
         const minimum = minimumDate();
@@ -133,18 +143,19 @@ export function initPremiumDatePicker(picker) {
         if (day) { set(parse(day.dataset.premiumDay)); close(); toggle.focus(); }
         if (year) {
             cursor = new Date(Number(year.dataset.premiumYear), cursor.getMonth(), 1);
-            yearPopup?.classList.add('d-none'); render(); month.focus();
+            yearPopup?.classList.add('d-none'); render(); position(); month.focus();
         }
     });
     ['prev', 'next'].forEach((direction) => picker.querySelector(`[data-premium-date-${direction}]`)?.addEventListener('click', () => {
         cursor = new Date(cursor.getFullYear(), cursor.getMonth() + (direction === 'prev' ? -1 : 1), 1);
-        yearPopup?.classList.add('d-none'); render();
+        yearPopup?.classList.add('d-none'); render(); position();
     }));
     picker.querySelector('[data-premium-date-today]')?.addEventListener('click', () => {
         set(new Date()); close(); toggle.focus();
     });
     month.addEventListener('click', () => {
         yearPopup?.classList.toggle('d-none');
+        position();
         if (!yearPopup?.classList.contains('d-none')) years.querySelector('.is-selected')?.scrollIntoView({ block: 'nearest' });
     });
     picker.addEventListener('keydown', (event) => {
@@ -153,11 +164,17 @@ export function initPremiumDatePicker(picker) {
     });
     document.addEventListener('click', (event) => { if (!event.composedPath().includes(picker)) close(); });
     window.addEventListener('resize', () => { if (!popup.classList.contains('d-none')) position(); });
+    if (picker.dataset.premiumDatePlacement === 'auto') {
+        const reposition = () => { if (!popup.classList.contains('d-none')) position(); };
+        window.visualViewport?.addEventListener('resize', reposition);
+        picker.closest('.modal-body')?.addEventListener('scroll', reposition, { passive: true });
+    }
     input.form?.addEventListener('submit', (event) => {
         syncTyped();
-        if (!input.checkValidity()) { event.preventDefault(); input.reportValidity(); }
+        if (!input.checkValidity()) { event.preventDefault(); if (picker.dataset.premiumDateValidation !== 'inline') input.reportValidity(); }
     });
     if (initial) { input.value = display(initial); picker.classList.add('has-value'); }
     else syncTyped(false);
     render();
+    return { close, sync: syncTyped, setValue: (raw) => { input.value = raw || ''; syncTyped(); } };
 }

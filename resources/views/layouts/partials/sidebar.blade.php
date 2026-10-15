@@ -401,10 +401,12 @@
                                         <span class="badge bg-orange text-white ms-auto {{ $skippingPendingCount ? '' : 'd-none' }}" data-skipping-pending-badge aria-label="Requests awaiting your approval">{{ $skippingPendingCount }}</span>
                                     </a>
                                     @endif
+                                    @if ($canView('western-scholarship.view'))
                                     <a class="dropdown-item {{ request()->routeIs('western-scholarship.*') ? 'active' : '' }}"
                                         href="{{ route('western-scholarship.index') }}">
                                         <i class="ti ti-award me-2"></i> WIS Scholarship
                                     </a>
+                                    @endif
                                     @if ($canView('student-data-transfer.view'))
                                         <a class="dropdown-item {{ request()->routeIs('student-data-transfer.*') ? 'active' : '' }}"
                                             href="{{ route('student-data-transfer.index') }}">
