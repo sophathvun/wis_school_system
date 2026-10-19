@@ -84,6 +84,7 @@ class ScholarshipSeatWorkbook
         $this->images=[];$sheet='';$merges=[];$breaks=[];$rowNumber=0;
         foreach($data['pages'] as $page){
             if($rowNumber)$breaks[]=$rowNumber;
+            $planStart=$data['document']==='room-plan'?collect($page['rows'])->search(fn($row)=>($row['area']??null)==='classroom'):null;
             foreach($page['rows'] as $pageRow=>$row){
                 $rowNumber++;$column=0;
                 $sheet.='<row r="'.$rowNumber.'" ht="'.round($row['height']*72/25.4,2).'" customHeight="1">';
@@ -92,9 +93,9 @@ class ScholarshipSeatWorkbook
                     if($cell['span']>1)$merges[]=$this->col($start).$rowNumber.':'.$this->col($start+$cell['span']-1).$rowNumber;
                     for($i=0;$i<$cell['span'];$i++,$column++){
                         $cellStyle=$id;
-                        if(in_array($data['document'],['attendance-cover','envelope-cover','room-plan'],true)){
+                        if(in_array($data['document'],['attendance-cover','envelope-cover'],true)||($data['document']==='room-plan' && ($row['area']??null)==='classroom')){
                             $edges=[];
-                            if($pageRow===0)$edges[]='top';
+                            if($pageRow===($data['document']==='room-plan'?$planStart:0))$edges[]='top';
                             if($pageRow===array_key_last($page['rows']))$edges[]='bottom';
                             if($column===0)$edges[]='left';
                             if($column===59)$edges[]='right';
@@ -128,7 +129,8 @@ class ScholarshipSeatWorkbook
         $entries=[];$drawing=(bool)($logo&&$this->images);
         $mergeXml=implode('',array_map(fn($ref)=>'<mergeCell ref="'.$ref.'"/>',$merges));
         $breakXml=$breaks?'<rowBreaks count="'.count($breaks).'" manualBreakCount="'.count($breaks).'">'.implode('',array_map(fn($row)=>'<brk id="'.$row.'" min="0" max="16383" man="1"/>',$breaks)).'</rowBreaks>':'';
-        $entries['xl/worksheets/sheet'.$number.'.xml']='<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="'.self::NS.'" xmlns:r="'.self::REL.'"><sheetPr><pageSetUpPr fitToPage="0"/></sheetPr><dimension ref="A1:BH'.$rowNumber.'"/><sheetViews><sheetView showGridLines="0" workbookViewId="0"/></sheetViews><sheetFormatPr defaultRowHeight="18"/><cols><col min="1" max="60" width="1.86" customWidth="1"/></cols><sheetData>'.$sheet.'</sheetData>'.($merges?'<mergeCells count="'.count($merges).'">'.$mergeXml.'</mergeCells>':'').'<printOptions horizontalCentered="1"/><pageMargins left="0.315" right="0.315" top="0.315" bottom="0.315" header="0.1" footer="0.1"/><pageSetup paperSize="9" orientation="portrait" scale="95"/><headerFooter><oddFooter>&amp;RPage &amp;P of &amp;N</oddFooter></headerFooter>'.$breakXml.($drawing?'<drawing r:id="rId1"/>':'').'</worksheet>';
+        $footer=$data['document']==='room-plan'?'':'<headerFooter><oddFooter>&amp;RPage &amp;P of &amp;N</oddFooter></headerFooter>';
+        $entries['xl/worksheets/sheet'.$number.'.xml']='<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="'.self::NS.'" xmlns:r="'.self::REL.'"><sheetPr><pageSetUpPr fitToPage="0"/></sheetPr><dimension ref="A1:BH'.$rowNumber.'"/><sheetViews><sheetView showGridLines="0" workbookViewId="0"/></sheetViews><sheetFormatPr defaultRowHeight="18"/><cols><col min="1" max="60" width="1.86" customWidth="1"/></cols><sheetData>'.$sheet.'</sheetData>'.($merges?'<mergeCells count="'.count($merges).'">'.$mergeXml.'</mergeCells>':'').'<printOptions horizontalCentered="1"/><pageMargins left="0.315" right="0.315" top="0.315" bottom="0.315" header="0.1" footer="0.1"/><pageSetup paperSize="9" orientation="portrait" scale="95"/>'.$footer.$breakXml.($drawing?'<drawing r:id="rId1"/>':'').'</worksheet>';
         if($drawing){
             $entries['xl/worksheets/_rels/sheet'.$number.'.xml.rels']=$this->rels([['rId1','drawing','../drawings/drawing'.$number.'.xml']]);
             $entries['xl/drawings/_rels/drawing'.$number.'.xml.rels']=$this->rels([['rId1','image','../media/logo.'.$logo['ext']]]);

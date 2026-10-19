@@ -20,7 +20,7 @@ const php = process.env.CHAT_TEST_PHP || 'C:/laragon/bin/php/php-8.4.25-Win32-vs
 const markup = execFileSync(php, [join(root,'tests/browser/scholarship-fixture.php')], {cwd:root,encoding:'utf8'});
 const savedRankMarkup=execFileSync(php,[join(root,'tests/browser/scholarship-fixture.php'),'rank-saved'],{cwd:root,encoding:'utf8'});
 const editRankMarkup=execFileSync(php,[join(root,'tests/browser/scholarship-fixture.php'),'rank-edit'],{cwd:root,encoding:'utf8'});
-const tabs=Object.fromEntries(['assign-rank','settings','seat-plan','scoring','result','exam-committee'].map(tab=>[tab,execFileSync(php,[join(root,'tests/browser/scholarship-fixture.php'),tab],{cwd:root,encoding:'utf8'})]));
+const tabs=Object.fromEntries(['assign-rank','settings','seat-plan','scoring','result','exam-committee'].map(tab=>[tab,execFileSync(php,[join(root,'tests/browser/scholarship-fixture.php'),tab,...(tab==='scoring'?['','score_center=0&score_room=1']:[])],{cwd:root,encoding:'utf8'})]));
 tabs.awards=execFileSync(php,[join(root,'tests/browser/scholarship-fixture.php'),'result','draft'],{cwd:root,encoding:'utf8'});
 tabs['settings-new']=execFileSync(php,[join(root,'tests/browser/scholarship-fixture.php'),'settings','new'],{cwd:root,encoding:'utf8'});
 for(const state of ['locked','saved','errors'])tabs['settings-'+state]=execFileSync(php,[join(root,'tests/browser/scholarship-fixture.php'),'settings',state],{cwd:root,encoding:'utf8'});
@@ -630,7 +630,7 @@ try {
             if(tab==='assign-rank')assert.equal(await evaluate('document.querySelector("[data-candidate-checkbox],[data-select-all-candidates]")===null'),true);
             if(tab==='assign-rank')assert.equal(await evaluate('document.querySelector("[data-rank-filters-toggle]").getAttribute("aria-expanded")'),mobile?'false':'true');
             if(tab==='seat-plan')assert.equal(await evaluate('document.querySelector("[name=plan_token]").value.length'),64);
-            if(tab==='scoring')assert.equal(await evaluate('document.querySelector("[name^=\\"scores[\\"]").value'),'90');
+            if(tab==='scoring')assert.equal(await evaluate('document.querySelector(".scholarship-score-input-cell input").value'),'90');
             if(tab==='result')assert.equal(await evaluate('document.body.textContent.includes("Published results")'),true);
             if(tab==='awards') {
                 assert.equal(await evaluate('document.querySelectorAll("[data-award-winner]").length'),7);

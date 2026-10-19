@@ -33,7 +33,15 @@
 .envelope-contacts .cover-table-head.contact-right{border-top-right-radius:15px}
 .envelope-contacts tr:last-child .cover-table-body.contact-left{border-bottom-left-radius:15px}
 .envelope-contacts tr:last-child .cover-table-body.contact-right{border-bottom-right-radius:15px}
-.report-page.cover{border:1mm solid #203c65;padding:4mm}.report-page.room-plan{border:.8mm solid #203c65;padding:2mm}
+.report-page.cover{border:1mm solid #203c65;padding:4mm}
+.classroom-plan{border:.8mm solid #203c65;border-radius:15px;padding:2mm}
+.room-plan .seat-plan-heading{margin-bottom:0}
+.room-plan [data-report-role="seat-plan-label"]{padding:0!important;vertical-align:bottom}
+.room-plan [data-report-role="seat-plan-label"] .line{width:150px;margin-left:auto;margin-right:auto;border:.6mm solid #203c65;border-radius:10px 10px 0 0;padding:2mm 0;font-size:14pt!important;white-space:nowrap}
+.classroom-plan .report-grid{border-collapse:separate;border-spacing:0}
+.classroom-plan .desk,.classroom-plan .empty-desk{border-radius:15px}
+.classroom-plan .classroom-symbol img{display:block;margin:0 auto 1mm}
+.classroom-plan [data-report-role="classroom-whiteboard"] img{object-fit:fill;max-width:100%}
 /* A4 has 281 mm between its 8 mm margins; mPDF adds the 8 mm vertical padding to height. */
 .report-page.attendance-cover,.report-page.envelope-cover{border-radius:15px;height:{{ $pdfExport?273:281 }}mm}
 .report-page.envelope-cover{padding-left:0;padding-right:0}
@@ -53,6 +61,10 @@
 
 @php
     $styles=\App\Support\ScholarshipSeatReports::styles();
+    $roomSymbols=[];
+    if($document==='room-plan')foreach(['whiteboard'] as $symbol){
+        $roomSymbols[$symbol]='data:image/svg+xml;base64,'.base64_encode(file_get_contents(public_path('images/scholarship/'.$symbol.'.svg')));
+    }
 @endphp
 @forelse($pages as $page)
 @if($pdfExport && !$loop->first)<pagebreak />
@@ -60,14 +72,16 @@
 
 <section class="report-page {{ in_array($document,['attendance-cover','envelope-cover'],true)?'cover':($document==='room-plan'?'room-plan':'') }} {{ in_array($document,['attendance-cover','envelope-cover'],true)?$document:($document==='seat-labels'?'seat-sticker-page':'') }}" data-report-room="{{ $page['room'] }}" data-report-center="{{ $page['center'] }}">
 @php
-    $tables=[];$profile=null;$lastCommittee=false;
+    $tables=[];$profile=null;$lastCommittee=false;$lastArea=null;
     foreach($page['rows'] as $reportRow){
         $widths=array_column($reportRow['cells'],'span');
         if($document==='seat-labels' && ($reportRow['cells'][0]['role']??'')==='sticker-subtitle')$widths=[48,12];
         $committee=$document==='envelope-cover' && collect($reportRow['cells'])->contains('style','committee');
-        if($widths!==$profile || $committee || $lastCommittee){$tables[]=[];$profile=$widths;}
+        $area=$reportRow['area']??null;
+        if($widths!==$profile || $committee || $lastCommittee || $area!==$lastArea){$tables[]=[];$profile=$widths;}
         $tables[array_key_last($tables)][]=$reportRow;
         $lastCommittee=$committee;
+        $lastArea=$area;
     }
 @endphp
 @foreach($tables as $table)
@@ -76,9 +90,12 @@
     $committeeTable=$document==='envelope-cover' && collect($table[0]['cells'])->contains('style','committee');
     $stickerTable=$document==='seat-labels' && collect($table[0]['cells'])->contains('style','label');
     $stickerHeader=$document==='seat-labels' && ($table[0]['cells'][0]['role']??'')==='title';
+    $seatPlanHeading=$document==='room-plan' && collect($table)->contains(fn($row)=>collect($row['cells'])->contains('role','seat-plan-label'));
+    $classroomStart=$document==='room-plan' && ($table[0]['area']??'')==='classroom' && !($tables[$loop->index-1][0]['area']??null);
 @endphp
+@if($classroomStart)<div class="classroom-plan">@endif
 @if($stickerHeader)<div class="sticker-header-card">@endif
-<table class="report-grid{{ $contactTable?' envelope-contacts':'' }}{{ $committeeTable?' envelope-committee':'' }}{{ $stickerTable?' seat-stickers':'' }}">
+<table class="report-grid{{ $contactTable?' envelope-contacts':'' }}{{ $committeeTable?' envelope-committee':'' }}{{ $stickerTable?' seat-stickers':'' }}{{ $seatPlanHeading?' seat-plan-heading':'' }}">
     <colgroup>
     @foreach($table[0]['cells'] as $cell)
         <col style="width:{{ $cell['span']/60*100 }}%">
@@ -91,7 +108,7 @@
         @php
             $style=$styles[$cell['style']];
             $border=isset($style['border'])?(($cell['style']==='label'?'.6mm':'.25mm').' solid '.$style['border']):'0';
-            $alignment=($cell['logo']??false) && $cell['style']==='body'?'left':$style['align'];
+            $alignment=(($cell['logo']??false) && $cell['style']==='body')?'left':$style['align'];
             $contactClass=$contactTable && in_array($cell['style'],['cover-table-head','cover-table-body'],true)?($loop->index===1?' contact-left':' contact-right'):'';
             $headerRoom=($cell['role']??'')==='sticker-header-room';
             $cellWidth=($cell['role']??'')==='sticker-subtitle'?48:$cell['span'];
@@ -107,6 +124,9 @@
                 <tr><td style="height:auto;padding:0;border:0;text-align:center;line-height:1">
             @elseif(($cell['logo']??false) && $logoSrc)
                 <img src="{{ $pdfExport?$logoSrc:($logoUrl??$logoSrc) }}" style="width:{{ $cell['logo_width'] }}mm;max-height:{{ max(6,$row['height']-2) }}mm;@if(isset($cell['logo_offset_y']))margin-top:{{ $cell['logo_offset_y'] }}mm;margin-bottom:-{{ $cell['logo_offset_y'] }}mm;@endif" alt="Western International School">
+            @endif
+            @if(isset($cell['illustration'],$roomSymbols[$cell['illustration']]))
+                <img src="{{ $roomSymbols[$cell['illustration']] }}" style="width:{{ $cell['illustration_width'] }}mm;height:{{ $cell['illustration_height'] }}mm;display:block;margin:0 auto 1mm" alt="{{ $cell['lines'][0]['text'] }}">
             @endif
             @foreach($cell['lines'] as $line)
                 @if($line['text']!=='' && !(isset($cell['sticker_title']) && $loop->first))
@@ -134,7 +154,8 @@
 </table>
 @if($stickerHeader)</div>@endif
 @endforeach
-@if(!$pdfExport && !in_array($document,['attendance-cover','envelope-cover'],true))<div class="page-number">Page {{ $loop->iteration }} of {{ count($pages) }}</div>
+@if($document==='room-plan')</div>@endif
+@if(!$pdfExport && !in_array($document,['attendance-cover','envelope-cover','room-plan'],true))<div class="page-number">Page {{ $loop->iteration }} of {{ count($pages) }}</div>
 @endif
 
 </section>

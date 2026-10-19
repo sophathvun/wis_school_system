@@ -15,7 +15,7 @@
     .scholarship-center-location { flex: 1 1 0; }
 }
 /* Keep scholarship forms, records and pagination in one page scroll area. */
-.page > .page-wrapper:has([data-scholarship-ranks-panel], [data-scholarship-seat-list]) {
+.page > .page-wrapper:has([data-scholarship-ranks-panel], [data-scholarship-seat-list], [data-scholarship-scoring-list]) {
     flex: 0 0 auto;
     height: 100vh;
     height: 100dvh;
@@ -23,7 +23,7 @@
     overflow-x: hidden;
     overflow-y: auto;
 }
-.page > .page-wrapper:has([data-scholarship-ranks-panel], [data-scholarship-seat-list]) .page-body {
+.page > .page-wrapper:has([data-scholarship-ranks-panel], [data-scholarship-seat-list], [data-scholarship-scoring-list]) .page-body {
     flex: 0 0 auto;
     height: auto;
     max-height: none;
@@ -190,6 +190,34 @@
 #scholarshipSeatsPagination .premium-pagination-select { flex-shrink: 0; min-width: 8rem; }
 .scholarship-scroll-table thead { position: sticky; top: 0; z-index: 1; background: var(--tblr-bg-surface,#fff); }
 .scholarship-score-card .card-header { flex-wrap: wrap; gap: .5rem; }
+.scholarship-scoring-filter-card { position:relative; z-index:2; }
+.scholarship-scoring-filter-card [hidden] { display:none!important; }
+.scholarship-scoring-filters { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.85rem; }
+.scholarship-scoring-table { width:100%; min-width:960px; font-size:.8125rem; }
+.scholarship-scoring-table thead th { background:#3c70c7; color:#fff; vertical-align:middle; white-space:normal; }
+.scholarship-scoring-table td { padding:.75rem; }
+.scholarship-scoring-student { min-width:180px; white-space:normal; }
+.scholarship-scoring-exam { min-width:145px; white-space:normal; }
+.scholarship-score-input-cell { min-width:95px; }
+.scholarship-score-input-cell input { min-width:72px; height:38px; padding:.4rem .5rem; font-size:.8125rem; text-align:center; }
+.scholarship-score-input-cell input::placeholder { font-size:.7rem; }
+.scholarship-scoring-mode { display:flex; align-items:center; flex-wrap:wrap; gap:1rem; padding:1rem; border:1px solid var(--tblr-border-color); border-radius:10px; background:var(--tblr-bg-surface-secondary); }
+.scholarship-scoring-mode .scholarship-field { flex:1 1 250px; max-width:400px; }
+.scholarship-scoring-mode p { flex:1 1 240px; }
+.scholarship-score-input-cell input[readonly] { background:var(--tblr-bg-surface-secondary); cursor:default; }
+.scholarship-score-input-cell input.is-scoring { background:var(--tblr-bg-surface); border-color:var(--tblr-primary); }
+.scholarship-scoring-table th.is-scoring { background:#204f99; }
+.scholarship-scoring-total { min-width:115px; text-align:center; }
+.scholarship-scoring-attendance { min-width:110px; text-align:center; }
+.scholarship-scoring-actions { min-width:165px; text-align:center; }
+.scholarship-scoring-actions .form-check { margin-bottom:.5rem; }
+.scholarship-scoring-actions .btn { white-space:nowrap; }
+.scholarship-scoring-overflow { max-height:65vh; max-height:min(65dvh,720px); overflow:auto; overscroll-behavior:contain; scroll-padding-top:var(--scoring-header-height,80px); }
+.scholarship-scoring-table { border-collapse:separate; border-spacing:0; }
+.scholarship-scoring-table thead { position:sticky; top:0; z-index:3; box-shadow:0 2px 3px rgba(15,23,42,.15); }
+@media(max-width:1199.98px) { .scholarship-scoring-filters { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:767.98px) { .scholarship-scoring-filter-card:not([data-scoring-filters-ready]) > .card-body { display:none; } }
+@media(max-width:575.98px) { .scholarship-scoring-filters { grid-template-columns:minmax(0,1fr); } }
 .scholarship-field { position: relative; min-width: 0; }
 .scholarship-field > label { position: absolute; top: .45rem; left: 1rem; font-size: .72rem; color: var(--tblr-secondary); z-index: 1; pointer-events: none; }
 .scholarship-field > .form-select, .scholarship-field > .form-control, .scholarship-select-toggle { height: 62px; border-radius: 14px; padding: 1.5rem 2rem .45rem 1rem; background-color: var(--tblr-bg-surface, #fff); }

@@ -149,19 +149,36 @@ class ScholarshipSeatReports
             }else{
                 foreach(array_chunk($students,25) as $index=>$chunk){
                     $rows=$this->heading($exam,$document,$meta,false);
-                    $rows[]=$this->row(9,[$this->cell(60,'Seat Plan   ·   Room: '.$meta['room'].'   ·   Grade: '.$meta['grade'].(count($students)>25?'   ·   Part '.($index+1):''),'room')]);
-                    $rows[]=$this->row(9,[$this->cell(12,''),$this->cell(36,'Whiteboard','table-body'),$this->cell(12,'')]);
-                    $rows[]=$this->row(26,[$this->cell(15,'Teacher','table-body'),$this->cell(30,''),$this->cell(15,'Door','room')]);
-                    $rows[]=$this->row(7,[$this->cell(60,'')]);
-                    // Read down each column, matching the reference classroom plan.
+                    $planStart=count($rows);
+                    $planSuffix='   |   Grade: '.$meta['grade'].(count($students)>25?'   |   Part '.($index+1):'');
+                    $planTitle=$this->line('Room: '.$meta['room'].$planSuffix,12,true,'#203c65');
+                    $planTitle['runs']=[
+                        $this->line('Room: ',12,true,'#203c65'),
+                        $this->line($meta['room'],20,true,'#ed1c24'),
+                        $this->line($planSuffix,12,true,'#203c65'),
+                    ];
+                    $rows[]=$this->row(10,[$this->cell(60,[$planTitle],'room')]);
+                    $board=$this->cell(60,'Whiteboard','classroom-symbol')+['role'=>'classroom-whiteboard','illustration'=>'whiteboard','illustration_width'=>130,'illustration_height'=>10];
+                    $rows[]=$this->row(16,[$board]);
+                    $rows[]=$this->row(20,[$this->cell(60,'')]);
+                    // Alternate down and up without changing saved seat numbers.
                     for($r=0;$r<5;$r++){
-                        $cells=[];
+                        $cells=[$this->cell(1,'')];
                         for($c=0;$c<5;$c++){
-                            $student=$chunk[$c*5+$r]??null;
-                            $cells[]=$this->cell(12,$student?[$this->line($student['seat'],22,true,'#ed1c24'),$this->line($student['name'],8.5,true),$this->line('Grade: '.$student['grade_number'],8)]:[],$student?'desk':'body');
+                            $student=$chunk[$c*5+($c%2===0?$r:4-$r)]??null;
+                            $cells[]=$this->cell(10,$student?[
+                                $this->line($student['seat'],22,true,'#ed1c24')+['space_after'=>1.5],
+                                $this->line($student['name'],$this->stickerTextSize($student['name'],8.5,30),true)+['space_after'=>1.5],
+                                $this->line('Grade: '.$student['grade_number'],8),
+                            ]:[],$student?'desk':'empty-desk');
+                            if($c<4)$cells[]=$this->cell(2,'');
                         }
-                        $rows[]=$this->row(29,$cells);$rows[]=$this->row(2,[$this->cell(60,'')]);
+                        $cells[]=$this->cell(1,'');
+                        $rows[]=$this->row(27,$cells);
+                        if($r<4)$rows[]=$this->row(3,[$this->cell(60,'')]);
                     }
+                    $rows[]=$this->row(4,[$this->cell(60,'')]);
+                    foreach($rows as $rowIndex=>&$row)if($rowIndex>=$planStart)$row['area']='classroom';unset($row);
                     $pages[]=$meta+['rows'=>$rows];
                 }
             }
@@ -267,9 +284,25 @@ class ScholarshipSeatReports
             $rows[]=$this->row(5,[$cell]);
             return $rows;
         }
-        $rows[]=$this->row($compact?12:28,[$logo]);
+        $rows[]=$this->row($compact?12:($document==='room-plan'?24:28),[$logo]);
         $title=$exam->examinationTitle();
-        $rows[]=$this->row($compact?6:10,[$this->cell(60,[$this->line($title,$compact?11:(mb_strlen($title)>60?12:16),true)],$compact?'compact-title':'title')]);
+        $titleSize=$compact?11:(mb_strlen($title)>60?12:16);
+        if($document==='room-plan')$titleSize=mb_strlen($title)>60?16:20;
+        $rows[]=$this->row($compact?6:10,[$this->cell(60,[$this->line($title,$titleSize,true)],$compact?'compact-title':'title')]);
+        if($document==='room-plan'){
+            foreach([
+                ['academic-year','Academic Year: '.$exam->academicYear?->academic_year],
+                ['exam-date','Exam Date: '.$exam->exam_date->format('F j, Y')],
+                ['exam-center','Exam Center: '.$meta['center']],
+            ] as [$role,$text]){
+                $cell=$this->cell(60,$text,'subtitle');$cell['role']=$role;$cell['padding_y']=0;
+                $rows[]=$this->row(5,[$cell]);
+            }
+            $rows[]=$this->row(3,[$this->cell(60,'')]);
+            $label=$this->cell(60,[$this->line('Seat Plan',16,true,'#203c65')],'title');$label['role']='seat-plan-label';$label['padding_y']=0;
+            $rows[]=$this->row(10,[$label]);
+            return $rows;
+        }
         $details='Academic Year: '.$exam->academicYear?->academic_year.'   ·   Exam Date: '.$meta['exam_date'];
         $rows[]=$this->row($compact?5:7,[$this->cell(60,$details,$compact?'small':'subtitle')]);
         $rows[]=$this->row($compact?5:7,[$this->cell(60,'Exam Center: '.$meta['center'],$compact?'small':'subtitle')]);
@@ -321,6 +354,7 @@ class ScholarshipSeatReports
             'cover-detail'=>['size'=>12,'align'=>'left','color'=>'#203c65'], 'committee'=>['size'=>14,'bold'=>true,'align'=>'left','fill'=>'#d9e2f3','color'=>'#203c65'],
             'cover-table-head'=>['size'=>14,'bold'=>true,'align'=>'center','color'=>'#203c65','border'=>'#203c65'],
             'cover-table-body'=>['size'=>12,'align'=>'center','border'=>'#203c65'],
+            'empty-desk'=>['size'=>8,'align'=>'center','border'=>'#cbd5e1'], 'classroom-symbol'=>['size'=>9,'bold'=>true,'align'=>'center','color'=>'#334155'],
             'label'=>['size'=>9,'align'=>'center','border'=>'#203c65','border_weight'=>'medium'], 'desk'=>['size'=>8,'align'=>'center','border'=>'#203c65'],
         ];
     }
@@ -332,7 +366,7 @@ class ScholarshipSeatReports
             'fontDir'=>[...(new \Mpdf\Config\ConfigVariables())->getDefaults()['fontDir'],public_path('fonts/khmer')],
             'fontdata'=>(new \Mpdf\Config\FontVariables())->getDefaults()['fontdata']+['scholarshipmuol'=>['R'=>'KhmerOSmuollight.ttf','useOTL'=>0xFF],'scholarshipsiemreap'=>['R'=>'KhmerOSsiemreap.ttf','useOTL'=>0xFF]],'default_font'=>'dejavusans','default_font_size'=>9]);
         $pdf->SetTitle($data['title']);
-        if(!in_array($data['document'],['attendance','attendance-cover','envelope-cover'],true))$pdf->SetHTMLFooter('<div style="text-align:right;font-size:8pt">Page {PAGENO} of {nbpg}</div>');
+        if(!in_array($data['document'],['attendance','attendance-cover','envelope-cover','room-plan'],true))$pdf->SetHTMLFooter('<div style="text-align:right;font-size:8pt">Page {PAGENO} of {nbpg}</div>');
         $pdf->shrink_tables_to_fit=1;
         if($data['logoSrc']){
             $pdf->imageVars['schoolLogo']=base64_decode(explode(',',$data['logoSrc'],2)[1]);

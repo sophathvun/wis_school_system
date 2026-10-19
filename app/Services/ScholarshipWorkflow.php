@@ -394,9 +394,27 @@ class ScholarshipWorkflow
             'max_total'=>$subjects->sum('max_score'),'status'=>$complete?($candidate->reviewed_at?'Reviewed':'Awaiting review'):'Incomplete'];
     }
 
-    public function saveScores(User $user, ScholarshipExam $exam, ScholarshipCandidate $candidate, array $scores, bool $absent, int $version): void
+    public function saveScoreDrafts(User $user, ScholarshipExam $exam, array $rows): void
     {
-        DB::transaction(function () use ($user,$exam,$candidate,$scores,$absent,$version) {
+        DB::transaction(function()use($user,$exam,$rows){
+            $exam=ScholarshipExam::lockForUpdate()->findOrFail($exam->id);
+            foreach($rows as $candidateId=>$row){
+                if(!preg_match('/^[1-9]\d*$/',(string)$candidateId))$this->fail('Select valid students before saving score drafts.');
+                $candidate=$exam->candidates()->findOrFail($candidateId);
+                try{
+                    $this->saveScores($user,$exam,$candidate,$row['scores']??[],(bool)($row['absent']??false),(int)$row['version'],true);
+                }catch(ValidationException $error){
+                    $messages=[];
+                    foreach($error->errors() as $field=>$errors)$messages['rows.'.$candidateId.'.'.$field]=array_map(fn($message)=>($candidate->snapshot['name_en']??$candidate->candidate_code).': '.$message,$errors);
+                    throw ValidationException::withMessages($messages);
+                }
+            }
+        });
+    }
+
+    public function saveScores(User $user, ScholarshipExam $exam, ScholarshipCandidate $candidate, array $scores, bool $absent, int $version, bool $skipUnchanged=false): void
+    {
+        DB::transaction(function () use ($user,$exam,$candidate,$scores,$absent,$version,$skipUnchanged) {
             $exam=ScholarshipExam::lockForUpdate()->findOrFail($exam->id);
             $candidate=ScholarshipCandidate::lockForUpdate()->findOrFail($candidate->id);
             abort_unless($candidate->exam_id===$exam->id && $this->canScore($user,$exam,$candidate),403);
@@ -408,14 +426,21 @@ class ScholarshipWorkflow
             $previousScores=$candidate->scores()->get();
             $before=$previousScores->pluck('score','subject_id')->all();
             $beforeSources=$previousScores->keyBy('subject_id')->map(fn($score)=>$score->only(['entry_method','source_paper_id','source_reference']))->all();
+            $normalized=[];
             foreach ($subjects as $subject) {
                 $value=$scores[$subject->id]??null;
                 if ($value==='') $value=null;
                 if ($value!==null && (!is_numeric($value) || !is_finite((float)$value) || $value<0 || $value>$subject->max_score || round((float)$value,2)!=(float)$value)) {
                     throw ValidationException::withMessages(['scores.'.$subject->id=>'Enter a score from 0 to '.$subject->max_score.' with at most two decimal places.']);
                 }
-                ScholarshipScore::updateOrCreate(['candidate_id'=>$candidate->id,'subject_id'=>$subject->id],['score'=>$value,'entry_method'=>'manual','source_paper_id'=>null,'source_reference'=>null]);
+                $normalized[$subject->id]=$value;
             }
+            // Saving a page must not clear reviews, imported-score provenance or awards on unchanged rows.
+            if($skipUnchanged && $candidate->absent===$absent && $subjects->every(function($subject)use($normalized,$before){
+                $value=$normalized[$subject->id];$previous=$before[$subject->id]??null;
+                return $value===null?$previous===null:($previous!==null&&(float)$previous===(float)$value);
+            }))return;
+            foreach($normalized as $subjectId=>$value)ScholarshipScore::updateOrCreate(['candidate_id'=>$candidate->id,'subject_id'=>$subjectId],['score'=>$value,'entry_method'=>'manual','source_paper_id'=>null,'source_reference'=>null]);
             $candidate->forceFill(['absent'=>$absent,'scored_by'=>$user->id,'reviewed_by'=>null,'reviewed_at'=>null,'version'=>$candidate->version+1])->save();
             if ($exam->awards()->where('grade_number',$candidate->grade_number)->exists()) {
                 $exam->awards()->where('grade_number',$candidate->grade_number)->delete();
@@ -423,6 +448,24 @@ class ScholarshipWorkflow
             }
             $exam->increment('version');
             $this->event($exam,$user,'scores-saved',['candidate_id'=>$candidate->id,'before'=>$before,'before_sources'=>$beforeSources,'entry_method'=>'manual','scores'=>$scores,'absent'=>$absent]);
+        });
+    }
+
+    public function reviewScores(User $user, ScholarshipExam $exam, array $rows): void
+    {
+        DB::transaction(function()use($user,$exam,$rows){
+            $exam=ScholarshipExam::lockForUpdate()->findOrFail($exam->id);
+            foreach($rows as $candidateId=>$row){
+                if(!preg_match('/^[1-9]\d*$/',(string)$candidateId))$this->fail('Select valid students before reviewing scores.');
+                $candidate=$exam->candidates()->findOrFail($candidateId);
+                try{
+                    $this->review($user,$exam,$candidate,(int)$row['version']);
+                }catch(ValidationException $error){
+                    $messages=[];
+                    foreach($error->errors() as $field=>$errors)$messages['rows.'.$candidateId.'.'.$field]=array_map(fn($message)=>($candidate->snapshot['name_en']??$candidate->candidate_code).': '.$message,$errors);
+                    throw ValidationException::withMessages($messages);
+                }
+            }
         });
     }
 

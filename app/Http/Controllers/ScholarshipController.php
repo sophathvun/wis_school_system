@@ -156,13 +156,14 @@ class ScholarshipController
         $allowedCampuses = $this->campuses($request,$tab==='assign-rank'?'tab-assign-rank':'view');
         $filters = $this->filters($request, $allowedCampuses);
         $exams = ScholarshipExam::with('academicYear')->whereHas('academicYear',fn($q)=>$q->regular())->latest('id')->get()->filter(fn ($exam) => $this->workflow->canView($request->user(), $exam));
-        $selectableExams=$tab==='seat-plan'?$exams->filter(fn($exam)=>$this->workflow->candidates($request->user(),$exam)->exists()):$exams;
+        $hasYearFilters=in_array($tab,['seat-plan','scoring'],true);
+        $selectableExams=$hasYearFilters?$exams->filter(fn($exam)=>$this->workflow->candidates($request->user(),$exam)->exists()):$exams;
         $exam = $request->integer('exam_id') ? $exams->firstWhere('id',$request->integer('exam_id')) : null;
         if ($request->integer('exam_id')) abort_unless($exam,403);
-        if ($tab==='seat-plan' && !empty($filters['academic_year_id'])) $exam=$exams->firstWhere('academic_year_id',$filters['academic_year_id']);
+        if ($hasYearFilters && !empty($filters['academic_year_id'])) $exam=$exams->firstWhere('academic_year_id',$filters['academic_year_id']);
         if ($exam) $filters['academic_year_id']=$exam->academic_year_id;
         $academicYears = AcademicYear::regular()->orderByDesc('academic_year')->get();
-        if ($tab==='seat-plan') $academicYears=$academicYears->whereIn('id',$selectableExams->pluck('academic_year_id'))->values();
+        if ($hasYearFilters) $academicYears=$academicYears->whereIn('id',$selectableExams->pluck('academic_year_id'))->values();
         $filters['academic_year_id'] ??= $academicYears->firstWhere('lifecycle_status', 'started')?->id ?? $academicYears->first()?->id;
         if (!$exam && !$request->boolean('new_exam')) $exam=$selectableExams->firstWhere('academic_year_id',$filters['academic_year_id']);
         $selected = null;
@@ -341,6 +342,10 @@ class ScholarshipController
         $participating=app(ScholarshipExamCenters::class)->campuses($exam?->academic_year_id??(int)old('academic_year_id',$year));
         $data['examCenterCampuses']=$participating->every(fn($campus)=>ScholarshipPermissions::allows($user,'settings',$campus['id']))?$participating:collect();
         if (!$exam) {
+            if($tab==='scoring'){
+                $emptyFilters=app(\App\Support\ScholarshipScoringFilters::class)->apply($request,collect());
+                $data['scoreFilters']=$emptyFilters['filters'];$data['scoreFilterOptions']=$emptyFilters['options'];
+            }
             if($tab==='seat-plan'){
                 $emptyFilters=app(\App\Support\ScholarshipSeatFilters::class)->apply($request,collect());
                 $data['seatFilters']=$emptyFilters['filters'];$data['seatFilterOptions']=$emptyFilters['options'];
@@ -386,12 +391,15 @@ class ScholarshipController
         $data['results']=($data['examPermissions']['publish-results'] || $data['examPermissions']['awards'])?$allResults:$allResults->filter(fn($row)=>$candidates->contains('id',$row['candidate']->id));
         $data['awardGrades']=$data['examPermissions']['awards']?$allResults->groupBy(fn($row)=>$row['candidate']->grade_number):collect();
         $data['savedAwards']=$exam->awards()->get()->groupBy('grade_number');
-        $scoring=$candidates->filter(fn($candidate)=>$this->workflow->canScore($user,$exam,$candidate) || $this->workflow->canScore($user,$exam,$candidate,true))
-            ->filter(fn($candidate)=>(!$request->integer('exam_grade') || $candidate->grade_number===$request->integer('exam_grade')) && (!$request->integer('room') || $candidate->room_number===$request->integer('room'))
-                && (!$request->integer('exam_center') || $candidate->exam_center_id===$request->integer('exam_center'))
-                && (!$request->filled('search') || mb_stripos(implode(' ',$candidate->snapshot).' '.$candidate->candidate_code,mb_substr($request->string('search')->toString(),0,100))!==false))->values();
-        $page=max(1,$request->integer('score_page',1));
-        $data['scoringCandidates']=new \Illuminate\Pagination\LengthAwarePaginator($scoring->slice(($page-1)*15,15),$scoring->count(),15,$page,['path'=>url()->current(),'pageName'=>'score_page','query'=>$request->query()]);
+        $scoring=$candidates->filter(fn($candidate)=>$this->workflow->canScore($user,$exam,$candidate) || $this->workflow->canScore($user,$exam,$candidate,true))->values();
+        if($tab==='scoring'){
+            $filtered=app(\App\Support\ScholarshipScoringFilters::class)->apply($request,$scoring);
+            $scoring=$filtered['rows'];$data['scoreFilters']=$filtered['filters'];$data['scoreFilterOptions']=$filtered['options'];
+            $data['scoreListReady']=$filtered['filters']['center']!==null && $filtered['filters']['room']!==null;
+            if(!$data['scoreListReady'])$scoring=$scoring->take(0);
+        }
+        if($tab==='scoring')$scoring->load(['student:id,photo_path','enrollment.grade','enrollment.schoolClass','enrollment.schoolGroup','enrollment.session']);
+        $data['scoringCandidates']=$scoring;
         $data['staffOptions']=$data['examPermissions']['committee']?User::where('status',1)->orderBy('name')->get(['id','name']):collect();
         if($tab==='exam-committee' && $data['examPermissions']['committee']){
             $invigilators=app(\App\Services\ScholarshipInvigilators::class);
@@ -408,7 +416,7 @@ class ScholarshipController
 
     private function back(ScholarshipExam $exam, string $tab, string $message)
     {
-        $context=$tab==='scoring'?collect(request()->query())->only(['exam_grade','room','search','score_page','exam_center'])->filter(fn($value)=>is_scalar($value))->map(fn($value)=>mb_substr((string)$value,0,100))->all():[];
+        $context=$tab==='scoring'?collect(request()->query())->only(['score_center','score_room','score_student'])->filter(fn($value)=>is_scalar($value))->map(fn($value)=>mb_substr((string)$value,0,100))->all():[];
         return redirect()->route('western-scholarship.index',['exam_id'=>$exam->id,'tab'=>$tab]+$context)->with('success',$message);
     }
 
@@ -501,11 +509,34 @@ class ScholarshipController
         $this->workflow->reopenPlan($request->user(),$exam,(int)$data['version'],$data['reason']); return $this->back($exam,'seat-plan','Seat plan reopened. Review and confirm a new preview before scoring.');
     }
 
+    public function saveScoreDrafts(Request $request, ScholarshipExam $exam)
+    {
+        if($request->has('score_drafts')){
+            $payload=$request->validate(['score_drafts'=>['required','string','json','max:2000000']]);
+            $request->merge(['rows'=>json_decode($payload['score_drafts'],true)]);
+        }
+        $data=$request->validate([
+            'rows'=>['required','array','min:1','max:200'],
+            'rows.*.version'=>['required','integer','min:1'],
+            'rows.*.scores'=>['nullable','array','max:100'],
+            'rows.*.absent'=>['nullable','boolean'],
+        ]);
+        $this->workflow->saveScoreDrafts($request->user(),$exam,$data['rows']);
+        return $this->back($exam,'scoring','Score drafts saved successfully.');
+    }
+
     public function saveScores(Request $request, ScholarshipExam $exam, ScholarshipCandidate $candidate)
     {
         $data=$request->validate(['version'=>['required','integer'],'scores'=>['nullable','array','max:100'],'absent'=>['nullable','boolean']]);
         $this->workflow->saveScores($request->user(),$exam,$candidate,$data['scores']??[],$request->boolean('absent'),(int)$data['version']);
         return $this->back($exam,'scoring','Score draft saved. A reviewer must review these scores before publication.');
+    }
+
+    public function reviewScores(Request $request, ScholarshipExam $exam)
+    {
+        $data=$request->validate(['rows'=>['required','array','min:1','max:200'],'rows.*.version'=>['required','integer','min:1']]);
+        $this->workflow->reviewScores($request->user(),$exam,$data['rows']);
+        return $this->back($exam,'scoring','Saved scores and attendance marked as reviewed successfully.');
     }
 
     public function review(Request $request, ScholarshipExam $exam, ScholarshipCandidate $candidate)

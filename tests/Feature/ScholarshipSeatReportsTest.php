@@ -51,7 +51,7 @@ it('keeps sticker and classroom seat numbers and names complete and in the refer
             foreach($cell['lines'] as $line)if(str_contains((string)$line['text'],'STUDENT'))$names[]=$line['text'];
         }
         expect($names)->toHaveCount(28)->and(array_unique($names))->toHaveCount(28)->and($names)->toContain('NORTH STUDENT 26','SOUTH STUDENT 02');
-        if($kind==='room-plan')expect(array_slice($names,0,5))->toBe(['NORTH STUDENT 01','NORTH STUDENT 06','NORTH STUDENT 11','NORTH STUDENT 16','NORTH STUDENT 21']);
+        if($kind==='room-plan')expect(array_slice($names,0,5))->toBe(['NORTH STUDENT 01','NORTH STUDENT 10','NORTH STUDENT 11','NORTH STUDENT 20','NORTH STUDENT 21']);
     }
 });
 
@@ -69,6 +69,44 @@ it('fits sticker header metadata on one line and reduces its size for longer cen
     expect($header[0]['role'])->toBe('title')->and($header[1]['role'])->toBe('sticker-header-room')
         ->and($header[1]['lines'][0]['text'])->toBe('Room: 1')->and($header[1]['lines'][0]['runs'][0]['size'])->toBe(18.0)->and($header[1]['lines'][0]['runs'][1]['size'])->toBe(18.0)
         ->and($header[1]['lines'][1]['text'])->toBe('Grade: 1')->and($header[1]['lines'][1]['size'])->toBe(10.0);
+});
+
+it('alternates classroom columns while preserving every assigned seat and blank position',function($total){
+    $exam=scholarshipSeatReportExam($total);
+    $candidates=$exam->candidates()->where('campus_id',1)->orderBy('room_seat')->get();
+    // Printed seat numbers remain the saved values, including non-one starting numbers.
+    foreach($candidates->reverse() as $candidate)$candidate->update(['room_seat'=>$candidate->room_seat+30]);
+    $data=app(ScholarshipSeatReports::class)->data($exam,$candidates->fresh(),'room-plan');
+    expect($data['pages'])->toHaveCount((int)ceil($total/25));$printed=[];
+    foreach($data['pages'] as $pageIndex=>$page){
+        $rows=collect($page['rows'])->filter(fn($row)=>collect($row['cells'])->contains(fn($cell)=>in_array($cell['style'],['desk','empty-desk'],true)))->values();
+        expect($rows)->toHaveCount(5);
+        foreach($rows as $rowIndex=>$row){
+            $desks=collect($row['cells'])->filter(fn($cell)=>in_array($cell['style'],['desk','empty-desk'],true))->values();
+            expect($desks)->toHaveCount(5);
+            foreach($desks as $column=>$cell){
+                $position=$pageIndex*25+$column*5+($column%2===0?$rowIndex:4-$rowIndex);
+                if($position<$total){expect($cell['lines'][0]['text'])->toBe($position+31);$printed[]=$cell['lines'][0]['text'];}
+                else expect($cell['style'])->toBe('empty-desk');
+            }
+        }
+    }
+    sort($printed);expect($printed)->toBe(range(31,30+$total));
+})->with([6,10,25,26,40]);
+
+it('frames only the classroom and keeps all twenty five desks and the whiteboard on A4',function(){
+    $data=scholarshipSeatReportData(scholarshipSeatReportExam(25),'room-plan');
+    $heading=collect($data['pages'][0]['rows'])->flatMap(fn($row)=>$row['cells'])->filter(fn($cell)=>in_array($cell['role']??'', ['academic-year','exam-date','exam-center'],true))->values();
+    expect($heading->pluck('role')->all())->toBe(['academic-year','exam-date','exam-center'])
+        ->and($heading[1]['lines'][0]['text'])->toBe('Exam Date: November 20, 2026');
+    $html=view('western-scholarship.seat-report',$data)->render();$dom=new DOMDocument();@$dom->loadHTML($html);$xpath=new DOMXPath($dom);
+    expect($xpath->query('//div[@class="classroom-plan"]')->length)->toBe(2);
+    foreach($xpath->query('//div[@class="classroom-plan"]') as $frame){
+        expect($frame->textContent)->toContain('Room:','Whiteboard')->not->toContain('Academic Year:','Seat Plan',"Teacher's Desk",'Door / Entrance');
+        expect($xpath->query('.//img',$frame)->length)->toBe(1);
+    }
+    expect($xpath->query('//td[@data-report-role="seat-plan-label"]')->length)->toBe(2);
+    expect(preg_match_all('~/Type\s*/Page(?!s)\b~',app(ScholarshipSeatReports::class)->pdf($data)))->toBe(2);
 });
 
 it('uses smaller roster pages for long names without truncating the names',function(){

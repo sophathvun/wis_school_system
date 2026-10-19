@@ -7,6 +7,7 @@ import { initCenterLocations } from './scholarshipCenterLocations.js';
 import { initSubjectOrder, initSubjectRows } from './scholarshipSubjectOrder.js';
 import { initExaminationType } from './scholarshipExaminationType.js';
 import { initSeatPagination } from './scholarshipSeatPagination.js';
+import { initScoring } from './scholarshipScoring.js';
 import { initHistoricalTransfer } from './scholarshipHistoricalTransfer.js';
 import { initInvigilators } from './scholarshipInvigilators.js';
 import { initPremiumDatePicker } from './premiumDatePicker.js';
@@ -19,6 +20,7 @@ if (root) {
     initCenterLocations(root);
     initSubjectOrder(root);
     initSeatPagination(root);
+    initScoring(root);
     initHistoricalTransfer(root);
     initExaminationType(root);
     const photoModalElement=root.querySelector('#scholarshipPhotoModal');

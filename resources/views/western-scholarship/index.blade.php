@@ -15,10 +15,11 @@
         </nav>
     </aside>
     <main class="scholarship-forms">
-        @if(!in_array($tab,['assign-rank','seat-plan','data-transfer'],true))@include('western-scholarship._exam-selector')@endif
+        @if(!in_array($tab,['assign-rank','seat-plan','scoring','data-transfer'],true))@include('western-scholarship._exam-selector')@endif
         @if(session('success') && !in_array($tab,['assign-rank','settings','seat-plan','exam-committee'],true))<div class="alert alert-success" role="status"><i class="ti ti-circle-check me-2" aria-hidden="true"></i>{{ session('success') }}</div>@endif
         @if($errors->any())<div class="alert alert-danger" role="alert"><ul class="mb-0">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
         @if($tab==='seat-plan')@include('western-scholarship._seat-filters')@endif
+        @if($tab==='scoring')@include('western-scholarship._scoring-filters')@endif
         <section class="card {{ $tab==='assign-rank'?'scholarship-rank-card':'' }}">
             <div class="card-header scholarship-card-header scholarship-form-header {{ $tab==='seat-plan'?'scholarship-seat-header':'' }}">
                 <h3 class="card-title"><i class="ti {{ $tabs[$tab][1] }} me-2" aria-hidden="true"></i>{{ $tabs[$tab][0] }}</h3>
@@ -66,7 +67,7 @@
         @include('western-scholarship._ranks')
         @endif
     </main>
-    @if(in_array($tab,['assign-rank','seat-plan'],true))@include('western-scholarship._photo-viewer')@endif
+    @if(in_array($tab,['assign-rank','seat-plan','scoring'],true))@include('western-scholarship._photo-viewer')@endif
     @if($tab === 'assign-rank')@include('western-scholarship._print-settings')@endif
     @if($tab==='seat-plan' && ($exam?->seats_locked_at) && $examPermissions['export'])
         @include('western-scholarship._seat-report-scope')
