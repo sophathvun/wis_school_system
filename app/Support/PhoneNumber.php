@@ -4,7 +4,7 @@ namespace App\Support;
 
 final class PhoneNumber
 {
-    public static function formatCambodian(?string $value): string
+    public static function formatCambodian(?string $value, bool $international = false): string
     {
         $value = trim((string) $value);
         $compact = preg_replace('/[\s().-]+/', '', $value) ?? $value;
@@ -13,7 +13,7 @@ final class PhoneNumber
         }
 
         $number = $matches[2];
-        $prefix = $matches[1] === '0' ? '0' : '+855 ';
+        $prefix = $matches[1] === '0' && !$international ? '0' : '+855 ';
 
         return $prefix . substr($number, 0, 2) . ' ' . substr($number, 2, 3) . ' ' . substr($number, 5);
     }

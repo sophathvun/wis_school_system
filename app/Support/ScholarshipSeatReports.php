@@ -17,11 +17,15 @@ class ScholarshipSeatReports
     public function data(ScholarshipExam $exam, Collection $candidates, string $document): array
     {
         abort_unless(isset(self::DOCUMENTS[$document]),404);
+        $logoNumber=$document==='seat-labels'?2:1;
+        $logo=app(ScholarshipExport::class)->reportLogo($logoNumber);
+        $stickerLogoWidth=$logo && $document==='seat-labels'?$this->stickerLogoWidth($logo):30;
+        $stickerTitleSize=$document==='seat-labels'?$this->stickerTitleSize($exam->examinationTitle()):12;
         $exam->loadMissing('academicYear','subjects');
         $candidates->each->loadMissing('student');
         $signatures=ScholarshipSeatPrintSetting::whereIn('exam_center_id',$exam->centers()->select('id'))->get()->keyBy('exam_center_id');
         $centers=$exam->centers()->get()->keyBy('id');
-        $invigilatorDuties=$document==='attendance-cover'?$exam->invigilatorDuties()->with(['invigilator','session'])->get():collect();
+        $duties=$document==='envelope-cover'?$exam->invigilatorDuties()->with(['invigilator','session'])->get():collect();
         $pages=[];
         // Centers can both have Room 1. Never combine them by room number alone.
         foreach($candidates->groupBy(fn($candidate)=>($candidate->exam_center_id??0).':'.$candidate->room_number) as $room){
@@ -67,76 +71,81 @@ class ScholarshipSeatReports
                     $pages[]=$meta+['rows'=>$rows];
                 }
             }elseif($document==='attendance-cover'){
-                $coverRows=[];
-                foreach($subjects->values() as $subjectIndex=>$subject){
-                    $assigned=$invigilatorDuties->filter(fn($d)=>$d->exam_center_id===$first->exam_center_id && $d->room_number===$first->room_number && $d->session->number===$subjectIndex+1)->sortBy(fn($d)=>$d->invigilator->name_en);
-                    $people=$assigned->isEmpty()?[null]:$assigned->all();
-                    foreach($people as $duty){
-                        $name=$duty?->invigilator->name_en??'____________________';$phone=$duty?->invigilator->phone??'________________';
-                        $coverRows[]=$this->row(max(9,ceil(mb_strlen($name)/32)*4.5,ceil(mb_strlen($subject->name)/22)*4.5,ceil(mb_strlen($phone)/22)*4.5),[
-                            $this->cell(6,[$this->line((string)($subjectIndex+1),10)],'cover-table-body'),
-                            $this->cell(14,[$this->line($subject->name,10)],'cover-table-body'),
-                            $this->cell(24,[$this->line($name,10)],'cover-table-body'),
-                            $this->cell(16,[$this->line($phone,10)],'cover-table-body'),
-                        ]);
-                    }
-                }
-                // A room's four sessions and two invigilators per session fit on one cover.
-                // Additional/long records continue on another complete A4 cover.
-                $chunks=[[]];$height=0;
-                foreach($coverRows as $row){if($height+$row['height']>88 && $chunks[array_key_last($chunks)]){$chunks[]=[];$height=0;}$chunks[array_key_last($chunks)][]=$row;$height+=$row['height'];}
-                foreach($chunks as $part=>$chunk){
-                    $rows=$this->heading($exam,$document,$meta,false);
-                    $rows[]=$this->row(6,[$this->cell(60,'')]);
-                    $rows[]=$this->row(16,[$this->cell(60,[$this->line('Attendance List'.($part?' (continued)':''),28,true)],'cover-title')]);
-                    $rows[]=$this->row(18,[$this->cell(60,'Room: '.$meta['room'],'cover-room')]);
-                    $rows[]=$this->row(12,[$this->cell(60,'Grade: '.$meta['grade'],'cover-title')]);
-                    $rows[]=$this->row(13,[$this->cell(60,'Number of Candidates: '.$meta['total'],'cover-text')]);
-                    $rows[]=$this->row(13,[$this->cell(60,'Absent Students: __________','cover-text')]);
-                    $rows[]=$this->row(5,[$this->cell(60,'')]);
-                    $rows[]=$this->row(10,array_map(fn($span,$text)=>$this->cell($span,[$this->line($text,10,true)],'cover-table-head'),[6,14,24,16],['Session','Subject','Invigilator Name','Phone Number']));
-                    $rows=[...$rows,...$chunk];
-                    $rows[]=$this->row(max(1,262-array_sum(array_column($rows,'height'))),[$this->cell(60,'')]);
-                    $pages[]=$meta+['rows'=>$rows];
-                }
+                $rows=$this->heading($exam,$document,$meta,false);
+                $rows[]=$this->row(20,[$this->cell(60,'')]);
+                $rows[]=$this->row(16,[$this->cell(60,[$this->line('Attendance List',28,true)],'cover-title')]);
+                $rows[]=$this->row(18,[$this->cell(60,'Room: '.$meta['room'],'cover-room')]);
+                $rows[]=$this->row(18,[$this->cell(60,'')]);
+                $rows[]=$this->row(12,[$this->cell(60,'Grade: '.$meta['grade'],'cover-title')]);
+                $rows[]=$this->row(13,[$this->cell(60,'Number of Candidates: '.$meta['total'],'cover-text')]);
+                $rows[]=$this->row(max(1,262-array_sum(array_column($rows,'height'))),[$this->cell(60,'')]);
+                $pages[]=$meta+['rows'=>$rows];
             }elseif($document==='envelope-cover'){
-                $coverSubjects=$document==='envelope-cover'?$subjects->pluck('name')->all():[null];
-                foreach($coverSubjects as $subject){
-                    $rows=$this->heading($exam,$document,$meta,false);
-                    $rows[]=$this->row(12,[$this->cell(60,'','body')]);
-                    $rows[]=$this->row(23,[$this->cell(60,$subject?'Subject: '.$subject:[$this->line('Attendance List',28,true)],'cover-title')]);
-                    $rows[]=$this->row(25,[$this->cell(60,'Room: '.$meta['room'],'cover-room')]);
-                    $rows[]=$this->row(17,[$this->cell(60,'Grade: '.$meta['grade'],'cover-title')]);
-                    $rows[]=$this->row(13,[$this->cell(60,'Number of Candidates: '.$meta['total'],'cover-text')]);
-                    $rows[]=$this->row(13,[$this->cell(60,'Absent Students: __________','cover-text')]);
-                    $rows[]=$this->row(10,[$this->cell(60,'','body')]);
-                    $rows[]=$this->row(10,[$this->cell(6,''),$this->cell(24,'Invigilator(s)','cover-table-head'),$this->cell(24,'Contact Number','cover-table-head'),$this->cell(6,'')]);
-                    for($i=0;$i<2;$i++)$rows[]=$this->row(11,[$this->cell(6,''),$this->cell(24,'','cover-table-body'),$this->cell(24,'','cover-table-body'),$this->cell(6,'')]);
-                    $rows[]=$this->row(9,[$this->cell(60,'')]);
-                    if($subject){
-                        $rows[]=$this->row(9,[$this->cell(60,'For Central Exam Committee','committee')]);
-                        $rows[]=$this->row(15,[$this->cell(60,'Number of exam papers received: __________','cover-detail')]);
-                        $rows[]=$this->row(15,[$this->cell(60,'Received by: ____________________   Signature: ____________________','cover-detail')]);
+                foreach($subjects->values() as $subjectIndex=>$subject){
+                    $schedule=app(ScholarshipSubjectSchedule::class)->forSubject($exam,(int)$first->grade_number,$subject->id);
+                    $examTime=$schedule?\Carbon\Carbon::createFromFormat('H:i',$schedule['starts_at'])->format('g:i A')."\u{2013}".\Carbon\Carbon::createFromFormat('H:i',$schedule['ends_at'])->format('g:i A'):'Not scheduled';
+                    $assigned=$duties->filter(fn($duty)=>$duty->exam_center_id===$first->exam_center_id
+                        && $duty->room_number===$first->room_number && $duty->session?->number===$subjectIndex+1)
+                        ->sortBy(fn($duty)=>$duty->invigilator?->name_en)->values();
+                    $contacts=$assigned->map(function($duty){
+                        $name=$duty->invigilator?->name_en??'';$phone=PhoneNumber::formatCambodian($duty->invigilator?->phone,international:true);
+                        return $this->row(max(11,ceil(mb_strlen($name)/30)*5,ceil(mb_strlen($phone)/30)*5),[
+                            $this->cell(6,''),$this->cell(24,$name,'cover-table-body'),
+                            $this->cell(24,$phone,'cover-table-body'),$this->cell(6,''),
+                        ]);
+                    })->all();
+                    while(count($contacts)<2)$contacts[]=$this->row(11,[$this->cell(6,''),$this->cell(24,'','cover-table-body'),$this->cell(24,'','cover-table-body'),$this->cell(6,'')]);
+                    // Keep additional invigilators on complete covers instead of overflowing A4.
+                    $chunks=[[]];$height=0;
+                    foreach($contacts as $row){
+                        if($height+$row['height']>28 && $chunks[array_key_last($chunks)]){$chunks[]=[];$height=0;}
+                        $chunks[array_key_last($chunks)][]=$row;$height+=$row['height'];
                     }
-                    $rows[]=$this->row(max(1,262-array_sum(array_column($rows,'height'))),[$this->cell(60,'')]);
-                    $pages[]=$meta+['rows'=>$rows];
+                    foreach($chunks as $part=>$chunk){
+                        $rows=$this->heading($exam,$document,$meta,false);
+                        $rows[]=$this->row(8,[$this->cell(60,'')]);
+                        $rows[]=$this->row(16,[$this->cell(60,'Subject: '.$subject->name.($part?' (continued)':''),'cover-title')]);
+                        $timeCell=$this->cell(60,[$this->line('Exam Time: '.$examTime,14,false)],'cover-text');$timeCell['role']='exam-time';$timeCell['padding_y']=0;
+                        $rows[]=$this->row(7,[$timeCell]);
+                        $rows[]=$this->row(22,[$this->cell(60,'Room: '.$meta['room'],'cover-room')]);
+                        $rows[]=$this->row(14,[$this->cell(60,'Grade: '.$meta['grade'],'cover-title')]);
+                        $rows[]=$this->row(13,[$this->cell(60,'Number of Candidates: '.$meta['total'],'cover-text')]);
+                        $rows[]=$this->row(13,[$this->cell(60,'Absent Students: __________','cover-text')]);
+                        $rows[]=$this->row(6,[$this->cell(60,'')]);
+                        $rows[]=$this->row(10,[$this->cell(6,''),$this->cell(24,'Invigilator(s)','cover-table-head'),$this->cell(24,'Contact Number','cover-table-head'),$this->cell(6,'')]);
+                        $rows=[...$rows,...$chunk];
+                        $rows[]=$this->row(12,[$this->cell(60,'')]);
+                        $rows[]=$this->row(9,[$this->cell(60,'For Central Exam Committee','committee')]);
+                        $rows[]=$this->row(6,[$this->cell(60,'')]);
+                        $rows[]=$this->row(12,[$this->cell(60,'Number of exam papers received: __________','cover-detail')]);
+                        $rows[]=$this->row(12,[$this->cell(60,'Received by: ____________________   Signature: ____________________','cover-detail')]);
+                        $rows[]=$this->row(max(1,262-array_sum(array_column($rows,'height'))),[$this->cell(60,'')]);
+                        $pages[]=$meta+['subject'=>$subject->name,'session'=>$subjectIndex+1,'rows'=>$rows];
+                    }
                 }
             }elseif($document==='seat-labels'){
                 foreach(array_chunk($students,18) as $chunk){
                     $rows=$this->heading($exam,$document,$meta,false,true);
-                    $rows[]=$this->row(7,[$this->cell(60,'Room: '.$meta['room'].'   ·   Grade: '.$meta['grade'].'   ·   Candidates: '.$meta['total'],'small')]);
+                    $summary=$this->line('Room: '.$meta['room'].'   ·   Grade: '.$meta['grade'],9);
+                    $summary['runs']=[
+                        $this->line('Room: ',9),$this->line($meta['room'],9,true,'#ed1c24'),
+                        $this->line('   ·   Grade: '.$meta['grade'],9),
+                    ];
+                    $count=$this->line('Number of Candidates: '.$meta['total'],9);
+                    $count['runs']=[$this->line('Number of Candidates: ',9),$this->line($meta['total'],9,true,'#ed1c24')];
+                    $rows[]=$this->row(9,[$this->cell(60,[$summary,$count],'small')]);
                     foreach(array_chunk($chunk,3) as $line){
                         $cells=[];
                         foreach($line as $student){
                             $cell=$this->cell(20,[
-                                $this->line($exam->examinationTitle(),mb_strlen($exam->examinationTitle())>30?6.5:9,true),$this->line($student['seat'],26,true,'#ed1c24'),
+                                $this->line($exam->examinationTitle(),$stickerTitleSize,true),$this->line($student['seat'],26,true,'#ed1c24'),
                                 $this->line('Seat No.',6),$this->line($student['name'],9,true),
                                 $this->line('Grade: '.$student['grade_number'].'   ·   Room: '.$meta['room'],8),
                             ],'label');
-                            $cell['logo']=true;$cell['logo_width']=8;$cells[]=$cell;
+                            $cell['logo']=true;$cell['logo_width']=$stickerLogoWidth;$cell['sticker_title']=true;$cells[]=$cell;
                         }
                         while(count($cells)<3)$cells[]=$this->cell(20,'');
-                        $rows[]=$this->row(37,$cells);
+                        $rows[]=$this->row(35,$cells);
                         $rows[]=$this->row(2,[$this->cell(60,'')]);
                     }
                     $pages[]=$meta+['rows'=>$rows];
@@ -161,10 +170,33 @@ class ScholarshipSeatReports
                 }
             }
         }
-        $logo=app(ScholarshipExport::class)->rankLogo();
-        $logoPath=$logo?\App\Models\BrandingSetting::current()->report_logo_1_path:null;
+        $logoPath=$logo?\App\Models\BrandingSetting::current()->getAttribute('report_logo_'.$logoNumber.'_path'):null;
         return ['title'=>self::DOCUMENTS[$document],'document'=>$document,'pages'=>$pages,'logoSrc'=>$logo,
-            'logoUrl'=>$logoPath?asset('storage/'.ltrim($logoPath,'/\\')):null,'pdfExport'=>false];
+            'logoLabel'=>'School Logo '.$logoNumber,'logoUrl'=>$logoPath?asset('storage/'.ltrim($logoPath,'/\\')):null,'pdfExport'=>false];
+    }
+
+    /** Preserve the artwork's proportions within the sticker's 30 x 10 mm logo area. */
+    private function stickerLogoWidth(string $source): float
+    {
+        $bytes=base64_decode(explode(',',$source,2)[1]??'',true);
+        $size=$bytes===false?false:@getimagesizefromstring($bytes);
+        if(!$size && str_starts_with($source,'data:image/svg+xml;') && $bytes!==false){
+            $svg=new \DOMDocument();
+            if(@$svg->loadXML($bytes,LIBXML_NONET) && $svg->documentElement?->localName==='svg'){
+                $box=preg_split('/[\s,]+/',trim($svg->documentElement->getAttribute('viewBox')));
+                if(count($box)===4 && (float)$box[2]>0 && (float)$box[3]>0)$size=[(float)$box[2],(float)$box[3]];
+            }
+        }
+        return $size && $size[1]>0?min(30,10*$size[0]/$size[1]):10;
+    }
+
+    private function stickerTitleSize(string $title): float
+    {
+        $font=base_path('vendor/mpdf/mpdf/ttfonts/DejaVuSans-Bold.ttf');
+        $box=function_exists('imagettfbbox') && is_file($font)?imagettfbbox(12,0,$font,$title):false;
+        // GD measures points at 96 DPI. Leave a little room inside the sticker border.
+        $width=$box?(max($box[0],$box[2],$box[4],$box[6])-min($box[0],$box[2],$box[4],$box[6]))*25.4/96:mb_strlen($title)*2.3;
+        return round(max(5,min(12,12*44/max(1,$width))),2);
     }
 
     private function heading(ScholarshipExam $exam,string $document,array $meta,bool $national,bool $compact=false): array
@@ -194,9 +226,10 @@ class ScholarshipSeatReports
             }
             return $rows;
         }
-        if($document==='attendance-cover'){
+        if(in_array($document,['attendance-cover','envelope-cover'],true)){
             $logo['logo_width']=85;$logo['role']='school-logo';
             $rows[]=$this->row(36,[$logo]);
+            if($document==='attendance-cover')$rows[]=$this->row(8,[$this->cell(60,'')]);
             $title=$exam->examinationTitle();
             foreach([
                 ['title',$title,mb_strlen($title)>60?20:14,mb_strlen($title)>60?16:24,true],
@@ -206,6 +239,19 @@ class ScholarshipSeatReports
             ] as [$role,$text,$height,$size,$bold]){
                 $cell=$this->cell(60,[$this->line($text,$size,$bold)],$role==='title'?'title':'subtitle');
                 $cell['padding_y']=0;$cell['role']=$role;
+                $rows[]=$this->row($height,[$cell]);
+            }
+            return $rows;
+        }
+        if($document==='seat-labels'){
+            $title=$exam->examinationTitle();
+            foreach([
+                ['title',$title,7,mb_strlen($title)>60?12:16,true],
+                ['academic-year','Academic Year: '.$exam->academicYear?->academic_year,4.5,8,false],
+                ['exam-center','Exam Center: '.$meta['center'],4.5,8,false],
+                ['exam-date','Exam Date: '.$exam->exam_date->format('F j, Y'),4.5,8,false],
+            ] as [$role,$text,$height,$size,$bold]){
+                $cell=$this->cell(60,[$this->line($text,$size,$bold)],'small');$cell['role']=$role;$cell['padding_y']=0;
                 $rows[]=$this->row($height,[$cell]);
             }
             return $rows;
@@ -274,7 +320,7 @@ class ScholarshipSeatReports
             'fontDir'=>[...(new \Mpdf\Config\ConfigVariables())->getDefaults()['fontDir'],public_path('fonts/khmer')],
             'fontdata'=>(new \Mpdf\Config\FontVariables())->getDefaults()['fontdata']+['scholarshipmuol'=>['R'=>'KhmerOSmuollight.ttf','useOTL'=>0xFF],'scholarshipsiemreap'=>['R'=>'KhmerOSsiemreap.ttf','useOTL'=>0xFF]],'default_font'=>'dejavusans','default_font_size'=>9]);
         $pdf->SetTitle($data['title']);
-        if($data['document']!=='attendance')$pdf->SetHTMLFooter('<div style="text-align:right;font-size:8pt">Page {PAGENO} of {nbpg}</div>');
+        if(!in_array($data['document'],['attendance','attendance-cover','envelope-cover'],true))$pdf->SetHTMLFooter('<div style="text-align:right;font-size:8pt">Page {PAGENO} of {nbpg}</div>');
         $pdf->shrink_tables_to_fit=1;
         if($data['logoSrc']){
             $pdf->imageVars['schoolLogo']=base64_decode(explode(',',$data['logoSrc'],2)[1]);

@@ -7,8 +7,12 @@ use ZipArchive;
 class ScholarshipExport
 {
     public function rankLogo(): ?string
+    {return $this->reportLogo(1);}
+
+    public function reportLogo(int $number=1): ?string
     {
-        $relative=\App\Models\BrandingSetting::current()->report_logo_1_path;
+        $field=$number===2?'report_logo_2_path':'report_logo_1_path';
+        $relative=\App\Models\BrandingSetting::current()->getAttribute($field);
         if(!$relative)return null;
         $root=realpath(storage_path('app/public'));
         $path=realpath(storage_path('app/public/'.ltrim($relative,'/\\')));

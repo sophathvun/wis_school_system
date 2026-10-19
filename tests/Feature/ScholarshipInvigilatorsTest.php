@@ -173,14 +173,60 @@ it('imports people without room assignments before seats and sessions are ready'
     expect($this->service->import($this->user,$this->exam,$book,false,false,$this->exam->fresh()->version)['created'])->toBe(1);
 });
 
-it('prints per-subject invigilator names and phones independently for each room',function(){
+it('omits the invigilator session table from attendance covers without changing saved duties',function(){
     invigilatorSessions($this);$a=$this->service->save($this->user,$this->exam,$this->person);$b=$this->service->save($this->user,$this->exam,array_replace($this->person,['name_en'=>'SECOND INVIGILATOR','phone'=>'099999999']));
     $this->service->assign($this->user,$this->exam,invigilatorDuty($this,$a));$this->service->assign($this->user,$this->exam,invigilatorDuty($this,$b,2));
     $data=scholarshipSeatReportData($this->exam->fresh(),'attendance-cover');expect($data['pages'])->toHaveCount(2);
     $north=collect($data['pages'])->firstWhere('center','North Exam Center');$south=collect($data['pages'])->firstWhere('center','South Exam Center');
     $texts=fn($page)=>collect($page['rows'])->flatMap(fn($r)=>$r['cells'])->flatMap(fn($c)=>$c['lines'])->pluck('text')->all();
-    expect($texts($north))->toContain('EXTERNAL INVIGILATOR','012345678','SECOND INVIGILATOR','099999999','Khmer','Science')->and($texts($south))->not->toContain('EXTERNAL INVIGILATOR','012345678');
+    foreach([$north,$south] as $page)expect($texts($page))->toContain('Attendance List','Room: 1')->not->toContain('Session','Subject','Invigilator Name','Phone Number','EXTERNAL INVIGILATOR','012345678','SECOND INVIGILATOR','099999999','Khmer','Science');
+    expect($this->exam->invigilatorDuties()->count())->toBe(2);
     expect(preg_match_all('~/Type\s*/Page(?!s)\b~',app(ScholarshipSeatReports::class)->pdf($data)))->toBe(2);
+});
+
+it('fills envelope contacts from the correct center room and grade subject session',function(){
+    invigilatorSessions($this);
+    $a=$this->service->save($this->user,$this->exam,$this->person);
+    $b=$this->service->save($this->user,$this->exam,array_replace($this->person,['name_en'=>'SECOND INVIGILATOR','phone'=>'099999999']));
+    $c=$this->service->save($this->user,$this->exam,array_replace($this->person,['name_en'=>'SOUTH INVIGILATOR','phone'=>'088888888']));
+    $ids=$this->exam->subjects()->orderBy('position')->pluck('id')->all();
+    $this->exam->update(['subject_orders'=>['grades'=>[2=>[$ids[1],$ids[0],$ids[2],$ids[3]]]]]);
+    $this->exam->candidates()->where('campus_id',1)->first()->update(['room_number'=>2]);
+    $this->service->assign($this->user,$this->exam,invigilatorDuty($this,$a));
+    $this->service->assign($this->user,$this->exam,invigilatorDuty($this,$b,2));
+    $this->service->assign($this->user,$this->exam,invigilatorDuty($this,$c,1,1,$this->exam->centers()->get()->last()->id));
+    $this->service->assign($this->user,$this->exam,invigilatorDuty($this,$a,3,2));
+    $data=scholarshipSeatReportData($this->exam->fresh(),'envelope-cover');
+    foreach($data['pages'] as $page){
+        $texts=collect($page['rows'])->flatMap(fn($row)=>$row['cells'])->flatMap(fn($cell)=>$cell['lines'])->pluck('text');
+        $expected=match(true){
+            $page['center']==='North Exam Center' && $page['room']===1 && $page['subject']==='Khmer'=>'EXTERNAL INVIGILATOR',
+            $page['center']==='North Exam Center' && $page['room']===1 && $page['subject']==='Science'=>'SECOND INVIGILATOR',
+            $page['center']==='North Exam Center' && $page['room']===2 && $page['subject']==='Mathematics'=>'EXTERNAL INVIGILATOR',
+            $page['center']==='South Exam Center' && $page['subject']==='Science'=>'SOUTH INVIGILATOR',
+            default=>null,
+        };
+        foreach([$a,$b,$c] as $person){
+            $phone=\App\Support\PhoneNumber::formatCambodian($person->phone,international:true);
+            if($expected===$person->name_en)expect($texts)->toContain($person->name_en,$phone);
+            else expect($texts)->not->toContain($person->name_en,$phone);
+        }
+    }
+    expect($data['pages'])->toHaveCount(12);
+});
+
+it('keeps additional envelope invigilators on complete continuation covers',function(){
+    invigilatorSessions($this);
+    foreach(range(1,4) as $number){
+        $person=$this->service->save($this->user,$this->exam,array_replace($this->person,['name_en'=>'INVIGILATOR '.$number]));
+        $this->service->assign($this->user,$this->exam,invigilatorDuty($this,$person));
+    }
+    $data=scholarshipSeatReportData($this->exam->fresh(),'envelope-cover');
+    $covers=collect($data['pages'])->where('center','North Exam Center')->where('subject','Khmer');
+    expect($covers)->toHaveCount(2);
+    $texts=$covers->flatMap(fn($page)=>$page['rows'])->flatMap(fn($row)=>$row['cells'])->flatMap(fn($cell)=>$cell['lines'])->pluck('text');
+    expect($texts)->toContain('INVIGILATOR 1','INVIGILATOR 2','INVIGILATOR 3','INVIGILATOR 4','Subject: Khmer (continued)');
+    expect(preg_match_all('~/Type\s*/Page(?!s)\b~',app(ScholarshipSeatReports::class)->pdf($data)))->toBe(count($data['pages']));
 });
 
 it('renders committee UI with HRM external Excel schedule and room assignment controls',function(){
@@ -370,7 +416,8 @@ it('uses session two as the source for a three-session group and preserves its s
     $data=scholarshipSeatReportData($this->exam->fresh(),'attendance-cover');
     $north=collect($data['pages'])->firstWhere('center','North Exam Center');
     $names=collect($north['rows'])->flatMap(fn($r)=>$r['cells'])->flatMap(fn($c)=>$c['lines'])->pluck('text');
-    expect($names->filter(fn($text)=>$text==='EXTERNAL INVIGILATOR')->count())->toBe(3);
+    expect($names)->not->toContain('EXTERNAL INVIGILATOR','Invigilator Name');
+    expect($person->duties()->count())->toBe(3);
 });
 
 it('can explicitly use an empty source to clear and link the selected center sessions',function(){

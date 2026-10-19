@@ -111,8 +111,11 @@ class ScholarshipSeatWorkbook
                         $sheet.=' t="inlineStr"><is>';
                         if(!$lines)$sheet.='<t></t>';
                         foreach($lines as $lineIndex=>$line){
-                            $font=($line['font']??'')==='muol'?'Khmer OS Muol Light':(preg_match('/\p{Khmer}/u',(string)$line['text'])?'Khmer OS Siemreap':'Arial');
-                            $sheet.='<r><rPr><rFont val="'.$font.'"/><sz val="'.($line['size']??$style['size']).'"/>'.(($line['bold']??$style['bold']??false)?'<b/>':'').'<color rgb="FF'.str_replace('#','',$line['color']??$style['color']??'#000000').'"/></rPr><t xml:space="preserve">'.$this->xml(($lineIndex?"\n":'').$line['text']).'</t></r>';
+                            foreach($line['runs']??[$line] as $runIndex=>$run){
+                            $run=array_replace($line,$run);
+                            $font=($run['font']??'')==='muol'?'Khmer OS Muol Light':(preg_match('/\p{Khmer}/u',(string)$run['text'])?'Khmer OS Siemreap':'Arial');
+                            $sheet.='<r><rPr><rFont val="'.$font.'"/><sz val="'.($run['size']??$style['size']).'"/>'.(($run['bold']??$style['bold']??false)?'<b/>':'').'<color rgb="FF'.str_replace('#','',$run['color']??$style['color']??'#000000').'"/></rPr><t xml:space="preserve">'.$this->xml(($lineIndex&&$runIndex===0?"\n":'').$run['text']).'</t></r>';
+                            }
                         }
                         $sheet.='</is></c>';
                     }
@@ -133,7 +136,7 @@ class ScholarshipSeatWorkbook
             foreach($this->images as $i=>$image){
                 $scale=min($image['max_width']/$logo['width'],$image['max_height']/$logo['height']);
                 $width=(int)round($logo['width']*$scale*36000);$height=(int)round($logo['height']*$scale*36000);
-                $xml.='<xdr:oneCellAnchor><xdr:from><xdr:col>'.$image['column'].'</xdr:col><xdr:colOff>36000</xdr:colOff><xdr:row>'.$image['row'].'</xdr:row><xdr:rowOff>'.((1+$image['offset_y'])*36000).'</xdr:rowOff></xdr:from><xdr:ext cx="'.$width.'" cy="'.$height.'"/><xdr:pic><xdr:nvPicPr><xdr:cNvPr id="'.($i+1).'" name="School Logo 1"/><xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr><xdr:blipFill><a:blip r:embed="rId1"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill><xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="'.$width.'" cy="'.$height.'"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:oneCellAnchor>';
+                $xml.='<xdr:oneCellAnchor><xdr:from><xdr:col>'.$image['column'].'</xdr:col><xdr:colOff>36000</xdr:colOff><xdr:row>'.$image['row'].'</xdr:row><xdr:rowOff>'.((1+$image['offset_y'])*36000).'</xdr:rowOff></xdr:from><xdr:ext cx="'.$width.'" cy="'.$height.'"/><xdr:pic><xdr:nvPicPr><xdr:cNvPr id="'.($i+1).'" name="'.$this->xml($data['logoLabel']??'School Logo 1').'"/><xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr><xdr:blipFill><a:blip r:embed="rId1"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill><xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="'.$width.'" cy="'.$height.'"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:oneCellAnchor>';
             }
             $entries['xl/drawings/drawing'.$number.'.xml']='<?xml version="1.0"?><xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="'.self::REL.'">'.$xml.'</xdr:wsDr>';
         }
@@ -153,7 +156,7 @@ class ScholarshipSeatWorkbook
             return ['bytes'=>$bytes,'width'=>count($box)===4?max(1,(float)$box[2]):650,'height'=>count($box)===4?max(1,(float)$box[3]):240,'ext'=>'svg','mime'=>'image/svg+xml'];
         }
         $size=$bytes===false?false:@getimagesizefromstring($bytes);$image=$size?@imagecreatefromstring($bytes):false;
-        if(!$image)throw new RuntimeException('Unable to read School Logo 1.');
+        if(!$image)throw new RuntimeException('Unable to read the report logo.');
         ob_start();imagepng($image);$png=ob_get_clean();imagedestroy($image);
         return ['bytes'=>$png,'width'=>$size[0],'height'=>$size[1],'ext'=>'png','mime'=>'image/png'];
     }
