@@ -17,9 +17,9 @@ class ScholarshipSeatReports
     public function data(ScholarshipExam $exam, Collection $candidates, string $document): array
     {
         abort_unless(isset(self::DOCUMENTS[$document]),404);
-        $logoNumber=$document==='seat-labels'?2:1;
+        $logoNumber=1;
         $logo=app(ScholarshipExport::class)->reportLogo($logoNumber);
-        $stickerLogoWidth=$logo && $document==='seat-labels'?$this->stickerLogoWidth($logo):30;
+        $stickerLogoWidth=$logo && $document==='seat-labels'?$this->stickerLogoWidth($logo):40;
         $stickerTitleSize=$document==='seat-labels'?$this->stickerTitleSize($exam->examinationTitle()):12;
         $exam->loadMissing('academicYear','subjects');
         $candidates->each->loadMissing('student');
@@ -126,27 +126,23 @@ class ScholarshipSeatReports
             }elseif($document==='seat-labels'){
                 foreach(array_chunk($students,18) as $chunk){
                     $rows=$this->heading($exam,$document,$meta,false,true);
-                    $summary=$this->line('Room: '.$meta['room'].'   ·   Grade: '.$meta['grade'],9);
-                    $summary['runs']=[
-                        $this->line('Room: ',9),$this->line($meta['room'],9,true,'#ed1c24'),
-                        $this->line('   ·   Grade: '.$meta['grade'],9),
-                    ];
-                    $count=$this->line('Number of Candidates: '.$meta['total'],9);
-                    $count['runs']=[$this->line('Number of Candidates: ',9),$this->line($meta['total'],9,true,'#ed1c24')];
-                    $rows[]=$this->row(9,[$this->cell(60,[$summary,$count],'small')]);
+                    $rows[]=$this->row(3,[$this->cell(60,'')]);
                     foreach(array_chunk($chunk,3) as $line){
                         $cells=[];
                         foreach($line as $student){
+                            $seat=$this->line('Seat No. '.$student['seat'],26);
+                            $seat['role']='sticker-seat';
+                            $seat['runs']=[$this->line('Seat No. ',6),$this->line($student['seat'],26,true,'#ed1c24')];
                             $cell=$this->cell(20,[
-                                $this->line($exam->examinationTitle(),$stickerTitleSize,true),$this->line($student['seat'],26,true,'#ed1c24'),
-                                $this->line('Seat No.',6),$this->line($student['name'],9,true),
+                                $this->line($exam->examinationTitle(),$stickerTitleSize,true),$seat,
+                                $this->line($student['name'],$this->stickerTextSize($student['name'],10.5),true)+['space_after'=>1],
                                 $this->line('Grade: '.$student['grade_number'].'   ·   Room: '.$meta['room'],8),
                             ],'label');
-                            $cell['logo']=true;$cell['logo_width']=$stickerLogoWidth;$cell['sticker_title']=true;$cells[]=$cell;
+                            $cell['logo']=true;$cell['logo_width']=$stickerLogoWidth;$cell['logo_height']=14;$cell['sticker_title']=true;$cells[]=$cell;
                         }
                         while(count($cells)<3)$cells[]=$this->cell(20,'');
-                        $rows[]=$this->row(35,$cells);
-                        $rows[]=$this->row(2,[$this->cell(60,'')]);
+                        $rows[]=$this->row(40,$cells);
+                        $rows[]=$this->row(1.5,[$this->cell(60,'')]);
                     }
                     $pages[]=$meta+['rows'=>$rows];
                 }
@@ -175,7 +171,7 @@ class ScholarshipSeatReports
             'logoLabel'=>'School Logo '.$logoNumber,'logoUrl'=>$logoPath?asset('storage/'.ltrim($logoPath,'/\\')):null,'pdfExport'=>false];
     }
 
-    /** Preserve the artwork's proportions within the sticker's 30 x 10 mm logo area. */
+    /** Preserve the artwork's proportions within the sticker's 40 x 14 mm logo area. */
     private function stickerLogoWidth(string $source): float
     {
         $bytes=base64_decode(explode(',',$source,2)[1]??'',true);
@@ -187,16 +183,24 @@ class ScholarshipSeatReports
                 if(count($box)===4 && (float)$box[2]>0 && (float)$box[3]>0)$size=[(float)$box[2],(float)$box[3]];
             }
         }
-        return $size && $size[1]>0?min(30,10*$size[0]/$size[1]):10;
+        return $size && $size[1]>0?min(40,14*$size[0]/$size[1]):14;
     }
 
     private function stickerTitleSize(string $title): float
+    {return $this->stickerTextSize($title,13);}
+
+    private function stickerTextSize(string $text,float $maximum,float $availableWidth=55,bool $bold=true): float
     {
-        $font=base_path('vendor/mpdf/mpdf/ttfonts/DejaVuSans-Bold.ttf');
-        $box=function_exists('imagettfbbox') && is_file($font)?imagettfbbox(12,0,$font,$title):false;
+        return round(max($bold?5:3,min($maximum,12*$availableWidth/max(1,$this->reportTextWidth($text,$bold)))),2);
+    }
+
+    /** Width in millimeters at 12 pt. */
+    private function reportTextWidth(string $text,bool $bold): float
+    {
+        $font=base_path('vendor/mpdf/mpdf/ttfonts/'.($bold?'DejaVuSans-Bold.ttf':'DejaVuSans.ttf'));
+        $box=function_exists('imagettfbbox') && is_file($font)?imagettfbbox(12,0,$font,$text):false;
         // GD measures points at 96 DPI. Leave a little room inside the sticker border.
-        $width=$box?(max($box[0],$box[2],$box[4],$box[6])-min($box[0],$box[2],$box[4],$box[6]))*25.4/96:mb_strlen($title)*2.3;
-        return round(max(5,min(12,12*44/max(1,$width))),2);
+        return $box?(max($box[0],$box[2],$box[4],$box[6])-min($box[0],$box[2],$box[4],$box[6]))*25.4/96:mb_strlen($text)*2.3;
     }
 
     private function heading(ScholarshipExam $exam,string $document,array $meta,bool $national,bool $compact=false): array
@@ -245,15 +249,22 @@ class ScholarshipSeatReports
         }
         if($document==='seat-labels'){
             $title=$exam->examinationTitle();
-            foreach([
-                ['title',$title,7,mb_strlen($title)>60?12:16,true],
-                ['academic-year','Academic Year: '.$exam->academicYear?->academic_year,4.5,8,false],
-                ['exam-center','Exam Center: '.$meta['center'],4.5,8,false],
-                ['exam-date','Exam Date: '.$exam->exam_date->format('F j, Y'),4.5,8,false],
-            ] as [$role,$text,$height,$size,$bold]){
-                $cell=$this->cell(60,[$this->line($text,$size,$bold)],'small');$cell['role']=$role;$cell['padding_y']=0;
-                $rows[]=$this->row($height,[$cell]);
-            }
+            $titleCell=$this->cell(48,[$this->line($title,mb_strlen($title)>60?12:16,true)],'small');
+            $titleCell['role']='title';$titleCell['padding_y']=0;
+            $room=$this->line('Room: '.$meta['room'],18);
+            $room['runs']=[$this->line('Room: ',18),$this->line($meta['room'],18,true,'#ed1c24')];
+            $roomCell=$this->cell(12,[$room,$this->line('Grade: '.$meta['grade'],10)],'sticker-header-room');$roomCell['role']='sticker-header-room';$roomCell['padding_y']=0;
+            $rows[]=$this->row(7,[$titleCell,$roomCell]);
+            $prefix='Academic Year: '.$exam->academicYear?->academic_year.' | Exam Center: '.$meta['center'].' | Exam Date: '.$exam->exam_date->format('F j, Y').' | Number of Candidates: ';
+            $text=$prefix.$meta['total'];
+            $numberWidth=$this->reportTextWidth((string)$meta['total'],true);
+            $size=$this->stickerTextSize($prefix,10,137-$numberWidth,false);
+            $subtitle=$this->line($text,$size);
+            $subtitle['runs']=[
+                $this->line($prefix,$size),$this->line($meta['total'],12,true,'#ed1c24'),
+            ];
+            $cell=$this->cell(60,[$subtitle],'small');$cell['role']='sticker-subtitle';$cell['padding_y']=0;
+            $rows[]=$this->row(5,[$cell]);
             return $rows;
         }
         $rows[]=$this->row($compact?12:28,[$logo]);
@@ -300,6 +311,7 @@ class ScholarshipSeatReports
             'body'=>['size'=>10,'align'=>'center'], 'title'=>['size'=>16,'bold'=>true,'align'=>'center'],
             'compact-title'=>['size'=>11,'bold'=>true,'align'=>'left'], 'subtitle'=>['size'=>11,'align'=>'center'],
             'room'=>['size'=>12,'bold'=>true,'align'=>'left','color'=>'#203c65'], 'small'=>['size'=>8,'align'=>'left'],
+            'sticker-header-room'=>['size'=>12,'align'=>'right'],
             'table-head'=>['size'=>8,'align'=>'center','fill'=>'#fff2cc','border'=>'#000000'],
             'candidate-table-head'=>['size'=>8,'align'=>'center','fill'=>'#dbeafe','border'=>'#000000'],
             'attendance-footer-label'=>['size'=>9,'align'=>'right','fill'=>'#fff2cc','border'=>'#000000'],

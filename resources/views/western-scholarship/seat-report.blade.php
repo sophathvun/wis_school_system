@@ -19,10 +19,13 @@
 .seat-stickers .label img{display:block;margin:0 auto}
 .sticker-heading{width:100%;border-collapse:collapse;table-layout:fixed;margin:0}
 .sticker-heading td{border:0;padding:0;vertical-align:top;height:10mm}
-.sticker-heading .sticker-logo img{margin:0}
+.sticker-heading .sticker-logo img{margin:0 auto}
 .seat-sticker-page [data-report-role="school-logo"]{vertical-align:bottom;padding-left:.7mm}
 .seat-sticker-page [data-report-role="school-logo"] img{display:block;object-position:left bottom}
 .seat-sticker-page [data-report-role="title"]{vertical-align:top}
+.seat-sticker-page [data-report-role="sticker-subtitle"] .line,.seat-sticker-page [data-report-role="sticker-subtitle"] .line span{white-space:nowrap!important;overflow-wrap:normal}
+.sticker-header-card{border:1px solid #000;border-radius:10px;padding:3mm;margin:0 3mm;background:#fff}
+.sticker-header-card>.report-grid{margin-bottom:0}
 .report-grid.envelope-contacts{border-collapse:separate;border-spacing:0}
 .envelope-contacts .contact-left{border-right-width:0!important}
 .envelope-contacts .cover-table-body{border-top-width:0!important}
@@ -60,6 +63,7 @@
     $tables=[];$profile=null;$lastCommittee=false;
     foreach($page['rows'] as $reportRow){
         $widths=array_column($reportRow['cells'],'span');
+        if($document==='seat-labels' && ($reportRow['cells'][0]['role']??'')==='sticker-subtitle')$widths=[48,12];
         $committee=$document==='envelope-cover' && collect($reportRow['cells'])->contains('style','committee');
         if($widths!==$profile || $committee || $lastCommittee){$tables[]=[];$profile=$widths;}
         $tables[array_key_last($tables)][]=$reportRow;
@@ -71,7 +75,9 @@
     $contactTable=$document==='envelope-cover' && collect($table[0]['cells'])->contains('style','cover-table-head');
     $committeeTable=$document==='envelope-cover' && collect($table[0]['cells'])->contains('style','committee');
     $stickerTable=$document==='seat-labels' && collect($table[0]['cells'])->contains('style','label');
+    $stickerHeader=$document==='seat-labels' && ($table[0]['cells'][0]['role']??'')==='title';
 @endphp
+@if($stickerHeader)<div class="sticker-header-card">@endif
 <table class="report-grid{{ $contactTable?' envelope-contacts':'' }}{{ $committeeTable?' envelope-committee':'' }}{{ $stickerTable?' seat-stickers':'' }}">
     <colgroup>
     @foreach($table[0]['cells'] as $cell)
@@ -87,24 +93,36 @@
             $border=isset($style['border'])?(($cell['style']==='label'?'.6mm':'.25mm').' solid '.$style['border']):'0';
             $alignment=($cell['logo']??false) && $cell['style']==='body'?'left':$style['align'];
             $contactClass=$contactTable && in_array($cell['style'],['cover-table-head','cover-table-body'],true)?($loop->index===1?' contact-left':' contact-right'):'';
+            $headerRoom=($cell['role']??'')==='sticker-header-room';
+            $cellWidth=($cell['role']??'')==='sticker-subtitle'?48:$cell['span'];
+            $cellHeight=$headerRoom?12:$row['height'];
         @endphp
-        <td class="{{ $cell['style'].$contactClass }}" @if(isset($cell['role'])) data-report-role="{{ $cell['role'] }}" @endif style="@if($cell['style']==='label')line-height:1;padding:.6mm;@endif width:{{ $cell['span']/60*100 }}%;height:{{ $row['height'] }}mm;text-align:{{ $alignment }};font-size:{{ $style['size'] }}pt;font-weight:{{ ($style['bold']??false)?'bold':'normal' }};color:{{ $style['color']??'#000' }};background:{{ $style['fill']??'#fff' }};border:{{ $border }};@if(isset($cell['padding_y']))padding-top:{{ $cell['padding_y'] }}mm;padding-bottom:{{ $cell['padding_y'] }}mm;@endif @if(isset($cell['offset_y']))padding-top:{{ max(0,$cell['offset_y']*2) }}mm;padding-bottom:{{ max(0,-$cell['offset_y']*2) }}mm;@endif">
+        <td class="{{ $cell['style'].$contactClass }}" @if($headerRoom)rowspan="2"@endif @if(isset($cell['role'])) data-report-role="{{ $cell['role'] }}" @endif style="@if($cell['style']==='label')line-height:1;padding:.2mm .6mm .6mm;vertical-align:top;@endif width:{{ $cellWidth/60*100 }}%;height:{{ $cellHeight }}mm;text-align:{{ $alignment }};font-size:{{ $style['size'] }}pt;font-weight:{{ ($style['bold']??false)?'bold':'normal' }};color:{{ $style['color']??'#000' }};background:{{ $style['fill']??'#fff' }};border:{{ $border }};@if(isset($cell['padding_y']))padding-top:{{ $cell['padding_y'] }}mm;padding-bottom:{{ $cell['padding_y'] }}mm;@endif @if(isset($cell['offset_y']))padding-top:{{ max(0,$cell['offset_y']*2) }}mm;padding-bottom:{{ max(0,-$cell['offset_y']*2) }}mm;@endif">
             @if(isset($cell['sticker_title']))
                 <table class="sticker-heading"><tr>
-                    <td class="sticker-logo" style="width:20%;height:10mm;padding:0;border:0;text-align:left;vertical-align:top">
-                        @if($logoSrc)<img src="{{ $pdfExport?$logoSrc:($logoUrl??$logoSrc) }}" style="width:{{ $cell['logo_width'] }}mm;max-height:10mm;margin:0" alt="{{ $logoLabel??'School Logo 2' }}">@endif
+                    <td class="sticker-logo" style="width:100%;height:{{ ($cell['logo_height']??14)-1 }}mm;padding:0;border:0;text-align:center;vertical-align:top">
+                        @if($logoSrc)<img src="{{ $pdfExport?$logoSrc:($logoUrl??$logoSrc) }}" style="width:{{ $cell['logo_width'] }}mm;max-height:{{ $cell['logo_height']??14 }}mm;margin:-.5mm auto -1mm" alt="{{ $logoLabel??'School Logo 1' }}">@endif
                     </td>
-                    <td class="sticker-title" style="width:80%;height:10mm;padding:0;border:0;text-align:center;vertical-align:middle;font-size:{{ $cell['lines'][0]['size'] }}pt;font-weight:bold;line-height:1.1">{{ $cell['lines'][0]['text'] }}</td>
-                </tr><tr><td colspan="2" style="height:auto;padding:0;border:0;text-align:center;line-height:1">
+                </tr><tr><td class="sticker-title" style="height:auto;padding:0 0 1mm;border:0;text-align:center;font-size:{{ $cell['lines'][0]['size'] }}pt;font-weight:bold;line-height:1">{{ $cell['lines'][0]['text'] }}</td></tr>
+                <tr><td style="height:auto;padding:0;border:0;text-align:center;line-height:1">
             @elseif(($cell['logo']??false) && $logoSrc)
                 <img src="{{ $pdfExport?$logoSrc:($logoUrl??$logoSrc) }}" style="width:{{ $cell['logo_width'] }}mm;max-height:{{ max(6,$row['height']-2) }}mm;@if(isset($cell['logo_offset_y']))margin-top:{{ $cell['logo_offset_y'] }}mm;margin-bottom:-{{ $cell['logo_offset_y'] }}mm;@endif" alt="Western International School">
             @endif
             @foreach($cell['lines'] as $line)
                 @if($line['text']!=='' && !(isset($cell['sticker_title']) && $loop->first))
+                @if(($line['role']??'')==='sticker-seat')
+                @php $numberWidth=min(64,4+12*mb_strlen((string)$line['runs'][1]['text']));$sideWidth=(100-$numberWidth)/2; @endphp
+                <table class="sticker-seat" style="width:100%;table-layout:fixed;border-collapse:collapse;margin:0 0 1mm"><tr>
+                    <td style="width:{{ $sideWidth }}%;height:auto;padding:0 0 1mm;border:0;text-align:right;vertical-align:bottom;font-size:6pt;line-height:1">Seat No.</td>
+                    <td class="sticker-seat-number" style="width:{{ $numberWidth }}%;height:auto;padding:0;border:0;text-align:center;vertical-align:bottom;font-size:26pt;font-weight:bold;color:#ed1c24;line-height:1">{{ $line['runs'][1]['text'] }}</td>
+                    <td style="width:{{ $sideWidth }}%;height:auto;padding:0;border:0"></td>
+                </tr></table>
+                @else
                 @php
                     $lineFont=($line['font']??'')==='muol'?'scholarshipmuol':(preg_match('/\p{Khmer}/u',(string)$line['text'])?'scholarshipsiemreap':null);
                 @endphp
                 <div class="line" style="@if($cell['style']==='label')line-height:100%;@endif font-size:{{ $line['size']??$style['size'] }}pt;font-weight:{{ ($line['bold']??$style['bold']??false)?'bold':'normal' }};color:{{ $line['color']??$style['color']??'#000' }};{{ $lineFont?'font-family:'.$lineFont.',sans-serif;':'' }}@if(isset($line['space_after']))margin-bottom:{{ $line['space_after'] }}mm;@endif">@if(isset($line['runs']))@foreach($line['runs'] as $run)<span style="font-size:{{ $run['size']??$line['size']??$style['size'] }}pt;font-weight:{{ ($run['bold']??false)?'bold':'normal' }};color:{{ $run['color']??'#000' }};white-space:pre-wrap">{{ $run['text'] }}</span>@endforeach @else{{ $line['text'] }}@endif</div>
+                @endif
                 @endif
             @endforeach
             @if(isset($cell['sticker_title']))</td></tr></table>@endif
@@ -114,6 +132,7 @@
     @endforeach
     </tbody>
 </table>
+@if($stickerHeader)</div>@endif
 @endforeach
 @if(!$pdfExport && !in_array($document,['attendance-cover','envelope-cover'],true))<div class="page-number">Page {{ $loop->iteration }} of {{ count($pages) }}</div>
 @endif

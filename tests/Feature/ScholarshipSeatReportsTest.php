@@ -55,6 +55,22 @@ it('keeps sticker and classroom seat numbers and names complete and in the refer
     }
 });
 
+it('fits sticker header metadata on one line and reduces its size for longer centers',function(){
+    $exam=scholarshipSeatReportExam(1);
+    $subtitle=fn($data)=>collect($data['pages'][0]['rows'])->flatMap(fn($row)=>$row['cells'])->firstWhere('role','sticker-subtitle')['lines'][0];
+    $short=$subtitle(scholarshipSeatReportData($exam,'seat-labels'));
+    $exam->candidates()->update(['exam_center_name'=>'Main Scholarship Examination Center for All Participating Campuses']);
+    $data=scholarshipSeatReportData($exam->fresh(),'seat-labels');$long=$subtitle($data);
+    expect($short['size'])->toBeGreaterThan(6)->and($short['size'])->toBeLessThanOrEqual(10)
+        ->and($long['size'])->toBeLessThan($short['size'])->and($long['runs'])->toHaveCount(2);
+    expect($long['text'])->toContain('Academic Year: 2025-2026 | Exam Center:',' | Exam Date: November 20, 2026 | Number of Candidates: 1')->not->toContain('Room:','Grade:');
+    foreach([$short,$long] as $line)expect($line['runs'][1]['size'])->toBe(12.0)->and($line['runs'][1]['bold'])->toBeTrue()->and($line['runs'][1]['color'])->toBe('#ed1c24');
+    $header=$data['pages'][0]['rows'][0]['cells'];
+    expect($header[0]['role'])->toBe('title')->and($header[1]['role'])->toBe('sticker-header-room')
+        ->and($header[1]['lines'][0]['text'])->toBe('Room: 1')->and($header[1]['lines'][0]['runs'][0]['size'])->toBe(18.0)->and($header[1]['lines'][0]['runs'][1]['size'])->toBe(18.0)
+        ->and($header[1]['lines'][1]['text'])->toBe('Grade: 1')->and($header[1]['lines'][1]['size'])->toBe(10.0);
+});
+
 it('uses smaller roster pages for long names without truncating the names',function(){
     $exam=scholarshipSeatReportExam();
     $longName='SAMPLE STUDENT WITH AN ESPECIALLY LONG ENGLISH NAME';
@@ -64,6 +80,21 @@ it('uses smaller roster pages for long names without truncating the names',funct
     expect($names)->toHaveCount(18)->and($names->first()['lines'][0]['text'])->toBe($longName);
 });
 
+it('enlarges short sticker names and scales long names to fit without truncation',function(){
+    $exam=scholarshipSeatReportExam();
+    $candidate=$exam->candidates()->first();
+    $name='SAMPLE STUDENT WITH AN ESPECIALLY LONG ENGLISH NAME';
+    $candidate->update(['snapshot'=>array_replace($candidate->snapshot,['name_en'=>$name])]);
+    $data=scholarshipSeatReportData($exam,'seat-labels');
+    $labels=collect($data['pages'][0]['rows'])->flatMap(fn($row)=>$row['cells'])->where('style','label');
+    $long=$labels->first(fn($cell)=>$cell['lines'][2]['text']===$name);
+    $short=$labels->first(fn($cell)=>$cell['lines'][2]['text']!==$name);
+    expect($short['lines'][2]['size'])->toBeGreaterThan(9)
+        ->and($long['lines'][2]['size'])->toBeLessThan($short['lines'][2]['size'])
+        ->and($long['lines'][2]['text'])->toBe($name);
+    expect(preg_match_all('~/Type\s*/Page(?!s)\b~',app(ScholarshipSeatReports::class)->pdf($data)))->toBe(count($data['pages']));
+});
+
 it('keeps eighteen branded stickers on each full A4 PDF page',function(){
     $data=scholarshipSeatReportData(scholarshipSeatReportExam(),'seat-labels');
     $data['logoSrc']='data:image/png;base64,'.base64_encode(file_get_contents(storage_path('app/public/school_logo/student_profile_report_logo.png')));
@@ -71,7 +102,7 @@ it('keeps eighteen branded stickers on each full A4 PDF page',function(){
     expect(preg_match_all('~/Type\s*/Page(?!s)\b~',$pdf))->toBe(count($data['pages']));
 });
 
-it('scales longer sticker titles down and puts the exam title beside the logo',function(){
+it('scales longer sticker titles down and puts the exam title below the centered logo',function(){
     $exam=scholarshipSeatReportExam();$short=scholarshipSeatReportData($exam,'seat-labels');
     $firstLabel=fn($data)=>collect($data['pages'][0]['rows'])->flatMap(fn($row)=>$row['cells'])->firstWhere('style','label');
     $shortLabel=$firstLabel($short);
@@ -106,7 +137,7 @@ it('produces editable styled A4 workbooks for every report and preserves literal
         if($kind==='attendance')$sheet.=$zip->getFromName('xl/worksheets/sheet2.xml');
         expect($sheet)->toContain('North Exam Center','South Exam Center','paperSize="9"','orientation="portrait"','<rowBreaks','mergeCell','HYPERLINK')->not->toContain('<f>','<f ');
         expect($zip->getFromName('xl/styles.xml'))->toContain('FFFFF2CC','Arial');
-        expect($zip->getFromName('xl/drawings/drawing1.xml'))->toContain($kind==='seat-labels'?'School Logo 2':'School Logo 1','noChangeAspect="1"');
+        expect($zip->getFromName('xl/drawings/drawing1.xml'))->toContain('School Logo 1','noChangeAspect="1"');
         $zip->close();
     }finally{unlink($path);}
 })->with(array_keys(ScholarshipSeatReports::DOCUMENTS));
@@ -122,7 +153,7 @@ function scholarshipRoomWorkbookParts(array $data): array
     }finally{unlink($path);}
 }
 
-it('uses Branding School Logo 2 only for stickers and fits portrait artwork on A4',function(){
+it('uses Branding School Logo 1 for stickers above the title and fits artwork on A4',function(){
     \Illuminate\Support\Facades\Schema::create('tb_branding_setting',function($table){$table->id();$table->string('report_logo_1_path');$table->string('report_logo_2_path');$table->timestamps();});
     $paths=[tempnam(storage_path('app/public'),'scholarship-logo-'),tempnam(storage_path('app/public'),'scholarship-logo-')];
     try{
@@ -133,16 +164,16 @@ it('uses Branding School Logo 2 only for stickers and fits portrait artwork on A
         }
         \Illuminate\Support\Facades\DB::table('tb_branding_setting')->insert(['report_logo_1_path'=>basename($paths[0]),'report_logo_2_path'=>basename($paths[1])]);
         $exam=scholarshipSeatReportExam();$data=scholarshipSeatReportData($exam,'seat-labels');
-        expect($data['logoSrc'])->toBe('data:image/png;base64,'.base64_encode(file_get_contents($paths[1])))
-            ->and($data['logoLabel'])->toBe('School Logo 2')->and($data['logoUrl'])->toContain(basename($paths[1]));
+        expect($data['logoSrc'])->toBe('data:image/png;base64,'.base64_encode(file_get_contents($paths[0])))
+            ->and($data['logoLabel'])->toBe('School Logo 1')->and($data['logoUrl'])->toContain(basename($paths[0]));
         $labels=collect($data['pages'][0]['rows'])->flatMap(fn($row)=>$row['cells'])->where('style','label');
-        expect($labels)->toHaveCount(18)->and($labels->first()['logo_width'])->toBeLessThan(10);
+        expect($labels)->toHaveCount(18)->and($labels->first()['logo_width'])->toBeLessThanOrEqual(40);
         $parts=scholarshipRoomWorkbookParts($data);
-        expect($parts['xl/drawings/drawing1.xml'])->toContain('School Logo 2');
+        expect($parts['xl/drawings/drawing1.xml'])->toContain('School Logo 1');
         $pdf=app(ScholarshipSeatReports::class)->pdf($data);
         expect(preg_match_all('~/Type\s*/Page(?!s)\b~',$pdf))->toBe(count($data['pages']));
         expect(scholarshipSeatReportData($exam,'candidates')['logoSrc'])->toBe('data:image/png;base64,'.base64_encode(file_get_contents($paths[0])));
-        \Illuminate\Support\Facades\DB::table('tb_branding_setting')->update(['report_logo_2_path'=>'missing-logo.png']);
+        \Illuminate\Support\Facades\DB::table('tb_branding_setting')->update(['report_logo_1_path'=>'missing-logo.png']);
         expect(scholarshipSeatReportData($exam,'seat-labels')['logoSrc'])->toBeNull();
     }finally{foreach($paths as $path)if(is_file($path))unlink($path);}
 });
