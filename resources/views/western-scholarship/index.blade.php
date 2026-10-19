@@ -5,7 +5,7 @@
 @endsection
 
 @section('content')
-<div class="scholarship-workspace scholarship-tabs-collapsed" data-scholarship-page data-students-url="{{ route('western-scholarship.students') }}" data-rank-filters-url="{{ route('western-scholarship.rank-filters') }}" data-rank-success="{{ $tab==='assign-rank' ? session('success','') : '' }}" data-committee-success="{{ $tab==='exam-committee' ? session('success','') : '' }}" data-seat-success="{{ $tab==='seat-plan' ? session('success','') : '' }}" data-settings-success="{{ $tab==='settings' ? session('success','') : '' }}" data-rank-errors="{{ $tab==='assign-rank' ? json_encode($errors->messages()) : '{}' }}">
+<div class="scholarship-workspace scholarship-tabs-collapsed" data-scholarship-page data-result-success="{{ $tab==='result' ? session('success','') : '' }}" data-scoring-success="{{ $tab==='scoring' ? session('success','') : '' }}" data-students-url="{{ route('western-scholarship.students') }}" data-rank-filters-url="{{ route('western-scholarship.rank-filters') }}" data-rank-success="{{ $tab==='assign-rank' ? session('success','') : '' }}" data-committee-success="{{ $tab==='exam-committee' ? session('success','') : '' }}" data-seat-success="{{ $tab==='seat-plan' ? session('success','') : '' }}" data-settings-success="{{ $tab==='settings' ? session('success','') : '' }}" data-rank-errors="{{ $tab==='assign-rank' ? json_encode($errors->messages()) : '{}' }}">
     <aside class="card scholarship-navigation">
         <div class="card-header scholarship-card-header scholarship-tabs-header"><h3 class="card-title"><i class="ti ti-award me-2" aria-hidden="true"></i>WIS Scholarship</h3><button type="button" class="btn btn-icon btn-outline-primary scholarship-tabs-toggle" aria-expanded="false" aria-controls="scholarshipTabList" aria-label="Expand scholarship tabs" data-bs-toggle="tooltip" data-bs-placement="right" data-bs-custom-class="scholarship-tabs-tooltip" data-bs-title="Expand scholarship tabs"><i class="ti ti-layout-sidebar-left-expand" aria-hidden="true"></i></button></div>
         <nav class="list-group list-group-flush" id="scholarshipTabList" aria-label="WIS Scholarship sections">
@@ -15,17 +15,28 @@
         </nav>
     </aside>
     <main class="scholarship-forms">
-        @if(!in_array($tab,['assign-rank','seat-plan','scoring','data-transfer'],true))@include('western-scholarship._exam-selector')@endif
-        @if(session('success') && !in_array($tab,['assign-rank','settings','seat-plan','exam-committee'],true))<div class="alert alert-success" role="status"><i class="ti ti-circle-check me-2" aria-hidden="true"></i>{{ session('success') }}</div>@endif
+        @if(!in_array($tab,['assign-rank','seat-plan','scoring','result','data-transfer'],true))@include('western-scholarship._exam-selector')@endif
+        @if(session('success') && !in_array($tab,['assign-rank','settings','seat-plan','exam-committee','scoring','result'],true))<div class="alert alert-success" role="status"><i class="ti ti-circle-check me-2" aria-hidden="true"></i>{{ session('success') }}</div>@endif
         @if($errors->any())<div class="alert alert-danger" role="alert"><ul class="mb-0">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
         @if($tab==='seat-plan')@include('western-scholarship._seat-filters')@endif
         @if($tab==='scoring')@include('western-scholarship._scoring-filters')@endif
-        <section class="card {{ $tab==='assign-rank'?'scholarship-rank-card':'' }}">
+        @if($tab==='result')@include('western-scholarship._result-filters')@endif
+        <section class="card {{ $tab==='assign-rank'?'scholarship-rank-card':'' }}" @if($tab==='scoring') data-scoring-card @elseif($tab==='result') data-result-card @endif>
             <div class="card-header scholarship-card-header scholarship-form-header {{ $tab==='seat-plan'?'scholarship-seat-header':'' }}">
                 <h3 class="card-title"><i class="ti {{ $tabs[$tab][1] }} me-2" aria-hidden="true"></i>{{ $tabs[$tab][0] }}</h3>
                 @if($tab==='seat-plan')@include('western-scholarship._seat-summary')@endif
                 @if($tab==='assign-rank')<button type="button" class="btn btn-icon btn-outline-primary scholarship-filter-toggle ms-auto" data-rank-filters-toggle aria-expanded="true" aria-controls="scholarshipRankFilters" aria-label="Collapse rank filters"><i class="ti ti-chevron-up" aria-hidden="true"></i></button>
                 @elseif($tab==='seat-plan' && ($exam?->seats_locked_at) && $examPermissions['export'])@include('western-scholarship._seat-exports')
+                @elseif($tab==='scoring')<button type="button" class="btn btn-sm btn-outline-light ms-auto" data-scoring-fullscreen aria-pressed="false"><i class="ti ti-maximize me-2" aria-hidden="true"></i><span>Full Screen</span></button>
+                @elseif($tab==='result')
+                    <div class="d-flex flex-wrap gap-2 ms-auto" role="group" aria-label="Result actions">
+                        @if($exam && $examPermissions['export'])
+                        <a class="btn btn-sm btn-outline-light" target="_blank" rel="noopener" href="{{ route('western-scholarship.report',[$exam,'results','print']) }}"><i class="ti ti-printer me-1" aria-hidden="true"></i>Print Results</a>
+                        <a class="btn btn-sm btn-outline-light" href="{{ route('western-scholarship.report',[$exam,'results','xlsx']) }}"><i class="ti ti-file-spreadsheet me-1" aria-hidden="true"></i>Excel</a>
+                        <a class="btn btn-sm btn-outline-light" href="{{ route('western-scholarship.report',[$exam,'results','csv']) }}"><i class="ti ti-file-type-csv me-1" aria-hidden="true"></i>CSV</a>
+                        @endif
+                        <button type="button" class="btn btn-sm btn-outline-light" data-result-fullscreen aria-pressed="false"><i class="ti ti-maximize me-2" aria-hidden="true"></i><span>Full Screen</span></button>
+                    </div>
                 @else<span class="badge bg-white text-dark ms-auto">Forms</span>@endif
             </div>
             <div class="card-body" @if($tab==='assign-rank') id="scholarshipRankFilters" @endif>
@@ -67,7 +78,7 @@
         @include('western-scholarship._ranks')
         @endif
     </main>
-    @if(in_array($tab,['assign-rank','seat-plan','scoring'],true))@include('western-scholarship._photo-viewer')@endif
+    @if(in_array($tab,['assign-rank','seat-plan','scoring','result'],true))@include('western-scholarship._photo-viewer')@endif
     @if($tab === 'assign-rank')@include('western-scholarship._print-settings')@endif
     @if($tab==='seat-plan' && ($exam?->seats_locked_at) && $examPermissions['export'])
         @include('western-scholarship._seat-report-scope')

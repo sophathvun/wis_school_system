@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\{AcademicYear, Grade, ScholarshipCandidate, ScholarshipCommittee, ScholarshipEvent, ScholarshipExam, ScholarshipScore, ScholarshipStudentRank, ScholarshipSubject, StudentEnrollment, User};
 use App\Support\ScholarshipPermissions;
+use App\Support\ScholarshipCandidateCode;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -307,9 +308,11 @@ class ScholarshipWorkflow
     }
 
     /** Each center starts at Room 1 / Seat 1; seat numbers continue through all grades and rooms. */
-    public function allocate(Collection $candidates, int $capacity, ?Collection $centers=null): array
+    public function allocate(Collection $candidates, int $capacity, string $academicYear, ?Collection $centers=null): array
     {
         if ($capacity < 1) $this->fail('Room capacity must be positive.');
+        $yearPrefix=ScholarshipCandidateCode::yearPrefix($academicYear);
+        if($yearPrefix===null)$this->fail('Use an academic year such as 2025-2026 before generating candidate numbers.');
         $compare = function ($a,$b) {
             return ($a->grade_number <=> $b->grade_number)
                 ?: strcmp(mb_strtoupper(trim($a->snapshot['name_en'])),mb_strtoupper(trim($b->snapshot['name_en'])))
@@ -329,7 +332,7 @@ class ScholarshipWorkflow
             $previousCenter=$center['id']??null;$number=$numbers[$key];
             $plan[]=['id'=>$candidate->id,'grade_number'=>$grade,'room_number'=>$room,'room_seat'=>++$seat,'grade_exam_number'=>$number,
                 'exam_center_id'=>$center['id']??null,'exam_center_name'=>$center['name']??null,'seat_scope'=>$center['id']??0,
-                'candidate_code'=>sprintf('G%02d-%03d',$grade,$number),'snapshot'=>$candidate->snapshot];
+                'candidate_code'=>sprintf('%s-G%02d-%03d',$yearPrefix,$grade,$number),'snapshot'=>$candidate->snapshot];
         }
         return $plan;
     }
@@ -338,7 +341,7 @@ class ScholarshipWorkflow
     {
         if($exam->isHistorical())return ['rows'=>$this->orderedSeats($exam,$exam->candidates()->get())->map->toArray()->all(),'unassigned_campuses'=>[],'token'=>''];
         $centers=$exam->centers()->with('campuses')->get();
-        $rows = $this->allocate($exam->candidates()->get(),$exam->room_capacity,$centers);
+        $rows = $this->allocate($exam->candidates()->get(),$exam->room_capacity,(string)$exam->academicYear?->academic_year,$centers);
         $unassigned=$centers->isEmpty()?[]:collect($rows)->whereNull('exam_center_id')->pluck('snapshot.campus')->unique()->values()->all();
         return ['rows'=>$rows,'unassigned_campuses'=>$unassigned,'token'=>hash('sha256',json_encode([$exam->id,$exam->version,$exam->room_capacity,$rows],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR))];
     }

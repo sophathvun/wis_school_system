@@ -8,19 +8,36 @@ import { initSubjectOrder, initSubjectRows } from './scholarshipSubjectOrder.js'
 import { initExaminationType } from './scholarshipExaminationType.js';
 import { initSeatPagination } from './scholarshipSeatPagination.js';
 import { initScoring } from './scholarshipScoring.js';
+import { initResultFilters } from './scholarshipResultFilters.js';
+import { initResults } from './scholarshipResults.js';
 import { initHistoricalTransfer } from './scholarshipHistoricalTransfer.js';
 import { initInvigilators } from './scholarshipInvigilators.js';
 import { initPremiumDatePicker } from './premiumDatePicker.js';
 
 const root = document.querySelector('[data-scholarship-page]');
 if (root) {
-    const actionSuccess=root.dataset.settingsSuccess||root.dataset.seatSuccess||root.dataset.committeeSuccess;
-    if(actionSuccess)Swal.fire({toast:true,position:'top-end',icon:'success',title:actionSuccess,showConfirmButton:false,showCloseButton:true,timer:3500,timerProgressBar:true});
+    const actionSuccess=root.dataset.settingsSuccess||root.dataset.seatSuccess||root.dataset.committeeSuccess||root.dataset.scoringSuccess||root.dataset.resultSuccess;
+    if(actionSuccess){
+        const savedDrafts=root.querySelector('[data-draft-save-confirmed]');
+        let summary;
+        if(savedDrafts?.dataset.savedSubject){
+            const blanks=[...root.querySelectorAll('[data-score-subject-heading]')].filter(header=>header.dataset.scoreSubjectHeading===savedDrafts.dataset.savedSubject).map(header=>({
+                subject:header.dataset.scoreSubjectName,
+                grade:header.closest('.scholarship-scoring-grade').querySelector('h4').textContent.trim(),
+                count:Number(header.querySelector('[data-subject-blank]').textContent),
+            })).filter(subject=>subject.count>0);
+            summary=document.createElement('div');summary.style.whiteSpace='pre-line';summary.style.textAlign='left';
+            summary.textContent=blanks.length?'Blank scores remaining:\n'+blanks.map(subject=>`${subject.subject} (${subject.grade}): ${subject.count}`).join('\n'):'No blank scores. The selected scoring subject is complete.';
+        }
+        Swal.fire({toast:true,position:'top-end',icon:'success',title:actionSuccess,...(summary?{html:summary}:{}),showConfirmButton:false,showCloseButton:true,timer:savedDrafts?8000:3500,timerProgressBar:true});
+    }
     initRankPrintSettings(root);
     initCenterLocations(root);
     initSubjectOrder(root);
     initSeatPagination(root);
     initScoring(root);
+    initResultFilters(root);
+    initResults(root);
     initHistoricalTransfer(root);
     initExaminationType(root);
     const photoModalElement=root.querySelector('#scholarshipPhotoModal');
@@ -116,8 +133,32 @@ if (root) {
     }
     root.querySelector('[data-exam-selector] select')?.addEventListener('change', event => event.target.form.submit());
     const pendingSeatConfirmations=new WeakSet();
+    const pendingResultConfirmations=new WeakSet(),approvedResultConfirmations=new WeakSet();
     root.addEventListener('submit',async event=>{
+        if(event.defaultPrevented)return;
         const confirmedForm=event.target.closest('[data-scholarship-confirm]');
+        if(confirmedForm?.matches('[data-result-publish-confirm]')){
+            if(approvedResultConfirmations.has(confirmedForm))return;
+            event.preventDefault();
+            if(pendingResultConfirmations.has(confirmedForm))return;
+            pendingResultConfirmations.add(confirmedForm);
+            try{
+                const result=await Swal.fire({
+                    position:'center',icon:'question',title:'Publish & Lock Results?',text:confirmedForm.dataset.scholarshipConfirm,
+                    target:root.classList.contains('is-result-fullscreen')?root:document.body,
+                    showCancelButton:true,confirmButtonText:'Publish & Lock',cancelButtonText:'Cancel',focusCancel:true,
+                });
+                if(result.isConfirmed && confirmedForm.isConnected){
+                    approvedResultConfirmations.add(confirmedForm);
+                    if(event.submitter)confirmedForm.requestSubmit(event.submitter);
+                    else confirmedForm.requestSubmit();
+                }
+            }finally{
+                approvedResultConfirmations.delete(confirmedForm);
+                pendingResultConfirmations.delete(confirmedForm);
+            }
+            return;
+        }
         if(confirmedForm?.matches('[data-seat-plan-confirm]')){
             event.preventDefault();
             if(pendingSeatConfirmations.has(confirmedForm))return;

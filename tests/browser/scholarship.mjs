@@ -633,17 +633,12 @@ try {
             if(tab==='scoring')assert.equal(await evaluate('document.querySelector(".scholarship-score-input-cell input").value'),'90');
             if(tab==='result')assert.equal(await evaluate('document.body.textContent.includes("Published results")'),true);
             if(tab==='awards') {
-                assert.equal(await evaluate('document.querySelectorAll("[data-award-winner]").length'),7);
-                assert.equal(await evaluate('document.querySelector("[data-award-guidance]").textContent.includes("8 students tied")'),true);
-                await click('[data-award-slot] .scholarship-select-toggle');
-                await click('[data-award-slot] .scholarship-select-option:nth-child(2)');
-                assert.equal(await evaluate('[...document.querySelectorAll("[data-award-guidance]")][1].textContent.includes("7 students tied")'),true);
-                await evaluate(`document.querySelectorAll('[data-award-winner]').forEach((select,index)=>{if(index){select.value=[...select.options].filter(o=>o.value && !o.disabled)[0].value;select.dispatchEvent(new Event('change',{bubbles:true}));}})`);
-                assert.equal(await evaluate('new Set([...document.querySelectorAll("[data-award-winner]")].map(s=>s.value)).size'),7);
-                await evaluate(`document.querySelector('[data-award-form]').addEventListener('submit',event=>{event.preventDefault();window.awardSubmission=Object.fromEntries(new FormData(event.target));});document.querySelector('[data-award-form]').requestSubmit();`);
-                assert.equal(await evaluate('window.awardSubmission["awards[total_1][award_percent]"]'),'100');
-                assert.equal(await evaluate('window.awardSubmission["awards[total_2][award_percent]"]'),'75');
-                assert.equal(await evaluate('window.awardSubmission["awards[total_3][award_percent]"]'),'50');
+                assert.equal(await evaluate('document.querySelectorAll("[data-result-award-select]").length'),8);
+                await evaluate(`(()=>{const slots=[...document.querySelectorAll('[data-result-award-slot]')];const selects=[...document.querySelectorAll('[data-result-award-select]')];slots.forEach((slot,index)=>{selects[index].value=slot.dataset.resultAwardSlot;selects[index].dispatchEvent(new Event('change',{bubbles:true}));});})()`);
+                assert.equal(await evaluate('new Set([...document.querySelectorAll("[data-result-award-select]")].filter(s=>s.value).map(s=>s.value)).size'),7);
+                assert.deepEqual(await evaluate('[...document.querySelectorAll("[data-result-award-slot]")].slice(0,3).map(slot=>slot.querySelector("[data-slot-award]").value)'),['100','75','50']);
+                // Revert local choices before the harness navigates to the next tab.
+                await evaluate(`document.querySelectorAll('[data-result-award-select]').forEach(select=>{select.value='';select.dispatchEvent(new Event('change',{bubbles:true}));});`);
             }
             if(tab==='exam-committee')assert.equal(await evaluate('document.querySelector("[name=role]").options.length'),4);
             if(tab==='seat-plan-centers'||tab==='seat-plan-confirmed'){
@@ -663,7 +658,7 @@ try {
                     ['North Exam Center','1','1'],['North Exam Center','2','2'],['South Exam Center','1','1'],['South Exam Center','2','2'],
                 ],'Preview and confirmed lists restart room/seat numbers for each center and continue seats into Grade 2');
                 assert.deepEqual(await evaluate(`[...document.querySelectorAll('.scholarship-seat-table tbody tr')].map(row=>row.cells[0].textContent.trim())`),['1','2','3','4']);
-                assert.equal(await evaluate(`(()=>{const row=document.querySelector('.scholarship-seat-table tbody tr');return row.cells[2].textContent.includes('2026001')&&row.cells[2].textContent.includes('CHEAN CHAMNUNY')&&row.cells[3].textContent.includes('2025-2026')&&row.cells[3].textContent.includes('BCH-1A-III')&&row.cells[4].textContent==='G01-001';})()`),true,'Student and enrollment details accompany the exam code');
+                assert.equal(await evaluate(`(()=>{const row=document.querySelector('.scholarship-seat-table tbody tr');return row.cells[2].textContent.includes('2026001')&&row.cells[2].textContent.includes('CHEAN CHAMNUNY')&&row.cells[3].textContent.includes('2025-2026')&&row.cells[3].textContent.includes('BCH-1A-III')&&row.cells[4].textContent==='2526-G01-001';})()`),true,'Student and enrollment details accompany the exam code');
                 await evaluate(`new Promise(resolve=>{document.querySelector('#scholarshipPhotoModal').addEventListener('shown.bs.modal',resolve,{once:true});document.querySelector('.scholarship-seat-table [data-scholarship-photo]').click();})`);
                 await until('!document.querySelector("[data-photo-image]").hidden');
                 assert.equal(await evaluate('document.querySelector("[data-photo-download]").download'),'CHEAN_CHAMNUNY.svg');

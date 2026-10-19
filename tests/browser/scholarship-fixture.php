@@ -79,13 +79,25 @@ if(($argv[1]??'')==='rank-saved') {
     if(($argv[2]??'')==='new')$exam->delete();
     if(($argv[1]??'')==='settings' && ($argv[2]??'')==='locked'){$workflow->lockPlan($user,$exam,$workflow->plan($exam)['token']);$exam=$exam->fresh();}
     parse_str($argv[3]??'',$seatQuery);
+    if(($argv[1]??'')==='scoring' && !empty($seatQuery['scoring_sort'])){
+        foreach([2=>0,3=>80,4=>80] as $id=>$value){
+            $row=$exam->candidates()->findOrFail($id);
+            $values=$workflow->applicableSubjects($exam,$row->grade_number)->mapWithKeys(fn($subject)=>[$subject->id=>$value])->all();
+            $workflow->saveScores($user,$exam,$row,$values,false,$row->version);
+        }
+    }
     $request=\Illuminate\Http\Request::create('http://localhost/students/western-scholarship','GET',(($argv[2]??'')==='new'?['tab'=>'settings','new_exam'=>1,'academic_year_id'=>1]:['tab'=>$argv[1],'exam_id'=>$exam->id])+$seatQuery);
     if(!empty($seatQuery['seat_list']))$request->headers->set('Accept','application/json');
     $request->setUserResolver(fn()=>$user);$request->setLaravelSession(app('session')->driver());$app->instance('request',$request);
     $response=app(\App\Http\Controllers\ScholarshipController::class)->index($request);
     if(!empty($seatQuery['seat_list'])){echo $response->getContent();exit;}
     $data=$response->getData()+['errors'=>new \Illuminate\Support\ViewErrorBag()];
+    if(($argv[1]??'')==='scoring' && !empty($seatQuery['scoring_saved'])){
+        session()->flash('success','Score drafts saved successfully.');session()->flash('scholarship_drafts_saved',true);
+        session()->flash('scholarship_scoring_subject',$seatQuery['score_subject']??null);
+    }
     if(($argv[1]??'')==='settings' && ($argv[2]??'')==='saved')session()->flash('success','Exam settings saved.');
+    if(($argv[1]??'')==='result' && !empty($seatQuery['result_success']))session()->flash('success',$seatQuery['result_success']==='winners'?'Scholarship winners saved for Grade 1.':'Results published and locked.');
     if(($argv[1]??'')==='settings' && ($argv[2]??'')==='errors')session()->flashInput(['exam_id'=>$exam->id,'academic_year_id'=>1,'exam_date'=>'2026-11-20','room_capacity'=>30]);
 }
 $template = file_get_contents(resource_path('views/western-scholarship/index.blade.php'));

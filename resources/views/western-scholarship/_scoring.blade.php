@@ -4,6 +4,7 @@
 @else
 @if($exam->published_at)<div class="alert alert-success">Results are published. Scores are locked.</div>@endif
 <div data-scholarship-scoring-list>
+@if(session('scholarship_drafts_saved'))<span hidden data-draft-save-confirmed data-saved-subject="{{ session('scholarship_scoring_subject') }}"></span>@endif
 @php
     $context=request()->only(['score_center','score_room','score_student']);
     $editableCandidates=$scoringCandidates->filter(fn($candidate)=>!$exam->published_at && $workflow->canScore(auth()->user(),$exam,$candidate));
@@ -12,7 +13,7 @@
     $reviewReady=$reviewCandidates->every(fn($candidate)=>$workflow->calculate($exam,$candidate)['complete']);
 @endphp
 @if($editableCount)
-    <form id="scholarshipScoreDrafts" method="POST" action="{{ route('western-scholarship.scores.save-drafts',array_merge([$exam],$context)) }}" data-unsaved-restored="{{ collect(old('rows',[]))->contains(fn($row)=>is_array($row)&&array_key_exists('scores',$row))?'true':'false' }}">@csrf</form>
+    <form id="scholarshipScoreDrafts" method="POST" action="{{ route('western-scholarship.scores.save-drafts',array_merge([$exam],$context)) }}" data-unsaved-restored="{{ collect(old('rows',[]))->contains(fn($row)=>is_array($row)&&array_key_exists('scores',$row))?'true':'false' }}">@csrf<input type="hidden" name="score_subject" value="{{ old('score_subject',session('scholarship_scoring_subject')) }}"></form>
 @endif
 @forelse($scoringCandidates->groupBy('grade_number') as $grade=>$gradeCandidates)
     @php
@@ -21,10 +22,26 @@
     <section class="scholarship-scoring-grade mb-4" aria-labelledby="scoringGrade{{ $grade }}">
         <h4 id="scoringGrade{{ $grade }}" class="visually-hidden">Grade {{ $grade }}</h4>
         <div class="table-responsive scholarship-scoring-overflow">
-            <table class="table table-vcenter scholarship-scoring-table">
+            <table class="table table-vcenter scholarship-scoring-table" style="--scoring-subject-count:{{ max(1,$subjects->count()) }}">
+                <colgroup>
+                    <col class="scoring-col-number"><col class="scoring-col-photo"><col class="scoring-col-student"><col class="scoring-col-exam">
+                    @foreach(range(1,max(1,$subjects->count())) as $column)<col class="scoring-col-subject">@endforeach
+                    <col class="scoring-col-total"><col class="scoring-col-attendance"><col class="scoring-col-action">
+                </colgroup>
                 <thead>
-                    <tr><th rowspan="2" class="text-center">No.</th><th rowspan="2" class="text-center">Photo</th><th rowspan="2">Students</th><th rowspan="2">Exams</th><th colspan="{{ max(1,$subjects->count()) }}" class="text-center">Scores</th><th rowspan="2" class="text-center">Total Score</th><th rowspan="2" class="text-center">Attendance</th><th rowspan="2" class="text-center">Action</th></tr>
-                    <tr>@forelse($subjects as $subject)<th class="text-center" data-score-subject-heading="{{ $subject->id }}">{{ $subject->name }}</th>@empty<th class="text-center">No subjects configured</th>@endforelse</tr>
+                    <tr><th rowspan="2" class="text-center">No.</th><th rowspan="2" class="text-center">Photo</th><th rowspan="2">Students</th><th rowspan="2">Exams</th><th colspan="{{ max(1,$subjects->count()) }}" class="text-center">Scores</th><th rowspan="2" class="text-center" aria-sort="none"><button type="button" class="scholarship-score-sort" data-score-sort="total" data-sort-label="Total Score" aria-label="Sort Total Score ascending">Total Score <i class="ti ti-arrows-sort" aria-hidden="true"></i></button></th><th rowspan="2" class="text-center">Attendance</th><th rowspan="2" class="text-center">Action</th></tr>
+                    <tr>
+                        @forelse($subjects as $subject)
+                            @php
+                                $scoredCount=$gradeCandidates->filter(fn($candidate)=>$candidate->scores->contains(fn($score)=>$score->subject_id===$subject->id && $score->score!==null))->count();
+                                $blankCount=$gradeCandidates->count()-$scoredCount;
+                            @endphp
+                            <th class="text-center" data-score-subject-heading="{{ $subject->id }}" data-score-subject-name="{{ $subject->name }}" aria-sort="none">
+                                <button type="button" class="scholarship-score-sort" data-score-sort="{{ $subject->id }}" data-sort-label="{{ $subject->name }}" aria-label="Sort {{ $subject->name }} ascending">{{ $subject->name }} <i class="ti ti-arrows-sort" aria-hidden="true"></i></button>
+                                <small class="scholarship-subject-counts" title="Saved scores for students in this list"><span>Scored: <strong data-subject-scored>{{ $scoredCount }}</strong></span> | <span>Blank: <strong data-subject-blank>{{ $blankCount }}</strong></span></small>
+                            </th>
+                        @empty<th class="text-center">No subjects configured</th>@endforelse
+                    </tr>
                 </thead>
                 <tbody>
                 @foreach($gradeCandidates as $candidate)
@@ -61,10 +78,10 @@
                         @forelse($subjects as $subject)
                             <td class="scholarship-score-input-cell"><label class="visually-hidden" for="score{{ $candidate->id }}_{{ $subject->id }}">{{ $name }} — {{ $subject->name }} (maximum {{ $subject->max_score }})</label><input id="score{{ $candidate->id }}_{{ $subject->id }}" form="{{ $scoreForm }}" class="form-control" name="rows[{{ $candidate->id }}][scores][{{ $subject->id }}]" data-score-input="{{ $subject->id }}" data-can-score="{{ $canEnter?'true':'false' }}" type="number" min="0" max="{{ $subject->max_score }}" step="0.01" inputmode="decimal" enterkeyhint="next" tabindex="-1" aria-readonly="true" value="{{ $restoring?old('rows.'.$candidate->id.'.scores.'.$subject->id):$scores->get($subject->id)?->score }}" placeholder="Not Entered" readonly @disabled(!$canEnter)></td>
                         @empty<td class="text-secondary text-center">—</td>@endforelse
-                        <td class="scholarship-scoring-total">
+                        <td class="scholarship-scoring-total" data-score-total="{{ $calculation['total'] }}">
                             <strong>{{ $calculation['total'] ?? '—' }}</strong><span class="text-secondary"> / {{ $calculation['max_total'] ?? '—' }}</span>
                             <div class="small text-secondary mt-1">{{ $calculation['percentage']===null?'—':number_format($calculation['percentage'],2).'%' }}</div>
-                            <span class="badge {{ $candidate->reviewed_at?'bg-green-lt':'bg-orange-lt' }} my-2">{{ $calculation['status'] }}</span>
+                            @if($calculation['status']!=='Reviewed')<span class="badge {{ $candidate->reviewed_at?'bg-green-lt':'bg-orange-lt' }} my-2">{{ $calculation['status'] }}</span>@endif
                         </td>
                         <td class="scholarship-scoring-attendance">
                             <label class="form-check d-inline-flex align-items-center gap-2 mb-0"><input class="form-check-input m-0" form="{{ $scoreForm }}" type="checkbox" name="rows[{{ $candidate->id }}][absent]" value="1" @checked($restoring?old('rows.'.$candidate->id.'.absent'):$candidate->absent) @disabled(!$canEnter)><span class="form-check-label small">Absent</span></label>
@@ -85,7 +102,7 @@
     <div class="alert alert-info">No scoring assignments match these filters. A committee manager can assign Score Entry or Score Reviewer access for a grade or room.</div>
 @endforelse
 @if($editableCount || $reviewCandidates->isNotEmpty())
-    <div class="d-flex align-items-end justify-content-between flex-wrap gap-3 mb-3">
+    <div class="d-flex align-items-end justify-content-between flex-wrap gap-3 mb-3" data-scoring-footer>
         <div class="small text-secondary">
             @if($editableCount)<div>Save drafts for all {{ $editableCount }} editable students in this list.</div>@endif
             @if($reviewCandidates->isNotEmpty())<div>Review saved scores and attendance for {{ $reviewCandidates->count() }} pending students in this list.</div>@endif

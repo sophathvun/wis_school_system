@@ -70,6 +70,33 @@ it('loads every student in the selected room without pagination and ignores old 
     expect($html)->not->toContain('score_page=','class="pagination');
 });
 
+it('counts saved scores including zero and blanks per subject within the selected list',function(){
+    $exam=scholarshipScoringExam();$subjects=app(ScholarshipWorkflow::class)->applicableSubjects($exam,1);
+    $candidates=$exam->candidates()->where('exam_center_id',1)->where('room_number',1)->get();
+    $candidates[0]->scores()->create(['subject_id'=>$subjects[0]->id,'score'=>0]);
+    $candidates[1]->scores()->create(['subject_id'=>$subjects[0]->id,'score'=>85]);
+    $candidates[2]->scores()->create(['subject_id'=>$subjects[0]->id,'score'=>null]);
+    $candidates[0]->scores()->create(['subject_id'=>$subjects[1]->id,'score'=>75]);
+    // A saved score in another room must not change this room's completion counts.
+    $exam->candidates()->where('room_number',2)->first()->scores()->create(['subject_id'=>$subjects[0]->id,'score'=>90]);
+    $controller=app(ScholarshipController::class);
+    $counts=function($params)use($exam,$controller){
+        $data=$controller->index(scholarshipScoringRequest(['exam_id'=>$exam->id,'score_center'=>1,'score_room'=>1]+$params))->getData();
+        $dom=new DOMDocument();@$dom->loadHTML(view('western-scholarship._scoring',$data)->render());$xpath=new DOMXPath($dom);
+        $result=[];
+        foreach($xpath->query('//th[@data-score-subject-heading]') as $header)$result[(int)$header->getAttribute('data-score-subject-heading')]=[
+            (int)$xpath->query('.//*[@data-subject-scored]',$header)->item(0)->textContent,
+            (int)$xpath->query('.//*[@data-subject-blank]',$header)->item(0)->textContent,
+        ];
+        return $result;
+    };
+    expect($counts([])[$subjects[0]->id])->toBe([2,1])->and($counts([])[$subjects[1]->id])->toBe([1,2]);
+    expect($counts(['score_student'=>$candidates[0]->id])[$subjects[0]->id])->toBe([1,0]);
+    $request=scholarshipScoringRequest(['rows'=>[$candidates[2]->id=>['version'=>$candidates[2]->version,'scores'=>[$subjects[0]->id=>80]]]],true,'POST');
+    $controller->saveScoreDrafts($request,$exam);
+    expect($counts([])[$subjects[0]->id])->toBe([3,0]);
+});
+
 it('changes the scoring exam with academic year and excludes unconfigured years',function(){
     $first=scholarshipScoringExam();$next=$first->replicate();$next->academic_year_id=2;$next->name='2026-2027';$next->save();
     $center=$next->centers()->create(['name'=>'Next Year Center','position'=>0]);
@@ -124,9 +151,11 @@ it('renders grade specific subjects and one shared draft form with separate revi
 it('saves multiple students scores and attendance in one draft action',function($compact){
     $exam=scholarshipScoringExam();$rows=[];$candidates=$exam->candidates()->where('exam_center_id',1)->limit(2)->get();
     foreach($candidates as $index=>$candidate)$rows[$candidate->id]=['version'=>$candidate->version,'scores'=>app(ScholarshipWorkflow::class)->applicableSubjects($exam,1)->mapWithKeys(fn($subject)=>[$subject->id=>80+$index])->all(),'absent'=>$index===1];
-    $request=scholarshipScoringRequest($compact?['score_drafts'=>json_encode($rows)]:['rows'=>$rows],true,'POST');$request->query->replace(['score_center'=>1]);
+    $subjectId=$exam->subjects()->first()->id;
+    $request=scholarshipScoringRequest(($compact?['score_drafts'=>json_encode($rows)]:['rows'=>$rows])+['score_subject'=>$subjectId],true,'POST');$request->query->replace(['score_center'=>1]);
     $response=app(ScholarshipController::class)->saveScoreDrafts($request,$exam);
     expect($response->getTargetUrl())->toContain('score_center=1');
+    expect(session('scholarship_scoring_subject'))->toBe($subjectId)->and(session('scholarship_drafts_saved'))->toBeTrue();
     expect(app(ScholarshipWorkflow::class)->calculate($exam->fresh(),$candidates[0]->fresh())['total'])->toBe(400.0)
         ->and($candidates[1]->fresh()->absent)->toBeTrue();
     foreach($candidates as $candidate)expect($candidate->fresh()->version)->toBe($candidate->version+1);

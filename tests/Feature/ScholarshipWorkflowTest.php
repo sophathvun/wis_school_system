@@ -233,17 +233,17 @@ it('locks published awards and permits a documented revision while enforcing the
 it('allocates 35 Grade 1 and 40 Grade 2 students into four separate rooms with alphabetical ordering',function(){
     $candidates=collect();
     foreach([1=>35,2=>40] as $grade=>$count) for($i=$count;$i>=1;$i--) $candidates->push(new ScholarshipCandidate(['id'=>$grade*100+$i,'grade_number'=>$grade,'snapshot'=>['name_en'=>sprintf('Student %02d',$i),'student_code'=>(string)$i]]));
-    $plan=$this->workflow->allocate($candidates,25);$rooms=collect($plan)->groupBy('room_number');
+    $plan=$this->workflow->allocate($candidates,25,'2025-2026');$rooms=collect($plan)->groupBy('room_number');
     expect($rooms->map->count()->values()->all())->toBe([25,10,25,15])
         ->and($plan[0]['snapshot']['name_en'])->toBe('Student 01')->and($plan[34]['grade_exam_number'])->toBe(35)
         ->and($plan[35]['grade_exam_number'])->toBe(1)->and($plan[35]['room_number'])->toBe(3)->and($plan[35]['room_seat'])->toBe(36)
-        ->and($plan[35]['candidate_code'])->toBe('G02-001')
+        ->and($plan[35]['candidate_code'])->toBe('2526-G02-001')
         ->and(collect($plan)->unique(fn($row)=>$row['room_number'].':'.$row['room_seat']))->toHaveCount(75);
 });
 
 it('handles all twelve grades without mixing them or creating an empty room at a capacity boundary',function(){
     $candidates=collect();foreach(range(1,12)as$grade)foreach(range(1,25)as$seat)$candidates->push(new ScholarshipCandidate(['id'=>$grade*100+$seat,'grade_number'=>$grade,'snapshot'=>['name_en'=>'Name '.$seat,'student_code'=>(string)$seat]]));
-    $rows=$this->workflow->allocate($candidates,25);
+    $rows=$this->workflow->allocate($candidates,25,'2025-2026');
     expect(collect($rows)->pluck('room_number')->unique())->toHaveCount(12)->and($rows[25]['room_number'])->toBe(2)->and($rows[25]['grade_exam_number'])->toBe(1)
         ->and($rows[25]['room_seat'])->toBe(26)->and($rows[299]['room_seat'])->toBe(300);
 });

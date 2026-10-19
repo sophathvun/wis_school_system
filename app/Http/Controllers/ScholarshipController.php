@@ -156,7 +156,7 @@ class ScholarshipController
         $allowedCampuses = $this->campuses($request,$tab==='assign-rank'?'tab-assign-rank':'view');
         $filters = $this->filters($request, $allowedCampuses);
         $exams = ScholarshipExam::with('academicYear')->whereHas('academicYear',fn($q)=>$q->regular())->latest('id')->get()->filter(fn ($exam) => $this->workflow->canView($request->user(), $exam));
-        $hasYearFilters=in_array($tab,['seat-plan','scoring'],true);
+        $hasYearFilters=in_array($tab,['seat-plan','scoring','result'],true);
         $selectableExams=$hasYearFilters?$exams->filter(fn($exam)=>$this->workflow->candidates($request->user(),$exam)->exists()):$exams;
         $exam = $request->integer('exam_id') ? $exams->firstWhere('id',$request->integer('exam_id')) : null;
         if ($request->integer('exam_id')) abort_unless($exam,403);
@@ -342,6 +342,10 @@ class ScholarshipController
         $participating=app(ScholarshipExamCenters::class)->campuses($exam?->academic_year_id??(int)old('academic_year_id',$year));
         $data['examCenterCampuses']=$participating->every(fn($campus)=>ScholarshipPermissions::allows($user,'settings',$campus['id']))?$participating:collect();
         if (!$exam) {
+            if($tab==='result'){
+                $emptyFilters=app(\App\Support\ScholarshipResultFilters::class)->apply($request,collect());
+                $data['resultFilters']=$emptyFilters['filters'];$data['resultFilterOptions']=$emptyFilters['options'];
+            }
             if($tab==='scoring'){
                 $emptyFilters=app(\App\Support\ScholarshipScoringFilters::class)->apply($request,collect());
                 $data['scoreFilters']=$emptyFilters['filters'];$data['scoreFilterOptions']=$emptyFilters['options'];
@@ -390,6 +394,14 @@ class ScholarshipController
         $allResults=$this->workflow->results($exam);
         $data['results']=($data['examPermissions']['publish-results'] || $data['examPermissions']['awards'])?$allResults:$allResults->filter(fn($row)=>$candidates->contains('id',$row['candidate']->id));
         $data['awardGrades']=$data['examPermissions']['awards']?$allResults->groupBy(fn($row)=>$row['candidate']->grade_number):collect();
+        if($tab==='result'){
+            $data['subjectRanks']=app(\App\Support\ScholarshipSubjectRanks::class)->forResults($allResults);
+            $filtered=app(\App\Support\ScholarshipResultFilters::class)->apply($request,$data['results']);
+            $data['results']=$filtered['rows'];$data['resultFilters']=$filtered['filters'];$data['resultFilterOptions']=$filtered['options'];
+            (new \Illuminate\Database\Eloquent\Collection($data['results']->pluck('candidate')->all()))->load(['student:id,photo_path','enrollment.grade','enrollment.schoolClass','enrollment.schoolGroup','enrollment.session']);
+            // Keep the complete grade's winner pool, even when viewing one center or student.
+            if($filtered['filters']['grade']!==null)$data['awardGrades']=$data['awardGrades']->only([$filtered['filters']['grade']]);
+        }
         $data['savedAwards']=$exam->awards()->get()->groupBy('grade_number');
         $scoring=$candidates->filter(fn($candidate)=>$this->workflow->canScore($user,$exam,$candidate) || $this->workflow->canScore($user,$exam,$candidate,true))->values();
         if($tab==='scoring'){
@@ -482,6 +494,7 @@ class ScholarshipController
             'awards.*'=>['array:candidate_id,award_percent,reason'],'awards.*.candidate_id'=>['nullable','integer','min:1'],
             'awards.*.award_percent'=>['required','numeric','between:0,100','decimal:0,2'],'awards.*.reason'=>['nullable','string','max:1000']]);
         $this->workflow->saveAwards($request->user(),$exam,$grade,$data['awards'],(int)$data['version']);
+        if($request->expectsJson())return response()->json(['message'=>'Scholarship winners saved for Grade '.$grade.'.','version'=>$exam->fresh()->version]);
         return $this->back($exam,'result','Scholarship winners saved for Grade '.$grade.'.');
     }
 
@@ -520,9 +533,10 @@ class ScholarshipController
             'rows.*.version'=>['required','integer','min:1'],
             'rows.*.scores'=>['nullable','array','max:100'],
             'rows.*.absent'=>['nullable','boolean'],
+            'score_subject'=>['nullable','integer',Rule::in($exam->subjects()->pluck('id')->all())],
         ]);
         $this->workflow->saveScoreDrafts($request->user(),$exam,$data['rows']);
-        return $this->back($exam,'scoring','Score drafts saved successfully.');
+        return $this->back($exam,'scoring','Score drafts saved successfully.')->with('scholarship_drafts_saved',true)->with('scholarship_scoring_subject',$data['score_subject']??null);
     }
 
     public function saveScores(Request $request, ScholarshipExam $exam, ScholarshipCandidate $candidate)

@@ -10,7 +10,7 @@
             <label for="scholarshipScoringSubject">Scoring Subject</label>
             <select id="scholarshipScoringSubject" class="form-select" data-scoring-subject data-placeholder="Select a subject to enter scores" aria-describedby="scholarshipScoringHelp">
                 <option value="">Select a subject to enter scores</option>
-                @foreach($scoringSubjects as $subject)<option value="{{ $subject->id }}">{{ $subject->name }} ({{ $subject->grade_from===$subject->grade_to?'Grade '.$subject->grade_from:'Grades '.$subject->grade_from.'–'.$subject->grade_to }})</option>@endforeach
+                @foreach($scoringSubjects as $subject)<option value="{{ $subject->id }}" @selected((int)old('score_subject',session('scholarship_scoring_subject'))===$subject->id)>{{ $subject->name }} ({{ $subject->grade_from===$subject->grade_to?'Grade '.$subject->grade_from:'Grades '.$subject->grade_from.'–'.$subject->grade_to }})</option>@endforeach
             </select>
         </div>
         <button type="button" class="btn btn-outline-secondary" data-lock-score-inputs disabled><i class="ti ti-lock me-2" aria-hidden="true"></i>Lock Scores</button>
