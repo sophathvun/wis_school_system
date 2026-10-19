@@ -12,9 +12,10 @@ class ScholarshipExamCenters
     {
         return [
             'exam_centers'=>['sometimes','array','min:1','max:50'],
-            'exam_centers.*'=>['array:id,key,name'],'exam_centers.*.id'=>['nullable','integer','distinct','min:1'],
+            'exam_centers.*'=>['array:id,key,name,location'],'exam_centers.*.id'=>['nullable','integer','distinct','min:1'],
             'exam_centers.*.key'=>['required','string','max:64','distinct'],
             'exam_centers.*.name'=>['required','string','max:160'],
+            'exam_centers.*.location'=>['sometimes','required','string','max:80','regex:/\S/u'],
             'center_assignments'=>['nullable','array'],'center_assignments.*'=>['required','string','max:64'],
         ];
     }
@@ -51,7 +52,9 @@ class ScholarshipExamCenters
         $ids=[];
         foreach(array_values($centers) as $position=>$center){
             $record=!empty($center['id'])?$exam->centers()->findOrFail($center['id']):$exam->centers()->make();
-            $record->fill(['name'=>trim($center['name']),'position'=>$position])->save();$ids[$center['key']]=$record->id;
+            $record->fill(['name'=>trim($center['name']),'position'=>$position]);
+            if(array_key_exists('location',$center))$record->location=trim($center['location']);
+            $record->save();$ids[$center['key']]=$record->id;
         }
         foreach($assignments as $campus=>$key)DB::table('tb_scholarship_center_campus')->insert(['exam_id'=>$exam->id,'exam_center_id'=>$ids[$key],'campus_id'=>(int)$campus]);
         $exam->centers()->whereNotIn('id',array_values($ids))->delete();$exam->unsetRelation('centers');

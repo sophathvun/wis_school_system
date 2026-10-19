@@ -13,7 +13,7 @@ function createScholarshipSchema(): void
     Schema::create('tb_class',function(Blueprint $t){$t->id();$t->unsignedBigInteger('academic_year_id');$t->unsignedBigInteger('grade_id');$t->string('class_name');$t->integer('class_order')->default(1);$t->softDeletes();});
     Schema::create('tb_group',function(Blueprint $t){$t->id();$t->string('group_name');$t->softDeletes();});
     Schema::create('tb_session',function(Blueprint $t){$t->id();$t->string('session_name');$t->string('session_short_name')->nullable();$t->softDeletes();});
-    Schema::create('tb_student',function(Blueprint $t){$t->id();foreach(['student_id','student_no','full_name_en','full_name_kh','gender','photo_path']as$c)$t->string($c)->nullable();});
+    Schema::create('tb_student',function(Blueprint $t){$t->id();foreach(['student_id','student_no','full_name_en','full_name_kh','gender','gender_kh','photo_path']as$c)$t->string($c)->nullable();});
     Schema::create('tb_student_enrollment',function(Blueprint $t){$t->id();foreach(['student_id','academic_year_id','campus_id','grade_id','class_id']as$c)$t->unsignedBigInteger($c);$t->unsignedBigInteger('group_id')->nullable();$t->unsignedBigInteger('session_id')->nullable();$t->timestamps();});
     Schema::create('access_roles',function(Blueprint $t){$t->id();$t->string('code');$t->boolean('is_global')->default(false);$t->boolean('status')->default(true);});
     Schema::create('access_user_roles',function(Blueprint $t){$t->unsignedBigInteger('user_id');$t->unsignedBigInteger('role_id');$t->unsignedBigInteger('campus_id')->nullable();$t->timestamps();});
@@ -30,11 +30,20 @@ function createScholarshipSchema(): void
     (require database_path('migrations/2026_10_15_000003_create_scholarship_print_settings.php'))->up();
     (require database_path('migrations/2026_10_15_000004_add_scholarship_report_verifier.php'))->up();
     Schema::create('access_positions',function(Blueprint $t){$t->id();$t->string('name');$t->boolean('status')->default(true);$t->timestamps();});
-    Schema::create('hrm_staff',function(Blueprint $t){$t->id();$t->string('staff_code');$t->string('name_en');$t->string('name_kh')->nullable();$t->unsignedBigInteger('position_id')->nullable();$t->unsignedBigInteger('primary_campus_id')->nullable();$t->boolean('status')->default(true);$t->string('employment_status')->default('active');$t->timestamps();$t->softDeletes();});
+    Schema::create('hrm_staff',function(Blueprint $t){$t->id();$t->string('staff_code');$t->string('name_en');$t->string('name_kh')->nullable();$t->string('gender')->nullable();$t->string('phone')->nullable();$t->string('email')->nullable();$t->unsignedBigInteger('position_id')->nullable();$t->unsignedBigInteger('primary_campus_id')->nullable();$t->boolean('status')->default(true);$t->string('employment_status')->default('active');$t->timestamps();$t->softDeletes();});
     Schema::create('hrm_staff_campuses',function(Blueprint $t){$t->unsignedBigInteger('staff_id');$t->unsignedBigInteger('campus_id');$t->boolean('status')->default(true);});
     (require database_path('migrations/2026_10_15_000005_link_scholarship_print_signers_to_staff.php'))->up();
     (require database_path('migrations/2026_10_15_000006_add_scholarship_exam_centers.php'))->up();
     (require database_path('migrations/2026_10_15_000007_scope_scholarship_rooms_by_center.php'))->up();
+    (require database_path('migrations/2026_10_16_000001_add_scholarship_examination_type.php'))->up();
+    (require database_path('migrations/2026_10_16_000002_add_scholarship_historical_import.php'))->up();
+    (require database_path('migrations/2026_10_16_000003_create_scholarship_seat_print_settings.php'))->up();
+    (require database_path('migrations/2026_10_16_000004_add_scholarship_signing_location.php'))->up();
+    (require database_path('migrations/2026_10_16_000005_move_scholarship_location_to_exam_centers.php'))->up();
+    (require database_path('migrations/2026_10_16_000006_add_scholarship_subject_orders.php'))->up();
+    (require database_path('migrations/2026_10_16_000007_create_scholarship_invigilators.php'))->up();
+    (require database_path('migrations/2026_10_16_000008_create_scholarship_session_links.php'))->up();
+    (require database_path('migrations/2026_10_16_000009_add_scholarship_subject_schedules.php'))->up();
     foreach(['Registrar','Vice Principal','School Principal','Registrar Director','Academic Director','Vice President'] as $i=>$name)DB::table('access_positions')->insert(['id'=>$i+1,'name'=>$name]);
     foreach(['BCH','BKK','CENTRAL'] as $campus=>$label)foreach(['PREPARER','VERIFIER','APPROVER'] as $role=>$suffix){
         $id=$campus*3+$role+1;

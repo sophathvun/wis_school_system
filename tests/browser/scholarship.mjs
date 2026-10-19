@@ -23,6 +23,7 @@ const editRankMarkup=execFileSync(php,[join(root,'tests/browser/scholarship-fixt
 const tabs=Object.fromEntries(['assign-rank','settings','seat-plan','scoring','result','exam-committee'].map(tab=>[tab,execFileSync(php,[join(root,'tests/browser/scholarship-fixture.php'),tab],{cwd:root,encoding:'utf8'})]));
 tabs.awards=execFileSync(php,[join(root,'tests/browser/scholarship-fixture.php'),'result','draft'],{cwd:root,encoding:'utf8'});
 tabs['settings-new']=execFileSync(php,[join(root,'tests/browser/scholarship-fixture.php'),'settings','new'],{cwd:root,encoding:'utf8'});
+for(const state of ['locked','saved','errors'])tabs['settings-'+state]=execFileSync(php,[join(root,'tests/browser/scholarship-fixture.php'),'settings',state],{cwd:root,encoding:'utf8'});
 tabs['seat-plan-centers']=execFileSync(php,[join(root,'tests/browser/scholarship-fixture.php'),'seat-plan','centers'],{cwd:root,encoding:'utf8'});
 tabs['seat-plan-confirmed']=execFileSync(php,[join(root,'tests/browser/scholarship-fixture.php'),'seat-plan','centers-locked'],{cwd:root,encoding:'utf8'});
 tabs['committee-centers']=execFileSync(php,[join(root,'tests/browser/scholarship-fixture.php'),'exam-committee','centers'],{cwd:root,encoding:'utf8'});
@@ -53,7 +54,7 @@ const server = createServer(async (request,response) => {
     const url = new URL(request.url,'http://test'), pathname=url.pathname;
     if(url.searchParams.has('seat_list')){
         response.setHeader('Content-Type','application/json');
-        const data=JSON.parse(execFileSync(php,[join(root,'tests/browser/scholarship-fixture.php'),'seat-plan','pagination',url.searchParams.toString()],{cwd:root,encoding:'utf8'}));
+        const data=JSON.parse(execFileSync(php,[join(root,'tests/browser/scholarship-fixture.php'),'seat-plan',url.searchParams.get('fixture_tab')==='seat-plan-confirmed'?'centers-locked':url.searchParams.get('fixture_tab')==='seat-plan-centers'?'centers':'pagination',url.searchParams.toString()],{cwd:root,encoding:'utf8'}));
         data.html=data.html.replace(/https?:\/\/[^"\s]*\/storage\/testing\/scholarship-photo\.svg/g,'/storage/testing/scholarship-photo.svg');
         response.end(JSON.stringify(data));return;
     }
@@ -129,6 +130,7 @@ const server = createServer(async (request,response) => {
     if(url.searchParams.has('pagination'))pageMarkup=pageMarkup.replace(/<section class="card mt-3" data-scholarship-ranks-panel[\s\S]*?<\/section>/,html=>paginatedRanks(html,url.searchParams));
     pageMarkup=pageMarkup.replace(/action="[^"]*\/ranks\/print-settings"/g,'action="/api/print-settings"');
     pageMarkup=pageMarkup.replace(/data-center-campuses-url="[^"]*"/g,'data-center-campuses-url="/api/exam-center-campuses"');
+    pageMarkup=pageMarkup.replace(/data-cancel-exam-settings href="[^"]*"/g,'data-cancel-exam-settings href="/?fixture_tab=settings&amp;premium_forms=1"');
     if(url.searchParams.has('app_shell'))pageMarkup='<link rel="stylesheet" href="/test-app.css"><style>body{padding:0!important}</style><div class="page"><div class="page-wrapper"><div class="page-header"><div class="container-fluid"><h2>WIS Scholarship</h2></div></div><div class="page-body"><div class="container-fluid">'+pageMarkup+'</div></div><footer class="footer"><div class="container-fluid text-center">WIS School</div></footer></div></div>';
     if(url.searchParams.has('premium_forms'))pageMarkup='<link rel="stylesheet" href="/test-app.css">'+pageMarkup+'<script type="module" src="/test-premium-forms.js"></script>';
 response.end('<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/node_modules/@tabler/core/dist/css/tabler.min.css"><link rel="stylesheet" href="/node_modules/@tabler/icons-webfont/dist/tabler-icons.min.css"><link rel="stylesheet" href="/resources/css/pages/western-scholarship.css"><link rel="stylesheet" href="/test-pagination.css"><style>body{padding:20px}</style>'+(pageMarkup)+'<script>document.querySelector("[data-scholarship-page]").dataset.studentsUrl="/api/students";document.querySelector("[data-scholarship-page]").dataset.rankFiltersUrl="/api/rank-filters";document.querySelector("[data-scholarship-rank-form]")?.setAttribute("action","/api/save-rank");document.querySelector("[data-scholarship-rank-form]")?.addEventListener("submit",e=>{e.preventDefault();window.saved=Object.fromEntries(new FormData(e.target));});</script><script type="importmap">{"imports":{"bootstrap":"/node_modules/bootstrap/dist/js/bootstrap.esm.js","@popperjs/core":"/node_modules/@popperjs/core/lib/index.js","sweetalert2":"/node_modules/sweetalert2/dist/sweetalert2.esm.all.js"}}</script><script type="module" src="/resources/js/westernScholarship.js"></script>');
@@ -367,7 +369,7 @@ try {
         assert.equal(await evaluate('document.activeElement.matches("[data-scholarship-photo]")'),true,'Closing returns focus to the photo');
         // Orientation changes cross the rank form's responsive breakpoint and reset its default.
         if(mobile && await evaluate('document.querySelector("#scholarshipRankFilters").hidden'))await click('[data-rank-filters-toggle]');
-        assert.equal(await evaluate('document.querySelectorAll(".scholarship-navigation a").length'),6);
+        assert.equal(await evaluate('document.querySelectorAll(".scholarship-navigation a").length'),7);
         assert.equal(await evaluate('document.querySelector("[data-scholarship-apply-filters]")===null'),true);
         assert.equal(await evaluate('document.querySelector("#scholarshipClass")===null'),true);
         assert.deepEqual(await evaluate('[...document.querySelector("#scholarshipRank").options].map(o=>o.value)'),['','1','2','3']);
@@ -547,6 +549,16 @@ try {
             assert.equal(await evaluate('document.querySelector(".scholarship-tabs-toggle").getAttribute("aria-expanded")'),'false','Every scholarship tab opens collapsed');
             assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth'),true,tab+' must not overflow the page');
             if(tab==='settings'||tab==='settings-new') {
+                if(tab==='settings'){
+                    assert.equal(await evaluate('document.querySelector("[data-exam-settings]").dataset.settingsMode'),'view');
+                    assert.equal(await evaluate('document.querySelector("#examCapacity").matches(":disabled")&&document.querySelector("#examDate").matches(":disabled")&&document.querySelector("[data-add-subject]").matches(":disabled")'),true,'Settings open with fields disabled');
+                    assert.equal(await evaluate('document.querySelector("[data-settings-actions]").hidden'),true);
+                    assert.equal(await evaluate('document.querySelector("#scholarshipExam").disabled'),false,'Academic-year filtering remains available');
+                    assert.equal(await evaluate(`document.querySelector('[data-exam-settings]').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}))`),false,'View mode cannot submit settings');
+                    await click('[data-edit-exam-settings]');
+                }
+                assert.equal(await evaluate('document.querySelector("[data-exam-settings]").dataset.settingsMode'),'edit');
+                assert.equal(await evaluate('document.querySelector("#examCapacity").matches(":disabled")||document.querySelector("[data-settings-actions]").hidden'),false,'Edit Settings enables changes and save actions');
                 if(tab==='settings')assert.equal(await evaluate('document.querySelector("#examDate").value'),'20-Nov-2026');
                 await evaluate(`document.querySelector('#examDate').scrollIntoView({block:'center'});document.querySelector('.scholarship-exam-date [data-premium-date-toggle]').click();`);
                 assert.equal(await evaluate('document.querySelector(".scholarship-exam-date [data-premium-date-toggle]").getAttribute("aria-expanded")'),'true');
@@ -596,6 +608,24 @@ try {
                     await until('document.querySelector("[data-center-load-error]").hidden && !document.querySelector("[data-exam-settings] button[type=submit]").disabled');
                 }
                 assert.equal(await evaluate(`(()=>{const section=document.querySelector('[data-exam-centers]').getBoundingClientRect();return [...document.querySelectorAll('[data-exam-centers] input:not([type=hidden]),[data-campus-center],[data-add-center]')].every(el=>{const r=el.getBoundingClientRect();return r.left>=section.left&&r.right<=section.right;});})()`),true,'Center controls fit the available width');
+                if(tab==='settings'){
+                    await evaluate('document.querySelector("#examCapacity").value="30"');
+                    await click('[data-cancel-exam-settings]');
+                    await until('document.querySelector("#scholarshipExamToggle")!==null && document.querySelector("[data-exam-settings]")?.dataset.settingsMode==="view"');
+                    assert.equal(await evaluate('document.querySelector("#examCapacity").value'),'25','Cancel discards changes and returns to view mode');
+                }
+            }
+            if(tab==='settings-locked'){
+                assert.equal(await evaluate('document.querySelector("[data-edit-exam-settings]")===null'),true,'Confirmed settings cannot be unlocked by Edit Settings');
+                assert.equal(await evaluate('document.querySelector("[data-settings-fields]").disabled'),true);
+            }
+            if(tab==='settings-saved'){
+                assert.equal(await evaluate('document.querySelector("[data-exam-settings]").dataset.settingsMode'),'view','Saved settings return to view mode');
+                assert.equal(await evaluate('document.querySelector(".swal2-toast")?.textContent.includes("Exam settings saved.")'),true);
+            }
+            if(tab==='settings-errors'){
+                assert.equal(await evaluate('document.querySelector("[data-exam-settings]").dataset.settingsMode'),'edit','Validation returns to edit mode');
+                assert.equal(await evaluate('document.querySelector("#examCapacity").value'),'30','Submitted values survive validation');
             }
             if(tab==='assign-rank')assert.equal(await evaluate('document.querySelector("[data-candidate-checkbox],[data-select-all-candidates]")===null'),true);
             if(tab==='assign-rank')assert.equal(await evaluate('document.querySelector("[data-rank-filters-toggle]").getAttribute("aria-expanded")'),mobile?'false':'true');
@@ -617,6 +647,17 @@ try {
             }
             if(tab==='exam-committee')assert.equal(await evaluate('document.querySelector("[name=role]").options.length'),4);
             if(tab==='seat-plan-centers'||tab==='seat-plan-confirmed'){
+                assert.equal(await evaluate('document.querySelector(".scholarship-seat-exports")!==null'),tab==='seat-plan-confirmed','Report menus are available only after confirmation');
+                if(tab==='seat-plan-confirmed'){
+                    assert.equal(await evaluate('document.querySelectorAll(".scholarship-seat-exports a").length'),18);
+                    for(const format of ['print','xlsx','pdf']){
+                        await click('#seatReport'+format);
+                        await until('document.querySelector(".scholarship-seat-exports .dropdown-menu.show")!==null');
+                        assert.deepEqual(await evaluate('[...document.querySelectorAll(".scholarship-seat-exports .dropdown-menu.show a")].map(link=>link.textContent.trim())'),['List of Candidates','Attendance List','Cover Attendance List','Cover Envelope','Seat Label Sticker','Seat Plan']);
+                        assert.equal(await evaluate('(()=>{const box=document.querySelector(".scholarship-seat-exports .dropdown-menu.show").getBoundingClientRect();return box.left>=0&&box.right<=innerWidth})()'),true,'Report dropdown fits the screen');
+                        await click('#seatReport'+format);
+                    }
+                }
                 assert.deepEqual(await evaluate(`[...document.querySelectorAll('.scholarship-seat-table thead th')].map(cell=>cell.textContent.trim())`),['No.','Photo','Student','Grade','Exam Code','Exam Center','Room No.','Seat No.']);
                 assert.deepEqual(await evaluate(`[...document.querySelectorAll('.scholarship-seat-table tbody tr')].map(row=>[row.cells[5].textContent,row.cells[6].textContent,row.cells[7].textContent])`),[
                     ['North Exam Center','1','1'],['North Exam Center','2','2'],['South Exam Center','1','1'],['South Exam Center','2','2'],

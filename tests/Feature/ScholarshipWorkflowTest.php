@@ -36,7 +36,7 @@ function scholarshipCandidate(ScholarshipExam $exam, string $name='STUDENT A', i
 function scholarshipCenterData(array $changes=[]): array
 {
     return scholarshipExamData(array_replace(['exam_centers'=>[
-        ['key'=>'north','name'=>'North Exam Center'],['key'=>'south','name'=>'South Exam Center'],
+        ['key'=>'north','name'=>'North Exam Center','location'=>'Phnom Penh'],['key'=>'south','name'=>'South Exam Center','location'=>'Battambang'],
     ],'center_assignments'=>[1=>'north',2=>'south']],$changes));
 }
 
@@ -44,7 +44,7 @@ it('saves multiple exam centers with one assignment per ranked campus and update
     foreach([1,3] as $enrollment)$this->workflow->saveRank($this->admin,\App\Models\StudentEnrollment::findOrFail($enrollment),1,95);
     $exam=$this->workflow->saveExam($this->admin,null,scholarshipCenterData());
     $centers=$exam->centers()->with('campuses')->get();
-    expect($centers->pluck('name')->all())->toBe(['North Exam Center','South Exam Center'])
+    expect($centers->pluck('name')->all())->toBe(['North Exam Center','South Exam Center'])->and($centers->pluck('location')->all())->toBe(['Phnom Penh','Battambang'])
         ->and($centers[0]->campuses->modelKeys())->toBe([1])->and($centers[1]->campuses->modelKeys())->toBe([2]);
     $exam=$this->workflow->saveExam($this->admin,$exam,scholarshipCenterData(['version'=>$exam->version,'exam_centers'=>[
         ['id'=>$centers[1]->id,'key'=>'south','name'=>'Combined Center'],
@@ -65,6 +65,7 @@ it('rejects invalid center names identifiers and campus assignments atomically',
     'unranked campus'=>[['center_assignments'=>[1=>'north',2=>'south',3=>'north']]],
     'unknown center key'=>[['center_assignments'=>[1=>'north',2=>'missing']]],
     'duplicate names'=>[['exam_centers'=>[['key'=>'north','name'=>'Same'],['key'=>'south','name'=>' same ']]]],
+    'blank location'=>[['exam_centers'=>[['key'=>'north','name'=>'North','location'=>' '],['key'=>'south','name'=>'South','location'=>'Battambang']]]],
     'blank name'=>[['exam_centers'=>[['key'=>'north','name'=>' '],['key'=>'south','name'=>'South']]]],
     'foreign center id'=>[['exam_centers'=>[['id'=>999,'key'=>'north','name'=>'North'],['key'=>'south','name'=>'South']]]],
     'duplicate keys'=>[['exam_centers'=>[['key'=>'north','name'=>'North'],['key'=>'north','name'=>'South']]]],

@@ -9,12 +9,12 @@ class ScholarshipPermissions
 {
     public const TABS = [
         'assign-rank'=>'tab-assign-rank', 'seat-plan'=>'tab-seat-plan', 'scoring'=>'tab-scoring',
-        'result'=>'tab-result', 'exam-committee'=>'tab-exam-committee', 'settings'=>'tab-settings',
+        'result'=>'tab-result', 'exam-committee'=>'tab-exam-committee', 'settings'=>'tab-settings', 'data-transfer'=>'tab-data-transfer',
     ];
     public const PARENTS = [
         'assign-rank'=>'tab-assign-rank', 'seat-plan'=>'tab-seat-plan', 'scoring'=>'tab-scoring',
         'review-scores'=>'tab-scoring', 'awards'=>'tab-result', 'publish-results'=>'tab-result',
-        'committee'=>'tab-exam-committee', 'settings'=>'tab-settings',
+        'committee'=>'tab-exam-committee', 'settings'=>'tab-settings', 'import-history'=>'tab-data-transfer',
     ];
 
     public static function catalog(): array
@@ -23,6 +23,7 @@ class ScholarshipPermissions
             'tab-assign-rank'=>'Tab: Assign Student Rank', 'tab-seat-plan'=>'Tab: Seat Plan',
             'tab-scoring'=>'Tab: Scoring', 'tab-result'=>'Tab: Result',
             'tab-exam-committee'=>'Tab: Exam Committee', 'tab-settings'=>'Tab: Scholarship Settings',
+            'tab-data-transfer'=>'Tab: Import / Export', 'import-history'=>'Import historical scholarship records',
             'view'=>'View WIS Scholarship', 'assign-rank'=>'Assign and remove scholarship candidate class ranks',
             'settings'=>'Manage scholarship exam settings', 'seat-plan'=>'Generate and confirm scholarship seat plans',
             'scoring'=>'Enter scholarship exam scores', 'review-scores'=>'Review scholarship exam scores',

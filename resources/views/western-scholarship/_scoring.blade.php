@@ -1,3 +1,4 @@
+@if($exam->isHistorical())<div class="alert alert-info">Historical scores are preserved. View them in Result or use Import / Export for a validated correction.</div>@endif
 @if(!$exam->seats_locked_at)<div class="alert alert-info">Confirm the seat plan before entering scores.</div>
 @else
 @if($exam->published_at)<div class="alert alert-success">Results are published. Scores are locked.</div>@endif

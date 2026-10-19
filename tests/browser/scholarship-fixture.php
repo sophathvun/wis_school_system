@@ -51,7 +51,15 @@ if(($argv[1]??'')==='rank-saved') {
             'center_assignments'=>[1=>'north',2=>'south']]);
         foreach([1,2] as $campus)$exam->candidates()->create(['campus_id'=>$campus,'class_id'=>1,'grade_number'=>2,'class_rank'=>1,
             'snapshot'=>['student_code'=>'CENTER-'.$campus,'name_en'=>'GRADE TWO STUDENT '.$campus,'name_kh'=>'សិស្ស','campus'=>$campus===1?'BCH':'BKK','class'=>'A']]);
-        if(($argv[2]??'')==='centers-locked'){$workflow->lockPlan($user,$exam,$workflow->plan($exam)['token']);$exam=$exam->fresh();}
+        if(in_array($argv[2]??'',['centers-locked','centers-years'],true)){$workflow->lockPlan($user,$exam,$workflow->plan($exam)['token']);$exam=$exam->fresh();}
+    }
+    if(($argv[2]??'')==='centers-years'){
+        $next=$workflow->saveExam($user,null,['academic_year_id'=>2,'exam_date'=>'2027-11-20','room_capacity'=>25,'subjects'=>$subjects,'version'=>1]);
+        $workflow->saveRank($user,\App\Models\StudentEnrollment::findOrFail(2),1);$next=$next->fresh();
+        $next=$workflow->saveExam($user,$next,['academic_year_id'=>2,'exam_date'=>'2027-11-20','room_capacity'=>25,'subjects'=>$subjects,'version'=>$next->version,
+            'exam_centers'=>[['key'=>'east','name'=>'East Exam Center']], 'center_assignments'=>[1=>'east']]);
+        $workflow->lockPlan($user,$next,$workflow->plan($next)['token']);
+        \Illuminate\Support\Facades\DB::table('tb_academic_year')->insert(['id'=>3,'academic_year'=>'2027-2028']);
     }
     if(($argv[2]??'')==='draft')foreach(range(2,8)as$i)$exam->candidates()->create(['campus_id'=>1,'class_id'=>1,'grade_number'=>1,'class_rank'=>1,'snapshot'=>['student_code'=>'AW-'.$i,'name_en'=>'AWARD STUDENT '.$i,'name_kh'=>'សិស្ស','campus'=>'BCH','class'=>'A']]);
     if(in_array($argv[1],['scoring','result','exam-committee'])) {
@@ -69,6 +77,7 @@ if(($argv[1]??'')==='rank-saved') {
         }
     }
     if(($argv[2]??'')==='new')$exam->delete();
+    if(($argv[1]??'')==='settings' && ($argv[2]??'')==='locked'){$workflow->lockPlan($user,$exam,$workflow->plan($exam)['token']);$exam=$exam->fresh();}
     parse_str($argv[3]??'',$seatQuery);
     $request=\Illuminate\Http\Request::create('http://localhost/students/western-scholarship','GET',(($argv[2]??'')==='new'?['tab'=>'settings','new_exam'=>1,'academic_year_id'=>1]:['tab'=>$argv[1],'exam_id'=>$exam->id])+$seatQuery);
     if(!empty($seatQuery['seat_list']))$request->headers->set('Accept','application/json');
@@ -76,6 +85,8 @@ if(($argv[1]??'')==='rank-saved') {
     $response=app(\App\Http\Controllers\ScholarshipController::class)->index($request);
     if(!empty($seatQuery['seat_list'])){echo $response->getContent();exit;}
     $data=$response->getData()+['errors'=>new \Illuminate\Support\ViewErrorBag()];
+    if(($argv[1]??'')==='settings' && ($argv[2]??'')==='saved')session()->flash('success','Exam settings saved.');
+    if(($argv[1]??'')==='settings' && ($argv[2]??'')==='errors')session()->flashInput(['exam_id'=>$exam->id,'academic_year_id'=>1,'exam_date'=>'2026-11-20','room_capacity'=>30]);
 }
 $template = file_get_contents(resource_path('views/western-scholarship/index.blade.php'));
 preg_match("/@section\('content'\)(.*)@endsection/s", $template, $matches);

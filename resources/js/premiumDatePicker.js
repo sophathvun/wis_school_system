@@ -1,5 +1,6 @@
 // Uses the same calendar controls and shared styles as Student Enrollment DOB.
 export function initPremiumDatePicker(picker) {
+    const controller=new AbortController(),signal=controller.signal;
     const input = picker.querySelector('[data-premium-date-input]');
     const value = picker.querySelector('[data-premium-date-value]');
     const toggle = picker.querySelector('[data-premium-date-toggle]');
@@ -42,8 +43,17 @@ export function initPremiumDatePicker(picker) {
         yearPopup?.classList.add('d-none');
         picker.classList.remove('is-open');
         toggle.setAttribute('aria-expanded', 'false');
+        if(picker.dataset.premiumDatePortal==='true' && popup.parentElement!==picker)picker.append(popup);
     };
     const position = () => {
+        if(picker.dataset.premiumDatePortal==='true'){
+            const anchor=picker.getBoundingClientRect(),viewport=window.visualViewport;
+            const top=(viewport?.offsetTop||0)+12,bottom=(viewport?.offsetTop||0)+(viewport?.height||innerHeight)-12;
+            const width=Math.min(310,innerWidth-24);
+            Object.assign(popup.style,{position:'fixed',width:`${width}px`,maxWidth:`${width}px`,maxHeight:`${Math.max(0,bottom-top)}px`,overflowY:'auto',left:`${Math.max(12,Math.min(anchor.left,innerWidth-width-12))}px`,top:'0px'});
+            const height=popup.getBoundingClientRect().height,preferred=anchor.bottom+8+height<=bottom?anchor.bottom+8:anchor.top-height-8;
+            popup.style.top=`${Math.max(top,Math.min(preferred,bottom-height))}px`;return;
+        }
         popup.style.left = '0';
         popup.style.top = 'calc(100% + .5rem)';
         const boundarySelector = picker.dataset.premiumDateBoundary;
@@ -113,11 +123,12 @@ export function initPremiumDatePicker(picker) {
         }
     };
     const open = () => {
-        if (input.disabled) return;
+        if (input.matches(':disabled')) return;
         const selected = parse(value.value) || new Date();
         cursor = new Date(selected.getFullYear(), selected.getMonth(), 1);
         yearPopup?.classList.add('d-none');
         render();
+        if(picker.dataset.premiumDatePortal==='true')document.body.append(popup);
         popup.classList.remove('d-none');
         picker.classList.add('is-open');
         toggle.setAttribute('aria-expanded', 'true');
@@ -125,7 +136,7 @@ export function initPremiumDatePicker(picker) {
     };
     toggle.addEventListener('click', () => popup.classList.contains('d-none') ? open() : close());
     picker.addEventListener('premium-date-range-change',() => { syncTyped(false); render(); });
-    picker.closest('.modal')?.addEventListener('hide.bs.modal',close);
+    picker.closest('.modal')?.addEventListener('hide.bs.modal',close,{signal});
     input.addEventListener('focus', open);
     input.addEventListener('input', () => syncTyped(false));
     input.addEventListener('change', () => syncTyped());
@@ -162,19 +173,20 @@ export function initPremiumDatePicker(picker) {
         if (event.key !== 'Escape') return;
         event.stopPropagation(); close(); toggle.focus();
     });
-    document.addEventListener('click', (event) => { if (!event.composedPath().includes(picker)) close(); });
-    window.addEventListener('resize', () => { if (!popup.classList.contains('d-none')) position(); });
+    document.addEventListener('click', (event) => { if (!event.composedPath().includes(picker)&&!event.composedPath().includes(popup)) close(); },{signal});
+    window.addEventListener('resize', () => { if (!popup.classList.contains('d-none')) position(); },{signal});
+    if(picker.dataset.premiumDatePortal==='true')window.addEventListener('scroll',()=>{if(!popup.classList.contains('d-none'))position();},{capture:true,passive:true,signal});
     if (picker.dataset.premiumDatePlacement === 'auto') {
         const reposition = () => { if (!popup.classList.contains('d-none')) position(); };
-        window.visualViewport?.addEventListener('resize', reposition);
-        picker.closest('.modal-body')?.addEventListener('scroll', reposition, { passive: true });
+        window.visualViewport?.addEventListener('resize', reposition,{signal});
+        picker.closest('.modal-body')?.addEventListener('scroll', reposition, { passive: true,signal });
     }
     input.form?.addEventListener('submit', (event) => {
         syncTyped();
         if (!input.checkValidity()) { event.preventDefault(); if (picker.dataset.premiumDateValidation !== 'inline') input.reportValidity(); }
-    });
+    },{signal});
     if (initial) { input.value = display(initial); picker.classList.add('has-value'); }
     else syncTyped(false);
     render();
-    return { close, sync: syncTyped, setValue: (raw) => { input.value = raw || ''; syncTyped(); } };
+    return { close, sync: syncTyped, setValue: (raw) => { input.value = raw || ''; syncTyped(); },destroy:()=>{close();controller.abort();} };
 }

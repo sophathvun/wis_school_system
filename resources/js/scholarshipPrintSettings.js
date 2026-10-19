@@ -6,6 +6,8 @@ export function initRankPrintSettings(root) {
     const element=root.querySelector('#scholarshipPrintSettingsModal');
     if(!element)return;
     const modal=Modal.getOrCreateInstance(element),form=element.querySelector('form');
+    const seatMode=element.hasAttribute('data-seat-print-settings-modal'),center=form.elements.exam_center_id;
+    const trigger=seatMode?'[data-seat-print-settings]':'[data-rank-print-settings]';
     const campus=form.elements.campus_id,year=form.elements.academic_year_id;
     const save=form.querySelector('[data-save-print-settings]'),status=form.querySelector('[data-print-settings-error]');
     const centralShortcut=form.querySelector('[data-print-central-shortcut]');
@@ -18,7 +20,7 @@ export function initRankPrintSettings(root) {
     }));
     const fields=['prepared_by_name','prepared_date','checked_by_name','checked_date','approved_by_name','approved_date'];
     const labels={prepared_by_name:'Prepared by',prepared_date:'Preparation Date',checked_by_name:'Checked and Verified by',checked_date:'Verification Date',approved_by_name:'Approved by',approved_date:'Approval Date'};
-    let loading=false,saving=false,ready=false,sequence=0,controller;
+    let loading=false,saving=false,ready=false,shown=false,sequence=0,controller;
     const closePickers=()=>pickers.forEach(picker=>picker.close());
     const closeDates=()=>dates.forEach(date=>date.calendar.close());
     form.addEventListener('focusin',event=>{
@@ -62,7 +64,7 @@ export function initRankPrintSettings(root) {
     });
     element.addEventListener('pointerdown',event=>{if(!event.target.closest('.signature-staff-picker'))closePickers();});
     const busy=()=>{
-        [campus,...fields.map(name=>form.elements[name])].forEach(input=>input.disabled=loading||saving);
+        [campus,center,...fields.map(name=>form.elements[name])].filter(Boolean).forEach(input=>input.disabled=loading||saving);
         roles.forEach(role=>{
             const active=role!=='checked'||requiresVerifier,disabled=loading||saving||!active,date=dates.get(role),picker=pickers.get(role);
             form.querySelector(`[data-print-signature-role="${role}"]`).hidden=!active;
@@ -70,7 +72,7 @@ export function initRankPrintSettings(root) {
             form.elements[`${role}_date`].disabled=disabled;
             date.input.disabled=disabled;date.toggle.disabled=disabled;date.input.required=active;
         });
-        save.disabled=loading||saving||!ready;
+        save.disabled=loading||saving||!ready||!shown;
         centralShortcut.disabled=loading||saving;
         form.setAttribute('aria-busy',String(loading||saving));
     };
@@ -89,10 +91,11 @@ export function initRankPrintSettings(root) {
         });
         form.querySelector('.is-invalid')?.focus();
     };
-    const load=async(yearId,campusId)=>{
+    const load=async(yearId,campusId,centerId=center?.value)=>{
         controller?.abort();controller=new AbortController();const current=++sequence;
         loading=true;ready=false;closePickers();closeDates();clearErrors();busy();
         const url=new URL(form.action,location.href);url.searchParams.set('academic_year_id',yearId);
+        if(seatMode){url.searchParams.set('exam_id',form.elements.exam_id.value);if(centerId)url.searchParams.set('exam_center_id',centerId);}
         if(campusId)url.searchParams.set('campus_id',campusId);
         try{
             const response=await fetch(url,{headers:{Accept:'application/json'},signal:controller.signal});
@@ -103,10 +106,11 @@ export function initRankPrintSettings(root) {
             centralCampus=data.campuses.find(item=>item.is_central)||null;
             const isCentral=String(centralCampus?.id)===String(data.campus_id);
             requiresVerifier=data.requires_verifier===true;
-            element.querySelector('#scholarshipPrintSettingsTitle').textContent=isCentral?'Central Print Settings':'Campus Print Settings';
-            form.querySelector('[data-print-scope-label]').textContent=centralCampus?'Report Scope':'Campus';
-            form.querySelector('[data-print-scope-description]').textContent=isCentral?'Choose HRM staff for the all-campus report; positions fill automatically.':'Choose HRM staff for this campus; positions fill automatically.';
-            centralShortcut.hidden=!centralCampus||isCentral;
+            if(seatMode)center.replaceChildren(...data.centers.map(item=>new Option(item.label,item.id,false,String(item.id)===String(data.exam_center_id))));
+            element.querySelector('#scholarshipPrintSettingsTitle').textContent=seatMode?'Seat Plan Print Settings':(isCentral?'Central Print Settings':'Campus Print Settings');
+            form.querySelector('[data-print-scope-label]').textContent=seatMode?'HRM Staff Campus':(centralCampus?'Report Scope':'Campus');
+            form.querySelector('[data-print-scope-description]').textContent=seatMode?'Set three signers and dates for the selected exam center. Positions fill from HRM; report locations come from Scholarship Settings.':(isCentral?'Choose HRM staff for the all-campus report; positions fill automatically.':'Choose HRM staff for this campus; positions fill automatically.');
+            centralShortcut.hidden=seatMode||!centralCampus||isCentral;
             fields.forEach(name=>form.elements[name].value=data.values[name]??'');
             dates.forEach((date,role)=>date.calendar.setValue(data.values[`${role}_date`]));
             staff=data.staff||[];
@@ -119,21 +123,23 @@ export function initRankPrintSettings(root) {
         finally{if(current===sequence){loading=false;busy();}}
     };
     root.addEventListener('click',event=>{
-        const button=event.target.closest('[data-rank-print-settings]');if(!button||saving)return;
-        const yearId=root.querySelector('#scholarshipYear')?.value;
+        const button=event.target.closest(trigger);if(!button||saving)return;
+        const yearId=root.querySelector(seatMode?'#seatFilterYear':'#scholarshipYear')?.value;
         if(!yearId){Swal.fire({icon:'info',title:'Select an academic year',text:'Choose an academic year before opening Print Settings.'});return;}
         if(Swal.getPopup()?.classList.contains('swal2-toast'))Swal.close();
         requiresVerifier=false;fields.forEach(name=>form.elements[name].value='');form.querySelector('[data-print-year-label]').value='Loading…';
         element.querySelector('#scholarshipPrintSettingsTitle').textContent='Print Settings';centralShortcut.hidden=true;form.querySelector('.modal-body').scrollTop=0;
-        modal.show();load(yearId,root.querySelector('#scholarshipCampus')?.value);
+        modal.show();load(yearId,seatMode?null:root.querySelector('#scholarshipCampus')?.value,seatMode?root.querySelector('#seatFilterCenter')?.value:null);
     });
     campus.addEventListener('change',()=>load(year.value,campus.value));
+    center?.addEventListener('change',()=>load(year.value,null,center.value));
     centralShortcut.addEventListener('click',()=>{if(centralCampus&&!loading&&!saving)load(year.value,centralCampus.id);});
+    element.addEventListener('shown.bs.modal',()=>{shown=true;busy();});
     element.addEventListener('hidden.bs.modal',()=>{
-        controller?.abort();sequence++;loading=false;ready=false;closePickers();closeDates();busy();root.querySelector('[data-rank-print-settings]')?.focus();
+        controller?.abort();sequence++;loading=false;ready=false;shown=false;closePickers();closeDates();busy();root.querySelector(trigger)?.focus();
     });
     form.addEventListener('submit',async event=>{
-        event.preventDefault();if(loading||saving||!ready)return;
+        event.preventDefault();if(loading||saving||!ready||!shown)return;
         const invalid={};
         roles.forEach(role=>{
             if(role==='checked'&&!requiresVerifier)return;

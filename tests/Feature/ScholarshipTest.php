@@ -11,7 +11,32 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 require_once __DIR__.'/../Fixtures/ScholarshipSchema.php';
+require_once __DIR__.'/../Fixtures/ScholarshipSeatReports.php';
 beforeEach(fn () => createScholarshipSchema());
+
+it('serves all six confirmed seat reports as Print Excel and real PDF downloads',function($kind){
+    $exam=scholarshipSeatReportExam();$controller=app(ScholarshipController::class);
+    foreach(['print','xlsx','pdf'] as $format){
+        $response=$controller->seatReport(scholarshipRequest('GET',['report_center'=>$exam->centers()->first()->id,'report_scope'=>'all-rooms'],[],[1,2]),$exam,$kind,$format);
+        if($format==='print')expect($response->render())->toContain('North Exam Center','data-report-room="1"')->not->toContain('South Exam Center');
+        else{
+            expect($response->getStatusCode())->toBe(200)->and($response->getContent())->toStartWith($format==='pdf'?'%PDF-':'PK');
+            expect($response->headers->get('Content-Disposition'))->toContain($kind.'.'.$format);
+        }
+    }
+})->with(array_keys(\App\Support\ScholarshipSeatReports::DOCUMENTS));
+
+it('requires confirmation and the existing seat tab and export permissions for the new reports',function($denied,$accessible,$draft){
+    $exam=scholarshipSeatReportExam();if($draft)$exam->forceFill(['seats_locked_at'=>null])->save();
+    $request=scholarshipRequest('GET',[],$denied,$accessible);
+    expect(fn()=>app(ScholarshipController::class)->seatReport($request,$exam,'candidates','print'))
+        ->toThrow($draft?ValidationException::class:\Symfony\Component\HttpKernel\Exception\HttpException::class);
+})->with([
+    [['western-scholarship.tab-seat-plan'],[1,2],false],
+    [['western-scholarship.export'],[1,2],false],
+    [[],[1],false],
+    [[],[1,2],true],
+]);
 
 function scholarshipRequest(string $method = 'GET', array $data = [], array $denied = [], array $accessible=[1], ?array $assigned=null, ?array $contexts=null): Request
 {
@@ -68,7 +93,7 @@ it('saves centers through settings and includes confirmed center names in seat e
     $view=view('western-scholarship._settings',['exam'=>$exam,'examPermissions'=>['settings'=>true],
         'examCenterCampuses'=>app(\App\Services\ScholarshipExamCenters::class)->campuses(1),'academicYears'=>collect(),
         'errors'=>new \Illuminate\Support\ViewErrorBag()])->render();
-    expect($view)->toContain('name="center_assignments[1]"','name="center_assignments[2]"','value="center-'.$exam->centers()->first()->id.'" selected','<fieldset disabled>');
+    expect($view)->toContain('name="center_assignments[1]"','name="center_assignments[2]"','value="center-'.$exam->centers()->first()->id.'" selected','data-settings-fields disabled');
 });
 
 it('paginates the complete seat preview without limiting confirmation exports or campus permissions',function(){
@@ -100,6 +125,26 @@ it('paginates the complete seat preview without limiting confirmation exports or
     expect($report['rows'])->toHaveCount(77);
     $confirmed=$controller->index(scholarshipRequest('GET',$params+['seat_page'=>2],[],[1,2]))->getData();
     expect($confirmed['seatRows']->count())->toBe(15)->and($confirmed['seatRows']->first()['snapshot']['student_code'])->toBe('SEAT-016');
+});
+
+it('returns success feedback only after the seat plan has been saved and locked',function(){
+    $exam=\App\Models\ScholarshipExam::create(['academic_year_id'=>1,'name'=>'2025-2026','exam_date'=>'2026-11-20','room_capacity'=>25,'campus_ids'=>[1],'eligible_ranks'=>[]]);
+    $exam->subjects()->create(['name'=>'Khmer','grade_from'=>1,'grade_to'=>12,'max_score'=>100,'weight'=>1,'position'=>0]);
+    $candidate=$exam->candidates()->create(['campus_id'=>1,'class_id'=>1,'grade_number'=>3,'class_rank'=>1,
+        'snapshot'=>['student_code'=>'SEAT-001','name_en'=>'STUDENT ONE','campus'=>'BCH','class'=>'A']]);
+    $controller=app(ScholarshipController::class);$workflow=app(\App\Services\ScholarshipWorkflow::class);
+    $plan=$workflow->plan($exam->fresh());
+    $request=scholarshipRequest('POST',['plan_token'=>str_repeat('0',64),'confirm'=>1]);
+    $request->headers->set('Accept','application/json');
+    expect(fn()=>$controller->lockPlan($request,$exam))->toThrow(ValidationException::class);
+    expect($exam->fresh()->seats_locked_at)->toBeNull()->and($candidate->fresh()->room_seat)->toBeNull();
+    $request=scholarshipRequest('POST',['plan_token'=>$plan['token'],'confirm'=>1]);
+    $request->headers->set('Accept','application/json');
+    $response=$controller->lockPlan($request,$exam);
+    expect($response->getStatusCode())->toBe(200)->and($response->getData(true))->toBe([
+        'message'=>'Seat plan confirmed and locked.',
+        'redirect'=>route('western-scholarship.index',['exam_id'=>$exam->id,'tab'=>'seat-plan']),
+    ])->and($exam->fresh()->seats_locked_at)->not->toBeNull()->and($candidate->fresh()->room_seat)->toBe(1);
 });
 
 it('handles an empty seat list and all mode without an invalid page',function(){
@@ -152,10 +197,10 @@ it('blocks viewing when the scholarship or Students permission is denied', funct
     app(ScholarshipController::class)->students(scholarshipRequest('GET', ['academic_year_id'=>1,'campus_id'=>1], [$permission]));
 })->with(['students.view', 'western-scholarship.view'])->throws(\Symfony\Component\HttpKernel\Exception\HttpException::class);
 
-it('loads the six tabs and restores the selected student and saved rank', function () {
+it('loads the scholarship tabs and restores the selected student and saved rank', function () {
     ScholarshipStudentRank::create(['student_enrollment_id'=>1,'rank'=>3,'assigned_by'=>1]);
     $data = app(ScholarshipController::class)->index(scholarshipRequest('GET', ['academic_year_id'=>1,'campus_id'=>1,'enrollment_id'=>1]))->getData();
-    expect($data['tabs'])->toHaveCount(6)->and($data['tab'])->toBe('assign-rank')->and($data['selected']->id)->toBe(1)->and($data['selectedRank'])->toBe(3)->and($data['canAssign'])->toBeTrue();
+    expect($data['tabs'])->toHaveCount(7)->toHaveKey('data-transfer')->and($data['tab'])->toBe('assign-rank')->and($data['selected']->id)->toBe(1)->and($data['selectedRank'])->toBe(3)->and($data['canAssign'])->toBeTrue();
 });
 
 it('excludes summer periods and rejects forged summer filter and rank requests',function(){
@@ -195,7 +240,7 @@ it('hides forbidden scholarship tabs and blocks their direct URLs',function($tab
     $request=scholarshipRequest('GET',[],['western-scholarship.'.$permission]);
     $data=$controller->index($request)->getData();
     expect($data['tabs'])->not->toHaveKey($tab);
-    if($tab==='assign-rank')expect($data['tab'])->toBe('seat-plan');
+    if($tab==='assign-rank')expect($data['tab'])->toBe('settings');
     expect(fn()=>$controller->index(scholarshipRequest('GET',['tab'=>$tab],['western-scholarship.'.$permission])))
         ->toThrow(\Symfony\Component\HttpKernel\Exception\HttpException::class);
 })->with(collect(\App\Support\ScholarshipPermissions::TABS)->map(fn($permission,$tab)=>[$tab,$permission])->values()->all());
@@ -310,7 +355,7 @@ it('registers tab permissions idempotently and preserves existing grants without
     expect(DB::table('access_department_permissions')->where(['department_id'=>9,'permission_id'=>$tabId])->count())->toBe(1)
         ->and(DB::table('access_user_permission_overrides')->where(['user_id'=>1,'permission_id'=>$tabId,'allowed'=>true])->count())->toBe(1)
         ->and(DB::table('access_user_permission_overrides')->where(['user_id'=>2,'permission_id'=>$tabId])->exists())->toBeFalse();
-    expect(DB::table('access_permissions')->whereIn('action',array_values(\App\Support\ScholarshipPermissions::TABS))->count())->toBe(6);
+    expect(DB::table('access_permissions')->whereIn('action',array_values(\App\Support\ScholarshipPermissions::TABS))->count())->toBe(7);
 });
 
 it('shows the selected years assigned ranks across permitted campuses before a campus is chosen',function(){
@@ -805,3 +850,108 @@ it('rejects signers from another campus when saving Central print settings',func
     }
     expect(\App\Models\ScholarshipPrintSetting::count())->toBe(0);
 })->with(['prepared','checked','approved']);
+
+
+it('saves independent seat report signers for each center without changing rank print settings',function(){
+    $exam=scholarshipSeatReportExam();$centers=$exam->centers()->orderBy('position')->get();$controller=app(ScholarshipController::class);
+    $rank=\App\Models\ScholarshipPrintSetting::create(['campus_id'=>1,'academic_year_id'=>1,'prepared_by_name'=>'RANK SIGNER','prepared_date'=>'2026-01-01','approved_by_name'=>'RANK APPROVER','approved_date'=>'2026-01-01']);
+    foreach($centers as $index=>$center){
+        $campus=$index+1;$offset=$index*3;$center->update(['location'=>$index?'Battambang':'Kampong Cham']);
+        $input=['exam_id'=>$exam->id,'exam_center_id'=>$center->id,'campus_id'=>$campus,'signing_location'=>'IGNORED OLD LOCATION'];
+        foreach(['prepared','checked','approved'] as $i=>$role){$input[$role.'_staff_id']=$offset+$i+1;$input[$role.'_date']='2026-10-'.($index?'11':'10');}
+        $input['prepared_by_name']='FORGED NAME';$input['prepared_position']='FORGED POSITION';
+        $response=$controller->saveSeatPrintSettings(scholarshipRequest('POST',$input,[],[1,2]));
+        expect($response->getData(true)['message'])->toContain($center->name);
+        $loaded=$controller->seatPrintSettings(scholarshipRequest('GET',['exam_id'=>$exam->id,'exam_center_id'=>$center->id],[],[1,2]))->getData(true);
+        expect($loaded['requires_verifier'])->toBeTrue()->and($loaded['campus_id'])->toBe($campus)
+            ->and($loaded['values']['prepared_by_name'])->toBe(($index?'BKK':'BCH').' PREPARER')
+            ->and($loaded['values']['prepared_date'])->toBe($input['prepared_date'])
+
+            ->and(collect($loaded['staff'])->pluck('id')->sort()->values()->all())->toBe($index?[4,5,6]:[1,2,3]);
+    }
+    expect($rank->fresh()->prepared_by_name)->toBe('RANK SIGNER')->and($rank->fresh()->prepared_date->format('Y-m-d'))->toBe('2026-01-01');
+    $data=scholarshipSeatReportData($exam,'candidates');
+    foreach($data['pages'] as $page){
+        $cells=collect($page['rows'])->flatMap(fn($row)=>$row['cells']);
+        $names=$cells->where('role','signature-name')->flatMap(fn($cell)=>$cell['lines'])->pluck('text')->all();
+        if(!$names)continue;
+        $north=$page['center']==='North Exam Center';
+        expect($names)->toContain(($north?'BCH':'BKK').' PREPARER')->not->toContain(($north?'BKK':'BCH').' PREPARER','RANK SIGNER');
+        expect($cells->where('role','signature-date')->first()['lines'][0]['text'])->toBe(($north?'Kampong Cham':'Battambang').', October '.($north?'10':'11').', 2026.');
+        expect($cells->where('role','signature-name')->first()['lines'][0]['bold'])->toBeTrue();
+    }
+});
+
+it('validates the center staff scope and all three signer dates before saving seat print settings',function($change,$field){
+    $exam=scholarshipSeatReportExam();
+    $input=['exam_id'=>$exam->id,'exam_center_id'=>$exam->centers()->first()->id,'campus_id'=>1,'signing_location'=>'Phnom Penh',
+        'prepared_staff_id'=>1,'checked_staff_id'=>2,'approved_staff_id'=>3,
+        'prepared_date'=>'2026-10-10','checked_date'=>'2026-10-10','approved_date'=>'2026-10-10'];
+    try{app(ScholarshipController::class)->saveSeatPrintSettings(scholarshipRequest('POST',array_replace($input,$change),[],[1,2]));$this->fail('Invalid seat print settings accepted.');}
+    catch(ValidationException $e){expect($e->errors())->toHaveKey($field);}
+    expect(\App\Models\ScholarshipSeatPrintSetting::count())->toBe(0);
+})->with([
+    [['exam_center_id'=>9999],'exam_center_id'],[['campus_id'=>9999],'campus_id'],
+    [['prepared_staff_id'=>4],'prepared_staff_id'],[['checked_staff_id'=>null],'checked_staff_id'],
+    [['approved_date'=>'2026-02-30'],'approved_date'],[['prepared_date'=>''],'prepared_date'],
+]);
+
+it('protects seat print settings with the seat tab export and exam campus permissions',function($method,$denied,$campuses,$draft){
+    $exam=scholarshipSeatReportExam();if($draft)$exam->update(['seats_locked_at'=>null]);
+    $request=scholarshipRequest($method,['exam_id'=>$exam->id,'exam_center_id'=>$exam->centers()->first()->id],$denied,$campuses);
+    $action=$method==='GET'?'seatPrintSettings':'saveSeatPrintSettings';
+    expect(fn()=>app(ScholarshipController::class)->$action($request))->toThrow($draft?ValidationException::class:\Symfony\Component\HttpKernel\Exception\HttpException::class);
+})->with([
+    ['GET',['western-scholarship.tab-seat-plan'],[1,2],false],['POST',['western-scholarship.export'],[1,2],false],
+    ['GET',[],[1],false],['POST',[],[1,2],true],
+]);
+
+
+it('migrates saved signing locations to exam centers and uses centers as the report source',function(){
+    $migration=require database_path('migrations/2026_10_16_000005_move_scholarship_location_to_exam_centers.php');$migration->down();
+    $exam=scholarshipSeatReportExam();$centers=$exam->centers()->orderBy('position')->get();
+    foreach($centers as $i=>$center)\App\Models\ScholarshipSeatPrintSetting::create(['exam_center_id'=>$center->id,'campus_id'=>$i+1,'signing_location'=>$i?'Battambang':'Kampong Cham','prepared_date'=>'2026-10-20']);
+    $migration->up();
+    expect($centers[0]->fresh()->location)->toBe('Kampong Cham')->and($centers[1]->fresh()->location)->toBe('Battambang');
+    \App\Models\ScholarshipSeatPrintSetting::query()->update(['signing_location'=>'OLD UNUSED VALUE']);
+    $html=view('western-scholarship.seat-report',scholarshipSeatReportData($exam,'candidates'))->render();
+    expect($html)->toContain('Kampong Cham, October 20, 2026.','Battambang, October 20, 2026.')->not->toContain('OLD UNUSED VALUE');
+});
+
+it('updates only exam center locations after confirmation without changing seating subjects or results',function(){
+    $exam=scholarshipSeatReportExam();$exam->update(['published_at'=>now()]);$centers=$exam->centers()->orderBy('position')->get();
+    $seats=$exam->candidates()->get()->toArray();$subjects=$exam->subjects()->get()->toArray();$locked=$exam->seats_locked_at->toDateTimeString();
+    $request=scholarshipRequest('POST',['version'=>$exam->version,'locations'=>[$centers[0]->id=>' Phnom Penh ',$centers[1]->id=>'Battambang'],'room_capacity'=>1,'subjects'=>[]],[],[1,2]);$request->headers->set('Accept','application/json');
+    $data=app(ScholarshipController::class)->saveCenterLocations($request,$exam)->getData(true);
+    expect(array_column($data['centers'],'location'))->toBe(['Phnom Penh','Battambang'])
+        ->and($exam->fresh()->room_capacity)->toBe(40)->and($exam->fresh()->published_at)->not->toBeNull()
+        ->and($exam->fresh()->seats_locked_at->toDateTimeString())->toBe($locked)
+        ->and($exam->candidates()->get()->toArray())->toBe($seats)->and($exam->subjects()->get()->toArray())->toBe($subjects);
+    foreach(['candidates','attendance','attendance-cover','envelope-cover','seat-labels','room-plan'] as $kind){
+        $report=scholarshipSeatReportData($exam->fresh(),$kind);
+        foreach($report['pages'] as $page){
+            $expected=in_array($kind,['attendance','attendance-cover'],true)?'Exam Date: November 20, 2026':($page['center']==='North Exam Center'?'Phnom Penh':'Battambang').', November 20, 2026';
+            $text=collect($page['rows'])->flatMap(fn($row)=>$row['cells'])->flatMap(fn($cell)=>$cell['lines'])->pluck('text')->implode(' ');
+            expect($text)->toContain($expected);
+        }
+    }
+    foreach(['seats','results'] as $kind){
+        $print=app(ScholarshipController::class)->report(scholarshipRequest('GET',[],[],[1,2]),$exam->fresh(),$kind,'print')->render();
+        expect($print)->toContain('Phnom Penh, November 20, 2026','Battambang, November 20, 2026');
+    }
+});
+
+it('rejects invalid or stale center location updates atomically',function($locations,$stale){
+    $exam=scholarshipSeatReportExam();$center=$exam->centers()->first();
+    $input=['version'=>$stale?$exam->version+1:$exam->version,'locations'=>[$center->id=>'Valid Location']+$locations];
+    try{app(ScholarshipController::class)->saveCenterLocations(scholarshipRequest('POST',$input,[],[1,2]),$exam);$this->fail('Invalid center locations were saved.');}
+    catch(ValidationException $e){expect($e->errors())->not->toBeEmpty();}
+    expect($center->fresh()->location)->toBe('Phnom Penh')->and($exam->fresh()->version)->toBe($exam->version);
+})->with([[[9999=>'Other Center'],false],[[2=>'  '],false],[[2=>str_repeat('X',81)],false],[[],true]]);
+
+it('requires scholarship settings permission and the full exam campus scope to edit locations',function($denied,$campuses){
+    $exam=scholarshipSeatReportExam();$center=$exam->centers()->first();
+    expect(fn()=>app(ScholarshipController::class)->saveCenterLocations(scholarshipRequest('POST',['version'=>$exam->version,'locations'=>[$center->id=>'Battambang']],$denied,$campuses),$exam))
+        ->toThrow(\Symfony\Component\HttpKernel\Exception\HttpException::class);
+    expect($center->fresh()->location)->toBe('Phnom Penh');
+})->with([[['western-scholarship.settings'],[1,2]],[['western-scholarship.tab-settings'],[1,2]],[[],[1]]]);

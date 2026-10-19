@@ -6,6 +6,7 @@ use App\Models\AcademicYear;
 use App\Models\Grade;
 use App\Models\ScholarshipStudentRank;
 use App\Models\ScholarshipPrintSetting;
+use App\Models\ScholarshipSeatPrintSetting;
 use App\Models\Staff;
 use App\Models\StudentEnrollment;
 use App\Models\{ScholarshipExam, ScholarshipCandidate, ScholarshipCommittee, User};
@@ -26,6 +27,7 @@ class ScholarshipController
         'scoring' => ['Scoring', 'ti-pencil-check'],
         'result' => ['Result', 'ti-chart-bar'],
         'exam-committee' => ['Exam Committee', 'ti-users-group'],
+        'data-transfer' => ['Import / Export', 'ti-file-import'],
     ];
 
     private function campuses(Request $request, string $action='view')
@@ -127,7 +129,7 @@ class ScholarshipController
 
     private function ranksLocked(?int $year): bool
     {
-        return $year && ScholarshipExam::where('academic_year_id',$year)->where(fn($q)=>$q->whereNotNull('seats_locked_at')->orWhereNotNull('published_at'))->exists();
+        return $year && ScholarshipExam::where('academic_year_id',$year)->where(fn($q)=>$q->whereNotNull('seats_locked_at')->orWhereNotNull('published_at')->orWhereNotNull('historical_imported_at'))->exists();
     }
 
     public function rankFilters(Request $request)
@@ -154,12 +156,15 @@ class ScholarshipController
         $allowedCampuses = $this->campuses($request,$tab==='assign-rank'?'tab-assign-rank':'view');
         $filters = $this->filters($request, $allowedCampuses);
         $exams = ScholarshipExam::with('academicYear')->whereHas('academicYear',fn($q)=>$q->regular())->latest('id')->get()->filter(fn ($exam) => $this->workflow->canView($request->user(), $exam));
+        $selectableExams=$tab==='seat-plan'?$exams->filter(fn($exam)=>$this->workflow->candidates($request->user(),$exam)->exists()):$exams;
         $exam = $request->integer('exam_id') ? $exams->firstWhere('id',$request->integer('exam_id')) : null;
         if ($request->integer('exam_id')) abort_unless($exam,403);
+        if ($tab==='seat-plan' && !empty($filters['academic_year_id'])) $exam=$exams->firstWhere('academic_year_id',$filters['academic_year_id']);
         if ($exam) $filters['academic_year_id']=$exam->academic_year_id;
         $academicYears = AcademicYear::regular()->orderByDesc('academic_year')->get();
+        if ($tab==='seat-plan') $academicYears=$academicYears->whereIn('id',$selectableExams->pluck('academic_year_id'))->values();
         $filters['academic_year_id'] ??= $academicYears->firstWhere('lifecycle_status', 'started')?->id ?? $academicYears->first()?->id;
-        if (!$exam && !$request->boolean('new_exam')) $exam=$exams->firstWhere('academic_year_id',$filters['academic_year_id']);
+        if (!$exam && !$request->boolean('new_exam')) $exam=$selectableExams->firstWhere('academic_year_id',$filters['academic_year_id']);
         $selected = null;
         $enrollmentId = $request->old('enrollment_id', $request->integer('enrollment_id'));
         if ($enrollmentId && !empty($filters['academic_year_id'])) {
@@ -181,7 +186,7 @@ class ScholarshipController
             'canAssign' => !empty($filters['campus_id']) && ScholarshipPermissions::allows($request->user(), 'assign-rank', (int) $filters['campus_id']),
         ];
         if($exam && $tab==='seat-plan' && $request->boolean('seat_list') && $request->expectsJson()){
-            return response()->json(['html'=>view('western-scholarship._seat-table',$viewData)->render()]);
+            return response()->json(['html'=>view('western-scholarship._seat-table',$viewData)->render(),'summary'=>view('western-scholarship._seat-summary',$viewData)->render(),'filters'=>$workspace['seatFilters'],'options'=>$workspace['seatFilterOptions']]);
         }
         return view('western-scholarship.index',$viewData);
     }
@@ -332,12 +337,19 @@ class ScholarshipController
     private function examWorkspace(Request $request, ?ScholarshipExam $exam, string $tab, int $year=0): array
     {
         $user=$request->user();
-        $data=['workflow'=>$this->workflow,'examPermissions'=>[], 'committeeRoles'=>ScholarshipWorkflow::ROLES];
+        $data=['workflow'=>$this->workflow,'examPermissions'=>[], 'committeeRoles'=>ScholarshipWorkflow::ROLES,'settingsCreating'=>!$exam && $request->boolean('new_exam')];
         $participating=app(ScholarshipExamCenters::class)->campuses($exam?->academic_year_id??(int)old('academic_year_id',$year));
         $data['examCenterCampuses']=$participating->every(fn($campus)=>ScholarshipPermissions::allows($user,'settings',$campus['id']))?$participating:collect();
-        if (!$exam) return $data;
+        if (!$exam) {
+            if($tab==='seat-plan'){
+                $emptyFilters=app(\App\Support\ScholarshipSeatFilters::class)->apply($request,collect());
+                $data['seatFilters']=$emptyFilters['filters'];$data['seatFilterOptions']=$emptyFilters['options'];
+            }
+            return $data;
+        }
         $exam->load(['subjects','committee.user','committee.examCenter','centers.campuses']);
         foreach (array_keys(ScholarshipPermissions::catalog()) as $action) $data['examPermissions'][$action]=$this->workflow->central($user,$exam,$action);
+        if($exam->isHistorical())foreach(['seat-plan','scoring','review-scores','awards','publish-results','committee'] as $action)$data['examPermissions'][$action]=false;
         $candidates=$this->workflow->candidates($user,$exam)->with('scores')
             ->orderBy('grade_number')->orderBy('grade_exam_number')->orderBy('id')->get();
         $data['candidateCount']=$exam->candidates()->count();
@@ -346,7 +358,23 @@ class ScholarshipController
         if($tab==='seat-plan'){
             $paging=$request->validate(['seat_per_page'=>['nullable',Rule::in(['all',15,25,50,75,100])],'seat_page'=>['nullable','integer','min:1','max:1000000']]);
             $size=($paging['seat_per_page']??15)==='all'?'all':(int)($paging['seat_per_page']??15);
-            $rows=!$exam->seats_locked_at && $data['examPermissions']['seat-plan']?collect($data['seatPlan']['rows']):$this->workflow->orderedSeats($exam,$candidates)->map(fn($c)=>$c->only(['id','exam_center_name','grade_number','room_number','room_seat','candidate_code','snapshot']));
+            $rows=!$exam->seats_locked_at && $data['examPermissions']['seat-plan']?collect($data['seatPlan']['rows']):$this->workflow->orderedSeats($exam,$candidates)->map(fn($c)=>$c->only(['id','exam_center_id','exam_center_name','grade_number','room_number','room_seat','candidate_code','snapshot']));
+            $filtered=app(\App\Support\ScholarshipSeatFilters::class)->apply($request,$rows);
+            $rows=$filtered['rows'];$data['seatFilters']=$filtered['filters'];$data['seatFilterOptions']=$filtered['options'];
+            $studentIds=$candidates->whereIn('id',$rows->pluck('id'))->pluck('student_id','id');
+            $studentGenders=\App\Models\Student::whereIn('id',$studentIds->filter()->unique())->get(['id','gender','gender_kh'])->keyBy('id');
+            $genderCounts=$rows->countBy(function($row)use($studentIds,$studentGenders){
+                $student=$studentGenders->get($studentIds->get($row['id']));
+                $gender=mb_strtolower(trim((string)(filled($row['snapshot']['gender']??null)?$row['snapshot']['gender']:$student?->gender)));
+                $genderKh=(string)($row['snapshot']['gender_kh']??$student?->gender_kh??'');
+                if(in_array($gender,['male','m','ប្រុស'],true))return 'male';
+                if(in_array($gender,['female','f','ស្រី'],true))return 'female';
+                return str_contains($genderKh,'ប្រុស')?'male':(str_contains($genderKh,'ស្រី')?'female':'unknown');
+            });
+            $data['seatSummary']=['total'=>$rows->count(),'male'=>$genderCounts->get('male',0),'female'=>$genderCounts->get('female',0),'centers'=>$rows->groupBy(fn($row)=>(int)($row['exam_center_id']??0))->map(fn($group)=>[
+                'name'=>$group->first()['exam_center_name']?:'Main Exam Center',
+                'rooms'=>$group->pluck('room_number')->filter(fn($number)=>(int)$number>0)->unique()->count(),
+            ])->values()];
             $total=$rows->count();$perPage=$size==='all'?max(1,$total):$size;
             $page=$size==='all'?1:min(max(1,(int)($paging['seat_page']??1)),max(1,(int)ceil($total/$perPage)));
             $pageRows=$rows->slice(($page-1)*$perPage,$perPage)->values();
@@ -365,6 +393,15 @@ class ScholarshipController
         $page=max(1,$request->integer('score_page',1));
         $data['scoringCandidates']=new \Illuminate\Pagination\LengthAwarePaginator($scoring->slice(($page-1)*15,15),$scoring->count(),15,$page,['path'=>url()->current(),'pageName'=>'score_page','query'=>$request->query()]);
         $data['staffOptions']=$data['examPermissions']['committee']?User::where('status',1)->orderBy('name')->get(['id','name']):collect();
+        if($tab==='exam-committee' && $data['examPermissions']['committee']){
+            $invigilators=app(\App\Services\ScholarshipInvigilators::class);
+            $data['invigilatorStaff']=$invigilators->staffOptions($user);
+            $data['invigilators']=$exam->invigilators()->withCount('duties')->get();
+            $data['invigilatorSessions']=$exam->examSessions()->get();
+            $data['invigilatorSessionLinks']=$exam->sessionLinks()->with('examCenter')->get();
+            $data['invigilatorRooms']=$invigilators->rooms($exam);
+            $data['invigilatorDuties']=$exam->invigilatorDuties()->with(['invigilator','session','examCenter'])->get()->sortBy(fn($d)=>sprintf('%010d:%05d:%05d:%s',$d->exam_center_id,$d->session->number,$d->room_number,$d->invigilator->name_en));
+        }
         $data['events']=$data['examPermissions']['settings']?$exam->events()->with('user')->limit(20)->get():collect();
         return $data;
     }
@@ -381,10 +418,11 @@ class ScholarshipController
         $data=$request->validate([
             'exam_id'=>['nullable','integer','exists:tb_scholarship_exam,id'], 'version'=>['required','integer','min:1'],
             'academic_year_id'=>['required','integer',Rule::exists('tb_academic_year','id')->whereNull('deleted_at')->where('period_type','regular')],
-            'exam_date'=>['required','date_format:Y-m-d'],'room_capacity'=>['required','integer','min:1','max:200'],
-            'subjects'=>['required','array','min:1','max:100'],'subjects.*.name'=>['required','string','max:100'],
+            'examination_type'=>['sometimes','required','string','max:120','regex:/\S/u'],'exam_date'=>['required','date_format:Y-m-d'],'room_capacity'=>['required','integer','min:1','max:200'],
+            'subjects'=>['required','array','min:1','max:100'],'subjects.*.id'=>['nullable','integer','min:1'],'subjects.*.name'=>['required','string','max:100'],
             'subjects.*.grade_from'=>['required','integer','between:1,12'],'subjects.*.grade_to'=>['required','integer','between:1,12','gte:subjects.*.grade_from'],
             'subjects.*.max_score'=>['required','numeric','gt:0','max:10000','decimal:0,2'],'subjects.*.weight'=>['required','numeric','gt:0','max:10000','decimal:0,2'],
+            'subjects.*.exam_date'=>['nullable','date_format:Y-m-d'],'subjects.*.starts_at'=>['nullable','date_format:H:i'],'subjects.*.ends_at'=>['nullable','date_format:H:i'],
             'award_scheme'=>['sometimes','array:total_1,total_2,total_3,subject'],
             'award_scheme.total_1'=>['required_with:award_scheme','numeric','between:0,100','decimal:0,2'],
             'award_scheme.total_2'=>['required_with:award_scheme','numeric','between:0,100','decimal:0,2'],
@@ -393,6 +431,31 @@ class ScholarshipController
         ]+ScholarshipExamCenters::rules());
         $exam=$this->workflow->saveExam($request->user(),empty($data['exam_id'])?null:ScholarshipExam::findOrFail($data['exam_id']),$data);
         return $this->back($exam,'settings','Exam settings saved.');
+    }
+
+    public function saveExaminationType(Request $request, ScholarshipExam $exam)
+    {
+        $data=$request->validate(['examination_type'=>['required','string','max:120','regex:/\S/u'],'version'=>['required','integer','min:1']]);
+        $exam=$this->workflow->saveExaminationType($request->user(),$exam,$data['examination_type'],(int)$data['version']);
+        if($request->expectsJson())return response()->json(['message'=>'Examination type saved.','version'=>$exam->version,'examination_type'=>$exam->examinationTitle()]);
+        return $this->back($exam,'settings','Examination type saved.');
+    }
+
+    public function saveSubjectOrder(Request $request,ScholarshipExam $exam)
+    {
+        $data=$request->validate(['version'=>['required','integer','min:1'],'bands'=>['required','array:primary,secondary'],
+            'bands.primary'=>['present','array','max:100'],'bands.secondary'=>['present','array','max:100'],
+            'grades'=>['present','array','max:12'],'grades.*'=>['array','max:100'],'schedules'=>['sometimes','array']]);
+        $exam=$this->workflow->saveSubjectOrder($request->user(),$exam,$data['bands'],$data['grades'],(int)$data['version'],$data['schedules']??null);
+        return response()->json(['message'=>isset($data['schedules'])?'Subject exam order and schedule saved.':'Subject exam order saved.','version'=>$exam->version,'order'=>app(\App\Support\ScholarshipSubjectOrder::class)->state($exam),'schedules'=>app(\App\Support\ScholarshipSubjectSchedule::class)->state($exam)]);
+    }
+
+    public function saveCenterLocations(Request $request, ScholarshipExam $exam)
+    {
+        $data=$request->validate(['locations'=>['required','array','min:1','max:50'],'locations.*'=>['required','string','max:80','regex:/\S/u'],'version'=>['required','integer','min:1']]);
+        $exam=$this->workflow->saveCenterLocations($request->user(),$exam,$data['locations'],(int)$data['version']);
+        if($request->expectsJson())return response()->json(['message'=>'Exam center locations saved.','version'=>$exam->version,'centers'=>$exam->centers()->get(['id','name','location'])]);
+        return $this->back($exam,'settings','Exam center locations saved.');
     }
 
     public function examCenterCampuses(Request $request)
@@ -424,7 +487,12 @@ class ScholarshipController
     public function lockPlan(Request $request, ScholarshipExam $exam)
     {
         $data=$request->validate(['plan_token'=>['required','string','size:64'],'confirm'=>['accepted']]);
-        $this->workflow->lockPlan($request->user(),$exam,$data['plan_token']); return $this->back($exam,'seat-plan','Seat plan confirmed and locked.');
+        $this->workflow->lockPlan($request->user(),$exam,$data['plan_token']);
+        if($request->expectsJson())return response()->json([
+            'message'=>'Seat plan confirmed and locked.',
+            'redirect'=>route('western-scholarship.index',['exam_id'=>$exam->id,'tab'=>'seat-plan']),
+        ]);
+        return $this->back($exam,'seat-plan','Seat plan confirmed and locked.');
     }
 
     public function reopenPlan(Request $request, ScholarshipExam $exam)
@@ -472,31 +540,115 @@ class ScholarshipController
         $this->workflow->removeCommittee($request->user(),$exam,$member); return $this->back($exam,'exam-committee','Committee assignment removed.');
     }
 
+    private function seatPrintContext(Request $request): array
+    {
+        abort_unless(ScholarshipPermissions::allows($request->user(),ScholarshipPermissions::TABS['seat-plan']),403);
+        $request->validate(['exam_id'=>['required','integer']]);
+        $exam=ScholarshipExam::with('academicYear','centers')->findOrFail($request->integer('exam_id'));
+        abort_unless($this->workflow->canView($request->user(),$exam) && $this->workflow->central($request->user(),$exam,'export'),403);
+        if(!$exam->seats_locked_at)throw ValidationException::withMessages(['exam'=>'Confirm the seat plan before setting report signers.']);
+        $request->validate(['exam_center_id'=>['nullable','integer',Rule::in($exam->centers->pluck('id')->all())]]);
+        $center=$exam->centers->firstWhere('id',$request->integer('exam_center_id'))??$exam->centers->sortBy('position')->first();
+        if(!$center)throw ValidationException::withMessages(['exam_center_id'=>'Configure an exam center first.']);
+        return [$exam,$center,$this->campuses($request,'export')];
+    }
+
+    public function seatPrintSettings(Request $request)
+    {
+        [$exam,$center,$campuses]=$this->seatPrintContext($request);
+        $request->validate(['campus_id'=>['nullable','integer',Rule::in($campuses->pluck('id')->all())]]);
+        $setting=ScholarshipSeatPrintSetting::where('exam_center_id',$center->id)->first();
+        $campusId=$request->integer('campus_id')?:($campuses->contains('id',$setting?->campus_id)?$setting->campus_id:$this->rankSignatureCampus($request,$campuses));
+        abort_unless($campusId,403);
+        $sameCampus=(int)$setting?->campus_id===(int)$campusId;
+        $values=[];
+        foreach(['prepared','checked','approved'] as $role){
+            foreach(['staff_id','by_name','position'] as $field)$values[$role.'_'.$field]=$sameCampus?$setting?->getAttribute($role.'_'.$field):null;
+            $values[$role.'_date']=$setting?->getAttribute($role.'_date')?->format('Y-m-d')??now()->toDateString();
+        }
+        return response()->json([
+            'academic_year'=>['id'=>$exam->academic_year_id,'label'=>$exam->academicYear->academic_year],
+            'centers'=>$exam->centers->sortBy('position')->values()->map(fn($item)=>['id'=>$item->id,'label'=>$item->name]),'exam_center_id'=>$center->id,
+            'campuses'=>$campuses->map(fn($item)=>['id'=>$item->id,'label'=>$item->campus_name_en?:$item->campus_name_kh]),'campus_id'=>$campusId,
+            'values'=>$values,'requires_verifier'=>true,
+            'staff'=>$this->rankSignerStaff((int)$campusId)->map(fn($staff)=>['id'=>$staff->id,'code'=>$staff->staff_code,'name'=>$staff->name_en?:$staff->name_kh,'name_kh'=>$staff->name_kh,'position'=>$staff->position?->name??'']),
+        ]);
+    }
+
+    public function saveSeatPrintSettings(Request $request)
+    {
+        [$exam,$center,$campuses]=$this->seatPrintContext($request);
+        $request->validate(['exam_center_id'=>['required'],'campus_id'=>['required','integer',Rule::in($campuses->pluck('id')->all())]]);
+        $staff=$this->rankSignerStaff($request->integer('campus_id'))->keyBy('id');
+        $rules=[];$labels=[];
+        foreach(['prepared'=>'Prepared by','checked'=>'Checked and Verified by','approved'=>'Approved by'] as $role=>$label){
+            $rules[$role.'_staff_id']=['required','integer',Rule::in($staff->keys()->all())];
+            $rules[$role.'_date']=['required','date_format:Y-m-d'];
+            $labels[$role.'_staff_id']=$label.' (HRM Staff)';$labels[$role.'_date']=$label.' Date';
+        }
+        $data=$request->validate($rules,[],$labels);
+        foreach(['prepared','checked','approved'] as $role){
+            $signer=$staff->get($data[$role.'_staff_id']);
+            $data[$role.'_by_name']=$signer->name_en?:$signer->name_kh;
+            $data[$role.'_position']=$signer->position?->name;
+        }
+        ScholarshipSeatPrintSetting::updateOrCreate(['exam_center_id'=>$center->id],$data+['campus_id'=>$request->integer('campus_id'),'updated_by'=>$request->user()->id]);
+        return response()->json(['message'=>'Print settings saved for '.$center->name.'.']);
+    }
+
+    public function seatReport(Request $request, ScholarshipExam $exam, string $document, string $format)
+    {
+        abort_unless(isset(\App\Support\ScholarshipSeatReports::DOCUMENTS[$document]) && in_array($format,['print','xlsx','pdf'],true),404);
+        abort_unless(ScholarshipPermissions::allows($request->user(),ScholarshipPermissions::TABS['seat-plan']),403);
+        abort_unless($this->workflow->canView($request->user(),$exam) && $this->workflow->central($request->user(),$exam,'export'),403);
+        if(!$exam->seats_locked_at)throw ValidationException::withMessages(['exam'=>'Confirm the seat plan before printing or exporting assignments.']);
+        $candidates=$this->workflow->orderedSeats($exam,$this->workflow->candidates($request->user(),$exam)->with('student')->get());
+        $export=app(\App\Support\ScholarshipSeatReports::class);
+        $candidates=app(\App\Support\ScholarshipSeatFilters::class)->report($request,$candidates);
+        $data=$export->data($exam,$candidates,$document);
+        if($format==='print')return view('western-scholarship.seat-report',$data);
+        $bytes=$format==='pdf'?$export->pdf($data):app(\App\Support\ScholarshipSeatWorkbook::class)->generate($data);
+        return response($bytes)->header('Content-Type',$format==='pdf'?'application/pdf':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            ->header('Content-Disposition','attachment; filename="wis-scholarship-'.$exam->id.'-'.$document.'.'.$format.'"');
+    }
+
     public function report(Request $request, ScholarshipExam $exam, string $kind, string $format)
     {
         abort_unless(ScholarshipPermissions::allows($request->user(),ScholarshipPermissions::TABS[$kind==='seats'?'seat-plan':'result']),403);
         abort_unless($this->workflow->canView($request->user(),$exam) && $this->workflow->central($request->user(),$exam,'export'),403);
         $exam->load('subjects','academicYear');
         $candidates=$this->workflow->candidates($request->user(),$exam)->with('scores')->orderBy('grade_number')->orderBy('grade_exam_number')->get();
-        $rows=[]; $headers=[];
+        $rows=[]; $headers=[];$rowCenterIds=[];
         if($kind==='seats') {
             if(!$exam->seats_locked_at) throw ValidationException::withMessages(['exam'=>'Confirm the seat plan before printing or exporting assignments.']);
             $candidates=$this->workflow->orderedSeats($exam,$candidates);
             $headers=['Exam Center','Grade','Room','Seat','Exam Code','Student ID','Khmer Name','English Name','Campus','Class','Class Rank'];
-            foreach($candidates as $candidate) $rows[]=[$candidate->exam_center_name??'—',$candidate->grade_number,$candidate->room_number,$candidate->room_seat,$candidate->candidate_code,
-                $candidate->snapshot['student_code'],$candidate->snapshot['name_kh'],$candidate->snapshot['name_en'],$candidate->snapshot['campus'],$candidate->snapshot['class'],$candidate->class_rank];
+            foreach($candidates as $candidate){
+                $rowCenterIds[]=$candidate->exam_center_id??0;
+                $rows[]=[$candidate->exam_center_name??'—',$candidate->grade_number,$candidate->room_number,$candidate->room_seat,$candidate->candidate_code,
+                    $candidate->snapshot['student_code'],$candidate->snapshot['name_kh'],$candidate->snapshot['name_en'],$candidate->snapshot['campus'],$candidate->snapshot['class'],$candidate->class_rank];
+            }
         } else {
             $headers=['Grade','Exam Rank','Exam Code','Student ID','Khmer Name','English Name','Campus','Status','Publication',...$exam->subjects->map(fn($s)=>$s->name.' (G'.$s->grade_from.'–'.$s->grade_to.') / '.$s->max_score)->all(),'Total','Percentage','Scholarship %','Award'];
             $visible=$candidates->pluck('id');
             foreach($this->workflow->results($exam) as $row) {
                 $candidate=$row['candidate']; if(!$visible->contains($candidate->id)) continue;
                 $scores=$candidate->scores->keyBy('subject_id');
-                $rows[]=[$candidate->grade_number,$row['rank'],$candidate->candidate_code,$candidate->snapshot['student_code'],$candidate->snapshot['name_kh'],$candidate->snapshot['name_en'],$candidate->snapshot['campus'],$row['status'],$exam->published_at?'Published':'DRAFT - Not Published',
+                $rowCenterIds[]=$candidate->exam_center_id??0;
+                $rows[]=[$candidate->grade_number,$row['rank'],$candidate->candidate_code,$candidate->snapshot['student_code'],$candidate->snapshot['name_kh'],$candidate->snapshot['name_en'],$candidate->snapshot['campus'],$row['status'],$exam->isHistorical()?'Historical':($exam->published_at?'Published':'DRAFT - Not Published'),
                     ...$exam->subjects->map(fn($s)=>$candidate->grade_number<$s->grade_from||$candidate->grade_number>$s->grade_to?'Not applicable':($scores->get($s->id)?->score??'Not Entered'))->all(),$row['total'],$row['percentage'],$row['award'],$row['award_label']];
             }
         }
-        if($format==='print') return view('western-scholarship.print',compact('exam','headers','rows','kind'));
-        $filename='wis-scholarship-'.$exam->id.'-'.$kind.($exam->published_at?'':'-draft').'.'.$format;
+        if($format==='print'){
+            $centers=$exam->centers()->get()->keyBy('id');$reportGroups=[];
+            foreach($rows as $index=>$row){
+                $id=$rowCenterIds[$index];$center=$centers->get($id)??new \App\Models\ScholarshipExamCenter();
+                $reportGroups[$id]??=['name'=>$center->name??'Main Exam Center','date'=>$center->reportDate($exam->exam_date),'rows'=>[]];
+                $reportGroups[$id]['rows'][]=$row;
+            }
+            return view('western-scholarship.print',compact('exam','headers','rows','kind','reportGroups'));
+        }
+        $filename='wis-scholarship-'.$exam->id.'-'.$kind.($exam->isHistorical()?'-historical':($exam->published_at?'':'-draft')).'.'.$format;
         if($format==='xlsx') return response(app(\App\Support\ScholarshipExport::class)->xlsx([$headers,...$rows]))->header('Content-Type','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')->header('Content-Disposition','attachment; filename="'.$filename.'"');
         return response()->streamDownload(function() use($headers,$rows) {
             $stream=fopen('php://output','w'); fwrite($stream,"\xEF\xBB\xBF");

@@ -3,14 +3,24 @@ import Swal from 'sweetalert2';
 import { renderPagination } from './helpers/pagination.js';
 import { initRankPrintSettings } from './scholarshipPrintSettings.js';
 import { initExamCenters } from './scholarshipExamCenters.js';
+import { initCenterLocations } from './scholarshipCenterLocations.js';
+import { initSubjectOrder, initSubjectRows } from './scholarshipSubjectOrder.js';
+import { initExaminationType } from './scholarshipExaminationType.js';
 import { initSeatPagination } from './scholarshipSeatPagination.js';
+import { initHistoricalTransfer } from './scholarshipHistoricalTransfer.js';
+import { initInvigilators } from './scholarshipInvigilators.js';
 import { initPremiumDatePicker } from './premiumDatePicker.js';
 
 const root = document.querySelector('[data-scholarship-page]');
 if (root) {
-    if(root.dataset.settingsSuccess)Swal.fire({toast:true,position:'top-end',icon:'success',title:root.dataset.settingsSuccess,showConfirmButton:false,showCloseButton:true,timer:3500,timerProgressBar:true});
+    const actionSuccess=root.dataset.settingsSuccess||root.dataset.seatSuccess||root.dataset.committeeSuccess;
+    if(actionSuccess)Swal.fire({toast:true,position:'top-end',icon:'success',title:actionSuccess,showConfirmButton:false,showCloseButton:true,timer:3500,timerProgressBar:true});
     initRankPrintSettings(root);
+    initCenterLocations(root);
+    initSubjectOrder(root);
     initSeatPagination(root);
+    initHistoricalTransfer(root);
+    initExaminationType(root);
     const photoModalElement=root.querySelector('#scholarshipPhotoModal');
     if(photoModalElement){
         const modal=Modal.getOrCreateInstance(photoModalElement);
@@ -103,18 +113,70 @@ if (root) {
         window.addEventListener('resize',closeMobileTabs);
     }
     root.querySelector('[data-exam-selector] select')?.addEventListener('change', event => event.target.form.submit());
-    root.addEventListener('submit',event=>{
+    const pendingSeatConfirmations=new WeakSet();
+    root.addEventListener('submit',async event=>{
         const confirmedForm=event.target.closest('[data-scholarship-confirm]');
+        if(confirmedForm?.matches('[data-seat-plan-confirm]')){
+            event.preventDefault();
+            if(pendingSeatConfirmations.has(confirmedForm))return;
+            pendingSeatConfirmations.add(confirmedForm);
+            try{
+                const result=await Swal.fire({
+                    position:'center',icon:'question',title:'Confirm & Lock Seat Plan?',text:confirmedForm.dataset.scholarshipConfirm,
+                    showCancelButton:true,confirmButtonText:'Confirm & Lock',cancelButtonText:'Cancel',showLoaderOnConfirm:true,
+                    allowOutsideClick:false,allowEscapeKey:()=>!Swal.isLoading(),
+                    preConfirm:async()=>{
+                        if(!confirmedForm.reportValidity())return false;
+                        Swal.getCancelButton().disabled=true;
+                        try{
+                            const response=await fetch(confirmedForm.action,{
+                                method:'POST',body:new FormData(confirmedForm),credentials:'same-origin',
+                                headers:{Accept:'application/json','X-Requested-With':'XMLHttpRequest'},
+                            });
+                            const data=await response.json().catch(()=>null);
+                            if(!response.ok || response.redirected || !data?.message || !data?.redirect){
+                                const errors=data?.errors?Object.values(data.errors).flat().join(' '):null;
+                                throw new Error(errors || data?.message || 'Unable to confirm the seat plan. Refresh the page and try again.');
+                            }
+                            return data;
+                        }catch(error){
+                            const message=document.createElement('span');
+                            message.textContent=error.message || 'Unable to confirm the seat plan. Please try again.';
+                            Swal.showValidationMessage(message.innerHTML);
+                            Swal.getCancelButton().disabled=false;
+                            return false;
+                        }
+                    },
+                });
+                if(result.isConfirmed){
+                    await Swal.fire({toast:true,position:'top-end',icon:'success',title:result.value.message,showConfirmButton:false,showCloseButton:true,timer:3500,timerProgressBar:true});
+                    window.location.assign(result.value.redirect);
+                }
+            }finally{pendingSeatConfirmations.delete(confirmedForm);}
+            return;
+        }
         if(confirmedForm && !window.confirm(confirmedForm.dataset.scholarshipConfirm))event.preventDefault();
     });
     const settings=root.querySelector('[data-exam-settings]');
     if (settings) {
+        const fields=settings.querySelector('[data-settings-fields]'),edit=settings.querySelector('[data-edit-exam-settings]'),actions=settings.querySelector('[data-settings-actions]'),label=settings.querySelector('[data-settings-mode-label]');
+        edit?.addEventListener('click',()=>{
+            if(settings.dataset.settingsCanEdit!=='true')return;
+            fields.disabled=false;settings.querySelector('[data-settings-extra-fields]').disabled=false;settings.dataset.settingsMode='edit';edit.hidden=true;actions.hidden=false;
+            label.textContent='Editing Settings';label.classList.replace('bg-secondary-lt','bg-primary-lt');
+        });
+        settings.addEventListener('submit',event=>{
+            if(settings.dataset.settingsMode!=='edit'||settings.dataset.settingsCanEdit!=='true'){
+                event.preventDefault();event.stopImmediatePropagation();
+            }
+        });
         settings.querySelectorAll('[data-premium-date-picker]').forEach(initPremiumDatePicker);
         initExamCenters(settings);
         const nextIndex=type=>Math.max(-1,...[...settings.querySelectorAll(`[data-${type}-rows] input`)].map(input=>Number(/\[(\d+)\]/.exec(input.name)?.[1]??-1)))+1;
         let nextSubject=nextIndex('subject');
         settings.querySelector('[data-add-subject]')?.addEventListener('click',()=>settings.querySelector('[data-subject-rows]').insertAdjacentHTML('beforeend',settings.querySelector('[data-subject-template]').innerHTML.replaceAll('__INDEX__',String(nextSubject++))));
         settings.addEventListener('click',event=>event.target.closest('[data-remove-config-row]')?.closest('tr').remove());
+        initSubjectRows(settings);
     }
     const committeeForm=root.querySelector('[data-committee-form]');
     if(committeeForm){
@@ -190,6 +252,7 @@ if (root) {
         });
         controls.set(select, { refresh, close, search, button }); refresh();
     });
+    initInvigilators(root);
     root.querySelectorAll('[data-award-form]').forEach(awardForm => {
         const selects=[...awardForm.querySelectorAll('[data-award-winner]')];
         const update=()=>{

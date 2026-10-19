@@ -61,6 +61,7 @@ class ScholarshipWorkflow
 
     public function canScore(User $user, ScholarshipExam $exam, ScholarshipCandidate $candidate, bool $review = false): bool
     {
+        if($exam->isHistorical())return false;
         if (!$exam->academicYear || $exam->academicYear->period_type!=='regular') return false;
         if ($this->superUser($user)) return true;
         if (!$this->allowed($user, $review ? 'review-scores' : 'scoring')) return false;
@@ -82,7 +83,7 @@ class ScholarshipWorkflow
 
     public function applicableSubjects(ScholarshipExam $exam, int $grade): Collection
     {
-        return $exam->subjects->filter(fn ($subject) => $subject->grade_from <= $grade && $subject->grade_to >= $grade)->values();
+        return app(\App\Support\ScholarshipSubjectOrder::class)->forGrade($exam,$grade);
     }
 
     private function event(ScholarshipExam $exam, User $user, string $action, array $details = []): void
@@ -95,8 +96,14 @@ class ScholarshipWorkflow
         if ($exam->version !== $version) $this->fail('This exam changed in another window. Refresh before continuing.');
     }
 
+    private function historicalReadOnly(ScholarshipExam $exam): void
+    {
+        if($exam->isHistorical())$this->fail('Historical scholarship records are protected. Use Import / Export to preview an authorized correction.');
+    }
+
     private function editable(ScholarshipExam $exam): void
     {
+        $this->historicalReadOnly($exam);
         if ($exam->seats_locked_at || $exam->published_at) $this->fail('This exam is locked. Reopen its seat plan before changing settings or candidates.');
     }
 
@@ -118,20 +125,100 @@ class ScholarshipWorkflow
             if (ScholarshipExam::where('academic_year_id',$year->id)->when($exam,fn($q)=>$q->whereKeyNot($exam->id))->exists()) $this->fail('A scholarship exam already exists for this academic year. Open its settings to make changes.');
             // A grade must not receive two subjects with the same name through overlapping ranges.
             if ($exam && $exam->subjects()->whereHas('papers')->exists()) $this->fail('This exam has answer-sheet papers linked to its subjects. Keep the current subjects until paper configuration can be revised through the answer-sheet workflow.');
+            $existingSubjects=$exam?$exam->subjects()->get()->keyBy('id'):collect();
+            $subjectIds=collect($data['subjects'])->pluck('id')->filter()->map(fn($id)=>(int)$id)->values();
+            if($subjectIds->unique()->count()!==$subjectIds->count()||$subjectIds->diff($existingSubjects->keys())->isNotEmpty())$this->fail('Choose each subject once from this exam.');
+            $removedIds=$existingSubjects->keys()->diff($subjectIds);
+            if(DB::table('tb_scholarship_score')->whereIn('subject_id',$removedIds)->exists()||DB::table('tb_scholarship_award')->where('exam_id',$exam?->id)->whereIn('slot',$removedIds->map(fn($id)=>'subject_'.$id))->exists())$this->fail('Subjects with saved scores or awards cannot be removed. Use Edit Exam Order to rearrange them.');
             for ($grade = 1; $grade <= 12; $grade++) {
                 $names = collect($data['subjects'])->filter(fn ($s) => $s['grade_from'] <= $grade && $s['grade_to'] >= $grade)->map(fn ($s) => mb_strtolower(trim($s['name'])));
                 if ($names->unique()->count() !== $names->count()) $this->fail('Subject names must be unique within each grade. Check overlapping grade ranges.');
             }
-            $values = collect($data)->only(['academic_year_id','exam_date','room_capacity'])->all();
+            $values = collect($data)->only(['academic_year_id','exam_date','room_capacity','examination_type'])->all();
             $values += ['name'=>$year->academic_year,'campus_ids'=>$campusIds,'eligible_ranks'=>[],'tie_policy'=>'competition'];
             $values['award_scheme'] = $data['award_scheme'] ?? ['total_1'=>100,'total_2'=>75,'total_3'=>50,'subject'=>25];
             if ($exam) $exam->fill($values)->forceFill(['version'=>$exam->version+1])->save();
             else $exam = ScholarshipExam::create($values + ['created_by'=>$user->id,'version'=>1]);
             app(ScholarshipExamCenters::class)->save($exam,$data,$campusIds);
-            $exam->subjects()->delete();
-            foreach (array_values($data['subjects']) as $position => $subject) $exam->subjects()->create(collect($subject)->only(['name','grade_from','grade_to','max_score','weight'])->all() + ['position'=>$position]);
+            $savedIds=[];
+            foreach(array_values($data['subjects']) as $position=>$subject){
+                $record=!empty($subject['id'])?$existingSubjects->get((int)$subject['id']):$exam->subjects()->make();
+                $timing=[];
+                if(array_key_exists('starts_at',$subject)||array_key_exists('ends_at',$subject)||array_key_exists('exam_date',$subject))$timing=app(\App\Support\ScholarshipSubjectSchedule::class)->normalize($subject,'subjects.'.$position)??['exam_date'=>null,'starts_at'=>null,'ends_at'=>null];
+                $record->fill(collect($subject)->only(['name','grade_from','grade_to','max_score','weight'])->all()+$timing+['position'=>$position])->save();$savedIds[]=$record->id;
+            }
+            $exam->subjects()->whereNotIn('id',$savedIds)->delete();$exam->unsetRelation('subjects');
+            if($exam->subject_orders!==null){
+                $order=app(\App\Support\ScholarshipSubjectOrder::class)->state($exam);
+                foreach(['primary'=>[1,6],'secondary'=>[7,12]] as $band=>[$from,$to])$order['bands'][$band]=$exam->subjects->filter(fn($s)=>$s->grade_from<=$to&&$s->grade_to>=$from)->pluck('id')->map(fn($id)=>(int)$id)->all();
+                $exam->forceFill(['subject_orders'=>$order])->save();
+            }
+            $overrides=$exam->subject_schedule_overrides;
+            if($overrides!==null){
+                foreach($overrides as $grade=>&$rows){$rows=array_filter($rows,fn($id)=>$exam->subjects->contains(fn($s)=>$s->id===(int)$id&&$s->grade_from<=$grade&&$s->grade_to>=$grade),ARRAY_FILTER_USE_KEY);}unset($rows);
+                $exam->forceFill(['subject_schedule_overrides'=>array_filter($overrides)])->save();
+            }
+            if(collect($data['subjects'])->contains(fn($s)=>array_key_exists('starts_at',$s))){
+                if($exam->subject_schedule_overrides===null)$exam->forceFill(['subject_schedule_overrides'=>[]])->save();
+                app(\App\Support\ScholarshipSubjectSchedule::class)->ensureSessions($exam);
+            }
             $this->synchronizeCandidates($exam);
-            $this->event($exam, $user, 'settings-saved', ['version'=>$exam->version,'exam_centers'=>$exam->centers()->with('campuses')->get()->map(fn($center)=>['id'=>$center->id,'name'=>$center->name,'campus_ids'=>$center->campuses->pluck('id')->all()])->all()]);
+            $this->event($exam, $user, 'settings-saved', ['version'=>$exam->version,'exam_centers'=>$exam->centers()->with('campuses')->get()->map(fn($center)=>['id'=>$center->id,'name'=>$center->name,'location'=>$center->location,'campus_ids'=>$center->campuses->pluck('id')->all()])->all()]);
+            return $exam->fresh();
+        });
+    }
+
+    /** Report wording may change after confirmation; allocation and scores remain locked. */
+    public function saveExaminationType(User $user, ScholarshipExam $exam, string $title, int $version): ScholarshipExam
+    {
+        return DB::transaction(function()use($user,$exam,$title,$version){
+            $exam=ScholarshipExam::lockForUpdate()->findOrFail($exam->id);
+            abort_unless($this->central($user,$exam,'settings'),403);
+            $this->version($exam,$version);
+            $title=trim($title);
+            if($title===''||mb_strlen($title)>120)throw ValidationException::withMessages(['examination_type'=>'Enter an examination type of up to 120 characters.']);
+            $before=$exam->examinationTitle();
+            $exam->forceFill(['examination_type'=>$title,'version'=>$exam->version+1])->save();
+            $this->event($exam,$user,'examination-type-updated',['before'=>$before,'after'=>$title]);
+            return $exam->fresh();
+        });
+    }
+
+    public function saveCenterLocations(User $user, ScholarshipExam $exam, array $locations, int $version): ScholarshipExam
+    {
+        return DB::transaction(function()use($user,$exam,$locations,$version){
+            $exam=ScholarshipExam::lockForUpdate()->findOrFail($exam->id);
+            abort_unless($this->central($user,$exam,'settings'),403);
+            $this->version($exam,$version);
+            $centers=$exam->centers()->get()->keyBy('id');$changes=[];
+            if(!$locations || count($locations)>50)throw ValidationException::withMessages(['locations'=>'Choose the exam center locations to update.']);
+            foreach($locations as $id=>$location){
+                if(!ctype_digit((string)$id)||!$centers->has($id))throw ValidationException::withMessages(['locations'=>'Choose exam centers belonging to this academic year.']);
+                if(!is_string($location)||trim($location)===''||mb_strlen(trim($location))>80)throw ValidationException::withMessages(['locations.'.$id=>'Enter a location of up to 80 characters.']);
+                $center=$centers->get($id);$changes[]=['id'=>$center->id,'before'=>$center->location,'after'=>trim($location)];
+                $center->update(['location'=>trim($location)]);
+            }
+            $exam->forceFill(['version'=>$exam->version+1])->save();
+            $this->event($exam,$user,'exam-center-locations-updated',['centers'=>$changes]);
+            return $exam->fresh();
+        });
+    }
+
+    public function saveSubjectOrder(User $user,ScholarshipExam $exam,array $bands,array $grades,int $version,?array $schedules=null): ScholarshipExam
+    {
+        return DB::transaction(function()use($user,$exam,$bands,$grades,$version,$schedules){
+            $exam=ScholarshipExam::lockForUpdate()->findOrFail($exam->id);
+            abort_unless($this->central($user,$exam,'settings'),403);
+            $this->version($exam,$version);
+            $order=app(\App\Support\ScholarshipSubjectOrder::class)->validate($exam,$bands,$grades);
+            $before=$exam->subject_orders;
+            $beforeSchedule=$schedules!==null?app(\App\Support\ScholarshipSubjectSchedule::class)->state($exam):null;
+            $exam->forceFill(['subject_orders'=>$order,'version'=>$exam->version+1])->save();
+            if($schedules!==null){
+                if($exam->isHistorical()||$exam->published_at)$this->fail('Published and historical subject schedules are read only.');
+                app(\App\Support\ScholarshipSubjectSchedule::class)->save($exam,$schedules);
+            }else app(ScholarshipInvigilators::class)->validateSchedules($exam);
+            $this->event($exam,$user,'subject-exam-order-updated',['before'=>$before,'after'=>$order]+($schedules!==null?['schedule_before'=>$beforeSchedule,'schedule_after'=>app(\App\Support\ScholarshipSubjectSchedule::class)->state($exam)]:[]));
             return $exam->fresh();
         });
     }
@@ -249,6 +336,7 @@ class ScholarshipWorkflow
 
     public function plan(ScholarshipExam $exam): array
     {
+        if($exam->isHistorical())return ['rows'=>$this->orderedSeats($exam,$exam->candidates()->get())->map->toArray()->all(),'unassigned_campuses'=>[],'token'=>''];
         $centers=$exam->centers()->with('campuses')->get();
         $rows = $this->allocate($exam->candidates()->get(),$exam->room_capacity,$centers);
         $unassigned=$centers->isEmpty()?[]:collect($rows)->whereNull('exam_center_id')->pluck('snapshot.campus')->unique()->values()->all();
@@ -281,12 +369,14 @@ class ScholarshipWorkflow
     public function reopenPlan(User $user, ScholarshipExam $exam, int $version, string $reason): void
     {
         DB::transaction(function () use ($user,$exam,$version,$reason) {
-            $exam=ScholarshipExam::lockForUpdate()->findOrFail($exam->id); abort_unless($this->central($user,$exam,'seat-plan'),403); $this->version($exam,$version);
+            $exam=ScholarshipExam::lockForUpdate()->findOrFail($exam->id); $this->historicalReadOnly($exam); abort_unless($this->central($user,$exam,'seat-plan'),403); $this->version($exam,$version);
             if ($exam->published_at || ScholarshipScore::whereIn('candidate_id',$exam->candidates()->select('id'))->exists() || $exam->candidates()->whereNotNull('reviewed_at')->exists()) $this->fail('A seat plan cannot be reopened after scoring or review has started. Scores and results are protected.');
             $roomDuties=$exam->committee()->whereNotNull('room_number')->get();
             $exam->committee()->whereNotNull('room_number')->delete();
+            $invigilatorDuties=$exam->invigilatorDuties()->get();
+            $exam->invigilatorDuties()->delete();
             $exam->candidates()->update(['room_number'=>null,'room_seat'=>null,'grade_exam_number'=>null,'candidate_code'=>null,'exam_center_id'=>null,'exam_center_name'=>null,'seat_scope'=>0]);
-            $exam->forceFill(['seats_locked_at'=>null,'version'=>$exam->version+1])->save(); $this->event($exam,$user,'seat-plan-reopened',['reason'=>$reason,'cleared_room_duties'=>$roomDuties->map->only(['id','user_id','role','grade_number','room_number','exam_center_id'])->all()]);
+            $exam->forceFill(['seats_locked_at'=>null,'version'=>$exam->version+1])->save(); $this->event($exam,$user,'seat-plan-reopened',['reason'=>$reason,'cleared_room_duties'=>$roomDuties->map->only(['id','user_id','role','grade_number','room_number','exam_center_id'])->all(),'cleared_invigilator_duties'=>$invigilatorDuties->toArray()]);
         });
     }
 
@@ -352,6 +442,12 @@ class ScholarshipWorkflow
     public function results(ScholarshipExam $exam, ?Collection $candidates = null): Collection
     {
         $candidates??=$exam->candidates()->with('scores')->get();
+        if($exam->isHistorical())return $candidates->map(function($candidate){
+            $category=$candidate->snapshot['historical_award_category']??'';
+            $label=match($category){'total_1'=>'1st Place','total_2'=>'2nd Place','total_3'=>'3rd Place','subject'=>'Best in '.($candidate->snapshot['historical_award_subject']??''),default=>$category};
+            return ['candidate'=>$candidate,'complete'=>$candidate->result_total!==null||$candidate->absent,'total'=>$candidate->result_total,'percentage'=>$candidate->result_percentage,'max_total'=>null,
+                'status'=>$candidate->absent?'Historical absence':($candidate->result_total!==null?'Historical result':'Historical record'),'rank'=>$candidate->result_rank,'award'=>$candidate->award_percent,'award_label'=>$label];
+        })->sort(fn($a,$b)=>($a['candidate']->grade_number<=>$b['candidate']->grade_number)?:($a['rank']??PHP_INT_MAX)<=>($b['rank']??PHP_INT_MAX))->values();
         $awards=$exam->awards()->whereNotNull('candidate_id')->get()->keyBy('candidate_id');
         $rows=$candidates->map(fn($candidate)=>['candidate'=>$candidate]+$this->calculate($exam,$candidate)+['rank'=>null,'award'=>$awards->get($candidate->id)?->award_percent,'award_label'=>$awards->has($candidate->id)?$this->awardSlots($exam,$candidate->grade_number)->firstWhere('key',$awards[$candidate->id]->slot)['label']:null]);
         foreach ($rows->groupBy(fn($row)=>$row['candidate']->grade_number,true) as $gradeRows) {
@@ -401,7 +497,7 @@ class ScholarshipWorkflow
     public function saveAwards(User $user, ScholarshipExam $exam, int $grade, array $choices, int $version): void
     {
         DB::transaction(function () use ($user,$exam,$grade,$choices,$version) {
-            $exam=ScholarshipExam::lockForUpdate()->findOrFail($exam->id);
+            $exam=ScholarshipExam::lockForUpdate()->findOrFail($exam->id); $this->historicalReadOnly($exam);
             abort_unless($this->central($user,$exam,'awards'),403); $this->version($exam,$version);
             if (!$exam->seats_locked_at || $exam->published_at) $this->fail('Select winners after seats are confirmed. Reopen published results before editing awards.');
             $rows=$this->results($exam)->filter(fn($row)=>$row['candidate']->grade_number===$grade);
@@ -422,7 +518,7 @@ class ScholarshipWorkflow
     public function publish(User $user, ScholarshipExam $exam, int $version): void
     {
         DB::transaction(function () use ($user,$exam,$version) {
-            $exam=ScholarshipExam::lockForUpdate()->findOrFail($exam->id); abort_unless($this->canPublish($user,$exam),403); $this->version($exam,$version);
+            $exam=ScholarshipExam::lockForUpdate()->findOrFail($exam->id); $this->historicalReadOnly($exam); abort_unless($this->canPublish($user,$exam),403); $this->version($exam,$version);
             if ($exam->published_at || !$exam->seats_locked_at) $this->fail('Confirm the seat plan before publishing unpublished results.');
             $rows=$this->results($exam);
             if ($rows->isEmpty() || $rows->contains(fn($row)=>!$row['complete'] || !$row['candidate']->reviewed_at)) $this->fail('Every candidate must have complete, reviewed scores or a reviewed absence before publishing.');
@@ -439,7 +535,7 @@ class ScholarshipWorkflow
     public function reopenResults(User $user, ScholarshipExam $exam, int $version, string $reason): void
     {
         DB::transaction(function () use ($user,$exam,$version,$reason) {
-            $exam=ScholarshipExam::lockForUpdate()->findOrFail($exam->id); abort_unless($this->canPublish($user,$exam),403); $this->version($exam,$version);
+            $exam=ScholarshipExam::lockForUpdate()->findOrFail($exam->id); $this->historicalReadOnly($exam); abort_unless($this->canPublish($user,$exam),403); $this->version($exam,$version);
             if (!$exam->published_at) $this->fail('These results are already unpublished.');
             $exam->candidates()->update(['result_total'=>null,'result_percentage'=>null,'result_rank'=>null,'award_percent'=>null]);
             $exam->forceFill(['published_at'=>null,'version'=>$exam->version+1])->save(); $this->event($exam,$user,'results-reopened',['reason'=>$reason]);
@@ -449,7 +545,7 @@ class ScholarshipWorkflow
     public function addCommittee(User $user, ScholarshipExam $exam, array $data): void
     {
         DB::transaction(function () use ($user,$exam,$data) {
-            $exam=ScholarshipExam::lockForUpdate()->findOrFail($exam->id); abort_unless($this->central($user,$exam,'committee'),403);
+            $exam=ScholarshipExam::lockForUpdate()->findOrFail($exam->id); $this->historicalReadOnly($exam); abort_unless($this->central($user,$exam,'committee'),403);
             if ($exam->published_at) $this->fail('Reopen published results before changing the committee.');
             $data+=['grade_number'=>null,'room_number'=>null,'exam_center_id'=>null];
             foreach(['grade_number','room_number','exam_center_id'] as $field)$data[$field]=filled($data[$field])?(int)$data[$field]:null;
@@ -468,7 +564,7 @@ class ScholarshipWorkflow
     public function removeCommittee(User $user, ScholarshipExam $exam, ScholarshipCommittee $member): void
     {
         DB::transaction(function () use ($user,$exam,$member) {
-            $exam=ScholarshipExam::lockForUpdate()->findOrFail($exam->id); abort_unless($this->central($user,$exam,'committee') && $member->exam_id===$exam->id,403);
+            $exam=ScholarshipExam::lockForUpdate()->findOrFail($exam->id); $this->historicalReadOnly($exam); abort_unless($this->central($user,$exam,'committee') && $member->exam_id===$exam->id,403);
             if ($exam->published_at) $this->fail('Reopen published results before changing the committee.');
             $this->event($exam,$user,'committee-removed',$member->only(['user_id','role','grade_number','room_number','exam_center_id'])); $member->delete();
         });

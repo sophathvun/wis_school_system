@@ -1,10 +1,12 @@
-<div class="modal fade" id="scholarshipPrintSettingsModal" tabindex="-1" aria-labelledby="scholarshipPrintSettingsTitle" aria-hidden="true">
+@php($seatReportSettings=$seatReportSettings??false)
+<div class="modal fade" id="scholarshipPrintSettingsModal" tabindex="-1" aria-labelledby="scholarshipPrintSettingsTitle" aria-hidden="true" @if($seatReportSettings) data-seat-print-settings-modal @endif>
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
-        <form class="modal-content" method="POST" action="{{ route('western-scholarship.ranks.print-settings.save') }}" data-rank-print-settings-form novalidate>
+        <form class="modal-content" method="POST" action="{{ route($seatReportSettings?'western-scholarship.seats.print-settings.save':'western-scholarship.ranks.print-settings.save') }}" data-rank-print-settings-form novalidate>
             @csrf
             <input type="hidden" name="academic_year_id">
+            @if($seatReportSettings)<input type="hidden" name="exam_id" value="{{ $exam->id }}">@endif
             <div class="modal-header scholarship-card-header">
-                <div class="scholarship-print-heading"><span class="scholarship-print-icon" aria-hidden="true"><i class="ti ti-printer"></i></span><div><h3 class="modal-title" id="scholarshipPrintSettingsTitle">Print Settings</h3><p>Outstanding student report</p></div></div>
+                <div class="scholarship-print-heading"><span class="scholarship-print-icon" aria-hidden="true"><i class="ti ti-printer"></i></span><div><h3 class="modal-title" id="scholarshipPrintSettingsTitle">Print Settings</h3><p>{{ $seatReportSettings?'Seat Plan reports · Signers and dates by exam center':'Outstanding student report' }}</p></div></div>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
@@ -12,6 +14,9 @@
                 <div class="alert alert-danger" data-print-settings-error role="alert" hidden></div>
                 <div class="scholarship-print-context">
                     <div class="scholarship-print-field"><label class="form-label" for="rankPrintYear">Academic Year</label><input class="form-control" id="rankPrintYear" data-print-year-label readonly></div>
+                    @if($seatReportSettings)
+                        <div class="scholarship-print-field"><label class="form-label" for="seatPrintCenter">Exam Center <span class="text-danger">*</span></label><select class="form-select" name="exam_center_id" id="seatPrintCenter" required></select></div>
+                    @endif
                     <div class="scholarship-print-field"><label class="form-label" for="rankPrintCampus"><span data-print-scope-label>Campus</span> <span class="text-danger">*</span></label><select class="form-select" name="campus_id" id="rankPrintCampus" required></select></div>
                 </div>
                 <div class="scholarship-print-signatures">
