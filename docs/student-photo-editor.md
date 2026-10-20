@@ -2,8 +2,8 @@
 
 Upload, drop, or paste a JPG/PNG/WebP portrait (up to 10 MB / 24 megapixels).
 Use **Edit Photo** to change an existing enrollment photo. The studio provides
-3:4 cropping, zoom, rotation, original/edited comparison, brightness, contrast,
-color, gentle noise smoothing, sharpening, and Auto Enhance. These controls
+3:4 cropping, zoom, rotation, original/edited comparison, exposure, brightness,
+contrast, saturation, gentle noise smoothing, sharpening, and Auto Enhance. These controls
 adjust existing pixels; they cannot recover missing detail from a severely
 blurred original or invent a new face.
 
@@ -13,6 +13,27 @@ turn right (up to 45 degrees each way). The preview automatically crops to fill
 the portrait without empty corners. Zoom and drag to adjust the framing.
 **Reset angle** clears only straightening; the Left/Right 90-degree buttons
 remain available for sideways photos. **Use Photo** includes the rotation.
+
+For a shirt or another specific area, choose **Clarity → Apply adjustments to →
+Selected Area**. Paint over the area using the adjustable brush; **Erase selection**
+removes unwanted parts. Brush edges blend softly. **Hide Selection** hides the
+purple guide so the edit can be judged without the overlay. The guide is never
+included in **Use Photo**. Choose **Move photo** to reposition the crop.
+
+The clarity sliders and Auto Enhance apply to the current scope. Whole-photo and
+area adjustments are independent and remain applied when switching scopes.
+The selection follows zoom, rotation, and repositioning. **Clear Selection**
+removes the area mask; **Reset Area Adjustments** clears only its slider values.
+**Reset All** clears both. Selection editing runs in the browser, without another
+AI model, server processing slot, or paid service.
+
+**Exposure** ranges from -2.00 to +2.00 EV in 0.01 steps, applying light changes
+in linear RGB before brightness, contrast, and saturation. **Saturation** (formerly
+Color) ranges from -100 (black and white) through 0 (unchanged) to +100 (stronger
+color). Both work independently for Whole Photo and Selected Area. Reset Area
+Adjustments and Reset All return them to zero; Auto Enhance also resets exposure
+in its current scope. Whole-photo exposure preserves the chosen replacement
+background color.
 
 **Remove Background** runs a local CPU portrait-matting model. Choose Blue,
 White, or a custom color; use Erase/Restore under Refine edges if needed.

@@ -49,9 +49,23 @@
                         </section>
                         <section class="photo-editor-section">
                             <div class="d-flex justify-content-between align-items-center gap-2 mb-3"><h4 class="mb-0"><i class="ti ti-adjustments me-1"></i>Clarity</h4><button type="button" class="btn btn-sm btn-outline-primary" id="studentPhotoEnhance">Auto Enhance</button></div>
-                            @foreach ([['brightness', 'Brightness', -35, 35, 0], ['contrast', 'Contrast', -30, 40, 0], ['saturation', 'Color', -40, 40, 0], ['denoise', 'Smooth noise', 0, 60, 0], ['sharpen', 'Sharpen', 0, 100, 0]] as [$key, $label, $min, $max, $value])
-                                <label class="form-label d-flex justify-content-between" for="studentPhoto-{{ $key }}">{{ $label }}<output data-photo-value="{{ $key }}">{{ $value }}</output></label>
-                                <input type="range" class="form-range mb-2" id="studentPhoto-{{ $key }}" data-photo-adjustment="{{ $key }}" min="{{ $min }}" max="{{ $max }}" value="{{ $value }}">
+                            <label class="form-label" for="studentPhotoAdjustmentScope">Apply adjustments to</label>
+                            <select class="form-select mb-3" id="studentPhotoAdjustmentScope"><option value="whole">Whole Photo</option><option value="selected">Selected Area</option></select>
+                            <div class="photo-selection-tools d-none mb-3" id="studentPhotoSelectionTools">
+                                <label class="form-label" for="studentPhotoSelectionBrush">Selection tool</label>
+                                <select class="form-select form-select-sm" id="studentPhotoSelectionBrush"><option value="paint">Paint selection</option><option value="erase">Erase selection</option><option value="move">Move photo</option></select>
+                                <label class="form-label mt-2" for="studentPhotoSelectionSize">Selection brush size</label>
+                                <input type="range" class="form-range" id="studentPhotoSelectionSize" min="5" max="150" value="45">
+                                <div class="d-flex flex-wrap gap-2 mt-2">
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" id="studentPhotoSelectionShow" aria-pressed="true">Hide Selection</button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" id="studentPhotoSelectionClear">Clear Selection</button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" id="studentPhotoSelectionReset">Reset Area Adjustments</button>
+                                </div>
+                                <p class="small text-secondary mt-2 mb-0">Paint over the shirt or another area, then adjust the sliders below. Purple marks the selection; soft edges blend the edit. The selection color is never saved.</p>
+                            </div>
+                            @foreach ([['exposure', 'Exposure', -2, 2, 0, 0.01], ['brightness', 'Brightness', -35, 35, 0, 1], ['contrast', 'Contrast', -30, 40, 0, 1], ['saturation', 'Saturation', -100, 100, 0, 1], ['denoise', 'Smooth noise', 0, 60, 0, 1], ['sharpen', 'Sharpen', 0, 100, 0, 1]] as [$key, $label, $min, $max, $value, $step])
+                                <label class="form-label d-flex justify-content-between" for="studentPhoto-{{ $key }}">{{ $label }}<output for="studentPhoto-{{ $key }}" data-photo-value="{{ $key }}">{{ $key === 'exposure' ? '0.00 EV' : $value }}</output></label>
+                                <input type="range" class="form-range mb-2" id="studentPhoto-{{ $key }}" data-photo-adjustment="{{ $key }}" min="{{ $min }}" max="{{ $max }}" step="{{ $step }}" value="{{ $value }}">
                             @endforeach
                         </section>
                     </div>

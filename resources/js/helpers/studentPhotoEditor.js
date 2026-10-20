@@ -34,10 +34,20 @@ export function createStudentPhotoEditor({ bootstrap, csrf, showError, showSucce
     const zoom = get("studentPhotoZoom"), brush = get("studentPhotoBrush");
     const angleInput = get("studentPhotoAngle"), angleRange = get("studentPhotoAngleRange");
     const before = get("studentPhotoCompare"), use = get("studentPhotoCropUpload");
+    const scope = get("studentPhotoAdjustmentScope"), selectionBrush = get("studentPhotoSelectionBrush");
+    const selectionShow = get("studentPhotoSelectionShow");
+    const selectionPreview = document.createElement("canvas"), adjustedPreview = document.createElement("canvas");
+    selectionPreview.width = adjustedPreview.width = canvas.width;
+    selectionPreview.height = adjustedPreview.height = canvas.height;
+    const selectionContext = selectionPreview.getContext("2d", { willReadFrequently: true });
+    const adjustedContext = adjustedPreview.getContext("2d", { willReadFrequently: true });
     let source, cutout, acceptedFile = null, scale = 1, rotation = 0, fineRotation = 0, x = 0, y = 0;
+    let selection, selectionVisible = true;
     let background = "original", comparing = false, pointer, smoothStroke, previewUrl, generation = 0, request, busy = false, returnToEnrollment = false;
     let adjustmentFrame = 0;
-    const settings = { brightness: 0, contrast: 0, saturation: 0, denoise: 0, sharpen: 0 };
+    const settings = { exposure: 0, brightness: 0, contrast: 0, saturation: 0, denoise: 0, sharpen: 0 };
+    const areaSettings = { ...settings };
+    const currentSettings = () => scope.value === "selected" ? areaSettings : settings;
     const fail = message => { error.textContent = message; error.classList.remove("d-none"); showError("Photo editor", message); };
     const clearError = () => error.classList.add("d-none");
     const setBusy = value => {
@@ -46,12 +56,30 @@ export function createStudentPhotoEditor({ bootstrap, csrf, showError, showSucce
         element.querySelectorAll("button:not([data-bs-dismiss]), input, select").forEach(control => control.disabled = value);
         status.textContent = value ? "Processing your photo…" : "3:4 portrait · Saved as WebP, up to 40 KB";
     };
-    const resetSettings = () => {
+    const adjustmentLabel = (key, value) => key === "exposure" ? `${value > 0 ? "+" : ""}${Number(value).toFixed(2)} EV` : String(value);
+    const syncSettings = () => {
         Object.keys(settings).forEach(key => {
-            settings[key] = 0;
-            get(`studentPhoto-${key}`).value = "0";
-            element.querySelector(`[data-photo-value="${key}"]`).textContent = "0";
+            const value = currentSettings()[key];
+            get(`studentPhoto-${key}`).value = String(value);
+            element.querySelector(`[data-photo-value="${key}"]`).textContent = adjustmentLabel(key, value);
         });
+    };
+    const resetSettings = () => {
+        for (const key of Object.keys(settings)) settings[key] = areaSettings[key] = 0;
+        syncSettings();
+    };
+    const syncPreviewStatus = () => {
+        const action = scope.value === "selected" && selectionBrush.value !== "move"
+            ? (selectionBrush.value === "erase" ? "Erase selection" : "Paint selection") : "Drag to reposition";
+        get("studentPhotoCompareStatus").textContent = comparing ? "Original preview" : `Edited preview · ${action}`;
+    };
+    const syncSelectionTools = () => {
+        const selected = scope.value === "selected";
+        get("studentPhotoSelectionTools").classList.toggle("d-none", !selected);
+        selectionShow.setAttribute("aria-pressed", String(selectionVisible));
+        selectionShow.textContent = selectionVisible ? "Hide Selection" : "Show Selection";
+        canvas.style.cursor = selected && selectionBrush.value !== "move" ? "crosshair" : "move";
+        syncSettings(); syncPreviewStatus();
     };
     const syncBackground = () => element.querySelectorAll("[data-photo-background]").forEach(button => {
         const active = button.dataset.photoBackground === background;
@@ -64,28 +92,40 @@ export function createStudentPhotoEditor({ bootstrap, csrf, showError, showSucce
         return Math.max((canvas.width * cosine + canvas.height * sine) / image.width,
             (canvas.width * sine + canvas.height * cosine) / image.height) * scale;
     };
-    const drawImage = image => {
+    const drawImage = (image, target = context) => {
         if (!image) return;
         const factor = imageScale(image);
-        context.save();
-        context.translate(canvas.width / 2 + x, canvas.height / 2 + y);
-        context.rotate(rotationRadians());
-        context.drawImage(image, -image.width * factor / 2, -image.height * factor / 2, image.width * factor, image.height * factor);
-        context.restore();
+        target.save();
+        target.translate(canvas.width / 2 + x, canvas.height / 2 + y);
+        target.rotate(rotationRadians());
+        target.drawImage(image, -image.width * factor / 2, -image.height * factor / 2, image.width * factor, image.height * factor);
+        target.restore();
         return factor;
     };
-    const draw = () => {
-        context.clearRect(0, 0, canvas.width, canvas.height);
-        context.fillStyle = !comparing && background !== "original" ? background : "#ffffff";
-        context.fillRect(0, 0, canvas.width, canvas.height);
-        if (comparing) { drawImage(source); return; }
-        context.save();
-        context.filter = `brightness(${100 + settings.brightness}%) contrast(${100 + settings.contrast}%) saturate(${100 + settings.saturation}%)`;
-        drawImage(background === "original" ? source : (cutout || source));
-        context.restore();
+    const colorFilter = values => `brightness(${100 + values.brightness}%) contrast(${100 + values.contrast}%) saturate(${100 + values.saturation}%)`;
+    const linearChannels = Float64Array.from({ length: 256 }, (_, value) => {
+        const channel = value / 255;
+        return channel <= .04045 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4;
+    });
+    const applyExposure = (target, ev) => {
+        if (!ev) return;
+        // Exposure stops multiply linear light, then convert back to sRGB.
+        // Keep alpha unchanged so a cutout still blends into its chosen background.
+        const multiplier = 2 ** ev;
+        const lookup = Uint8ClampedArray.from(linearChannels, channel => {
+            const light = Math.min(1, channel * multiplier);
+            return 255 * (light <= .0031308 ? light * 12.92 : 1.055 * light ** (1 / 2.4) - .055);
+        });
+        const pixels = target.getImageData(0, 0, canvas.width, canvas.height);
+        for (let i = 0; i < pixels.data.length; i += 4) {
+            for (let channel = 0; channel < 3; channel++) pixels.data[i + channel] = lookup[pixels.data[i + channel]];
+        }
+        target.putImageData(pixels, 0, 0);
+    };
+    const applyDetails = (target, values) => {
         // Gentle edge-preserving smoothing followed by unsharp masking; face geometry stays unchanged.
-        if (settings.denoise || settings.sharpen) {
-            const pixels = context.getImageData(0, 0, canvas.width, canvas.height), data = pixels.data;
+        if (values.denoise || values.sharpen) {
+            const pixels = target.getImageData(0, 0, canvas.width, canvas.height), data = pixels.data;
             const original = new Uint8ClampedArray(data), width = canvas.width;
             for (let row = 1; row < canvas.height - 1; row++) for (let column = 1; column < width - 1; column++) {
                 const i = (row * width + column) * 4;
@@ -97,22 +137,65 @@ export function createStudentPhotoEditor({ bootstrap, csrf, showError, showSucce
                     }
                     const smooth = sum / weight;
                     const blur = (original[i - width * 4 + channel] + original[i + width * 4 + channel] + original[i - 4 + channel] + original[i + 4 + channel] + original[i + channel] * 4) / 8;
-                    data[i + channel] = original[i + channel] + (smooth - original[i + channel]) * settings.denoise / 100 + (original[i + channel] - blur) * settings.sharpen / 100;
+                    data[i + channel] = original[i + channel] + (smooth - original[i + channel]) * values.denoise / 100 + (original[i + channel] - blur) * values.sharpen / 100;
                 }
             }
-            context.putImageData(pixels, 0, 0);
+            target.putImageData(pixels, 0, 0);
+        }
+    };
+    const draw = (showSelection = true) => {
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        context.fillStyle = !comparing && background !== "original" ? background : "#ffffff";
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        if (comparing) { drawImage(source); return; }
+        context.save(); context.filter = colorFilter(settings);
+        const photo = background === "original" ? source : (cutout || source);
+        if (settings.exposure && photo) {
+            adjustedContext.clearRect(0, 0, canvas.width, canvas.height);
+            drawImage(photo, adjustedContext); applyExposure(adjustedContext, settings.exposure);
+            context.drawImage(adjustedPreview, 0, 0);
+        } else drawImage(photo);
+        context.restore(); applyDetails(context, settings);
+        if (!selection) return;
+        // The mask lives in source coordinates, sharing crop/rotation with the photo.
+        selectionContext.clearRect(0, 0, canvas.width, canvas.height);
+        drawImage(selection, selectionContext);
+        if (Object.values(areaSettings).some(value => value !== 0)) {
+            adjustedContext.clearRect(0, 0, canvas.width, canvas.height);
+            adjustedContext.drawImage(canvas, 0, 0);
+            applyExposure(adjustedContext, areaSettings.exposure);
+            adjustedContext.save(); adjustedContext.filter = colorFilter(areaSettings);
+            adjustedContext.drawImage(adjustedPreview, 0, 0); adjustedContext.restore();
+            applyDetails(adjustedContext, areaSettings);
+            const original = context.getImageData(0, 0, canvas.width, canvas.height);
+            const adjusted = adjustedContext.getImageData(0, 0, canvas.width, canvas.height).data;
+            const mask = selectionContext.getImageData(0, 0, canvas.width, canvas.height).data;
+            for (let i = 0; i < original.data.length; i += 4) {
+                const weight = mask[i + 3] / 255;
+                if (!weight) continue;
+                for (let c = 0; c < 3; c++) original.data[i + c] += (adjusted[i + c] - original.data[i + c]) * weight;
+            }
+            context.putImageData(original, 0, 0);
+        }
+        if (showSelection && selectionVisible && scope.value === "selected") {
+            selectionContext.save(); selectionContext.globalCompositeOperation = "source-in";
+            selectionContext.fillStyle = "rgba(217, 70, 239, .35)";
+            selectionContext.fillRect(0, 0, canvas.width, canvas.height); selectionContext.restore();
+            context.drawImage(selectionPreview, 0, 0);
         }
     };
     const scheduleDraw = () => { cancelAnimationFrame(adjustmentFrame); adjustmentFrame = requestAnimationFrame(draw); };
     const compare = value => {
         comparing = value; before.setAttribute("aria-pressed", String(value));
         before.textContent = value ? "View Edited" : "View Original";
-        get("studentPhotoCompareStatus").textContent = value ? "Original preview" : "Edited preview · Drag to reposition";
+        syncPreviewStatus();
         draw();
     };
     const reset = () => {
         request?.abort(); cutout = null; scale = 1; rotation = 0; fineRotation = 0; x = 0; y = 0;
         angleInput.value = angleRange.value = "0";
+        selection = null; selectionVisible = true; scope.value = "whole"; selectionBrush.value = "paint";
+        get("studentPhotoSelectionSize").value = "45"; syncSelectionTools();
         background = "original"; zoom.value = "1"; brush.value = "move"; resetSettings(); syncBackground(); clearError(); compare(false);
     };
     const showPreview = fileOrUrl => {
@@ -124,7 +207,7 @@ export function createStudentPhotoEditor({ bootstrap, csrf, showError, showSucce
         get("studentPhotoEdit")?.classList.remove("d-none");
     };
     const resetPreview = () => {
-        generation++; request?.abort(); source = null; cutout = null;
+        generation++; request?.abort(); source = null; cutout = null; selection = null;
         if (previewUrl) URL.revokeObjectURL(previewUrl);
         previewUrl = null; acceptedFile = null; preview.removeAttribute("src"); input.value = "";
         get("studentPhotoPreviewContainer").classList.add("d-none");
@@ -206,6 +289,14 @@ export function createStudentPhotoEditor({ bootstrap, csrf, showError, showSucce
     angleInput.addEventListener("change", () => straighten(Number.isFinite(angleInput.valueAsNumber) ? angleInput.valueAsNumber : fineRotation));
     angleRange.addEventListener("input", () => straighten(Number(angleRange.value)));
     get("studentPhotoAngleReset").addEventListener("click", () => straighten(0));
+    scope.addEventListener("change", () => { pointer = null; syncSelectionTools(); compare(false); });
+    selectionBrush.addEventListener("change", () => { pointer = null; syncSelectionTools(); });
+    selectionShow.addEventListener("click", () => { selectionVisible = !selectionVisible; syncSelectionTools(); draw(); });
+    get("studentPhotoSelectionClear").addEventListener("click", () => { selection = null; draw(); });
+    get("studentPhotoSelectionReset").addEventListener("click", () => {
+        for (const key of Object.keys(areaSettings)) areaSettings[key] = 0;
+        syncSettings(); draw();
+    });
     get("studentPhotoReset").addEventListener("click", reset);
     before.addEventListener("click", () => compare(!comparing));
     get("studentPhotoRemoveBackground").addEventListener("click", () => removeBackground());
@@ -217,30 +308,47 @@ export function createStudentPhotoEditor({ bootstrap, csrf, showError, showSucce
     get("studentPhotoBackgroundColor").addEventListener("input", event => { if (cutout) { background = event.target.value; syncBackground(); compare(false); } });
     get("studentPhotoBackgroundColor").addEventListener("change", event => removeBackground(event.target.value));
     element.querySelectorAll("[data-photo-adjustment]").forEach(control => control.addEventListener("input", () => {
-        settings[control.dataset.photoAdjustment] = Number(control.value);
-        element.querySelector(`[data-photo-value="${control.dataset.photoAdjustment}"]`).textContent = control.value;
+        currentSettings()[control.dataset.photoAdjustment] = Number(control.value);
+        element.querySelector(`[data-photo-value="${control.dataset.photoAdjustment}"]`).textContent = adjustmentLabel(control.dataset.photoAdjustment, Number(control.value));
         comparing = false; before.setAttribute("aria-pressed", "false"); before.textContent = "View Original";
-        get("studentPhotoCompareStatus").textContent = "Edited preview · Drag to reposition"; scheduleDraw();
+        syncPreviewStatus(); scheduleDraw();
     }));
     get("studentPhotoEnhance").addEventListener("click", () => {
         compare(true);
         const data = context.getImageData(0, 0, canvas.width, canvas.height).data;
         let light = 0, count = 0;
         for (let i = 0; i < data.length; i += 64) { light += data[i] * .2126 + data[i + 1] * .7152 + data[i + 2] * .0722; count++; }
-        const values = { brightness: Math.round(Math.max(-10, Math.min(18, (138 - light / count) / 4))), contrast: 8, saturation: 4, denoise: 20, sharpen: 30 };
+        const values = { exposure: 0, brightness: Math.round(Math.max(-10, Math.min(18, (138 - light / count) / 4))), contrast: 8, saturation: 4, denoise: 20, sharpen: 30 };
         for (const key of Object.keys(values)) { get(`studentPhoto-${key}`).value = values[key]; get(`studentPhoto-${key}`).dispatchEvent(new Event("input")); }
     });
     const point = event => {
         const rect = canvas.getBoundingClientRect();
         return { x: (event.clientX - rect.left) * canvas.width / rect.width, y: (event.clientY - rect.top) * canvas.height / rect.height };
     };
-    const paint = event => {
-        if (!cutout || comparing || background === "original") return;
-        const p = point(event), angle = -rotationRadians();
+    const sourcePoint = p => {
+        const angle = -rotationRadians();
         const factor = imageScale(source);
         const dx = p.x - canvas.width / 2 - x, dy = p.y - canvas.height / 2 - y;
-        const cx = (dx * Math.cos(angle) - dy * Math.sin(angle)) / factor + source.width / 2;
-        const cy = (dx * Math.sin(angle) + dy * Math.cos(angle)) / factor + source.height / 2;
+        return { x: (dx * Math.cos(angle) - dy * Math.sin(angle)) / factor + source.width / 2,
+            y: (dx * Math.sin(angle) + dy * Math.cos(angle)) / factor + source.height / 2, factor };
+    };
+    const paintSelection = (from, to) => {
+        if (!selection) { selection = document.createElement("canvas"); selection.width = source.width; selection.height = source.height; }
+        const start = sourcePoint(from), end = sourcePoint(to), target = selection.getContext("2d");
+        const radius = Number(get("studentPhotoSelectionSize").value) / end.factor;
+        const steps = Math.max(1, Math.ceil(Math.hypot(end.x - start.x, end.y - start.y) / (radius * .3)));
+        target.save(); target.globalCompositeOperation = selectionBrush.value === "erase" ? "destination-out" : "source-over";
+        for (let step = 0; step <= steps; step++) {
+            const cx = start.x + (end.x - start.x) * step / steps, cy = start.y + (end.y - start.y) * step / steps;
+            const gradient = target.createRadialGradient(cx, cy, radius * .65, cx, cy, radius);
+            gradient.addColorStop(0, "rgba(255,255,255,1)"); gradient.addColorStop(1, "rgba(255,255,255,0)");
+            target.fillStyle = gradient; target.fillRect(cx - radius, cy - radius, radius * 2, radius * 2);
+        }
+        target.restore(); scheduleDraw();
+    };
+    const paint = event => {
+        if (!cutout || comparing || background === "original") return;
+        const { x: cx, y: cy, factor } = sourcePoint(point(event));
         const brushContext = cutout.getContext("2d");
         brushContext.save(); brushContext.beginPath(); brushContext.arc(cx, cy, Number(get("studentPhotoBrushSize").value) / factor, 0, Math.PI * 2); brushContext.clip();
         if (brush.value === "smooth" && smoothStroke) {
@@ -252,9 +360,13 @@ export function createStudentPhotoEditor({ bootstrap, csrf, showError, showSucce
         brushContext.restore(); scheduleDraw();
     };
     canvas.addEventListener("pointerdown", event => {
-        if (busy || comparing) return;
+        if (busy || comparing || !source) return;
         event.preventDefault(); pointer = point(event); canvas.setPointerCapture(event.pointerId);
         smoothStroke = null;
+        if (scope.value === "selected") {
+            if (selectionBrush.value !== "move") paintSelection(pointer, pointer);
+            return;
+        }
         if (brush.value === "smooth" && cutout && background !== "original") {
             // Canvas blur blends premultiplied RGBA, avoiding a dark/white fringe
             // where transparent pixels become partially visible. Freeze it for
@@ -277,13 +389,17 @@ export function createStudentPhotoEditor({ bootstrap, csrf, showError, showSucce
     });
     canvas.addEventListener("pointermove", event => {
         if (!pointer) return;
+        if (scope.value === "selected" && selectionBrush.value !== "move") {
+            const next = point(event); paintSelection(pointer, next); pointer = next; return;
+        }
+        if (scope.value === "selected") { const next = point(event); x += next.x - pointer.x; y += next.y - pointer.y; pointer = next; scheduleDraw(); return; }
         if (brush.value === "move") { const next = point(event); x += next.x - pointer.x; y += next.y - pointer.y; pointer = next; scheduleDraw(); }
         else paint(event);
     });
     for (const name of ["pointerup", "pointercancel", "lostpointercapture"]) canvas.addEventListener(name, () => { pointer = null; smoothStroke = null; });
     use.addEventListener("click", async () => {
         if (busy || !source) return;
-        clearError(); compare(false); setBusy(true);
+        clearError(); compare(false); cancelAnimationFrame(adjustmentFrame); draw(false); setBusy(true);
         try {
             // Upload a lossless 600×800 crop; the server chooses WebP quality and
             // resolution once, so there is no double lossy compression.
@@ -291,10 +407,10 @@ export function createStudentPhotoEditor({ bootstrap, csrf, showError, showSucce
             const transfer = new DataTransfer(); transfer.items.add(file); input.files = transfer.files; showPreview(file);
             modal.hide(); showSuccess("Photo ready", "Save the enrollment to apply this photo.");
         } catch (exception) { fail(exception.message); }
-        finally { setBusy(false); }
+        finally { setBusy(false); if (source) draw(); }
     });
     element.addEventListener("hidden.bs.modal", () => {
-        generation++; request?.abort(); pointer = null; smoothStroke = null; source = null; cutout = null; setBusy(false);
+        generation++; request?.abort(); pointer = null; smoothStroke = null; source = null; cutout = null; selection = null; setBusy(false);
         if (returnToEnrollment) { returnToEnrollment = false; bootstrap.Modal.getOrCreateInstance(enrollment).show(); }
     });
     return { showPreview, resetPreview };
