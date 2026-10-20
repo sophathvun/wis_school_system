@@ -51,7 +51,7 @@ it('rejects result filters outside their parent center and grade',function($filt
     expect(fn()=>app(ScholarshipController::class)->index(scholarshipResultRequest(['exam_id'=>$exam->id]+$filters)))->toThrow(ValidationException::class);
 })->with([
     [['result_center'=>999]],
-    [['result_grade'=>1]],
+    [['result_grade'=>3]],
     [['result_center'=>1,'result_grade'=>2]],
     [['result_student'=>1]],
     [['result_center'=>2,'result_grade'=>2,'result_student'=>1]],
@@ -61,8 +61,27 @@ it('builds result options only from authorized rows',function(){
     $exam=scholarshipSeatReportExam(2);
     $rows=app(\App\Services\ScholarshipWorkflow::class)->results($exam)->filter(fn($row)=>$row['candidate']->campus_id===1);
     $filtered=app(ScholarshipResultFilters::class)->apply(scholarshipResultRequest(),$rows);
-    expect($filtered['options']['centers']->pluck('id')->all())->toBe([1])->and($filtered['rows'])->toHaveCount(2);
+    expect($filtered['options']['centers']->pluck('id')->all())->toBe([1])->and($filtered['options']['grades']->pluck('id')->all())->toBe([1])->and($filtered['rows'])->toHaveCount(2);
     expect(fn()=>app(ScholarshipResultFilters::class)->apply(scholarshipResultRequest(['result_center'=>2]),$rows))->toThrow(ValidationException::class);
+    expect(fn()=>app(ScholarshipResultFilters::class)->apply(scholarshipResultRequest(['result_grade'=>2]),$rows))->toThrow(ValidationException::class);
+});
+
+it('selects a grade and student across all exam centers including published results',function(){
+    $exam=scholarshipSeatReportExam(2);$south=$exam->candidates()->where('exam_center_id',2)->first();
+    $south->update(['grade_number'=>1]);$exam->update(['published_at'=>now()]);
+    $controller=app(ScholarshipController::class);$params=['exam_id'=>$exam->id,'result_center'=>'','result_grade'=>1];
+    $data=$controller->index(scholarshipResultRequest($params))->getData();
+    expect($data['resultFilters']['center'])->toBeNull()
+        ->and($data['resultFilterOptions']['grades']->pluck('id')->all())->toBe([1,2])
+        ->and($data['results'])->toHaveCount(3)
+        ->and($data['results']->pluck('candidate.exam_center_id')->unique()->sort()->values()->all())->toBe([1,2])
+        ->and($data['results']->pluck('candidate.grade_number')->unique()->all())->toBe([1])
+        ->and($data['awardGrades'][1])->toHaveCount(3)
+        ->and($data['resultFilterOptions']['students']->pluck('id')->all())->toContain($south->id);
+    $html=view('western-scholarship._result-filters',$data)->render();$dom=new DOMDocument();@$dom->loadHTML($html);
+    expect((new DOMXPath($dom))->query('//select[@id="resultFilterGrade"][@disabled]')->length)->toBe(0);
+    $selected=$controller->index(scholarshipResultRequest($params+['result_student'=>$south->id]))->getData();
+    expect($selected['results'])->toHaveCount(1)->and($selected['results'][0]['candidate']->id)->toBe($south->id);
 });
 
 it('selects result academic years from configured exams with candidates',function(){
@@ -94,17 +113,17 @@ function scholarshipReviewedResultExam(): \App\Models\ScholarshipExam
 
 it('renders grade subject columns student details and row award selections',function(){
     $exam=scholarshipReviewedResultExam();$candidate=$exam->candidates()->first();
-    $candidate->update(['student_id'=>1,'student_enrollment_id'=>1]);
+    $candidate->update(['student_id'=>1,'student_enrollment_id'=>1,'snapshot'=>array_replace($candidate->snapshot,['eoy_average'=>89.5])]);
     \Illuminate\Support\Facades\DB::table('tb_student')->where('id',1)->update(['photo_path'=>'testing/result-photo.jpg']);
     $view=app(ScholarshipController::class)->index(scholarshipResultRequest(['exam_id'=>$exam->id]));
     $data=$view->getData();$html=view('western-scholarship._result',$data)->render();
     $dom=new DOMDocument();@$dom->loadHTML($html);$xpath=new DOMXPath($dom);
     expect($xpath->query('//tr[@data-result-candidate]')->length)->toBe(5)
         ->and($xpath->query('//tr[@data-result-candidate="'.$candidate->id.'"]//img[@width="600"][@height="800"]')->length)->toBe(1)
-        ->and($xpath->query('//section[@data-result-grade="1"]//button[@data-result-sort]')->length)->toBe(6)
+        ->and($xpath->query('//section[@data-result-grade="1"]//button[@data-result-sort]')->length)->toBe(7)
         ->and($xpath->query('//section[@data-result-grade="1"]//select[@data-result-award-select]/option')->length)->toBe(27)
         ->and($xpath->query('//form[@data-result-award-form]')->length)->toBe(2);
-    expect($html)->toContain('Examinations','Code:','Exam Scores','1st Place','2nd Place','3rd Place','Best in English','data-result-award-percent');
+    expect($html)->toContain('Examinations','Code:','Exam Scores','1st Place','2nd Place','3rd Place','Best in English','data-result-award-percent','EOY Avg.:','89.50');
     expect($html)->not->toContain('Scholarship Winners</h3>');
 });
 
@@ -119,7 +138,8 @@ it('saves result row awards as a complete grade with a new version and success m
     $html=view('western-scholarship._result-list',$data)->render();$dom=new DOMDocument();@$dom->loadHTML($html);$xpath=new DOMXPath($dom);
     expect($xpath->query('//tr[@data-result-candidate]')->length)->toBe(1)
         ->and($xpath->query('//input[@data-slot-candidate][@value="'.$ids[1].'"]')->length)->toBe(1)
-        ->and($xpath->query('//select[@data-result-award-select]/option[@selected]')->item(0)->getAttribute('value'))->toBe('total_1');
+        ->and($xpath->query('//select[@data-result-award-select]/option[@selected]')->item(0)->getAttribute('value'))->toBe('total_1')
+        ->and($xpath->query('//select[@data-result-award-select][contains(@class,"is-award-assigned")]')->length)->toBe(1);
     expect(fn()=>app(ScholarshipController::class)->saveAwards($request,$exam,1))->toThrow(ValidationException::class);
 });
 

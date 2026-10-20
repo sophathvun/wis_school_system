@@ -2,6 +2,7 @@
     @php
         $subjects=$workflow->applicableSubjects($exam,(int)$grade);
         $slots=$workflow->awardSlots($exam,(int)$grade);
+        $awardOrderByLabel=$slots->mapWithKeys(fn($slot,$index)=>[mb_strtolower(str_replace(' — Total Score','',$slot['label']))=>$index]);
         $saved=$savedAwards->get($grade,collect())->keyBy('slot');
         $pool=$awardGrades->get($grade,$gradeRows);
         $ready=$exam->seats_locked_at && $pool->every(fn($row)=>$row['complete'] && $row['candidate']->reviewed_at);
@@ -35,7 +36,7 @@
                         <th rowspan="2" class="text-center">No.</th><th rowspan="2" class="text-center">Photo</th><th rowspan="2">Student</th><th rowspan="2">Examinations</th>
                         <th colspan="{{ max(1,$subjects->count()) }}" class="text-center">Exam Scores</th>
                         <th rowspan="2" class="text-center" aria-sort="none"><button type="button" class="scholarship-score-sort" data-result-sort="total" data-sort-label="Total Score" aria-label="Sort Total Score ascending">Total Score <i class="ti ti-arrows-sort" aria-hidden="true"></i></button></th>
-                        <th rowspan="2">Exam Rank</th><th rowspan="2" class="text-center">Award</th><th rowspan="2">Status</th>
+                        <th rowspan="2" aria-sort="none"><button type="button" class="scholarship-score-sort" data-result-sort="award" data-sort-label="Exam Rank" aria-label="Sort Exam Rank ascending">Exam Rank <i class="ti ti-arrows-sort" aria-hidden="true"></i></button></th><th rowspan="2" class="text-center">Award</th><th rowspan="2">Status</th>
                     </tr>
                     <tr>@forelse($subjects as $subject)<th class="text-center" aria-sort="none"><button type="button" class="scholarship-score-sort" data-result-sort="{{ $subject->id }}" data-sort-label="{{ $subject->name }}" aria-label="Sort {{ $subject->name }} ascending">{{ $subject->name }} <i class="ti ti-arrows-sort" aria-hidden="true"></i></button></th>@empty<th>No subjects configured</th>@endforelse</tr>
                 </thead>
@@ -68,16 +69,17 @@
                             <td class="text-center" data-result-score="{{ $subject->id }}" data-sort-value="{{ $subjectAbsent?0:$scores->get($subject->id)?->score }}">{{ $subjectAbsent?0:($scores->get($subject->id)?->score ?? '—') }}@if($subjectAbsent)<small class="d-block text-danger scholarship-subject-rank mt-1">Absent</small>@endif<small class="d-block text-secondary mt-1 scholarship-subject-rank" data-result-subject-rank>Rank: <strong>{{ $subjectRanks[$candidate->id][$subject->id] ?? '—' }}</strong></small></td>
                         @empty<td class="text-center">—</td>@endforelse
                         <td class="text-center" data-result-score="total" data-sort-value="{{ $row['total'] }}"><strong>{{ $row['total'] ?? '—' }}</strong><div class="small text-secondary mt-1">{{ $row['percentage']===null?'—':number_format($row['percentage'],2).'%' }}</div></td>
-                        <td class="scholarship-result-rank">
+                        <td class="scholarship-result-rank" data-result-award-order="{{ filled($row['award_label'])?($awardOrderByLabel[mb_strtolower(str_replace(' — Total Score','',$row['award_label']))]??$slots->count()):'' }}">
                             @if(!$exam->isHistorical())
                                 <label class="visually-hidden" for="resultRank{{ $candidate->id }}">Exam Rank for {{ $name }}</label>
-                                <select id="resultRank{{ $candidate->id }}" class="form-select form-select-sm" data-result-award-select data-saved-slot="{{ $selectedSlot!==false?$selectedSlot:'' }}" @disabled(!$canSelect)>
+                                <select id="resultRank{{ $candidate->id }}" class="form-select form-select-sm {{ $selectedSlot!==false?'is-award-assigned':'' }}" data-result-award-select data-saved-slot="{{ $selectedSlot!==false?$selectedSlot:'' }}" @disabled(!$canSelect)>
                                     <option value="">No Award</option>@foreach($slots as $slot)<option value="{{ $slot['key'] }}" @selected($selectedSlot===$slot['key']) @disabled($slot['subject_id']?in_array($slot['subject_id'],$row['absent_subjects']??[],true):!($row['overall_eligible']??false))>{{ str_replace(' — Total Score','',$slot['label']) }}</option>@endforeach
                                 </select>
                                 <div class="invalid-feedback" data-result-rank-error></div>
                                 @if($canSelect)<details class="small mt-2" data-result-exception @if(!$choice) hidden @elseif(filled($choice['reason'])) open @endif><summary>Exception reason</summary><textarea class="form-control form-control-sm mt-2" maxlength="1000" data-result-award-reason aria-label="Award exception reason for {{ $name }}" placeholder="Required for a lower-score selection">{{ $choice['reason']??'' }}</textarea></details>@endif
                             @else<div>{{ $row['award_label'] ?: 'No Award' }}</div>@endif
                             <div class="small text-secondary mt-1">Score rank: <strong>{{ $row['rank'] ?? '—' }}</strong></div>
+                            <div class="mt-1" data-result-eoy-average><span class="badge bg-blue-lt">EOY Avg.: <strong>{{ is_numeric($candidate->snapshot['eoy_average']??null)?number_format((float)$candidate->snapshot['eoy_average'],2):'—' }}</strong></span></div>
                         </td>
                         <td class="scholarship-result-award text-center">
                             @if($canSelect)<div class="input-group input-group-sm" data-result-award-editor @if(!$choice) hidden @endif><input class="form-control" type="number" min="0" max="100" step="0.01" value="{{ $choice['award_percent']??'' }}" data-result-award-percent aria-label="Scholarship percentage for {{ $name }}"><span class="input-group-text">%</span></div><span data-result-no-award @if($choice) hidden @endif>—</span>

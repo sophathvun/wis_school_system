@@ -292,6 +292,8 @@ body.scholarship-result-fullscreen-open { overflow:hidden; }
 .scholarship-result-rank { min-width:0; }
 .scholarship-result-rank .form-select { min-height:38px; }
 .scholarship-result-award { min-width:0; }
+/* Assigned ranks override the global form surface color, including locked results. */
+.scholarship-result-rank .form-select.is-award-assigned { background-color:#eaf7ec !important; border-color:#aadbb6; color:#216b36; }
 .scholarship-result-award .input-group { max-width:110px; margin:auto; }
 .scholarship-select-toggle { text-align: left; width: 100%; color: var(--tblr-body-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .scholarship-field.is-open { z-index: 30; }

@@ -65,20 +65,32 @@ export function initResults(root) {
         const table=section.querySelector('table'),body=table.tBodies[0];
         const originalOrder=new Map([...body.rows].map((row,index)=>[row,index]));
         const start=Number(body.rows[0]?.querySelector('[data-result-number]').textContent)||1;
-        table.querySelectorAll('[data-result-sort]').forEach(button=>button.addEventListener('click',()=>{
-            const header=button.closest('th'),ascending=header.getAttribute('aria-sort')!=='ascending',key=button.dataset.resultSort;
-            const value=row=>{const cell=row.querySelector(`[data-result-score="${key}"]`);return cell?.dataset.sortValue===''?null:Number(cell?.dataset.sortValue);};
+        const sortRows=(key,ascending)=>{
+            const value=row=>{
+                if(key==='award'){
+                    const select=row.querySelector('[data-result-award-select]');
+                    if(select)return select.value?select.selectedIndex-1:null;
+                    const order=row.querySelector('[data-result-award-order]')?.dataset.resultAwardOrder;
+                    return order==null||order===''?null:Number(order);
+                }
+                const raw=row.querySelector(`[data-result-score="${key}"]`)?.dataset.sortValue;
+                return raw==null||raw===''?null:Number(raw);
+            };
             const rows=[...body.rows].sort((a,b)=>{
                 const left=value(a),right=value(b);
                 if(left===null||right===null)return left===right?originalOrder.get(a)-originalOrder.get(b):left===null?1:-1;
                 return (ascending?left-right:right-left)||originalOrder.get(a)-originalOrder.get(b);
             });
+            rows.forEach((row,index)=>{row.querySelector('[data-result-number]').textContent=start+index;body.append(row);});
+        };
+        table.querySelectorAll('[data-result-sort]').forEach(button=>button.addEventListener('click',()=>{
+            const header=button.closest('th'),ascending=header.getAttribute('aria-sort')!=='ascending',key=button.dataset.resultSort;
             table.querySelectorAll('[data-result-sort]').forEach(sort=>{
                 const active=sort===button;sort.closest('th').setAttribute('aria-sort',active?(ascending?'ascending':'descending'):'none');
                 sort.querySelector('i').className=active?(ascending?'ti ti-arrow-up':'ti ti-arrow-down'):'ti ti-arrows-sort';
                 sort.setAttribute('aria-label',`Sort ${sort.dataset.sortLabel} ${active&&ascending?'descending':'ascending'}`);
             });
-            rows.forEach((row,index)=>{row.querySelector('[data-result-number]').textContent=start+index;body.append(row);});
+            sortRows(key,ascending);
         }));
         const form=section.querySelector('[data-result-award-form]');
         if(!form)return;
@@ -120,8 +132,11 @@ export function initResults(root) {
                 if(previous){previous.candidate.value='';previous.award.value=previous.percent;previous.reason.value='';}
                 if(selected){selected.candidate.value=id;selected.award.value=selected.percent;selected.reason.value='';}
                 percent.value=selected?.percent??'';reason.value='';select.dataset.savedSlot=select.value;
+                select.classList.toggle('is-award-assigned',Boolean(selected));
                 row.querySelector('[data-result-award-editor]').hidden=!selected;row.querySelector('[data-result-no-award]').hidden=Boolean(selected);
                 row.querySelector('[data-result-exception]').hidden=!selected;
+                const awardSort=table.querySelector('[data-result-sort="award"]').closest('th').getAttribute('aria-sort');
+                if(awardSort!=='none')sortRows('award',awardSort==='ascending');
                 markDirty();
             });
             percent.addEventListener('input',()=>{const slot=slots.find(slot=>slot.key===select.value);if(slot){slot.award.value=percent.value;markDirty();}});

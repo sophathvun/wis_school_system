@@ -25,12 +25,10 @@ class ScholarshipResultFilters
             ->sortBy('label',SORT_NATURAL|SORT_FLAG_CASE)->values();
         if($center!==null&&!$centers->contains('id',$center))
             throw ValidationException::withMessages(['result_center'=>'Select an available exam center.']);
-        if($grade!==null&&$center===null)
-            throw ValidationException::withMessages(['result_center'=>'Select an exam center before choosing a grade.']);
         $withinCenter=$center===null?$candidates:$candidates->filter(fn($candidate)=>(int)($candidate->exam_center_id??0)===$center);
-        $grades=$center===null?collect():$withinCenter->pluck('grade_number')->unique()->sort()->map(fn($number)=>['id'=>(int)$number,'label'=>'Grade '.$number])->values();
+        $grades=$withinCenter->pluck('grade_number')->unique()->sort()->map(fn($number)=>['id'=>(int)$number,'label'=>'Grade '.$number])->values();
         if($grade!==null&&!$grades->contains('id',$grade))
-            throw ValidationException::withMessages(['result_grade'=>'Select a grade belonging to the selected exam center.']);
+            throw ValidationException::withMessages(['result_grade'=>'Select an available grade for the selected exam center scope.']);
         $withinGrade=$grade===null?$withinCenter:$withinCenter->where('grade_number',$grade);
         $students=$grade===null?collect():$withinGrade->sortBy(fn($candidate)=>$candidate->room_seat??PHP_INT_MAX)->map(fn($candidate)=>[
             'id'=>(int)$candidate->id,'label'=>($candidate->room_seat??'Pending').' - '.($candidate->snapshot['name_en']??''),

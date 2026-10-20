@@ -436,8 +436,14 @@ try{
         await evaluate('document.dispatchEvent(new KeyboardEvent("keydown",{key:"Escape",bubbles:true}));delete document.querySelector("[data-scholarship-page]").requestFullscreen');
         await until('document.querySelector("[data-result-fullscreen]").getAttribute("aria-pressed")==="false"');
         assert.equal(await evaluate('document.querySelector("[data-exam-selector]")===null'),true);
-        assert.equal(await evaluate('document.querySelector("#resultFilterGradeToggle").disabled'),true);
+        assert.equal(await evaluate('document.querySelector("#resultFilterGradeToggle").disabled'),false);
         assert.equal(await evaluate('document.querySelector("#resultFilterStudentToggle").disabled'),true);
+        if(mobile)await click('[data-result-filters-toggle]');
+        await click('#resultFilterGradeToggle');await click('#resultFilterGradeOptions [data-seat-option="1"]');
+        await until('location.search.includes("result_grade=1")');await resultReady();
+        assert.equal(await evaluate('document.querySelector("#resultFilterCenter").value'),'');
+        assert.equal(await evaluate('document.querySelector("#resultFilterStudentToggle").disabled'),false);
+        assert.equal(await evaluate('document.querySelectorAll("[data-result-candidate]").length'),8);
         if(mobile)await click('[data-result-filters-toggle]');
         await click('#resultFilterCenterToggle');await click('#resultFilterCenterOptions [data-seat-option="0"]');
         await until('location.search.includes("result_center=0")');await resultReady();
@@ -466,8 +472,11 @@ try{
     await command('Page.navigate',{url:origin+'/?tab=result'});
     await until('document.querySelector("[data-result-filters-ready]")!==null');
     assert.equal(await evaluate('document.querySelectorAll("[data-result-candidate]").length'),8);
-    assert.equal(await evaluate('document.querySelectorAll("[data-result-sort]").length'),5);
+    assert.equal(await evaluate('document.querySelectorAll("[data-result-sort]").length'),6);
     assert.equal(await evaluate('document.querySelectorAll("[data-result-award-select]").length'),8);
+    // Include the real global form rules, which normally force the surface background.
+    const globalFormStyles=(await readFile(join(root,'resources/css/app.css'),'utf8')).replace(/^@import\s+.*;\s*$/gm,'');
+    await evaluate(`(()=>{const style=document.createElement('style');style.textContent=${JSON.stringify(globalFormStyles)};document.head.append(style);})()`);
     const resultIds=await evaluate('[...document.querySelectorAll("[data-result-candidate]")].map(row=>row.dataset.resultCandidate)');
     await evaluate(`(()=>{const rows=[...document.querySelectorAll('[data-result-candidate]')];for(const [index,value] of [[0,'10'],[1,'2'],[2,'']]){rows[index].querySelector('[data-result-score="1"]').dataset.sortValue=value;rows[index].querySelector('[data-result-score="total"]').dataset.sortValue=value;}})()`);
     const resultRows=()=>evaluate('[...document.querySelectorAll("[data-result-candidate]")].map(row=>row.dataset.resultCandidate)');
@@ -475,6 +484,16 @@ try{
     await click('[data-result-sort="1"]');assert.equal((await resultRows()).at(-1),resultIds[2]);
     await click('[data-result-sort="total"]');assert.equal((await resultRows())[0],resultIds[1]);
     const choose=async(index,slot)=>evaluate(`(()=>{const select=document.querySelector('[data-result-candidate="${resultIds[index]}"] [data-result-award-select]');select.value=${JSON.stringify(slot)};select.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+    assert.equal(await evaluate('document.querySelectorAll("[data-result-award-select].is-award-assigned").length'),0);
+    assert.equal(await evaluate('document.querySelectorAll("[data-result-eoy-average]").length'),8);
+    await choose(0,'total_1');
+    assert.equal(await evaluate(`document.querySelector('[data-result-candidate="${resultIds[0]}"] [data-result-award-select]').classList.contains('is-award-assigned')`),true);
+    assert.equal(await evaluate(`getComputedStyle(document.querySelector('[data-result-candidate="${resultIds[0]}"] [data-result-award-select]')).backgroundColor`),'rgb(234, 247, 236)');
+    await evaluate(`document.querySelector('[data-result-candidate="${resultIds[0]}"] [data-result-award-select]').disabled=true;document.documentElement.dataset.bsTheme='dark';`);
+    assert.equal(await evaluate(`getComputedStyle(document.querySelector('[data-result-candidate="${resultIds[0]}"] [data-result-award-select]')).backgroundColor`),'rgb(234, 247, 236)');
+    await evaluate(`document.querySelector('[data-result-candidate="${resultIds[0]}"] [data-result-award-select]').disabled=false;delete document.documentElement.dataset.bsTheme;`);
+    await choose(0,'');
+    assert.equal(await evaluate(`document.querySelector('[data-result-candidate="${resultIds[0]}"] [data-result-award-select]').classList.contains('is-award-assigned')`),false);
     await choose(0,'total_1');
     assert.equal(await evaluate(`document.querySelector('[data-result-candidate="${resultIds[0]}"] [data-result-award-percent]').value`),'100');
     await command('Runtime.evaluate',{expression:'document.querySelector("[data-result-fullscreen]").click()',userGesture:true});
@@ -496,6 +515,11 @@ try{
     await click('.swal2-confirm');await until('document.querySelector(".swal2-popup")===null');
     const awardSlots=await evaluate('[...document.querySelectorAll("[data-result-award-slot]")].map(slot=>slot.dataset.resultAwardSlot)');
     for(let index=1;index<awardSlots.length;index++)await choose(index,awardSlots[index]);
+    await click('[data-result-sort="award"]');assert.deepEqual(await resultRows(),resultIds);
+    await click('[data-result-sort="award"]');assert.deepEqual(await resultRows(),[...resultIds.slice(0,7).reverse(),resultIds[7]]);
+    await click('[data-result-sort="award"]');assert.deepEqual(await resultRows(),resultIds);
+    await choose(0,'');assert.equal((await resultRows())[0],resultIds[1]);assert.deepEqual((await resultRows()).slice(-2),[resultIds[0],resultIds[7]]);
+    await choose(0,'total_1');assert.deepEqual(await resultRows(),resultIds);
     assert.deepEqual(await evaluate('[...document.querySelectorAll("[data-result-award-select]")].filter(select=>select.value).map(select=>Number(select.closest("tr").querySelector("[data-result-award-percent]").value)).sort((a,b)=>a-b)'),[25,25,25,25,50,75,100]);
     await click('[data-result-save]');await until('document.querySelector(".swal2-title")?.textContent==="Unable to Save Winners"');
     assert.equal(await evaluate('document.querySelector("[data-result-unsaved]").hidden'),false);
