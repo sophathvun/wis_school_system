@@ -1,4 +1,6 @@
 import * as bootstrap from "bootstrap";
+import { setupPersonPhotoEditor } from "./helpers/personPhotoEditor";
+import { studentPhotoJpeg } from "./helpers/studentPhotoEditor";
 import intlTelInput from "intl-tel-input";
 import "intl-tel-input/styles";
 
@@ -13,6 +15,12 @@ const initStaffPhotoViewer = () => {
 
     document.body.dataset.staffPhotoViewerReady = "1";
     const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
+    let jpegUrl, viewerGeneration = 0;
+    modalElement.addEventListener("hidden.bs.modal", () => {
+        viewerGeneration++;
+        if (jpegUrl) URL.revokeObjectURL(jpegUrl);
+        jpegUrl = null;
+    });
     const updateZoom = () => {
         image.style.transform = `scale(${zoom.value})`;
     };
@@ -27,11 +35,14 @@ const initStaffPhotoViewer = () => {
         return `${name}.${extension}`;
     };
 
-    document.addEventListener("click", (event) => {
+    document.addEventListener("click", async (event) => {
         const trigger = event.target.closest(".staff-photo-view-trigger");
         if (!trigger) return;
         event.preventDefault();
         event.stopPropagation();
+        const token = ++viewerGeneration;
+        if (jpegUrl) URL.revokeObjectURL(jpegUrl);
+        jpegUrl = null;
 
         const photoUrl = trigger.dataset.photoUrl || "";
         image.src = photoUrl;
@@ -43,6 +54,14 @@ const initStaffPhotoViewer = () => {
             download.download = downloadName(trigger.dataset.photoTitle, photoUrl);
         }
         modal.show();
+        try {
+            const blob = await studentPhotoJpeg(photoUrl);
+            if (token !== viewerGeneration) return;
+            jpegUrl = URL.createObjectURL(blob); image.src = jpegUrl;
+            if (download) { download.href = jpegUrl; download.download = downloadName(trigger.dataset.photoTitle); }
+        } catch {
+            // Keep the original view/download available if a legacy photo cannot be converted.
+        }
     });
 
     zoom.addEventListener("input", updateZoom);
@@ -117,52 +136,9 @@ const initStaffPhotoUploader = () => {
     userPhoneVisible?.addEventListener("countrychange", () => {
         syncCambodiaPhoneInput(userPhoneVisible, userPhoneHidden, userPhoneIntl);
     });
-    const staffPhotoInput = document.getElementById("staff_photo");
-    const staffPhotoDropzone = document.getElementById("staffPhotoDropzone");
-    const staffPhotoPreview = document.getElementById("staffPhotoPreview");
-    const staffPhotoPreviewContainer = document.getElementById(
-        "staffPhotoPreviewContainer",
-    );
-    const staffPhotoCropModalElement = document.getElementById(
-        "staffPhotoCropModal",
-    );
-    const staffPhotoCropModal =
-        staffPhotoCropModalElement && bootstrap.Modal
-            ? bootstrap.Modal.getOrCreateInstance(staffPhotoCropModalElement)
-            : null;
-    const staffUserModalElement = document.getElementById("userModal");
-    const staffUserModal =
-        staffUserModalElement && bootstrap.Modal
-            ? bootstrap.Modal.getOrCreateInstance(staffUserModalElement)
-            : null;
-    const staffPhotoCropCanvas = document.getElementById(
-        "staffPhotoCropCanvas",
-    );
-    const staffPhotoCropContext = staffPhotoCropCanvas?.getContext("2d");
-    const staffPhotoZoom = document.getElementById("staffPhotoZoom");
-    let staffPhotoCropImage = null;
-    let staffPhotoCropScale = 1;
-    let staffPhotoCropRotation = 0;
-    let staffPhotoCropOffsetX = 0;
-    let staffPhotoCropOffsetY = 0;
-    let staffPhotoCropDragging = false;
-    let staffPhotoCropStart = null;
-    let staffReturnToUserModal = false;
-
-    if (
-        staffPhotoDropzone &&
-        staffPhotoPreviewContainer &&
-        !staffPhotoDropzone.contains(staffPhotoPreviewContainer)
-    ) {
-        staffPhotoDropzone.appendChild(staffPhotoPreviewContainer);
-    }
-    staffUserModalElement?.addEventListener("shown.bs.modal", () => {
-        window.setTimeout(
-            () => staffPhotoDropzone?.focus({ preventScroll: true }),
-            50,
-        );
-    });
-
+    const photoZone = document.getElementById("staffPhotoDropzone");
+    const photoBox = document.getElementById("staffPhotoPreviewContainer");
+    if (photoZone && photoBox && !photoZone.contains(photoBox)) photoZone.appendChild(photoBox);
     const makeUserSearchableSelect = (select, multiple = false) => {
         if (!select || select.dataset.searchableReady) return;
         multiple = multiple || select.multiple;
@@ -998,265 +974,13 @@ const initStaffPhotoUploader = () => {
     });
     makeUserSearchableSelect(linkedStaffSelect);
 
-    const showStaffPhotoPreview = (file) => {
-        if (!staffPhotoPreview || !staffPhotoPreviewContainer || !file) return;
-        staffPhotoPreview.src = URL.createObjectURL(file);
-        staffPhotoPreviewContainer.classList.remove("d-none");
-    };
-
-    const drawStaffPhotoCrop = () => {
-        if (
-            !staffPhotoCropContext ||
-            !staffPhotoCropCanvas ||
-            !staffPhotoCropImage
-        )
-            return;
-        const canvas = staffPhotoCropCanvas;
-        const context = staffPhotoCropContext;
-        const image = staffPhotoCropImage;
-        context.clearRect(0, 0, canvas.width, canvas.height);
-        const _root = getComputedStyle(document.documentElement);
-        const _surface =
-            _root.getPropertyValue("--tblr-bg-surface")?.trim() ||
-            (window.matchMedia &&
-            window.matchMedia("(prefers-color-scheme: dark)").matches
-                ? "#111827"
-                : "#fff");
-        context.fillStyle = _surface;
-        context.fillRect(0, 0, canvas.width, canvas.height);
-        const baseScale = Math.max(
-            canvas.width / image.width,
-            canvas.height / image.height,
-        );
-        const scale = baseScale * staffPhotoCropScale;
-        context.save();
-        context.translate(
-            canvas.width / 2 + staffPhotoCropOffsetX,
-            canvas.height / 2 + staffPhotoCropOffsetY,
-        );
-        context.rotate((staffPhotoCropRotation * Math.PI) / 180);
-        context.drawImage(
-            image,
-            -(image.width * scale) / 2,
-            -(image.height * scale) / 2,
-            image.width * scale,
-            image.height * scale,
-        );
-        context.restore();
-    };
-
-    const resetStaffPhotoCrop = () => {
-        staffPhotoCropScale = 1;
-        staffPhotoCropRotation = 0;
-        staffPhotoCropOffsetX = 0;
-        staffPhotoCropOffsetY = 0;
-        if (staffPhotoZoom) staffPhotoZoom.value = "1";
-        drawStaffPhotoCrop();
-    };
-
-    const openStaffPhotoCrop = (file) => {
-        const isImage =
-            file &&
-            ((file.type || "").startsWith("image/") ||
-                /\.(jpe?g|png|webp|gif|bmp|heic|heif)$/i.test(file.name || ""));
-        if (!isImage) return;
-        const reader = new FileReader();
-        reader.onload = () => {
-            const image = new Image();
-            image.onload = () => {
-                staffPhotoCropImage = image;
-                resetStaffPhotoCrop();
-                const showCropModal = () => staffPhotoCropModal?.show();
-                if (
-                    staffUserModalElement?.classList.contains("show") &&
-                    staffUserModal
-                ) {
-                    staffReturnToUserModal = true;
-                    staffUserModalElement.addEventListener(
-                        "hidden.bs.modal",
-                        showCropModal,
-                        { once: true },
-                    );
-                    staffUserModal.hide();
-                } else {
-                    showCropModal();
-                }
-            };
-            image.src = reader.result;
-        };
-        reader.readAsDataURL(file);
-    };
-
-    const imageFileFromPasteEvent = (
-        event,
-        filename = "pasted-staff-photo.png",
-    ) => {
-        const clipboardFiles = Array.from(event.clipboardData?.files || []);
-        const directFile = clipboardFiles.find((entry) =>
-            entry.type.startsWith("image/"),
-        );
-        if (directFile)
-            return new File([directFile], filename, {
-                type: directFile.type || "image/png",
-            });
-
-        const items = Array.from(event.clipboardData?.items || []);
-        const item = items.find(
-            (entry) => entry.kind === "file" && entry.type.startsWith("image/"),
-        );
-        const file = item?.getAsFile();
-        return file
-            ? new File([file], filename, { type: file.type || "image/png" })
-            : null;
-    };
-
-    staffPhotoCropModalElement?.addEventListener("hidden.bs.modal", () => {
-        if (!staffReturnToUserModal) return;
-        staffReturnToUserModal = false;
-        staffUserModal?.show();
+    setupPersonPhotoEditor({
+        editorId: 'staffPhotoCropModal', input: document.getElementById('staff_photo'),
+        dropzone: document.getElementById('staffPhotoDropzone'), preview,
+        previewContainer, editButton: document.getElementById('userPhotoEdit'),
+        parent: document.getElementById('userModal'), saveMessage: 'Save the user to apply this photo.',
     });
 
-    const setStaffPhotoFile = (blob) => {
-        const file = new File([blob], "staff-photo.jpg", {
-            type: "image/jpeg",
-        });
-        const transfer = new DataTransfer();
-        transfer.items.add(file);
-        if (staffPhotoInput) staffPhotoInput.files = transfer.files;
-        showStaffPhotoPreview(file);
-    };
-
-    staffPhotoInput?.addEventListener("change", () => {
-        const file = staffPhotoInput.files?.[0];
-        if (!file) return;
-        staffPhotoInput.value = "";
-        openStaffPhotoCrop(file);
-    });
-
-    staffPhotoInput?.addEventListener("click", (event) =>
-        event.stopPropagation(),
-    );
-    staffPhotoDropzone?.addEventListener("click", () =>
-        staffPhotoInput?.click(),
-    );
-    staffPhotoDropzone?.addEventListener("keydown", (event) => {
-        if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            staffPhotoInput?.click();
-        }
-    });
-    staffPhotoDropzone?.addEventListener("dragover", (event) => {
-        event.preventDefault();
-        staffPhotoDropzone.classList.add("is-dragging");
-    });
-    staffPhotoDropzone?.addEventListener("dragleave", () =>
-        staffPhotoDropzone.classList.remove("is-dragging"),
-    );
-    staffPhotoDropzone?.addEventListener("drop", (event) => {
-        event.preventDefault();
-        staffPhotoDropzone.classList.remove("is-dragging");
-        openStaffPhotoCrop(event.dataTransfer?.files?.[0]);
-    });
-    staffPhotoDropzone?.addEventListener("paste", (event) => {
-        const file = imageFileFromPasteEvent(event);
-        if (!file) return;
-        event.preventDefault();
-        openStaffPhotoCrop(file);
-    });
-    document.addEventListener("paste", (event) => {
-        if (!staffUserModalElement?.classList.contains("show")) return;
-        if (staffPhotoCropModalElement?.classList.contains("show")) return;
-        if (
-            event.target?.closest?.(
-                "input:not([type='file']), textarea, [contenteditable='true']",
-            )
-        )
-            return;
-
-        const file = imageFileFromPasteEvent(event);
-        if (!file) return;
-        event.preventDefault();
-        openStaffPhotoCrop(file);
-    });
-
-    staffPhotoZoom?.addEventListener("input", () => {
-        staffPhotoCropScale = Number(staffPhotoZoom.value);
-        drawStaffPhotoCrop();
-    });
-    document
-        .getElementById("staffPhotoZoomIn")
-        ?.addEventListener("click", () => {
-            if (!staffPhotoZoom) return;
-            staffPhotoZoom.value = Math.min(
-                3,
-                Number(staffPhotoZoom.value) + 0.1,
-            ).toFixed(2);
-            staffPhotoZoom.dispatchEvent(new Event("input"));
-        });
-    document
-        .getElementById("staffPhotoZoomOut")
-        ?.addEventListener("click", () => {
-            if (!staffPhotoZoom) return;
-            staffPhotoZoom.value = Math.max(
-                1,
-                Number(staffPhotoZoom.value) - 0.1,
-            ).toFixed(2);
-            staffPhotoZoom.dispatchEvent(new Event("input"));
-        });
-    document
-        .getElementById("staffPhotoRotateLeft")
-        ?.addEventListener("click", () => {
-            staffPhotoCropRotation -= 90;
-            drawStaffPhotoCrop();
-        });
-    document
-        .getElementById("staffPhotoRotateRight")
-        ?.addEventListener("click", () => {
-            staffPhotoCropRotation += 90;
-            drawStaffPhotoCrop();
-        });
-    document
-        .getElementById("staffPhotoReset")
-        ?.addEventListener("click", resetStaffPhotoCrop);
-
-    staffPhotoCropCanvas?.addEventListener("pointerdown", (event) => {
-        staffPhotoCropDragging = true;
-        staffPhotoCropStart = { x: event.clientX, y: event.clientY };
-        staffPhotoCropCanvas.setPointerCapture(event.pointerId);
-    });
-    staffPhotoCropCanvas?.addEventListener("pointermove", (event) => {
-        if (!staffPhotoCropDragging || !staffPhotoCropStart) return;
-        const rect = staffPhotoCropCanvas.getBoundingClientRect();
-        const scaleX = staffPhotoCropCanvas.width / rect.width;
-        const scaleY = staffPhotoCropCanvas.height / rect.height;
-        staffPhotoCropOffsetX +=
-            (event.clientX - staffPhotoCropStart.x) * scaleX;
-        staffPhotoCropOffsetY +=
-            (event.clientY - staffPhotoCropStart.y) * scaleY;
-        staffPhotoCropStart = { x: event.clientX, y: event.clientY };
-        drawStaffPhotoCrop();
-    });
-    ["pointerup", "pointercancel"].forEach((type) =>
-        staffPhotoCropCanvas?.addEventListener(type, () => {
-            staffPhotoCropDragging = false;
-            staffPhotoCropStart = null;
-        }),
-    );
-
-    document
-        .getElementById("staffPhotoCropUpload")
-        ?.addEventListener("click", () => {
-            if (!staffPhotoCropCanvas) return;
-            staffPhotoCropCanvas.toBlob(
-                (blob) => {
-                    if (!blob) return;
-                    setStaffPhotoFile(blob);
-                    staffPhotoCropModal?.hide();
-                },
-                "image/jpeg",
-                0.9,
-            );
-        });
 };
 
 const bootUserManagementPage = () => {

@@ -1,0 +1,29 @@
+.student-photo-editor .modal-content { border-radius: 18px; overflow: hidden; }
+.student-photo-editor .modal-header { background: #2d3b59; color: #fff; padding: 1.25rem 1.5rem; }
+.student-photo-editor .modal-header .text-secondary { color: #d4ddec !important; margin-top: .3rem; }
+.student-photo-editor .modal-header .btn-close { filter: brightness(0) invert(1); }
+.student-photo-editor .modal-footer { background: var(--tblr-bg-surface-secondary, #f5f7fa); }
+.photo-editor-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, .85fr); gap: 1.5rem; align-items: start; }
+.photo-editor-preview { position: sticky; top: 0; min-width: 0; }
+.photo-editor-tools { min-width: 0; display: grid; gap: 1rem; }
+.photo-edited-file-size { flex-basis: 100%; overflow-wrap: anywhere; }
+.student-photo-upload-row:has(> .photo-edited-file-size) { flex-wrap: wrap; }
+.photo-editor-section { padding: 1rem; border: 1px solid var(--tblr-border-color); border-radius: 14px; background: var(--tblr-bg-surface); }
+.photo-editor-section h4 { margin-bottom: .85rem; }
+.photo-background-options { display: flex; align-items: center; flex-wrap: wrap; gap: .4rem; }
+.photo-color-label { display: inline-flex; align-items: center; gap: .4rem; font-size: .8rem; }
+.photo-color-label input { width: 32px; height: 30px; padding: 2px; border: 1px solid var(--tblr-border-color); border-radius: 6px; }
+.student-photo-editor #studentPhotoCropCanvas { width: min(100%, 390px, calc(58vh * var(--photo-editor-ratio, .75))); max-width: 100%; height: auto; max-height: none; aspect-ratio: var(--photo-editor-ratio, .75); touch-action: none; cursor: move; }
+.student-photo-editor .student-photo-crop-stage { display: flex; align-items: center; justify-content: center; padding: .75rem; background: #e7edf5; }
+.student-photo-editor [aria-busy="true"] { cursor: progress; }
+@media (max-width: 767.98px) {
+    .photo-editor-layout { grid-template-columns: minmax(0, 1fr); gap: 1rem; }
+    .photo-editor-preview { position: static; }
+    .student-photo-editor #studentPhotoCropCanvas { width: min(100%, 315px, calc(52vh * var(--photo-editor-ratio, .75))); }
+    .student-photo-editor .modal-body { padding: 1rem; }
+    .student-photo-editor .modal-footer { gap: .5rem; }
+}
+@media (max-width: 575.98px) {
+    .student-photo-editor .modal-content { border-radius: 0; }
+}
+

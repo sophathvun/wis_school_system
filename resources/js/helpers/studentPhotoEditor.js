@@ -23,13 +23,22 @@ export async function studentPhotoJpeg(url) {
     return canvasBlob(canvas, "image/jpeg", .95);
 }
 
-export function createStudentPhotoEditor({ bootstrap, csrf, showError, showSuccess }) {
+export function createPhotoEditor({ bootstrap, csrf, showError, showSuccess, editorId = "studentPhotoCropModal", elements = {}, saveMessage = "Save the enrollment to apply this photo." }) {
     const get = id => document.getElementById(id);
-    const element = get("studentPhotoCropModal");
+    const element = get(editorId);
     if (!element) return { showPreview() {}, resetPreview() {} };
-    const modal = new bootstrap.Modal(element), enrollment = get("enrollmentModal");
+    const modal = bootstrap.Modal.getOrCreateInstance(element);
+    const enrollment = elements.parent === undefined ? get("enrollmentModal") : elements.parent;
     const canvas = get("studentPhotoCropCanvas"), context = canvas.getContext("2d", { willReadFrequently: true });
-    const input = get("student_photo"), dropzone = get("studentPhotoDropzone"), preview = get("studentPhotoPreview");
+    const input = elements.input || get("student_photo"), dropzone = elements.dropzone || get("studentPhotoDropzone"), preview = elements.preview || get("studentPhotoPreview");
+    const previewContainer = elements.previewContainer || get("studentPhotoPreviewContainer");
+    const editButton = elements.editButton || get("studentPhotoEdit");
+    const fileSize = get("photoEditorFileSize");
+    const previewSize = document.createElement("div");
+    previewSize.className = "small text-secondary mt-2 d-none photo-edited-file-size";
+    previewSize.setAttribute("role", "status");
+    previewSize.dataset.editedPhotoSize = "1";
+    (editButton || previewContainer || preview).insertAdjacentElement(editButton ? "beforebegin" : "afterend", previewSize);
     const error = get("studentPhotoEditorError"), status = get("studentPhotoEditorStatus");
     const zoom = get("studentPhotoZoom"), brush = get("studentPhotoBrush");
     const angleInput = get("studentPhotoAngle"), angleRange = get("studentPhotoAngleRange");
@@ -45,6 +54,8 @@ export function createStudentPhotoEditor({ bootstrap, csrf, showError, showSucce
     let selection, selectionVisible = true;
     let background = "original", comparing = false, pointer, smoothStroke, previewUrl, generation = 0, request, busy = false, returnToEnrollment = false;
     let adjustmentFrame = 0;
+    let sizeTimer, sizeVersion = 0, sizeCache;
+    const sizeLabel = data => `WebP size: ${(data.bytes / 1024).toFixed(2)} KB · ${data.width} × ${data.height} px`;
     const settings = { exposure: 0, brightness: 0, contrast: 0, saturation: 0, denoise: 0, sharpen: 0 };
     const areaSettings = { ...settings };
     const currentSettings = () => scope.value === "selected" ? areaSettings : settings;
@@ -54,7 +65,8 @@ export function createStudentPhotoEditor({ bootstrap, csrf, showError, showSucce
         busy = value;
         element.setAttribute("aria-busy", String(value));
         element.querySelectorAll("button:not([data-bs-dismiss]), input, select").forEach(control => control.disabled = value);
-        status.textContent = value ? "Processing your photo…" : "3:4 portrait · Saved as WebP, up to 40 KB";
+        status.textContent = value ? "Processing your photo…" : `${element.dataset.photoFormat || "3:4 portrait"} · Saved as WebP, up to 40 KB`;
+        if (!value && source) queueSize();
     };
     const adjustmentLabel = (key, value) => key === "exposure" ? `${value > 0 ? "+" : ""}${Number(value).toFixed(2)} EV` : String(value);
     const syncSettings = () => {
@@ -143,7 +155,8 @@ export function createStudentPhotoEditor({ bootstrap, csrf, showError, showSucce
             target.putImageData(pixels, 0, 0);
         }
     };
-    const draw = (showSelection = true) => {
+    const draw = (showSelection = true, measure = true) => {
+        if (measure && source && !busy && !comparing) queueSize();
         context.clearRect(0, 0, canvas.width, canvas.height);
         context.fillStyle = !comparing && background !== "original" ? background : "#ffffff";
         context.fillRect(0, 0, canvas.width, canvas.height);
@@ -184,6 +197,51 @@ export function createStudentPhotoEditor({ bootstrap, csrf, showError, showSucce
             context.drawImage(selectionPreview, 0, 0);
         }
     };
+    const editedBlob = () => {
+        const originalComparison = comparing;
+        comparing = false; draw(false, false);
+        const blob = canvasBlob(canvas);
+        comparing = originalComparison; draw(true, false);
+        return blob;
+    };
+    const measureSize = async blob => {
+        const bytes = new Uint8Array(await blob.arrayBuffer());
+        if (sizeCache && sizeCache.bytes.length === bytes.length && bytes.every((value, i) => value === sizeCache.bytes[i])) return sizeCache.promise;
+        sizeCache?.controller.abort();
+        const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 20000);
+        const entry = { bytes, controller };
+        entry.promise = (async () => {
+            try {
+                const data = new FormData(); data.append("photo", blob, "edited-photo.png");
+                data.append("format", canvas.width === canvas.height ? "square" : "portrait");
+                const response = await fetch(element.dataset.sizeUrl, {
+                    method: "POST", credentials: "same-origin", signal: controller.signal,
+                    headers: { "X-CSRF-TOKEN": csrf || "", Accept: "application/json" }, body: data,
+                });
+                const result = await response.json().catch(() => ({}));
+                if (!response.ok) throw new Error(result.errors?.photo?.[0] || result.message || "The WebP size could not be calculated. Please try again.");
+                if (!Number.isInteger(result.bytes) || result.bytes <= 0 || result.bytes > 40960 || !result.width || !result.height) throw new Error("The server did not return a valid WebP size. Please try again.");
+                return result;
+            } catch (exception) { if (sizeCache === entry) sizeCache = null; throw exception; }
+            finally { clearTimeout(timeout); }
+        })();
+        sizeCache = entry;
+        return entry.promise;
+    };
+    const queueSize = () => {
+        clearTimeout(sizeTimer);
+        const version = ++sizeVersion, token = generation;
+        fileSize.textContent = "Calculating WebP size…";
+        sizeTimer = setTimeout(async () => {
+            if (!source || busy) return;
+            try {
+                const data = await measureSize(await editedBlob());
+                if (version === sizeVersion && token === generation && source && !busy) fileSize.textContent = sizeLabel(data);
+            } catch {
+                if (version === sizeVersion && token === generation && source) fileSize.textContent = "WebP size unavailable. It will be checked when you click Use Photo.";
+            }
+        }, 1200);
+    };
     const scheduleDraw = () => { cancelAnimationFrame(adjustmentFrame); adjustmentFrame = requestAnimationFrame(draw); };
     const compare = value => {
         comparing = value; before.setAttribute("aria-pressed", String(value));
@@ -192,26 +250,31 @@ export function createStudentPhotoEditor({ bootstrap, csrf, showError, showSucce
         draw();
     };
     const reset = () => {
+        clearTimeout(sizeTimer); sizeVersion++; sizeCache?.controller.abort(); sizeCache = null;
         request?.abort(); cutout = null; scale = 1; rotation = 0; fineRotation = 0; x = 0; y = 0;
         angleInput.value = angleRange.value = "0";
         selection = null; selectionVisible = true; scope.value = "whole"; selectionBrush.value = "paint";
         get("studentPhotoSelectionSize").value = "45"; syncSelectionTools();
         background = "original"; zoom.value = "1"; brush.value = "move"; resetSettings(); syncBackground(); clearError(); compare(false);
     };
-    const showPreview = fileOrUrl => {
+    const showPreview = (fileOrUrl, size = null) => {
         if (previewUrl) URL.revokeObjectURL(previewUrl);
         previewUrl = fileOrUrl instanceof Blob ? URL.createObjectURL(fileOrUrl) : null;
         preview.src = previewUrl || fileOrUrl;
         acceptedFile = fileOrUrl instanceof File ? fileOrUrl : null;
-        get("studentPhotoPreviewContainer").classList.remove("d-none");
-        get("studentPhotoEdit")?.classList.remove("d-none");
+        preview.classList.remove("d-none"); previewContainer?.classList.remove("d-none");
+        editButton?.classList.remove("d-none");
+        previewSize.textContent = size ? sizeLabel(size) : "";
+        previewSize.classList.toggle("d-none", !size);
     };
     const resetPreview = () => {
+        clearTimeout(sizeTimer); sizeVersion++; sizeCache?.controller.abort(); sizeCache = null;
         generation++; request?.abort(); source = null; cutout = null; selection = null;
         if (previewUrl) URL.revokeObjectURL(previewUrl);
         previewUrl = null; acceptedFile = null; preview.removeAttribute("src"); input.value = "";
-        get("studentPhotoPreviewContainer").classList.add("d-none");
-        get("studentPhotoEdit")?.classList.add("d-none");
+        previewContainer?.classList.add("d-none");
+        editButton?.classList.add("d-none");
+        previewSize.classList.add("d-none"); previewSize.textContent = "";
     };
     const open = async file => {
         const token = ++generation;
@@ -227,8 +290,15 @@ export function createStudentPhotoEditor({ bootstrap, csrf, showError, showSucce
             reset(); setBusy(false);
             returnToEnrollment = enrollment?.classList.contains("show") || false;
             if (returnToEnrollment) {
-                enrollment.addEventListener("hidden.bs.modal", () => { if (token === generation) modal.show(); }, { once: true });
-                bootstrap.Modal.getInstance(enrollment)?.hide();
+                const hideParent = () => { if (token === generation) bootstrap.Modal.getInstance(enrollment)?.hide(); };
+                // Bootstrap ignores hide() during its opening transition. Retry once
+                // shown, so a quick Edit Photo click cannot leave the studio waiting.
+                enrollment.addEventListener("shown.bs.modal", hideParent, { once: true });
+                enrollment.addEventListener("hidden.bs.modal", () => {
+                    enrollment.removeEventListener("shown.bs.modal", hideParent);
+                    if (token === generation) modal.show();
+                }, { once: true });
+                hideParent();
             } else modal.show();
         } catch (exception) { showError("Photo editor", exception.message); }
     };
@@ -257,18 +327,21 @@ export function createStudentPhotoEditor({ bootstrap, csrf, showError, showSucce
         input.files = transfer.files;
         if (file) open(file);
     });
+    input?.addEventListener("click", event => event.stopPropagation());
     dropzone?.addEventListener("click", event => { if (event.target !== input) input.click(); });
     dropzone?.addEventListener("keydown", event => { if (["Enter", " "].includes(event.key)) { event.preventDefault(); input.click(); } });
     dropzone?.addEventListener("dragover", event => { event.preventDefault(); dropzone.classList.add("is-dragging"); });
     dropzone?.addEventListener("dragleave", () => dropzone.classList.remove("is-dragging"));
     dropzone?.addEventListener("drop", event => { event.preventDefault(); dropzone.classList.remove("is-dragging"); open(event.dataTransfer.files?.[0]); });
     document.addEventListener("paste", event => {
-        if (!enrollment?.classList.contains("show") || element.classList.contains("show") || event.target?.closest?.("input:not([type='file']), textarea, [contenteditable='true'], #enrollmentDocumentDropzone")) return;
+        const pasteActive = enrollment ? enrollment.classList.contains("show") : elements.pasteTarget?.getClientRects().length > 0;
+        if (!pasteActive || event.defaultPrevented || element.classList.contains("show") || event.target?.closest?.("input:not([type='file']), textarea, [contenteditable='true'], #enrollmentDocumentDropzone")) return;
         const file = [...(event.clipboardData?.files || [])].find(entry => entry.type.startsWith("image/"))
             || [...(event.clipboardData?.items || [])].find(entry => entry.kind === "file" && entry.type.startsWith("image/"))?.getAsFile();
         if (file) { event.preventDefault(); open(file); }
     });
-    get("studentPhotoEdit")?.addEventListener("click", async () => {
+    editButton?.addEventListener("click", async event => {
+        event.preventDefault(); event.stopPropagation();
         try {
             if (input.files?.[0]) await open(input.files[0]);
             else { const response = await fetch(preview.src); if (!response.ok) throw new Error("The photo could not be loaded."); await open(await response.blob()); }
@@ -399,19 +472,26 @@ export function createStudentPhotoEditor({ bootstrap, csrf, showError, showSucce
     for (const name of ["pointerup", "pointercancel", "lostpointercapture"]) canvas.addEventListener(name, () => { pointer = null; smoothStroke = null; });
     use.addEventListener("click", async () => {
         if (busy || !source) return;
+        const token = generation;
         clearError(); compare(false); cancelAnimationFrame(adjustmentFrame); draw(false); setBusy(true);
+        clearTimeout(sizeTimer); sizeVersion++;
         try {
-            // Upload a lossless 600×800 crop; the server chooses WebP quality and
+            // Upload a lossless crop; the server chooses WebP quality and
             // resolution once, so there is no double lossy compression.
-            const blob = await canvasBlob(canvas), file = new File([blob], "student-photo.png", { type: "image/png" });
-            const transfer = new DataTransfer(); transfer.items.add(file); input.files = transfer.files; showPreview(file);
-            modal.hide(); showSuccess("Photo ready", "Save the enrollment to apply this photo.");
-        } catch (exception) { fail(exception.message); }
-        finally { setBusy(false); if (source) draw(); }
+            const blob = await canvasBlob(canvas), file = new File([blob], "edited-photo.png", { type: "image/png" });
+            const size = await measureSize(blob);
+            if (token !== generation || !source) return;
+            const transfer = new DataTransfer(); transfer.items.add(file); input.files = transfer.files; showPreview(file, size);
+            modal.hide(); showSuccess("Photo ready", saveMessage);
+        } catch (exception) { if (token === generation) fail(exception.message); }
+        finally { if (token === generation) { setBusy(false); if (source) draw(); } }
     });
     element.addEventListener("hidden.bs.modal", () => {
+        clearTimeout(sizeTimer); sizeVersion++; sizeCache?.controller.abort(); sizeCache = null;
         generation++; request?.abort(); pointer = null; smoothStroke = null; source = null; cutout = null; selection = null; setBusy(false);
         if (returnToEnrollment) { returnToEnrollment = false; bootstrap.Modal.getOrCreateInstance(enrollment).show(); }
     });
     return { showPreview, resetPreview };
 }
+
+export const createStudentPhotoEditor = createPhotoEditor;

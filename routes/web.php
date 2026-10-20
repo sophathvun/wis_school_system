@@ -128,6 +128,14 @@ Route::middleware(['auth', 'active.user'])->group(function () {
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [AuthController::class, 'profile'])->name('profile');
     Route::post('/profile', [AuthController::class, 'updateProfile'])->name('profile.update');
+    Route::post('/photos/size', [\App\Http\Controllers\StudentPhotoController::class, 'size'])
+        ->middleware('throttle:60,1')->name('photos.size');
+    Route::post('/profile/photo/background', [\App\Http\Controllers\StudentPhotoController::class, 'profileBackground'])
+        ->middleware('throttle:12,1')->name('profile.photo.background');
+    Route::post('/settings/users/photo/background', [\App\Http\Controllers\StudentPhotoController::class, 'userBackground'])
+        ->middleware('throttle:12,1')->name('users.photo.background');
+    Route::post('/hrm/staff-management/photo/background', [\App\Http\Controllers\StudentPhotoController::class, 'staffBackground'])
+        ->middleware('throttle:12,1')->name('staff.photo.background');
     Route::patch('/profile/name-card', [AuthController::class, 'updateNameCard'])->name('profile.name-card.update');
     Route::post('/profile/name-card/regenerate', [AuthController::class, 'regenerateNameCard'])->name('profile.name-card.regenerate');
     Route::get('/profile/status', [AuthController::class, 'status'])->name('profile.status');

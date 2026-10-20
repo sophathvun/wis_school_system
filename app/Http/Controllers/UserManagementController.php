@@ -112,7 +112,7 @@ class UserManagementController
             'campuses' => ['array'], 'campuses.*' => ['integer', 'exists:tb_school_info,id'],
             'permission_ids' => ['array'], 'permission_ids.*' => ['integer', 'exists:access_permissions,id'],
             'status' => ['required', 'in:0,1'], 'login_identifier' => ['required', 'in:username,email,both'],
-            'is_global' => ['nullable', 'boolean'], 'photo' => ['nullable', 'image', 'max:2048'],
+            'is_global' => ['nullable', 'boolean'], 'photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:10240', 'dimensions:max_width=6000,max_height=6000'],
         ]);
         if (array_key_exists('phone',$data)) $data['phone'] = $this->normalizeCambodiaPhone($data['phone']);
         if (array_key_exists('gender',$data)) $data['gender'] = $this->normalizeGender($data['gender']);
@@ -122,7 +122,8 @@ class UserManagementController
         }
         // Unchecked checkboxes are omitted from the request; always persist the actual switch state.
         $data['is_global'] = $request->boolean('is_global');
-        DB::transaction(function () use ($request, $data, $userId) {
+        $newPhoto = null; $oldPhoto = null;
+        try { DB::transaction(function () use ($request, $data, $userId, &$newPhoto, &$oldPhoto) {
             $user = $userId ? User::findOrFail($userId) : new User();
             $user->fill(collect($data)->except(['user_id', 'role_id', 'campuses', 'permission_ids', 'photo', 'password'])->toArray());
             if (!empty($data['password'])) {
@@ -132,7 +133,11 @@ class UserManagementController
                 $user->password = '1234567890';
                 $user->must_change_password = true;
             }
-            if ($request->hasFile('photo')) $user->photo_path = $request->file('photo')->store('users', 'public');
+            if ($request->hasFile('photo')) {
+                $oldPhoto = $user->photo_path;
+                $newPhoto = app(\App\Services\StudentPhotoProcessor::class)->storeSquare($request->file('photo'), 'users');
+                $user->photo_path = $newPhoto;
+            }
             $user->save();
             $user->campuses()->sync(collect($data['campuses'] ?? [])->mapWithKeys(fn ($id, $i) => [$id => ['is_primary' => $i === 0, 'assigned_at' => now()]])->all());
             $campusIds = collect($data['campuses'] ?? [])->values();
@@ -144,7 +149,11 @@ class UserManagementController
             }
             DB::table('access_user_permission_overrides')->where('user_id', $user->id)->delete();
             foreach ($data['permission_ids'] ?? [] as $permissionId) DB::table('access_user_permission_overrides')->insert(['user_id' => $user->id, 'permission_id' => $permissionId, 'allowed' => true, 'created_at' => now(), 'updated_at' => now()]);
-        });
+        }); } catch (\Throwable $exception) {
+            if ($newPhoto) Storage::disk('public')->delete($newPhoto);
+            throw $exception;
+        }
+        if ($oldPhoto && str_starts_with($oldPhoto, 'users/') && ! User::where('photo_path', $oldPhoto)->exists()) Storage::disk('public')->delete($oldPhoto);
         return redirect()->route('users.index')->with('success', $userId ? 'User updated successfully.' : 'User created successfully.');
     }
 

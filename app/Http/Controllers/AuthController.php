@@ -190,7 +190,7 @@ class AuthController
             'email' => ['required', 'email', 'unique:users,email,'.$user->id],
             'login_identifier' => ['required', 'in:username,email,both'],
             'password' => [$requiresPasswordChange ? 'required' : 'nullable', 'min:8', 'confirmed'],
-            'photo' => ['nullable', 'image', 'max:2048'],
+            'photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:10240', 'dimensions:max_width=6000,max_height=6000'],
         ]);
         if (array_key_exists('gender', $data)) {
             $data['gender'] = $this->normalizeGender($data['gender'] ?? null);
@@ -200,8 +200,20 @@ class AuthController
             $user->password = $data['password'];
             $user->must_change_password = false;
         }
-        if ($request->hasFile('photo')) $user->photo_path = $request->file('photo')->store('users', 'public');
-        $user->save();
+        $newPhoto = null; $oldPhoto = $user->photo_path;
+        try {
+            if ($request->hasFile('photo')) {
+                $newPhoto = app(\App\Services\StudentPhotoProcessor::class)->storeSquare($request->file('photo'), 'users');
+                $user->photo_path = $newPhoto;
+            }
+            $user->save();
+        } catch (\Throwable $exception) {
+            if ($newPhoto) \Illuminate\Support\Facades\Storage::disk('public')->delete($newPhoto);
+            throw $exception;
+        }
+        if ($newPhoto && $oldPhoto && str_starts_with($oldPhoto, 'users/') && ! User::where('photo_path', $oldPhoto)->exists()) {
+            \Illuminate\Support\Facades\Storage::disk('public')->delete($oldPhoto);
+        }
 
         if ($requiresPasswordChange && !$user->must_change_password) {
             return redirect()->route('dashboard')->with('success', 'Password changed successfully.');

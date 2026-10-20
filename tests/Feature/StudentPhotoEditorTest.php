@@ -5,6 +5,58 @@ use App\Services\StudentPhotoBackground;
 use App\Services\StudentPhotoProcessor;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Storage;
+
+it('requires authentication for staff, user and profile photo processing', function (string $route) {
+    $this->postJson(route($route))->assertUnauthorized();
+})->with(['staff.photo.background', 'users.photo.background', 'profile.photo.background']);
+
+it('measures the exact saved WebP size without storing a preview', function (string $format) {
+    Storage::fake('public');
+    $this->withoutMiddleware()->actingAs(photoEditorUser(false));
+    $file = UploadedFile::fake()->image('edited.png', 600, 800);
+    $processor = app(StudentPhotoProcessor::class);
+    $bytes = $format === 'square' ? $processor->squareWebp($file) : $processor->webp($file);
+    [$width, $height] = getimagesizefromstring($bytes);
+    $this->postJson(route('photos.size'), ['photo' => $file, 'format' => $format])->assertOk()
+        ->assertHeader('Cache-Control', 'no-store, private')
+        ->assertExactJson(['bytes' => strlen($bytes), 'width' => $width, 'height' => $height]);
+    expect(Storage::disk('public')->allFiles())->toBeEmpty();
+})->with(['portrait', 'square']);
+
+it('rejects invalid size-check uploads and unauthenticated requests', function () {
+    $this->postJson(route('photos.size'))->assertUnauthorized();
+    $this->withoutMiddleware()->actingAs(photoEditorUser(false));
+    $this->postJson(route('photos.size'), ['photo' => UploadedFile::fake()->image('oversize.png', 1000, 1000), 'format' => 'square'])
+        ->assertUnprocessable()->assertJsonValidationErrors('photo');
+});
+
+it('stores square staff and user photos as WebP under 40 KB', function (string $directory) {
+    Storage::fake('public');
+    $file = UploadedFile::fake()->image('portrait.png', 600, 800);
+    $path = app(StudentPhotoProcessor::class)->storeSquare($file, $directory);
+    $size = getimagesize(Storage::disk('public')->path($path));
+    expect($path)->toStartWith($directory.'/')->toEndWith('.webp')
+        ->and($size['mime'])->toBe('image/webp')->and($size[0])->toBe(400)->and($size[1])->toBe(400)
+        ->and(Storage::disk('public')->size($path))->toBeLessThanOrEqual(40*1024);
+})->with(['staff', 'users']);
+
+it('checks staff or user editing permissions before background processing', function (string $route) {
+    $user = photoEditorUser(false);
+    $user->shouldReceive('isSuperAdmin')->andReturn(false);
+    $this->withoutMiddleware()->actingAs($user);
+    $this->mock(StudentPhotoBackground::class)->shouldNotReceive('remove');
+    $this->postJson(route($route), ['photo' => UploadedFile::fake()->image('photo.jpg', 400, 400)])->assertForbidden();
+})->with(['staff.photo.background', 'users.photo.background']);
+
+it('allows authorized staff, user and own-profile background editing', function (string $route, bool $superAdmin) {
+    $user = photoEditorUser(true);
+    $user->shouldReceive('isSuperAdmin')->andReturn($superAdmin);
+    $this->withoutMiddleware()->actingAs($user);
+    $this->mock(StudentPhotoBackground::class)->shouldReceive('remove')->once()->andReturn('private-cutout');
+    $this->postJson(route($route), ['photo' => UploadedFile::fake()->image('photo.jpg', 400, 400)])
+        ->assertOk()->assertHeader('Content-Type', 'image/png')->assertHeader('Cache-Control', 'no-store, private');
+})->with([['staff.photo.background', false], ['users.photo.background', true], ['profile.photo.background', false]]);
 
 it('compresses a detailed crop to a real WebP under 40 KB while preserving the portrait ratio', function () {
     $image = imagecreatetruecolor(600, 800);

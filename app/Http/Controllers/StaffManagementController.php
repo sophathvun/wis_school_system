@@ -188,7 +188,7 @@ class StaffManagementController
             'campuses.*' => ['integer', 'exists:tb_school_info,id'],
             'notes' => ['nullable', 'string'],
             'status' => ['required', 'in:0,1'],
-            'photo' => ['nullable', 'image', 'max:2048'],
+            'photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:10240', 'dimensions:max_width=6000,max_height=6000'],
             'experiences_present' => ['nullable','boolean'],
             'educations_present' => ['nullable','boolean'],
             'experiences' => ['array','max:50'],
@@ -265,7 +265,7 @@ class StaffManagementController
             }
             if ($request->hasFile('photo')) {
                 $oldPhoto=$staff->photo_path;
-                $newPhoto=$request->file('photo')->store('staff','public');
+                $newPhoto=app(\App\Services\StudentPhotoProcessor::class)->storeSquare($request->file('photo'), 'staff');
                 $staff->photo_path=$newPhoto;
             }
             $staff->save();

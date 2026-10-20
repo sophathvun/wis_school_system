@@ -1,4 +1,27 @@
-# Student Enrollment photo editor
+# Shared photo editor
+
+The same studio is used by Student Enrollment, HRM Staff Management, User
+Management, and the personal Edit Profile page. Each includes **Edit Photo**
+for its existing picture, upload/drop/paste, all clarity and selection controls,
+rotation, and local background removal. Staff and login/profile photos remain
+separate, including for linked staff accounts. Cancel preserves the accepted photo.
+
+Student output stays 3:4 (starting at 600×800); staff and user/profile output stays
+square (starting at 400×400). All newly saved photos use WebP up to 40 KB, with
+resolution reduced if necessary. User Management's enlarged photo viewer and
+download convert stored photos to real JPEG. Existing stored files are retained
+until replaced. Replacement files are cleaned up when saving fails.
+
+All studios share the already installed local model and its single processing
+slot; no additional AI installation is required. Background routes check their
+own permissions: staff create/edit, super administrator for User Management,
+and an authenticated account for its own Profile. Other editing stays in the browser.
+
+The preview shows **WebP size** in KB and the compressed dimensions. After editing
+pauses, the current crop is measured by the same server encoder used for saving;
+no preview file is stored and the AI model is not invoked. **Use Photo** verifies
+the current size and displays it below the accepted photo as well. Selection
+guides and original comparison mode are excluded from the measured crop.
 
 Upload, drop, or paste a JPG/PNG/WebP portrait (up to 10 MB / 24 megapixels).
 Use **Edit Photo** to change an existing enrollment photo. The studio provides

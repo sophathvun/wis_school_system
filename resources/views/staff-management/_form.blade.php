@@ -19,10 +19,11 @@
                         <div class="card-body"><div class="staff-personal-information-layout">
                     <div class="staff-personal-photo-column">
                         <div class="logo-dropzone staff-photo-dropzone" tabindex="0" role="button" aria-label="Upload staff photo. Click, drag and drop, or paste an image." data-staff-photo-dropzone>
-                            <div class="staff-photo-dropzone-content"><span class="staff-photo-dropzone-label">Staff Photo</span><i class="ti ti-cloud-upload logo-dropzone-icon" aria-hidden="true"></i><strong>Drag and drop staff photo here</strong><span class="text-secondary">or click, paste, or upload a file</span><span class="form-hint">JPG, PNG, or WEBP · Maximum 2 MB.<br>Crop to 400 × 400 px before uploading.</span></div>
+                            <div class="staff-photo-dropzone-content"><span class="staff-photo-dropzone-label">Staff Photo</span><i class="ti ti-cloud-upload logo-dropzone-icon" aria-hidden="true"></i><strong>Drag and drop staff photo here</strong><span class="text-secondary">or click, paste, or upload a file</span><span class="form-hint">JPG, PNG, or WEBP · Maximum 10 MB.<br>Square photo · Saved as WebP, up to 40 KB.</span></div>
                             <input id="staff-photo" class="d-none" type="file" name="photo" accept="image/jpeg,image/png,image/webp">
                             <img class="staff-photo-preview {{ $editStaff?->photo_path?'':'d-none' }}" src="{{ $editStaff?->photo_path?asset('storage/'.$editStaff->photo_path):'' }}" alt="Staff photo preview" data-staff-photo-preview>
                         </div>
+                        <button type="button" class="btn btn-sm btn-outline-primary mt-2 d-none" data-staff-photo-edit><i class="ti ti-photo-edit me-1"></i>Edit Photo</button>
                         @error('photo')<div class="text-danger small">{{ $message }}</div>@enderror
                     </div>
                     <div class="staff-personal-fields-column"><div class="staff-personal-fields-grid">

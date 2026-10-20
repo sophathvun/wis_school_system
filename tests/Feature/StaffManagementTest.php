@@ -445,11 +445,16 @@ it('creates a linked login using staff details and keeps login and HRM photos se
         ->and($login->photo_path)->toStartWith('users/')->and($staff->fresh()->getAttributes())->toBe($original)
         ->and($login->campuses->modelKeys())->toBe([2])->and($staff->campuses->modelKeys())->toBe([1]);
     Storage::disk('public')->assertExists($login->photo_path); Storage::disk('public')->assertExists('staff/original.jpg');
+    expect($login->photo_path)->toEndWith('.webp')
+        ->and(Storage::disk('public')->size($login->photo_path))->toBeLessThanOrEqual(40*1024);
     $firstLoginPhoto=$login->photo_path;
     $this->actingAs($login)->from('/profile')->post('/profile',['name'=>$login->name,'username'=>$login->username,
         'email'=>$login->email,'login_identifier'=>'both','password'=>'NewPassword123','password_confirmation'=>'NewPassword123',
         'photo'=>\Illuminate\Http\UploadedFile::fake()->image('my-login.jpg')])->assertSessionHasNoErrors();
     expect($login->fresh()->photo_path)->not->toBe($firstLoginPhoto)->and($staff->fresh()->getAttributes())->toBe($original);
+    expect($login->fresh()->photo_path)->toEndWith('.webp')
+        ->and(Storage::disk('public')->size($login->fresh()->photo_path))->toBeLessThanOrEqual(40*1024);
+    Storage::disk('public')->assertMissing($firstLoginPhoto);
     Storage::disk('public')->assertExists('staff/original.jpg');
 });
 
@@ -465,7 +470,8 @@ it('stores the cropped HRM staff photo without changing the linked login photo',
     Storage::disk('public')->assertExists('users/login-photo.jpg');
     $image=getimagesize(Storage::disk('public')->path($photoPath));
     expect($image[0])->toBe(400)->and($image[1])->toBe(400);
-    $response=$this->get($this->url.'?create=1')->assertOk()->assertSee('data-staff-photo-dropzone',false)->assertSee('Crop and Upload');
+    expect($image['mime'])->toBe('image/webp')->and(Storage::disk('public')->size($photoPath))->toBeLessThanOrEqual(40*1024);
+    $response=$this->get($this->url.'?create=1')->assertOk()->assertSee('data-staff-photo-dropzone',false)->assertSee('Staff Photo Studio')->assertSee('Exposure')->assertSee('Saturation');
     $dom=new \DOMDocument(); $dom->loadHTML($response->getContent(),LIBXML_NOERROR|LIBXML_NOWARNING);
     expect((new \DOMXPath($dom))->query('//div[@id="hrmStaffPhotoCropModal"]//canvas[@width="400" and @height="400"]'))->toHaveCount(1);
 });

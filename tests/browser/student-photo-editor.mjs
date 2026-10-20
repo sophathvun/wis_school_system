@@ -14,6 +14,10 @@ const cutout = execFileSync(php, ['-r', '$i=imagecreatetruecolor(600,800);imagea
 let failBackground = false, backgroundRequests = 0;
 const server = createServer(async (req, res) => {
     const path = new URL(req.url, 'http://localhost').pathname;
+    if (path === '/photos/size') {
+        for await (const chunk of req) {}
+        res.setHeader('Content-Type','application/json'); res.end(JSON.stringify({bytes:28544,width:600,height:800})); return;
+    }
     if (path === '/student-enrollments/photo/background') {
         for await (const chunk of req) {} backgroundRequests++;
         res.writeHead(failBackground ? 503 : 200, { 'Content-Type': failBackground ? 'application/json' : 'image/png' });
@@ -24,6 +28,7 @@ const server = createServer(async (req, res) => {
         '/bootstrap.js': 'node_modules/bootstrap/dist/js/bootstrap.bundle.min.js',
         '/tabler.css': 'node_modules/@tabler/core/dist/css/tabler.min.css',
         '/editor.css': 'resources/css/pages/student-enrollment.css',
+        '/studio.css': 'resources/css/photo-editor.css',
         '/editor.js': 'resources/js/helpers/studentPhotoEditor.js',
     };
     if (files[path]) { res.setHeader('Content-Type', path.endsWith('.js') ? 'text/javascript' : 'text/css'); res.end(await readFile(join(root, files[path]))); return; }
@@ -32,7 +37,7 @@ const server = createServer(async (req, res) => {
         res.end(execFileSync(php, ['-r', '$i=imagecreatetruecolor(600,800);imagefill($i,0,0,imagecolorallocate($i,40,110,200));imagewebp($i);'])); return;
     }
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.end(`<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="/tabler.css"><link rel="stylesheet" href="/editor.css"></head><body>
+    res.end(`<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="/tabler.css"><link rel="stylesheet" href="/editor.css"><link rel="stylesheet" href="/studio.css"></head><body>
     <div class="modal fade" id="enrollmentModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-body"><div id="studentPhotoDropzone" tabindex="0"><input type="file" id="student_photo" hidden><div id="studentPhotoPreviewContainer" class="d-none"><img id="studentPhotoPreview" width="90" height="120"></div></div><button type="button" id="studentPhotoEdit" class="d-none">Edit Photo</button></div></div></div></div>
     ${editor}<script src="/bootstrap.js"></script><script type="module">
     import {createStudentPhotoEditor,studentPhotoJpeg} from '/editor.js';
@@ -70,6 +75,7 @@ try {
         await until('window.ready && document.querySelector("#enrollmentModal").classList.contains("show")');
         await delay(350); await evaluate('upload()');
         await until('document.querySelector("#studentPhotoCropModal").classList.contains("show")'); await delay(350);
+        await until('document.querySelector("#photoEditorFileSize").textContent.includes("27.88 KB")');
         assert.equal(await evaluate('document.querySelectorAll(".modal.show").length'), 1, 'The studio manages the parent modal correctly');
         await evaluate('window.original=document.querySelector("canvas").toDataURL()');
         for (const angle of [5, 6, -6, 5.5, 45, -45]) {
@@ -202,12 +208,14 @@ try {
         assert.equal(await evaluate('document.querySelector("canvas").toDataURL() !== window.finalPreview'), true, 'The visible selection is separate from the final image');
         assert.equal(await evaluate('document.querySelector("#studentPhotoCropModal").scrollWidth <= innerWidth'), true, 'Selection controls fit narrow screens');
         await evaluate('document.querySelector("#studentPhotoAdjustmentScope").scrollIntoView({block:"center"})'); await delay(100);
+        await until('document.querySelector("#photoEditorFileSize").textContent.includes("27.88 KB")');
         const image = await command('Page.captureScreenshot', { format: 'png' });
         await mkdir(join(root, 'storage/app/testing'), { recursive: true });
         await writeFile(join(root, `storage/app/testing/student-photo-${mobile ? 'mobile' : 'desktop'}.png`), Buffer.from(image.data, 'base64'));
         await click('#studentPhotoCropUpload');
         await until('document.querySelector("#enrollmentModal").classList.contains("show")'); await delay(350);
         assert.equal(await evaluate('document.querySelector("#student_photo").files[0].type'), 'image/png');
+        assert.equal(await evaluate('document.querySelector("[data-edited-photo-size]").textContent'), 'WebP size: 27.88 KB · 600 × 800 px', 'Accepted preview shows compressed WebP size rather than PNG size');
         assert.equal(await evaluate('new Promise(resolve=>{const r=new FileReader();r.onload=()=>resolve(r.result===window.finalPreview);r.readAsDataURL(document.querySelector("#student_photo").files[0]);})'), true, 'Use Photo saves the rotated area edit without the selection overlay');
         await evaluate('window.accepted=document.querySelector("#student_photo").files[0]');
         await evaluate('upload()'); await until('document.querySelector("#studentPhotoCropModal").classList.contains("show")'); await delay(350);

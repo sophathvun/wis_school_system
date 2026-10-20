@@ -4,6 +4,7 @@
 @import "@fontsource/noto-sans-khmer/400.css";
 @import "./khmer-fonts.css";
 @import "./install-shortcut.css";
+@import "./photo-editor.css";
 
 @import "./pages/index.css";
 

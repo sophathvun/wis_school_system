@@ -333,8 +333,8 @@
                                 class="profile-photo-preview-image">
                         </div><input class="d-none" type="file" name="photo" id="profile_photo"
                             accept="image/jpeg,image/png,image/webp">
-                    </div><small class="form-hint">JPG, PNG, or WEBP. Maximum size: 2 MB. Crop output: 400 × 400
-                        px.</small>
+                    </div><small class="form-hint">JPG, PNG, or WEBP. Maximum size: 10 MB. Square photo, saved as WebP up to 40 KB.</small>
+                    <button type="button" class="btn btn-sm btn-outline-primary mt-2 d-none" id="profilePhotoEdit"><i class="ti ti-photo-edit me-1"></i>Edit Photo</button>
                 </div>
                 <div class="row g-3 profile-edit-layout">
                     <div class="col-lg-8 profile-edit-staff-column">
@@ -398,39 +398,8 @@
 
         </main>
     </div>
-    <div class="modal modal-blur fade" id="profilePhotoCropModal" tabindex="-1" aria-hidden="true"
-        data-bs-backdrop="static">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3 class="modal-title">Crop Profile Photo</h3><button type="button" class="btn-close"
-                        data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <p class="text-secondary small">Adjust the photo. The final image will be exactly 400 × 400 px.</p>
-                    <div class="profile-photo-crop-stage"><canvas id="profilePhotoCropCanvas" width="400"
-                            height="400"></canvas></div>
-                    <div class="row g-2 align-items-center mt-3">
-                        <div class="col-auto"><button type="button" class="btn btn-outline-secondary"
-                                id="profilePhotoZoomOut"><i class="ti ti-zoom-out"></i></button></div>
-                        <div class="col"><input type="range" class="form-range" id="profilePhotoZoom" min="1"
-                                max="3" step=".01" value="1" aria-label="Zoom photo"></div>
-                        <div class="col-auto"><button type="button" class="btn btn-outline-secondary"
-                                id="profilePhotoZoomIn"><i class="ti ti-zoom-in"></i></button></div>
-                        <div class="col-auto"><button type="button" class="btn btn-outline-secondary"
-                                id="profilePhotoRotateLeft">Left</button></div>
-                        <div class="col-auto"><button type="button" class="btn btn-outline-secondary"
-                                id="profilePhotoRotateRight">Right</button></div>
-                    </div>
-                </div>
-                <div class="modal-footer"><button type="button" class="btn btn-link"
-                        data-bs-dismiss="modal">Cancel</button><button type="button" class="btn btn-primary"
-                        id="profilePhotoCropUpload">Crop and Upload</button></div>
-            </div>
-        </div>
-    </div>
+    @include('photos._editor', ['editorId' => 'profilePhotoCropModal', 'photoTitle' => 'Profile Photo Studio', 'photoWidth' => 400, 'photoHeight' => 400, 'backgroundUrl' => route('profile.photo.background', [], false)])
     @vite('resources/js/profilePhoto.js')
     @vite('resources/js/profile.js')
     @vite('resources/css/pages/profile.css')
 @endsection
-

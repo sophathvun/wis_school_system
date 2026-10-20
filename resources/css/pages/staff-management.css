@@ -224,7 +224,6 @@
 .staff-photo-preview { width: 100px; height: 100px; flex-shrink: 0; border: 1px solid var(--tblr-border-color); border-radius: .75rem; object-fit: cover; }
 .staff-photo-dropzone:focus-visible { outline: 2px solid var(--tblr-primary); outline-offset: 2px; }
 .staff-photo-crop-stage { background: var(--tblr-bg-surface-secondary); border-radius: .5rem; padding: 1rem; text-align: center; }
-#hrmStaffPhotoCropModal .modal-dialog { max-width: min(800px,calc(100vw - 1rem)); }
 .staff-photo-crop-stage canvas { display: block; max-width: 100%; height: auto; margin: auto; cursor: move; touch-action: none; }
 .staff-photo-crop-zoom { flex: 1; min-width: 90px; width: auto; }
 .modal-open:has(#hrmStaffPhotoCropModal.show) :is(#school-chat-widget,#school-chat-launcher) { visibility: hidden; pointer-events: none; }

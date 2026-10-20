@@ -75,7 +75,7 @@
                                             <div class="text-secondary">or click, paste, or upload a file</div>
                                         </div>
                                         <div class="form-hint user-photo-dropzone-hint">JPG, PNG, or WEBP. Maximum
-                                            size: 2 MB. This changes the user photo only; the HRM staff photo stays separate.</div>
+                                            size: 10 MB. Saved as WebP, up to 40 KB. This changes the user photo only; the HRM staff photo stays separate.</div>
                                         <input type="file" class="d-none" name="photo" id="staff_photo"
                                             accept="image/jpeg,image/png,image/webp">
                                     </div>
@@ -83,6 +83,7 @@
                                             id="staffPhotoPreview" src="#" alt="Staff photo preview"
                                             data-initial-photo="{{ $editUser?->photo_path ? asset('storage/' . $editUser->photo_path) : '' }}"
                                             class="student-photo-preview"></div>
+                                    <button type="button" class="btn btn-sm btn-outline-primary d-none" id="userPhotoEdit"><i class="ti ti-photo-edit me-1"></i>Edit Photo</button>
                                 </div>
                             </div>
                             <div class="col-md-12"><label class="form-label">Linked Staff Profile</label><select class="form-select"
@@ -211,54 +212,7 @@
             </div>
         </div>
     </div>
-    <div class="modal modal-blur fade" id="staffPhotoCropModal" tabindex="-1" aria-hidden="true"
-        data-bs-backdrop="static" data-bs-keyboard="false">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3 class="modal-title">Crop Staff Photo</h3>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <p class="text-secondary small">Adjust the photo inside the square frame. The final image will be
-                        exactly 400 x 400 px.</p>
-                    <div class="staff-photo-crop-stage">
-                        <canvas id="staffPhotoCropCanvas" width="400" height="400"></canvas>
-                    </div>
-                    <div class="row g-2 align-items-center mt-3">
-                        <div class="col-auto">
-                            <button type="button" class="btn btn-outline-secondary" id="staffPhotoZoomOut"><i
-                                    class="ti ti-zoom-out"></i></button>
-                        </div>
-                        <div class="col">
-                            <input type="range" class="form-range" id="staffPhotoZoom" min="1" max="3"
-                                step="0.01" value="1" aria-label="Zoom photo">
-                        </div>
-                        <div class="col-auto">
-                            <button type="button" class="btn btn-outline-secondary" id="staffPhotoZoomIn"><i
-                                    class="ti ti-zoom-in"></i></button>
-                        </div>
-                        <div class="col-auto">
-                            <button type="button" class="btn btn-outline-secondary" id="staffPhotoRotateLeft"><i
-                                    class="ti ti-rotate-2"></i> Left</button>
-                        </div>
-                        <div class="col-auto">
-                            <button type="button" class="btn btn-outline-secondary" id="staffPhotoRotateRight"><i
-                                    class="ti ti-rotate-clockwise-2"></i> Right</button>
-                        </div>
-                        <div class="col-auto">
-                            <button type="button" class="btn btn-outline-secondary" id="staffPhotoReset">Reset</button>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-link" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" id="staffPhotoCropUpload"><i
-                            class="ti ti-crop me-1"></i>Crop and Upload</button>
-                </div>
-            </div>
-        </div>
-    </div>
+    @include('photos._editor', ['editorId' => 'staffPhotoCropModal', 'photoTitle' => 'User Photo Studio', 'photoWidth' => 400, 'photoHeight' => 400, 'backgroundUrl' => route('users.photo.background', [], false)])
     <div class="modal modal-blur fade" id="staffPhotoViewModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered staff-photo-view-dialog">
             <div class="modal-content">
