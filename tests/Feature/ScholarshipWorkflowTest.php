@@ -475,12 +475,13 @@ it('requires complete reviewed scores before publication and freezes published r
     expect(fn()=>$this->workflow->publish($this->admin,$exam->fresh(),$exam->fresh()->version))->toThrow(ValidationException::class);
 });
 
-it('keeps absences out of ranks and permits publishing a reviewed absence without inventing zero scores',function(){
+it('keeps whole exam absences visible with zero scores and permits publishing them without ranks or awards',function(){
     $exam=scholarshipLockedExam($this);$candidate=$exam->candidates()->first();
     $this->workflow->saveScores($this->admin,$exam,$candidate,[],true,1);$this->workflow->review($this->admin,$exam,$candidate->fresh(),2);
     $exam=$exam->fresh();$this->workflow->saveAwards($this->admin,$exam,1,scholarshipChoices($this,$exam),$exam->version);$exam=$exam->fresh();
     $this->workflow->publish($this->admin,$exam,$exam->version);
-    expect($candidate->fresh()->result_total)->toBeNull()->and($candidate->fresh()->result_rank)->toBeNull()->and($this->workflow->results($exam->fresh())->first()['status'])->toBe('Absent');
+    expect($candidate->fresh()->result_total)->toBe(0.0)->and($candidate->fresh()->result_rank)->toBeNull()->and($this->workflow->results($exam->fresh())->first()['status'])->toBe('Absent — All Subjects')
+        ->and($candidate->scores()->where('is_absent',true)->count())->toBe(2)->and($candidate->scores()->sum('score'))->toEqual(0);
 });
 
 it('uses fixed total-score ranks per grade without automatically awarding scholarships to tied students',function(){

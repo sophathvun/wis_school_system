@@ -7,6 +7,6 @@ class ScholarshipScore extends Model
 {
     protected $table = 'tb_scholarship_score';
     protected $guarded = ['id'];
-    protected $casts = ['score'=>'float','source_paper_id'=>'integer'];
+    protected $casts = ['score'=>'float','source_paper_id'=>'integer','is_absent'=>'boolean'];
     public function sourcePaper() { return $this->belongsTo(ScholarshipPaper::class, 'source_paper_id'); }
 }

@@ -12,7 +12,7 @@ class ScholarshipSubjectRanks
         $ranks=[];
         foreach($results->groupBy(fn($row)=>$row['candidate']->grade_number) as $gradeRows){
             $scores=$gradeRows->reject(fn($row)=>$row['candidate']->absent)->flatMap(fn($row)=>
-                $row['candidate']->scores->whereNotNull('score')->map(fn($score)=>[
+                $row['candidate']->scores->whereNotNull('score')->reject(fn($score)=>$score->is_absent)->map(fn($score)=>[
                     'candidate'=>$row['candidate']->id,'subject'=>$score->subject_id,'score'=>(float)$score->score,
                 ])
             );

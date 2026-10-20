@@ -10,7 +10,7 @@
             $choice=(int)old('award_grade')===(int)$grade?old('awards.'.$slot['key'],[]):($saved->get($slot['key'])?->toArray()??[]);
             return [$slot['key']=>['candidate_id'=>$choice['candidate_id']??null,'award_percent'=>$choice['award_percent']??$slot['percent'],'reason'=>$choice['reason']??'']];
         });
-        $metrics=$pool->map(fn($row)=>['id'=>$row['candidate']->id,'eligible'=>$row['complete'] && $row['candidate']->reviewed_at && !$row['candidate']->absent,'total'=>$row['total'],'scores'=>$row['candidate']->scores->pluck('score','subject_id')])->values();
+        $metrics=$pool->map(fn($row)=>['id'=>$row['candidate']->id,'eligible'=>$row['complete'] && $row['candidate']->reviewed_at && !($row['all_absent']??$row['candidate']->absent),'overall_eligible'=>$row['overall_eligible']??false,'absent_subjects'=>$row['absent_subjects']??[],'total'=>$row['total'],'scores'=>$row['candidate']->scores->pluck('score','subject_id')])->values();
     @endphp
     <section class="scholarship-result-grade mb-4" data-result-grade="{{ $grade }}" aria-labelledby="resultGrade{{ $grade }}">
         <h4 id="resultGrade{{ $grade }}" class="mb-3">Grade {{ $grade }}</h4>
@@ -63,13 +63,16 @@
                         </td>
                         <td class="scholarship-result-student"><strong>{{ $candidate->snapshot['student_code'] }}</strong><div class="scholarship-khmer">{{ $candidate->snapshot['name_kh'] }}</div><div>{{ $candidate->snapshot['name_en'] }}</div><div class="small text-secondary mt-1">{{ $placement }}</div></td>
                         <td class="scholarship-result-exam"><div>{{ $candidate->exam_center_name ?: 'Main Exam Center' }}</div><div class="small text-secondary mt-1">Room: <strong>{{ $candidate->room_number ?? '—' }}</strong> | Seat: <strong>{{ $candidate->room_seat ?? '—' }}</strong></div><div class="small text-secondary mt-1">Code: <strong>{{ $candidate->candidate_code ?: '—' }}</strong></div></td>
-                        @forelse($subjects as $subject)<td class="text-center" data-result-score="{{ $subject->id }}" data-sort-value="{{ $scores->get($subject->id)?->score }}">{{ $scores->get($subject->id)?->score ?? '—' }}<small class="d-block text-secondary mt-1 scholarship-subject-rank" data-result-subject-rank>Rank: <strong>{{ $subjectRanks[$candidate->id][$subject->id] ?? '—' }}</strong></small></td>@empty<td class="text-center">—</td>@endforelse
+                        @forelse($subjects as $subject)
+                            @php($subjectAbsent=$candidate->absent || $scores->get($subject->id)?->is_absent)
+                            <td class="text-center" data-result-score="{{ $subject->id }}" data-sort-value="{{ $subjectAbsent?0:$scores->get($subject->id)?->score }}">{{ $subjectAbsent?0:($scores->get($subject->id)?->score ?? '—') }}@if($subjectAbsent)<small class="d-block text-danger scholarship-subject-rank mt-1">Absent</small>@endif<small class="d-block text-secondary mt-1 scholarship-subject-rank" data-result-subject-rank>Rank: <strong>{{ $subjectRanks[$candidate->id][$subject->id] ?? '—' }}</strong></small></td>
+                        @empty<td class="text-center">—</td>@endforelse
                         <td class="text-center" data-result-score="total" data-sort-value="{{ $row['total'] }}"><strong>{{ $row['total'] ?? '—' }}</strong><div class="small text-secondary mt-1">{{ $row['percentage']===null?'—':number_format($row['percentage'],2).'%' }}</div></td>
                         <td class="scholarship-result-rank">
                             @if(!$exam->isHistorical())
                                 <label class="visually-hidden" for="resultRank{{ $candidate->id }}">Exam Rank for {{ $name }}</label>
                                 <select id="resultRank{{ $candidate->id }}" class="form-select form-select-sm" data-result-award-select data-saved-slot="{{ $selectedSlot!==false?$selectedSlot:'' }}" @disabled(!$canSelect)>
-                                    <option value="">No Award</option>@foreach($slots as $slot)<option value="{{ $slot['key'] }}" @selected($selectedSlot===$slot['key'])>{{ str_replace(' — Total Score','',$slot['label']) }}</option>@endforeach
+                                    <option value="">No Award</option>@foreach($slots as $slot)<option value="{{ $slot['key'] }}" @selected($selectedSlot===$slot['key']) @disabled($slot['subject_id']?in_array($slot['subject_id'],$row['absent_subjects']??[],true):!($row['overall_eligible']??false))>{{ str_replace(' — Total Score','',$slot['label']) }}</option>@endforeach
                                 </select>
                                 <div class="invalid-feedback" data-result-rank-error></div>
                                 @if($canSelect)<details class="small mt-2" data-result-exception @if(!$choice) hidden @elseif(filled($choice['reason'])) open @endif><summary>Exception reason</summary><textarea class="form-control form-control-sm mt-2" maxlength="1000" data-result-award-reason aria-label="Award exception reason for {{ $name }}" placeholder="Required for a lower-score selection">{{ $choice['reason']??'' }}</textarea></details>@endif

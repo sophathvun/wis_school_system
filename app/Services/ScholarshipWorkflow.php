@@ -385,16 +385,19 @@ class ScholarshipWorkflow
 
     public function calculate(ScholarshipExam $exam, ScholarshipCandidate $candidate): array
     {
-        if ($candidate->absent) return ['complete'=>true,'total'=>null,'percentage'=>null,'max_total'=>null,'status'=>'Absent'];
         $subjects=$this->applicableSubjects($exam,$candidate->grade_number); $scores=$candidate->scores->keyBy('subject_id');
-        $complete=$subjects->isNotEmpty(); $total=0; $weighted=0; $weights=0;
+        $complete=$subjects->isNotEmpty(); $total=0; $weighted=0; $weights=0;$absentSubjects=[];
         foreach ($subjects as $subject) {
-            $score=$scores->get($subject->id)?->score;
+            $absent=$candidate->absent || $scores->get($subject->id)?->is_absent;
+            if($absent)$absentSubjects[]=$subject->id;
+            $score=$absent?0:$scores->get($subject->id)?->score;
             if ($score === null) { $complete=false; continue; }
             $total+=$score; $weighted+=($score/$subject->max_score)*$subject->weight; $weights+=$subject->weight;
         }
-        return ['complete'=>$complete,'total'=>$complete?round($total,2):null,'percentage'=>$complete?round($weighted/$weights*100,4):null,
-            'max_total'=>$subjects->sum('max_score'),'status'=>$complete?($candidate->reviewed_at?'Reviewed':'Awaiting review'):'Incomplete'];
+        $allAbsent=$subjects->isNotEmpty() && count($absentSubjects)===$subjects->count();
+        return ['complete'=>$complete,'total'=>$complete?round($total,2):null,'percentage'=>$complete&&$weights>0?round($weighted/$weights*100,4):null,
+            'absent_subjects'=>$absentSubjects,'all_absent'=>$allAbsent,'overall_eligible'=>!$absentSubjects,
+            'max_total'=>$subjects->sum('max_score'),'status'=>$allAbsent?'Absent — All Subjects':($complete?($absentSubjects?'Partially Absent':($candidate->reviewed_at?'Reviewed':'Awaiting review')):'Incomplete')];
     }
 
     public function saveScoreDrafts(User $user, ScholarshipExam $exam, array $rows): void
@@ -405,7 +408,7 @@ class ScholarshipWorkflow
                 if(!preg_match('/^[1-9]\d*$/',(string)$candidateId))$this->fail('Select valid students before saving score drafts.');
                 $candidate=$exam->candidates()->findOrFail($candidateId);
                 try{
-                    $this->saveScores($user,$exam,$candidate,$row['scores']??[],(bool)($row['absent']??false),(int)$row['version'],true);
+                    $this->saveScores($user,$exam,$candidate,$row['scores']??[],(bool)($row['absent']??false),(int)$row['version'],true,$row['subject_absences']??[]);
                 }catch(ValidationException $error){
                     $messages=[];
                     foreach($error->errors() as $field=>$errors)$messages['rows.'.$candidateId.'.'.$field]=array_map(fn($message)=>($candidate->snapshot['name_en']??$candidate->candidate_code).': '.$message,$errors);
@@ -415,9 +418,9 @@ class ScholarshipWorkflow
         });
     }
 
-    public function saveScores(User $user, ScholarshipExam $exam, ScholarshipCandidate $candidate, array $scores, bool $absent, int $version, bool $skipUnchanged=false): void
+    public function saveScores(User $user, ScholarshipExam $exam, ScholarshipCandidate $candidate, array $scores, bool $absent, int $version, bool $skipUnchanged=false, array $subjectAbsences=[]): void
     {
-        DB::transaction(function () use ($user,$exam,$candidate,$scores,$absent,$version,$skipUnchanged) {
+        DB::transaction(function () use ($user,$exam,$candidate,$scores,$absent,$version,$skipUnchanged,$subjectAbsences) {
             $exam=ScholarshipExam::lockForUpdate()->findOrFail($exam->id);
             $candidate=ScholarshipCandidate::lockForUpdate()->findOrFail($candidate->id);
             abort_unless($candidate->exam_id===$exam->id && $this->canScore($user,$exam,$candidate),403);
@@ -426,31 +429,37 @@ class ScholarshipWorkflow
             $subjects=$this->applicableSubjects($exam,$candidate->grade_number);
             if ($subjects->isEmpty()) $this->fail('Configure subjects for this grade before scoring.');
             if (array_diff(array_map('strval',array_keys($scores)),$subjects->pluck('id')->map(fn($id)=>(string)$id)->all())) $this->fail('A score was submitted for a subject outside this grade.');
+            if(array_diff(array_map('strval',array_keys($subjectAbsences)),$subjects->pluck('id')->map(fn($id)=>(string)$id)->all()))$this->fail('Attendance was submitted for a subject outside this grade.');
+            foreach($subjectAbsences as $value)if(!in_array($value,[true,false,0,1,'0','1'],true))$this->fail('Subject attendance must be present or absent.');
             $previousScores=$candidate->scores()->get();
+            $beforeAbsences=$previousScores->pluck('is_absent','subject_id')->all();$beforeAbsent=$candidate->absent;
             $before=$previousScores->pluck('score','subject_id')->all();
             $beforeSources=$previousScores->keyBy('subject_id')->map(fn($score)=>$score->only(['entry_method','source_paper_id','source_reference']))->all();
-            $normalized=[];
+            $normalized=[];$normalizedAbsences=[];
             foreach ($subjects as $subject) {
-                $value=$scores[$subject->id]??null;
+                $subjectAbsent=$absent || (bool)($subjectAbsences[$subject->id]??$beforeAbsences[$subject->id]??false);
+                $value=$subjectAbsent?0:($scores[$subject->id]??null);
                 if ($value==='') $value=null;
                 if ($value!==null && (!is_numeric($value) || !is_finite((float)$value) || $value<0 || $value>$subject->max_score || round((float)$value,2)!=(float)$value)) {
                     throw ValidationException::withMessages(['scores.'.$subject->id=>'Enter a score from 0 to '.$subject->max_score.' with at most two decimal places.']);
                 }
                 $normalized[$subject->id]=$value;
+                $normalizedAbsences[$subject->id]=$subjectAbsent;
             }
+            $absent=collect($normalizedAbsences)->every(fn($value)=>$value);
             // Saving a page must not clear reviews, imported-score provenance or awards on unchanged rows.
-            if($skipUnchanged && $candidate->absent===$absent && $subjects->every(function($subject)use($normalized,$before){
+            if($skipUnchanged && $candidate->absent===$absent && $subjects->every(function($subject)use($normalized,$before,$normalizedAbsences,$beforeAbsences){
                 $value=$normalized[$subject->id];$previous=$before[$subject->id]??null;
-                return $value===null?$previous===null:($previous!==null&&(float)$previous===(float)$value);
+                return $normalizedAbsences[$subject->id]===(bool)($beforeAbsences[$subject->id]??false) && ($value===null?$previous===null:($previous!==null&&(float)$previous===(float)$value));
             }))return;
-            foreach($normalized as $subjectId=>$value)ScholarshipScore::updateOrCreate(['candidate_id'=>$candidate->id,'subject_id'=>$subjectId],['score'=>$value,'entry_method'=>'manual','source_paper_id'=>null,'source_reference'=>null]);
+            foreach($normalized as $subjectId=>$value)ScholarshipScore::updateOrCreate(['candidate_id'=>$candidate->id,'subject_id'=>$subjectId],['score'=>$value,'is_absent'=>$normalizedAbsences[$subjectId],'entry_method'=>'manual','source_paper_id'=>null,'source_reference'=>null]);
             $candidate->forceFill(['absent'=>$absent,'scored_by'=>$user->id,'reviewed_by'=>null,'reviewed_at'=>null,'version'=>$candidate->version+1])->save();
             if ($exam->awards()->where('grade_number',$candidate->grade_number)->exists()) {
                 $exam->awards()->where('grade_number',$candidate->grade_number)->delete();
                 $this->event($exam,$user,'awards-cleared',['grade'=>$candidate->grade_number,'reason'=>'Scores changed; select winners again after review.']);
             }
             $exam->increment('version');
-            $this->event($exam,$user,'scores-saved',['candidate_id'=>$candidate->id,'before'=>$before,'before_sources'=>$beforeSources,'entry_method'=>'manual','scores'=>$scores,'absent'=>$absent]);
+            $this->event($exam,$user,'scores-saved',['candidate_id'=>$candidate->id,'before'=>$before,'before_absent'=>$beforeAbsent,'before_subject_absences'=>$beforeAbsences,'before_sources'=>$beforeSources,'entry_method'=>'manual','scores'=>$normalized,'absent'=>$absent,'subject_absences'=>$normalizedAbsences]);
         });
     }
 
@@ -491,13 +500,15 @@ class ScholarshipWorkflow
         if($exam->isHistorical())return $candidates->map(function($candidate){
             $category=$candidate->snapshot['historical_award_category']??'';
             $label=match($category){'total_1'=>'1st Place','total_2'=>'2nd Place','total_3'=>'3rd Place','subject'=>'Best in '.($candidate->snapshot['historical_award_subject']??''),default=>$category};
-            return ['candidate'=>$candidate,'complete'=>$candidate->result_total!==null||$candidate->absent,'total'=>$candidate->result_total,'percentage'=>$candidate->result_percentage,'max_total'=>null,
-                'status'=>$candidate->absent?'Historical absence':($candidate->result_total!==null?'Historical result':'Historical record'),'rank'=>$candidate->result_rank,'award'=>$candidate->award_percent,'award_label'=>$label];
+            $absentSubjects=$candidate->scores->filter(fn($score)=>$score->is_absent)->pluck('subject_id')->all();
+            return ['candidate'=>$candidate,'complete'=>$candidate->result_total!==null||$candidate->absent,'total'=>$candidate->absent?0.0:$candidate->result_total,'percentage'=>$candidate->absent?0.0:$candidate->result_percentage,'max_total'=>null,
+                'absent_subjects'=>$absentSubjects,'all_absent'=>$candidate->absent,'overall_eligible'=>!$candidate->absent&&!$absentSubjects,
+                'status'=>$candidate->absent?'Historical absence':($absentSubjects?'Historical partial absence':($candidate->result_total!==null?'Historical result':'Historical record')),'rank'=>$candidate->absent?null:$candidate->result_rank,'award'=>$candidate->award_percent,'award_label'=>$label];
         })->sort(fn($a,$b)=>($a['candidate']->grade_number<=>$b['candidate']->grade_number)?:($a['rank']??PHP_INT_MAX)<=>($b['rank']??PHP_INT_MAX))->values();
         $awards=$exam->awards()->whereNotNull('candidate_id')->get()->keyBy('candidate_id');
         $rows=$candidates->map(fn($candidate)=>['candidate'=>$candidate]+$this->calculate($exam,$candidate)+['rank'=>null,'award'=>$awards->get($candidate->id)?->award_percent,'award_label'=>$awards->has($candidate->id)?$this->awardSlots($exam,$candidate->grade_number)->firstWhere('key',$awards[$candidate->id]->slot)['label']:null]);
         foreach ($rows->groupBy(fn($row)=>$row['candidate']->grade_number,true) as $gradeRows) {
-            $ranked=$gradeRows->filter(fn($row)=>$row['complete'] && !$row['candidate']->absent)->sort(fn($a,$b)=>($b['total']<=>$a['total'])?:($a['candidate']->grade_exam_number<=>$b['candidate']->grade_exam_number));
+            $ranked=$gradeRows->filter(fn($row)=>$row['complete'] && $row['overall_eligible'])->sort(fn($a,$b)=>($b['total']<=>$a['total'])?:($a['candidate']->grade_exam_number<=>$b['candidate']->grade_exam_number));
             $position=0; $previous=null; $rank=0;
             foreach ($ranked as $key=>$row) {
                 $position++;
@@ -523,18 +534,19 @@ class ScholarshipWorkflow
         $slots=$this->awardSlots($exam,$grade);
         if (array_diff(array_keys($choices),$slots->pluck('key')->all()) || array_diff($slots->pluck('key')->all(),array_keys($choices))) $this->fail('Submit every award slot for this grade. Refresh the results first.');
         if ($rows->isEmpty() || $rows->contains(fn($row)=>!$row['complete'] || !$row['candidate']->reviewed_at)) $this->fail('Complete and review every candidate in this grade before selecting winners.');
-        $remaining=$rows->reject(fn($row)=>$row['candidate']->absent)->keyBy(fn($row)=>$row['candidate']->id);
+        $remaining=$rows->reject(fn($row)=>$row['all_absent'])->keyBy(fn($row)=>$row['candidate']->id);
         foreach ($slots as $slot) {
             $choice=$choices[$slot['key']]; $id=$choice['candidate_id']??null;
             $percent=$choice['award_percent']??null;
             if (!is_numeric($percent) || !is_finite((float)$percent) || $percent<0 || $percent>100 || round((float)$percent,2)!=(float)$percent) $this->fail('Scholarship percentages must be from 0 to 100 with at most two decimal places.');
+            $eligible=$remaining->filter(fn($row)=>$slot['subject_id']?!in_array($slot['subject_id'],$row['absent_subjects'],true):$row['overall_eligible']);
             if (!$id) {
-                if ($remaining->isNotEmpty()) $this->fail('Choose a student for '.$slot['label'].'. Leave a slot vacant only when no eligible students remain.');
+                if ($eligible->isNotEmpty()) $this->fail('Choose a student for '.$slot['label'].'. Leave a slot vacant only when no eligible students remain.');
                 continue;
             }
-            if (!$remaining->has($id)) $this->fail('Each winner must be a reviewed, attending student in this grade and may receive only one award.');
+            if (!$eligible->has($id)) $this->fail('Each winner must attend the award subject (all subjects for overall places), be reviewed, and receive only one award.');
             $score=fn($row)=>$slot['subject_id']?$row['candidate']->scores->firstWhere('subject_id',$slot['subject_id'])->score:$row['total'];
-            $highest=$remaining->map($score)->max();
+            $highest=$eligible->map($score)->max();
             if ($score($remaining[$id])<$highest && mb_strlen(trim($choice['reason']??''))<5) $this->fail($slot['label'].': choose a student with the highest remaining score, or enter a reason of at least 5 characters for an exception.');
             $remaining->forget($id);
         }

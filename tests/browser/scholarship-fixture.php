@@ -79,6 +79,15 @@ if(($argv[1]??'')==='rank-saved') {
     if(($argv[2]??'')==='new')$exam->delete();
     if(($argv[1]??'')==='settings' && ($argv[2]??'')==='locked'){$workflow->lockPlan($user,$exam,$workflow->plan($exam)['token']);$exam=$exam->fresh();}
     parse_str($argv[3]??'',$seatQuery);
+    if(!empty($seatQuery['subject_attendance'])&&in_array($argv[1],['scoring','result'],true)){
+        $subject=$workflow->applicableSubjects($exam,1)->first();
+        foreach($exam->candidates()->orderBy('id')->take(3)->get() as $index=>$row){
+            $values=$workflow->applicableSubjects($exam,1)->mapWithKeys(fn($s)=>[$s->id=>$index===2?0:90])->all();
+            $workflow->saveScores($user,$exam,$row,$values,$index===1,$row->version,false,$index===0?[$subject->id=>true]:[]);
+            if($argv[1]==='result')$workflow->review($user,$exam,$row->fresh(),$row->fresh()->version);
+        }
+        $exam=$exam->fresh();
+    }
     if(($argv[1]??'')==='scoring' && !empty($seatQuery['scoring_sort'])){
         foreach([2=>0,3=>80,4=>80] as $id=>$value){
             $row=$exam->candidates()->findOrFail($id);

@@ -9,7 +9,7 @@ import { join,resolve } from 'node:path';
 const root=resolve(import.meta.dirname,'../..');
 const php=process.env.CHAT_TEST_PHP||'C:/laragon/bin/php/php-8.4.25-Win32-vs17-x64/php.exe';
 const executable=process.env.CHAT_TEST_BROWSER||'C:/Program Files/Google/Chrome/Application/chrome.exe';
-const requests=[],reviewPosts=[],awardPosts=[];
+const requests=[],reviewPosts=[],awardPosts=[],scoreReportRequests=[];
 const server=createServer(async(req,res)=>{
     const url=new URL(req.url,'http://localhost');
     if(req.method==='POST'){
@@ -35,6 +35,14 @@ const server=createServer(async(req,res)=>{
     }
     if(url.pathname.startsWith('/storage/')){
         res.setHeader('Content-Type','image/svg+xml');res.end('<svg xmlns="http://www.w3.org/2000/svg" width="600" height="800"><rect width="600" height="800" fill="#dbeafe"/></svg>');return;
+    }
+    if(url.pathname==='/score-list-preview'){
+        res.setHeader('Content-Type','text/html; charset=utf-8');
+        res.end(await readFile(join(root,'storage/app/testing/score-reports/score-list.html')));return;
+    }
+    if(/\/score-list\/(xlsx|pdf)$/.test(url.pathname)){
+        scoreReportRequests.push({format:url.pathname.split('/').at(-1),params:Object.fromEntries(url.searchParams),rooms:url.searchParams.getAll('report_rooms[]')});
+        res.writeHead(204);res.end();return;
     }
     requests.push(Object.fromEntries(url.searchParams));
     const resultSuccess=url.searchParams.get('result_success');
@@ -78,7 +86,8 @@ try{
         return result.result.value;
     };
     const until=async expression=>{
-        for(let attempt=0;attempt<100;attempt++){if(await evaluate(expression))return;await delay(50);}
+        for(let attempt=0;attempt<300;attempt++){if(await evaluate(expression))return;await delay(50);}
+        console.error(await evaluate('JSON.stringify({url:location.href,ready:!!document.querySelector("[data-scoring-filters-ready]"),reviewDisabled:document.querySelector("[data-review-scores]")?.disabled,scores:[...document.querySelectorAll("[data-score-input]")].slice(0,4).map(input=>({value:input.value,defaultValue:input.defaultValue,readOnly:input.readOnly})),dialog:document.querySelector(".swal2-title")?.textContent})'));
         assert.fail('Timed out: '+expression);
     };
     const click=selector=>evaluate(`document.querySelector(${JSON.stringify(selector)}).click()`);
@@ -95,6 +104,7 @@ try{
         assert.equal(await evaluate('document.querySelector("#scoreFilterRoomToggle").disabled'),true);
         assert.equal(await evaluate('document.querySelector("#scoreFilterStudentToggle").disabled'),true);
         assert.equal(await evaluate('document.querySelectorAll(".scholarship-scoring-table").length'),0);
+        assert.equal(await evaluate('document.querySelectorAll("[data-score-report-link].disabled").length'),0);
         if(mobile)await click('[data-scoring-filters-toggle]');
         await click('#scoreFilterCenterToggle');
         await evaluate('document.querySelector("#scoreFilterCenter").closest(".scholarship-field").querySelector("input[type=search]").value="Main";document.querySelector("#scoreFilterCenter").closest(".scholarship-field").querySelector("input[type=search]").dispatchEvent(new Event("input"))');
@@ -105,6 +115,8 @@ try{
         if(mobile)await click('[data-scoring-filters-toggle]');
         await click('#scoreFilterRoomToggle');await click('#scoreFilterRoomOptions [data-seat-option="1"]');
         await until('location.search.includes("score_room=1")');await ready();
+        assert.deepEqual(await evaluate('[...document.querySelectorAll("[data-score-report-link]")].map(link=>link.textContent.trim())'),['Print','Excel','PDF']);
+        assert.equal(await evaluate('[...document.querySelectorAll("[data-score-report-link]")].every(link=>!link.classList.contains("disabled")&&link.href.includes("score_center=0")&&link.href.includes("score_room=1")&&(link.compareDocumentPosition(document.querySelector("[data-scoring-fullscreen]"))&Node.DOCUMENT_POSITION_FOLLOWING))'),true);
         assert.equal(await evaluate('document.querySelector("#scoreFilterStudentToggle").disabled'),false);
         if(mobile)await click('[data-scoring-filters-toggle]');
         await click('#scoreFilterStudentToggle');
@@ -166,6 +178,9 @@ try{
         await until('document.querySelector(".swal2-title")?.textContent==="Unsaved Scores"');
         await click('.swal2-cancel');await until('document.querySelector(".swal2-popup")===null');
         assert.equal(await evaluate('document.querySelector("#score1_1").value'),'88.5');
+        await click('[data-score-report-link]');
+        await until('document.querySelector(".swal2-title")?.textContent==="Unsaved Scores"');
+        await click('.swal2-cancel');await until('document.querySelector(".swal2-popup")===null');
         await evaluate('document.querySelector("#scoreFilterCenter").value="";document.querySelector("#scoreFilterCenter").dispatchEvent(new Event("change",{bubbles:true}))');
         await until('document.querySelector(".swal2-title")?.textContent==="Unsaved Scores"');
         assert.equal(await evaluate('document.querySelector("#scoreFilterCenter").value'),'0');
@@ -179,6 +194,9 @@ try{
         await evaluate('document.querySelector(".scholarship-scoring-attendance input").dispatchEvent(new Event("change",{bubbles:true}))');
         assert.equal(await evaluate('document.querySelector("[data-review-scores]").disabled'),true);
         await evaluate('const absent=document.querySelector(".scholarship-scoring-attendance input");absent.checked=absent.defaultChecked;absent.dispatchEvent(new Event("change",{bubbles:true}))');
+        // Returning to Present requires the user to re-enter/confirm the scores.
+        assert.equal(await evaluate('[...document.querySelectorAll("[data-score-input]")].every(input=>input.value==="")'),true);
+        await evaluate('document.querySelectorAll("[data-score-input]").forEach(input=>{input.value=input.defaultValue;input.dispatchEvent(new Event("input",{bubbles:true}));})');
         const previousReviews=reviewPosts.length;
         await click('[data-review-scores]');
         for(let attempt=0;attempt<100&&reviewPosts.length===previousReviews;attempt++)await delay(50);
@@ -331,6 +349,45 @@ try{
     assert.equal(reviewPosts.at(-1).score_subject,'1');
     await until('document.querySelector("#score1_1")?.value==="90" && document.querySelector("[data-scoring-filters-ready]")');
     }
+    await command('Emulation.setDeviceMetricsOverride',{width:1440,height:980,deviceScaleFactor:1,mobile:false});
+    await command('Page.navigate',{url:origin+'/?scoring_many=1&score_center=0&score_room=1&subject_attendance=1&scoring_saved=1&score_subject=1'});await ready();
+    assert.equal(await evaluate('document.querySelector("#score1_1").value'),'0');
+    assert.equal(await evaluate('document.querySelector("#score1_1").readOnly'),true);
+    assert.equal(await evaluate('document.querySelector("#score1_1").closest("td").querySelector(".scholarship-score-absent-letter").hidden'),false);
+    assert.equal(await evaluate('getComputedStyle(document.querySelector("#score1_1").closest("td").querySelector(".scholarship-score-absent-letter")).color'),'rgb(214, 57, 57)');
+    assert.equal(await evaluate('document.querySelector("#score1_1").classList.contains("is-invalid")'),false);
+    assert.equal(await evaluate('document.querySelector("#score3_1").value'),'0');
+    assert.equal(await evaluate('document.querySelector("#score3_1").dataset.subjectAbsent'),'false');
+    assert.equal(await evaluate('document.querySelector("#score1_2").value'),'90');
+    assert.equal(await evaluate('document.querySelector("[data-score-subject-heading=\\"1\\"] [data-subject-absent]").textContent'),'2');
+    assert.equal(await evaluate('document.querySelector("#score1_1").closest("tr").querySelector("[data-all-subjects-absent]").checked'),false);
+    assert.equal(await evaluate('document.querySelector("#score2_1").closest("tr").querySelector("[data-all-subjects-absent]").checked'),true);
+    await click('.swal2-close');await until('document.querySelector(".swal2-popup")===null');
+    await click('[data-scoring-candidate="1"] [data-subject-absence="1"]');
+    assert.equal(await evaluate('document.querySelector("#score1_1").value'),'');
+    assert.equal(await evaluate('document.querySelector("#score1_1").readOnly'),false);
+    assert.equal(await evaluate('document.querySelector("#score1_2").value'),'90');
+    await click('[data-scoring-candidate="1"] [data-subject-absence="1"]');
+    assert.equal(await evaluate('document.querySelector("#score1_1").value'),'0');
+    await click('[data-scoring-candidate="1"] [data-all-subjects-absent]');
+    assert.equal(await evaluate('[...document.querySelectorAll("[data-scoring-candidate=\\"1\\"] [data-score-input]")].every(input=>input.value==="0"&&input.dataset.subjectAbsent==="true")'),true);
+    const attendanceData=await evaluate('Object.fromEntries(new FormData(document.querySelector("#scholarshipScoreDrafts")))');
+    assert.equal(attendanceData['rows[1][absent]'],'1');
+    for(const id of [1,2,3,4])assert.equal(attendanceData[`rows[1][subject_absences][${id}]`],'1');
+    assert.equal(await evaluate(`(()=>{const data=new FormData(document.querySelector('#scholarshipScoreDrafts'));for(let id=100;id<1000;id++)data.set('rows['+id+'][version]','1');document.querySelector('#scholarshipScoreDrafts').dispatchEvent(new FormDataEvent('formdata',{formData:data}));return JSON.parse(data.get('score_drafts'))['1'].subject_absences['1'];})()`),'1');
+    await command('Page.captureScreenshot',{format:'png',captureBeyondViewport:false}).then(result=>writeFile(join(root,'storage/app/testing/scoring-subject-attendance.png'),Buffer.from(result.data,'base64')));
+    // Restore the original saved state before navigating away.
+    await click('[data-scoring-candidate="1"] [data-all-subjects-absent]');
+    await click('[data-scoring-candidate="1"] [data-subject-absence="1"]');
+    await evaluate('document.querySelectorAll("[data-scoring-candidate=\\"1\\"] [data-score-input]").forEach(input=>{input.value=input.defaultValue;input.dispatchEvent(new Event("input",{bubbles:true}));})');
+    await command('Page.navigate',{url:origin+'/?tab=result&subject_attendance=1'});await until('document.querySelector("[data-result-filters-ready]")!==null');
+    assert.equal(await evaluate('document.querySelectorAll("[data-result-candidate]").length'),8);
+    assert.equal(await evaluate('document.querySelector("[data-result-candidate=\\"1\\"] [data-result-score=\\"1\\"]").dataset.sortValue'),'0');
+    assert.equal(await evaluate('document.querySelector("[data-result-candidate=\\"1\\"] [data-result-score=\\"1\\"] .text-danger").textContent'),'Absent');
+    assert.equal(await evaluate('document.querySelector("[data-result-candidate=\\"2\\"] [data-result-score=total]").dataset.sortValue'),'0');
+    assert.equal(await evaluate('document.querySelector("[data-result-candidate=\\"2\\"] [data-result-award-select]").disabled'),true);
+    assert.equal(await evaluate('document.querySelector("[data-result-candidate=\\"1\\"] [data-result-award-select] option[value=total_1]").disabled'),true);
+    assert.equal(await evaluate('document.querySelector("[data-result-candidate=\\"1\\"] [data-result-award-select] option[value=subject_2]").disabled'),false);
     for(const [action,message] of [['winners','Scholarship winners saved for Grade 1.'],['published','Results published and locked.']]){
         await command('Page.navigate',{url:origin+'/?result_success='+action});
         await until('document.querySelector(".swal2-toast")!==null');
@@ -363,6 +420,21 @@ try{
         const resultReady=()=>until('document.querySelector("[data-result-filters-ready]")!==null');
         await resultReady();
         assert.equal(await evaluate('document.querySelector("#scholarshipResultFilters").hidden'),mobile);
+        assert.equal(await evaluate('document.querySelector("[data-result-card] > .card-header").contains(document.querySelector("[data-result-fullscreen]"))'),true);
+        await command('Runtime.evaluate',{expression:'document.querySelector("[data-result-fullscreen]").click()',userGesture:true});
+        await until('document.querySelector("[data-result-fullscreen]").getAttribute("aria-pressed")==="true"');
+        assert.equal(await evaluate('getComputedStyle(document.querySelector(".scholarship-navigation")).display'),'none');
+        assert.equal(await evaluate('document.querySelector("[data-result-fullscreen]").textContent.trim()'),'Exit Full Screen');
+        assert.equal(await evaluate('(()=>{const r=document.querySelector("[data-scholarship-page]").getBoundingClientRect();return Math.abs(r.width-innerWidth)<2&&Math.abs(r.height-innerHeight)<2;})()'),true);
+        await command('Page.captureScreenshot',{format:'png',captureBeyondViewport:false}).then(result=>writeFile(join(root,'storage/app/testing/result-fullscreen-'+(mobile?'mobile':'desktop')+'.png'),Buffer.from(result.data,'base64')));
+        await click('[data-result-fullscreen]');
+        await until('document.querySelector("[data-result-fullscreen]").getAttribute("aria-pressed")==="false"');
+        assert.equal(await evaluate('document.body.classList.contains("scholarship-result-fullscreen-open")'),false);
+        await evaluate('Object.defineProperty(document.querySelector("[data-scholarship-page]"),"requestFullscreen",{value:undefined,configurable:true})');
+        await click('[data-result-fullscreen]');
+        await until('document.querySelector("[data-result-fullscreen]").getAttribute("aria-pressed")==="true"');
+        await evaluate('document.dispatchEvent(new KeyboardEvent("keydown",{key:"Escape",bubbles:true}));delete document.querySelector("[data-scholarship-page]").requestFullscreen');
+        await until('document.querySelector("[data-result-fullscreen]").getAttribute("aria-pressed")==="false"');
         assert.equal(await evaluate('document.querySelector("[data-exam-selector]")===null'),true);
         assert.equal(await evaluate('document.querySelector("#resultFilterGradeToggle").disabled'),true);
         assert.equal(await evaluate('document.querySelector("#resultFilterStudentToggle").disabled'),true);
@@ -405,10 +477,16 @@ try{
     const choose=async(index,slot)=>evaluate(`(()=>{const select=document.querySelector('[data-result-candidate="${resultIds[index]}"] [data-result-award-select]');select.value=${JSON.stringify(slot)};select.dispatchEvent(new Event('change',{bubbles:true}));})()`);
     await choose(0,'total_1');
     assert.equal(await evaluate(`document.querySelector('[data-result-candidate="${resultIds[0]}"] [data-result-award-percent]').value`),'100');
+    await command('Runtime.evaluate',{expression:'document.querySelector("[data-result-fullscreen]").click()',userGesture:true});
+    await until('document.querySelector("[data-result-fullscreen]").getAttribute("aria-pressed")==="true"');
     await choose(1,'total_1');await until('document.querySelector(".swal2-title")?.textContent==="Check Scholarship Winners"');
+    assert.equal(await evaluate('document.querySelector("[data-scholarship-page]").contains(document.querySelector(".swal2-container"))'),true);
     assert.equal(await evaluate(`document.querySelector('[data-result-candidate="${resultIds[1]}"] [data-result-award-select]').value`),'');
     assert.equal(await evaluate(`document.querySelector('[data-result-candidate="${resultIds[1]}"] [data-result-award-select]').classList.contains('is-invalid')`),true);
     await click('.swal2-confirm');await until('document.querySelector(".swal2-popup")===null');
+    await click('[data-result-fullscreen]');
+    await until('document.querySelector("[data-result-fullscreen]").getAttribute("aria-pressed")==="false"');
+    assert.equal(await evaluate(`document.querySelector('[data-result-candidate="${resultIds[0]}"] [data-result-award-select]').value`),'total_1');
     await click('[data-result-save]');await until('document.querySelector(".swal2-title")?.textContent==="Check Scholarship Winners"');
     assert.equal(awardPosts.length,0);
     await click('.swal2-confirm');await until('document.querySelector(".swal2-popup")===null');
@@ -435,7 +513,74 @@ try{
         assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth+1'),true);
         await command('Page.captureScreenshot',{format:'png'}).then(result=>writeFile(join(root,'storage/app/testing/result-'+(mobile?'mobile':'desktop')+'.png'),Buffer.from(result.data,'base64')));
     }
+    // Exercise report scopes using all four synthetic rooms, on desktop and phone.
+    for(const mobile of [false,true]){
+        await command('Emulation.setDeviceMetricsOverride',{width:mobile?390:1440,height:mobile?844:980,deviceScaleFactor:1,mobile});
+        await command('Page.navigate',{url:origin+'/?scoring_many=1&score_center=0&score_room=1'});await ready();
+        await evaluate('window.scoreReportOpened="";window.open=url=>{window.scoreReportOpened=String(url);};');
+        const reportModal=()=>until('document.querySelector("#scholarshipScoreReportScope").classList.contains("show") && getComputedStyle(document.querySelector("#scholarshipScoreReportScope")).opacity==="1" && document.querySelector("#scholarshipScoreReportScope .modal-dialog").getAnimations().length===0');
+        const reportClosed=()=>until('!document.body.classList.contains("modal-open")');
+        await click('[data-score-report-format="print"]');await reportModal();
+        assert.equal(await evaluate('document.querySelector("#scoreReportCenter").value'),'0');
+        assert.equal(await evaluate('document.querySelector("#scoreReportRoom").value'),'1');
+        assert.equal(await evaluate('document.querySelector("#scoreReportScope").value'),'single-room');
+        await click('[data-score-report-open]');await reportClosed();
+        let printed=new URL(await evaluate('window.scoreReportOpened'));
+        assert.equal(printed.searchParams.get('report_room'),'1');assert.equal(printed.searchParams.has('score_student'),false);
+        await click('[data-score-report-format="print"]');await reportModal();
+        await evaluate('const scope=document.querySelector("#scoreReportScope");scope.value="selected-rooms";scope.dispatchEvent(new Event("change",{bubbles:true}));');
+        await click('#scoreReportRoomsToggle');await click('#scoreReportRoomsOptions [data-seat-option="1"]');
+        await click('[data-score-report-open]');
+        assert.equal(await evaluate('document.querySelector("#scoreReportRooms").classList.contains("is-invalid")'),true);
+        await click('#scoreReportRoomsToggle');
+        for(const number of ['2','3']){
+            await evaluate(`(()=>{const search=document.querySelector('#scoreReportRooms').closest('.scholarship-field').querySelector('input[type=search]');search.value='Room ${number}';search.dispatchEvent(new Event('input'));})()`);
+            await click('#scoreReportRoomsOptions [data-seat-option="'+number+'"]');
+        }
+        await click('[data-score-report-open]');await reportClosed();
+        printed=new URL(await evaluate('window.scoreReportOpened'));
+        assert.deepEqual(printed.searchParams.getAll('report_rooms[]'),['2','3']);
+        assert.equal(printed.searchParams.get('report_scope'),'selected-rooms');
+        await click('[data-score-report-format="xlsx"]');await reportModal();
+        assert.equal(await evaluate('document.querySelector("[data-score-report-pdf]").hidden'),true);
+        await evaluate('document.querySelector("#scoreReportScope").value="all-rooms";document.querySelector("#scoreReportScope").dispatchEvent(new Event("change",{bubbles:true}));');
+        const beforeExcel=scoreReportRequests.length;
+        await click('[data-score-report-open]');await reportClosed();
+        for(let i=0;i<100&&scoreReportRequests.length===beforeExcel;i++)await delay(50);
+        assert.equal(scoreReportRequests.at(-1).format,'xlsx');assert.equal(scoreReportRequests.at(-1).params.report_scope,'all-rooms');
+        await click('[data-scoring-fullscreen]');await until('document.querySelector("[data-scoring-fullscreen]").getAttribute("aria-pressed")==="true"');
+        await click('[data-score-report-format="print"]');await reportModal();
+        assert.equal(await evaluate('(()=>{const dialog=document.querySelector("#scholarshipScoreReportScope .modal-content").getBoundingClientRect();return dialog.left>=0&&dialog.right<=innerWidth&&dialog.top>=0&&dialog.bottom<=innerHeight;})()'),true,'Report scope stays inside the fullscreen viewport');
+        await click('#scholarshipScoreReportScope [data-bs-dismiss="modal"]');await reportClosed();
+        await click('[data-scoring-fullscreen]');await until('document.querySelector("[data-scoring-fullscreen]").getAttribute("aria-pressed")==="false"');
+        for(const mode of ['combined','separate']){
+            await click('[data-score-report-format="pdf"]');await reportModal();
+            assert.equal(await evaluate('document.querySelector("[data-score-report-pdf]").hidden'),false);
+            await evaluate(`document.querySelector('#scoreReportScope').value='all-rooms';document.querySelector('#scoreReportScope').dispatchEvent(new Event('change',{bubbles:true}));document.querySelector('#scoreReportPdfMode').value='${mode}';document.querySelector('#scoreReportPdfMode').dispatchEvent(new Event('change',{bubbles:true}));`);
+            assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth+1'),true);
+            if(mode==='separate')await command('Page.captureScreenshot',{format:'png',captureBeyondViewport:false}).then(result=>writeFile(join(root,'storage/app/testing/score-report-scope-'+(mobile?'mobile':'desktop')+'.png'),Buffer.from(result.data,'base64')));
+            const beforePdf=scoreReportRequests.length;
+            await click('[data-score-report-open]');await reportClosed();
+            for(let i=0;i<100&&scoreReportRequests.length===beforePdf;i++)await delay(50);
+            assert.equal(scoreReportRequests.at(-1).format,'pdf');assert.equal(scoreReportRequests.at(-1).params.pdf_mode,mode);
+        }
+    }
+    // Verify the browser print path as well as the server-side PDF renderer.
+    execFileSync(php,[join(root,'tests/browser/scholarship-score-report-fixture.php')],{cwd:root});
+    await command('Emulation.setDeviceMetricsOverride',{width:1440,height:980,deviceScaleFactor:1,mobile:false});
+    await command('Page.addScriptToEvaluateOnNewDocument',{source:'window.print=()=>{window.scorePrintRequested=true;}'});
+    await command('Page.navigate',{url:origin+'/score-list-preview'});
+    await until('window.scorePrintRequested===true');
+    assert.equal(await evaluate('document.querySelectorAll("[data-score-report-room]").length'),2);
+    assert.equal(await evaluate('document.querySelector(".logo img").alt'),'School Logo 1');
+    assert.equal(await evaluate('document.querySelector(".score-table tbody").rows.length'),25);
+    assert.equal(await evaluate('document.querySelectorAll(".score-table .absent").length>0'),true);
+    const printPdf=await command('Page.printToPDF',{preferCSSPageSize:true,printBackground:true,displayHeaderFooter:false});
+    const pdfBytes=Buffer.from(printPdf.data,'base64');
+    assert.equal([...pdfBytes.toString('latin1').matchAll(/\/Type\s*\/Page\b/g)].length,2,'Browser printing keeps each room on one landscape page');
+    await writeFile(join(root,'storage/app/testing/score-reports/score-list-browser.pdf'),pdfBytes);
+    await command('Page.captureScreenshot',{format:'png',captureBeyondViewport:false}).then(result=>writeFile(join(root,'storage/app/testing/score-reports/score-list-preview.png'),Buffer.from(result.data,'base64')));
     assert.deepEqual(errors,[]);
     if(!process.env.CHAT_TEST_RESULTS_ONLY)assert.ok(requests.some(request=>request.score_center==='0'&&request.score_room==='1'&&request.score_student==='1'));
-    console.log('Scoring and Result desktop/mobile filters, collapse defaults, cascading selections, seat ordering and Result notifications passed.');
+    console.log('Scoring and Result desktop/mobile behavior, Score List export buttons, unsaved-score guard and landscape print preview passed.');
 }finally{socket?.close();browser.kill();server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}

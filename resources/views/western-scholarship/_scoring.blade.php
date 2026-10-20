@@ -33,12 +33,13 @@
                     <tr>
                         @forelse($subjects as $subject)
                             @php
-                                $scoredCount=$gradeCandidates->filter(fn($candidate)=>$candidate->scores->contains(fn($score)=>$score->subject_id===$subject->id && $score->score!==null))->count();
-                                $blankCount=$gradeCandidates->count()-$scoredCount;
+                                $absentCount=$gradeCandidates->filter(fn($candidate)=>$candidate->absent || $candidate->scores->contains(fn($score)=>$score->subject_id===$subject->id && $score->is_absent))->count();
+                                $scoredCount=$gradeCandidates->filter(fn($candidate)=>!$candidate->absent && $candidate->scores->contains(fn($score)=>$score->subject_id===$subject->id && !$score->is_absent && $score->score!==null))->count();
+                                $blankCount=$gradeCandidates->count()-$scoredCount-$absentCount;
                             @endphp
                             <th class="text-center" data-score-subject-heading="{{ $subject->id }}" data-score-subject-name="{{ $subject->name }}" aria-sort="none">
                                 <button type="button" class="scholarship-score-sort" data-score-sort="{{ $subject->id }}" data-sort-label="{{ $subject->name }}" aria-label="Sort {{ $subject->name }} ascending">{{ $subject->name }} <i class="ti ti-arrows-sort" aria-hidden="true"></i></button>
-                                <small class="scholarship-subject-counts" title="Saved scores for students in this list"><span>Scored: <strong data-subject-scored>{{ $scoredCount }}</strong></span> | <span>Blank: <strong data-subject-blank>{{ $blankCount }}</strong></span></small>
+                                <small class="scholarship-subject-counts" title="Saved scores and attendance for students in this list"><span>Scored: <strong data-subject-scored>{{ $scoredCount }}</strong></span> | <span>Blank: <strong data-subject-blank>{{ $blankCount }}</strong></span> | <span>Absent: <strong data-subject-absent>{{ $absentCount }}</strong></span></small>
                             </th>
                         @empty<th class="text-center">No subjects configured</th>@endforelse
                     </tr>
@@ -76,7 +77,16 @@
                         <td class="scholarship-scoring-student"><strong>{{ $candidate->snapshot['student_code'] }}</strong><div class="scholarship-khmer">{{ $candidate->snapshot['name_kh'] }}</div><div>{{ $candidate->snapshot['name_en'] }}</div><div class="small text-secondary mt-1">{{ $placement }}</div></td>
                         <td class="scholarship-scoring-exam"><div>{{ $candidate->exam_center_name ?: 'Main Exam Center' }}</div><div class="small text-secondary mt-1">Room: <strong>{{ $candidate->room_number }}</strong> | Seat: <strong>{{ $candidate->room_seat }}</strong></div></td>
                         @forelse($subjects as $subject)
-                            <td class="scholarship-score-input-cell"><label class="visually-hidden" for="score{{ $candidate->id }}_{{ $subject->id }}">{{ $name }} — {{ $subject->name }} (maximum {{ $subject->max_score }})</label><input id="score{{ $candidate->id }}_{{ $subject->id }}" form="{{ $scoreForm }}" class="form-control" name="rows[{{ $candidate->id }}][scores][{{ $subject->id }}]" data-score-input="{{ $subject->id }}" data-can-score="{{ $canEnter?'true':'false' }}" type="number" min="0" max="{{ $subject->max_score }}" step="0.01" inputmode="decimal" enterkeyhint="next" tabindex="-1" aria-readonly="true" value="{{ $restoring?old('rows.'.$candidate->id.'.scores.'.$subject->id):$scores->get($subject->id)?->score }}" placeholder="Not Entered" readonly @disabled(!$canEnter)></td>
+                            @php($subjectAbsent=$restoring?(old('rows.'.$candidate->id.'.absent') || old('rows.'.$candidate->id.'.subject_absences.'.$subject->id)):($candidate->absent || $scores->get($subject->id)?->is_absent))
+                            <td class="scholarship-score-input-cell">
+                                <label class="visually-hidden" for="score{{ $candidate->id }}_{{ $subject->id }}">{{ $name }} — {{ $subject->name }} (maximum {{ $subject->max_score }})</label>
+                                <div class="scholarship-score-entry {{ $subjectAbsent?'is-subject-absent':'' }}">
+                                    <input id="score{{ $candidate->id }}_{{ $subject->id }}" form="{{ $scoreForm }}" class="form-control" name="rows[{{ $candidate->id }}][scores][{{ $subject->id }}]" data-score-input="{{ $subject->id }}" data-can-score="{{ $canEnter?'true':'false' }}" data-subject-absent="{{ $subjectAbsent?'true':'false' }}" type="number" min="0" max="{{ $subject->max_score }}" step="0.01" inputmode="decimal" enterkeyhint="next" tabindex="-1" aria-readonly="true" value="{{ $subjectAbsent?0:($restoring?old('rows.'.$candidate->id.'.scores.'.$subject->id):$scores->get($subject->id)?->score) }}" placeholder="Not Entered" readonly @disabled(!$canEnter)>
+                                    <span class="scholarship-score-absent-letter" @if(!$subjectAbsent) hidden @endif aria-hidden="true">A</span>
+                                </div>
+                                @if($canEnter)<input form="{{ $scoreForm }}" type="hidden" name="rows[{{ $candidate->id }}][subject_absences][{{ $subject->id }}]" value="0">@endif
+                                <label class="form-check d-inline-flex align-items-center gap-1 mb-0 mt-2 scholarship-subject-attendance"><input class="form-check-input m-0" form="{{ $scoreForm }}" type="checkbox" name="rows[{{ $candidate->id }}][subject_absences][{{ $subject->id }}]" value="1" data-subject-absence="{{ $subject->id }}" data-can-score="{{ $canEnter?'true':'false' }}" @checked($subjectAbsent) @disabled(!$canEnter)><span class="form-check-label small">Absent<span class="visually-hidden"> for {{ $subject->name }} — {{ $name }}</span></span></label>
+                            </td>
                         @empty<td class="text-secondary text-center">—</td>@endforelse
                         <td class="scholarship-scoring-total" data-score-total="{{ $calculation['total'] }}">
                             <strong>{{ $calculation['total'] ?? '—' }}</strong><span class="text-secondary"> / {{ $calculation['max_total'] ?? '—' }}</span>
@@ -84,7 +94,7 @@
                             @if($calculation['status']!=='Reviewed')<span class="badge {{ $candidate->reviewed_at?'bg-green-lt':'bg-orange-lt' }} my-2">{{ $calculation['status'] }}</span>@endif
                         </td>
                         <td class="scholarship-scoring-attendance">
-                            <label class="form-check d-inline-flex align-items-center gap-2 mb-0"><input class="form-check-input m-0" form="{{ $scoreForm }}" type="checkbox" name="rows[{{ $candidate->id }}][absent]" value="1" @checked($restoring?old('rows.'.$candidate->id.'.absent'):$candidate->absent) @disabled(!$canEnter)><span class="form-check-label small">Absent</span></label>
+                            <label class="form-check d-inline-flex align-items-center gap-2 mb-0"><input class="form-check-input m-0" form="{{ $scoreForm }}" type="checkbox" name="rows[{{ $candidate->id }}][absent]" value="1" data-all-subjects-absent @checked($restoring?old('rows.'.$candidate->id.'.absent'):$candidate->absent) @disabled(!$canEnter)><span class="form-check-label small">Absent All Subjects</span></label>
                         </td>
                         <td class="scholarship-scoring-actions">
                             @if($canEnter)<input form="{{ $scoreForm }}" type="hidden" name="rows[{{ $candidate->id }}][version]" value="{{ $candidate->version }}">@endif

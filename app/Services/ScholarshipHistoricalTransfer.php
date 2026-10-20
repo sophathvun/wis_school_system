@@ -159,18 +159,26 @@ class ScholarshipHistoricalTransfer
         $center=$existingCenter?->name??$center;
         $subjectOrder=app(ScholarshipTransferSettings::class)->parseOrder($exam,$grade,$raw['subject_order']??'');
         if(!in_array($raw['absent']??'',['','0','1'],true))$this->fail('Absent must be 0 or 1.');
-        $absent=($raw['absent']??'')==='1';$scores=[];$applicable=$this->workflow->applicableSubjects($exam,$grade);
+        $absent=($raw['absent']??'')==='1';$scores=[];$subjectAbsences=[];$applicable=$this->workflow->applicableSubjects($exam,$grade);
         foreach($raw as $header=>$value)if(str_starts_with($header,'score:')&&$value!==''){
             $matches=$applicable->where('name',substr($header,6));if($matches->count()!==1)$this->fail(substr($header,6).' is not a unique configured subject for Grade '.$grade.'.');
-            $subject=$matches->first();$scores[$subject->id]=$this->number($raw,$header,(float)$subject->max_score);
+            $subject=$matches->first();$isAbsent=strtoupper(trim($value))==='A';
+            $scores[$subject->id]=$isAbsent?0:$this->number($raw,$header,(float)$subject->max_score);
+            if($isAbsent)$subjectAbsences[$subject->id]=true;
         }
+        if($absent){
+            if(collect($scores)->contains(fn($score)=>$score!=0))$this->fail('A student absent from all subjects can only have zero or A scores.');
+            foreach($applicable as $subject){$scores[$subject->id]=0;$subjectAbsences[$subject->id]=true;}
+        }elseif($applicable->isNotEmpty()&&count($subjectAbsences)===$applicable->count())$absent=true;
         $total=$this->number($raw,'total_score');$percent=$this->number($raw,'percentage',100);$examRank=$this->number($raw,'exam_rank',10000000,true);
         $category=$raw['award_category']??'';$awardSubject=$raw['award_subject']??'';$award=$this->number($raw,'award_percent',100);
         if(mb_strlen($category)>160||mb_strlen($awardSubject)>100)$this->fail('Award Category or Award Subject is too long.');
         if(($category==='')!==($award===null))$this->fail('Provide both Award Category and Award Percent, or leave both blank.');
         if($category==='subject'&&($awardSubject===''||$applicable->where('name',$awardSubject)->count()!==1))$this->fail('For a subject award, select an Award Subject configured for this grade.');
         if($awardSubject!==''&&$category!=='subject')$this->fail('Award Subject is only used when Award Category is subject.');
-        if($absent&&($scores||$total!==null||$percent!==null||$examRank!==null||$award!==null))$this->fail('An absent student cannot have scores, an exam rank, or an award.');
+        if($absent&&(($total!==null&&$total!=0)||($percent!==null&&$percent!=0)||$examRank!==null||$award!==null))$this->fail('A student absent from all subjects must have zero totals and no exam rank or award.');
+        if($subjectAbsences&&in_array($category,['total_1','total_2','total_3'],true))$this->fail('Overall awards require attendance in all subjects.');
+        if($category==='subject'&&isset($subjectAbsences[$applicable->firstWhere('name',$awardSubject)?->id]))$this->fail('A student cannot receive an award for a subject they missed.');
         if($applicable->isNotEmpty()&&count($scores)===$applicable->count()){
             $sum=round(array_sum($scores),2);$weight=$applicable->sum('weight');
             $calculated=round($applicable->sum(fn($s)=>$scores[$s->id]/$s->max_score*$s->weight)/$weight*100,4);
@@ -181,7 +189,7 @@ class ScholarshipHistoricalTransfer
         return ['student_id'=>$student->id,'student_code'=>$raw['student_id'],'student_name'=>$student->full_name_en,'enrollment_id'=>$enrollment->id,'candidate_id'=>$candidate?->id,
             'campus_id'=>(int)$enrollment->campus_id,'class_id'=>(int)$enrollment->class_id,'group_id'=>$enrollment->group_id,'grade'=>$grade,'class_rank'=>$rank,'eoy_average'=>$eoy,
             'campus'=>$expected['campus'],'class'=>$expected['class'],'group'=>$expected['group'],'name_kh'=>$student->full_name_kh,
-            'room_no'=>$room,'seat_no'=>$seat,'exam_code'=>$code,'exam_center'=>$center,'exam_center_location'=>$location,'subject_order'=>$subjectOrder,'absent'=>$absent,'scores'=>$scores,
+            'room_no'=>$room,'seat_no'=>$seat,'exam_code'=>$code,'exam_center'=>$center,'exam_center_location'=>$location,'subject_order'=>$subjectOrder,'absent'=>$absent,'scores'=>$scores,'subject_absences'=>$subjectAbsences,
             'total_score'=>$total,'percentage'=>$percent,'exam_rank'=>$examRank,'award_category'=>$category,'award_subject'=>$awardSubject,'award_percent'=>$award];
     }
 
@@ -216,7 +224,7 @@ class ScholarshipHistoricalTransfer
                 $candidate->fill(['student_enrollment_id'=>$row['enrollment_id'],'student_id'=>$row['student_id'],'campus_id'=>$row['campus_id'],'class_id'=>$row['class_id'],'group_id'=>$row['group_id'],'grade_number'=>$row['grade'],'class_rank'=>$row['class_rank'],'snapshot'=>$snapshot,
                     'room_number'=>$row['room_no'],'room_seat'=>$row['seat_no'],'exam_center_id'=>$center?->id,'exam_center_name'=>$center?->name,'seat_scope'=>$center?->id??0,'candidate_code'=>$row['exam_code']?:null,
                     'absent'=>$row['absent'],'result_total'=>$row['total_score'],'result_percentage'=>$row['percentage'],'result_rank'=>$row['exam_rank'],'award_percent'=>$row['award_percent'],'scored_by'=>$row['scores']?$user->id:null,'reviewed_by'=>null,'reviewed_at'=>null,'version'=>($candidate->version??0)+1])->save();
-                $candidate->scores()->delete();foreach($row['scores'] as $subject=>$score)$candidate->scores()->create(['subject_id'=>$subject,'score'=>$score,'entry_method'=>'historical','source_reference'=>'CSV import']);
+                $candidate->scores()->delete();foreach($row['scores'] as $subject=>$score)$candidate->scores()->create(['subject_id'=>$subject,'score'=>$score,'is_absent'=>$row['subject_absences'][$subject]??false,'entry_method'=>'historical','source_reference'=>'CSV import']);
                 $exam->awards()->where('candidate_id',$candidate->id)->delete();
                 if($row['award_percent']!==null)$exam->awards()->create(['grade_number'=>$row['grade'],'slot'=>'historical_'.$candidate->id,'candidate_id'=>$candidate->id,'award_percent'=>$row['award_percent'],'reason'=>'Imported original award: '.$row['award_category'].($row['award_subject']?' / '.$row['award_subject']:'')]);
             }
@@ -240,7 +248,7 @@ class ScholarshipHistoricalTransfer
                 'class_rank'=>$candidate->class_rank,'eoy_average'=>$snapshot['eoy_average']??'','exam_code'=>$candidate->candidate_code??'','exam_center'=>$candidate->exam_center_name??'','room_no'=>$candidate->room_number??'','seat_no'=>$candidate->room_seat??'','absent'=>$candidate->absent?'1':'0','total_score'=>$result['total']??'','percentage'=>$result['percentage']??'','exam_rank'=>$result['rank']??'','award_category'=>$category,'award_subject'=>$awardSubject,'award_percent'=>$result['award']??'']);
             $row['exam_center_location']=$exam->centers->firstWhere('id',$candidate->exam_center_id)?->location??'';
             $row['subject_order']=app(ScholarshipTransferSettings::class)->exportOrder($exam,(int)$candidate->grade_number);
-            foreach($candidate->scores as $score){$subject=$exam->subjects->firstWhere('id',$score->subject_id);if($subject)$row['score:'.$subject->name]=$score->score??'';}
+            foreach($this->workflow->applicableSubjects($exam,$candidate->grade_number) as $subject){$score=$candidate->scores->firstWhere('subject_id',$subject->id);$row['score:'.$subject->name]=($candidate->absent||$score?->is_absent)?'A':($score?->score??'');}
             yield array_values($row);
         }
     }

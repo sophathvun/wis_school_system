@@ -37,6 +37,32 @@ function historyRequest($test,array $data=[],array $files=[]): Request
     $request=Request::create('/students/western-scholarship/transfer','POST',$data,[], $files);$request->headers->set('Accept','application/json');$request->setUserResolver(fn()=>$test->user);$request->setLaravelSession(app('session')->driver());return $request;
 }
 
+it('round trips subject absences as A with zero totals without losing attended scores',function(){
+    $path=historyCsv($this,[['score:Khmer'=>'A','score:English'=>40,'total_score'=>40,'percentage'=>60,'award_category'=>'subject','award_subject'=>'English','award_percent'=>25]]);
+    historyCommit($this,$path);$candidate=$this->exam->candidates()->with('scores')->first();
+    expect($candidate->absent)->toBeFalse()->and($candidate->scores->firstWhere('subject_id',$this->exam->subjects->firstWhere('name','Khmer')->id)->is_absent)->toBeTrue()
+        ->and($candidate->result_total)->toBe(40.0);
+    $export=iterator_to_array($this->transfer->export($this->user,$this->exam->fresh()));$row=array_combine($export[0],$export[1]);
+    expect($row['score:Khmer'])->toBe('A')->and($row['score:English'])->toBe(40.0)->and($row['absent'])->toBe('0');
+    $newPath=historyCsv($this,[$row]);historyCommit($this,$newPath,true);
+    expect($candidate->fresh()->scores->firstWhere('subject_id',$this->exam->subjects->firstWhere('name','Khmer')->id)->is_absent)->toBeTrue();
+});
+
+it('imports whole exam absence with every subject zero while retaining the student in results',function(){
+    $path=historyCsv($this,[['absent'=>1]]);historyCommit($this,$path);
+    $candidate=$this->exam->candidates()->first();
+    expect($candidate->absent)->toBeTrue()->and($candidate->result_total)->toBe(0.0)->and($candidate->scores()->where('is_absent',true)->count())->toBe(2);
+    $export=iterator_to_array($this->transfer->export($this->user,$this->exam->fresh()));$row=array_combine($export[0],$export[1]);
+    expect($row['score:Khmer'])->toBe('A')->and($row['score:English'])->toBe('A')->and($row['total_score'])->toBe(0.0);
+    historyCommit($this,historyCsv($this,[$row]),true);
+    expect($this->workflow->results($this->exam->fresh()))->toHaveCount(1);
+});
+
+it('rejects awards for missed subjects and overall awards after a subject absence',function($category,$subject){
+    $path=historyCsv($this,[['score:Khmer'=>'A','score:English'=>40,'award_category'=>$category,'award_subject'=>$subject,'award_percent'=>25]]);
+    expect($this->transfer->preview($this->user,$this->exam,$path)['errors'])->not->toBeEmpty();
+})->with([['total_1',''],['subject','Khmer']]);
+
 it('provides eight sample records with subject columns from the selected settings',function(){
     $rows=$this->transfer->sample($this->exam);expect($rows)->toHaveCount(9)->and($rows[0])->toContain('score:Khmer','score:English')->not->toContain('score:Science');
     foreach(array_slice($rows,1) as $row)expect($row)->toHaveCount(count($rows[0]));

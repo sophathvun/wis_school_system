@@ -362,11 +362,11 @@ class ScholarshipSeatReports
     public function pdf(array $data): string
     {
         $temp=storage_path('framework/cache/scholarship-pdf');if(!is_dir($temp))mkdir($temp,0775,true);
-        $pdf=new \Mpdf\Mpdf(['mode'=>'utf-8','format'=>'A4','tempDir'=>$temp,'margin_left'=>8,'margin_right'=>8,'margin_top'=>8,'margin_bottom'=>8,'margin_footer'=>3,
+        $pdf=new \Mpdf\Mpdf(['mode'=>'utf-8','format'=>'A4','orientation'=>($data['orientation']??'portrait')==='landscape'?'L':'P','tempDir'=>$temp,'margin_left'=>8,'margin_right'=>8,'margin_top'=>$data['document']==='score-list'?4:8,'margin_bottom'=>8,'margin_footer'=>3,
             'fontDir'=>[...(new \Mpdf\Config\ConfigVariables())->getDefaults()['fontDir'],public_path('fonts/khmer')],
             'fontdata'=>(new \Mpdf\Config\FontVariables())->getDefaults()['fontdata']+['scholarshipmuol'=>['R'=>'KhmerOSmuollight.ttf','useOTL'=>0xFF],'scholarshipsiemreap'=>['R'=>'KhmerOSsiemreap.ttf','useOTL'=>0xFF]],'default_font'=>'dejavusans','default_font_size'=>9]);
         $pdf->SetTitle($data['title']);
-        if(!in_array($data['document'],['attendance','attendance-cover','envelope-cover','room-plan'],true))$pdf->SetHTMLFooter('<div style="text-align:right;font-size:8pt">Page {PAGENO} of {nbpg}</div>');
+        if(!in_array($data['document'],['attendance','attendance-cover','envelope-cover','room-plan','score-list'],true))$pdf->SetHTMLFooter('<div style="text-align:right;font-size:8pt">Page {PAGENO} of {nbpg}</div>');
         $pdf->shrink_tables_to_fit=1;
         if($data['logoSrc']){
             $pdf->imageVars['schoolLogo']=base64_decode(explode(',',$data['logoSrc'],2)[1]);
@@ -376,7 +376,7 @@ class ScholarshipSeatReports
         // not exceed mPDF's HTML parser limit.
         foreach($data['pages']?:[null] as $index=>$page){
             if($index)$pdf->AddPage();
-            $pdf->WriteHTML(view('western-scholarship.seat-report',array_replace($data,['pdfExport'=>true,'pages'=>$page?[$page]:[]]))->render());
+            $pdf->WriteHTML(view($data['document']==='score-list'?'western-scholarship.score-report':'western-scholarship.seat-report',array_replace($data,['pdfExport'=>true,'pages'=>$page?[$page]:[]]))->render());
         }
         return $pdf->Output('',\Mpdf\Output\Destination::STRING_RETURN);
     }

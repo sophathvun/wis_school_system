@@ -276,6 +276,7 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         Route::post('/exams/{exam}/seats/reopen', 'reopenPlan')->name('seats.reopen');
         Route::get('/exams/{exam}/seat-reports/{document}/{format}', 'seatReport')->where('document','candidates|attendance|attendance-cover|envelope-cover|seat-labels|room-plan')->where('format','print|xlsx|pdf')->name('seats.report');
         Route::post('/exams/{exam}/scores', 'saveScoreDrafts')->name('scores.save-drafts');
+        Route::get('/exams/{exam}/score-list/{format}', 'scoreReport')->where('format','print|xlsx|pdf')->name('scores.report');
         Route::post('/exams/{exam}/scores/review', 'reviewScores')->name('scores.review-all');
         Route::post('/exams/{exam}/scores/{candidate}', 'saveScores')->name('scores.save');
         Route::post('/exams/{exam}/scores/{candidate}/review', 'review')->name('scores.review');

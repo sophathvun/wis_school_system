@@ -225,7 +225,9 @@ body.scholarship-result-fullscreen-open { overflow:hidden; }
 .scholarship-scoring-table thead th { background:#3c70c7; color:#fff; vertical-align:middle; white-space:normal; }
 .scholarship-subject-counts { display:block; margin-top:.3rem; font-size:.65rem; font-weight:400; text-transform:none; white-space:normal; color:#ffdf6b; }
 .scholarship-subject-counts > span { display:inline-block; white-space:nowrap; }
-.scholarship-scoring-attendance .form-check { padding-left:0; white-space:nowrap; }
+.scholarship-scoring-attendance .form-check { padding-left:0; white-space:normal; }
+.scholarship-scoring-attendance .form-check-label { font-size:.7rem; }
+.scholarship-scoring-table .scholarship-score-sort { max-width:100%; flex-wrap:wrap; gap:.15rem; font-size:.7rem; }
 .scholarship-score-sort[data-score-sort="total"] { white-space:nowrap; }
 .scholarship-score-sort { display:inline-flex; align-items:center; justify-content:center; gap:.3rem; border:0; padding:.2rem; border-radius:4px; background:transparent; color:inherit; font:inherit; text-transform:inherit; cursor:pointer; }
 .scholarship-score-sort:hover { background:rgba(255,255,255,.15); }
@@ -278,6 +280,13 @@ body.scholarship-result-fullscreen-open { overflow:hidden; }
 .scholarship-result-table td[data-result-score]:not([data-result-score="total"]) { font-size:14pt; }
 .scholarship-result-table td[data-result-score="total"] > strong { font-size:16pt; }
 .scholarship-result-table .scholarship-subject-rank { font-size:.7rem; line-height:1.4; }
+.scholarship-score-entry { position:relative; }
+.scholarship-score-entry.is-subject-absent > input { color:transparent; caret-color:transparent; }
+.scholarship-score-absent-letter { position:absolute; top:.65rem; left:0; right:0; text-align:center; color:var(--tblr-danger,#d63939); font-weight:700; pointer-events:none; }
+.scholarship-score-absent-letter[hidden] { display:none; }
+.scholarship-subject-attendance { padding-left:0; font-size:.7rem; }
+.scholarship-score-input-cell .scholarship-subject-attendance input { width:.9rem; height:.9rem; padding:0; flex-shrink:0; }
+.scholarship-subject-attendance input[aria-disabled=true] { opacity:.45; cursor:not-allowed; }
 .scholarship-result-student { overflow-wrap:anywhere; }
 .scholarship-result-exam { overflow-wrap:anywhere; }
 .scholarship-result-rank { min-width:0; }
@@ -399,6 +408,8 @@ body.scholarship-result-fullscreen-open { overflow:hidden; }
 .scholarship-seat-options .scholarship-select-option:hover, .scholarship-seat-options .scholarship-select-option:focus { background: var(--tblr-bg-surface-secondary,#eff2f6); }
 .scholarship-seat-filter-card { position: relative; z-index: 2; }
 #scholarshipSeatReportScope .modal-dialog { max-width: 520px; }
+#scholarshipScoreReportScope .modal-dialog { max-width: 520px; }
+#scholarshipScoreReportScope [hidden] { display:none!important; }
 #scholarshipSeatReportScope .modal-title { color: white; }
 .scholarship-examination-type { padding: 1rem; border: 1px solid var(--tblr-border-color); border-radius: 12px; }
 .scholarship-examination-type .flex-fill { min-width: 200px; }

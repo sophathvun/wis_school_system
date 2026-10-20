@@ -44,6 +44,7 @@ function createScholarshipSchema(): void
     (require database_path('migrations/2026_10_16_000007_create_scholarship_invigilators.php'))->up();
     (require database_path('migrations/2026_10_16_000008_create_scholarship_session_links.php'))->up();
     (require database_path('migrations/2026_10_16_000009_add_scholarship_subject_schedules.php'))->up();
+    (require database_path('migrations/2026_10_20_000001_add_scholarship_subject_attendance.php'))->up();
     foreach(['Registrar','Vice Principal','School Principal','Registrar Director','Academic Director','Vice President'] as $i=>$name)DB::table('access_positions')->insert(['id'=>$i+1,'name'=>$name]);
     foreach(['BCH','BKK','CENTRAL'] as $campus=>$label)foreach(['PREPARER','VERIFIER','APPROVER'] as $role=>$suffix){
         $id=$campus*3+$role+1;

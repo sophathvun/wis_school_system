@@ -108,6 +108,10 @@ export function initResults(root) {
             select.addEventListener('change',()=>{
                 clearErrors();
                 const selected=slots.find(slot=>slot.key===select.value);
+                const candidate=metrics.find(candidate=>String(candidate.id)===id);
+                if(selected && (selected.subject?candidate.absent_subjects.includes(Number(selected.subject)):!candidate.overall_eligible)){
+                    select.value=select.dataset.savedSlot;void error('This student was absent for the award subject. Overall awards require attendance in all subjects.',id);return;
+                }
                 if(selected?.candidate.value && selected.candidate.value!==id){
                     select.value=select.dataset.savedSlot;
                     void error(`${selected.label} already has a winner in Grade ${section.dataset.resultGrade}. Clear that assignment before choosing another student.`,id);return;
@@ -129,11 +133,12 @@ export function initResults(root) {
             const remaining=new Map(metrics.filter(row=>row.eligible).map(row=>[String(row.id),row]));
             for(const slot of slots){
                 const id=slot.candidate.value;
-                if(!id){if(remaining.size){await error(`Select a student for ${slot.label} before saving Grade ${section.dataset.resultGrade} winners.`);return;}continue;}
-                const candidate=remaining.get(id);
+                const eligible=new Map([...remaining].filter(([,row])=>slot.subject?!row.absent_subjects.includes(Number(slot.subject)):row.overall_eligible));
+                if(!id){if(eligible.size){await error(`Select a student for ${slot.label} before saving Grade ${section.dataset.resultGrade} winners.`);return;}continue;}
+                const candidate=eligible.get(id);
                 if(!candidate){await error('Each winner must be a reviewed, attending student and can receive only one award.',id);return;}
                 const score=row=>Number(slot.subject?row.scores[slot.subject]:row.total);
-                const highest=Math.max(...[...remaining.values()].map(score));
+                const highest=Math.max(...[...eligible.values()].map(score));
                 if(score(candidate)<highest&&slot.reason.value.trim().length<5){await error(`${slot.label}: select a student with the highest remaining score, or enter an exception reason of at least 5 characters.`,id);return;}
                 if(!slot.award.value.trim()||!Number.isFinite(Number(slot.award.value))||Number(slot.award.value)<0||Number(slot.award.value)>100||!/^\d+(?:\.\d{1,2})?$/.test(slot.award.value)){await error('Enter a scholarship percentage from 0 to 100 with at most two decimal places.',id);return;}
                 remaining.delete(id);

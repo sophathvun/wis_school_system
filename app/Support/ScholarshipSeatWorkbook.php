@@ -19,7 +19,7 @@ class ScholarshipSeatWorkbook
     public function generate(array $data): string
     {
         $entries=[];$sheets='';$areas='';$relationships=[];$hasDrawing=false;
-        $styles=ScholarshipSeatReports::styles();$styleIds=array_flip(array_keys($styles));
+        $styles=ScholarshipSeatReports::styles()+($data['document']==='score-list'?ScholarshipScoreReports::styles():[]);$styleIds=array_flip(array_keys($styles));
         $logo=$data['logoSrc']?$this->logo($data['logoSrc']):null;
         $types='<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>';
         foreach($this->worksheets($data) as $index=>$worksheet){
@@ -54,7 +54,7 @@ class ScholarshipSeatWorkbook
     /** Keep all subject/student continuation pages for a room on the same sheet. */
     private function worksheets(array $data): array
     {
-        if($data['document']!=='attendance'||!$data['pages'])return [['name'=>'Scholarship Report','pages'=>$data['pages']]];
+        if(!in_array($data['document'],['attendance','score-list'],true)||!$data['pages'])return [['name'=>'Scholarship Report','pages'=>$data['pages']]];
         $groups=[];$roomCounts=[];
         foreach($data['pages'] as $page){
             $key=json_encode([$page['center_id']??$page['center'],$page['room']],JSON_THROW_ON_ERROR);
@@ -90,7 +90,7 @@ class ScholarshipSeatWorkbook
                 $sheet.='<row r="'.$rowNumber.'" ht="'.round($row['height']*72/25.4,2).'" customHeight="1">';
                 foreach($row['cells'] as $cell){
                     $style=$styles[$cell['style']];$id=$styleIds[$cell['style']];$start=$column;
-                    if($cell['span']>1)$merges[]=$this->col($start).$rowNumber.':'.$this->col($start+$cell['span']-1).$rowNumber;
+                    if(!($cell['covered']??false)&&($cell['span']>1||($cell['rowspan']??1)>1))$merges[]=$this->col($start).$rowNumber.':'.$this->col($start+$cell['span']-1).($rowNumber+($cell['rowspan']??1)-1);
                     for($i=0;$i<$cell['span'];$i++,$column++){
                         $cellStyle=$id;
                         if(in_array($data['document'],['attendance-cover','envelope-cover'],true)||($data['document']==='room-plan' && ($row['area']??null)==='classroom')){
@@ -129,8 +129,9 @@ class ScholarshipSeatWorkbook
         $entries=[];$drawing=(bool)($logo&&$this->images);
         $mergeXml=implode('',array_map(fn($ref)=>'<mergeCell ref="'.$ref.'"/>',$merges));
         $breakXml=$breaks?'<rowBreaks count="'.count($breaks).'" manualBreakCount="'.count($breaks).'">'.implode('',array_map(fn($row)=>'<brk id="'.$row.'" min="0" max="16383" man="1"/>',$breaks)).'</rowBreaks>':'';
-        $footer=$data['document']==='room-plan'?'':'<headerFooter><oddFooter>&amp;RPage &amp;P of &amp;N</oddFooter></headerFooter>';
-        $entries['xl/worksheets/sheet'.$number.'.xml']='<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="'.self::NS.'" xmlns:r="'.self::REL.'"><sheetPr><pageSetUpPr fitToPage="0"/></sheetPr><dimension ref="A1:BH'.$rowNumber.'"/><sheetViews><sheetView showGridLines="0" workbookViewId="0"/></sheetViews><sheetFormatPr defaultRowHeight="18"/><cols><col min="1" max="60" width="1.86" customWidth="1"/></cols><sheetData>'.$sheet.'</sheetData>'.($merges?'<mergeCells count="'.count($merges).'">'.$mergeXml.'</mergeCells>':'').'<printOptions horizontalCentered="1"/><pageMargins left="0.315" right="0.315" top="0.315" bottom="0.315" header="0.1" footer="0.1"/><pageSetup paperSize="9" orientation="portrait" scale="95"/>'.$footer.$breakXml.($drawing?'<drawing r:id="rId1"/>':'').'</worksheet>';
+        $footer=in_array($data['document'],['room-plan','score-list'],true)?'':'<headerFooter><oddFooter>&amp;RPage &amp;P of &amp;N</oddFooter></headerFooter>';
+        $orientation=($data['orientation']??'portrait')==='landscape'?'landscape':'portrait';$columnWidth=$orientation==='landscape'?'2.70':'1.86';
+        $entries['xl/worksheets/sheet'.$number.'.xml']='<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="'.self::NS.'" xmlns:r="'.self::REL.'"><sheetPr><pageSetUpPr fitToPage="0"/></sheetPr><dimension ref="A1:BH'.$rowNumber.'"/><sheetViews><sheetView showGridLines="0" workbookViewId="0"/></sheetViews><sheetFormatPr defaultRowHeight="18"/><cols><col min="1" max="60" width="'.$columnWidth.'" customWidth="1"/></cols><sheetData>'.$sheet.'</sheetData>'.($merges?'<mergeCells count="'.count($merges).'">'.$mergeXml.'</mergeCells>':'').'<printOptions horizontalCentered="1"/><pageMargins left="0.315" right="0.315" top="0.315" bottom="0.315" header="0.1" footer="0.1"/><pageSetup paperSize="9" orientation="'.$orientation.'" scale="95"/>'.$footer.$breakXml.($drawing?'<drawing r:id="rId1"/>':'').'</worksheet>';
         if($drawing){
             $entries['xl/worksheets/_rels/sheet'.$number.'.xml.rels']=$this->rels([['rId1','drawing','../drawings/drawing'.$number.'.xml']]);
             $entries['xl/drawings/_rels/drawing'.$number.'.xml.rels']=$this->rels([['rId1','image','../media/logo.'.$logo['ext']]]);
@@ -165,7 +166,7 @@ class ScholarshipSeatWorkbook
 
     private function styles(array $styles): string
     {
-        $fonts='';$fills='<fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>';$borders='<border/>';$xfs='';$fillId=2;$borderId=1;
+        $fonts='';$fills='<fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>';$borders='<border/>';$xfs='';$fillId=2;$borderId=1;$numberFormats=[];
         foreach($styles as $id=>$style){
             $index=array_search($id,array_keys($styles),true);
             $fonts.='<font><sz val="'.($index===0?9:$style['size']).'"/><name val="Arial"/>'.(($style['bold']??false)?'<b/>':'').'<color rgb="FF'.str_replace('#','',$style['color']??'#000000').'"/></font>';
@@ -179,8 +180,14 @@ class ScholarshipSeatWorkbook
                 }
                 $borders.='</border>';
             }
-            $xfs.='<xf numFmtId="0" fontId="'.$index.'" fillId="'.$fill.'" borderId="'.$border.'" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="'.$style['align'].'" vertical="center" wrapText="1"/></xf>';
+            $numberFormat=0;
+            if(isset($style['number_format'])){
+                if(!isset($numberFormats[$style['number_format']]))$numberFormats[$style['number_format']]=164+count($numberFormats);
+                $numberFormat=$numberFormats[$style['number_format']];
+            }
+            $xfs.='<xf numFmtId="'.$numberFormat.'" fontId="'.$index.'" fillId="'.$fill.'" borderId="'.$border.'" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="'.$style['align'].'" vertical="center" wrapText="1"/></xf>';
         }
-        return '<?xml version="1.0"?><styleSheet xmlns="'.self::NS.'"><fonts count="'.count($styles).'">'.$fonts.'</fonts><fills count="'.$fillId.'">'.$fills.'</fills><borders count="'.$borderId.'">'.$borders.'</borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="'.count($styles).'">'.$xfs.'</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
+        $formats='';foreach($numberFormats as $code=>$id)$formats.='<numFmt numFmtId="'.$id.'" formatCode="'.$this->xml($code).'"/>';
+        return '<?xml version="1.0"?><styleSheet xmlns="'.self::NS.'">'.($formats?'<numFmts count="'.count($numberFormats).'">'.$formats.'</numFmts>':'').'<fonts count="'.count($styles).'">'.$fonts.'</fonts><fills count="'.$fillId.'">'.$fills.'</fills><borders count="'.$borderId.'">'.$borders.'</borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="'.count($styles).'">'.$xfs.'</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
     }
 }

@@ -404,6 +404,9 @@ class ScholarshipController
         }
         $data['savedAwards']=$exam->awards()->get()->groupBy('grade_number');
         $scoring=$candidates->filter(fn($candidate)=>$this->workflow->canScore($user,$exam,$candidate) || $this->workflow->canScore($user,$exam,$candidate,true))->values();
+        $exportableScores=$scoring->filter(fn($candidate)=>ScholarshipPermissions::allows($user,'export',$candidate->campus_id));
+        $data['canExportScores']=$exportableScores->isNotEmpty();
+        if($tab==='scoring')$data['scoreReportOptions']=app(\App\Support\ScholarshipScoreReportScope::class)->options($exportableScores);
         if($tab==='scoring'){
             $filtered=app(\App\Support\ScholarshipScoringFilters::class)->apply($request,$scoring);
             $scoring=$filtered['rows'];$data['scoreFilters']=$filtered['filters'];$data['scoreFilterOptions']=$filtered['options'];
@@ -533,6 +536,7 @@ class ScholarshipController
             'rows.*.version'=>['required','integer','min:1'],
             'rows.*.scores'=>['nullable','array','max:100'],
             'rows.*.absent'=>['nullable','boolean'],
+            'rows.*.subject_absences'=>['nullable','array','max:100'],'rows.*.subject_absences.*'=>['boolean'],
             'score_subject'=>['nullable','integer',Rule::in($exam->subjects()->pluck('id')->all())],
         ]);
         $this->workflow->saveScoreDrafts($request->user(),$exam,$data['rows']);
@@ -541,8 +545,8 @@ class ScholarshipController
 
     public function saveScores(Request $request, ScholarshipExam $exam, ScholarshipCandidate $candidate)
     {
-        $data=$request->validate(['version'=>['required','integer'],'scores'=>['nullable','array','max:100'],'absent'=>['nullable','boolean']]);
-        $this->workflow->saveScores($request->user(),$exam,$candidate,$data['scores']??[],$request->boolean('absent'),(int)$data['version']);
+        $data=$request->validate(['version'=>['required','integer'],'scores'=>['nullable','array','max:100'],'absent'=>['nullable','boolean'],'subject_absences'=>['nullable','array','max:100'],'subject_absences.*'=>['boolean']]);
+        $this->workflow->saveScores($request->user(),$exam,$candidate,$data['scores']??[],$request->boolean('absent'),(int)$data['version'],false,$data['subject_absences']??[]);
         return $this->back($exam,'scoring','Score draft saved. A reviewer must review these scores before publication.');
     }
 
@@ -657,6 +661,37 @@ class ScholarshipController
             ->header('Content-Disposition','attachment; filename="wis-scholarship-'.$exam->id.'-'.$document.'.'.$format.'"');
     }
 
+    public function scoreReport(Request $request,ScholarshipExam $exam,string $format)
+    {
+        abort_unless(in_array($format,['print','xlsx','pdf'],true),404);
+        $user=$request->user();
+        abort_unless(ScholarshipPermissions::allows($user,'tab-scoring') && ScholarshipPermissions::allows($user,'export') && $this->workflow->canView($user,$exam),403);
+        if(!$exam->seats_locked_at)throw ValidationException::withMessages(['exam'=>'Confirm the seat plan before exporting scores.']);
+        $candidates=$this->workflow->candidates($user,$exam)->with(['scores','student'])->get()
+            ->filter(fn($candidate)=>($this->workflow->canScore($user,$exam,$candidate)||$this->workflow->canScore($user,$exam,$candidate,true))&&ScholarshipPermissions::allows($user,'export',$candidate->campus_id));
+        $pdfMode=$request->validate(['pdf_mode'=>['nullable','in:combined,separate']])['pdf_mode']??'combined';
+        if($pdfMode==='separate'&&$format!=='pdf')throw ValidationException::withMessages(['pdf_mode'=>'Separate room files are available for PDF exports.']);
+        if($request->has('report_scope')){
+            $rows=app(\App\Support\ScholarshipScoreReportScope::class)->apply($request,$candidates);
+        }else{
+            // Keep previously generated single-room links working.
+            $filtered=app(\App\Support\ScholarshipScoringFilters::class)->apply($request,$candidates);
+            if($filtered['filters']['center']===null||$filtered['filters']['room']===null)throw ValidationException::withMessages(['score_room'=>'Select an exam center and room before exporting the score list.']);
+            $rows=$filtered['rows'];
+        }
+        $export=app(\App\Support\ScholarshipScoreReports::class);
+        $data=$export->data($exam,$rows);
+        if(!$data['pages'])throw ValidationException::withMessages(['report_rooms'=>'No configured exam subjects are available for the selected rooms.']);
+        if($format==='print')return view('western-scholarship.score-report',$data);
+        $roomNumbers=$rows->pluck('room_number')->unique()->values();
+        $filename='wis-scholarship-'.$exam->id.'-'.($roomNumbers->count()===1?'room-'.$roomNumbers->first():'rooms').'-score-list';
+        if($format==='pdf'&&$pdfMode==='separate')return response($export->pdfArchive($data))->header('Content-Type','application/zip')
+            ->header('Content-Disposition','attachment; filename="'.$filename.'.zip"');
+        $bytes=$format==='pdf'?app(\App\Support\ScholarshipSeatReports::class)->pdf($data):app(\App\Support\ScholarshipSeatWorkbook::class)->generate($data);
+        return response($bytes)->header('Content-Type',$format==='pdf'?'application/pdf':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            ->header('Content-Disposition','attachment; filename="'.$filename.'.'.$format.'"');
+    }
+
     public function report(Request $request, ScholarshipExam $exam, string $kind, string $format)
     {
         abort_unless(ScholarshipPermissions::allows($request->user(),ScholarshipPermissions::TABS[$kind==='seats'?'seat-plan':'result']),403);
@@ -681,7 +716,7 @@ class ScholarshipController
                 $scores=$candidate->scores->keyBy('subject_id');
                 $rowCenterIds[]=$candidate->exam_center_id??0;
                 $rows[]=[$candidate->grade_number,$row['rank'],$candidate->candidate_code,$candidate->snapshot['student_code'],$candidate->snapshot['name_kh'],$candidate->snapshot['name_en'],$candidate->snapshot['campus'],$row['status'],$exam->isHistorical()?'Historical':($exam->published_at?'Published':'DRAFT - Not Published'),
-                    ...$exam->subjects->map(fn($s)=>$candidate->grade_number<$s->grade_from||$candidate->grade_number>$s->grade_to?'Not applicable':($scores->get($s->id)?->score??'Not Entered'))->all(),$row['total'],$row['percentage'],$row['award'],$row['award_label']];
+                    ...$exam->subjects->map(fn($s)=>$candidate->grade_number<$s->grade_from||$candidate->grade_number>$s->grade_to?'Not applicable':(($candidate->absent||$scores->get($s->id)?->is_absent)?'0 (Absent)':($scores->get($s->id)?->score??'Not Entered')))->all(),$row['total'],$row['percentage'],$row['award'],$row['award_label']];
             }
         }
         if($format==='print'){

@@ -1,5 +1,6 @@
 import { createSeatPicker } from './scholarshipSeatPicker.js';
 import Swal from 'sweetalert2';
+import { initScoreReportScope } from './scholarshipScoreReportScope.js';
 
 export function initScoring(root) {
     const fullscreenButton=root.querySelector('[data-scoring-fullscreen]');
@@ -64,6 +65,7 @@ export function initScoring(root) {
             if(result.isConfirmed)draftForm.requestSubmit();
         }finally{leaveWarningOpen=false;}
     };
+    initScoreReportScope(root);
     const originalFilters=new Map([...form.querySelectorAll('select')].map(select=>[select,{value:select.value,disabled:select.disabled}]));
     form.addEventListener('change',event=>{
         if(!hasUnsavedScores())return;
@@ -73,6 +75,9 @@ export function initScoring(root) {
     },true);
     document.addEventListener('click',event=>{
         const link=event.target.closest('a[href]');
+        if(link?.matches('[data-score-report-link]')&&hasUnsavedScores()){
+            event.preventDefault();event.stopImmediatePropagation();void warnBeforeLeaving();return;
+        }
         if(!link||!hasUnsavedScores()||link.hasAttribute('download')||(link.target&&link.target!=='_self')||event.ctrlKey||event.metaKey||event.shiftKey||event.altKey)return;
         const target=new URL(link.href,location.href);
         if(target.origin===location.origin&&target.pathname===location.pathname&&target.search===location.search&&target.hash)return;
@@ -144,10 +149,10 @@ export function initScoring(root) {
         // Large rooms can exceed PHP's input-variable limit; keep the same rows in one JSON field.
         const rows={};
         entries.forEach(([name,value])=>{
-            const match=/^rows\[(\d+)\]\[(version|absent|scores)\](?:\[(\d+)\])?$/.exec(name);
+            const match=/^rows\[(\d+)\]\[(version|absent|scores|subject_absences)\](?:\[(\d+)\])?$/.exec(name);
             if(!match)return;
             const [,id,field,subjectId]=match;rows[id]??={};
-            if(field==='scores'){rows[id].scores??={};rows[id].scores[subjectId]=value;}
+            if(field==='scores'||field==='subject_absences'){rows[id][field]??={};rows[id][field][subjectId]=value;}
             else rows[id][field]=value;
             event.formData.delete(name);
         });
@@ -164,13 +169,13 @@ export function initScoring(root) {
         const validateScore=input=>{
             let message='';
             const value=input.value.trim(),number=Number(value);
-            if(!input.disabled){
+            if(!input.disabled && input.dataset.subjectAbsent!=='true'){
                 if(input.validity.badInput || (value!==''&&!Number.isFinite(number)))message='Enter a valid score.';
                 else if(value!==''&&number>Number(input.max))message=`Score cannot exceed the maximum of ${input.max}.`;
                 else if(value!==''&&number<Number(input.min))message=`Score must be at least ${input.min}.`;
                 else if(value!==''&&Math.abs(number*100-Math.round(number*100))>0.000001)message='Use no more than two decimal places.';
             }
-            const feedback=message || (!input.disabled && input.dataset.blankScore==='true' && input.dataset.scoreInput===subject.value && value===''?'Score not entered. Please fill in this score.':'');
+            const feedback=message || (!input.disabled && input.dataset.subjectAbsent!=='true' && input.dataset.blankScore==='true' && input.dataset.scoreInput===subject.value && value===''?'Score not entered. Please fill in this score.':'');
             let error=document.getElementById(input.id+'Error');
             if(feedback&&!error){
                 error=document.createElement('div');error.id=input.id+'Error';error.className='invalid-feedback scholarship-score-error';error.setAttribute('aria-live','polite');input.after(error);
@@ -201,15 +206,41 @@ export function initScoring(root) {
             const subjectField=root.querySelector('#scholarshipScoreDrafts [name="score_subject"]');
             if(subjectField)subjectField.value=subject.value;
             inputs.forEach(input=>{
-                const editable=input.dataset.canScore==='true'&&!input.disabled&&subject.value!==''&&input.dataset.scoreInput===subject.value;
+                const editable=input.dataset.canScore==='true'&&!input.disabled&&input.dataset.subjectAbsent!=='true'&&subject.value!==''&&input.dataset.scoreInput===subject.value;
                 input.readOnly=!editable;input.tabIndex=editable?0:-1;
                 input.setAttribute('aria-readonly',String(!editable));
                 input.classList.toggle('is-scoring',editable);
                 validateScore(input);
             });
+            root.querySelectorAll('[data-subject-absence]').forEach(check=>{
+                const available=check.dataset.canScore==='true' && check.dataset.subjectAbsence===subject.value;
+                check.setAttribute('aria-disabled',String(!available));check.tabIndex=available?0:-1;
+            });
             root.querySelectorAll('[data-score-subject-heading]').forEach(heading=>heading.classList.toggle('is-scoring',heading.dataset.scoreSubjectHeading===subject.value));
             lock.disabled=subject.value==='';
         };
+        const setAbsence=(check,absent)=>{
+            const input=check.closest('td').querySelector('[data-score-input]');
+            const changed=check.checked!==absent || input.dataset.subjectAbsent!==(absent?'true':'false');
+            check.checked=absent;input.dataset.subjectAbsent=String(absent);
+            if(changed)input.value=absent?'0':'';
+            input.closest('.scholarship-score-entry').classList.toggle('is-subject-absent',absent);
+            input.closest('.scholarship-score-entry').querySelector('.scholarship-score-absent-letter').hidden=!absent;
+            input.setAttribute('aria-label',absent?'Absent — score counts as zero':input.labels[0]?.textContent||'Score');
+        };
+        root.querySelectorAll('[data-subject-absence]').forEach(check=>{
+            check.addEventListener('click',event=>{if(check.getAttribute('aria-disabled')==='true')event.preventDefault();});
+            check.addEventListener('change',()=>{
+                setAbsence(check,check.checked);
+                const row=check.closest('[data-scoring-candidate]');
+                row.querySelector('[data-all-subjects-absent]').checked=[...row.querySelectorAll('[data-subject-absence]')].every(box=>box.checked);
+                activate();
+            });
+        });
+        root.querySelectorAll('[data-all-subjects-absent]').forEach(check=>check.addEventListener('change',()=>{
+            check.closest('[data-scoring-candidate]').querySelectorAll('[data-subject-absence]').forEach(box=>setAbsence(box,check.checked));
+            activate();
+        }));
         subject.addEventListener('change',()=>{
             activate();
             requestAnimationFrame(()=>{const first=[...root.querySelectorAll('[data-score-input]')].find(input=>!input.readOnly&&!input.disabled);if(first)focusInput(first);});

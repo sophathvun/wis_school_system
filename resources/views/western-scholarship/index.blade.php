@@ -27,7 +27,15 @@
                 @if($tab==='seat-plan')@include('western-scholarship._seat-summary')@endif
                 @if($tab==='assign-rank')<button type="button" class="btn btn-icon btn-outline-primary scholarship-filter-toggle ms-auto" data-rank-filters-toggle aria-expanded="true" aria-controls="scholarshipRankFilters" aria-label="Collapse rank filters"><i class="ti ti-chevron-up" aria-hidden="true"></i></button>
                 @elseif($tab==='seat-plan' && ($exam?->seats_locked_at) && $examPermissions['export'])@include('western-scholarship._seat-exports')
-                @elseif($tab==='scoring')<button type="button" class="btn btn-sm btn-outline-light ms-auto" data-scoring-fullscreen aria-pressed="false"><i class="ti ti-maximize me-2" aria-hidden="true"></i><span>Full Screen</span></button>
+                @elseif($tab==='scoring')
+                    <div class="d-flex flex-wrap gap-2 ms-auto" role="group" aria-label="Scoring actions">
+                        @if($exam && ($canExportScores??false))
+                            @foreach(['print'=>['Print','ti-printer'],'xlsx'=>['Excel','ti-file-spreadsheet'],'pdf'=>['PDF','ti-file-type-pdf']] as $format=>[$label,$icon])
+                                <a class="btn btn-sm btn-outline-light {{ $exam->seats_locked_at?'':'disabled' }}" data-score-report-link data-score-report-format="{{ $format }}" href="{{ route('western-scholarship.scores.report',[$exam,$format]+request()->only(['score_center','score_room','score_student'])) }}" aria-label="{{ $label }} Score List" @if(!$exam->seats_locked_at)aria-disabled="true" tabindex="-1" title="Confirm the seat plan first"@endif @if($format==='print')target="_blank" rel="noopener"@endif><i class="ti {{ $icon }} me-1" aria-hidden="true"></i>{{ $label }}</a>
+                            @endforeach
+                        @endif
+                        <button type="button" class="btn btn-sm btn-outline-light" data-scoring-fullscreen aria-pressed="false"><i class="ti ti-maximize me-2" aria-hidden="true"></i><span>Full Screen</span></button>
+                    </div>
                 @elseif($tab==='result')
                     <div class="d-flex flex-wrap gap-2 ms-auto" role="group" aria-label="Result actions">
                         @if($exam && $examPermissions['export'])
@@ -84,6 +92,7 @@
         @include('western-scholarship._seat-report-scope')
         @include('western-scholarship._print-settings',['seatReportSettings'=>true])
     @endif
+    @if($tab==='scoring' && ($canExportScores??false))@include('western-scholarship._score-report-scope')@endif
 </div>
 @vite(['resources/css/pages/western-scholarship.css', 'resources/js/westernScholarship.js'])
 @endsection
