@@ -2,6 +2,7 @@ import { renderPagination, renderPageInfo } from "./helpers/pagination.js";
 import { showSuccess, showConfirm, showError } from "./helpers/sweet-alert2.js";
 import { formatStudentBirthplace } from "./helpers/student-profile.js";
 import { isDuplicateStudentIdMessage, isDuplicateStudentIdResponse, readEnrollmentSaveResponse } from "./helpers/enrollment-response.js";
+import { createStudentPhotoEditor, studentPhotoJpeg } from "./helpers/studentPhotoEditor.js";
 import { createEnrollmentFamilyOptionsLoader } from "./helpers/enrollment-family-options.js";
 import "../css/components/student-profile-birthplace.css";
 import birthplaceStyles from "../css/components/student-profile-birthplace.css?raw";
@@ -71,10 +72,6 @@ const submit = document.getElementById("enrollmentSubmit");
 const title = document.getElementById("enrollmentModalTitle");
 const studentPhotoInput = document.getElementById("student_photo");
 const studentPhotoDropzone = document.getElementById("studentPhotoDropzone");
-const studentPhotoPreview = document.getElementById("studentPhotoPreview");
-const studentPhotoPreviewContainer = document.getElementById(
-    "studentPhotoPreviewContainer",
-);
 const studentPhotoViewModalElement = document.getElementById(
     "studentPhotoViewModal",
 );
@@ -87,24 +84,11 @@ const studentPhotoViewDownload = document.getElementById(
     "studentPhotoViewDownload",
 );
 const studentPhotoViewZoom = document.getElementById("studentPhotoViewZoom");
-const studentPhotoCropModalElement = document.getElementById(
-    "studentPhotoCropModal",
-);
-const studentPhotoCropModal = studentPhotoCropModalElement
-    ? new bootstrap.Modal(studentPhotoCropModalElement)
-    : null;
-const studentPhotoCropCanvas = document.getElementById(
-    "studentPhotoCropCanvas",
-);
-const studentPhotoCropContext = studentPhotoCropCanvas?.getContext("2d");
-const studentPhotoZoom = document.getElementById("studentPhotoZoom");
-let studentPhotoCropImage = null;
-let studentPhotoCropScale = 1;
-let studentPhotoCropRotation = 0;
-let studentPhotoCropOffsetX = 0;
-let studentPhotoCropOffsetY = 0;
-let studentPhotoCropDragging = false;
-let studentPhotoCropStart = null;
+const photoEditor = createStudentPhotoEditor({ bootstrap, csrf, showError, showSuccess });
+const showStudentPhotoPreview = photoEditor.showPreview;
+const resetStudentPhotoPreview = photoEditor.resetPreview;
+let studentPhotoViewUrl = null;
+let studentPhotoViewRequest = 0;
 const enrollmentHistoryTable = document.getElementById(
     "enrollmentHistoryTable",
 );
@@ -1204,20 +1188,36 @@ const setStudentPhotoViewZoom = (value) => {
     if (studentPhotoViewImage)
         studentPhotoViewImage.style.transform = `scale(${zoom})`;
 };
-document.addEventListener("click", (event) => {
+document.addEventListener("click", async (event) => {
     const trigger = event.target.closest(".student-photo-view-trigger");
     if (!trigger) return;
-    const url = trigger.dataset.photoUrl;
-    if (studentPhotoViewImage) studentPhotoViewImage.src = url;
-    if (studentPhotoViewDownload) {
-        studentPhotoViewDownload.href = url;
-        studentPhotoViewDownload.download = `${(trigger.dataset.photoTitle || "student-photo").replace(/[^a-z0-9_-]+/gi, "_")}.jpg`;
-    }
-    if (studentPhotoViewTitle)
-        studentPhotoViewTitle.textContent =
-            trigger.dataset.photoTitle || "Student Photo";
+    const requestId = ++studentPhotoViewRequest;
+    if (studentPhotoViewUrl) URL.revokeObjectURL(studentPhotoViewUrl);
+    studentPhotoViewUrl = null;
+    studentPhotoViewImage?.removeAttribute("src");
+    studentPhotoViewDownload?.removeAttribute("href");
+    studentPhotoViewDownload?.setAttribute("aria-disabled", "true");
+    studentPhotoViewDownload?.classList.add("disabled");
+    if (studentPhotoViewTitle) studentPhotoViewTitle.textContent = trigger.dataset.photoTitle || "Student Photo";
     setStudentPhotoViewZoom(1);
     studentPhotoViewModal?.show();
+    try {
+        const blob = await studentPhotoJpeg(trigger.dataset.photoUrl);
+        if (requestId !== studentPhotoViewRequest) return;
+        studentPhotoViewUrl = URL.createObjectURL(blob);
+        studentPhotoViewImage.src = studentPhotoViewUrl;
+        studentPhotoViewDownload.href = studentPhotoViewUrl;
+        studentPhotoViewDownload.download = `${(trigger.dataset.photoTitle || "student-photo").replace(/[^a-z0-9_-]+/gi, "_")}.jpg`;
+        studentPhotoViewDownload.setAttribute("aria-disabled", "false");
+        studentPhotoViewDownload.classList.remove("disabled");
+    } catch (error) { if (requestId === studentPhotoViewRequest) showError("Photo unavailable", error.message); }
+});
+studentPhotoViewModalElement?.addEventListener("hidden.bs.modal", () => {
+    studentPhotoViewRequest++;
+    studentPhotoViewImage?.removeAttribute("src");
+    studentPhotoViewDownload?.removeAttribute("href");
+    if (studentPhotoViewUrl) URL.revokeObjectURL(studentPhotoViewUrl);
+    studentPhotoViewUrl = null;
 });
 studentPhotoViewZoom?.addEventListener("input", () =>
     setStudentPhotoViewZoom(studentPhotoViewZoom.value),
@@ -2385,250 +2385,6 @@ const arrangeEnrollmentStudentInformation = () => {
 };
 arrangeEnrollmentStudentInformation();
 refreshPremiumFieldStates();
-
-const showStudentPhotoPreview = (fileOrUrl) => {
-    if (!studentPhotoPreview || !studentPhotoPreviewContainer || !fileOrUrl)
-        return;
-    if (fileOrUrl instanceof File) {
-        if (!fileOrUrl.type.startsWith("image/")) return;
-        studentPhotoPreview.src = URL.createObjectURL(fileOrUrl);
-    } else {
-        studentPhotoPreview.src = fileOrUrl;
-    }
-    studentPhotoPreviewContainer.classList.remove("d-none");
-};
-
-const drawStudentPhotoCrop = () => {
-    if (
-        !studentPhotoCropContext ||
-        !studentPhotoCropCanvas ||
-        !studentPhotoCropImage
-    )
-        return;
-    const canvas = studentPhotoCropCanvas;
-    const context = studentPhotoCropContext;
-    context.clearRect(0, 0, canvas.width, canvas.height);
-    const _root = getComputedStyle(document.documentElement);
-    const _surface =
-        _root.getPropertyValue("--tblr-bg-surface")?.trim() ||
-        (window.matchMedia &&
-        window.matchMedia("(prefers-color-scheme: dark)").matches
-            ? "#111827"
-            : "#fff");
-    context.fillStyle = _surface;
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    const image = studentPhotoCropImage;
-    const baseScale = Math.max(
-        canvas.width / image.width,
-        canvas.height / image.height,
-    );
-    const scale = baseScale * studentPhotoCropScale;
-    context.save();
-    context.translate(
-        canvas.width / 2 + studentPhotoCropOffsetX,
-        canvas.height / 2 + studentPhotoCropOffsetY,
-    );
-    context.rotate((studentPhotoCropRotation * Math.PI) / 180);
-    context.drawImage(
-        image,
-        -(image.width * scale) / 2,
-        -(image.height * scale) / 2,
-        image.width * scale,
-        image.height * scale,
-    );
-    context.restore();
-};
-const resetStudentPhotoCrop = () => {
-    studentPhotoCropScale = 1;
-    studentPhotoCropRotation = 0;
-    studentPhotoCropOffsetX = 0;
-    studentPhotoCropOffsetY = 0;
-    if (studentPhotoZoom) studentPhotoZoom.value = "1";
-    drawStudentPhotoCrop();
-};
-const openStudentPhotoCrop = (file) => {
-    if (!file || !file.type.startsWith("image/")) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-        const image = new Image();
-        image.onload = () => {
-            studentPhotoCropImage = image;
-            resetStudentPhotoCrop();
-            studentPhotoCropModal?.show();
-        };
-        image.src = reader.result;
-    };
-    reader.readAsDataURL(file);
-};
-const imageFileFromPasteEvent = (event, filename = "pasted-photo.png") => {
-    const clipboardFiles = Array.from(event.clipboardData?.files || []);
-    const directFile = clipboardFiles.find((entry) =>
-        entry.type.startsWith("image/"),
-    );
-    if (directFile)
-        return new File([directFile], filename, {
-            type: directFile.type || "image/png",
-        });
-
-    const items = Array.from(event.clipboardData?.items || []);
-    const item = items.find(
-        (entry) => entry.kind === "file" && entry.type.startsWith("image/"),
-    );
-    const file = item?.getAsFile();
-    return file
-        ? new File([file], filename, { type: file.type || "image/png" })
-        : null;
-};
-const setStudentPhotoFile = (blob) => {
-    const file = new File([blob], "student-photo.jpg", { type: "image/jpeg" });
-    const transfer = new DataTransfer();
-    transfer.items.add(file);
-    if (studentPhotoInput) studentPhotoInput.files = transfer.files;
-    showStudentPhotoPreview(file);
-};
-
-const resetStudentPhotoPreview = () => {
-    if (studentPhotoInput) studentPhotoInput.value = "";
-    studentPhotoPreviewContainer?.classList.add("d-none");
-};
-
-studentPhotoInput?.addEventListener("change", () => {
-    const file = studentPhotoInput.files?.[0];
-    if (file) {
-        studentPhotoInput.value = "";
-        openStudentPhotoCrop(file);
-    }
-});
-
-studentPhotoDropzone?.addEventListener("click", () =>
-    studentPhotoInput?.click(),
-);
-studentPhotoDropzone?.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" || event.key === " ") studentPhotoInput?.click();
-});
-studentPhotoDropzone?.addEventListener("dragover", (event) => {
-    event.preventDefault();
-    studentPhotoDropzone.classList.add("is-dragging");
-});
-studentPhotoDropzone?.addEventListener("dragleave", () =>
-    studentPhotoDropzone.classList.remove("is-dragging"),
-);
-studentPhotoDropzone?.addEventListener("drop", (event) => {
-    event.preventDefault();
-    studentPhotoDropzone.classList.remove("is-dragging");
-    const file = event.dataTransfer.files?.[0];
-    if (!file) return;
-    openStudentPhotoCrop(file);
-});
-studentPhotoDropzone?.addEventListener("paste", (event) => {
-    const file = imageFileFromPasteEvent(event, "pasted-student-photo.png");
-    if (!file) return;
-    event.preventDefault();
-    openStudentPhotoCrop(file);
-});
-document
-    .getElementById("enrollmentModal")
-    ?.addEventListener("shown.bs.modal", () => {
-        window.setTimeout(
-            () => studentPhotoDropzone?.focus({ preventScroll: true }),
-            50,
-        );
-    });
-document.addEventListener("paste", (event) => {
-    const enrollmentModal = document.getElementById("enrollmentModal");
-    if (!enrollmentModal?.classList.contains("show")) return;
-    if (studentPhotoCropModalElement?.classList.contains("show")) return;
-    if (
-        event.target?.closest?.(
-            "input:not([type='file']), textarea, [contenteditable='true'], #enrollmentDocumentDropzone",
-        )
-    )
-        return;
-
-    const file = imageFileFromPasteEvent(event, "pasted-student-photo.png");
-    if (!file) return;
-    event.preventDefault();
-    openStudentPhotoCrop(file);
-});
-
-studentPhotoZoom?.addEventListener("input", () => {
-    studentPhotoCropScale = Number(studentPhotoZoom.value);
-    drawStudentPhotoCrop();
-});
-document.getElementById("studentPhotoZoomIn")?.addEventListener("click", () => {
-    studentPhotoZoom.value = Math.min(
-        3,
-        Number(studentPhotoZoom.value) + 0.1,
-    ).toFixed(2);
-    studentPhotoZoom.dispatchEvent(new Event("input"));
-});
-document
-    .getElementById("studentPhotoZoomOut")
-    ?.addEventListener("click", () => {
-        studentPhotoZoom.value = Math.max(
-            1,
-            Number(studentPhotoZoom.value) - 0.1,
-        ).toFixed(2);
-        studentPhotoZoom.dispatchEvent(new Event("input"));
-    });
-document
-    .getElementById("studentPhotoRotateLeft")
-    ?.addEventListener("click", () => {
-        studentPhotoCropRotation -= 90;
-        drawStudentPhotoCrop();
-    });
-document
-    .getElementById("studentPhotoRotateRight")
-    ?.addEventListener("click", () => {
-        studentPhotoCropRotation += 90;
-        drawStudentPhotoCrop();
-    });
-document
-    .getElementById("studentPhotoReset")
-    ?.addEventListener("click", resetStudentPhotoCrop);
-studentPhotoCropCanvas?.addEventListener("pointerdown", (event) => {
-    studentPhotoCropDragging = true;
-    studentPhotoCropStart = { x: event.clientX, y: event.clientY };
-    studentPhotoCropCanvas.setPointerCapture(event.pointerId);
-});
-studentPhotoCropCanvas?.addEventListener("pointermove", (event) => {
-    if (!studentPhotoCropDragging || !studentPhotoCropStart) return;
-    const scaleX =
-        studentPhotoCropCanvas.width /
-        studentPhotoCropCanvas.getBoundingClientRect().width;
-    const scaleY =
-        studentPhotoCropCanvas.height /
-        studentPhotoCropCanvas.getBoundingClientRect().height;
-    studentPhotoCropOffsetX +=
-        (event.clientX - studentPhotoCropStart.x) * scaleX;
-    studentPhotoCropOffsetY +=
-        (event.clientY - studentPhotoCropStart.y) * scaleY;
-    studentPhotoCropStart = { x: event.clientX, y: event.clientY };
-    drawStudentPhotoCrop();
-});
-studentPhotoCropCanvas?.addEventListener("pointerup", () => {
-    studentPhotoCropDragging = false;
-    studentPhotoCropStart = null;
-});
-studentPhotoCropCanvas?.addEventListener("pointercancel", () => {
-    studentPhotoCropDragging = false;
-    studentPhotoCropStart = null;
-});
-document
-    .getElementById("studentPhotoCropUpload")
-    ?.addEventListener("click", () => {
-        if (!studentPhotoCropCanvas) return;
-        studentPhotoCropCanvas.toBlob(
-            (blob) => {
-                if (blob) {
-                    setStudentPhotoFile(blob);
-                    studentPhotoCropModal?.hide();
-                }
-            },
-            "image/jpeg",
-            0.9,
-        );
-    });
 
 dobTrigger?.addEventListener("click", () => {
     if (dobPopup?.classList.contains("d-none")) {

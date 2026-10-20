@@ -89,7 +89,7 @@ it('saves centers through settings and includes confirmed center names in seat e
     expect($report['headers'][0])->toBe('Exam Center')->and(array_column($report['rows'],0))->toBe(['BCH Exam Center','BKK Exam Center']);
     expect($report['headers'])->toHaveCount(11)->and($report['headers'][4])->toBe('Exam Code')
         ->and($report['headers'][5])->toBe('Student ID')->and($report['rows'][0])->toHaveCount(11)
-        ->and($report['rows'][0][4])->toBe('G03-002')->and($report['rows'][0][5])->toBe('2026001');
+        ->and($report['rows'][0][4])->toBe('2526-G03-002')->and($report['rows'][0][5])->toBe('2026001');
     $view=view('western-scholarship._settings',['exam'=>$exam,'examPermissions'=>['settings'=>true],
         'examCenterCampuses'=>app(\App\Services\ScholarshipExamCenters::class)->campuses(1),'academicYears'=>collect(),
         'errors'=>new \Illuminate\Support\ViewErrorBag()])->render();
@@ -930,7 +930,7 @@ it('updates only exam center locations after confirmation without changing seati
     foreach(['candidates','attendance','attendance-cover','envelope-cover','seat-labels','room-plan'] as $kind){
         $report=scholarshipSeatReportData($exam->fresh(),$kind);
         foreach($report['pages'] as $page){
-            $expected=in_array($kind,['attendance','attendance-cover'],true)?'Exam Date: November 20, 2026':($page['center']==='North Exam Center'?'Phnom Penh':'Battambang').', November 20, 2026';
+            $expected=$kind!=='candidates'?'Exam Date: November 20, 2026':($page['center']==='North Exam Center'?'Phnom Penh':'Battambang').', November 20, 2026';
             $text=collect($page['rows'])->flatMap(fn($row)=>$row['cells'])->flatMap(fn($cell)=>$cell['lines'])->pluck('text')->implode(' ');
             expect($text)->toContain($expected);
         }

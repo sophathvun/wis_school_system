@@ -79,6 +79,9 @@ if(($argv[1]??'')==='rank-saved') {
     if(($argv[2]??'')==='new')$exam->delete();
     if(($argv[1]??'')==='settings' && ($argv[2]??'')==='locked'){$workflow->lockPlan($user,$exam,$workflow->plan($exam)['token']);$exam=$exam->fresh();}
     parse_str($argv[3]??'',$seatQuery);
+    if(!empty($seatQuery['result_report_test'])&&$argv[1]==='result'){
+        foreach($exam->candidates()->orderBy('id')->get() as $index=>$candidate)$candidate->update(['grade_number'=>1+$index%3]);
+    }
     if(!empty($seatQuery['subject_attendance'])&&in_array($argv[1],['scoring','result'],true)){
         $subject=$workflow->applicableSubjects($exam,1)->first();
         foreach($exam->candidates()->orderBy('id')->take(3)->get() as $index=>$row){

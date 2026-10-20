@@ -1,0 +1,24 @@
+"""Remove old background colors from partially transparent portrait edges."""
+import numpy as np
+from PIL import Image
+from pymatting import estimate_foreground_ml
+
+
+def clean_foreground(image: Image.Image, alpha: Image.Image) -> Image.Image:
+    rgb = np.asarray(image.convert('RGB'), dtype=np.float32) / 255.0
+    opacity = np.asarray(alpha.resize(image.size, Image.Resampling.BILINEAR), dtype=np.float32)
+    opacity = np.clip(opacity, 0, 1)
+    # Drop only near-invisible model noise. Do not erode the silhouette: hair
+    # needs its intermediate alpha values to blend naturally on white.
+    opacity[opacity < 0.005] = 0
+    opacity[opacity > 0.995] = 1
+    if np.any((opacity > 0) & (opacity < 1)):
+        # Source RGB already contains the old background mixed into soft edges.
+        # Estimate foreground RGB before applying alpha to a new background,
+        # rather than applying alpha to those contaminated RGB values twice.
+        foreground = estimate_foreground_ml(rgb, opacity, n_big_iterations=4)
+        foreground[opacity == 1] = rgb[opacity == 1]
+    else:
+        foreground = rgb
+    rgba = np.dstack((np.clip(foreground, 0, 1), opacity))
+    return Image.fromarray(np.rint(rgba * 255).astype(np.uint8))

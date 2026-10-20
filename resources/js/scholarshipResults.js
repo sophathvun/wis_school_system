@@ -1,4 +1,5 @@
 import Swal from 'sweetalert2';
+import { initResultReportScope } from './scholarshipResultReportScope.js';
 
 export function initResults(root) {
     const fullscreenButton=root.querySelector('[data-result-fullscreen]');
@@ -40,6 +41,7 @@ export function initResults(root) {
     }
     const dialog=options=>Swal.fire({target:root.classList.contains('is-result-fullscreen')?root:document.body,...options});
     const grades=[...root.querySelectorAll('[data-result-grade]')];
+    initResultReportScope(root);
     if(!grades.length)return;
     const dirty=new Set();
     const warning=()=>dialog({icon:'warning',title:'Unsaved Winners',text:'Save the changed grade winners before leaving this list or publishing results.',confirmButtonText:'Continue Editing'});
@@ -52,6 +54,7 @@ export function initResults(root) {
     },true);
     root.querySelectorAll('[data-result-filters] select').forEach(select=>select.dataset.resultOriginalValue=select.value);
     document.addEventListener('click',event=>{
+        if(dirty.size&&event.target.closest('[data-result-report-link],[data-result-print-settings]')){event.preventDefault();event.stopImmediatePropagation();void warning();return;}
         const link=event.target.closest('a[href]');
         if(!dirty.size||!link||link.hasAttribute('download')||link.target==='_blank'||event.ctrlKey||event.metaKey||event.shiftKey||event.altKey)return;
         event.preventDefault();void warning();

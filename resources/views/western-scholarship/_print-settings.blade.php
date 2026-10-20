@@ -1,12 +1,13 @@
 @php($seatReportSettings=$seatReportSettings??false)
-<div class="modal fade" id="scholarshipPrintSettingsModal" tabindex="-1" aria-labelledby="scholarshipPrintSettingsTitle" aria-hidden="true" @if($seatReportSettings) data-seat-print-settings-modal @endif>
+@php($resultReportSettings=$resultReportSettings??false)
+<div class="modal fade" id="scholarshipPrintSettingsModal" tabindex="-1" aria-labelledby="scholarshipPrintSettingsTitle" aria-hidden="true" @if($seatReportSettings) data-seat-print-settings-modal @elseif($resultReportSettings) data-result-print-settings-modal @endif>
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
-        <form class="modal-content" method="POST" action="{{ route($seatReportSettings?'western-scholarship.seats.print-settings.save':'western-scholarship.ranks.print-settings.save') }}" data-rank-print-settings-form novalidate>
+        <form class="modal-content" method="POST" action="{{ route($resultReportSettings?'western-scholarship.results.print-settings.save':($seatReportSettings?'western-scholarship.seats.print-settings.save':'western-scholarship.ranks.print-settings.save')) }}" data-rank-print-settings-form novalidate>
             @csrf
             <input type="hidden" name="academic_year_id">
-            @if($seatReportSettings)<input type="hidden" name="exam_id" value="{{ $exam->id }}">@endif
+            @if($seatReportSettings||$resultReportSettings)<input type="hidden" name="exam_id" value="{{ $exam->id }}">@endif
             <div class="modal-header scholarship-card-header">
-                <div class="scholarship-print-heading"><span class="scholarship-print-icon" aria-hidden="true"><i class="ti ti-printer"></i></span><div><h3 class="modal-title" id="scholarshipPrintSettingsTitle">Print Settings</h3><p>{{ $seatReportSettings?'Seat Plan reports · Signers and dates by exam center':'Outstanding student report' }}</p></div></div>
+                <div class="scholarship-print-heading"><span class="scholarship-print-icon" aria-hidden="true"><i class="ti ti-printer"></i></span><div><h3 class="modal-title" id="scholarshipPrintSettingsTitle">Print Settings</h3><p>{{ $resultReportSettings?'Result reports · Signers and dates by academic year':($seatReportSettings?'Seat Plan reports · Signers and dates by exam center':'Outstanding student report') }}</p></div></div>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
@@ -18,6 +19,7 @@
                         <div class="scholarship-print-field"><label class="form-label" for="seatPrintCenter">Exam Center <span class="text-danger">*</span></label><select class="form-select" name="exam_center_id" id="seatPrintCenter" required></select></div>
                     @endif
                     <div class="scholarship-print-field"><label class="form-label" for="rankPrintCampus"><span data-print-scope-label>Campus</span> <span class="text-danger">*</span></label><select class="form-select" name="campus_id" id="rankPrintCampus" required></select></div>
+                    @if($resultReportSettings)<div class="scholarship-print-field"><label class="form-label" for="resultPrintLocation">Signing Location <span class="text-danger">*</span></label><input class="form-control" id="resultPrintLocation" name="signing_location" maxlength="150" required placeholder="Phnom Penh"></div>@endif
                 </div>
                 <div class="scholarship-print-signatures">
                     @foreach([

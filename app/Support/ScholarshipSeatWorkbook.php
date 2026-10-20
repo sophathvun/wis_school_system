@@ -19,7 +19,7 @@ class ScholarshipSeatWorkbook
     public function generate(array $data): string
     {
         $entries=[];$sheets='';$areas='';$relationships=[];$hasDrawing=false;
-        $styles=ScholarshipSeatReports::styles()+($data['document']==='score-list'?ScholarshipScoreReports::styles():[]);$styleIds=array_flip(array_keys($styles));
+        $styles=ScholarshipSeatReports::styles()+match($data['document']){'score-list'=>ScholarshipScoreReports::styles(),'result-list'=>ScholarshipResultReports::styles(),default=>[]};$styleIds=array_flip(array_keys($styles));
         $logo=$data['logoSrc']?$this->logo($data['logoSrc']):null;
         $types='<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>';
         foreach($this->worksheets($data) as $index=>$worksheet){
@@ -54,6 +54,7 @@ class ScholarshipSeatWorkbook
     /** Keep all subject/student continuation pages for a room on the same sheet. */
     private function worksheets(array $data): array
     {
+        if($data['document']==='result-list')return collect($data['pages'])->groupBy('grade')->map(fn($pages,$grade)=>['name'=>'Grade '.$grade,'pages'=>$pages->values()->all()])->values()->all();
         if(!in_array($data['document'],['attendance','score-list'],true)||!$data['pages'])return [['name'=>'Scholarship Report','pages'=>$data['pages']]];
         $groups=[];$roomCounts=[];
         foreach($data['pages'] as $page){
@@ -129,7 +130,7 @@ class ScholarshipSeatWorkbook
         $entries=[];$drawing=(bool)($logo&&$this->images);
         $mergeXml=implode('',array_map(fn($ref)=>'<mergeCell ref="'.$ref.'"/>',$merges));
         $breakXml=$breaks?'<rowBreaks count="'.count($breaks).'" manualBreakCount="'.count($breaks).'">'.implode('',array_map(fn($row)=>'<brk id="'.$row.'" min="0" max="16383" man="1"/>',$breaks)).'</rowBreaks>':'';
-        $footer=in_array($data['document'],['room-plan','score-list'],true)?'':'<headerFooter><oddFooter>&amp;RPage &amp;P of &amp;N</oddFooter></headerFooter>';
+        $footer=in_array($data['document'],['room-plan','score-list','result-list'],true)?'':'<headerFooter><oddFooter>&amp;RPage &amp;P of &amp;N</oddFooter></headerFooter>';
         $orientation=($data['orientation']??'portrait')==='landscape'?'landscape':'portrait';$columnWidth=$orientation==='landscape'?'2.70':'1.86';
         $entries['xl/worksheets/sheet'.$number.'.xml']='<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="'.self::NS.'" xmlns:r="'.self::REL.'"><sheetPr><pageSetUpPr fitToPage="0"/></sheetPr><dimension ref="A1:BH'.$rowNumber.'"/><sheetViews><sheetView showGridLines="0" workbookViewId="0"/></sheetViews><sheetFormatPr defaultRowHeight="18"/><cols><col min="1" max="60" width="'.$columnWidth.'" customWidth="1"/></cols><sheetData>'.$sheet.'</sheetData>'.($merges?'<mergeCells count="'.count($merges).'">'.$mergeXml.'</mergeCells>':'').'<printOptions horizontalCentered="1"/><pageMargins left="0.315" right="0.315" top="0.315" bottom="0.315" header="0.1" footer="0.1"/><pageSetup paperSize="9" orientation="'.$orientation.'" scale="95"/>'.$footer.$breakXml.($drawing?'<drawing r:id="rId1"/>':'').'</worksheet>';
         if($drawing){

@@ -169,7 +169,8 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <small class="form-hint">JPG, PNG, or WEBP. Maximum size: 2 MB.</small>
+                                    <button type="button" class="btn btn-outline-primary btn-sm d-none mt-2" id="studentPhotoEdit"><i class="ti ti-photo-edit me-1"></i>Edit Photo</button>
+                                    <small class="form-hint">JPG, PNG, or WebP up to 10 MB. Saved as WebP up to 40 KB. View and download as JPG.</small>
                                 </div>
                                 <div class="col-md-4 premium-floating-field">
                                     <label class="form-label">Student No. (Auto)</label>
@@ -811,40 +812,7 @@
             </div>
         </div>
     </div>
-    <div class="modal modal-blur fade" id="studentPhotoCropModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3 class="modal-title">Crop Student Photo</h3><button type="button" class="btn-close"
-                        data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <p class="text-secondary small">Adjust the photo inside the locked 3:4 frame. The final image will be
-                        exactly 600 x 800 px.</p>
-                    <div class="student-photo-crop-stage"><canvas id="studentPhotoCropCanvas" width="600"
-                            height="800"></canvas></div>
-                    <div class="row g-2 align-items-center mt-3">
-                        <div class="col-auto"><button type="button" class="btn btn-outline-secondary"
-                                id="studentPhotoZoomOut"><i class="ti ti-zoom-out"></i></button></div>
-                        <div class="col"><input type="range" class="form-range" id="studentPhotoZoom"
-                                min="1" max="3" step="0.01" value="1" aria-label="Zoom photo">
-                        </div>
-                        <div class="col-auto"><button type="button" class="btn btn-outline-secondary"
-                                id="studentPhotoZoomIn"><i class="ti ti-zoom-in"></i></button></div>
-                        <div class="col-auto"><button type="button" class="btn btn-outline-secondary"
-                                id="studentPhotoRotateLeft"><i class="ti ti-rotate-2"></i> Left</button></div>
-                        <div class="col-auto"><button type="button" class="btn btn-outline-secondary"
-                                id="studentPhotoRotateRight"><i class="ti ti-rotate-clockwise-2"></i> Right</button></div>
-                        <div class="col-auto"><button type="button" class="btn btn-outline-secondary"
-                                id="studentPhotoReset">Reset</button></div>
-                    </div>
-                </div>
-                <div class="modal-footer"><button type="button" class="btn btn-link"
-                        data-bs-dismiss="modal">Cancel</button><button type="button" class="btn btn-primary"
-                        id="studentPhotoCropUpload"><i class="ti ti-crop me-1"></i>Crop and Upload</button></div>
-            </div>
-        </div>
-    </div>
+    @include('students._photo-editor')
     <div class="modal modal-blur fade" id="studentPhotoViewModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-centered">
             <div class="modal-content">
@@ -862,8 +830,8 @@
                             aria-label="Zoom student photo"><button type="button" class="btn btn-outline-secondary"
                             id="studentPhotoViewZoomIn"><i class="ti ti-zoom-in"></i></button><button type="button"
                             class="btn btn-outline-secondary" id="studentPhotoViewZoomReset">Reset</button></div>
-                    <a class="btn btn-primary" id="studentPhotoViewDownload" href="#" download><i
-                            class="ti ti-download me-1"></i>Download</a>
+                    <a class="btn btn-primary" id="studentPhotoViewDownload" href="#" download aria-disabled="true"><i
+                            class="ti ti-download me-1"></i>Download JPG</a>
                 </div>
             </div>
         </div>

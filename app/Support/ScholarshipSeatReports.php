@@ -366,7 +366,7 @@ class ScholarshipSeatReports
             'fontDir'=>[...(new \Mpdf\Config\ConfigVariables())->getDefaults()['fontDir'],public_path('fonts/khmer')],
             'fontdata'=>(new \Mpdf\Config\FontVariables())->getDefaults()['fontdata']+['scholarshipmuol'=>['R'=>'KhmerOSmuollight.ttf','useOTL'=>0xFF],'scholarshipsiemreap'=>['R'=>'KhmerOSsiemreap.ttf','useOTL'=>0xFF]],'default_font'=>'dejavusans','default_font_size'=>9]);
         $pdf->SetTitle($data['title']);
-        if(!in_array($data['document'],['attendance','attendance-cover','envelope-cover','room-plan','score-list'],true))$pdf->SetHTMLFooter('<div style="text-align:right;font-size:8pt">Page {PAGENO} of {nbpg}</div>');
+        if(!in_array($data['document'],['attendance','attendance-cover','envelope-cover','room-plan','score-list','result-list'],true))$pdf->SetHTMLFooter('<div style="text-align:right;font-size:8pt">Page {PAGENO} of {nbpg}</div>');
         $pdf->shrink_tables_to_fit=1;
         if($data['logoSrc']){
             $pdf->imageVars['schoolLogo']=base64_decode(explode(',',$data['logoSrc'],2)[1]);
@@ -376,7 +376,8 @@ class ScholarshipSeatReports
         // not exceed mPDF's HTML parser limit.
         foreach($data['pages']?:[null] as $index=>$page){
             if($index)$pdf->AddPage();
-            $pdf->WriteHTML(view($data['document']==='score-list'?'western-scholarship.score-report':'western-scholarship.seat-report',array_replace($data,['pdfExport'=>true,'pages'=>$page?[$page]:[]]))->render());
+            $view=match($data['document']){'score-list'=>'western-scholarship.score-report','result-list'=>'western-scholarship.result-report',default=>'western-scholarship.seat-report'};
+            $pdf->WriteHTML(view($view,array_replace($data,['pdfExport'=>true,'pages'=>$page?[$page]:[]]))->render());
         }
         return $pdf->Output('',\Mpdf\Output\Destination::STRING_RETURN);
     }

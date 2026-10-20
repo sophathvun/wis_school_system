@@ -9,9 +9,17 @@ import { join,resolve } from 'node:path';
 const root=resolve(import.meta.dirname,'../..');
 const php=process.env.CHAT_TEST_PHP||'C:/laragon/bin/php/php-8.4.25-Win32-vs17-x64/php.exe';
 const executable=process.env.CHAT_TEST_BROWSER||'C:/Program Files/Google/Chrome/Application/chrome.exe';
-const requests=[],reviewPosts=[],awardPosts=[],scoreReportRequests=[];
+const requests=[],reviewPosts=[],awardPosts=[],scoreReportRequests=[],resultReportRequests=[],resultSettingPosts=[];
 const server=createServer(async(req,res)=>{
     const url=new URL(req.url,'http://localhost');
+    if(url.pathname.endsWith('/results/print-settings')){
+        res.setHeader('Content-Type','application/json');
+        if(req.method==='POST'){
+            let body='';for await(const chunk of req)body+=chunk;resultSettingPosts.push(body);
+            res.end(JSON.stringify({message:'Result print settings saved.'}));return;
+        }
+        res.end(execFileSync(php,[join(root,'tests/browser/scholarship-result-report-fixture.php'),'settings','8',url.searchParams.toString()],{cwd:root,encoding:'utf8'}));return;
+    }
     if(req.method==='POST'){
         let body='';for await(const chunk of req)body+=chunk;
         if(url.pathname.includes('/awards/')){
@@ -39,6 +47,13 @@ const server=createServer(async(req,res)=>{
     if(url.pathname==='/score-list-preview'){
         res.setHeader('Content-Type','text/html; charset=utf-8');
         res.end(await readFile(join(root,'storage/app/testing/score-reports/score-list.html')));return;
+    }
+    if(url.pathname==='/result-list-preview'){
+        res.setHeader('Content-Type','text/html; charset=utf-8');res.end(await readFile(join(root,'storage/app/testing/result-reports/result-list.html')));return;
+    }
+    if(/\/result-reports\/(xlsx|pdf)$/.test(url.pathname)){
+        resultReportRequests.push({format:url.pathname.split('/').at(-1),params:Object.fromEntries(url.searchParams),grades:url.searchParams.getAll('report_grades[]')});
+        res.writeHead(204);res.end();return;
     }
     if(/\/score-list\/(xlsx|pdf)$/.test(url.pathname)){
         scoreReportRequests.push({format:url.pathname.split('/').at(-1),params:Object.fromEntries(url.searchParams),rooms:url.searchParams.getAll('report_rooms[]')});
@@ -496,6 +511,9 @@ try{
     assert.equal(await evaluate(`document.querySelector('[data-result-candidate="${resultIds[0]}"] [data-result-award-select]').classList.contains('is-award-assigned')`),false);
     await choose(0,'total_1');
     assert.equal(await evaluate(`document.querySelector('[data-result-candidate="${resultIds[0]}"] [data-result-award-percent]').value`),'100');
+    await click('[data-result-report-format="print"]');await until('document.querySelector(".swal2-title")?.textContent==="Unsaved Winners"');
+    assert.equal(await evaluate('document.querySelector("#scholarshipResultReportScope").classList.contains("show")'),false);
+    await click('.swal2-confirm');await until('document.querySelector(".swal2-popup")===null');
     await command('Runtime.evaluate',{expression:'document.querySelector("[data-result-fullscreen]").click()',userGesture:true});
     await until('document.querySelector("[data-result-fullscreen]").getAttribute("aria-pressed")==="true"');
     await choose(1,'total_1');await until('document.querySelector(".swal2-title")?.textContent==="Check Scholarship Winners"');
@@ -537,6 +555,62 @@ try{
         assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth+1'),true);
         await command('Page.captureScreenshot',{format:'png'}).then(result=>writeFile(join(root,'storage/app/testing/result-'+(mobile?'mobile':'desktop')+'.png'),Buffer.from(result.data,'base64')));
     }
+    // Result report scopes and separate signer settings.
+    for(const mobile of [false,true]){
+        await command('Emulation.setDeviceMetricsOverride',{width:mobile?390:1440,height:mobile?844:980,deviceScaleFactor:1,mobile});
+        await command('Page.navigate',{url:origin+'/?tab=result&result_report_test=1'});await until('document.querySelector("[data-result-filters-ready]")!==null');
+        await evaluate('window.resultReportOpened="";window.open=url=>{window.resultReportOpened=String(url);};');
+        const resultModal=()=>until('document.querySelector("#scholarshipResultReportScope").classList.contains("show")&&document.querySelector("#scholarshipResultReportScope .modal-dialog").getAnimations().length===0');
+        const closed=()=>until('!document.body.classList.contains("modal-open")');
+        assert.equal(await evaluate('(()=>{const settings=document.querySelector("[data-result-print-settings]"),pdf=document.querySelector("[data-result-report-format=pdf]");return Boolean(pdf.compareDocumentPosition(settings)&Node.DOCUMENT_POSITION_FOLLOWING);})()'),true);
+        await click('[data-result-report-format="print"]');await resultModal();
+        assert.equal(await evaluate('document.querySelector("#resultReportScope").value'),'all-grades');
+        await evaluate('document.querySelector("#resultReportScope").value="single-grade";document.querySelector("#resultReportScope").dispatchEvent(new Event("change",{bubbles:true}));');
+        await click('[data-result-report-open]');assert.equal(await evaluate('document.querySelector("#resultReportGrade").classList.contains("is-invalid")'),true);
+        await click('#resultReportGradeToggle');await click('#resultReportGradeOptions [data-seat-option="2"]');
+        await click('[data-result-report-open]');await closed();
+        assert.equal(new URL(await evaluate('window.resultReportOpened')).searchParams.get('report_grade'),'2');
+        await click('[data-result-report-format="xlsx"]');await resultModal();
+        await evaluate('document.querySelector("#resultReportScope").value="selected-grades";document.querySelector("#resultReportScope").dispatchEvent(new Event("change",{bubbles:true}));');
+        await click('#resultReportGradesToggle');
+        await click('#resultReportGradesOptions [data-seat-option="1"]');await click('#resultReportGradesOptions [data-seat-option="3"]');
+        const beforeExcel=resultReportRequests.length;await click('[data-result-report-open]');await closed();
+        for(let i=0;i<100&&resultReportRequests.length===beforeExcel;i++)await delay(50);
+        assert.deepEqual(resultReportRequests.at(-1).grades,['1','3']);
+        for(const mode of ['combined','separate']){
+            await click('[data-result-report-format="pdf"]');await resultModal();
+            await evaluate(`document.querySelector('#resultReportPdfMode').value='${mode}';document.querySelector('#resultReportPdfMode').dispatchEvent(new Event('change',{bubbles:true}));`);
+            const beforePdf=resultReportRequests.length;await click('[data-result-report-open]');await closed();
+            for(let i=0;i<100&&resultReportRequests.length===beforePdf;i++)await delay(50);
+            assert.equal(resultReportRequests.at(-1).params.pdf_mode,mode);
+            assert.equal(resultReportRequests.at(-1).params.report_scope,'all-grades');
+        }
+        await click('[data-result-print-settings]');
+        await until('document.querySelector("[data-save-print-settings]")?.disabled===false');
+        assert.equal(await evaluate('document.querySelector("#scholarshipPrintSettingsTitle").textContent'),'Result Print Settings');
+        assert.equal(await evaluate('document.querySelector("#resultPrintLocation").value'),'Phnom Penh');
+        assert.equal(await evaluate('document.querySelectorAll("[data-print-signature-role]:not([hidden])").length'),3);
+        assert.equal(await evaluate('document.querySelector("[data-staff-position=prepared]").textContent'),'Position: Registrar');
+        await evaluate('const campus=document.querySelector("#rankPrintCampus");campus.value="2";campus.dispatchEvent(new Event("change",{bubbles:true}));');
+        await until('document.querySelector("[data-save-print-settings]").disabled===false&&document.querySelector("#rankPrintCampus").value==="2"');
+        await click('#rankPrintPreparedBy');assert.equal(await evaluate('[...document.querySelectorAll("[data-signature-role=prepared] [data-staff-results] button")].every(button=>button.textContent.includes("BKK"))'),true);
+        await click('[data-signature-role="prepared"] [data-staff-results] button');
+        await click('#rankPrintCheckedBy');await click('[data-signature-role="checked"] [data-staff-results] button');
+        await click('#rankPrintApprovedBy');await click('[data-signature-role="approved"] [data-staff-results] button');
+        await evaluate('document.querySelector("#resultPrintLocation").value="Battambang";');
+        await command('Page.captureScreenshot',{format:'png',captureBeyondViewport:false}).then(result=>writeFile(join(root,'storage/app/testing/result-print-settings-'+(mobile?'mobile':'desktop')+'.png'),Buffer.from(result.data,'base64')));
+        const beforeSettings=resultSettingPosts.length;await click('[data-save-print-settings]');await closed();
+        assert.equal(resultSettingPosts.length,beforeSettings+1);await until('document.querySelector(".swal2-toast")!==null');
+        await evaluate('document.querySelector(".swal2-close")?.click();');
+        assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth+1'),true);
+    }
+    execFileSync(php,[join(root,'tests/browser/scholarship-result-report-fixture.php')],{cwd:root});
+    await command('Emulation.setDeviceMetricsOverride',{width:1440,height:980,deviceScaleFactor:1,mobile:false});
+    await command('Page.addScriptToEvaluateOnNewDocument',{source:'window.print=()=>{window.resultPrintRequested=true;}'});
+    await command('Page.navigate',{url:origin+'/result-list-preview'});await until('window.resultPrintRequested===true');
+    const resultPdf=await command('Page.printToPDF',{preferCSSPageSize:true,printBackground:true,displayHeaderFooter:false});
+    assert.equal([...Buffer.from(resultPdf.data,'base64').toString('latin1').matchAll(/\/Type\s*\/Page\b/g)].length,3);
+    await writeFile(join(root,'storage/app/testing/result-reports/result-list-browser.pdf'),Buffer.from(resultPdf.data,'base64'));
     // Exercise report scopes using all four synthetic rooms, on desktop and phone.
     for(const mobile of [false,true]){
         await command('Emulation.setDeviceMetricsOverride',{width:mobile?390:1440,height:mobile?844:980,deviceScaleFactor:1,mobile});

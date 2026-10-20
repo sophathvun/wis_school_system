@@ -661,6 +661,70 @@ class ScholarshipController
             ->header('Content-Disposition','attachment; filename="wis-scholarship-'.$exam->id.'-'.$document.'.'.$format.'"');
     }
 
+    private function resultPrintContext(Request $request): array
+    {
+        abort_unless(ScholarshipPermissions::allows($request->user(),'tab-result'),403);
+        $request->validate(['exam_id'=>['required','integer']]);
+        $exam=ScholarshipExam::with('academicYear')->findOrFail($request->integer('exam_id'));
+        abort_unless($this->workflow->canView($request->user(),$exam)&&$this->workflow->central($request->user(),$exam,'export'),403);
+        return [$exam,$this->campuses($request,'export')];
+    }
+
+    public function resultPrintSettings(Request $request)
+    {
+        [$exam,$campuses]=$this->resultPrintContext($request);
+        $request->validate(['campus_id'=>['nullable','integer',Rule::in($campuses->pluck('id')->all())]]);
+        $setting=\App\Models\ScholarshipResultPrintSetting::where('exam_id',$exam->id)->first();
+        $campusId=$request->integer('campus_id')?:($campuses->contains('id',$setting?->campus_id)?$setting->campus_id:$this->rankSignatureCampus($request,$campuses));
+        abort_unless($campusId,403);$sameCampus=(int)$setting?->campus_id===(int)$campusId;$values=[];
+        foreach(['prepared','checked','approved'] as $role){
+            foreach(['staff_id','by_name','position'] as $field)$values[$role.'_'.$field]=$sameCampus?$setting?->getAttribute($role.'_'.$field):null;
+            $values[$role.'_date']=$setting?->getAttribute($role.'_date')?->format('Y-m-d')??now()->toDateString();
+        }
+        $values['signing_location']=$setting?->signing_location??'Phnom Penh';
+        return response()->json([
+            'academic_year'=>['id'=>$exam->academic_year_id,'label'=>$exam->academicYear->academic_year],
+            'campuses'=>$campuses->map(fn($item)=>['id'=>$item->id,'label'=>$item->campus_name_en?:$item->campus_name_kh]),'campus_id'=>$campusId,
+            'values'=>$values,'requires_verifier'=>true,
+            'staff'=>$this->rankSignerStaff((int)$campusId)->map(fn($staff)=>['id'=>$staff->id,'code'=>$staff->staff_code,'name'=>$staff->name_en?:$staff->name_kh,'name_kh'=>$staff->name_kh,'position'=>$staff->position?->name??'']),
+        ]);
+    }
+
+    public function saveResultPrintSettings(Request $request)
+    {
+        [$exam,$campuses]=$this->resultPrintContext($request);
+        $request->validate(['campus_id'=>['required','integer',Rule::in($campuses->pluck('id')->all())]]);
+        $staff=$this->rankSignerStaff($request->integer('campus_id'))->keyBy('id');
+        $rules=['signing_location'=>['required','string','max:150']];$labels=[];
+        foreach(['prepared'=>'Prepared by','checked'=>'Checked and Verified by','approved'=>'Approved by'] as $role=>$label){
+            $rules[$role.'_staff_id']=['required','integer',Rule::in($staff->keys()->all())];$rules[$role.'_date']=['required','date_format:Y-m-d'];
+            $labels[$role.'_staff_id']=$label.' (HRM Staff)';$labels[$role.'_date']=$label.' Date';
+        }
+        $data=$request->validate($rules,[],$labels);$data['signing_location']=trim($data['signing_location']);
+        if($data['signing_location']==='')throw ValidationException::withMessages(['signing_location'=>'Enter the signing location.']);
+        foreach(['prepared','checked','approved'] as $role){
+            $signer=$staff->get($data[$role.'_staff_id']);$data[$role.'_by_name']=$signer->name_en?:$signer->name_kh;$data[$role.'_position']=$signer->position?->name;
+        }
+        \App\Models\ScholarshipResultPrintSetting::updateOrCreate(['exam_id'=>$exam->id],$data+['campus_id'=>$request->integer('campus_id'),'updated_by'=>$request->user()->id]);
+        return response()->json(['message'=>'Result print settings saved.']);
+    }
+
+    public function resultReport(Request $request,ScholarshipExam $exam,string $format)
+    {
+        abort_unless(in_array($format,['print','xlsx','pdf'],true),404);
+        abort_unless(ScholarshipPermissions::allows($request->user(),'tab-result')&&$this->workflow->canView($request->user(),$exam)&&$this->workflow->central($request->user(),$exam,'export'),403);
+        $ids=$this->workflow->candidates($request->user(),$exam)->pluck('id');
+        $results=$this->workflow->results($exam)->filter(fn($row)=>$ids->contains($row['candidate']->id));
+        $scope=app(\App\Support\ScholarshipResultReportScope::class)->apply($request,$results);
+        if($format!=='pdf'&&$scope['pdf_mode']==='separate')throw ValidationException::withMessages(['pdf_mode'=>'Separate files are available for PDF exports.']);
+        $export=app(\App\Support\ScholarshipResultReports::class);$data=$export->data($exam,$scope['rows'],$scope['students']);
+        if($format==='print')return view('western-scholarship.result-report',$data);
+        $separate=$format==='pdf'&&$scope['pdf_mode']==='separate';
+        $bytes=$separate?$export->pdfArchive($data):($format==='pdf'?app(\App\Support\ScholarshipSeatReports::class)->pdf($data):app(\App\Support\ScholarshipSeatWorkbook::class)->generate($data));
+        return response($bytes)->header('Content-Type',$separate?'application/zip':($format==='pdf'?'application/pdf':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'))
+            ->header('Content-Disposition','attachment; filename="wis-scholarship-'.$exam->id.'-results.'.($separate?'zip':$format).'"');
+    }
+
     public function scoreReport(Request $request,ScholarshipExam $exam,string $format)
     {
         abort_unless(in_array($format,['print','xlsx','pdf'],true),404);

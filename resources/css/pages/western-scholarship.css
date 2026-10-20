@@ -412,6 +412,9 @@ body.scholarship-result-fullscreen-open { overflow:hidden; }
 #scholarshipSeatReportScope .modal-dialog { max-width: 520px; }
 #scholarshipScoreReportScope .modal-dialog { max-width: 520px; }
 #scholarshipScoreReportScope [hidden] { display:none!important; }
+#scholarshipResultReportScope .modal-dialog { max-width:520px; }
+#scholarshipResultReportScope [hidden] { display:none!important; }
+[data-result-print-settings-modal] .scholarship-print-context > :last-child { grid-column:1/-1; }
 #scholarshipSeatReportScope .modal-title { color: white; }
 .scholarship-examination-type { padding: 1rem; border: 1px solid var(--tblr-border-color); border-radius: 12px; }
 .scholarship-examination-type .flex-fill { min-width: 200px; }

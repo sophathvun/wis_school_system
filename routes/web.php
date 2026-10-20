@@ -265,6 +265,9 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         Route::post('/ranks/print-settings','saveRankPrintSettings')->name('ranks.print-settings.save');
         Route::get('/seats/print-settings','seatPrintSettings')->name('seats.print-settings');
         Route::post('/seats/print-settings','saveSeatPrintSettings')->name('seats.print-settings.save');
+        Route::get('/results/print-settings','resultPrintSettings')->name('results.print-settings');
+        Route::post('/results/print-settings','saveResultPrintSettings')->name('results.print-settings.save');
+        Route::get('/exams/{exam}/result-reports/{format}','resultReport')->where('format','print|xlsx|pdf')->name('results.report');
         Route::post('/exams/{exam}/center-locations','saveCenterLocations')->name('exams.center-locations');
         Route::post('/exams/{exam}/subject-order','saveSubjectOrder')->name('exams.subject-order');
         Route::get('/ranks/report/{format}', 'rankReport')->where('format','print|xlsx|pdf')->name('ranks.report');
@@ -532,6 +535,8 @@ Route::get('/student-enrollments/student/{student}/siblings', [StudentEnrollment
 Route::get('/student-enrollments/student/{student}/profile', [StudentEnrollmentController::class, 'profile'])->middleware('auth')->name('student-enrollments.profile');
 Route::get('/student-enrollments/{enrollment}/history', [StudentEnrollmentController::class, 'history'])->name('student-enrollments.history');
 Route::post('/student-enrollments/save', [StudentEnrollmentController::class, 'save'])->name('student-enrollments.save');
+Route::post('/student-enrollments/photo/background', [\App\Http\Controllers\StudentPhotoController::class, 'background'])
+    ->middleware('throttle:12,1')->name('student-enrollments.photo.background');
 Route::delete('/student-enrollments/delete/{id}', [StudentEnrollmentController::class, 'delete'])->name('student-enrollments.delete');
 Route::get('/students/enrollment/workflows', fn () => redirect()->route('studentPromotion.index'))->name('student-enrollment-workflows.index');
 Route::get('/student-enrollment-workflows/options', [EnrollmentWorkflowController::class, 'options'])->name('student-enrollment-workflows.options');

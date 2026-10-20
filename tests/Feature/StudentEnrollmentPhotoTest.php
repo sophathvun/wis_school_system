@@ -102,12 +102,13 @@ it('changes the photo URL on every upload and deletes each replaced file after s
     $previousPath = $this->oldPhoto;
     for ($upload = 0; $upload < 2; $upload++) {
         $photo = UploadedFile::fake()->image('same-photo.jpg', 600, 800);
-        $bytes = file_get_contents($photo->getRealPath());
         $response = $this->postJson(route('student-enrollments.save'), [...$this->payload, 'photo' => $photo])->assertOk();
         $newPath = $response->json('data.student.photo_path');
         expect($newPath)->not->toBe($previousPath)
             ->and($newPath)->toStartWith('student_photos/SAMPLE_STUDENT_TEST001_')
-            ->and(Storage::disk('public')->get($newPath))->toBe($bytes)
+            ->and($newPath)->toEndWith('.webp')
+            ->and(strlen(Storage::disk('public')->get($newPath)))->toBeLessThanOrEqual(40960)
+            ->and(getimagesizefromstring(Storage::disk('public')->get($newPath))['mime'])->toBe('image/webp')
             ->and(DB::table('tb_student')->value('photo_path'))->toBe($newPath);
         Storage::disk('public')->assertMissing($previousPath);
         expect(Storage::disk('public')->allFiles('student_photos'))->toBe([$newPath]);

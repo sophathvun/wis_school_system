@@ -39,9 +39,10 @@
                 @elseif($tab==='result')
                     <div class="d-flex flex-wrap gap-2 ms-auto" role="group" aria-label="Result actions">
                         @if($exam && $examPermissions['export'])
-                        <a class="btn btn-sm btn-outline-light" target="_blank" rel="noopener" href="{{ route('western-scholarship.report',[$exam,'results','print']) }}"><i class="ti ti-printer me-1" aria-hidden="true"></i>Print Results</a>
-                        <a class="btn btn-sm btn-outline-light" href="{{ route('western-scholarship.report',[$exam,'results','xlsx']) }}"><i class="ti ti-file-spreadsheet me-1" aria-hidden="true"></i>Excel</a>
-                        <a class="btn btn-sm btn-outline-light" href="{{ route('western-scholarship.report',[$exam,'results','csv']) }}"><i class="ti ti-file-type-csv me-1" aria-hidden="true"></i>CSV</a>
+                        @foreach(['print'=>['Print Results','ti-printer'],'xlsx'=>['Excel','ti-file-spreadsheet'],'pdf'=>['PDF','ti-file-type-pdf']] as $format=>[$label,$icon])
+                        <a class="btn btn-sm btn-outline-light" data-result-report-link data-result-report-format="{{ $format }}" href="{{ route('western-scholarship.results.report',[$exam,$format]) }}" @if($format==='print')target="_blank" rel="noopener"@endif><i class="ti {{ $icon }} me-1" aria-hidden="true"></i>{{ $label }}</a>
+                        @endforeach
+                        <button class="btn btn-sm btn-outline-light" type="button" data-result-print-settings><i class="ti ti-settings me-1" aria-hidden="true"></i>Settings</button>
                         @endif
                         <button type="button" class="btn btn-sm btn-outline-light" data-result-fullscreen aria-pressed="false"><i class="ti ti-maximize me-2" aria-hidden="true"></i><span>Full Screen</span></button>
                     </div>
@@ -93,6 +94,10 @@
         @include('western-scholarship._print-settings',['seatReportSettings'=>true])
     @endif
     @if($tab==='scoring' && ($canExportScores??false))@include('western-scholarship._score-report-scope')@endif
+    @if($tab==='result' && $exam && $examPermissions['export'])
+        @include('western-scholarship._result-report-scope')
+        @include('western-scholarship._print-settings',['resultReportSettings'=>true])
+    @endif
 </div>
 @vite(['resources/css/pages/western-scholarship.css', 'resources/js/westernScholarship.js'])
 @endsection

@@ -465,9 +465,10 @@ class StudentEnrollmentController
                 if ($request->hasFile('photo')) {
                     $oldPhotoPath = $student->photo_path;
                     $photo = $request->file('photo');
-                    $photoName = $this->studentPhotoFilename($student, $photo->extension());
-                    $newPhotoPath = $photo->storeAs('student_photos', $photoName, 'public');
-                    if (!$newPhotoPath) {
+                    $photoName = $this->studentPhotoFilename($student, 'webp');
+                    $newPhotoPath = 'student_photos/'.$photoName;
+                    $photoBytes = app(\App\Services\StudentPhotoProcessor::class)->webp($photo);
+                    if (!Storage::disk('public')->put($newPhotoPath, $photoBytes)) {
                         throw ValidationException::withMessages(['photo' => 'Unable to store the new student photo. Please try again.']);
                     }
                     $student->photo_path = $newPhotoPath;
