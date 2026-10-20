@@ -33,11 +33,54 @@ and download; the public storage copy stays WebP.
 
 ## Local setup
 
-PHP GD with WebP support and Python 3.13 are required. From the project root:
+The setup must run separately on **each server**, including the production VPS.
+Git does not deploy `storage/app/private/student-photo-ai`. Do not transfer the
+Windows virtual environment to Linux; create it on Linux using the setup script.
+Python environments contain platform-specific binaries and absolute paths.
+
+PHP GD with WebP support and Python 3.12 or newer are required. Python 3.12 is
+supported on Ubuntu 24.04; the Windows development runtime uses Python 3.13.
+From the project root:
 
 ```powershell
 python scripts/student-photo-ai/setup.py
 ```
+
+On Linux, from the deployed application directory with Python 3.12 or newer installed:
+
+```bash
+python3 scripts/student-photo-ai/setup.py
+php artisan config:clear
+php artisan student-photos:check --verify
+```
+
+The OS-specific Python installation commands depend on the VPS distribution.
+Python needs its `venv`/pip components. Run setup as the deployment/application
+user, and give the PHP service user executable/read access to Python, packages,
+model and scripts, plus write access to the private runtime directory and Numba
+cache. Do not use world-writable permissions. Run the diagnostic as the PHP
+service user as well when troubleshooting service-user permissions.
+
+`php artisan student-photos:check` reports missing paths without running Python.
+`--verify` additionally tests package imports, model SHA256 and CPU loading, and
+temporary private-file creation/removal. It is offline and uses no student photo.
+If `STUDENT_PHOTO_PYTHON` is set, it must be an absolute **Linux** executable path
+on the VPS, for example `/actual/app/path/storage/app/private/student-photo-ai/venv/bin/python`.
+Leave it blank to use the project-local environment. Rebuild the production
+configuration cache with `php artisan config:cache` after verification if your
+deployment uses cached configuration. A cached Windows path can otherwise
+override the Linux default.
+
+For Ubuntu 24.04, install the OS components with `apt install python3-venv
+libgomp1 ca-certificates` after `apt update`, then run setup with `python3`.
+The system Python does not need replacing. After setup, ensure the PHP service
+user owns/writes the runtime cache and temporary directories. On a default
+Ubuntu PHP installation this user is `www-data`; custom PHP-FPM pools may use a
+different user. Verify with that service user rather than only with root.
+
+Shared hosting that disables `proc_open` or does not allow Python/ONNX CPU
+packages cannot run this local background-removal implementation. Cropping,
+clarity adjustment, WebP saving, and JPG download remain available.
 
 Setup installs pinned binary packages in
 `storage/app/private/student-photo-ai/venv`, downloads the pinned 25.9 MB MODNet

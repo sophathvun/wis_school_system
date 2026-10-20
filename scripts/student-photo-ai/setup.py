@@ -3,6 +3,7 @@ import hashlib
 import os
 from pathlib import Path
 import subprocess
+import sys
 import urllib.request
 import venv
 
@@ -13,6 +14,9 @@ REVISION = 'fa2fa546052fba4c08921230a26cc69a333fca12'
 
 
 def main():
+    if sys.version_info < (3, 12):
+        raise SystemExit('Photo AI setup requires Python 3.12 or newer. Run setup with a supported Python executable.')
+    print(f'Preparing local photo runtime with Python {sys.version.split()[0]}', flush=True)
     TARGET.mkdir(parents=True, exist_ok=True)
     python = TARGET / 'venv' / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')
     if not python.exists():
