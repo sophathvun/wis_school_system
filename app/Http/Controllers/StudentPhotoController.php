@@ -24,10 +24,7 @@ class StudentPhotoController
 
     public function background(Request $request, StudentPhotoBackground $background)
     {
-        $user = $request->user();
-        abort_unless($user && ($user->hasPermission('students.enrollment.create', $user->active_campus_id)
-            || $user->hasPermission('students.enrollment.update', $user->active_campus_id)
-            || $user->hasPermission('students.enrollment.manage', $user->active_campus_id)), 403);
+        abort_unless(\App\Support\StudentEnrollmentPermissions::current()->canUseForm(), 403);
         return $this->process($request, $background);
     }
 

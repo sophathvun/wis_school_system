@@ -6,6 +6,9 @@ use Illuminate\Support\Facades\Schema;
 
 beforeEach(function () {
     $this->withoutMiddleware();
+    $this->actingAs(new class extends \App\Models\User {
+        public function isSuperAdmin(): bool { return true; }
+    });
     Schema::create('tb_student', function (Blueprint $table) {
         $table->id();
         $table->string('student_id');

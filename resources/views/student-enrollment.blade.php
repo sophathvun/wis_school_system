@@ -7,7 +7,7 @@
                 <div class="page-pretitle">Students</div>
                 <h2 class="page-title">Student Enrollment</h2>
             </div>
-            <div class="col-auto enrollment-new-action">
+            <div class="col-auto enrollment-new-action {{ ($enrollmentPermissions['create'] ?? false) ? '' : 'd-none' }}">
                 <button class="btn btn-primary" id="newEnrollment"><i class="ti ti-plus icon"></i> New Enrollment</button>
             </div>
         </div>
@@ -25,6 +25,7 @@
     @php($reportLogo1Data = is_file($reportLogo1File) ? 'data:' . $reportLogo1Mime . ';base64,' . base64_encode(file_get_contents($reportLogo1File)) : $reportLogo1Url)
     <div id="student-report-branding" data-report-logo-1="{{ $reportLogo1Data }}" data-report-logo-2="{{ $reportLogo2Url }}"
         class="d-none"></div>
+    <div id="student-enrollment-permissions" class="d-none" data-permissions='@json($enrollmentPermissions ?? [])'></div>
 
     <div class="col-12">
         <div class="card enrollment-list-card">
@@ -53,7 +54,7 @@
                     </div>
                 </div>
             </div>
-            <div class="card-body border-bottom py-3">
+            <div class="card-body border-bottom py-3 {{ ($enrollmentPermissions['filter'] ?? false) ? '' : 'd-none' }}">
                 <div class="d-flex align-items-center gap-3 flex-wrap">
                     <select id="enrollments-per-page" class="d-none" aria-hidden="true">
                         <option selected>10</option>
@@ -62,8 +63,8 @@
                     </select>
                     <div class="d-flex align-items-center gap-2 flex-wrap enrollment-list-filter-group">
                         <select id="enrollments-filter-academic-year"
-                            class="form-select form-select-sm enrollment-list-filter">
-                            <option value="">Academic Year</option>
+                            class="form-select form-select-sm enrollment-list-filter" data-default-label="Active Academic Year{{ ($activeListAcademicYear ?? null) ? ': '.$activeListAcademicYear->academic_year : '' }}">
+                            <option value="">Active Academic Year{{ ($activeListAcademicYear ?? null) ? ': '.$activeListAcademicYear->academic_year : '' }}</option>
                             @foreach (($listAcademicYears ?? []) as $academicYear)
                                 <option value="{{ $academicYear->id }}">{{ $academicYear->academic_year }}</option>
                             @endforeach
@@ -459,7 +460,8 @@
                         <div class="enrollment-section-header enrollment-section-header-dark">
                             <h4 class="mb-0">Enrollment Information</h4>
                         </div>
-                        <div class="row g-3" id="enrollmentInformationFields">
+                        <div class="alert alert-info d-none mt-3" id="enrollmentReadOnlyNotice">Enrollment information is read-only when editing. Use Transfer Student or the appropriate enrollment workflow to make enrollment changes.</div>
+                        <fieldset class="row g-3" id="enrollmentInformationFields">
                             <div class="col-md-4 premium-floating-field">
                                 <label class="form-label">Academic Year <span class="text-danger">*</span></label>
                                 <select id="academic_year_id" name="academic_year_id" class="form-select"></select>
@@ -549,7 +551,7 @@
                                     rows="2" maxlength="5000" placeholder=" "></textarea>
                             </div>
                             <input type="hidden" id="status" name="status" value="1">
-                        </div>
+                        </fieldset>
                         <div class="enrollment-section-header enrollment-section-header-dark mt-4">
                             <h4 class="mb-0">Family Information <span class="enrollment-section-subtitle">(Optional)</span></h4>
                         </div>
@@ -802,9 +804,9 @@
                 <div class="modal-header">
                     <h3 class="modal-title">Student Profile</h3>
                     <div class="d-flex align-items-center gap-2 ms-auto"><button type="button"
-                            class="btn btn-primary btn-sm" id="studentProfilePrint"><i
+                            class="btn btn-primary btn-sm {{ ($enrollmentPermissions['print'] ?? false) ? '' : 'd-none' }}" id="studentProfilePrint"><i
                                 class="ti ti-printer me-1"></i>Print Report</button><button type="button"
-                            class="btn btn-outline-primary btn-sm" id="studentProfilePdf"><i
+                            class="btn btn-outline-primary btn-sm {{ ($enrollmentPermissions['export'] ?? false) ? '' : 'd-none' }}" id="studentProfilePdf"><i
                                 class="ti ti-file-type-pdf me-1"></i>PDF</button><button type="button" class="btn-close"
                             data-bs-dismiss="modal" aria-label="Close"></button></div>
                 </div>

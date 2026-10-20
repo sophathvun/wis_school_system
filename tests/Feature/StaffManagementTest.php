@@ -474,6 +474,8 @@ it('stores the cropped HRM staff photo without changing the linked login photo',
     $response=$this->get($this->url.'?create=1')->assertOk()->assertSee('data-staff-photo-dropzone',false)->assertSee('Staff Photo Studio')->assertSee('Exposure')->assertSee('Saturation');
     $dom=new \DOMDocument(); $dom->loadHTML($response->getContent(),LIBXML_NOERROR|LIBXML_NOWARNING);
     expect((new \DOMXPath($dom))->query('//div[@id="hrmStaffPhotoCropModal"]//canvas[@width="400" and @height="400"]'))->toHaveCount(1);
+    expect((new \DOMXPath($dom))->query('//button[@data-staff-directory-photo]'))->toHaveCount(1)
+        ->and((new \DOMXPath($dom))->query('//div[@id="staffDirectoryPhotoModal"]//a[@data-photo-download]'))->toHaveCount(1);
 });
 
 it('lists only unlinked staff and preserves the linked profile when editing an existing user',function() {

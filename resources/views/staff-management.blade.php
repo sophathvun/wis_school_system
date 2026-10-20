@@ -68,7 +68,7 @@
                 <tbody>
                     @forelse ($staff as $person)
                         <tr>
-                            <td data-label="Staff"><div class="staff-person"><span class="avatar avatar-lg staff-person-avatar" @if($person->photo_path) style="background-image:url('{{ asset('storage/'.$person->photo_path) }}')" @endif>@unless($person->photo_path){{ mb_strtoupper(mb_substr($person->name_en, 0, 1)) }}@endunless</span><div>@if($person->name_kh)<div class="staff-khmer staff-person-khmer mb-1">{{ $person->name_kh }}</div>@endif<a class="staff-person-name" href="{{ route('staff-management.index',['view'=>$person->id]) }}">{{ $person->name_en }}</a><div class="staff-code mt-1">{{ $person->staff_code }}</div></div></div></td>
+                            <td data-label="Staff"><div class="staff-person">@if($person->photo_path)<button type="button" class="avatar avatar-lg staff-person-avatar staff-directory-photo-trigger" style="background-image:url('{{ asset('storage/'.$person->photo_path) }}')" data-staff-directory-photo="{{ asset('storage/'.$person->photo_path) }}" data-staff-photo-title="{{ $person->name_en }}" aria-label="View photo of {{ $person->name_en }}"></button>@else<span class="avatar avatar-lg staff-person-avatar">{{ mb_strtoupper(mb_substr($person->name_en, 0, 1)) }}</span>@endif<div>@if($person->name_kh)<div class="staff-khmer staff-person-khmer mb-1">{{ $person->name_kh }}</div>@endif<a class="staff-person-name" href="{{ route('staff-management.index',['view'=>$person->id]) }}">{{ $person->name_en }}</a><div class="staff-code mt-1">{{ $person->staff_code }}</div></div></div></td>
                             <td data-label="Work Assignment"><div class="fw-semibold">{{ $person->position?->name ?? '—' }}</div><div class="text-secondary small mt-1">{{ $person->department?->hierarchy_name ?? '—' }}</div><div class="text-secondary small mt-1">{{ $categoryLabels[$person->staff_category] ?? $person->staff_category }}</div></td>
                             <td data-label="Employment"><div>{{ $typeLabels[$person->employment_type] ?? $person->employment_type }}</div>@if($person->joined_on)<div class="text-secondary small mt-1">Since {{ $person->joined_on->format('d-M-Y') }}</div>@endif @if($person->contract_ends_on)<div class="small mt-1 {{ $person->contract_ends_on->lt(today())?'text-danger':($person->contract_ends_on->lte(today()->addDays(30))?'text-warning':'text-secondary') }}">Contract ends {{ $person->contract_ends_on->format('d-M-Y') }}</div>@endif</td>
                             <td data-label="Campuses"><div class="staff-campus-chips">@forelse($person->campuses as $campus)<span class="badge bg-secondary-lt">{{ $campus->campus_name_en }}</span>@empty<span class="text-secondary">—</span>@endforelse</div></td>
@@ -89,6 +89,7 @@
     @include('staff-management._profile')
     @include('staff-management._form')
     @include('staff-management._photo-crop')
+    @include('staff-management._photo-viewer')
 @endsection
 @push('styles') @vite('resources/css/pages/staff-management.css') @endpush
 @push('scripts') @vite('resources/js/staffManagement.js') @endpush

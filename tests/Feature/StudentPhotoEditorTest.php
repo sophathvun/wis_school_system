@@ -82,6 +82,7 @@ it('rejects undecodable photo data instead of writing an invalid file', function
 function photoEditorUser(bool $allowed): User
 {
     $user = Mockery::mock(User::class)->makePartial();
+    $user->shouldReceive('isSuperAdmin')->byDefault()->andReturn(false);
     $user->id = 1; $user->active_campus_id = 1;
     $user->shouldReceive('hasPermission')->andReturn($allowed);
     return $user;

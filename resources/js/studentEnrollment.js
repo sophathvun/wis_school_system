@@ -4,6 +4,8 @@ import { formatStudentBirthplace } from "./helpers/student-profile.js";
 import { isDuplicateStudentIdMessage, isDuplicateStudentIdResponse, readEnrollmentSaveResponse } from "./helpers/enrollment-response.js";
 import { createStudentPhotoEditor, studentPhotoJpeg } from "./helpers/studentPhotoEditor.js";
 import { createEnrollmentFamilyOptionsLoader } from "./helpers/enrollment-family-options.js";
+import { selectEnrollmentAcademicYear } from "./helpers/enrollment-academic-year.js";
+import { setupEnrollmentSearch } from "./helpers/enrollment-search.js";
 import "../css/components/student-profile-birthplace.css";
 import birthplaceStyles from "../css/components/student-profile-birthplace.css?raw";
 import intlTelInput from "intl-tel-input";
@@ -19,6 +21,8 @@ const userPermissions = (() => {
 })();
 const hasPermission = (permission) =>
     userPermissions.includes("*") || userPermissions.includes(permission);
+const enrollmentPermissions = JSON.parse(document.getElementById("student-enrollment-permissions")?.dataset.permissions || "{}");
+const canEnrollment = (action) => enrollmentPermissions[action] === true;
 const canStudentDocumentView = hasPermission("student-documents.view");
 const canStudentDocumentCreate = hasPermission("student-documents.create");
 const canStudentDocumentPreview = hasPermission("student-documents.preview");
@@ -537,7 +541,7 @@ const enrollmentListStudentName = (student = {}, enrollmentId = null) => {
         enrollmentId !== null &&
         expandedEnrollmentIds.has(Number(enrollmentId));
     const toggle =
-        enrollmentId === null
+        enrollmentId === null || !canEnrollment("history")
             ? ""
             : `<button type="button" class="enrollment-expand-toggle ${expanded ? "is-expanded" : ""}" onclick="enrollmentsPage.toggleDetails(${enrollmentId})" aria-expanded="${expanded ? "true" : "false"}" title="${expanded ? "Hide enrollment history" : "Show all academic year enrollments"}"><i class="ti ti-chevron-down"></i><span class="visually-hidden">${expanded ? "Hide enrollment history" : "Show all academic year enrollments"}</span></button>`;
     return `<div class="school-profile-khmer text-secondary" style="font-size:1rem;font-weight:400;">${escapeHtml(khmer || "-")}</div><div class="enrollment-student-name-en">${escapeHtml(english || "-")}${toggle}</div>`;
@@ -609,10 +613,10 @@ const enrollmentActionButtons = (item = {}) => {
     const studentName = item.student?.full_name_en || item.student?.full_name_kh || "";
     return `
     <div class="enrollment-action-grid">
-        <button class="btn btn-outline-primary btn-sm" type="button" onclick="enrollmentsPage.viewProfile(${item.id})" title="View student profile"><i class="ti ti-user me-1"></i>Profile</button>
-        <button class="btn btn-info btn-sm enrollment-history-button" type="button" data-enrollment-history-id="${escapeHtml(item.id)}" data-enrollment-history-student="${escapeHtml(studentName)}">History</button>
-        <button class="btn btn-primary btn-sm" type="button" onclick="enrollmentsPage.edit(${item.id})"><i class="ti ti-edit me-1"></i>Edit</button>
-        <button class="btn btn-danger btn-sm" type="button" onclick="enrollmentsPage.remove(${item.id})"><i class="ti ti-trash me-1"></i>Delete</button>
+        ${canEnrollment("profile") ? `<button class="btn btn-outline-primary btn-sm" type="button" onclick="enrollmentsPage.viewProfile(${item.id})" title="View student profile"><i class="ti ti-user me-1"></i>Profile</button>` : ""}
+        ${canEnrollment("history") ? `<button class="btn btn-info btn-sm enrollment-history-button" type="button" data-enrollment-history-id="${escapeHtml(item.id)}" data-enrollment-history-student="${escapeHtml(studentName)}">History</button>` : ""}
+        ${item.can_edit ? `<button class="btn btn-primary btn-sm" type="button" onclick="enrollmentsPage.edit(${item.id})"><i class="ti ti-edit me-1"></i>Edit</button>` : ""}
+        ${item.can_delete ? `<button class="btn btn-danger btn-sm" type="button" onclick="enrollmentsPage.remove(${item.id})"><i class="ti ti-trash me-1"></i>Delete</button>` : ""}
     </div>`;
 };
 const enrollmentMobileActionButtons = enrollmentActionButtons;
@@ -885,6 +889,7 @@ const loadStudentDocumentSection = async (studentId, target) => {
     }
 };
 const showStudentProfile = async (enrollmentId) => {
+    if (!canEnrollment("profile")) return;
     const item = rows.find((row) => Number(row.id) === Number(enrollmentId));
     if (!item?.student || !studentProfileContent || !studentProfileModal)
         return;
@@ -1096,8 +1101,8 @@ const openStudentProfileReport = () => {
         window.setTimeout(() => { if (!reportWindow.closed) reportWindow.print(); }, 300);
     });
 };
-studentProfilePrint?.addEventListener("click", openStudentProfileReport);
-studentProfilePdf?.addEventListener("click", openStudentProfileReport);
+studentProfilePrint?.addEventListener("click", () => { if (canEnrollment("print")) openStudentProfileReport(); });
+studentProfilePdf?.addEventListener("click", () => { if (canEnrollment("export")) openStudentProfileReport(); });
 const enrollmentExpandedMarkup = (item = {}) => {
     const student = item.student || {};
     const nameKh = student.full_name_kh || "";
@@ -1676,6 +1681,7 @@ const validateEnrollmentRequiredFields = () => {
     syncHomePhoneValue();
     const missing = [];
     enrollmentRequiredFields.forEach((item) => {
+        if (field("enrollmentInformationFields")?.disabled && field(item.name)?.closest("#enrollmentInformationFields")) return;
         if (item.when && !item.when()) return;
         const visibleControl = item.visibleId ? field(item.visibleId) : null;
         const value = (visibleControl?.value || form.elements[item.name]?.value || field(item.name)?.value || "").trim();
@@ -3447,7 +3453,7 @@ const refreshEnrollmentFilterOptions = (changed = "") => {
     );
     repopulateEnrollmentFilterSelect(
         enrollmentFilterAcademicYear,
-        "Academic Year",
+        enrollmentFilterAcademicYear?.dataset.defaultLabel || "Active Academic Year",
         academicYearOptions,
         (item) => item.id,
         (item) => item.academic_year,
@@ -3670,6 +3676,7 @@ const applyEnrollmentFetchFilterOptions = (options = {}) => {
 
 const currentEnrollmentFilterParams = () =>
     new URLSearchParams({
+        search: search.value.trim(),
         academic_year_id: enrollmentFilterAcademicYear?.value || "",
         campus_id: enrollmentFilterCampus?.value || "",
         grade_class: enrollmentFilterGradeClass?.value || "",
@@ -3703,6 +3710,7 @@ const loadEnrollmentStats = async () => {
 };
 
 const loadEnrollmentDependentFilterOptions = async () => {
+    if (!canEnrollment("filter")) return;
     enrollmentFilterOptionsAbort?.abort();
     enrollmentFilterOptionsAbort = new AbortController();
     const response = await fetch(
@@ -3717,6 +3725,7 @@ const loadEnrollmentDependentFilterOptions = async () => {
 };
 
 const loadEnrollmentListOptions = async () => {
+    if (!canEnrollment("filter")) return {};
     if (enrollmentListOptionsCache) {
         populateEnrollmentListFilters(enrollmentListOptionsCache);
         return enrollmentListOptionsCache;
@@ -3778,6 +3787,7 @@ const applyQuickEnrollmentOptions = (options = {}) => {
 };
 
 const loadQuickEnrollmentOptions = () => {
+    if (!canEnrollment("create") && !canEnrollment("update")) return Promise.resolve({});
     return familyOptionsLoader.load().then((options) => {
         // A background preload must not replace an active search's options.
         if (!field("existing_family_number-search")?.value) applyQuickEnrollmentOptions(options);
@@ -3794,6 +3804,9 @@ const enrollmentAssignmentFields = [
     "session_id",
 ];
 const setEnrollmentAssignmentLocked = (locked) => {
+    field("enrollmentInformationFields").disabled = locked;
+    field("enrollmentReadOnlyNotice")?.classList.toggle("d-none", !locked);
+    field("enrolled_on_popup")?.classList.add("d-none");
     enrollmentAssignmentFields.forEach((id) => {
         const element = field(id);
         if (!element) return;
@@ -3803,6 +3816,7 @@ const setEnrollmentAssignmentLocked = (locked) => {
 };
 
 const openCreate = async (forEdit = false) => {
+    if (!forEdit && !canEnrollment("create")) return;
     form.reset();
     resetEnrollmentDocumentFiles();
     field("enrollment_id").value = "";
@@ -3856,11 +3870,12 @@ const openCreate = async (forEdit = false) => {
 
 const openEdit = async (id) => {
     const row = rows.find((item) => item.id === id);
-    if (!row) return;
+    if (!row?.can_edit) return;
     // Wait until the form's option lists are loaded before applying the
     // existing values. Otherwise loadOptions() can rebuild the selects after
     // they are populated and clear the selected data.
     await openCreate(true);
+    selectEnrollmentAcademicYear(field("academic_year_id"), row);
     setEnrollmentAssignmentLocked(true);
     title.textContent = "Edit Student Enrollment";
     submit.textContent = "Update";
@@ -4348,10 +4363,6 @@ form.addEventListener("submit", async (event) => {
     syncFamilyPhoneValues();
     syncHomePhoneValue();
     submit.disabled = true;
-    const lockedAssignmentFields = enrollmentAssignmentFields
-        .map((id) => field(id))
-        .filter((element) => element?.disabled);
-    lockedAssignmentFields.forEach((element) => (element.disabled = false));
     try {
         const response = await fetch("/student-enrollments/save", {
             method: "POST",
@@ -4390,7 +4401,6 @@ form.addEventListener("submit", async (event) => {
             alertError(error.message);
         }
     } finally {
-        lockedAssignmentFields.forEach((element) => (element.disabled = true));
         submit.disabled = false;
     }
 });
@@ -4403,6 +4413,7 @@ field("enrollment-document-list-tab-button")?.addEventListener(
 );
 
 const remove = async (id) => {
+    if (!rows.find((item) => Number(item.id) === Number(id))?.can_delete) return;
     if (
         !(
             await showConfirm(
@@ -4430,6 +4441,7 @@ const remove = async (id) => {
 };
 
 const showEnrollmentHistory = async (id, studentName) => {
+    if (!canEnrollment("history")) return;
     document.getElementById("enrollmentHistoryTitle").textContent =
         `Enrollment History${studentName ? ` - ${studentName}` : ""}`;
     enrollmentHistoryTable.innerHTML = `<tr><td colspan="12" class="text-center">Loading...</td></tr>`;
@@ -4495,12 +4507,17 @@ document.addEventListener("click", (event) => {
     );
 });
 
+let enrollmentRowsRequest = 0;
+let enrollmentRowsAbort;
 async function fetchRows(page = 1) {
+    enrollmentRowsAbort?.abort();
+    enrollmentRowsAbort = new AbortController();
+    const requestId = ++enrollmentRowsRequest;
     currentEnrollmentPage = page;
     const query = new URLSearchParams({
         page,
         perPage: perPage.value,
-        search: search.value,
+        search: search.value.trim(),
         sortBy: enrollmentSortBy,
         sortDir: enrollmentSortDir,
         academic_year_id: enrollmentFilterAcademicYear?.value || "",
@@ -4510,10 +4527,16 @@ async function fetchRows(page = 1) {
         student_id: enrollmentFilterStudent?.value || "",
         enrollment_status: enrollmentFilterStatus?.value || "",
     });
-    const response = await fetch(
-        `/student-enrollments/fetch?${query.toString()}`,
-    );
-    const result = await response.json();
+    let result;
+    try {
+        const response = await fetch(`/student-enrollments/fetch?${query.toString()}`, { signal: enrollmentRowsAbort.signal });
+        if (!response.ok) throw new Error("Unable to load student enrollments.");
+        result = await response.json();
+    } catch (error) {
+        if (error.name === "AbortError") return;
+        throw error;
+    }
+    if (requestId !== enrollmentRowsRequest) return;
     rows = result.data || [];
     renderEnrollmentMobileCards(rows);
     table.innerHTML = rows.length
@@ -4548,14 +4571,20 @@ async function fetchRows(page = 1) {
     updateEnrollmentSortIcons();
 }
 
-document.getElementById("newEnrollment").onclick = () => openCreate(false);
+document.getElementById("newEnrollment").onclick = () => { if (canEnrollment("create")) openCreate(false); };
 perPage.onchange = () => fetchRows();
-search.onkeyup = () => {
-    fetchRows();
-    loadEnrollmentStats().catch((error) => {
-        if (error.name !== "AbortError") console.error(error);
-    });
-};
+setupEnrollmentSearch({
+    input: search,
+    cancelPending: () => {
+        enrollmentRowsRequest++;
+        enrollmentRowsAbort?.abort(); enrollmentFilterOptionsAbort?.abort(); enrollmentStatsAbort?.abort();
+    },
+    run: async () => {
+        const results = await Promise.allSettled([fetchRows(1), loadEnrollmentDependentFilterOptions(), loadEnrollmentStats()]);
+        results.forEach(result => { if (result.status === "rejected" && result.reason.name !== "AbortError") console.error(result.reason); });
+    },
+    onError: error => { if (error.name !== "AbortError") console.error(error); },
+});
 enrollmentFilterAcademicYear?.addEventListener("change", () => {
     if (isRefreshingEnrollmentFilters) return;
     refreshEnrollmentFilterOptions("academic_year");
@@ -4672,6 +4701,7 @@ window.enrollmentsPage = {
     history: showEnrollmentHistory,
     viewProfile: showStudentProfile,
     toggleDetails: async (id) => {
+        if (!canEnrollment("history")) return;
         const numericId = Number(id);
         if (expandedEnrollmentIds.has(numericId)) {
             expandedEnrollmentIds.delete(numericId);

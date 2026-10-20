@@ -5,6 +5,7 @@ require __DIR__.'/../../vendor/autoload.php';
 $app = require __DIR__.'/../../bootstrap/app.php';
 $app->make(\Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 $mode = $argv[1] ?? 'staff';
+if ($mode === 'viewer') { echo view('staff-management._photo-viewer')->render(); return; }
 $options = match ($mode) {
     'staff' => ['hrmStaffPhotoCropModal', 'Staff Photo Studio', 'staff.photo.background'],
     'user' => ['staffPhotoCropModal', 'User Photo Studio', 'users.photo.background'],

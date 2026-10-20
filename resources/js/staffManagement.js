@@ -2,6 +2,7 @@ import { Modal, Tab } from 'bootstrap';
 import { toKhmerDigits, dateKhmer, nationalityNote } from './helpers/staffProfileFields';
 import { showConfirm, showSuccess, showError } from './helpers/sweet-alert2';
 import { setupStaffPhotoUpload } from './helpers/staffPhotoUpload';
+import { setupStaffDirectoryPhotoViewer } from './helpers/staffDirectoryPhotoViewer';
 import { setupStaffGenderSelect } from './helpers/staffGenderSelect';
 import { setupStaffBirthplaceSelect, setupStaffNationalitySelect, setupStaffMaritalStatusSelect } from './helpers/staffBirthplaceSelect';
 import { initPremiumDatePicker } from './premiumDatePicker';
@@ -15,6 +16,7 @@ import { setupStaffEmploymentEndDetails } from './helpers/staffEmploymentEndDeta
 import { setupStaffWorkSelects } from './helpers/staffWorkSelects';
 
 document.addEventListener('DOMContentLoaded', () => {
+    if (document.getElementById('staffDirectoryPhotoModal')) setupStaffDirectoryPhotoViewer();
     const successMessage = document.querySelector('[data-staff-success]')?.dataset.staffSuccess;
     if (successMessage) showSuccess('Success', successMessage);
     const actionError = document.querySelector('[data-staff-action-error]')?.dataset.staffActionError;

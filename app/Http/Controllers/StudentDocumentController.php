@@ -99,6 +99,8 @@ class StudentDocumentController
         ]);
 
         $file = $request->file('file');
+        abort_unless(\App\Support\StudentEnrollmentPermissions::current()->canUploadDocuments((int) $data['student_id']),
+            403, 'You can only change documents for students in your campus.');
         $path = $file->store('student-documents', 'public');
         $doc = StudentDocument::create($data + [
             'document_type' => StudentDocumentType::find($data['document_type_id'])?->name_en,
@@ -133,6 +135,8 @@ class StudentDocumentController
 
     public function delete(StudentDocument $document)
     {
+        abort_unless(\App\Support\StudentEnrollmentPermissions::current()->canAccessStudentCampus((int) $document->student_id),
+            403, 'You can only change documents for students in your campus.');
         if ($document->file_path) {
             Storage::disk('public')->delete($document->file_path);
         }

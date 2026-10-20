@@ -96,6 +96,9 @@
                                         class="status-toggle-knob"></span>
                                 </button>
                             </div>
+                            @if ($moduleKey === 'students.enrollment')
+                                <p class="small text-secondary mt-2 mb-1">Campus staff: edit/delete only their campus students. Central/global staff: all campuses, with permission. Student documents use the Student Documents permissions below. Enrollment changes use Transfer Student.</p>
+                            @endif
                             @foreach ($module['actions'] as $action)
                                 @php($actionOn = $assignedPermissions->contains('id', $action->id))
                                 @php($skippingParent = $moduleKey==='student-skipping-grade' ? (\App\Support\StudentSkippingGradePermissions::PARENTS[$action->action]??null) : null)

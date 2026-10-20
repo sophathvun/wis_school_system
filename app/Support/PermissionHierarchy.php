@@ -98,7 +98,8 @@ class PermissionHierarchy
             $modules = [];
             foreach ($group['modules'] as $module) {
                 $viewCode = "{$module}.view";
-                $items = $permissions->filter(fn (Permission $permission) => str_starts_with($permission->code, "{$module}.") && $permission->code !== $viewCode)->values();
+                $items = $permissions->filter(fn (Permission $permission) => str_starts_with($permission->code, "{$module}.") && $permission->code !== $viewCode
+                    && !($module === 'students.enrollment' && in_array($permission->action, ['manage', 'status'], true)))->values();
                 if ($byCode->has($viewCode)) {
                     $modules[$module] = ['label' => self::moduleLabels()[$module] ?? ucwords(str_replace(['.', '-', '_'], ' ', $module)), 'permission' => $byCode->get($viewCode), 'actions' => $items];
                 }
@@ -133,7 +134,8 @@ class PermissionHierarchy
                 }
 
                 $permissions
-                    ->filter(fn (Permission $permission) => str_starts_with($permission->code, "{$module}.") && $permission->code !== $viewCode)
+                    ->filter(fn (Permission $permission) => str_starts_with($permission->code, "{$module}.") && $permission->code !== $viewCode
+                        && !($module === 'students.enrollment' && in_array($permission->action, ['manage', 'status'], true)))
                     ->each(fn (Permission $permission) => $ids->push($permission->id));
             }
         }

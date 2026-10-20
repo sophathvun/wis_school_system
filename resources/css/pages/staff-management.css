@@ -41,6 +41,19 @@
 .staff-directory-table tbody tr:hover { background: rgba(var(--tblr-primary-rgb),.025); }
 .staff-person { display: flex; align-items: center; gap: .9rem; min-width: 205px; }
 .staff-person-avatar { flex-shrink: 0; border-radius: .85rem; color: var(--tblr-primary); background-color: rgba(var(--tblr-primary-rgb),.08); }
+.staff-directory-photo-trigger { border: 0; padding: 0; cursor: zoom-in; }
+.staff-directory-photo-trigger:focus-visible { outline: 2px solid var(--tblr-primary); outline-offset: 3px; }
+.staff-directory-photo-modal .modal-content { border-radius: 16px; overflow: hidden; }
+.staff-directory-photo-modal .modal-header { background: #27395b; color: #fff; }
+.staff-directory-photo-modal .btn-close { filter: brightness(0) invert(1); }
+.staff-directory-photo-stage { height: min(60dvh, 600px); overflow: auto; background: var(--tblr-bg-surface-secondary, #eef2f7); }
+.staff-directory-photo-frame { display: flex; align-items: center; justify-content: center; width: max-content; min-width: 100%; min-height: 100%; padding: 16px; }
+.staff-directory-photo-frame img { display: block; flex: none; max-width: none; height: auto; }
+.staff-directory-photo-frame img[hidden] { display: none; }
+.staff-directory-photo-controls { min-width: 0; }
+.staff-directory-photo-controls .form-range { width: 100%; min-width: 40px; max-width: 180px; }
+.staff-directory-photo-controls output { min-width: 3rem; }
+@media (max-width: 575.98px) { .staff-directory-photo-modal .modal-footer { justify-content: center; } .staff-directory-photo-controls { flex-basis: 100%; justify-content: center; } }
 .staff-person-name { color: var(--tblr-body-color); font-weight: 600; }
 .staff-person-name:hover { color: var(--tblr-primary); }
 .staff-code { font-size: .75rem; color: var(--tblr-secondary-color); }

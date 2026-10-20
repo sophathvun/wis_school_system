@@ -19,8 +19,9 @@ const files = new Map();
 const studios = {};
 for (const [mode, config] of Object.entries(modes)) {
     studios[mode] = execFileSync(php, [join(root, 'tests/browser/person-photo-fixture.php'), mode], { cwd: root, encoding: 'utf8' });
+    if(mode==='staff') studios[mode] += execFileSync(php,[join(root,'tests/browser/person-photo-fixture.php'),'viewer'],{cwd:root,encoding:'utf8'});
     const entry = mode === 'staff'
-        ? `import {setupStaffPhotoUpload} from '../../../resources/js/helpers/staffPhotoUpload';setupStaffPhotoUpload(document.querySelector('form'));`
+        ? `import {setupStaffPhotoUpload} from '../../../resources/js/helpers/staffPhotoUpload';import {setupStaffDirectoryPhotoViewer} from '../../../resources/js/helpers/staffDirectoryPhotoViewer';setupStaffPhotoUpload(document.querySelector('form'));setupStaffDirectoryPhotoViewer();`
         : `import '../../../resources/js/${mode === 'user' ? 'userManagement' : 'profilePhoto'}.js';`;
     await mkdir(join(root,'storage/app/testing'),{recursive:true});
     const entryPath=join(root,`storage/app/testing/${mode}-studio-entry.mjs`);
@@ -46,13 +47,15 @@ const server = createServer(async (req, res) => {
     }
     if (files.has(path)) { res.setHeader('Content-Type',path.endsWith('.js') ? 'text/javascript' : 'text/css');res.end(files.get(path));return; }
     if (path === '/stored.webp') { res.setHeader('Content-Type','image/webp');res.end(stored);return; }
+    if(path==='/missing.webp') {res.writeHead(404);res.end('Not found');return;}
     const assets = { '/tabler.css': 'node_modules/@tabler/core/dist/css/tabler.min.css', '/studio.css': 'resources/css/photo-editor.css', '/staff-host.css':'resources/css/pages/staff-management.css', '/user-host.css':'resources/css/pages/user-management.css', '/profile-host.css':'resources/css/pages/profile.css' };
     if (assets[path]) { res.setHeader('Content-Type','text/css');res.end(await readFile(join(root,assets[path])));return; }
     const mode = url.searchParams.get('mode') || 'staff', c = modes[mode];
     const form = `<form ${c.attrs || ''}><div id="${c.zone}" ${c.zoneAttrs || ''} tabindex="0"><input type="file" name="photo" id="${c.input}" hidden><div id="${c.box === c.preview ? 'photoBox' : c.box}"><img id="${c.preview}" src="/stored.webp" data-initial-photo="/stored.webp" ${c.previewAttrs || ''} width="80" height="80"></div></div><button type="button" id="${c.edit}" class="d-none" ${c.editAttrs || ''}>Edit Photo</button></form>`;
     const viewer = mode==='user'?'<button type="button" class="staff-photo-view-trigger" data-photo-url="/stored.webp" data-photo-title="Test User">View Photo</button><div class="modal fade" id="staffPhotoViewModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><h3 id="staffPhotoViewTitle"></h3><img id="staffPhotoViewImage"><input type="range" id="staffPhotoViewZoom" min="1" max="3"><a id="staffPhotoViewDownload">Download</a><button type="button" data-bs-dismiss="modal">Close</button></div></div></div>':'';
+    const directoryPhoto=mode==='staff'?'<button type="button" data-staff-directory-photo="/stored.webp" data-staff-photo-title="Test Staff">Staff Photo</button>':'';
     res.setHeader('Content-Type','text/html');
-    res.end(`<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="csrf-token" content="fixture"><link rel="stylesheet" href="/tabler.css"><link rel="stylesheet" href="/studio.css"><link rel="stylesheet" href="/${mode}-host.css"><link rel="stylesheet" href="/${mode}.css"></head><body>${c.parent ? `<div class="modal fade" id="${c.parent}" data-open-on-load="1" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-body">${form}</div></div></div></div>` : `<section id="profile-panel-profile-edit">${form}</section>`}${studios[mode]}${viewer}<script type="module" src="/${mode}.js"></script></body></html>`);
+    res.end(`<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="csrf-token" content="fixture"><link rel="stylesheet" href="/tabler.css"><link rel="stylesheet" href="/studio.css"><link rel="stylesheet" href="/${mode}-host.css"><link rel="stylesheet" href="/${mode}.css"></head><body>${c.parent ? `<div class="modal fade" id="${c.parent}" data-open-on-load="1" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-body">${form}</div></div></div></div>` : `<section id="profile-panel-profile-edit">${form}</section>`}${studios[mode]}${viewer}${directoryPhoto}<script type="module" src="/${mode}.js"></script></body></html>`);
 });
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 const profile = await mkdtemp(join(tmpdir(), 'wis-student-photo-'));
@@ -120,6 +123,32 @@ try {
             await until('document.getElementById("staffPhotoViewDownload").href.startsWith("blob:")');
             const jpeg=await evaluate(`(async()=>{const a=document.getElementById('staffPhotoViewDownload'),b=await(await fetch(a.href)).blob();return {name:a.download,type:b.type,magic:[...new Uint8Array(await b.arrayBuffer()).slice(0,3)]};})()`);
             assert.equal(jpeg.name,'Test-User.jpg');assert.equal(jpeg.type,'image/jpeg');assert.deepEqual(jpeg.magic,[255,216,255],'Viewer downloads a real JPEG');
+        }
+        if(mode==='staff') {
+            await evaluate(`window.fixtureModal.getInstance(document.getElementById('${c.parent}')).hide()`);await delay(500);
+            await click('[data-staff-directory-photo]');
+            await until('document.querySelector("#staffDirectoryPhotoModal [data-photo-download]").href.startsWith("blob:")');await delay(350);
+            const jpeg=await evaluate(`(async()=>{const a=document.querySelector('#staffDirectoryPhotoModal [data-photo-download]'),b=await(await fetch(a.href)).blob();return{name:a.download,type:b.type,magic:[...new Uint8Array(await b.arrayBuffer()).slice(0,3)]};})()`);
+            assert.equal(jpeg.name,'Test-Staff.jpg');assert.equal(jpeg.type,'image/jpeg');assert.deepEqual(jpeg.magic,[255,216,255]);
+            await evaluate('window.photoFitWidth=document.querySelector("[data-photo-image]").getBoundingClientRect().width');
+            await click('[data-photo-in]');
+            assert.equal(await evaluate('document.querySelector("[data-photo-percent]").textContent'),'110%');
+            const zoomState=await evaluate('(()=>{const i=document.querySelector("[data-photo-image]"),s=document.querySelector("[data-photo-stage]");return{width:i.getBoundingClientRect().width,before:window.photoFitWidth,style:i.style.width,natural:i.naturalWidth,naturalHeight:i.naturalHeight,errors:window.fixtureErrors,stageWidth:s.clientWidth,stageHeight:s.clientHeight};})()');
+            assert.ok(zoomState.width>zoomState.before,`Zoom in enlarges the photo: ${JSON.stringify(zoomState)}`);
+            await click('[data-photo-out]');
+            assert.equal(await evaluate('document.querySelector("[data-photo-percent]").textContent'),'100%');
+            await evaluate('const range=document.querySelector("[data-photo-zoom]");range.value="3";range.dispatchEvent(new Event("input"))');
+            assert.ok(await evaluate('(()=>{const s=document.querySelector("[data-photo-stage]");return s.scrollWidth>s.clientWidth||s.scrollHeight>s.clientHeight;})()'),'Zoomed photo can be scrolled');
+            assert.ok(await evaluate('(()=>{const r=document.querySelector("[data-photo-image]").getBoundingClientRect();return Math.abs(r.width/r.height-1)<.01;})()'),'Photo proportions remain unchanged');
+            await click('[data-photo-reset]');
+            assert.equal(await evaluate('document.querySelector("[data-photo-percent]").textContent'),'100%');
+            assert.equal(await evaluate('document.getElementById("staffDirectoryPhotoModal").scrollWidth<=innerWidth'),true,'Viewer fits mobile width');
+            const screenshot=await command('Page.captureScreenshot',{format:'png'});await writeFile(join(root,`storage/app/testing/staff-directory-photo-${width}.png`),Buffer.from(screenshot.data,'base64'));
+            await click('#staffDirectoryPhotoModal [data-bs-dismiss]');await delay(500);
+            assert.equal(await evaluate('document.querySelector("[data-photo-download]").getAttribute("href")'),null,'Closing releases the download URL');
+            await evaluate('document.querySelector("[data-staff-directory-photo]").dataset.staffDirectoryPhoto="/missing.webp"');
+            await click('[data-staff-directory-photo]');await until('!document.querySelector("[data-photo-error]").classList.contains("d-none")');
+            assert.equal(await evaluate('document.querySelector("[data-photo-download]").getAttribute("aria-disabled")'),'true','Failed photos cannot download an invalid JPG');
         }
         assert.deepEqual(await evaluate('window.fixtureErrors'),[],'No browser errors');
         console.log(`${mode} ${width}px: existing photo, square crop, selection, exposure/saturation, rotation, background, save and cancel passed.`);

@@ -613,13 +613,13 @@ Route::get('/students/update', function () {
 })->name('updateStudent.index');
 
 Route::get('/students/transfer', fn () => app(\App\Http\Controllers\EnrollmentWorkflowController::class)->index('transfer'))->name('studentTransfer.index');
-Route::get('/students/documents', [StudentDocumentController::class, 'index'])->middleware(['auth', 'permission:student-documents.view'])->name('student-documents.index');
-Route::get('/student-documents/options', [StudentDocumentController::class, 'options'])->middleware(['auth', 'permission:student-documents.view'])->name('student-documents.options');
-Route::get('/student-documents/fetch/{student}', [StudentDocumentController::class, 'fetch'])->middleware(['auth', 'permission:student-documents.view'])->name('student-documents.fetch');
-Route::post('/student-documents', [StudentDocumentController::class, 'save'])->middleware(['auth', 'permission:student-documents.create'])->name('student-documents.save');
-Route::get('/student-documents/{document}/view', [StudentDocumentController::class, 'view'])->middleware(['auth', 'permission:student-documents.preview'])->name('student-documents.view');
-Route::get('/student-documents/{document}/download', [StudentDocumentController::class, 'download'])->middleware(['auth', 'permission:student-documents.download'])->name('student-documents.download');
-Route::delete('/student-documents/{document}', [StudentDocumentController::class, 'delete'])->middleware(['auth', 'permission:student-documents.delete'])->name('student-documents.delete');
+Route::get('/students/documents', [StudentDocumentController::class, 'index'])->middleware(['auth', 'campus.context', 'permission:student-documents.view'])->name('student-documents.index');
+Route::get('/student-documents/options', [StudentDocumentController::class, 'options'])->middleware(['auth', 'campus.context', 'permission:student-documents.view'])->name('student-documents.options');
+Route::get('/student-documents/fetch/{student}', [StudentDocumentController::class, 'fetch'])->middleware(['auth', 'campus.context', 'permission:student-documents.view'])->name('student-documents.fetch');
+Route::post('/student-documents', [StudentDocumentController::class, 'save'])->middleware(['auth', 'campus.context', 'permission:student-documents.create'])->name('student-documents.save');
+Route::get('/student-documents/{document}/view', [StudentDocumentController::class, 'view'])->middleware(['auth', 'campus.context', 'permission:student-documents.preview'])->name('student-documents.view');
+Route::get('/student-documents/{document}/download', [StudentDocumentController::class, 'download'])->middleware(['auth', 'campus.context', 'permission:student-documents.download'])->name('student-documents.download');
+Route::delete('/student-documents/{document}', [StudentDocumentController::class, 'delete'])->middleware(['auth', 'campus.context', 'permission:student-documents.delete'])->name('student-documents.delete');
 
 Route::get('/students/withdraw', [\App\Http\Controllers\StudentWithdrawalController::class, 'index'])->name('withdrawStudent.index');
 Route::get('/student-withdrawals/options', [\App\Http\Controllers\StudentWithdrawalController::class, 'options'])->name('student-withdrawals.options');
