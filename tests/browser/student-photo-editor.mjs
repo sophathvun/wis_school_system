@@ -72,6 +72,26 @@ try {
         await until('document.querySelector("#studentPhotoCropModal").classList.contains("show")'); await delay(350);
         assert.equal(await evaluate('document.querySelectorAll(".modal.show").length'), 1, 'The studio manages the parent modal correctly');
         await evaluate('window.original=document.querySelector("canvas").toDataURL()');
+        for (const angle of [5, 6, -6, 5.5, 45, -45]) {
+            await evaluate(`(()=>{const input=document.querySelector('#studentPhotoAngle');input.value=${angle};input.dispatchEvent(new Event('input'));})()`);
+            await delay(80);
+            assert.equal(await evaluate('Number(document.querySelector("#studentPhotoAngleRange").value)'), angle, 'The precise angle and slider stay synchronized');
+            assert.equal(await evaluate('document.querySelector("canvas").toDataURL() !== window.original'), true, 'Straightening changes the preview');
+            assert.equal(await evaluate(`(()=>{const ctx=document.querySelector('canvas').getContext('2d');return [[2,2],[597,2],[2,797],[597,797]].every(([x,y])=>['[176,192,208,255]','[200,140,100,255]'].includes(JSON.stringify([...ctx.getImageData(x,y,1,1).data])));})()`), true, `Straightening at ${angle} degrees fills every crop corner with image pixels`);
+        }
+        await evaluate('document.querySelector("#studentPhotoAngle").value="";document.querySelector("#studentPhotoAngle").dispatchEvent(new Event("change"))');
+        assert.equal(await evaluate('document.querySelector("#studentPhotoAngle").value'), '-45', 'An empty angle restores the last valid value');
+        await click('#studentPhotoAngleReset'); await delay(80);
+        assert.equal(await evaluate('document.querySelector("canvas").toDataURL() === window.original'), true, 'Reset angle restores the initial framing');
+        await click('#studentPhotoRotateRight');
+        await evaluate('window.quarterTurn=document.querySelector("canvas").toDataURL();document.querySelector("#studentPhotoAngleRange").value="6";document.querySelector("#studentPhotoAngleRange").dispatchEvent(new Event("input"))');
+        await delay(80);
+        assert.equal(await evaluate('document.querySelector("#studentPhotoAngle").value'), '6');
+        assert.equal(await evaluate('document.querySelector("canvas").toDataURL() !== window.quarterTurn'), true, 'Straightening combines with quarter turns');
+        await click('#studentPhotoAngleReset'); await delay(80);
+        assert.equal(await evaluate('document.querySelector("canvas").toDataURL() === window.quarterTurn'), true, 'Reset angle preserves the quarter turn');
+        await click('#studentPhotoReset');
+        assert.equal(await evaluate('document.querySelector("canvas").toDataURL() === window.original'), true, 'Reset All also clears rotation');
         await click('#studentPhotoEnhance'); await delay(100);
         assert.equal(await evaluate('document.querySelector("canvas").toDataURL() !== window.original'), true);
         await click('#studentPhotoCompare');
@@ -94,14 +114,23 @@ try {
         assert.equal(await evaluate('JSON.stringify([...document.querySelector("canvas").getContext("2d").getImageData(170,380,12,20).data])!==JSON.stringify(window.edgeBefore)'), true, 'Smooth edge brush feathers a selected outline');
         assert.deepEqual(await evaluate('[...document.querySelector("canvas").getContext("2d").getImageData(300,400,1,1).data]'), [200, 140, 100, 255], 'Smoothing the outline leaves the subject interior unchanged');
         assert.deepEqual(await evaluate('[...document.querySelector("canvas").getContext("2d").getImageData(0,0,1,1).data]'), [25, 118, 210, 255], 'Smooth edge brush leaves the background unchanged');
+        await evaluate('document.querySelector("#studentPhotoAngle").value="6";document.querySelector("#studentPhotoAngle").dispatchEvent(new Event("input"))'); await delay(80);
+        // A known off-center source point (350, 300) mapped into a six-degree crop.
+        await evaluate(`window.rotatedBrushPoint=(()=>{const a=6*Math.PI/180,s=(600*Math.cos(a)+800*Math.sin(a))/600;return{x:300+(50*Math.cos(a)+100*Math.sin(a))*s,y:400+(50*Math.sin(a)-100*Math.cos(a))*s};})()`);
+        for (const [mode, color] of [['erase', [25,118,210,255]], ['restore', [200,140,100,255]]]) {
+            await evaluate(`document.querySelector('#studentPhotoBrush').value=${JSON.stringify(mode)};(()=>{const c=document.querySelector('canvas'),r=c.getBoundingClientRect(),p=window.rotatedBrushPoint;c.dispatchEvent(new PointerEvent('pointerdown',{clientX:r.left+r.width*p.x/600,clientY:r.top+r.height*p.y/800,pointerId:1,bubbles:true}));c.dispatchEvent(new PointerEvent('pointerup',{pointerId:1,bubbles:true}));})()`); await delay(80);
+            assert.deepEqual(await evaluate('(()=>{const p=window.rotatedBrushPoint;return [...document.querySelector("canvas").getContext("2d").getImageData(Math.round(p.x),Math.round(p.y),1,1).data]})()'), color, 'Brush coordinates follow the rotated photo');
+        }
         assert.equal(await evaluate('document.querySelector("#studentPhotoCropModal").scrollWidth <= innerWidth'), true, 'No horizontal overflow');
         assert.ok(await evaluate('(()=>{const r=document.querySelector("canvas").getBoundingClientRect();return Math.abs(r.width/r.height-.75)<.01})()'), 'The portrait keeps its 3:4 ratio on narrow screens');
         const image = await command('Page.captureScreenshot', { format: 'png' });
         await mkdir(join(root, 'storage/app/testing'), { recursive: true });
         await writeFile(join(root, `storage/app/testing/student-photo-${mobile ? 'mobile' : 'desktop'}.png`), Buffer.from(image.data, 'base64'));
+        await evaluate('window.finalPreview=document.querySelector("canvas").toDataURL()');
         await click('#studentPhotoCropUpload');
         await until('document.querySelector("#enrollmentModal").classList.contains("show")'); await delay(350);
         assert.equal(await evaluate('document.querySelector("#student_photo").files[0].type'), 'image/png');
+        assert.equal(await evaluate('new Promise(resolve=>{const r=new FileReader();r.onload=()=>resolve(r.result===window.finalPreview);r.readAsDataURL(document.querySelector("#student_photo").files[0]);})'), true, 'Use Photo saves the rotated preview');
         await evaluate('window.accepted=document.querySelector("#student_photo").files[0]');
         await evaluate('upload()'); await until('document.querySelector("#studentPhotoCropModal").classList.contains("show")'); await delay(350);
         await click('#studentPhotoCropModal [data-bs-dismiss]');

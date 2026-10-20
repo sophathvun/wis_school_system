@@ -7,6 +7,13 @@ color, gentle noise smoothing, sharpening, and Auto Enhance. These controls
 adjust existing pixels; they cannot recover missing detail from a severely
 blurred original or invent a new face.
 
+Under **Frame**, use **Straighten (degrees)** to enter an exact angle such as
+5, 6, or 5.5, or drag the slider. Negative angles turn left; positive angles
+turn right (up to 45 degrees each way). The preview automatically crops to fill
+the portrait without empty corners. Zoom and drag to adjust the framing.
+**Reset angle** clears only straightening; the Left/Right 90-degree buttons
+remain available for sideways photos. **Use Photo** includes the rotation.
+
 **Remove Background** runs a local CPU portrait-matting model. Choose Blue,
 White, or a custom color; use Erase/Restore under Refine edges if needed.
 Light neutral fabric receives a small automatic contour smoothing pass to reduce

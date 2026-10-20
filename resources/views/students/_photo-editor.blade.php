@@ -23,7 +23,14 @@
                             <h4><i class="ti ti-crop me-1"></i>Frame</h4>
                             <label class="form-label" for="studentPhotoZoom">Zoom</label>
                             <div class="d-flex align-items-center gap-2"><button type="button" class="btn btn-icon btn-outline-secondary btn-sm" id="studentPhotoZoomOut" aria-label="Zoom out"><i class="ti ti-minus"></i></button><input type="range" class="form-range" id="studentPhotoZoom" min="1" max="3" step="0.01" value="1"><button type="button" class="btn btn-icon btn-outline-secondary btn-sm" id="studentPhotoZoomIn" aria-label="Zoom in"><i class="ti ti-plus"></i></button></div>
-                            <div class="d-flex gap-2 mt-2"><button type="button" class="btn btn-outline-secondary btn-sm" id="studentPhotoRotateLeft"><i class="ti ti-rotate-2 me-1"></i>Left</button><button type="button" class="btn btn-outline-secondary btn-sm" id="studentPhotoRotateRight"><i class="ti ti-rotate-clockwise-2 me-1"></i>Right</button></div>
+                            <div class="d-flex gap-2 mt-2"><button type="button" class="btn btn-outline-secondary btn-sm" id="studentPhotoRotateLeft"><i class="ti ti-rotate-2 me-1"></i>Left 90&deg;</button><button type="button" class="btn btn-outline-secondary btn-sm" id="studentPhotoRotateRight"><i class="ti ti-rotate-clockwise-2 me-1"></i>Right 90&deg;</button></div>
+                            <label class="form-label mt-3" for="studentPhotoAngle">Straighten (degrees)</label>
+                            <div class="d-flex align-items-center gap-2">
+                                <input type="number" class="form-control" id="studentPhotoAngle" min="-45" max="45" step="0.1" value="0" aria-describedby="studentPhotoAngleHelp">
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="studentPhotoAngleReset">Reset angle</button>
+                            </div>
+                            <input type="range" class="form-range mt-2" id="studentPhotoAngleRange" min="-45" max="45" step="0.1" value="0" aria-label="Straighten angle in degrees" aria-describedby="studentPhotoAngleHelp">
+                            <div class="form-hint" id="studentPhotoAngleHelp">Enter an angle, such as 5 or 6. Negative turns left; positive turns right.</div>
                         </section>
                         <section class="photo-editor-section">
                             <h4><i class="ti ti-wand me-1"></i>Background</h4>

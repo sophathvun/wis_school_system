@@ -32,8 +32,9 @@ export function createStudentPhotoEditor({ bootstrap, csrf, showError, showSucce
     const input = get("student_photo"), dropzone = get("studentPhotoDropzone"), preview = get("studentPhotoPreview");
     const error = get("studentPhotoEditorError"), status = get("studentPhotoEditorStatus");
     const zoom = get("studentPhotoZoom"), brush = get("studentPhotoBrush");
+    const angleInput = get("studentPhotoAngle"), angleRange = get("studentPhotoAngleRange");
     const before = get("studentPhotoCompare"), use = get("studentPhotoCropUpload");
-    let source, cutout, acceptedFile = null, scale = 1, rotation = 0, x = 0, y = 0;
+    let source, cutout, acceptedFile = null, scale = 1, rotation = 0, fineRotation = 0, x = 0, y = 0;
     let background = "original", comparing = false, pointer, smoothStroke, previewUrl, generation = 0, request, busy = false, returnToEnrollment = false;
     let adjustmentFrame = 0;
     const settings = { brightness: 0, contrast: 0, saturation: 0, denoise: 0, sharpen: 0 };
@@ -56,14 +57,19 @@ export function createStudentPhotoEditor({ bootstrap, csrf, showError, showSucce
         const active = button.dataset.photoBackground === background;
         button.setAttribute("aria-pressed", String(active)); button.classList.toggle("active", active);
     });
+    const rotationRadians = () => (rotation + fineRotation) * Math.PI / 180;
+    const imageScale = image => {
+        const angle = rotationRadians(), cosine = Math.abs(Math.cos(angle)), sine = Math.abs(Math.sin(angle));
+        // Fit the inverse-rotated crop inside the image, covering all four corners.
+        return Math.max((canvas.width * cosine + canvas.height * sine) / image.width,
+            (canvas.width * sine + canvas.height * cosine) / image.height) * scale;
+    };
     const drawImage = image => {
         if (!image) return;
-        const swapped = Math.abs(rotation % 180) === 90;
-        const base = Math.max(canvas.width / (swapped ? image.height : image.width), canvas.height / (swapped ? image.width : image.height));
-        const factor = base * scale;
+        const factor = imageScale(image);
         context.save();
         context.translate(canvas.width / 2 + x, canvas.height / 2 + y);
-        context.rotate(rotation * Math.PI / 180);
+        context.rotate(rotationRadians());
         context.drawImage(image, -image.width * factor / 2, -image.height * factor / 2, image.width * factor, image.height * factor);
         context.restore();
         return factor;
@@ -105,7 +111,8 @@ export function createStudentPhotoEditor({ bootstrap, csrf, showError, showSucce
         draw();
     };
     const reset = () => {
-        request?.abort(); cutout = null; scale = 1; rotation = 0; x = 0; y = 0;
+        request?.abort(); cutout = null; scale = 1; rotation = 0; fineRotation = 0; x = 0; y = 0;
+        angleInput.value = angleRange.value = "0";
         background = "original"; zoom.value = "1"; brush.value = "move"; resetSettings(); syncBackground(); clearError(); compare(false);
     };
     const showPreview = fileOrUrl => {
@@ -187,6 +194,18 @@ export function createStudentPhotoEditor({ bootstrap, csrf, showError, showSucce
     zoom.addEventListener("input", () => { scale = Number(zoom.value); scheduleDraw(); });
     for (const [id, amount] of [["studentPhotoZoomIn", .1], ["studentPhotoZoomOut", -.1]]) get(id).addEventListener("click", () => { zoom.value = Math.min(3, Math.max(1, Number(zoom.value) + amount)); zoom.dispatchEvent(new Event("input")); });
     for (const [id, amount] of [["studentPhotoRotateLeft", -90], ["studentPhotoRotateRight", 90]]) get(id).addEventListener("click", () => { rotation += amount; draw(); });
+    const straighten = (value, syncInput = true) => {
+        fineRotation = Math.round(Math.max(-45, Math.min(45, value)) * 10) / 10;
+        angleRange.value = String(fineRotation);
+        if (syncInput) angleInput.value = String(fineRotation);
+        scheduleDraw();
+    };
+    angleInput.addEventListener("input", () => {
+        if (angleInput.value !== "" && Number.isFinite(angleInput.valueAsNumber)) straighten(angleInput.valueAsNumber, false);
+    });
+    angleInput.addEventListener("change", () => straighten(Number.isFinite(angleInput.valueAsNumber) ? angleInput.valueAsNumber : fineRotation));
+    angleRange.addEventListener("input", () => straighten(Number(angleRange.value)));
+    get("studentPhotoAngleReset").addEventListener("click", () => straighten(0));
     get("studentPhotoReset").addEventListener("click", reset);
     before.addEventListener("click", () => compare(!comparing));
     get("studentPhotoRemoveBackground").addEventListener("click", () => removeBackground());
@@ -217,9 +236,8 @@ export function createStudentPhotoEditor({ bootstrap, csrf, showError, showSucce
     };
     const paint = event => {
         if (!cutout || comparing || background === "original") return;
-        const p = point(event), angle = -rotation * Math.PI / 180;
-        const swapped = Math.abs(rotation % 180) === 90;
-        const factor = Math.max(canvas.width / (swapped ? source.height : source.width), canvas.height / (swapped ? source.width : source.height)) * scale;
+        const p = point(event), angle = -rotationRadians();
+        const factor = imageScale(source);
         const dx = p.x - canvas.width / 2 - x, dy = p.y - canvas.height / 2 - y;
         const cx = (dx * Math.cos(angle) - dy * Math.sin(angle)) / factor + source.width / 2;
         const cy = (dx * Math.sin(angle) + dy * Math.cos(angle)) / factor + source.height / 2;
