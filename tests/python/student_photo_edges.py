@@ -5,7 +5,7 @@ import sys
 import unittest
 import numpy as np
 from PIL import Image
-from scipy.ndimage import maximum_filter
+from scipy.ndimage import gaussian_filter, maximum_filter
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'scripts/student-photo-ai'))
 from foreground import clean_foreground
@@ -36,6 +36,68 @@ def rough_portrait_fixture():
 
 
 class PortraitEdgeTests(unittest.TestCase):
+    def test_opaque_fabric_contour_removes_fraying_and_retains_hair_detail(self):
+        height, width = 180, 140
+        y, x = np.mgrid[:height, :width]
+        expected = (x < 70).astype(np.float32)
+        prior = gaussian_filter(expected, sigma=(0, 1.2))
+        refined = (x < 70 + np.where(y % 3 == 0, 2, -2)).astype(np.float32)
+        # A translucent wisp outside the shoulder is retained wall, not fabric.
+        refined[(x >= 72) & (x < 76) & (y >= 70)] = .2
+        rgb = np.full((height, width, 3), [.76, .78, .77], dtype=np.float32)
+        rgb[(expected == 1) & (y < 60)] = [.08, .07, .06]
+        rgb[(expected == 1) & (y >= 60)] = [.92, .93, .94]
+        # Dark pattern immediately adjoining the white shirt must not cause a
+        # notch or change back to a ragged contour at the color-label boundary.
+        rgb[95:101, 55:72] = [.12, .14, .18]
+        image = Image.fromarray(np.rint(rgb * 255).astype(np.uint8))
+        result = np.asarray(smooth_fabric_alpha(image, Image.fromarray(refined), prior=Image.fromarray(prior)))
+        self.assertLess(np.std(result[80:165].sum(axis=1)), .1)
+        self.assertLess(result[80:165, 73:].max(), .01)
+        np.testing.assert_array_equal(result[:40], refined[:40])
+        np.testing.assert_array_equal(result[:, :60], refined[:, :60])
+        self.assertGreater(result[95:101, 68].min(), .99)
+
+    def test_coherent_refined_shirt_edge_can_correct_wrong_model_prior(self):
+        height, width = 384, 320
+        y, x = np.mgrid[:height, :width].astype(np.float32)
+        expected = np.clip(x - (75 + .0015 * (y - 180) ** 2) + .5, 0, 1)
+        subject = np.full((height, width, 3), [.79, .83, .79], dtype=np.float32)
+        wall = np.full_like(subject, [.83, .87, .83])
+        noise = np.random.default_rng(45).normal(0, .003, (height, width, 1))
+        pixels = np.rint(np.clip(subject * expected[..., None] + wall * (1 - expected[..., None]) + noise, 0, 1) * 255).astype(np.uint8)
+        image = Image.fromarray(pixels)
+        prior = maximum_filter(expected, size=19)
+        refined = refine_alpha(image, Image.fromarray(prior))
+        result = np.asarray(smooth_fabric_alpha(image, refined, prior=Image.fromarray(prior)))
+        self.assertLess(np.abs(result - expected).mean(), np.abs(prior - expected).mean() * .3)
+        self.assertGreater(result[80:300, 140:280].min(), .99)
+
+    def test_prior_contour_handles_empty_solid_and_colored_masks(self):
+        source = Image.new('RGB', (32, 40), (20, 80, 220))
+        for value in [0., .5, 1.]:
+            alpha = np.full((40, 32), value, dtype=np.float32)
+            result = smooth_fabric_alpha(source, Image.fromarray(alpha), prior=Image.fromarray(alpha))
+            np.testing.assert_array_equal(np.asarray(result), alpha)
+
+    def test_reconsiders_falsely_opaque_wall_in_low_contrast_shirt_mask(self):
+        height, width = 384, 320
+        y, x = np.mgrid[:height, :width].astype(np.float32)
+        boundary = 75 + .0015 * (y - 180) ** 2
+        expected = np.clip(x - boundary + .5, 0, 1)
+        subject = np.full((height, width, 3), [.79, .83, .79], dtype=np.float32)
+        wall = np.full_like(subject, [.83, .87, .83])
+        noise = np.random.default_rng(45).normal(0, .003, (height, width, 1))
+        pixels = np.rint(np.clip(subject * expected[..., None] + wall * (1 - expected[..., None]) + noise, 0, 1) * 255).astype(np.uint8)
+        image = Image.fromarray(pixels)
+        # Nine-pixel wall strip is incorrectly classified as FULLY opaque by
+        # the model, so merely smoothing fractional alpha cannot remove it.
+        rough = maximum_filter(expected, size=19)
+        refined = np.asarray(refine_alpha(image, Image.fromarray(rough)))
+        self.assertLess(np.abs(refined - expected).mean(), np.abs(rough - expected).mean() * .3)
+        self.assertLess(np.count_nonzero((refined > .9) & (expected < .01)), 150)
+        self.assertGreater(refined[80:300, 140:280].min(), .99)
+
     def test_smooths_light_fabric_teeth_without_smoothing_dark_hair(self):
         height, width = 180, 140
         y, x = np.mgrid[:height, :width]

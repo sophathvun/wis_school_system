@@ -38,7 +38,7 @@ def main():
     matte = session.run(None, {session.get_inputs()[0].name: tensor})[0].squeeze()
     # Keep floating-point alpha until foreground estimation is complete.
     alpha = Image.fromarray(np.clip(matte, 0, 1).astype(np.float32))
-    refined = smooth_fabric_alpha(image, refine_alpha(image, alpha))
+    refined = smooth_fabric_alpha(image, refine_alpha(image, alpha), prior=alpha)
     clean_foreground(image, refined).save(args.destination, format='PNG')
 
 

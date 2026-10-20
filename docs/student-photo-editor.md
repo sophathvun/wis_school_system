@@ -13,8 +13,16 @@ Light neutral fabric receives a small automatic contour smoothing pass to reduce
 one-pixel teeth from textured backgrounds, keeping dark hair and solid interiors
 unchanged. For a local touch-up choose **Smooth edge** under Refine edges and
 brush over just the rough outline; each stroke applies gentle feathering.
+Fabric contours are treated as opaque with a narrow antialiased boundary.
+If matting invents texture along a shirt edge, the fabric region uses the model
+silhouette; coherent refined contours are retained so a wrong prediction can
+still be corrected. The fabric region includes adjoining collars and cuffs to
+avoid notches where the fabric color changes. Soft hair matting stays separate.
 An image-guided matting pass refines a narrow band around the model outline at
 the working photo resolution, using overlapping patches to limit memory use.
+Where light fabric and the old wall have similar colors, the correction band
+widens so wrongly opaque wall pixels can be reconsidered. Solver guidance is
+lightly denoised in that band; the portrait RGB remains from the original image.
 This revisits the pale edge around hair/shoulders rather than just blurring it.
 Foreground color estimation automatically reduces old background color fringing
 around hair and clothing before compositing. It preserves soft edges rather than

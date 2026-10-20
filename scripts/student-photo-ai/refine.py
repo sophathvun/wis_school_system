@@ -2,7 +2,7 @@
 import warnings
 import numpy as np
 from PIL import Image
-from scipy.ndimage import maximum_filter, minimum_filter
+from scipy.ndimage import distance_transform_edt, gaussian_filter, maximum_filter, minimum_filter
 from pymatting import estimate_alpha_cf
 
 
@@ -10,15 +10,44 @@ def refine_alpha(image: Image.Image, alpha: Image.Image) -> Image.Image:
     opacity = np.clip(np.asarray(alpha.resize(image.size, Image.Resampling.BILINEAR), dtype=np.float32), 0, 1)
     height, width = opacity.shape
     radius = max(2, min(4, round(max(image.size) / 400)))
-    # Reconsider a narrow band on BOTH sides of the predicted boundary. This
-    # lets matting remove an opaque pale halo as well as restore fine hairs.
+    # Reconsider both sides of the prediction; model confidence alone cannot
+    # prove that a light wall pixel belongs to a similarly colored shirt.
     foreground = minimum_filter(opacity, size=2 * radius + 1, mode='nearest') > .98
     background = maximum_filter(opacity, size=2 * radius + 1, mode='nearest') < .02
-    unknown = ~(foreground | background)
-    if not foreground.any() or not background.any() or not unknown.any():
+    if not foreground.any() or not background.any():
         return Image.fromarray(opacity)
 
-    rgb = np.asarray(image.convert('RGB'), dtype=np.float64) / 255.0
+    rgb = np.asarray(image.convert('RGB'), dtype=np.float32) / 255.0
+    # A 2px band left falsely-opaque wall locked into the shirt. Compare colors
+    # well INSIDE the subject and well OUTSIDE the prediction, then widen only
+    # ambiguous light/neutral boundaries. Hair retains the narrower trimap.
+    wide_radius = max(8, min(24, round(max(image.size) / 40)))
+    inner = minimum_filter(opacity, size=2 * wide_radius + 1, mode='nearest') > .98
+    outer = maximum_filter(opacity, size=2 * wide_radius + 1, mode='nearest') < .02
+    low_contrast = np.zeros_like(foreground)
+    if inner.any() and outer.any():
+        nearest_inner = distance_transform_edt(~inner, return_distances=False, return_indices=True)
+        nearest_outer = distance_transform_edt(~outer, return_distances=False, return_indices=True)
+        # Limit temporary RGB arrays for small-memory application servers.
+        for start in range(0, height, 128):
+            rows = np.s_[start:min(start + 128, height)]
+            subject_color = rgb[nearest_inner[0, rows], nearest_inner[1, rows]]
+            wall_color = rgb[nearest_outer[0, rows], nearest_outer[1, rows]]
+            low_contrast[rows] = ((subject_color.mean(axis=2) > .65)
+                                  & (np.ptp(subject_color, axis=2) < .20)
+                                  & (np.sqrt(np.mean((subject_color - wall_color) ** 2, axis=2)) < .14))
+        del nearest_inner, nearest_outer, subject_color, wall_color
+        foreground[low_contrast] = inner[low_contrast]
+        background[low_contrast] = outer[low_contrast]
+    unknown = ~(foreground | background)
+    if not unknown.any():
+        return Image.fromarray(opacity)
+    # In the ambiguous band, reduce fine wall/JPEG noise in the solver's color
+    # guidance. The output RGB still comes from the original photo.
+    if np.any(low_contrast & unknown):
+        denoised = gaussian_filter(rgb, sigma=(.6, .6, 0), mode='nearest')
+        rgb[low_contrast] = denoised[low_contrast]
+        del denoised
     trimap = np.full((height, width), .5, dtype=np.float64)
     trimap[foreground] = 1
     trimap[background] = 0
@@ -39,7 +68,7 @@ def refine_alpha(image: Image.Image, alpha: Image.Image) -> Image.Image:
                 continue
             try:
                 refined = estimate_alpha_cf(
-                    np.ascontiguousarray(rgb[region]), patch_trimap,
+                    np.ascontiguousarray(rgb[region], dtype=np.float64), patch_trimap,
                     laplacian_kwargs={'epsilon': 1e-6},
                     cg_kwargs={'maxiter': 250, 'rtol': 1e-5},
                 )
