@@ -20,7 +20,7 @@ class PermissionHierarchy
             'students.search' => 'Search Students', 'students.enrollment' => 'Student Enrollment', 'families' => 'Family Management',
             'students.promotion' => 'Student Promotion', 'students.transfer' => 'Student Transfer', 'students.graduation' => 'Student Graduation',
             'student-reentry' => 'Student Re-entry', 'student-skipping-grade' => 'Stu. Skipping Grade', 'student-id-card-qr' => 'Stu. ID Card (QR)', 'student-documents' => 'Student Documents', 'student-data-transfer' => 'Import / Export Data', 'homeroom' => 'Homeroom Activities',
-            'western-scholarship' => 'WIS Scholarship',
+            'western-scholarship' => 'WIS Scholarship', 'photo-editor' => 'Photo Editor',
             'staff' => 'Staff Management', 'hrm-settings' => 'HRM Settings', 'hrm-staff-data'=>'Staff Import / Export',
             'hrm-staff-attendance' => 'Staff Attendance', 'hrm-payroll' => 'Payroll', 'hrm-leave-requests' => 'Leave Requests',
             'hrm-performance-reviews' => 'Performance Reviews', 'hrm-staff-reports' => 'Staff Reports',
@@ -32,6 +32,7 @@ class PermissionHierarchy
         return [
             'photo-editor' => [
                 'label' => 'Photo Editor', 'permission' => 'photo-editor.view',
+                'description' => 'Allow photo upload, crop and rotation, background replacement, color and clarity adjustments, photo sizes, and JPG / WebP downloads.',
                 'modules' => [], 'actions' => [],
             ],
             'administrator' => [
@@ -117,7 +118,7 @@ class PermissionHierarchy
                 }
             }
             $actions = collect($group['actions'])->map(fn ($code) => $byCode->get($code))->filter()->values();
-            $tree[$key] = ['label' => $group['label'], 'permission' => $byCode->get($group['permission']), 'modules' => $modules, 'modules_label' => $group['modules_label'] ?? null, 'actions' => $actions];
+            $tree[$key] = ['label' => $group['label'], 'description' => $group['description'] ?? null, 'permission' => $byCode->get($group['permission']), 'modules' => $modules, 'modules_label' => $group['modules_label'] ?? null, 'actions' => $actions];
         }
 
         return $tree;

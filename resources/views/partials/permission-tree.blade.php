@@ -57,7 +57,7 @@
             @php($mainOn = $assignedPermissions->contains('id', $main->id))
             <div class="col-md-6">
                 <div class="border rounded p-3" data-permission-group
-                    data-permission-group-label="{{ strtolower($group['label']) }}">
+                    data-permission-group-label="{{ strtolower($group['label'] . ' ' . ($group['description'] ?? '')) }}">
                     <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2">
                         <span class="fw-bold fs-5 permission-main-menu"><i
                                 class="ti {{ $mainMenuIcons[$groupKey] ?? 'ti-menu-2' }} me-2"></i>{{ strtoupper($group['label']) }}</span>
@@ -68,6 +68,9 @@
                                 class="status-toggle-knob"></span>
                         </button>
                     </div>
+                    @if ($group['description'] ?? null)
+                        <p class="small text-secondary mb-0">{{ $group['description'] }}</p>
+                    @endif
                     @if($group['modules_label'] ?? null)
                         <div class="fw-bold mt-3 mb-1">{{ $group['modules_label'] }}</div>
                     @endif
