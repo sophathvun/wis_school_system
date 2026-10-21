@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use App\Support\PermissionHierarchy;
+use App\Support\UserPermissionState;
 
 class AccessManagementController
 {
@@ -43,7 +44,7 @@ class AccessManagementController
         $hasAllPermissions = fn ($assigned) => $fullAccessPermissionIds->isNotEmpty() && $fullAccessPermissionIds->every(fn ($permissionId) => $assigned?->contains('id', $permissionId));
         $userSearch = trim((string) $request->input('user_search', ''));
         $userPerPage = min(max($request->integer('per_page', 10), 10), 100);
-        $userList = User::with(['department', 'roles', 'campuses', 'permissionOverrides'])
+        $userList = User::with(['department.permissions', 'roles.permissions', 'campuses', 'permissionOverrides'])
             ->when($userSearch, fn ($query) => $query->where(function ($query) use ($userSearch) {
                 $query->where('name', 'like', "%{$userSearch}%")
                     ->orWhere('username', 'like', "%{$userSearch}%")
@@ -52,6 +53,9 @@ class AccessManagementController
             ->orderBy('name')
             ->paginate($userPerPage, ['*'], 'users_page')
             ->withQueryString();
+
+        $userPermissionStates = $userList->getCollection()->mapWithKeys(fn ($user) => [$user->id => UserPermissionState::forUser($user, $permissionList)]);
+        $selectedUserPermissionState = $selectedUser ? ($userPermissionStates->get($selectedUser->id) ?? UserPermissionState::forUser($selectedUser, $permissionList)) : null;
 
         return view('access-management', [
             'departments' => $departments,
@@ -65,10 +69,12 @@ class AccessManagementController
             'permissionSortDir' => $permissionSortDir,
             'permissionHierarchy' => PermissionHierarchy::tree($permissionList),
             'userList' => $userList,
+            'userPermissionStates' => $userPermissionStates,
+            'selectedUserPermissionState' => $selectedUserPermissionState,
             'userSearch' => $userSearch,
             'roleFullAccess' => $role?->code === 'super-admin' || $hasAllPermissions($role?->permissions),
             'departmentFullAccess' => $hasAllPermissions($department?->permissions),
-            'userFullAccess' => $selectedUser?->isSuperAdmin() || $hasAllPermissions($selectedUser?->permissionOverrides),
+            'userFullAccess' => $selectedUserPermissionState['full_access'] ?? false,
             'role' => $role,
             'department' => $department,
             'selectedUser' => $selectedUser,
@@ -157,8 +163,9 @@ class AccessManagementController
             if (!$user->is_global) {
                 $user->campuses()->sync(collect($data['campuses'] ?? [])->mapWithKeys(fn ($id, $index) => [$id => ['is_primary' => $index === 0, 'assigned_at' => now()]])->all());
             }
+            $permissionIds = UserPermissionState::directIdsForSave($user, $data['permissions'] ?? [], Permission::all());
             DB::table('access_user_permission_overrides')->where('user_id', $data['user_id'])->delete();
-            foreach (PermissionHierarchy::normalizeIds($data['permissions'] ?? [], Permission::all()) as $permissionId) DB::table('access_user_permission_overrides')->insert(['user_id' => $data['user_id'], 'permission_id' => $permissionId, 'allowed' => true, 'created_at' => now(), 'updated_at' => now()]);
+            foreach ($permissionIds as $permissionId) DB::table('access_user_permission_overrides')->insert(['user_id' => $data['user_id'], 'permission_id' => $permissionId, 'allowed' => true, 'created_at' => now(), 'updated_at' => now()]);
         });
         return back()->with('success', 'Staff permission overrides saved successfully.');
     }
@@ -241,15 +248,18 @@ class AccessManagementController
     {
         $allPermissions = Permission::orderBy('module')->orderBy('action')->get();
         $rows = [];
-        User::with(['department', 'roles', 'campuses', 'permissionOverrides'])->orderBy('name')->get()->each(function (User $user) use (&$rows, $allPermissions) {
-            $permissions = $user->isSuperAdmin() ? $allPermissions : $user->permissionOverrides->where('pivot.allowed', true);
+        User::with(['department.permissions', 'roles.permissions', 'campuses', 'permissionOverrides'])->orderBy('name')->get()->each(function (User $user) use (&$rows, $allPermissions) {
+            $state = UserPermissionState::forUser($user, $allPermissions);
+            $permissions = $state['permissions'];
             if ($permissions->isEmpty()) {
                 $rows[] = [$user->name, $user->username, $user->department?->hierarchy_name ?: '-', $user->roles->pluck('name')->unique()->join(', ') ?: '-', $this->campusLabel($user), '-', '-', '-'];
                 return;
             }
 
             foreach ($permissions as $permission) {
-                $rows[] = [$user->name, $user->username, $user->department?->hierarchy_name ?: '-', $user->roles->pluck('name')->unique()->join(', ') ?: '-', $this->campusLabel($user), $permission->code, $permission->name, $user->isSuperAdmin() ? 'Full Access' : 'Allowed'];
+                $sources = $state['sources'][$permission->id] ?? [];
+                if (in_array((int) $permission->id, $state['direct_ids'], true)) $sources[] = 'User grant';
+                $rows[] = [$user->name, $user->username, $user->department?->hierarchy_name ?: '-', $user->roles->pluck('name')->unique()->join(', ') ?: '-', $this->campusLabel($user), $permission->code, $permission->name, implode('; ', $sources)];
             }
         });
 

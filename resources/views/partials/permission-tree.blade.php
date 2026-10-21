@@ -1,3 +1,15 @@
+@php
+    $permissionSources = $userPermissionState['sources'] ?? [];
+    $inheritedPermissionIds = collect($userPermissionState['inherited_ids'] ?? []);
+    if (isset($userPermissionState)) {
+        $assignedPermissions = $userPermissionState['permissions'];
+        $fullAccess = $userPermissionState['full_access'];
+        $fullAccessLocked = ($fullAccessLocked ?? false) || $userPermissionState['inherited_full_access'];
+    }
+@endphp
+@foreach (array_intersect($userPermissionState['direct_ids'] ?? [], $userPermissionState['inherited_ids'] ?? []) as $directPermissionId)
+    <input type="hidden" name="permissions[]" value="{{ $directPermissionId }}">
+@endforeach
 @include('partials.full-access-toggle', [
     'fullAccess' => $fullAccess ?? false,
     'fullAccessLocked' => $fullAccessLocked ?? false,
@@ -12,7 +24,7 @@
 @php($submenuIcons=array_merge($submenuIcons,['staff'=>'ti-id-badge-2','hrm-settings'=>'ti-settings','hrm-staff-attendance'=>'ti-user-check','hrm-payroll'=>'ti-cash-banknote','hrm-leave-requests'=>'ti-calendar-minus','hrm-performance-reviews'=>'ti-chart-bar','hrm-staff-reports'=>'ti-report-analytics']))
 @php($mainMenuIcons['hrm']='ti-users-group')
 @php($submenuIcons=array_merge($submenuIcons,['staff'=>'ti-id-badge-2','hrm-settings'=>'ti-settings','hrm-staff-attendance'=>'ti-user-check','hrm-payroll'=>'ti-cash-banknote','hrm-leave-requests'=>'ti-calendar-minus','hrm-performance-reviews'=>'ti-chart-bar','hrm-staff-reports'=>'ti-report-analytics']))
-@php($permissionUser = $listedUser ?? ($selectedUser ?? null))
+@php($permissionUser = $permissionUser ?? ($listedUser ?? ($selectedUser ?? null)))
 @if (($showCampusAssignment ?? false) && $permissionUser)
     <div class="col-md-6">
         @if ($permissionUser->is_global)
@@ -60,9 +72,11 @@
                     data-permission-group-label="{{ strtolower($group['label'] . ' ' . ($group['description'] ?? '')) }}">
                     <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2">
                         <span class="fw-bold fs-5 permission-main-menu"><i
-                                class="ti {{ $mainMenuIcons[$groupKey] ?? 'ti-menu-2' }} me-2"></i>{{ strtoupper($group['label']) }}</span>
+                                class="ti {{ $mainMenuIcons[$groupKey] ?? 'ti-menu-2' }} me-2"></i>{{ strtoupper($group['label']) }} @include('partials.permission-inheritance', ['permissionId' => $main->id])</span>
                         <button type="button" class="status-toggle {{ $mainOn ? 'is-active' : '' }}"
                             data-permission-toggle data-permission-level="main" data-permission-id="{{ $mainId }}"
+                            data-permission-code="{{ $main->code }}"
+                            @if($inheritedPermissionIds->contains($main->id)) data-permission-inherited="true" disabled @endif
                             data-status="{{ $mainOn ? 1 : 0 }}" aria-pressed="{{ $mainOn ? 'true' : 'false' }}">
                             <span class="status-toggle-label">{{ $mainOn ? 'ON' : 'OFF' }}</span><span
                                 class="status-toggle-knob"></span>
@@ -83,13 +97,14 @@
                             <div class="d-flex justify-content-between align-items-center py-2 permission-module-header"
                                 data-permission-module-toggle>
                                 <span class="permission-submenu-label"><i
-                                        class="ti {{ $submenuIcons[$moduleKey] ?? 'ti-point' }} me-2"></i>{{ strtoupper($module['label']) }}</span>
+                                        class="ti {{ $submenuIcons[$moduleKey] ?? 'ti-point' }} me-2"></i>{{ strtoupper($module['label']) }} @include('partials.permission-inheritance', ['permissionId' => $module['permission']->id])</span>
                                 @if ($module['actions']->isNotEmpty())
                                     <i class="ti ti-chevron-up permission-module-chevron" aria-hidden="true"></i>
                                 @endif
                                 <button type="button" class="status-toggle {{ $submenuOn ? 'is-active' : '' }}"
                                     data-permission-toggle data-permission-level="submenu"
                                     data-permission-id="{{ $submenuId }}"
+                                    @if($inheritedPermissionIds->contains($module['permission']->id)) data-permission-inherited="true" disabled @endif
                                     data-permission-code="{{ $module['permission']->code }}"
                                     @if($moduleKey==='hrm-staff-data') data-requires-permissions="hrm-settings.view,staff.view" @elseif(in_array($moduleKey,['departments','positions'],true)) data-requires-permission="hrm-settings.view" @endif
                                     data-permission-code="{{ $module['permission']->code }}"
@@ -120,16 +135,17 @@
                                 <div class="d-flex justify-content-between align-items-center border-top py-2 ps-3 permission-action"
                                     data-action-parent="{{ $submenuId }}">
                                     <span class="small text-secondary">{{ $action->name }}
-                                        <small>({{ $action->code }})</small></span>
+                                        <small>({{ $action->code }})</small> @include('partials.permission-inheritance', ['permissionId' => $action->id])</span>
                                     <button type="button" class="status-toggle {{ $actionOn ? 'is-active' : '' }}"
                                         data-permission-toggle data-permission-level="action"
                                         data-permission-code="{{ $action->code }}"
+                                        @if($inheritedPermissionIds->contains($action->id)) data-permission-inherited="true" disabled @endif
                                         @if($skippingParent) data-requires-permission="student-skipping-grade.{{ $skippingParent }}" @elseif($scholarshipParent) data-requires-permission="western-scholarship.{{ $scholarshipParent }}" @elseif($moduleKey==='hrm-staff-data' && $action->action==='import') data-requires-permission="staff.create" @endif
                                         data-parent-permission="{{ $submenuId }}"
                                         data-status="{{ $actionOn ? 1 : 0 }}"
                                         aria-pressed="{{ $actionOn ? 'true' : 'false' }}">
                                         <input type="checkbox" class="d-none" name="permissions[]"
-                                            value="{{ $action->id }}" @checked($actionOn)>
+                                            value="{{ $action->id }}" @checked($actionOn) @disabled($inheritedPermissionIds->contains($action->id))>
                                         <span class="status-toggle-label">{{ $actionOn ? 'ON' : 'OFF' }}</span><span
                                             class="status-toggle-knob"></span>
                                     </button>
@@ -138,7 +154,7 @@
                             @endif
                             <input type="checkbox" class="d-none" name="permissions[]"
                                 value="{{ $module['permission']->id }}" @checked($submenuOn)
-                                data-permission-input="{{ $submenuId }}">
+                                data-permission-input="{{ $submenuId }}" @disabled($inheritedPermissionIds->contains($module['permission']->id))>
                         </div>
                     @endforeach
                     @foreach ($group['actions'] as $action)
@@ -146,20 +162,22 @@
                         <div class="d-flex justify-content-between align-items-center border-top py-2 permission-action"
                             data-action-parent="{{ $mainId }}">
                             <span class="small text-secondary">{{ $action->name }}
-                                <small>({{ $action->code }})</small></span>
+                                <small>({{ $action->code }})</small> @include('partials.permission-inheritance', ['permissionId' => $action->id])</span>
                             <button type="button" class="status-toggle {{ $actionOn ? 'is-active' : '' }}"
                                 data-permission-toggle data-permission-level="action"
+                                data-permission-code="{{ $action->code }}"
+                                @if($inheritedPermissionIds->contains($action->id)) data-permission-inherited="true" disabled @endif
                                 data-parent-permission="{{ $mainId }}" data-status="{{ $actionOn ? 1 : 0 }}"
                                 aria-pressed="{{ $actionOn ? 'true' : 'false' }}">
                                 <input type="checkbox" class="d-none" name="permissions[]" value="{{ $action->id }}"
-                                    @checked($actionOn)>
+                                    @checked($actionOn) @disabled($inheritedPermissionIds->contains($action->id))>
                                 <span class="status-toggle-label">{{ $actionOn ? 'ON' : 'OFF' }}</span><span
                                     class="status-toggle-knob"></span>
                             </button>
                         </div>
                     @endforeach
                     <input type="checkbox" class="d-none" name="permissions[]" value="{{ $main->id }}"
-                        @checked($mainOn) data-permission-input="{{ $mainId }}">
+                        @checked($mainOn) data-permission-input="{{ $mainId }}" @disabled($inheritedPermissionIds->contains($main->id))>
                 </div>
             </div>
         @endif

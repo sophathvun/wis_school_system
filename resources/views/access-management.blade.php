@@ -259,8 +259,9 @@
                                                 data-permission-form>@csrf<input type="hidden" name="user_id"
                                                     value="{{ $listedUser->id }}">
                                                 <div class="card-body py-3">
-                                                    <div class="text-secondary small mb-3">Turn on the main menu, then its
-                                                        submenu, before enabling actions.</div>@include('partials.permission-tree', [
+                                                    <div class="text-secondary small mb-3">Role and department permissions appear ON with their source. Change inherited permissions in the role or department; add extra permissions here. Campus restrictions still apply.</div>@include('partials.permission-tree', [
+                                                            'userPermissionState' => $userPermissionStates->get($listedUser->id),
+                                                            'permissionUser' => $listedUser,
                                                             'assignedPermissions' =>
                                                                 $listedUser->permissionOverrides,
                                                             'permissionPrefix' => 'inline-user-' . $listedUser->id,
@@ -373,8 +374,9 @@
                 <form method="POST" action="{{ route('access-management.staff.save') }}" data-permission-form>
                     @csrf<input type="hidden" name="user_id" value="{{ $selectedUser?->id }}">
                     <div class="card-body">
-                        <div class="text-secondary small mb-3">User permissions are additional grants on top of role and
-                            department permissions.</div>@include('partials.permission-tree', [
+                        <div class="text-secondary small mb-3">Role and department permissions appear ON with their source. Additional user permissions can be enabled here. Campus restrictions still apply.</div>@include('partials.permission-tree', [
+                                'userPermissionState' => $selectedUserPermissionState,
+                                'permissionUser' => $selectedUser,
                                 'assignedPermissions' => $selectedUser?->permissionOverrides ?? collect(),
                                 'permissionPrefix' => 'user',
                                 'fullAccess' => $userFullAccess,

@@ -1,4 +1,9 @@
 /* Extracted from resources/views/partials/permission-tree.blade.php. Keep page-specific styles in this file. */
+[data-permission-form] { white-space: normal; }
+[data-permission-group] { white-space: normal; min-width: 0; }
+.permission-inheritance-badge { font-size: .65rem; font-weight: 500; vertical-align: middle; margin-left: .25rem; }
+.permission-action > span { min-width: 0; overflow-wrap: anywhere; }
+[data-permission-group] .status-toggle { flex-shrink: 0; }
 
 .permission-campus-picker {
     position: relative;
