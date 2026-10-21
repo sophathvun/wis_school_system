@@ -113,6 +113,17 @@ class User extends Authenticatable
             })->exists();
     }
 
+    /** Photo editing is a personal utility; its grants do not depend on a selected campus. */
+    public function canUsePhotoEditor(): bool
+    {
+        if ($this->isSuperAdmin()) return true;
+        $permission = 'photo-editor.view';
+        if ($this->permissionOverrides()->where('code', $permission)->wherePivot('allowed', true)->exists()) return true;
+        if ($this->department_id && $this->department()->whereHas('permissions', fn ($query) => $query->where('code', $permission))->exists()) return true;
+        return $this->roles()->where('access_roles.status', 1)
+            ->whereHas('permissions', fn ($query) => $query->where('code', $permission))->exists();
+    }
+
     public function isSuperAdmin(): bool
     {
         return $this->roles()

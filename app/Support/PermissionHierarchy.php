@@ -32,7 +32,7 @@ class PermissionHierarchy
         return [
             'photo-editor' => [
                 'label' => 'Photo Editor', 'permission' => 'photo-editor.view',
-                'description' => 'Allow photo upload, crop and rotation, background replacement, color and clarity adjustments, photo sizes, and JPG / WebP downloads.',
+                'description' => 'Allow photo upload, crop and rotation, background replacement, color and clarity adjustments, photo sizes, and JPG / WebP downloads. Applies to assigned users independently of campus selection.',
                 'modules' => [], 'actions' => [],
             ],
             'administrator' => [

@@ -578,7 +578,7 @@
                         </div>
                     </li>
                 @endif
-                @if ($canView('photo-editor.view'))
+                @if (auth()->user()?->canUsePhotoEditor())
                     <li class="nav-item {{ request()->routeIs('photo-editor.*') ? 'active' : '' }}">
                         <a class="nav-link" href="{{ route('photo-editor.index') }}">
                             <span class="nav-link-icon d-md-none d-lg-inline-block"><i class="ti ti-photo-edit icon"></i></span>

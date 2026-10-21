@@ -25,3 +25,7 @@ Start with **Natural**, **Studio Light**, or **Warm Portrait** for gentle adjust
 ## Deployment and access
 
 Run `php artisan migrate --force` and `npm run build` during normal deployment. The additive migration registers `photo-editor.view` without granting it to other users. In the permission page, enable the **Photo Editor** main-menu permission for departments, roles or users who should have access. It covers the editor and its processing/download routes. Super administrators already have access.
+
+Photo Editor honors an enabled grant from an assigned **active role**, the user's department, or a direct user grant. It is a personal photo workspace, so a role's campus assignment and the selected campus do not restrict it. The menu, page, background processing, size measurements and downloads use the same access check. Inactive roles and users without a grant remain blocked. Other modules retain their existing campus restrictions.
+
+After deploying the role-access fix, clear cached routes with `php artisan route:clear` (or rebuild your route cache as part of deployment). Existing saved Photo Editor grants are retained; users do not need a separate personal grant when their role already allows it.

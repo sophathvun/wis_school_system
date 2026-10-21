@@ -130,7 +130,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/profile', [AuthController::class, 'updateProfile'])->name('profile.update');
     Route::post('/photos/size', [\App\Http\Controllers\StudentPhotoController::class, 'size'])
         ->middleware('throttle:60,1')->name('photos.size');
-    Route::middleware(['campus.context', 'permission:photo-editor.view'])->prefix('photo-editor')->name('photo-editor.')->group(function () {
+    Route::middleware(\App\Http\Middleware\EnsurePhotoEditorAccess::class)->prefix('photo-editor')->name('photo-editor.')->group(function () {
         Route::get('/', [\App\Http\Controllers\PhotoEditorController::class, 'index'])->name('index');
         Route::post('/size', [\App\Http\Controllers\PhotoEditorController::class, 'size'])
             ->middleware('throttle:60,1')->name('size');

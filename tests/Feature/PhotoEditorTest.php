@@ -14,9 +14,19 @@ function standalonePhotoUser(bool $allowed): User
 {
     $user = Mockery::mock(User::class)->makePartial();
     $user->id = 1;
-    $user->shouldReceive('hasPermission')->with('photo-editor.view', Mockery::any())->andReturn($allowed);
+    $user->shouldReceive('canUsePhotoEditor')->andReturn($allowed);
     return $user;
 }
+
+it('checks photo editor permission without requiring campus resolution', function () {
+    $this->withoutMiddleware(TrackUserPresence::class);
+    $user = Mockery::mock(User::class)->makePartial();
+    $user->id = 1; $user->active_campus_id = 7;
+    $user->shouldReceive('canUsePhotoEditor')->once()->andReturn(true);
+    $this->mock(\App\Services\CampusContext::class)->shouldNotReceive('resolve');
+    $this->actingAs($user);
+    $this->postJson(route('photo-editor.size'), ['photo' => UploadedFile::fake()->image('crop.png', 354, 472)])->assertOk();
+});
 
 it('requires sign in for the standalone editor and its processing routes', function () {
     $this->getJson(route('photo-editor.index'))->assertUnauthorized();
