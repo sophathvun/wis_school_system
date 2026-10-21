@@ -33,7 +33,7 @@ it('requires confirmation and the existing seat tab and export permissions for t
         ->toThrow($draft?ValidationException::class:\Symfony\Component\HttpKernel\Exception\HttpException::class);
 })->with([
     [['western-scholarship.tab-seat-plan'],[1,2],false],
-    [['western-scholarship.export'],[1,2],false],
+    [['western-scholarship.export-seats'],[1,2],false],
     [[],[1],false],
     [[],[1,2],true],
 ]);
@@ -200,7 +200,7 @@ it('blocks viewing when the scholarship or Students permission is denied', funct
 it('loads the scholarship tabs and restores the selected student and saved rank', function () {
     ScholarshipStudentRank::create(['student_enrollment_id'=>1,'rank'=>3,'assigned_by'=>1]);
     $data = app(ScholarshipController::class)->index(scholarshipRequest('GET', ['academic_year_id'=>1,'campus_id'=>1,'enrollment_id'=>1]))->getData();
-    expect($data['tabs'])->toHaveCount(7)->toHaveKey('data-transfer')->and($data['tab'])->toBe('assign-rank')->and($data['selected']->id)->toBe(1)->and($data['selectedRank'])->toBe(3)->and($data['canAssign'])->toBeTrue();
+    expect($data['tabs'])->toHaveCount(7)->toHaveKeys(['scholarship-result','certificates'])->not->toHaveKeys(['result','data-transfer'])->and($data['tab'])->toBe('assign-rank')->and($data['selected']->id)->toBe(1)->and($data['selectedRank'])->toBe(3)->and($data['canAssign'])->toBeTrue();
 });
 
 it('excludes summer periods and rejects forged summer filter and rank requests',function(){
@@ -355,7 +355,7 @@ it('registers tab permissions idempotently and preserves existing grants without
     expect(DB::table('access_department_permissions')->where(['department_id'=>9,'permission_id'=>$tabId])->count())->toBe(1)
         ->and(DB::table('access_user_permission_overrides')->where(['user_id'=>1,'permission_id'=>$tabId,'allowed'=>true])->count())->toBe(1)
         ->and(DB::table('access_user_permission_overrides')->where(['user_id'=>2,'permission_id'=>$tabId])->exists())->toBeFalse();
-    expect(DB::table('access_permissions')->whereIn('action',array_values(\App\Support\ScholarshipPermissions::TABS))->count())->toBe(7);
+    expect(DB::table('access_permissions')->whereIn('action',array_values(\App\Support\ScholarshipPermissions::TABS))->count())->toBe(count(\App\Support\ScholarshipPermissions::TABS));
 });
 
 it('shows the selected years assigned ranks across permitted campuses before a campus is chosen',function(){
@@ -612,12 +612,12 @@ it('counts and exports all filtered ranks across pages without including other c
 it('requires rank tab and export permissions for every rank export format',function($format,$permission){
     $request=scholarshipRequest('GET',['academic_year_id'=>1],[$permission]);
     expect(fn()=>app(ScholarshipController::class)->rankReport($request,$format))->toThrow(\Symfony\Component\HttpKernel\Exception\HttpException::class);
-    if($permission==='western-scholarship.export'){
+    if($permission==='western-scholarship.export-ranks'){
         $data=app(ScholarshipController::class)->index($request)->getData();
         expect($data['canExportRanks'])->toBeFalse();
         expect(app(ScholarshipController::class)->rankFilters($request)->getData(true)['html'])->not->toContain('/ranks/report/print?','/ranks/report/xlsx?','/ranks/report/pdf?');
     }
-})->with(['print','xlsx','pdf'])->with(['western-scholarship.export','western-scholarship.tab-assign-rank']);
+})->with(['print','xlsx','pdf'])->with(['western-scholarship.export-ranks','western-scholarship.tab-assign-rank']);
 
 it('rejects forged campuses on rank exports and returns zero counts for an empty filter',function(){
     $controller=app(ScholarshipController::class);
@@ -902,7 +902,7 @@ it('protects seat print settings with the seat tab export and exam campus permis
     $action=$method==='GET'?'seatPrintSettings':'saveSeatPrintSettings';
     expect(fn()=>app(ScholarshipController::class)->$action($request))->toThrow($draft?ValidationException::class:\Symfony\Component\HttpKernel\Exception\HttpException::class);
 })->with([
-    ['GET',['western-scholarship.tab-seat-plan'],[1,2],false],['POST',['western-scholarship.export'],[1,2],false],
+    ['GET',['western-scholarship.tab-seat-plan'],[1,2],false],['POST',['western-scholarship.export-seats'],[1,2],false],
     ['GET',[],[1],false],['POST',[],[1,2],true],
 ]);
 
@@ -936,7 +936,8 @@ it('updates only exam center locations after confirmation without changing seati
         }
     }
     foreach(['seats','results'] as $kind){
-        $print=app(ScholarshipController::class)->report(scholarshipRequest('GET',[],[],[1,2]),$exam->fresh(),$kind,'print')->render();
+        $reportRequest=scholarshipRequest('GET',[],[],[1,2]);$reportRequest->user()->is_global=true;
+        $print=app(ScholarshipController::class)->report($reportRequest,$exam->fresh(),$kind,'print')->render();
         expect($print)->toContain('Phnom Penh, November 20, 2026','Battambang, November 20, 2026');
     }
 });

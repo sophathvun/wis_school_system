@@ -29,7 +29,12 @@ class StudentPhotoProcessor
         return $this->encode($file, true);
     }
 
-    private function encode(UploadedFile $file, bool $square): string
+    public function sizedWebp(UploadedFile $file): string
+    {
+        return $this->encode($file, false, true);
+    }
+
+    private function encode(UploadedFile $file, bool $square, bool $nativeSize = false): string
     {
         $size = @getimagesize($file->getRealPath());
         if (! $size || $size[0] * $size[1] > 24000000) {
@@ -41,8 +46,9 @@ class StudentPhotoProcessor
         }
         try {
             // Retain the largest portrait possible, flatten transparency and strip EXIF.
-            foreach ($square ? [400, 360, 320, 280, 240, 200] : [600, 540, 480, 420, 360, 300] as $width) {
-                $height = $square ? $width : (int) ($width * 4 / 3);
+            $widths = $nativeSize ? [$size[0]] : ($square ? [400, 360, 320, 280, 240, 200] : [600, 540, 480, 420, 360, 300]);
+            foreach ($widths as $width) {
+                $height = $nativeSize ? $size[1] : ($square ? $width : (int) ($width * 4 / 3));
                 $canvas = imagecreatetruecolor($width, $height);
                 imagefill($canvas, 0, 0, imagecolorallocate($canvas, 255, 255, 255));
                 $sourceWidth = $square ? min(imagesx($image), imagesy($image)) : imagesx($image);
@@ -51,7 +57,7 @@ class StudentPhotoProcessor
                     (int) ((imagesx($image) - $sourceWidth) / 2), (int) ((imagesy($image) - $sourceHeight) / 2),
                     $width, $height, $sourceWidth, $sourceHeight);
                 try {
-                    foreach ([90, 85, 80, 75, 70, 65, 60, 50, 40] as $quality) {
+                    foreach ($nativeSize ? [90, 85, 80, 75, 70, 65, 60, 50, 40, 30, 20, 10, 5, 1] : [90, 85, 80, 75, 70, 65, 60, 50, 40] as $quality) {
                         ob_start();
                         try {
                             $ok = imagewebp($canvas, null, $quality);
@@ -70,6 +76,8 @@ class StudentPhotoProcessor
         } finally {
             imagedestroy($image);
         }
-        throw ValidationException::withMessages(['photo' => 'This photo cannot fit within 40 KB. Please use a clearer portrait with a plain background.']);
+        throw ValidationException::withMessages(['photo' => $nativeSize
+            ? 'WebP cannot fit within 40 KB at this photo size. Choose a smaller size or download JPG.'
+            : 'This photo cannot fit within 40 KB. Please use a clearer portrait with a plain background.']);
     }
 }

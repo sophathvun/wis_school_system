@@ -30,6 +30,8 @@ const server = createServer(async (req, res) => {
         '/editor.css': 'resources/css/pages/student-enrollment.css',
         '/studio.css': 'resources/css/photo-editor.css',
         '/editor.js': 'resources/js/helpers/studentPhotoEditor.js',
+        '/photoNaturalAdjustments.js': 'resources/js/helpers/photoNaturalAdjustments.js',
+        '/photoOutputSize.js': 'resources/js/helpers/photoOutputSize.js',
     };
     if (files[path]) { res.setHeader('Content-Type', path.endsWith('.js') ? 'text/javascript' : 'text/css'); res.end(await readFile(join(root, files[path]))); return; }
     if (path === '/stored.webp') {

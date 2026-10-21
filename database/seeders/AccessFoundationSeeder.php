@@ -27,6 +27,7 @@ class AccessFoundationSeeder extends Seeder
             ['code' => 'reports.export', 'module' => 'reports', 'action' => 'export', 'name' => 'Export reports'],
             ['code' => 'administrator.view', 'module' => 'administrator', 'action' => 'view', 'name' => 'View Administrator menu'],
             ['code' => 'communication.view', 'module' => 'communication', 'action' => 'view', 'name' => 'View Communication menu'],
+            ['code' => 'photo-editor.view', 'module' => 'photo-editor', 'action' => 'view', 'name' => 'Use Photo Editor (Crop, Adjust, Background and Download)'],
             ['code' => 'database-backups.view', 'module' => 'database-backups', 'action' => 'view', 'name' => 'View database backups'],
             ['code' => 'database-backups.create', 'module' => 'database-backups', 'action' => 'create', 'name' => 'Create database backups'],
             ['code' => 'database-backups.download', 'module' => 'database-backups', 'action' => 'download', 'name' => 'Download database backups'],
@@ -116,6 +117,12 @@ class AccessFoundationSeeder extends Seeder
 
         foreach (\App\Support\StudentEnrollmentPermissions::catalog() as $action => $name) {
             $permissions[] = ['code' => 'students.enrollment.'.$action, 'module' => 'students.enrollment', 'action' => $action, 'name' => $name];
+        }
+        foreach (\App\Support\SummerSchoolPermissions::catalog() as $action => $name) {
+            $permissions[] = ['code' => 'summer-school.'.$action, 'module' => 'summer-school', 'action' => $action, 'name' => $name];
+        }
+        foreach (\App\Support\FamilyPermissions::catalog() as $action => $name) {
+            $permissions[] = ['code' => 'families.'.$action, 'module' => 'families', 'action' => $action, 'name' => $name];
         }
 
         $permissions = array_merge($permissions, AcademicReportPermissions::catalog());

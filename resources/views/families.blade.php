@@ -14,6 +14,7 @@
 @endsection
 
 @section('content')
+    <div id="family-permissions" class="d-none" data-permissions='@json($familyPermissions ?? [])'></div>
 
     <div class="card family-list-card">
         <div class="card-header family-list-header">
@@ -25,11 +26,14 @@
                     <option>50</option>
                     <option>100</option>
                 </select>
-                <div class="input-icon family-list-search">
+                <div class="input-icon family-list-search {{ ($familyPermissions['search'] ?? false) ? '' : 'd-none' }}">
                     <span class="input-icon-addon"><i class="ti ti-search"></i></span>
                     <input id="families-search" class="form-control" placeholder="Search family">
                 </div>
-                <button class="btn btn-primary" id="newFamily"><i class="ti ti-plus icon"></i> New Family</button>
+                @if ($familyPermissions['print'] ?? false)<button type="button" class="btn btn-outline-primary" id="printFamilies">Print</button>@endif
+                @if ($familyPermissions['export'] ?? false)<button type="button" class="btn btn-outline-primary" id="exportFamilies">Export CSV</button>@endif
+                @if ($familyPermissions['history'] ?? false)<button type="button" class="btn btn-outline-secondary" id="allFamilyHistory">History</button>@endif
+                <button class="btn btn-primary {{ ($familyPermissions['create'] ?? false) ? '' : 'd-none' }}" id="newFamily"><i class="ti ti-plus icon"></i> New Family</button>
             </div>
         </div>
         <div class="table-responsive">
@@ -62,6 +66,7 @@
                         class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
+                    <div id="membersSharedNotice" class="alert alert-info"></div>
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <div class="text-secondary" id="membersFamilyLabel"></div><button class="btn btn-primary btn-sm"
                             id="newMember"><i class="ti ti-plus icon"></i> Add Mother, Father or Guardian</button>
@@ -142,6 +147,7 @@
                             class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body" style="max-height:calc(100vh - 190px); overflow-y:auto;">
+                        <div id="memberFormSharedNotice" class="alert alert-info"></div>
                         <div class="alert alert-danger d-none" data-member-alert></div>
                         <div class="row g-3">
                             <div class="col-md-6"><label class="form-label">Full Name (English) *</label><input
@@ -196,6 +202,7 @@
                             class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body" style="max-height:calc(100vh - 190px); overflow-y:auto;">
+                        <div id="familySharedNotice" class="alert alert-info d-none"></div>
                         <div class="alert alert-danger d-none" data-alert></div>
                         <div class="mb-3 premium-floating-field"><label class="form-label">Family Number <span
                                     class="text-danger">*</span></label><input id="family_number" name="family_number"
@@ -308,6 +315,21 @@
                 </form>
             </div>
         </div>
+    </div>
+    <div class="modal modal-blur fade" id="linkFamilyStudentModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered"><div class="modal-content"><form id="linkFamilyStudentForm">
+            <div class="modal-header"><h5 class="modal-title">Link Student to Family</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+            <div class="modal-body"><input type="hidden" name="family_id" id="linkFamilyId"><p id="linkFamilyLabel" class="fw-bold"></p>
+                <label class="form-label" for="linkFamilyStudent">Student</label><select id="linkFamilyStudent" name="student_id" class="form-select" required></select>
+                <p class="form-hint">Only students you may link are shown. Moving a student from another family also requires Unlink permission.</p></div>
+            <div class="modal-footer"><button type="button" class="btn me-auto" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary">Link Student</button></div>
+        </form></div></div>
+    </div>
+    <div class="modal modal-blur fade" id="familyHistoryModal" tabindex="-1">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable"><div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title" id="familyHistoryTitle">Family History</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+            <div class="modal-body" id="familyHistoryBody"></div><div class="modal-footer" id="familyHistoryPages"></div>
+        </div></div>
     </div>
     @vite('resources/js/families.js')
     @vite('resources/css/pages/families.css')

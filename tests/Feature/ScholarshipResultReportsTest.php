@@ -16,7 +16,7 @@ beforeEach(fn()=>createScholarshipSchema());
 
 function resultReportRequest(array $data=[],string $method='GET',?string $denied=null): Request
 {
-    $user=Mockery::mock(User::class)->makePartial();$user->id=$denied===null?1:2;$user->active_campus_id=1;$user->setRelation('roles',collect());
+    $user=Mockery::mock(User::class)->makePartial();$user->id=$denied===null?1:2;$user->is_global=true;$user->active_campus_id=1;$user->setRelation('roles',collect());
     $user->shouldReceive('isSuperAdmin')->andReturn($denied===null);$user->shouldReceive('hasPermission')->andReturnUsing(fn($code)=>$code!==$denied);
     Auth::setUser($user);$request=Request::create('/students/western-scholarship/results',$method,$data);$request->setUserResolver(fn()=>$user);
     $request->setLaravelSession(app('session')->driver());app()->instance('request',$request);return $request;
@@ -43,7 +43,7 @@ it('selects one multiple or all grades independently of the student filter and s
         expect(array_column($data['pages'],'grade'))->toBe($expected);
     }
     $all=$controller->resultReport(resultReportRequest(['report_scope'=>'all-grades','report_students'=>'all']),$exam,'print')->getData();
-    expect($all['pages'][0]['students'])->toHaveCount(10)->and($all['pages'][0]['students']->last()['result'])->toBe('No Award');
+    expect($all['pages'][0]['students'])->toHaveCount(9)->and($all['pages'][0]['students']->last()['result'])->toBe('No Award');
     $excel=$controller->resultReport(resultReportRequest(['report_scope'=>'all-grades','report_students'=>'winners']),$exam,'xlsx');$path=tempnam(sys_get_temp_dir(),'result-xlsx-');
     try{
         file_put_contents($path,$excel->getContent());$zip=new ZipArchive();$zip->open($path);
@@ -58,7 +58,7 @@ it('validates grade and center selections and rejects unauthorized exports',func
         ['report_scope'=>'single-grade'],['report_scope'=>'selected-grades','report_grades'=>[]],['report_scope'=>'selected-grades','report_grades'=>[1,1]],
         ['report_scope'=>'single-grade','report_grade'=>12],['report_scope'=>'all-grades','report_center'=>999],
     ] as $scope)expect(fn()=>$controller->resultReport(resultReportRequest($scope+['report_students'=>'winners']),$exam,'print'))->toThrow(ValidationException::class);
-    expect(fn()=>$controller->resultReport(resultReportRequest(['report_scope'=>'all-grades','report_students'=>'winners'],'GET','western-scholarship.export'),$exam,'print'))->toThrow(HttpException::class);
+    expect(fn()=>$controller->resultReport(resultReportRequest(['report_scope'=>'all-grades','report_students'=>'winners'],'GET','western-scholarship.export-results'),$exam,'print'))->toThrow(HttpException::class);
     $data=$controller->resultReport(resultReportRequest(['report_scope'=>'single-grade','report_grade'=>1,'report_center'=>2,'report_students'=>'winners']),$exam,'print')->getData();
     expect($data['pages'][0]['students']->pluck('campus')->unique()->all())->toBe(['BKK']);
 });
@@ -66,11 +66,11 @@ it('validates grade and center selections and rejects unauthorized exports',func
 it('exports one combined PDF or separate complete PDFs by grade',function(){
     $exam=scholarshipResultReportExam(20);$controller=app(ScholarshipController::class);$params=['report_scope'=>'all-grades','report_students'=>'all'];
     $combined=$controller->resultReport(resultReportRequest($params),$exam,'pdf');
-    expect(substr($combined->getContent(),0,4))->toBe('%PDF')->and(preg_match_all('~/Type\s*/Page\b~',$combined->getContent()))->toBe(6);
+    expect(substr($combined->getContent(),0,4))->toBe('%PDF')->and(preg_match_all('~/Type\s*/Page\b~',$combined->getContent()))->toBe(9);
     $separate=$controller->resultReport(resultReportRequest($params+['pdf_mode'=>'separate']),$exam,'pdf');$path=tempnam(sys_get_temp_dir(),'result-pdfs-');
     try{
         file_put_contents($path,$separate->getContent());$zip=new ZipArchive();$zip->open($path);expect($zip->numFiles)->toBe(3);
-        foreach([1,2,3] as $grade)expect(preg_match_all('~/Type\s*/Page\b~',$zip->getFromName('Grade '.$grade.'.pdf')))->toBe(2);$zip->close();
+        foreach([1,2,3] as $grade)expect(preg_match_all('~/Type\s*/Page\b~',$zip->getFromName('Grade '.$grade.'.pdf')))->toBe(3);$zip->close();
     }finally{unlink($path);}
 });
 

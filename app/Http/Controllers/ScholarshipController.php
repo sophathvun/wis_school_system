@@ -26,6 +26,8 @@ class ScholarshipController
         'seat-plan' => ['Seat Plan', 'ti-layout-grid'],
         'scoring' => ['Scoring', 'ti-pencil-check'],
         'result' => ['Result', 'ti-chart-bar'],
+        'scholarship-result' => ['Scholarship Result', 'ti-trophy'],
+        'certificates' => ['Certificates', 'ti-certificate'],
         'exam-committee' => ['Exam Committee', 'ti-users-group'],
         'data-transfer' => ['Import / Export', 'ti-file-import'],
     ];
@@ -115,7 +117,7 @@ class ScholarshipController
     private function canExportRanks(Request $request, $campuses, array $filters): bool
     {
         $scope=empty($filters['campus_id'])?$campuses:$campuses->where('id',$filters['campus_id']);
-        return $scope->isNotEmpty() && $scope->every(fn($campus)=>ScholarshipPermissions::allows($request->user(),'export',$campus->id));
+        return $scope->isNotEmpty() && $scope->every(fn($campus)=>ScholarshipPermissions::allows($request->user(),'export-ranks',$campus->id));
     }
 
     private function rankRecords(array $filters, $campuses, int $page=1)
@@ -153,6 +155,8 @@ class ScholarshipController
         $tab=$request->string('tab')->toString();
         if(array_key_exists($tab,self::TABS))abort_unless(isset($tabs[$tab]),403);
         else $tab=array_key_first($tabs);
+        if($tab==='scholarship-result')return $this->publishedResultIndex($request,$tabs);
+        if($tab==='certificates')return app(ScholarshipCertificateController::class)->index($request,$tabs);
         $allowedCampuses = $this->campuses($request,$tab==='assign-rank'?'tab-assign-rank':'view');
         $filters = $this->filters($request, $allowedCampuses);
         $exams = ScholarshipExam::with('academicYear')->whereHas('academicYear',fn($q)=>$q->regular())->latest('id')->get()->filter(fn ($exam) => $this->workflow->canView($request->user(), $exam));
@@ -190,6 +194,46 @@ class ScholarshipController
             return response()->json(['html'=>view('western-scholarship._seat-table',$viewData)->render(),'summary'=>view('western-scholarship._seat-summary',$viewData)->render(),'filters'=>$workspace['seatFilters'],'options'=>$workspace['seatFilterOptions']]);
         }
         return view('western-scholarship.index',$viewData);
+    }
+
+    private function publishedResultIndex(Request $request,array $tabs)
+    {
+        $request->validate(['academic_year_id'=>['nullable','integer'],'exam_id'=>['nullable','integer','min:1']]);
+        $exams=ScholarshipExam::with('academicYear')->whereNotNull('published_at')->whereHas('academicYear',fn($q)=>$q->regular())
+            ->latest('academic_year_id')->get()->filter(fn($exam)=>$this->workflow->canView($request->user(),$exam));
+        $academicYears=$exams->pluck('academicYear')->unique('id')->sortByDesc('academic_year')->values();
+        $year=$request->integer('academic_year_id')?:($academicYears->firstWhere('lifecycle_status','started')?->id??$academicYears->first()?->id);
+        $exam=$request->integer('exam_id')?$exams->firstWhere('id',$request->integer('exam_id')):$exams->firstWhere('academic_year_id',$year);
+        if($request->integer('exam_id'))abort_unless($exam,403);
+        if($request->filled('academic_year_id') && !$academicYears->contains('id',$year))throw ValidationException::withMessages(['academic_year_id'=>'Select an academic year with published scholarship results.']);
+        if($exam && $request->filled('academic_year_id') && $exam->academic_year_id!==$year)throw ValidationException::withMessages(['academic_year_id'=>'Select the academic year of this exam.']);
+        $rows=$exam?app(\App\Support\ScholarshipPublishedResults::class)->rows($request->user(),$exam):collect();
+        $resultReportOptions=$rows->pluck('candidate')->groupBy(fn($c)=>(int)($c->exam_center_id??0))->map(fn($group,$id)=>[
+            'id'=>(int)$id,'label'=>$group->first()->exam_center_name?:'Main Exam Center','grades'=>$group->pluck('grade_number')->unique()->sort()->values()->all(),
+        ])->sortBy('label')->values();
+        $filtered=app(\App\Support\ScholarshipResultFilters::class)->apply($request,$rows);
+        return view('western-scholarship.published-results',[
+            'tab'=>'scholarship-result','resultTab'=>'scholarship-result','tabs'=>$tabs,'academicYears'=>$academicYears,'exam'=>$exam,
+            'filters'=>['academic_year_id'=>$exam?->academic_year_id??$year],'results'=>$filtered['rows'],
+            'resultFilters'=>$filtered['filters'],'resultFilterOptions'=>$filtered['options'],'resultReportOptions'=>$resultReportOptions,
+            'publishedOnly'=>true,'workflow'=>$this->workflow,'canExport'=>$exam && ScholarshipPermissions::allows($request->user(),'export-scholarship-result'),
+        ]);
+    }
+
+    public function publishedResultReport(Request $request,ScholarshipExam $exam,string $format)
+    {
+        abort_unless(in_array($format,['print','xlsx','pdf'],true),404);
+        abort_unless(ScholarshipPermissions::allows($request->user(),'export-scholarship-result') && $exam->published_at,403);
+        $rows=app(\App\Support\ScholarshipPublishedResults::class)->rows($request->user(),$exam);
+        $request->merge(['report_students'=>'winners']);
+        $scope=app(\App\Support\ScholarshipResultReportScope::class)->apply($request,$rows);
+        if($format!=='pdf' && $scope['pdf_mode']==='separate')throw ValidationException::withMessages(['pdf_mode'=>'Separate files are available for PDF exports.']);
+        $export=app(\App\Support\ScholarshipResultReports::class);$data=$export->data($exam,$scope['rows'],'winners');
+        if($format==='print')return view('western-scholarship.result-report',$data);
+        $separate=$format==='pdf' && $scope['pdf_mode']==='separate';
+        $bytes=$separate?$export->pdfArchive($data):($format==='pdf'?app(\App\Support\ScholarshipSeatReports::class)->pdf($data):app(\App\Support\ScholarshipSeatWorkbook::class)->generate($data));
+        return response($bytes)->header('Content-Type',$separate?'application/zip':($format==='pdf'?'application/pdf':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'))
+            ->header('Content-Disposition','attachment; filename="wis-scholarship-'.$exam->id.'-awarded-students.'.($separate?'zip':$format).'"')->header('Cache-Control','private, no-store');
     }
 
     private function rankSignatureCampus(Request $request, $campuses, ?int $selected=null): ?int
@@ -358,6 +402,9 @@ class ScholarshipController
         }
         $exam->load(['subjects','committee.user','committee.examCenter','centers.campuses']);
         foreach (array_keys(ScholarshipPermissions::catalog()) as $action) $data['examPermissions'][$action]=$this->workflow->central($user,$exam,$action);
+        $data['examPermissions']['export']=$this->workflow->central($user,$exam,match($tab){
+            'seat-plan'=>'export-seats','scoring'=>'export-scores','result'=>'export-results','exam-committee'=>'export-committee','data-transfer'=>'export-data',default=>'export-ranks',
+        });
         if($exam->isHistorical())foreach(['seat-plan','scoring','review-scores','awards','publish-results','committee'] as $action)$data['examPermissions'][$action]=false;
         $candidates=$this->workflow->candidates($user,$exam)->with('scores')
             ->orderBy('grade_number')->orderBy('grade_exam_number')->orderBy('id')->get();
@@ -404,7 +451,7 @@ class ScholarshipController
         }
         $data['savedAwards']=$exam->awards()->get()->groupBy('grade_number');
         $scoring=$candidates->filter(fn($candidate)=>$this->workflow->canScore($user,$exam,$candidate) || $this->workflow->canScore($user,$exam,$candidate,true))->values();
-        $exportableScores=$scoring->filter(fn($candidate)=>ScholarshipPermissions::allows($user,'export',$candidate->campus_id));
+        $exportableScores=$scoring->filter(fn($candidate)=>ScholarshipPermissions::allows($user,'export-scores',$candidate->campus_id));
         $data['canExportScores']=$exportableScores->isNotEmpty();
         if($tab==='scoring')$data['scoreReportOptions']=app(\App\Support\ScholarshipScoreReportScope::class)->options($exportableScores);
         if($tab==='scoring'){
@@ -594,12 +641,12 @@ class ScholarshipController
         abort_unless(ScholarshipPermissions::allows($request->user(),ScholarshipPermissions::TABS['seat-plan']),403);
         $request->validate(['exam_id'=>['required','integer']]);
         $exam=ScholarshipExam::with('academicYear','centers')->findOrFail($request->integer('exam_id'));
-        abort_unless($this->workflow->canView($request->user(),$exam) && $this->workflow->central($request->user(),$exam,'export'),403);
+        abort_unless($this->workflow->canView($request->user(),$exam) && $this->workflow->central($request->user(),$exam,'export-seats'),403);
         if(!$exam->seats_locked_at)throw ValidationException::withMessages(['exam'=>'Confirm the seat plan before setting report signers.']);
         $request->validate(['exam_center_id'=>['nullable','integer',Rule::in($exam->centers->pluck('id')->all())]]);
         $center=$exam->centers->firstWhere('id',$request->integer('exam_center_id'))??$exam->centers->sortBy('position')->first();
         if(!$center)throw ValidationException::withMessages(['exam_center_id'=>'Configure an exam center first.']);
-        return [$exam,$center,$this->campuses($request,'export')];
+        return [$exam,$center,$this->campuses($request,'export-seats')];
     }
 
     public function seatPrintSettings(Request $request)
@@ -649,7 +696,7 @@ class ScholarshipController
     {
         abort_unless(isset(\App\Support\ScholarshipSeatReports::DOCUMENTS[$document]) && in_array($format,['print','xlsx','pdf'],true),404);
         abort_unless(ScholarshipPermissions::allows($request->user(),ScholarshipPermissions::TABS['seat-plan']),403);
-        abort_unless($this->workflow->canView($request->user(),$exam) && $this->workflow->central($request->user(),$exam,'export'),403);
+        abort_unless($this->workflow->canView($request->user(),$exam) && $this->workflow->central($request->user(),$exam,'export-seats'),403);
         if(!$exam->seats_locked_at)throw ValidationException::withMessages(['exam'=>'Confirm the seat plan before printing or exporting assignments.']);
         $candidates=$this->workflow->orderedSeats($exam,$this->workflow->candidates($request->user(),$exam)->with('student')->get());
         $export=app(\App\Support\ScholarshipSeatReports::class);
@@ -666,8 +713,8 @@ class ScholarshipController
         abort_unless(ScholarshipPermissions::allows($request->user(),'tab-result'),403);
         $request->validate(['exam_id'=>['required','integer']]);
         $exam=ScholarshipExam::with('academicYear')->findOrFail($request->integer('exam_id'));
-        abort_unless($this->workflow->canView($request->user(),$exam)&&$this->workflow->central($request->user(),$exam,'export'),403);
-        return [$exam,$this->campuses($request,'export')];
+        abort_unless($this->workflow->canView($request->user(),$exam)&&$this->workflow->central($request->user(),$exam,'result-print-settings'),403);
+        return [$exam,$this->campuses($request,'result-print-settings')];
     }
 
     public function resultPrintSettings(Request $request)
@@ -712,7 +759,7 @@ class ScholarshipController
     public function resultReport(Request $request,ScholarshipExam $exam,string $format)
     {
         abort_unless(in_array($format,['print','xlsx','pdf'],true),404);
-        abort_unless(ScholarshipPermissions::allows($request->user(),'tab-result')&&$this->workflow->canView($request->user(),$exam)&&$this->workflow->central($request->user(),$exam,'export'),403);
+        abort_unless(ScholarshipPermissions::allows($request->user(),'tab-result')&&$this->workflow->canView($request->user(),$exam)&&$this->workflow->central($request->user(),$exam,'export-results'),403);
         $ids=$this->workflow->candidates($request->user(),$exam)->pluck('id');
         $results=$this->workflow->results($exam)->filter(fn($row)=>$ids->contains($row['candidate']->id));
         $scope=app(\App\Support\ScholarshipResultReportScope::class)->apply($request,$results);
@@ -729,10 +776,10 @@ class ScholarshipController
     {
         abort_unless(in_array($format,['print','xlsx','pdf'],true),404);
         $user=$request->user();
-        abort_unless(ScholarshipPermissions::allows($user,'tab-scoring') && ScholarshipPermissions::allows($user,'export') && $this->workflow->canView($user,$exam),403);
+        abort_unless(ScholarshipPermissions::allows($user,'tab-scoring') && ScholarshipPermissions::allows($user,'export-scores') && $this->workflow->canView($user,$exam),403);
         if(!$exam->seats_locked_at)throw ValidationException::withMessages(['exam'=>'Confirm the seat plan before exporting scores.']);
         $candidates=$this->workflow->candidates($user,$exam)->with(['scores','student'])->get()
-            ->filter(fn($candidate)=>($this->workflow->canScore($user,$exam,$candidate)||$this->workflow->canScore($user,$exam,$candidate,true))&&ScholarshipPermissions::allows($user,'export',$candidate->campus_id));
+            ->filter(fn($candidate)=>($this->workflow->canScore($user,$exam,$candidate)||$this->workflow->canScore($user,$exam,$candidate,true))&&ScholarshipPermissions::allows($user,'export-scores',$candidate->campus_id));
         $pdfMode=$request->validate(['pdf_mode'=>['nullable','in:combined,separate']])['pdf_mode']??'combined';
         if($pdfMode==='separate'&&$format!=='pdf')throw ValidationException::withMessages(['pdf_mode'=>'Separate room files are available for PDF exports.']);
         if($request->has('report_scope')){
@@ -759,7 +806,7 @@ class ScholarshipController
     public function report(Request $request, ScholarshipExam $exam, string $kind, string $format)
     {
         abort_unless(ScholarshipPermissions::allows($request->user(),ScholarshipPermissions::TABS[$kind==='seats'?'seat-plan':'result']),403);
-        abort_unless($this->workflow->canView($request->user(),$exam) && $this->workflow->central($request->user(),$exam,'export'),403);
+        abort_unless($this->workflow->canView($request->user(),$exam) && $this->workflow->central($request->user(),$exam,$kind==='seats'?'export-seats':'export-result-scores'),403);
         $exam->load('subjects','academicYear');
         $candidates=$this->workflow->candidates($request->user(),$exam)->with('scores')->orderBy('grade_number')->orderBy('grade_exam_number')->get();
         $rows=[]; $headers=[];$rowCenterIds=[];

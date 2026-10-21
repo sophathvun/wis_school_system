@@ -2,18 +2,22 @@
 
 namespace App\Support;
 
-use App\Models\{ScholarshipExam,ScholarshipResultPrintSetting};
+use App\Models\{ScholarshipExam,ScholarshipResultPrintSetting,Student};
 use App\Services\ScholarshipWorkflow;
 use Illuminate\Support\Collection;
 
 class ScholarshipResultReports
 {
-    public const WIDTHS=[3,17,4,4,5,4,4,11,8];
+    public const WIDTHS=[3,16,5,4,5,4,4,11,8];
     public const HEADERS=['NO.','NAME','GENDER','GRADE','CAMPUS','ROOM','SEAT NO.','RESULT','SCHOLARSHIP AWARD'];
 
     public function data(ScholarshipExam $exam,Collection $results,string $students='winners'): array
     {
         $exam->loadMissing('academicYear','subjects');$setting=ScholarshipResultPrintSetting::where('exam_id',$exam->id)->first();
+        // Published results intentionally load only student photos. Fetch gender in
+        // one query so older candidate snapshots still print correctly.
+        $studentGenders=Student::whereIn('id',$results->pluck('candidate.student_id')->filter()->unique())
+            ->get(['id','gender','gender_kh'])->keyBy('id');
         $title='Result of '.$exam->examinationTitle();$pages=[];$signers=[];
         foreach(['prepared'=>'Prepared by','checked'=>'Checked and Verified by','approved'=>'Approved by'] as $role=>$label){
             $date=$setting?->getAttribute($role.'_date');
@@ -28,20 +32,20 @@ class ScholarshipResultReports
                 $rank=fn($row)=>filled($row['award_label'])?($order[mb_strtolower(str_replace(' — Total Score','',$row['award_label']))]??100):PHP_INT_MAX;
                 return ($rank($left)<=>$rank($right))?:(($left['rank']??PHP_INT_MAX)<=>($right['rank']??PHP_INT_MAX))?:($left['candidate']->grade_exam_number<=>$right['candidate']->grade_exam_number);
             })->values();
-            $rows=$ordered->map(function($row,$index){
+            $rows=$ordered->map(function($row,$index)use($studentGenders){
                 $candidate=$row['candidate'];$snapshot=$candidate->snapshot;$class=trim(explode(' / ',(string)($snapshot['class']??''))[0]);
-                $gender=strtolower((string)($snapshot['gender']??$candidate->student?->gender??''));
-                return ['number'=>$index+1,'name'=>$snapshot['name_en']??'','gender'=>match($gender){'male','m'=>'M','female','f'=>'F',default=>'—'},
+                $gender=$this->gender($snapshot,$studentGenders->get($candidate->student_id));
+                return ['number'=>$index+1,'name'=>$snapshot['name_en']??'','gender'=>$gender,
                     'grade'=>$snapshot['grade_class']??(preg_match('/^\d/',$class)?$class:$candidate->grade_number.$class),
                     'campus'=>$snapshot['campus']??'','room'=>$candidate->room_number??'—','seat'=>$candidate->room_seat??'—',
                     'result'=>filled($row['award_label'])?str_replace(' — Total Score','',$row['award_label']):($candidate->absent?'Absent — All Subjects':'No Award'),
                     'award'=>$row['award']===null?'—':rtrim(rtrim(number_format((float)$row['award'],2,'.',''),'0'),'.').'%'];
             });
-            // Leave space for the three signatures; long roster names get smaller page groups.
+            // Reserve room for the stacked report header and all three signatures.
             $chunks=[];$chunk=collect();$height=0;
             foreach($rows as $row){
-                $needed=max(5.5,ceil(mb_strlen($row['name'])/38)*4.5,ceil(mb_strlen($row['result'])/24)*4.5);
-                if($chunk->isNotEmpty()&&($chunk->count()>=18||$height+$needed>99)){$chunks[]=$chunk;$chunk=collect();$height=0;}
+                $needed=max(6.5,ceil(mb_strlen($row['name'])/31)*5.5,ceil(mb_strlen($row['result'])/20)*5.5);
+                if($chunk->isNotEmpty()&&($chunk->count()>=9||$height+$needed>65)){$chunks[]=$chunk;$chunk=collect();$height=0;}
                 $chunk->push($row);$height+=$needed;
             }
             if($chunk->isNotEmpty())$chunks[]=$chunk;
@@ -56,20 +60,32 @@ class ScholarshipResultReports
             'orientation'=>'landscape','pdfExport'=>false,'exam'=>$exam,'studentScope'=>$students,'widths'=>self::WIDTHS,'headers'=>self::HEADERS];
     }
 
+    private function gender(array $snapshot,?Student $student): string
+    {
+        foreach([$snapshot['gender']??null,$snapshot['gender_kh']??null,$student?->gender,$student?->gender_kh] as $value){
+            $gender=match(mb_strtolower(trim((string)$value))){
+                'male','m','ប្រុស'=>'M','female','f','ស្រី'=>'F',default=>null,
+            };
+            if($gender!==null)return $gender;
+        }
+        return '—';
+    }
+
     private function cell(int $span,mixed $text='',string $style='body',array $extra=[]): array
     {return array_replace(['span'=>$span,'lines'=>[['text'=>$text]],'style'=>$style],$extra);}
 
     private function grid(array $page,string $title): array
     {
-        $rows=[['height'=>22,'cells'=>[$this->cell(12,'','body',['logo'=>true,'logo_width'=>55]),$this->cell(48,$title,'result-title')]],
-            ['height'=>7,'cells'=>[$this->cell(60,'Academic Year: '.$page['year'],'result-subtitle')]],
-            ['height'=>7,'cells'=>[$this->cell(60,'Exam Date: '.$page['exam_date'],'result-subtitle')]],
-            ['height'=>8,'cells'=>[$this->cell(60,'Grade: '.$page['grade'],'result-grade')]],
+        $rows=[['height'=>28,'cells'=>[$this->cell(16,'','body',['logo'=>true,'logo_width'=>70]),$this->cell(44)]],
+            ['height'=>11,'cells'=>[$this->cell(60,$title,'result-title')]],
+            ['height'=>8,'cells'=>[$this->cell(60,'Academic Year: '.$page['year'],'result-subtitle')]],
+            ['height'=>8,'cells'=>[$this->cell(60,'Exam Date: '.$page['exam_date'],'result-subtitle')]],
+            ['height'=>10,'cells'=>[$this->cell(60,'Grade: '.$page['grade'],'result-grade')]],
             ['height'=>10,'cells'=>array_map(fn($width,$label)=>$this->cell($width,$label,'result-head'),self::WIDTHS,self::HEADERS)]];
         foreach($page['students'] as $student){
             $cells=[];$values=array_values($student);
             foreach(self::WIDTHS as $index=>$width)$cells[]=$this->cell($width,$values[$index],$index===1?'result-name':'result-body');
-            $rows[]=['height'=>max(5.5,ceil(mb_strlen($student['name'])/38)*4.5,ceil(mb_strlen($student['result'])/24)*4.5),'cells'=>$cells];
+            $rows[]=['height'=>max(6.5,ceil(mb_strlen($student['name'])/31)*5.5,ceil(mb_strlen($student['result'])/20)*5.5),'cells'=>$cells];
         }
         $rows[]=['height'=>6,'cells'=>[$this->cell(60,'Grade '.$page['grade'].' | Total Students: '.$page['total'].' | Female: '.$page['female'],'small')]];
         if($page['signers']){
@@ -84,8 +100,8 @@ class ScholarshipResultReports
     {
         return ['result-title'=>['size'=>22,'bold'=>true,'align'=>'center','color'=>'#203c65'],
             'result-subtitle'=>['size'=>14,'align'=>'center','color'=>'#203c65'],'result-grade'=>['size'=>16,'bold'=>true,'align'=>'center','color'=>'#203c65'],
-            'result-head'=>['size'=>10,'align'=>'center','fill'=>'#d9e2f3','border'=>'#000000'],
-            'result-name'=>['size'=>10,'align'=>'left','border'=>'#000000'],'result-body'=>['size'=>10,'align'=>'center','border'=>'#000000'],
+            'result-head'=>['size'=>12,'align'=>'center','fill'=>'#d9e2f3','border'=>'#000000'],
+            'result-name'=>['size'=>12,'align'=>'left','border'=>'#000000'],'result-body'=>['size'=>12,'align'=>'center','border'=>'#000000'],
             'result-signature'=>['size'=>11,'align'=>'center'],'result-signer'=>['size'=>11,'bold'=>true,'align'=>'center']];
     }
 

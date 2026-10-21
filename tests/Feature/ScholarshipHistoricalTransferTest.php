@@ -206,12 +206,12 @@ it('blocks unauthorized imports exports and direct sample downloads',function($d
     $user=Mockery::mock(User::class)->makePartial();$user->id=2;$user->active_campus_id=1;$user->setRelation('roles',collect());
     $user->shouldReceive('isSuperAdmin')->andReturnFalse();$user->shouldReceive('hasPermission')->andReturnUsing(fn($code,$campus)=>$campus===1&&$code!==$denied);
     $path=historyCsv($this,[[]]);
-    if($denied==='western-scholarship.export')expect(fn()=>iterator_to_array($this->transfer->export($user,$this->exam)))->toThrow(\Symfony\Component\HttpKernel\Exception\HttpException::class);
+    if($denied==='western-scholarship.export-data')expect(fn()=>iterator_to_array($this->transfer->export($user,$this->exam)))->toThrow(\Symfony\Component\HttpKernel\Exception\HttpException::class);
     else expect(fn()=>$this->transfer->preview($user,$this->exam,$path))->toThrow(\Symfony\Component\HttpKernel\Exception\HttpException::class);
     if($denied==='western-scholarship.tab-data-transfer'){
         $this->user=$user;expect(fn()=>app(ScholarshipTransferController::class)->sample(historyRequest($this)))->toThrow(\Symfony\Component\HttpKernel\Exception\HttpException::class);
     }
-})->with(['western-scholarship.import-history','western-scholarship.tab-data-transfer','western-scholarship.export']);
+})->with(['western-scholarship.import-history','western-scholarship.tab-data-transfer','western-scholarship.export-data']);
 
 it('rejects a duplicate seat and a seat belonging to a student outside the file',function(){
     $path=historyCsv($this,[['room_no'=>1,'seat_no'=>1],['student_id'=>'2026002','class_rank'=>2,'room_no'=>1,'seat_no'=>1]]);
@@ -267,7 +267,7 @@ it('rejects unsupported sample download formats',function(){
 
 it('does not expose another campus through CSV export',function(){
     historyCommit($this,historyCsv($this,[[],['student_id'=>'2026002','class_rank'=>2]]));
-    $user=Mockery::mock(User::class)->makePartial();$user->id=2;$user->active_campus_id=1;$user->setRelation('roles',collect());
+    $user=Mockery::mock(User::class)->makePartial();$user->id=2;$user->is_global=true;$user->active_campus_id=1;$user->setRelation('roles',collect());
     $user->shouldReceive('isSuperAdmin')->andReturnFalse();$user->shouldReceive('hasPermission')->andReturnUsing(fn($code,$campus)=>$campus===1);
     $rows=iterator_to_array($this->transfer->export($user,$this->exam->fresh()));expect($rows)->toHaveCount(2);
     expect(array_combine($rows[0],$rows[1])['student_id'])->toBe('2026001');

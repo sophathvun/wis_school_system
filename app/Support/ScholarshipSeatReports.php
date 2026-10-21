@@ -366,6 +366,13 @@ class ScholarshipSeatReports
             'fontDir'=>[...(new \Mpdf\Config\ConfigVariables())->getDefaults()['fontDir'],public_path('fonts/khmer')],
             'fontdata'=>(new \Mpdf\Config\FontVariables())->getDefaults()['fontdata']+['scholarshipmuol'=>['R'=>'KhmerOSmuollight.ttf','useOTL'=>0xFF],'scholarshipsiemreap'=>['R'=>'KhmerOSsiemreap.ttf','useOTL'=>0xFF]],'default_font'=>'dejavusans','default_font_size'=>9]);
         $pdf->SetTitle($data['title']);
+        if($data['document']==='score-list'){
+            // Use the preview's rotated graphic at the same physical position.
+            // mPDF does not support CSS transforms or relative positioning on spans.
+            $pdf->imageVars['verificationStamp']=base64_decode(explode(',',$data['verificationStampSrc'],2)[1]);
+            $pdf->SetWatermarkImage('var:verificationStamp',1,[40,16],[246,27]);
+            $pdf->showWatermarkImage=true;
+        }
         if(!in_array($data['document'],['attendance','attendance-cover','envelope-cover','room-plan','score-list','result-list'],true))$pdf->SetHTMLFooter('<div style="text-align:right;font-size:8pt">Page {PAGENO} of {nbpg}</div>');
         $pdf->shrink_tables_to_fit=1;
         if($data['logoSrc']){

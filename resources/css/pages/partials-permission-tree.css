@@ -183,7 +183,8 @@
     flex: 0 0 auto;
 }
 
-.permission-submenu.is-collapsed .permission-action {
+.permission-submenu.is-collapsed .permission-action,
+.permission-submenu.is-collapsed .permission-tab {
     display: none !important;
 }
 

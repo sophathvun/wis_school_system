@@ -1,3 +1,6 @@
+import { naturalDefaults, photoPresets, hasNaturalTone, applyNaturalTone, smoothPortrait } from './photoNaturalAdjustments.js';
+import { photoOutputSize } from './photoOutputSize.js';
+
 const MAX_SOURCE_BYTES = 10 * 1024 * 1024;
 const canvasBlob = (canvas, type = "image/png", quality) => new Promise((resolve, reject) =>
     canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error("The photo could not be prepared.")), type, quality));
@@ -23,7 +26,7 @@ export async function studentPhotoJpeg(url) {
     return canvasBlob(canvas, "image/jpeg", .95);
 }
 
-export function createPhotoEditor({ bootstrap, csrf, showError, showSuccess, editorId = "studentPhotoCropModal", elements = {}, saveMessage = "Save the enrollment to apply this photo." }) {
+export function createPhotoEditor({ bootstrap, csrf, showError, showSuccess, editorId = "studentPhotoCropModal", elements = {}, saveMessage = "Save the enrollment to apply this photo.", onApply = () => {} }) {
     const get = id => document.getElementById(id);
     const element = get(editorId);
     if (!element) return { showPreview() {}, resetPreview() {} };
@@ -43,6 +46,8 @@ export function createPhotoEditor({ bootstrap, csrf, showError, showSuccess, edi
     const zoom = get("studentPhotoZoom"), brush = get("studentPhotoBrush");
     const angleInput = get("studentPhotoAngle"), angleRange = get("studentPhotoAngleRange");
     const before = get("studentPhotoCompare"), use = get("studentPhotoCropUpload");
+    const outputSizeSelect = get('photoEditorSize');
+    let outputSize = outputSizeSelect ? photoOutputSize(outputSizeSelect.value) : null, outputSizeError = '';
     const scope = get("studentPhotoAdjustmentScope"), selectionBrush = get("studentPhotoSelectionBrush");
     const selectionShow = get("studentPhotoSelectionShow");
     const selectionPreview = document.createElement("canvas"), adjustedPreview = document.createElement("canvas");
@@ -55,8 +60,13 @@ export function createPhotoEditor({ bootstrap, csrf, showError, showSuccess, edi
     let background = "original", comparing = false, pointer, smoothStroke, previewUrl, generation = 0, request, busy = false, returnToEnrollment = false;
     let adjustmentFrame = 0;
     let sizeTimer, sizeVersion = 0, sizeCache;
-    const sizeLabel = data => `WebP size: ${(data.bytes / 1024).toFixed(2)} KB · ${data.width} × ${data.height} px`;
-    const settings = { exposure: 0, brightness: 0, contrast: 0, saturation: 0, denoise: 0, sharpen: 0 };
+    const sizeLabel = data => {
+        const label = data.photo_size ? `${data.photo_size.label} · ` : '';
+        const webp = data.webp_available === false ? `${label}WebP exceeds 40 KB at this size. JPG available.`
+            : `${label}WebP size: ${(data.bytes / 1024).toFixed(2)} KB · ${data.width} × ${data.height} px`;
+        return Number.isInteger(data.jpg_bytes) ? `${webp}\nJPG size: ${(data.jpg_bytes / 1024).toFixed(2)} KB` : webp;
+    };
+    const settings = { ...photoPresets.original };
     const areaSettings = { ...settings };
     const currentSettings = () => scope.value === "selected" ? areaSettings : settings;
     const fail = message => { error.textContent = message; error.classList.remove("d-none"); showError("Photo editor", message); };
@@ -65,16 +75,23 @@ export function createPhotoEditor({ bootstrap, csrf, showError, showSuccess, edi
         busy = value;
         element.setAttribute("aria-busy", String(value));
         element.querySelectorAll("button:not([data-bs-dismiss]), input, select").forEach(control => control.disabled = value);
+        use.disabled = value || Boolean(outputSizeError);
         status.textContent = value ? "Processing your photo…" : `${element.dataset.photoFormat || "3:4 portrait"} · Saved as WebP, up to 40 KB`;
         if (!value && source) queueSize();
     };
     const adjustmentLabel = (key, value) => key === "exposure" ? `${value > 0 ? "+" : ""}${Number(value).toFixed(2)} EV` : String(value);
+    const syncPresets = () => element.querySelectorAll('[data-photo-preset]').forEach(button => {
+        const active = Object.entries(photoPresets[button.dataset.photoPreset]).every(([key, value]) => currentSettings()[key] === value);
+        button.classList.toggle('active', active);
+        button.setAttribute('aria-pressed', String(active));
+    });
     const syncSettings = () => {
         Object.keys(settings).forEach(key => {
             const value = currentSettings()[key];
             get(`studentPhoto-${key}`).value = String(value);
             element.querySelector(`[data-photo-value="${key}"]`).textContent = adjustmentLabel(key, value);
         });
+        syncPresets();
     };
     const resetSettings = () => {
         for (const key of Object.keys(settings)) settings[key] = areaSettings[key] = 0;
@@ -155,6 +172,13 @@ export function createPhotoEditor({ bootstrap, csrf, showError, showSuccess, edi
             target.putImageData(pixels, 0, 0);
         }
     };
+    const applyNatural = (target, values) => {
+        if (!hasNaturalTone(values) && !values.portraitSmooth) return;
+        const pixels = target.getImageData(0, 0, canvas.width, canvas.height);
+        applyNaturalTone(pixels.data, values);
+        smoothPortrait(pixels.data, canvas.width, canvas.height, values.portraitSmooth);
+        target.putImageData(pixels, 0, 0);
+    };
     const draw = (showSelection = true, measure = true) => {
         if (measure && source && !busy && !comparing) queueSize();
         context.clearRect(0, 0, canvas.width, canvas.height);
@@ -163,9 +187,10 @@ export function createPhotoEditor({ bootstrap, csrf, showError, showSuccess, edi
         if (comparing) { drawImage(source); return; }
         context.save(); context.filter = colorFilter(settings);
         const photo = background === "original" ? source : (cutout || source);
-        if (settings.exposure && photo) {
+        if ((settings.exposure || hasNaturalTone(settings) || settings.portraitSmooth) && photo) {
             adjustedContext.clearRect(0, 0, canvas.width, canvas.height);
             drawImage(photo, adjustedContext); applyExposure(adjustedContext, settings.exposure);
+            applyNatural(adjustedContext, settings);
             context.drawImage(adjustedPreview, 0, 0);
         } else drawImage(photo);
         context.restore(); applyDetails(context, settings);
@@ -177,6 +202,7 @@ export function createPhotoEditor({ bootstrap, csrf, showError, showSuccess, edi
             adjustedContext.clearRect(0, 0, canvas.width, canvas.height);
             adjustedContext.drawImage(canvas, 0, 0);
             applyExposure(adjustedContext, areaSettings.exposure);
+            applyNatural(adjustedContext, areaSettings);
             adjustedContext.save(); adjustedContext.filter = colorFilter(areaSettings);
             adjustedContext.drawImage(adjustedPreview, 0, 0); adjustedContext.restore();
             applyDetails(adjustedContext, areaSettings);
@@ -220,8 +246,10 @@ export function createPhotoEditor({ bootstrap, csrf, showError, showSuccess, edi
                 });
                 const result = await response.json().catch(() => ({}));
                 if (!response.ok) throw new Error(result.errors?.photo?.[0] || result.message || "The WebP size could not be calculated. Please try again.");
-                if (!Number.isInteger(result.bytes) || result.bytes <= 0 || result.bytes > 40960 || !result.width || !result.height) throw new Error("The server did not return a valid WebP size. Please try again.");
-                return result;
+                const unavailable = outputSizeSelect && result.webp_available === false && result.bytes === null;
+                if ((!unavailable && (!Number.isInteger(result.bytes) || result.bytes <= 0 || result.bytes > 40960)) || !result.width || !result.height) throw new Error("The server did not return a valid WebP size. Please try again.");
+                if (outputSizeSelect && (!Number.isInteger(result.jpg_bytes) || result.jpg_bytes <= 0)) throw new Error('The JPG size could not be calculated. Please try again.');
+                return outputSize ? { ...result, photo_size: { ...outputSize } } : result;
             } catch (exception) { if (sizeCache === entry) sizeCache = null; throw exception; }
             finally { clearTimeout(timeout); }
         })();
@@ -231,18 +259,50 @@ export function createPhotoEditor({ bootstrap, csrf, showError, showSuccess, edi
     const queueSize = () => {
         clearTimeout(sizeTimer);
         const version = ++sizeVersion, token = generation;
-        fileSize.textContent = "Calculating WebP size…";
+        fileSize.textContent = outputSizeSelect ? 'Calculating JPG and WebP sizes…' : 'Calculating WebP size…';
         sizeTimer = setTimeout(async () => {
             if (!source || busy) return;
             try {
                 const data = await measureSize(await editedBlob());
                 if (version === sizeVersion && token === generation && source && !busy) fileSize.textContent = sizeLabel(data);
             } catch {
-                if (version === sizeVersion && token === generation && source) fileSize.textContent = "WebP size unavailable. It will be checked when you click Use Photo.";
+                if (version === sizeVersion && token === generation && source) fileSize.textContent = outputSizeSelect
+                    ? 'Photo sizes unavailable. They will be checked when you click Use Photo.'
+                    : 'WebP size unavailable. It will be checked when you click Use Photo.';
             }
         }, 1200);
     };
-    const scheduleDraw = () => { cancelAnimationFrame(adjustmentFrame); adjustmentFrame = requestAnimationFrame(draw); };
+    const scheduleDraw = () => { cancelAnimationFrame(adjustmentFrame); adjustmentFrame = requestAnimationFrame(() => draw()); };
+    const updateOutputSize = () => {
+        get('photoEditorCustomSize').classList.toggle('d-none', outputSizeSelect.value !== 'custom');
+        const widthInput = get('photoEditorWidth'), heightInput = get('photoEditorHeight'), errorBox = get('photoEditorSizeError');
+        try {
+            const next = photoOutputSize(outputSizeSelect.value, widthInput.value, heightInput.value);
+            outputSizeError = '';
+            errorBox.classList.add('d-none');
+            widthInput.setAttribute('aria-invalid', 'false'); heightInput.setAttribute('aria-invalid', 'false');
+            use.disabled = busy;
+            get('photoEditorSizeHint').textContent = `${next.label} · ${next.width} × ${next.height} pixels · JPG at 300 DPI`;
+            element.dataset.photoFormat = next.label;
+            element.style.setProperty('--photo-editor-ratio', next.width / next.height);
+            x *= next.width / canvas.width; y *= next.height / canvas.height;
+            outputSize = next; pointer = null;
+            canvas.width = selectionPreview.width = adjustedPreview.width = next.width;
+            canvas.height = selectionPreview.height = adjustedPreview.height = next.height;
+            clearTimeout(sizeTimer); sizeVersion++; sizeCache?.controller.abort(); sizeCache = null;
+            cancelAnimationFrame(adjustmentFrame); draw();
+            if (!busy) status.textContent = `${next.label} · JPG at 300 DPI · WebP up to 40 KB`;
+        } catch (exception) {
+            outputSizeError = exception.message; errorBox.textContent = outputSizeError; errorBox.classList.remove('d-none');
+            widthInput.setAttribute('aria-invalid', String(!widthInput.checkValidity() || widthInput.value === ''));
+            heightInput.setAttribute('aria-invalid', String(!heightInput.checkValidity() || heightInput.value === ''));
+            use.disabled = true;
+        }
+    };
+    if (outputSizeSelect) {
+        outputSizeSelect.addEventListener('change', updateOutputSize);
+        for (const id of ['photoEditorWidth', 'photoEditorHeight']) get(id).addEventListener('input', updateOutputSize);
+    }
     const compare = value => {
         comparing = value; before.setAttribute("aria-pressed", String(value));
         before.textContent = value ? "View Edited" : "View Original";
@@ -256,6 +316,8 @@ export function createPhotoEditor({ bootstrap, csrf, showError, showSuccess, edi
         selection = null; selectionVisible = true; scope.value = "whole"; selectionBrush.value = "paint";
         get("studentPhotoSelectionSize").value = "45"; syncSelectionTools();
         background = "original"; zoom.value = "1"; brush.value = "move"; resetSettings(); syncBackground(); clearError(); compare(false);
+        const guides = get('studentPhotoGuides');
+        if (guides) { guides.checked = false; get('studentPhotoGuideOverlay').classList.add('d-none'); }
     };
     const showPreview = (fileOrUrl, size = null) => {
         if (previewUrl) URL.revokeObjectURL(previewUrl);
@@ -371,6 +433,17 @@ export function createPhotoEditor({ bootstrap, csrf, showError, showSuccess, edi
         syncSettings(); draw();
     });
     get("studentPhotoReset").addEventListener("click", reset);
+    get('studentPhotoGuides')?.addEventListener('change', event => {
+        get('studentPhotoGuideOverlay').classList.toggle('d-none', !event.target.checked);
+    });
+    element.querySelectorAll('[data-photo-preset]').forEach(button => button.addEventListener('click', () => {
+        Object.assign(currentSettings(), photoPresets[button.dataset.photoPreset]);
+        syncSettings(); compare(false);
+    }));
+    get('studentPhotoAdjustmentReset')?.addEventListener('click', () => {
+        Object.assign(currentSettings(), photoPresets.original);
+        syncSettings(); compare(false);
+    });
     before.addEventListener("click", () => compare(!comparing));
     get("studentPhotoRemoveBackground").addEventListener("click", () => removeBackground());
     element.querySelectorAll("[data-photo-background]").forEach(button => button.addEventListener("click", () => {
@@ -383,6 +456,7 @@ export function createPhotoEditor({ bootstrap, csrf, showError, showSuccess, edi
     element.querySelectorAll("[data-photo-adjustment]").forEach(control => control.addEventListener("input", () => {
         currentSettings()[control.dataset.photoAdjustment] = Number(control.value);
         element.querySelector(`[data-photo-value="${control.dataset.photoAdjustment}"]`).textContent = adjustmentLabel(control.dataset.photoAdjustment, Number(control.value));
+        syncPresets();
         comparing = false; before.setAttribute("aria-pressed", "false"); before.textContent = "View Original";
         syncPreviewStatus(); scheduleDraw();
     }));
@@ -391,7 +465,7 @@ export function createPhotoEditor({ bootstrap, csrf, showError, showSuccess, edi
         const data = context.getImageData(0, 0, canvas.width, canvas.height).data;
         let light = 0, count = 0;
         for (let i = 0; i < data.length; i += 64) { light += data[i] * .2126 + data[i + 1] * .7152 + data[i + 2] * .0722; count++; }
-        const values = { exposure: 0, brightness: Math.round(Math.max(-10, Math.min(18, (138 - light / count) / 4))), contrast: 8, saturation: 4, denoise: 20, sharpen: 30 };
+        const values = { ...naturalDefaults, exposure: 0, brightness: Math.round(Math.max(-10, Math.min(18, (138 - light / count) / 4))), contrast: 5, saturation: 0, denoise: 12, sharpen: 18, shadows: 12, highlights: -12, vibrance: 6 };
         for (const key of Object.keys(values)) { get(`studentPhoto-${key}`).value = values[key]; get(`studentPhoto-${key}`).dispatchEvent(new Event("input")); }
     });
     const point = event => {
@@ -471,7 +545,7 @@ export function createPhotoEditor({ bootstrap, csrf, showError, showSuccess, edi
     });
     for (const name of ["pointerup", "pointercancel", "lostpointercapture"]) canvas.addEventListener(name, () => { pointer = null; smoothStroke = null; });
     use.addEventListener("click", async () => {
-        if (busy || !source) return;
+        if (busy || !source || outputSizeError) return;
         const token = generation;
         clearError(); compare(false); cancelAnimationFrame(adjustmentFrame); draw(false); setBusy(true);
         clearTimeout(sizeTimer); sizeVersion++;
@@ -482,6 +556,7 @@ export function createPhotoEditor({ bootstrap, csrf, showError, showSuccess, edi
             const size = await measureSize(blob);
             if (token !== generation || !source) return;
             const transfer = new DataTransfer(); transfer.items.add(file); input.files = transfer.files; showPreview(file, size);
+            onApply(file, size);
             modal.hide(); showSuccess("Photo ready", saveMessage);
         } catch (exception) { if (token === generation) fail(exception.message); }
         finally { if (token === generation) { setBusy(false); if (source) draw(); } }

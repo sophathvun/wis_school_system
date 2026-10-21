@@ -18,7 +18,7 @@ class ScholarshipHistoricalTransfer
     public function authorize(User $user, ScholarshipExam $exam, bool $import): void
     {
         abort_unless(ScholarshipPermissions::allows($user,'tab-data-transfer') && $this->workflow->canView($user,$exam),403);
-        abort_unless($import?$this->workflow->central($user,$exam,'import-history'):ScholarshipPermissions::allows($user,'export'),403);
+        abort_unless($import?$this->workflow->central($user,$exam,'import-history'):ScholarshipPermissions::allows($user,'export-data'),403);
         if(!$exam->academicYear || $exam->academicYear->trashed() || $exam->academicYear->period_type!=='regular')$this->fail('Choose a regular academic year configured in Scholarship Settings.');
         if($import && !$exam->isHistorical() && ($exam->seats_locked_at || $exam->published_at || $exam->candidates()->whereHas('scores')->exists() || $exam->awards()->exists()))
             $this->fail('This year already has confirmed seats, scores, or awards. Historical import cannot replace an active or published exam.');
@@ -238,7 +238,7 @@ class ScholarshipHistoricalTransfer
     public function export(User $user,ScholarshipExam $exam): iterable
     {
         $exam->load(['academicYear','subjects','centers']);$this->authorize($user,$exam,false);$headers=$this->headers($exam);yield $headers;
-        $candidates=$this->workflow->candidates($user,$exam)->with(['scores','enrollment.schoolClass','enrollment.session','enrollment.schoolGroup'])->orderBy('grade_number')->orderBy('id')->get()->filter(fn($candidate)=>ScholarshipPermissions::allows($user,'export',$candidate->campus_id));
+        $candidates=$this->workflow->candidates($user,$exam)->with(['scores','enrollment.schoolClass','enrollment.session','enrollment.schoolGroup'])->orderBy('grade_number')->orderBy('id')->get()->filter(fn($candidate)=>ScholarshipPermissions::allows($user,'export-data',$candidate->campus_id));
         $results=$this->workflow->results($exam,$candidates)->keyBy(fn($row)=>$row['candidate']->id);
         $awards=$exam->awards()->get()->keyBy('candidate_id');
         foreach($candidates as $candidate){

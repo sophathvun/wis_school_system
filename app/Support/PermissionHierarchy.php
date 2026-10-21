@@ -30,6 +30,10 @@ class PermissionHierarchy
     public static function groups(): array
     {
         return [
+            'photo-editor' => [
+                'label' => 'Photo Editor', 'permission' => 'photo-editor.view',
+                'modules' => [], 'actions' => [],
+            ],
             'administrator' => [
                 'label' => 'Administrator', 'permission' => 'administrator.view',
                 'modules' => ['users', 'roles', 'dashboard-templates', 'branding', 'database-backups', 'campuses'],
@@ -99,9 +103,17 @@ class PermissionHierarchy
             foreach ($group['modules'] as $module) {
                 $viewCode = "{$module}.view";
                 $items = $permissions->filter(fn (Permission $permission) => str_starts_with($permission->code, "{$module}.") && $permission->code !== $viewCode
-                    && !($module === 'students.enrollment' && in_array($permission->action, ['manage', 'status'], true)))->values();
+                    && !($module === 'students.enrollment' && in_array($permission->action, ['manage', 'status'], true))
+                    && !(in_array($module, ['summer-school','families'], true) && $permission->action === 'manage')
+                    && !($module==='western-scholarship' && $permission->action==='export'))->values();
                 if ($byCode->has($viewCode)) {
                     $modules[$module] = ['label' => self::moduleLabels()[$module] ?? ucwords(str_replace(['.', '-', '_'], ' ', $module)), 'permission' => $byCode->get($viewCode), 'actions' => $items];
+                    if($module==='western-scholarship'){
+                        $modules[$module]['tabs']=collect(ScholarshipPermissions::tabGroups())->map(function($group,$tab)use($byCode){
+                            return ['label'=>$group['label'],'permission'=>$byCode->get('western-scholarship.'.ScholarshipPermissions::TABS[$tab]),
+                                'actions'=>collect($group['actions'])->map(fn($action)=>$byCode->get('western-scholarship.'.$action))->filter()->values()];
+                        })->all();
+                    }
                 }
             }
             $actions = collect($group['actions'])->map(fn ($code) => $byCode->get($code))->filter()->values();
@@ -135,7 +147,9 @@ class PermissionHierarchy
 
                 $permissions
                     ->filter(fn (Permission $permission) => str_starts_with($permission->code, "{$module}.") && $permission->code !== $viewCode
-                        && !($module === 'students.enrollment' && in_array($permission->action, ['manage', 'status'], true)))
+                        && !($module === 'students.enrollment' && in_array($permission->action, ['manage', 'status'], true))
+                        && !(in_array($module, ['summer-school','families'], true) && $permission->action === 'manage')
+                        && !($module==='western-scholarship' && $permission->action==='export'))
                     ->each(fn (Permission $permission) => $ids->push($permission->id));
             }
         }

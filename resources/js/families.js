@@ -2,6 +2,10 @@ import { renderPagination, renderPageInfo } from "./helpers/pagination.js";
 import { showSuccess, showConfirm, showError } from "./helpers/sweet-alert2.js";
 import intlTelInput from "intl-tel-input";
 import "intl-tel-input/styles";
+import { sharedFamilyMessage, familyHistoryChanges } from "./helpers/family-history.js";
+
+const familyPermissions = JSON.parse(document.getElementById("family-permissions")?.dataset.permissions || "{}");
+const canFamily = (action) => familyPermissions[action] === true;
 
 const csrf = document.querySelector('meta[name="csrf-token"]')?.content;
 const table = document.getElementById("familiesTable");
@@ -18,6 +22,8 @@ const membersModal = new bootstrap.Modal(
 const memberFormModal = new bootstrap.Modal(
     document.getElementById("memberFormModal"),
 );
+const linkStudentModal = new bootstrap.Modal(document.getElementById("linkFamilyStudentModal"));
+const familyHistoryModal = new bootstrap.Modal(document.getElementById("familyHistoryModal"));
 const fields = [
     "family_id",
     "family_number",
@@ -52,7 +58,7 @@ const normalizeCambodiaPhoneValue = (value = "") => {
 const syncFamilyPhoneInput = ({ visible, hidden, intl }) => {
     if (!visible || !hidden) return;
     hidden.value =
-        intl?.getNumber() ||
+        (intlTelInput.utils ? intl?.getNumber() : "") ||
         normalizeCambodiaPhoneValue(visible.value);
     visible
         .closest(".premium-floating-field")
@@ -228,6 +234,7 @@ const renderFamilyComboResults = (ui, type) => {
         : `<div class="text-secondary px-2 py-2">${emptyMessage}</div>`;
     ui.results.querySelectorAll("[data-family-combo-value]").forEach((button) => {
         button.addEventListener("mousedown", (event) => {
+            if (ui.select.matches(":disabled")) return;
             event.preventDefault();
             event.stopPropagation();
             ui.select.value = button.dataset.familyComboValue;
@@ -241,6 +248,7 @@ const setupFamilyCombo = (relationship, type) => {
     if (!ui.select || !ui.toggle || !ui.menu) return;
     setFamilyComboSelected(ui, type);
     ui.toggle.addEventListener("click", (event) => {
+        if (ui.select.matches(":disabled")) return;
         event.preventDefault();
         event.stopPropagation();
         const isClosed = ui.menu.classList.contains("d-none");
@@ -394,6 +402,15 @@ const localStatusToggleMarkup = (entity, id, active) => `
         aria-label="Set status ${active ? "inactive" : "active"}" aria-pressed="${active}">
         <span class="status-toggle-label">${active ? "ON" : "OFF"}</span><span class="status-toggle-knob"></span>
     </button>`;
+const familyStatusMarkup = (family) => family.can_status
+    ? (window.statusToggleMarkup?.("family", family.id, Boolean(family.status)) || localStatusToggleMarkup("family", family.id, Boolean(family.status)))
+    : `<span class="badge ${family.status ? "bg-success-lt" : "bg-secondary-lt"}">${family.status ? "Active" : "Inactive"}</span>`;
+const familyActions = (family) => `
+    ${family.can_update ? `<button class="btn btn-primary btn-sm" data-edit="${family.id}">Edit</button>` : ""}
+    <button type="button" class="btn btn-outline-primary btn-sm" data-family-members="${family.id}">Contacts</button>
+    ${canFamily("link") ? `<button type="button" class="btn btn-outline-primary btn-sm" data-family-link="${family.id}">Link Student</button>` : ""}
+    ${canFamily("history") ? `<button type="button" class="btn btn-outline-secondary btn-sm" data-family-history="${family.id}">History</button>` : ""}
+    ${family.can_delete ? `<button class="btn btn-danger btn-sm" data-delete="${family.id}">Delete</button>` : ""}`;
 const refreshSortIcons = () => {
     document.querySelectorAll("[data-family-sort]").forEach((button) => {
         button.classList.toggle(
@@ -404,9 +421,7 @@ const refreshSortIcons = () => {
 };
 const familyMobileCard = (family, index, absoluteNumber) => {
     const expanded = expandedFamilyIds.has(Number(family.id));
-    const status =
-        window.statusToggleMarkup?.("family", family.id, Boolean(family.status)) ||
-        localStatusToggleMarkup("family", family.id, Boolean(family.status));
+    const status = familyStatusMarkup(family);
     return `
         <article class="family-mobile-card">
             <div class="family-mobile-card-top">
@@ -431,8 +446,7 @@ const familyMobileCard = (family, index, absoluteNumber) => {
             </div>
             ${expanded ? `<div class="family-mobile-expanded">${familyStudentsMarkup(family).replace(/^<tr class="family-expanded-row"><td colspan="7">|<\/td><\/tr>$/g, "")}</div>` : ""}
             <div class="family-mobile-actions">
-                <button class="btn btn-primary btn-sm" data-edit="${family.id}"><i class="ti ti-pencil icon"></i>Edit</button>
-                <button class="btn btn-danger btn-sm" data-delete="${family.id}"><i class="ti ti-trash icon"></i>Delete</button>
+                ${familyActions(family)}
             </div>
         </article>
     `;
@@ -449,6 +463,13 @@ const renderFamilyMobileCards = (rows, offset) => {
         : `<div class="family-mobile-empty text-center text-secondary">No families found.</div>`;
 };
 const bindFamilyListActions = (root) => {
+    root.querySelectorAll("[data-family-members]").forEach((button) => button.addEventListener("click", () => {
+        const family = currentRows.find((item) => Number(item.id) === Number(button.dataset.familyMembers));
+        if (family) loadMembers(family).catch((error) => showError("Unable to Load Contacts", error.message));
+    }));
+    root.querySelectorAll("[data-family-history]").forEach((button) => button.addEventListener("click", () => showFamilyHistory(button.dataset.familyHistory)));
+    root.querySelectorAll("[data-family-link]").forEach((button) => button.addEventListener("click", () => openFamilyLink(button.dataset.familyLink)));
+    root.querySelectorAll("[data-family-unlink]").forEach((button) => button.addEventListener("click", () => unlinkFamilyStudent(button.dataset.familyUnlink, button.dataset.familyId)));
     root.querySelectorAll("[data-expand-family]").forEach((button) =>
         button.addEventListener("click", () => {
             const id = Number(button.dataset.expandFamily);
@@ -476,6 +497,8 @@ const bindFamilyListActions = (root) => {
         );
     root.querySelectorAll("[data-change-student-family]").forEach((button) =>
         button.addEventListener("click", () => {
+            const student = currentRows.flatMap((family) => family.students || []).find((item) => Number(item.id) === Number(button.dataset.changeStudentFamily));
+            if (!student?.can_link || !student.can_unlink) return;
             changeFamilyStudent = Number(button.dataset.changeStudentFamily);
             field("change_family_student_id").value = String(changeFamilyStudent);
             field("change_family_student_label").textContent =
@@ -601,11 +624,14 @@ const familyStudentsMarkup = (family) => {
         const group = item.session?.session_short_name || "-";
         return `<div class="family-enrollment-item"><span>${escapeHtml(item.academic_year?.academic_year || "-")}</span><span>${escapeHtml(item.campus?.campus_name_en || "-")}</span><span>${escapeHtml(`${gradeClass}-${group}`)}</span><span class="family-enrollment-status"><span class="badge bg-${statusClass}-lt">${escapeHtml(statusLabel)}</span></span></div>`;
     };
-    return `<tr class="family-expanded-row"><td colspan="7"><div class="family-expanded-card"><div class="d-flex justify-content-between align-items-center mb-3"><div><div class="fw-bold fs-3">Students in this family</div><div class="text-secondary small">Student information and enrollment history</div></div><span class="badge bg-blue-lt">${students.length} Student${students.length === 1 ? "" : "s"}</span></div><div class="family-student-list">${students.map((student) => `<div class="family-student-card"><div class="family-student-profile">${photo(student)}<div class="family-student-identity"><div class="text-secondary small">Student ID: <strong>${escapeHtml(student.student_id || student.student_no || "-")}</strong></div><div class="family-student-name-kh school-profile-khmer">${escapeHtml(student.full_name_kh || "-")}</div><div class="family-student-name-en">${escapeHtml(student.full_name_en || "-")}</div><div class="family-student-gender text-secondary"><i class="ti ti-gender-bigender me-1"></i>${escapeHtml(student.gender_kh || student.gender || "-")}</div></div></div><div class="family-student-dob"><div class="family-detail-label">Date of Birth</div><div class="school-profile-khmer text-secondary">${escapeHtml(khmerDateLabel(student.date_of_birth))}</div><div>${escapeHtml(dateLabel(student.date_of_birth))}</div><div class="family-student-age"><i class="ti ti-calendar-heart me-1"></i>Age: ${escapeHtml(ageLabel(student.date_of_birth))}</div></div><div class="family-student-enrollments"><div class="family-detail-label">Enrollments</div>${student.enrollments?.length ? student.enrollments.map(enrollment).join("") : '<div class="text-secondary">No enrollment records</div>'}</div><div class="family-student-actions"><button type="button" class="btn btn-primary btn-sm" data-change-student-family="${student.id}" data-current-family="${family.id}" data-student-label="${escapeHtml(`${student.full_name_en || "-"} (${student.student_id || student.student_no || "-"})`)}"><i class="ti ti-users-group icon"></i>Change Family</button></div></div>`).join("")}</div></div></td></tr>`;
+    return `<tr class="family-expanded-row"><td colspan="7"><div class="family-expanded-card"><div class="d-flex justify-content-between align-items-center mb-3"><div><div class="fw-bold fs-3">Students in this family</div><div class="text-secondary small">Student information and enrollment history</div></div><span class="badge bg-blue-lt">${students.length} Student${students.length === 1 ? "" : "s"}</span></div><div class="family-student-list">${students.map((student) => `<div class="family-student-card"><div class="family-student-profile">${photo(student)}<div class="family-student-identity"><div class="text-secondary small">Student ID: <strong>${escapeHtml(student.student_id || student.student_no || "-")}</strong></div><div class="family-student-name-kh school-profile-khmer">${escapeHtml(student.full_name_kh || "-")}</div><div class="family-student-name-en">${escapeHtml(student.full_name_en || "-")}</div><div class="family-student-gender text-secondary"><i class="ti ti-gender-bigender me-1"></i>${escapeHtml(student.gender_kh || student.gender || "-")}</div></div></div><div class="family-student-dob"><div class="family-detail-label">Date of Birth</div><div class="school-profile-khmer text-secondary">${escapeHtml(khmerDateLabel(student.date_of_birth))}</div><div>${escapeHtml(dateLabel(student.date_of_birth))}</div><div class="family-student-age"><i class="ti ti-calendar-heart me-1"></i>Age: ${escapeHtml(ageLabel(student.date_of_birth))}</div></div><div class="family-student-enrollments"><div class="family-detail-label">Enrollments</div>${student.enrollments?.length ? student.enrollments.map(enrollment).join("") : '<div class="text-secondary">No enrollment records</div>'}</div><div class="family-student-actions">${student.can_link && student.can_unlink ? `<button type="button" class="btn btn-primary btn-sm" data-change-student-family="${student.id}" data-current-family="${family.id}" data-student-label="${escapeHtml(`${student.full_name_en || "-"} (${student.student_id || student.student_no || "-"})`)}">Change Family</button>` : ""}${student.can_unlink ? `<button type="button" class="btn btn-outline-danger btn-sm" data-family-unlink="${student.id}" data-family-id="${family.id}">Unlink</button>` : ""}</div></div>`).join("")}</div></div></td></tr>`;
 };
 
 const resetForm = () => {
     form.reset();
+    form.querySelectorAll("input,select,textarea,button").forEach((element) => { element.disabled = false; });
+    field("familySharedNotice").classList.add("d-none");
+    field("familyStatusToggle").disabled = !canFamily("status");
     fields.forEach((id) => {
         if (field(id)) field(id).value = "";
     });
@@ -632,7 +658,10 @@ const resetForm = () => {
 
 const editFamily = (id) => {
     const family = currentRows.find((item) => item.id === id);
-    if (!family) return;
+    if (!family?.can_update) return;
+    resetForm();
+    field("familySharedNotice").textContent = sharedFamilyMessage(family.shared_info);
+    field("familySharedNotice").classList.remove("d-none");
     fields.forEach((name) => {
         if (field(name))
             field(name).value =
@@ -662,6 +691,14 @@ const editFamily = (id) => {
     });
     syncStatusToggle(field("family_status"), field("familyStatusToggle"));
     document.getElementById("familyModalTitle").textContent = "Edit Family";
+    field("family_status").disabled = !family.can_status;
+    field("familyStatusToggle").disabled = !family.can_status;
+    parentRelationships.forEach((relationship) => {
+        const exists = family.members?.some((member) => member.relationship_type === relationship);
+        const allowed = exists ? family.can_members_update : family.can_members_create;
+        field(`family_${relationship}_full_name_en`)?.closest(".family-member-row")?.querySelectorAll("input,select,textarea,button")
+            .forEach((element) => { element.disabled = !allowed; });
+    });
     refreshFamilyFloatingFields();
     modal.show();
 };
@@ -682,7 +719,7 @@ const renderMembers = () => {
         ? currentMembers
               .map(
                   (member) =>
-                      `<tr><td>${escapeHtml(member.full_name_en || "-")}</td><td><span class="badge bg-blue-lt">${escapeHtml(member.relationship_type)}</span></td><td>${escapeHtml(member.phone || "-")}</td><td>${member.is_primary_contact ? "Yes" : "No"}</td><td>${member.has_portal_access ? "Yes" : "No"}</td><td class="text-end"><button class="btn btn-primary btn-sm" data-edit-member="${member.id}">Edit</button> <button class="btn btn-danger btn-sm" data-delete-member="${member.id}">Delete</button></td></tr>`,
+                      `<tr><td>${escapeHtml(member.full_name_en || "-")}</td><td><span class="badge bg-blue-lt">${escapeHtml(member.relationship_type)}</span></td><td>${escapeHtml(member.phone || "-")}</td><td>${member.is_primary_contact ? "Yes" : "No"}</td><td>${member.has_portal_access ? "Yes" : "No"}</td><td class="text-end">${activeFamily?.can_members_update ? `<button class="btn btn-primary btn-sm" data-edit-member="${member.id}">Edit</button>` : ""} ${activeFamily?.can_members_delete ? `<button class="btn btn-danger btn-sm" data-delete-member="${member.id}">Delete</button>` : ""}</td></tr>`,
               )
               .join("")
         : `<tr><td colspan="6" class="text-center">No mother, father, or guardian added yet.</td></tr>`;
@@ -703,6 +740,10 @@ const renderMembers = () => {
 };
 
 const loadMembers = async (family) => {
+    if (!family) return;
+    field("newMember").classList.toggle("d-none", !family.can_members_create);
+    field("membersSharedNotice").textContent = sharedFamilyMessage(family.shared_info);
+    field("memberFormSharedNotice").textContent = sharedFamilyMessage(family.shared_info);
     activeFamily = family;
     document.getElementById("membersModalTitle").textContent =
         `Family Members — ${family.family_number}`;
@@ -720,6 +761,7 @@ const loadMembers = async (family) => {
 };
 
 const editMember = (id) => {
+    if (!activeFamily?.can_members_update) return;
     const member = currentMembers.find((item) => item.id === id);
     if (!member) return;
     const values = {
@@ -747,6 +789,7 @@ const editMember = (id) => {
 };
 
 const deleteMember = async (id) => {
+    if (!activeFamily?.can_members_delete) return;
     if (
         !(
             await showConfirm(
@@ -779,7 +822,7 @@ const fetchFamilies = async (page = 1, pageSize = null) => {
     const params = new URLSearchParams({
         page: String(page),
         perPage: String(size),
-        search: search.value,
+        search: canFamily("search") ? search.value : "",
         sort: sortBy,
         dir: sortDir,
     });
@@ -796,21 +839,8 @@ const fetchFamilies = async (page = 1, pageSize = null) => {
         ? currentRows
               .map((family, index) => {
                   const expanded = expandedFamilyIds.has(Number(family.id));
-                  const status = window.statusToggleMarkup
-                      ? window.statusToggleMarkup(
-                            "family",
-                            family.id,
-                            Boolean(family.status),
-                        )
-                      : "";
-                  const statusMarkup =
-                      status ||
-                      localStatusToggleMarkup(
-                          "family",
-                          family.id,
-                          Boolean(family.status),
-                      );
-                  return `<tr><td>${offset + index + 1}</td><td>${escapeHtml(family.family_number)} <button type="button" class="family-expand-toggle ${expanded ? "is-expanded" : ""}" data-expand-family="${family.id}" aria-expanded="${expanded ? "true" : "false"}" title="${expanded ? "Hide students" : "Show students"}"><i class="ti ti-chevron-down"></i><span class="visually-hidden">${expanded ? "Hide students" : "Show students"}</span></button></td><td class="family-member-summary">${memberSummary(family, "mother")}</td><td class="family-member-summary">${memberSummary(family, "father")}</td><td>${family.students_count ?? 0}</td><td>${statusMarkup}</td><td class="text-center"><button class="btn btn-primary btn-sm" data-edit="${family.id}"><i class="ti ti-pencil icon"></i>Edit</button> <button class="btn btn-danger btn-sm" data-delete="${family.id}"><i class="ti ti-trash icon"></i>Delete</button></td></tr>${expanded ? familyStudentsMarkup(family) : ""}`;
+                  const statusMarkup = familyStatusMarkup(family);
+                  return `<tr><td>${offset + index + 1}</td><td>${escapeHtml(family.family_number)} <button type="button" class="family-expand-toggle ${expanded ? "is-expanded" : ""}" data-expand-family="${family.id}" aria-expanded="${expanded ? "true" : "false"}" title="${expanded ? "Hide students" : "Show students"}"><i class="ti ti-chevron-down"></i><span class="visually-hidden">${expanded ? "Hide students" : "Show students"}</span></button></td><td class="family-member-summary">${memberSummary(family, "mother")}</td><td class="family-member-summary">${memberSummary(family, "father")}</td><td>${family.students_count ?? 0}</td><td>${statusMarkup}</td><td class="text-center"><div class="d-flex flex-wrap justify-content-center gap-1">${familyActions(family)}</div></td></tr>${expanded ? familyStudentsMarkup(family) : ""}`;
               })
               .join("")
         : `<tr><td colspan="7" class="text-center">No families found.</td></tr>`;
@@ -828,6 +858,7 @@ const fetchFamilies = async (page = 1, pageSize = null) => {
 };
 
 const deleteFamily = async (id) => {
+    if (!currentRows.find((family) => Number(family.id) === Number(id))?.can_delete) return;
     const confirmation = await showConfirm(
         "Delete Family",
         "Families linked to students cannot be deleted.",
@@ -850,15 +881,18 @@ const deleteFamily = async (id) => {
 };
 
 document.getElementById("newFamily")?.addEventListener("click", () => {
+    if (!canFamily("create")) return;
     resetForm();
     modal.show();
 });
 document.getElementById("newMember")?.addEventListener("click", () => {
+    if (!activeFamily?.can_members_create) return;
     resetMemberForm();
     memberFormModal.show();
 });
 form?.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (field("family_id").value ? !currentRows.find((item) => Number(item.id) === Number(field("family_id").value))?.can_update : !canFamily("create")) return;
     syncFamilyPhoneInputs();
     const response = await fetch("/families/save", {
         method: "POST",
@@ -926,6 +960,7 @@ document
     .getElementById("memberForm")
     ?.addEventListener("submit", async (event) => {
         event.preventDefault();
+        if (field("family_member_id").value ? !activeFamily?.can_members_update : !activeFamily?.can_members_create) return;
         const memberData = new FormData(event.currentTarget);
         [
             "is_primary_contact",
@@ -990,6 +1025,79 @@ document.querySelectorAll("[data-family-sort]").forEach((button) => {
 document.addEventListener("status:updated", () =>
     fetchFamilies(currentPage, parseInt(perPage.value, 10)),
 );
+const familyRequest = async (url, options = {}) => {
+    const response = await fetch(url, { ...options, headers: { Accept: "application/json", "X-CSRF-TOKEN": csrf, ...(options.headers || {}) } });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.message || Object.values(result.errors || {})[0]?.[0] || "Unable to complete this action.");
+    return result;
+};
+
+const openFamilyLink = async (familyId) => {
+    if (!canFamily("link")) return;
+    const family = currentRows.find((item) => Number(item.id) === Number(familyId));
+    if (!family) return;
+    try {
+        const result = await familyRequest("/families/link-options");
+        field("linkFamilyId").value = family.id;
+        field("linkFamilyLabel").textContent = `Family: ${family.family_number}`;
+        field("linkFamilyStudent").innerHTML = '<option value="">Select Student</option>' + (result.students || [])
+            .filter((student) => !family.students?.some((linked) => Number(linked.id) === Number(student.id)))
+            .map((student) => `<option value="${escapeHtml(student.id)}">${escapeHtml(`${student.student_id || student.student_no || "-"} - ${student.full_name_en || student.full_name_kh || "-"}`)}</option>`).join("");
+        linkStudentModal.show();
+    } catch (error) { showError("Unable to Link Student", error.message); }
+};
+
+const unlinkFamilyStudent = async (studentId, familyId) => {
+    const family = currentRows.find((item) => Number(item.id) === Number(familyId));
+    const student = family?.students?.find((item) => Number(item.id) === Number(studentId));
+    if (!student?.can_unlink) return;
+    if (!(await showConfirm("Unlink Student", `Remove ${student.full_name_en || student.student_id} from family ${family.family_number}? Other children will stay linked.`, "Unlink", "Cancel")).isConfirmed) return;
+    try {
+        const result = await familyRequest(`/families/${familyId}/students/${studentId}`, { method: "DELETE" });
+        showSuccess("Student Unlinked", result.message);
+        await fetchFamilies(currentPage, parseInt(perPage.value, 10));
+    } catch (error) { showError("Unable to Unlink Student", error.message); }
+};
+
+field("linkFamilyStudentForm")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!canFamily("link")) return;
+    try {
+        const result = await familyRequest("/families/change-student-family", { method: "POST", body: new FormData(event.currentTarget) });
+        linkStudentModal.hide(); showSuccess("Student Linked", result.message);
+        await fetchFamilies(currentPage, parseInt(perPage.value, 10));
+    } catch (error) { showError("Unable to Link Student", error.message); }
+});
+
+const showFamilyHistory = async (familyId = null, page = 1) => {
+    if (!canFamily("history")) return;
+    const family = currentRows.find((item) => Number(item.id) === Number(familyId));
+    field("familyHistoryTitle").textContent = family ? `Family History — ${family.family_number}` : "All Family History";
+    field("familyHistoryBody").textContent = "Loading history…";
+    field("familyHistoryPages").innerHTML = "";
+    familyHistoryModal.show();
+    try {
+        const result = await familyRequest(`${familyId ? `/families/${familyId}/history` : "/families/history"}?page=${page}`);
+        field("familyHistoryBody").innerHTML = (result.data || []).map((entry) => {
+            const number = entry.after_values?.family?.family_number || entry.before_values?.family?.family_number || entry.family_id;
+            const changes = familyHistoryChanges(entry);
+            return `<section class="border rounded p-3 mb-3"><div class="fw-bold">${escapeHtml(number)} · ${escapeHtml(entry.action.replaceAll("_", " "))}</div>
+                <p class="small text-secondary">${escapeHtml(entry.changed_by_name)} · ${escapeHtml(new Date(entry.created_at).toLocaleString())}</p>
+                <div class="table-responsive"><table class="table table-sm"><thead><tr><th>Field</th><th>Previous Value</th><th>New Value</th></tr></thead><tbody>
+                ${changes.map((change) => `<tr><td>${escapeHtml(change.field)}</td><td>${escapeHtml(String(change.before ?? "") || "—")}</td><td>${escapeHtml(String(change.after ?? "") || "—")}</td></tr>`).join("")}
+                </tbody></table></div></section>`;
+        }).join("") || '<p class="text-secondary">No changes recorded.</p>';
+        for (const [label, target] of [["Previous", result.current_page > 1 ? result.current_page - 1 : null], ["Next", result.current_page < result.last_page ? result.current_page + 1 : null]]) {
+            if (!target) continue;
+            const button = document.createElement("button"); button.className = "btn btn-outline-primary"; button.textContent = label;
+            button.addEventListener("click", () => showFamilyHistory(familyId, target)); field("familyHistoryPages").appendChild(button);
+        }
+    } catch (error) { field("familyHistoryBody").textContent = error.message; }
+};
+field("allFamilyHistory")?.addEventListener("click", () => showFamilyHistory());
+const familyReportParams = () => new URLSearchParams({ search: canFamily("search") ? search.value : "", sort: sortBy, dir: sortDir });
+field("printFamilies")?.addEventListener("click", () => { if (canFamily("print")) window.open(`/families/print?${familyReportParams()}`, "_blank", "noopener"); });
+field("exportFamilies")?.addEventListener("click", () => { if (canFamily("export")) window.location.assign(`/families/export?${familyReportParams()}`); });
 setupFamilyComboboxes();
 setupChangeFamilyCombobox();
 refreshSortIcons();

@@ -42,6 +42,21 @@ it('follows the reference by room with saved scores zero absences and visible bl
     expect($html)->toContain('SCORES','GENDER','ROOM NO.','SEAT NO.','rowspan="2"','0 (A)','Draft / pending review','window.print()','November 20, 2026')->not->toContain('Secondary Only','Page 1');
 });
 
+it('always labels scoring lists for verification including published exams',function(bool $published,bool $pdfExport){
+    $exam=scholarshipSeatReportExam(2);
+    if($published)$exam->update(['published_at'=>now()]);
+    $data=array_replace(scoreReportData($exam),['pdfExport'=>$pdfExport]);
+    $html=view('western-scholarship.score-report',$data)->render();
+    expect(substr_count($html,'alt="FOR VERIFICATION"'))->toBe($pdfExport?0:count($data['pages']))
+        ->and($data['title'])->toBe('Score Verification List')
+        ->and(base64_decode(explode(',',$data['verificationStampSrc'],2)[1]))->toContain('rotate(-10 200 80)','>FOR</text>','>VERIFICATION</text>');
+})->with([
+    'unpublished preview'=>[false,false],
+    'published preview'=>[true,false],
+    'unpublished PDF'=>[false,true],
+    'published PDF'=>[true,true],
+]);
+
 it('uses the effective subject order for each grade and prevents excessive subject columns',function(){
     $exam=scholarshipSeatReportExam(2);$subjects=$exam->subjects()->where('grade_from',1)->get();
     $exam->update(['subject_orders'=>['grades'=>[1=>$subjects->reverse()->pluck('id')->all()]]]);
@@ -94,7 +109,7 @@ it('exports only authorized scoring assignments and validates the center room st
     expect(fn()=>app(ScholarshipController::class)->scoreReport(scholarshipScoreReportRequest(['score_center'=>2,'score_room'=>1],false),$exam,'print'))->toThrow(ValidationException::class);
     expect(fn()=>app(ScholarshipController::class)->scoreReport(scholarshipScoreReportRequest(['score_room'=>1]),$exam,'print'))->toThrow(ValidationException::class);
     expect(fn()=>app(ScholarshipController::class)->scoreReport(scholarshipScoreReportRequest(['score_center'=>1,'score_room'=>1,'score_student'=>999]),$exam,'print'))->toThrow(ValidationException::class);
-    $denied=scholarshipScoreReportRequest(['score_center'=>1,'score_room'=>1],false,'western-scholarship.export');
+    $denied=scholarshipScoreReportRequest(['score_center'=>1,'score_room'=>1],false,'western-scholarship.export-scores');
     expect(fn()=>app(ScholarshipController::class)->scoreReport($denied,$exam,'print'))->toThrow(HttpException::class);
 });
 

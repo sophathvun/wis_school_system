@@ -6,6 +6,8 @@
 @php($submenuIcons = ['users' => 'ti-users', 'departments' => 'ti-building-community', 'positions' => 'ti-briefcase', 'roles' => 'ti-shield', 'dashboard-templates' => 'ti-layout-dashboard', 'notifications' => 'ti-bell', 'chat' => 'ti-message-circle', 'academic-years' => 'ti-calendar', 'grades' => 'ti-school', 'classes' => 'ti-door', 'sessions' => 'ti-clock', 'education-levels' => 'ti-school', 'programs' => 'ti-books', 'school-info' => 'ti-building-community', 'locations' => 'ti-map-pin', 'occupations' => 'ti-briefcase', 'academic-tracks' => 'ti-route', 'withdrawal-reasons' => 'ti-user-minus', 'student-document-types' => 'ti-file-description', 'branding' => 'ti-palette', 'database-backups' => 'ti-database', 'students.search' => 'ti-search', 'students.enrollment' => 'ti-user-plus', 'families' => 'ti-users-group', 'students.promotion' => 'ti-arrows-transfer-up', 'students.transfer' => 'ti-arrows-left-right', 'students.graduation' => 'ti-certificate', 'student-reentry' => 'ti-user-check', 'student-documents' => 'ti-files', 'student-data-transfer' => 'ti-file-import'])
 <div class="row g-3 align-items-start mb-3">
 @php($mainMenuIcons['hrm']='ti-users-group')
+@php($mainMenuIcons['photo-editor']='ti-photo-edit')
+@php($submenuIcons['western-scholarship']='ti-award')
 @php($submenuIcons['hrm-staff-data']='ti-file-import')
 @php($submenuIcons=array_merge($submenuIcons,['staff'=>'ti-id-badge-2','hrm-settings'=>'ti-settings','hrm-staff-attendance'=>'ti-user-check','hrm-payroll'=>'ti-cash-banknote','hrm-leave-requests'=>'ti-calendar-minus','hrm-performance-reviews'=>'ti-chart-bar','hrm-staff-reports'=>'ti-report-analytics']))
 @php($mainMenuIcons['hrm']='ti-users-group')
@@ -99,6 +101,15 @@
                             @if ($moduleKey === 'students.enrollment')
                                 <p class="small text-secondary mt-2 mb-1">Campus staff: edit/delete only their campus students. Central/global staff: all campuses, with permission. Student documents use the Student Documents permissions below. Enrollment changes use Transfer Student.</p>
                             @endif
+                            @if ($moduleKey === 'summer-school')
+                                <p class="small text-secondary mt-2 mb-1">Campus staff can filter and register students at all campuses. Edit, delete and Continue at Western require permission for their campus students. Central/global staff can act across campuses with permission.</p>
+                            @endif
+                            @if ($moduleKey === 'families')
+                                <p class="small text-secondary mt-2 mb-1">Families are shared across campuses. Campus staff can edit families with a currently enrolled child in their campus and link/unlink only their campus students. Central/global staff can manage all families with permission. Status and deletion are central only; linked families cannot be deleted.</p>
+                            @endif
+                            @if($moduleKey==='western-scholarship')
+                                @include('partials.scholarship-permission-tabs')
+                            @else
                             @foreach ($module['actions'] as $action)
                                 @php($actionOn = $assignedPermissions->contains('id', $action->id))
                                 @php($skippingParent = $moduleKey==='student-skipping-grade' ? (\App\Support\StudentSkippingGradePermissions::PARENTS[$action->action]??null) : null)
@@ -121,6 +132,7 @@
                                     </button>
                                 </div>
                             @endforeach
+                            @endif
                             <input type="checkbox" class="d-none" name="permissions[]"
                                 value="{{ $module['permission']->id }}" @checked($submenuOn)
                                 data-permission-input="{{ $submenuId }}">

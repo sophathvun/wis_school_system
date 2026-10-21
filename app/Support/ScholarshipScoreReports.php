@@ -13,7 +13,7 @@ class ScholarshipScoreReports
     {
         $exam->loadMissing('academicYear','subjects');$candidates->each->loadMissing('scores','student');
         $logo=app(ScholarshipExport::class)->reportLogo(1);
-        $title='Score List of '.$exam->examinationTitle();$pages=[];$workflow=app(ScholarshipWorkflow::class);
+        $title='Score Verification List';$pages=[];$workflow=app(ScholarshipWorkflow::class);
         foreach($candidates->groupBy(fn($candidate)=>($candidate->exam_center_id??0).':'.$candidate->room_number.':'.$candidate->grade_number) as $room){
             $first=$room->first();$subjects=$workflow->applicableSubjects($exam,$first->grade_number)->values();
             $students=$room->sortBy('room_seat',SORT_NUMERIC)->values()->map(function($candidate,$index)use($workflow,$exam,$subjects){
@@ -46,7 +46,8 @@ class ScholarshipScoreReports
                 $page['rows']=$this->grid($page,$title);$pages[]=$page;
             }
         }
-        return ['title'=>$title,'titleSize'=>mb_strlen($title)>70?14:20,'document'=>'score-list','pages'=>$pages,'logoSrc'=>$logo,'logoLabel'=>'School Logo 1',
+        $verificationStampSrc='data:image/svg+xml;base64,'.base64_encode(file_get_contents(public_path('images/scholarship/score-verification-stamp.svg')));
+        return ['title'=>$title,'titleSize'=>mb_strlen($title)>70?14:20,'document'=>'score-list','pages'=>$pages,'logoSrc'=>$logo,'logoLabel'=>'School Logo 1','verificationStampSrc'=>$verificationStampSrc,
             'pdfExport'=>false,'orientation'=>'landscape','exam'=>$exam];
     }
 

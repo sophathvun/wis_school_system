@@ -22,15 +22,21 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use App\Support\SummerSchoolPermissions;
 
 class SummerSchoolController
 {
     public function __construct(private readonly FamilyService $familyService) {}
 
-    public function index() { return view('summer-school'); }
+    public function index()
+    {
+        $this->authorizeAction('view');
+        return view('summer-school', ['summerPermissions' => SummerSchoolPermissions::current()->flags()]);
+    }
 
     public function options()
     {
+        $this->authorizeAction('view');
         return response()->json([
             'nextStudentNo' => $this->nextStudentNumber(),
             'academicYears' => AcademicYear::where('period_type', 'summer')->where('lifecycle_status', 'started')->orderByDesc('id')->get(['id', 'academic_year', 'parent_academic_year_id', 'lifecycle_status']),
@@ -112,6 +118,7 @@ class SummerSchoolController
 
     public function nextStudentId(Request $request)
     {
+        $this->authorizeForm();
         $data = $request->validate([
             'academic_year_id' => ['required', Rule::exists('tb_academic_year', 'id')->where(fn ($query) => $query->where('period_type', 'summer'))],
             'grade_id' => ['required', 'exists:tb_grade,id'],
@@ -126,6 +133,7 @@ class SummerSchoolController
 
     public function studentOptions()
     {
+        $this->authorizeForm();
         return response()->json(StudentEnrollment::with([
             'student:id,student_id,full_name_en,full_name_kh,gender,gender_kh,date_of_birth,photo_path',
             'student.familyMembers:id,full_name_en,full_name_kh,relationship_type,phone',
@@ -146,6 +154,7 @@ class SummerSchoolController
 
     public function westernFilterOptions(Request $request)
     {
+        $this->authorizeForm();
         $yearId = $request->integer('academic_year_id');
         return response()->json(SchoolInfo::where('status', 1)
             ->whereIn('id', StudentEnrollment::where('academic_year_id', $yearId)->select('campus_id'))
@@ -154,6 +163,7 @@ class SummerSchoolController
 
     public function westernGradeOptions(Request $request)
     {
+        $this->authorizeForm();
         return response()->json(DB::table('tb_student_enrollment as e')
             ->join('tb_grade as g', 'g.id', '=', 'e.grade_id')
             ->join('tb_class as c', 'c.id', '=', 'e.class_id')
@@ -165,6 +175,7 @@ class SummerSchoolController
 
     public function familyOptions()
     {
+        $this->authorizeForm();
         return response()->json(
             Family::with(['members' => fn ($query) => $query
                 ->whereIn('relationship_type', ['mother', 'father', 'guardian'])
@@ -178,6 +189,7 @@ class SummerSchoolController
 
     public function periodOptions()
     {
+        $this->authorizeAction('view');
         return response()->json(AcademicYear::where('period_type', 'summer')
             ->where('lifecycle_status', 'started')
             ->orderByDesc('id')
@@ -186,6 +198,7 @@ class SummerSchoolController
 
     public function locationOptions()
     {
+        $this->authorizeForm();
         return response()->json([
             'provinces' => Province::where('status', 1)->orderBy('province_name_en')->get(['id', 'country_id', 'province_name_en', 'province_name_kh']),
             'districts' => District::where('status', 1)->orderBy('district_name_en')->get(['id', 'province_id', 'district_name_en', 'district_name_kh']),
@@ -196,6 +209,9 @@ class SummerSchoolController
 
     public function fetch(Request $request)
     {
+        $this->authorizeAction('view');
+        if (collect(['academic_year_id','campus_id','grade_id','session_id','student_id','enrollment_status','search'])
+            ->contains(fn ($key) => $request->filled($key))) $this->authorizeAction('filter');
         $query = StudentEnrollment::with(['student:id,student_id,student_no,full_name_en,full_name_kh,gender,gender_kh,date_of_birth,nationality_country_id,home_phone,email,birth_country_id,birth_province_id,birth_district_id,birth_commune_id,birth_village_id,address_country_id,address_province_id,address_district_id,address_commune_id,address_village_id,address_house_no_en,address_house_no_kh,address_street_en,address_street_kh,current_address_en,current_address_kh,previous_school,experienced_english,test_result,tested_by,remarks,photo_path,family_number', 'academicYear' => fn ($year) => $year->withTrashed()->select(['id', 'academic_year', 'lifecycle_status', 'period_type']), 'campus:id,campus_name_en', 'grade:id,grade', 'schoolClass:id,class_name', 'academicTrack:id,name_en', 'session:id,session_short_name'])
             ->whereIn('academic_year_id', AcademicYear::withTrashed()
                 ->where(fn ($year) => $year->where('period_type', 'summer')->orWhere('academic_year', 'like', 'Summer %'))
@@ -211,11 +227,29 @@ class SummerSchoolController
                 $q->whereHas('student', fn ($student) => $student->where('student_id', 'like', $term)->orWhere('full_name_en', 'like', $term)->orWhere('full_name_kh', 'like', $term));
             })
             ->latest('id');
-        return response()->json($query->paginate($request->integer('perPage', 15)));
+        $page = $query->paginate($request->integer('perPage', 15));
+        $access = SummerSchoolPermissions::current();
+        $access->loadStudents($page->getCollection()->where('enrollment_origin', 'external')->pluck('student_id')->all());
+        $page->getCollection()->each(function ($record) use ($access) {
+            $record->setAttribute('can_edit', $access->canMutate($record, 'update'));
+            $record->setAttribute('can_delete', $access->canMutate($record, 'delete'));
+            $record->setAttribute('can_convert', $record->enrollment_origin === 'external'
+                && $record->continue_at_western === 'yes' && $access->canMutate($record, 'convert'));
+        });
+        return response()->json($page);
+    }
+
+    public function filterOptions()
+    {
+        $this->authorizeAction('filter');
+        return response()->json(['students' => Student::whereHas('enrollments.academicYear', fn ($year) => $year->withTrashed()
+            ->where(fn ($q) => $q->where('period_type', 'summer')->orWhere('academic_year', 'like', 'Summer %')))
+            ->orderBy('full_name_en')->orderBy('student_id')->get(['id','student_id','full_name_en','full_name_kh'])]);
     }
 
     public function details(StudentEnrollment $enrollment)
     {
+        abort_unless(SummerSchoolPermissions::current()->canMutate($enrollment, 'update'), 403);
         abort_unless($enrollment->academicYear?->period_type === 'summer', 404);
         $enrollment->load(['student', 'student.families.members']);
         $contacts = $enrollment->student->families->flatMap->members->map(fn ($member) => [
@@ -236,8 +270,16 @@ class SummerSchoolController
 
     public function save(Request $request)
     {
+        $existing = $request->filled('enrollment_id') ? StudentEnrollment::findOrFail($request->input('enrollment_id')) : null;
+        if ($existing) {
+            abort_unless(SummerSchoolPermissions::current()->canMutate($existing, 'update'), 403,
+                'You do not have permission to edit this Summer student in this campus.');
+            app(\App\Services\EnrollmentEditGuard::class)->preserve($request, $existing);
+            abort_if($request->input('enrollment_origin') !== $existing->enrollment_origin, 422, 'Student type cannot be changed while editing.');
+        } else $this->authorizeAction('create');
         $data = $request->validate([
-            'academic_year_id' => ['required', Rule::exists('tb_academic_year', 'id')->where(fn ($query) => $query->where('period_type', 'summer')->where('lifecycle_status', 'started'))],
+            'academic_year_id' => ['required', Rule::exists('tb_academic_year', 'id')->where(fn ($query) => $query->where('period_type', 'summer')
+                ->where(fn ($years) => $years->where('lifecycle_status', 'started')->when($existing, fn ($q) => $q->orWhere('id', $existing->academic_year_id))))],
             'enrollment_origin' => ['required', Rule::in(['internal', 'external'])],
             'student_record_id' => ['nullable', 'exists:tb_student,id', 'required_if:enrollment_origin,internal'],
             'external_student_id' => ['nullable', 'string', 'max:60'],
@@ -316,15 +358,21 @@ class SummerSchoolController
             'summer_remarks' => ['nullable', 'string', 'max:5000'],
         ]);
 
-        $enrollment = DB::transaction(function () use ($data, $request) {
+        $enrollment = DB::transaction(function () use ($data, $request, $existing) {
+            if ($existing) {
+                $existing = StudentEnrollment::lockForUpdate()->findOrFail($existing->id);
+                abort_unless(SummerSchoolPermissions::current()->canMutate($existing, 'update'), 403);
+                app(\App\Services\EnrollmentEditGuard::class)->preserve($request, $existing);
+            }
             $academicYear = AcademicYear::findOrFail($data['academic_year_id']);
             if ($data['enrollment_origin'] === 'internal') {
                 $student = Student::findOrFail($data['student_record_id']);
                 $student->ensureIdCardQrCode();
             } else {
-                $summerStudentId = $this->nextSummerStudentId($academicYear, (int) $data['grade_id']);
-                $student = Student::create([
-                    'student_no' => $this->nextStudentNumber(),
+                $student = $existing ? Student::lockForUpdate()->findOrFail($existing->student_id) : new Student();
+                $summerStudentId = $existing ? $student->student_id : $this->nextSummerStudentId($academicYear, (int) $data['grade_id']);
+                $student->fill([
+                    'student_no' => $existing ? $student->student_no : $this->nextStudentNumber(),
                     'student_id' => $summerStudentId,
                     'full_name_en' => $data['full_name_en'],
                     'full_name_kh' => $data['full_name_kh'] ?? null,
@@ -357,14 +405,15 @@ class SummerSchoolController
                     'address_street_kh' => $data['address_street_kh'] ?? null,
                     'current_address_en' => $data['current_address_en'] ?? null,
                     'current_address_kh' => $data['current_address_kh'] ?? null,
-                    'family_number' => $data['existing_family_number'] ?: ($data['family_number'] ?: 'F' . $summerStudentId),
-                    'status' => 1,
+                    'family_number' => ($data['existing_family_number'] ?? '') ?: (($data['family_number'] ?? '') ?: ($student->family_number ?: 'F' . $summerStudentId)),
+                    'status' => $existing ? $student->status : 1,
                 ]);
+                $student->save();
                 if ($request->hasFile('photo')) {
                     $photoName = preg_replace('/[^A-Za-z0-9]+/', '_', trim((string) $student->full_name_en)) ?: 'Student';
                     $student->photo_path = $request->file('photo')->storeAs(
                         'student_photos',
-                        trim($photoName, '_') . '_' . $student->student_id . '.' . strtolower($request->file('photo')->extension()),
+                        trim($photoName, '_') . '_' . $student->student_id . '_' . \Illuminate\Support\Str::uuid() . '.' . strtolower($request->file('photo')->extension()),
                         'public',
                     );
                     $student->save();
@@ -406,6 +455,10 @@ class SummerSchoolController
                 }
             }
 
+            if ($existing) {
+                $existing->fill(collect($data)->only(['external_student_id','previous_school','continue_at_western','summer_remarks'])->all())->save();
+                return $existing;
+            }
             return StudentEnrollment::create([
                 'student_id' => $student->id,
                 'academic_year_id' => $academicYear->id,
@@ -426,11 +479,12 @@ class SummerSchoolController
             ]);
         });
 
-        return response()->json(['status' => 'success', 'message' => 'Summer School student registered successfully.', 'data' => $enrollment->load(['student', 'academicYear', 'campus', 'grade', 'schoolClass', 'session'])], 201);
+        return response()->json(['status' => 'success', 'message' => $existing ? 'Summer School student updated successfully.' : 'Summer School student registered successfully.', 'data' => $enrollment->load(['student', 'academicYear', 'campus', 'grade', 'schoolClass', 'session'])], $existing ? 200 : 201);
     }
 
     public function convertToWestern(Request $request, StudentEnrollment $enrollment)
     {
+        abort_unless(SummerSchoolPermissions::current()->canMutate($enrollment, 'convert'), 403);
         $data = $request->validate([
             'academic_year_id' => ['required', Rule::exists('tb_academic_year', 'id')->where(fn ($query) => $query->where('period_type', 'regular')->whereIn('lifecycle_status', ['pending', 'started']))],
             'campus_id' => ['required', 'exists:tb_school_info,id'],
@@ -469,9 +523,21 @@ class SummerSchoolController
 
     public function destroy(StudentEnrollment $enrollment)
     {
+        abort_unless(SummerSchoolPermissions::current()->canMutate($enrollment, 'delete'), 403,
+            'You do not have permission to delete this Summer enrollment in this campus.');
         abort_unless($enrollment->academicYear?->period_type === 'summer', 404);
         $enrollment->delete();
 
         return response()->json(['status' => 'success', 'message' => 'Summer School enrollment deleted successfully.']);
+    }
+
+    private function authorizeAction(string $action): void
+    {
+        abort_unless(SummerSchoolPermissions::current()->allows($action), 403);
+    }
+
+    private function authorizeForm(): void
+    {
+        abort_unless(SummerSchoolPermissions::current()->canUseForm(), 403);
     }
 }

@@ -2,6 +2,11 @@ import intlTelInput from "intl-tel-input";
 import "intl-tel-input/styles";
 import { showError, showSuccess } from "./helpers/sweet-alert2";
 import { renderPagination } from "./helpers/pagination";
+import { applySummerEditPayload } from "./helpers/summer-enrollment.js";
+
+const summerPermissions = JSON.parse(document.getElementById("summer-school-permissions")?.dataset.permissions || "{}");
+const canSummer = (action) => summerPermissions[action] === true;
+let summerEditingEnrollmentId = null;
 
 // Always open Summer School at the top of its list card.
 const resetSummerScroll = () => {
@@ -25,15 +30,27 @@ if (document.getElementById("summerSchoolModal")) {
 
 const summerField = (id) => document.getElementById(id);
 let summerEnrollmentEditLocked = false;
-const summerEnrollmentAssignmentFields = ["summerAcademicYear", "summerCampus", "summerGrade", "summerClass", "summerSession"];
+const summerEnrollmentAssignmentFields = ["summerAcademicYear", "summerCampus", "summerGrade", "summerClass", "summerSession", "summerAcademicTrack"];
 const setSummerEnrollmentAssignmentLocked = (locked) => {
     summerEnrollmentEditLocked = locked;
+    const information = summerField("summerEnrollmentInformation");
+    if (information) information.disabled = locked;
+    const trackColumn = summerField("summerAcademicTrack")?.closest(".premium-floating-field");
+    if (information && trackColumn && !information.contains(trackColumn))
+        information.querySelector(":scope > .row")?.appendChild(trackColumn);
+    summerField("summerEnrollmentReadOnlyNotice")?.classList.toggle("d-none", !locked);
+    information?.querySelectorAll(".location-combobox-menu, .date-picker-popup, .date-picker-year-popup")
+        .forEach((popup) => popup.classList.add("d-none"));
     summerEnrollmentAssignmentFields.forEach((id) => {
         const element = summerField(id);
         if (!element) return;
         element.disabled = locked;
         element.closest(".summer-enrollment-section")?.classList.toggle("enrollment-assignment-locked", locked);
     });
+    summerField("summerAcademicYear")?.closest(".summer-enrollment-section")?.querySelectorAll("select, input, textarea, button")
+        .forEach((element) => { element.disabled = locked; });
+    document.querySelectorAll("[data-summer-origin]").forEach((element) => { element.disabled = locked; });
+    if (summerField("summerInternalStudent")) summerField("summerInternalStudent").disabled = locked;
 };
 const summerStyleRequiredAsterisks = () => {
     const requiredNames = [
@@ -311,6 +328,7 @@ const summerSetupSearchableFilter = (id, label, skipFirstOption = true) => {
             : '<div class="text-secondary px-2 py-2">No options found</div>';
     };
     toggle.addEventListener("click", () => {
+        if (select.matches(":disabled")) return;
         document
             .querySelectorAll(".location-combobox-menu")
             .forEach((other) => {
@@ -325,6 +343,7 @@ const summerSetupSearchableFilter = (id, label, skipFirstOption = true) => {
     });
     search.addEventListener("input", render);
     results.addEventListener("click", (event) => {
+        if (select.matches(":disabled")) return;
         const option = event.target.closest("[data-summer-filter-value]");
         if (!option) return;
         select.value = option.dataset.summerFilterValue;
@@ -457,6 +476,7 @@ const summerAddEnrollmentParityFields = () => {
         studentIdInput.closest(".premium-floating-field")?.classList.add("has-value");
     }
     summerRefreshExternalStudentIdPreview = async () => {
+        if (summerEditingEnrollmentId || !canSummer("form")) return;
         const studentId = panel.querySelector('[name="student_id"]');
         if (!studentId) return;
 
@@ -773,7 +793,7 @@ const summerAddEnrollmentParityFields = () => {
         familySelect._summerRenderOptions = renderOptions;
         familySelect._summerRenderSelected = renderSelected;
         if (familyField) familyField.classList.add("summer-searchable-family-field");
-        fetch("/student-enrollments/quick-options", { headers: { Accept: "application/json" } })
+        if (canSummer("form")) fetch("/student-enrollments/quick-options", { headers: { Accept: "application/json" } })
             .then((response) => response.json())
             .then((result) => {
                 familySelect.innerHTML = '<option value=""></option>' + (result.families || []).map((family) => {
@@ -784,7 +804,7 @@ const summerAddEnrollmentParityFields = () => {
                 syncFamilyNumber();
             })
             .catch(() => {});
-        fetch("/summer-school/family-options", { headers: { Accept: "application/json" } })
+        if (canSummer("form")) fetch("/summer-school/family-options", { headers: { Accept: "application/json" } })
             .then((response) => response.json())
             .then((result) => { familyDetails = result || {}; populateFamily(); })
             .catch(() => {});
@@ -990,7 +1010,7 @@ const summerRenderInternalStudents = () => {
     const info = summerField("summerWesternStudentInfo");
     const student = Array.from(unique.values()).find((item) => String(item.id) === String(select.value));
     const enrollmentSection = summerField("summerAcademicYear")?.closest(".summer-enrollment-section");
-    enrollmentSection?.querySelectorAll("select, input, textarea").forEach((field) => { field.disabled = !student; });
+    enrollmentSection?.querySelectorAll("select, input, textarea").forEach((field) => { field.disabled = summerEnrollmentEditLocked || !student; });
     if (info) {
         info.classList.toggle("d-none", !student);
         if (student) {
@@ -1163,6 +1183,22 @@ const summerLoadOptions = async () => {
                     `<option value="${year.id}">${summerEsc(year.academic_year)}</option>`,
             )
             .join("");
+    if (canSummer("filter")) {
+        [["summerFilterCampus", summerOptions.campuses || [], "campus_name_en", "All Campuses"],
+            ["summerFilterGrade", summerOptions.grades || [], "grade", "All Grades"],
+            ["summerFilterGroup", summerOptions.sessions || [], "session_short_name", "All Groups"]]
+            .forEach(([id, items, label, placeholder]) => {
+                summerFill(id, items, label, placeholder);
+                summerField(id).dataset.loaded = "1";
+            });
+        const response = await fetch("/summer-school/filter-options", { headers: { Accept: "application/json" } });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message || "Unable to load Summer filters.");
+        summerFill("summerFilterStudent", (result.students || []).map((student) => ({
+            id: student.id, label: `${student.student_id || "-"} - ${student.full_name_en || student.full_name_kh || "-"}`,
+        })), "label", "All Students");
+        summerField("summerFilterStudent").dataset.loaded = "1";
+    }
     summerSetupStudentFilters();
     summerLoadRows();
     const loadWesternStudents = (year) => {
@@ -1214,10 +1250,10 @@ const summerStatusBadgeClass = (status = "") => status === "active"
       ? "bg-danger-lt text-danger"
       : "bg-warning-lt text-warning";
 const summerMobileActionButtons = (item = {}) => {
-    const canConvert = item.enrollment_origin === "external";
+    const canConvert = item.can_convert === true;
     return `<div class="d-flex flex-wrap gap-2">
-        <button type="button" class="btn btn-outline-primary btn-sm" data-summer-edit="${item.id}" data-summer-edit-origin="${item.enrollment_origin === "external" ? "external" : "internal"}"><i class="ti ti-edit me-1"></i>Edit</button>
-        <button type="button" class="btn btn-outline-danger btn-sm" data-summer-delete="${item.id}"><i class="ti ti-trash me-1"></i>Delete</button>
+        ${item.can_edit ? `<button type="button" class="btn btn-outline-primary btn-sm" data-summer-edit="${item.id}" data-summer-edit-origin="${item.enrollment_origin === "external" ? "external" : "internal"}"><i class="ti ti-edit me-1"></i>Edit</button>` : ""}
+        ${item.can_delete ? `<button type="button" class="btn btn-outline-danger btn-sm" data-summer-delete="${item.id}"><i class="ti ti-trash me-1"></i>Delete</button>` : ""}
         ${canConvert ? `<button type="button" class="btn btn-outline-primary btn-sm" data-summer-convert="${item.id}"><i class="ti ti-arrow-right me-1"></i>Continue</button>` : ""}
     </div>`;
 };
@@ -1255,16 +1291,19 @@ const renderSummerMobileCards = (rows = []) => {
         : '<div class="summer-mobile-empty text-center text-secondary">No Summer School students found.</div>';
 };
 const summerLoadRows = async (page = 1, perPage = null) => {
+    if (typeof page !== "number") page = 1;
     const pageSize = perPage || summerField("summer-per-page")?.value || "15";
     const params = new URLSearchParams({ perPage: pageSize, page });
-    if (summerField("summerFilterYear")?.value)
+    if (canSummer("filter") && summerField("summerFilterYear")?.value)
         params.set("academic_year_id", summerField("summerFilterYear").value);
     [
         ["summerFilterCampus", "campus_id"], ["summerFilterGrade", "grade_id"],
         ["summerFilterGroup", "session_id"], ["summerFilterStudent", "student_id"],
         ["summerFilterStatus", "enrollment_status"], ["summerFilterSearch", "search"],
-    ].forEach(([id, key]) => { if (summerField(id)?.value) params.set(key, summerField(id).value); });
-    const result = await (await fetch(`/summer-school/fetch?${params}`)).json();
+    ].forEach(([id, key]) => { if (canSummer("filter") && summerField(id)?.value) params.set(key, summerField(id).value); });
+    const response = await fetch(`/summer-school/fetch?${params}`, { headers: { Accept: "application/json" } });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.message || "Unable to load Summer students.");
     const rows = [...(result.data || [])];
     rows.forEach((row) => summerRowCache.set(String(row.id), row));
     if (summerSort.key) {
@@ -1290,11 +1329,10 @@ const summerLoadRows = async (page = 1, perPage = null) => {
     summerField("summerSchoolRows").innerHTML = rows.length
         ? rows
               .map((item) => {
-                  const canConvert = item.enrollment_origin === "external";
                   const photo = summerStudentPhotoMarkup(item.student);
                   const statusClass = summerStatusBadgeClass(item.enrollment_status);
                   const studentName = summerStudentNameMarkup(item.student);
-                  return `<tr><td>${photo}</td><td>${summerEsc(item.student?.student_id || "-")}</td><td>${studentName}</td><td><span class="badge ${item.enrollment_origin === "external" ? "bg-warning-lt" : "bg-blue-lt"}">${item.enrollment_origin === "external" ? "New" : "Old"}</span></td><td>${summerEsc(item.academic_year?.academic_year || "-")}</td><td>${summerEsc(item.campus?.campus_name_en || "-")}</td><td>${summerEsc(item.grade?.grade || "-")}</td><td>${summerEsc(item.academic_track?.name_en || "-")}</td><td>${summerEsc(item.session?.session_short_name || "-")}</td><td><span class="badge ${statusClass}">${summerEsc(item.enrollment_status || "-")}</span></td><td class="text-nowrap"><button type="button" class="btn btn-sm btn-outline-secondary" data-summer-edit="${item.id}" data-summer-edit-origin="${item.enrollment_origin === "external" ? "external" : "internal"}" title="Edit"><i class="ti ti-edit"></i></button> <button type="button" class="btn btn-sm btn-outline-danger" data-summer-delete="${item.id}" title="Delete"><i class="ti ti-trash"></i></button> ${canConvert ? `<button type="button" class="btn btn-sm btn-outline-primary" data-summer-convert="${item.id}" title="Continue at Western"><i class="ti ti-arrow-right"></i></button>` : ""}</td></tr>`;
+                  return `<tr><td>${photo}</td><td>${summerEsc(item.student?.student_id || "-")}</td><td>${studentName}</td><td><span class="badge ${item.enrollment_origin === "external" ? "bg-warning-lt" : "bg-blue-lt"}">${item.enrollment_origin === "external" ? "New" : "Old"}</span></td><td>${summerEsc(item.academic_year?.academic_year || "-")}</td><td>${summerEsc(item.campus?.campus_name_en || "-")}</td><td>${summerEsc(item.grade?.grade || "-")}</td><td>${summerEsc(item.academic_track?.name_en || "-")}</td><td>${summerEsc(item.session?.session_short_name || "-")}</td><td><span class="badge ${statusClass}">${summerEsc(item.enrollment_status || "-")}</span></td><td class="text-nowrap">${summerMobileActionButtons(item)}</td></tr>`;
               })
               .join("")
         : '<tr><td colspan="11" class="text-center text-secondary">No Summer School students found.</td></tr>';
@@ -1335,12 +1373,14 @@ const summerToggleOrigin = () => {
         .forEach((field) => field.classList.toggle("d-none", !external));
     summerField("summerAcademicYear")?.closest(".summer-enrollment-section")?.querySelectorAll("select, input, textarea").forEach((field) => { field.disabled = !external && !summerField("summerInternalStudent")?.value; });
     summerField("summerInternalStudent").required = !external;
+    if (summerEditingEnrollmentId) setSummerEnrollmentAssignmentLocked(true);
     if (shouldClearWesternStudentEdit) {
         summerClearNewStudentFields();
     }
 };
 document.querySelectorAll("[data-summer-origin]").forEach((button) => {
     button.addEventListener("click", () => {
+        if (summerEditingEnrollmentId) return;
         const origin = summerField("summerOrigin");
         if (!origin) return;
         origin.value = button.dataset.summerOrigin || "internal";
@@ -1433,6 +1473,7 @@ const summerInitEnrolledOnPicker = () => {
         renderYears();
     };
     trigger.addEventListener("click", () => {
+        if (summerEnrollmentEditLocked || hidden.matches(":disabled")) return;
         document.querySelectorAll("#summerSchoolModal .date-picker-popup").forEach((other) => { if (other !== popup) other.classList.add("d-none"); });
         const selected = selectedDate();
         cursor = selected && !Number.isNaN(selected.getTime()) ? new Date(selected.getFullYear(), selected.getMonth(), 1) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
@@ -1440,6 +1481,7 @@ const summerInitEnrolledOnPicker = () => {
         if (!popup.classList.contains("d-none")) renderCalendar();
     });
     display.addEventListener("input", () => {
+        if (summerEnrollmentEditLocked || hidden.matches(":disabled")) return;
         const date = summerParseDirectDate(display.value);
         if (!date) return;
         hidden.value = summerFormatIsoDate(date);
@@ -1489,9 +1531,13 @@ summerField("summerFilterYear")?.addEventListener("change", summerLoadRows);
 ["summerFilterCampus", "summerFilterGrade", "summerFilterGroup", "summerFilterStudent", "summerFilterStatus"].forEach((id) => summerField(id)?.addEventListener("change", summerLoadRows));
 summerField("summerFilterSearch")?.addEventListener("input", (() => { let timer; return () => { clearTimeout(timer); timer = setTimeout(summerLoadRows, 250); }; })());
 summerField("summerSchoolNew")?.addEventListener("click", () => {
+    if (!canSummer("create")) return;
+    summerEditingEnrollmentId = null;
     setSummerEnrollmentAssignmentLocked(false);
     summerEditingOrigin = null;
     summerField("summerSchoolForm").reset();
+    summerField("summerSchoolModal").querySelector(".modal-title").textContent = "Register Summer Student";
+    summerField("summerSchoolForm").querySelector('[type="submit"]').textContent = "Register";
     const internalStudent = summerField("summerInternalStudent");
     if (internalStudent) { internalStudent.value = ""; internalStudent.dispatchEvent(new Event("change", { bubbles: true })); }
     summerRenderInternalStudents();
@@ -1522,6 +1568,7 @@ summerField("summerStudentSearch")?.addEventListener(
 const handleSummerListAction = async (event) => {
     const deleteButton = event.target.closest("[data-summer-delete]");
     if (deleteButton) {
+        if (!summerRowCache.get(String(deleteButton.dataset.summerDelete))?.can_delete) return;
         if (!window.confirm("Delete this Summer School enrollment?")) return;
         fetch(`/summer-school/${deleteButton.dataset.summerDelete}`, { method: "DELETE", headers: { Accept: "application/json", "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')?.content || "" } })
             .then((response) => response.json().then((result) => ({ response, result })))
@@ -1531,10 +1578,15 @@ const handleSummerListAction = async (event) => {
     }
     const editButton = event.target.closest("[data-summer-edit]");
     if (editButton) {
+        const record = summerRowCache.get(String(editButton.dataset.summerEdit));
+        if (!record?.can_edit) return;
+        summerField("summerSchoolForm").reset();
+        summerEditingEnrollmentId = String(record.id);
         setSummerEnrollmentAssignmentLocked(true);
         const origin = editButton.dataset.summerEditOrigin || "internal";
         summerEditingOrigin = origin;
-        const record = summerRowCache.get(String(editButton.dataset.summerEdit));
+        summerField("summerSchoolModal").querySelector(".modal-title").textContent = "Edit Summer Student";
+        summerField("summerSchoolForm").querySelector('[type="submit"]').textContent = "Update";
         const originField = summerField("summerOrigin");
         if (originField) {
             originField.value = origin;
@@ -1547,9 +1599,15 @@ const handleSummerListAction = async (event) => {
         if (record) {
             try {
                 const response = await fetch(`/summer-school/${editButton.dataset.summerEdit}/details`, { headers: { Accept: "application/json" } });
-                if (response.ok) Object.assign(record, await response.json());
-            } catch (error) { console.warn("Unable to load complete student details", error); }
+                const details = await response.json();
+                if (!response.ok) throw new Error(details.message || "Unable to load student details.");
+                if (summerEditingEnrollmentId !== String(record.id)) return;
+                Object.assign(record, details);
+            } catch (error) { summerModal?.hide(); showError("Unable to Edit", error.message); return; }
             const form = summerField("summerSchoolForm");
+            const year = summerField("summerAcademicYear");
+            if (![...year.options].some((option) => option.value === String(record.academic_year_id)))
+                year.add(new Option(summerOptions.allSummerAcademicYears?.find((item) => Number(item.id) === Number(record.academic_year_id))?.academic_year || "Saved Summer Period", record.academic_year_id));
             const values = {
                 academic_year_id: record.academic_year_id,
                 campus_id: record.campus_id,
@@ -1557,7 +1615,7 @@ const handleSummerListAction = async (event) => {
                 class_id: record.class_id,
                 session_id: record.session_id,
                 enrollment_status: record.enrollment_status,
-                enrolled_on: record.enrolled_on,
+                enrolled_on: record.enrolled_on?.slice(0,10),
                 student_record_id: record.student_id,
                 student_id: record.student?.student_id,
                 student_no: record.student?.student_no,
@@ -1653,6 +1711,7 @@ const handleSummerListAction = async (event) => {
     }
     const button = event.target.closest("[data-summer-convert]");
     if (!button) return;
+    if (!summerRowCache.get(String(button.dataset.summerConvert))?.can_convert) return;
     summerField("summerConvertEnrollmentId").value =
         button.dataset.summerConvert;
     summerField("summerConvertError").classList.add("d-none");
@@ -1671,6 +1730,7 @@ const summerValidateRegistration = () => {
     const missing = [];
     for (const name of required) {
         const field = form?.querySelector(`[name="${name}"]`);
+        if (summerEditingEnrollmentId && (field?.disabled || name === "student_record_id")) continue;
         if (!field || String(field.value || "").trim()) continue;
         field.classList.add("is-invalid");
         const label = field.closest(".premium-floating-field, [class*='col-']")?.querySelector(".form-label")?.textContent?.replace(/\s*\*\s*$/, "").trim() || name;
@@ -1706,6 +1766,8 @@ summerField("summerSchoolForm")?.addEventListener("change", (event) => {
 });
 summerField("summerSchoolForm")?.addEventListener("submit", async (event) => {
     event.preventDefault();
+    const editingRecord = summerEditingEnrollmentId ? summerRowCache.get(summerEditingEnrollmentId) : null;
+    if (summerEditingEnrollmentId ? !editingRecord?.can_edit : !canSummer("create")) return;
     if (!summerValidateRegistration()) return;
     const emailInput = summerField("summerSchoolForm")?.querySelector('[name="email"]');
     if (emailInput && emailInput.value.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailInput.value.trim())) {
@@ -1715,10 +1777,6 @@ summerField("summerSchoolForm")?.addEventListener("submit", async (event) => {
         return;
     }
     summerPhoneSyncs.forEach((sync) => sync());
-    const lockedAssignmentFields = summerEnrollmentEditLocked
-        ? summerEnrollmentAssignmentFields.map((id) => summerField(id)).filter(Boolean)
-        : [];
-    lockedAssignmentFields.forEach((element) => (element.disabled = false));
     const error = summerField("summerSchoolError");
     error.classList.add("d-none");
     const response = await fetch("/summer-school/save", {
@@ -1729,9 +1787,8 @@ summerField("summerSchoolForm")?.addEventListener("submit", async (event) => {
                 document.querySelector('meta[name="csrf-token"]')?.content ||
                 "",
         },
-        body: new FormData(event.target),
+        body: applySummerEditPayload(new FormData(event.target), editingRecord),
     });
-    lockedAssignmentFields.forEach((element) => (element.disabled = true));
     const result = await response.json().catch(() => ({}));
     if (!response.ok) {
         error.textContent =
@@ -1744,7 +1801,7 @@ summerField("summerSchoolForm")?.addEventListener("submit", async (event) => {
     summerModal?.hide();
     const savedStudentId = result.data?.student?.student_id || "";
     showSuccess(
-        "Registration Complete",
+        editingRecord ? "Student Updated" : "Registration Complete",
         savedStudentId
             ? `${result.message || "Summer School student registered successfully."} Student ID: ${savedStudentId}`
             : result.message || "Summer School student registered successfully.",
@@ -2111,7 +2168,7 @@ summerLoadOptions()
                     )
                     .join("");
         }
-        fetch("/summer-school/location-options")
+        if (canSummer("form")) fetch("/summer-school/location-options")
             .then((response) => response.json())
             .then((locations) => {
                 Object.assign(summerOptions, locations);

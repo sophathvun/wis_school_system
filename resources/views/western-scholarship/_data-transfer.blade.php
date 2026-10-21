@@ -1,6 +1,6 @@
 @php
     $canImport=$exam && $workflow->central(auth()->user(),$exam,'import-history');
-    $canTransferExport=$exam && \App\Support\ScholarshipPermissions::allows(auth()->user(),'export');
+    $canTransferExport=$exam && \App\Support\ScholarshipPermissions::allows(auth()->user(),'export-data');
     $importBlocked=$exam && !$exam->isHistorical() && ($exam->seats_locked_at || $exam->published_at || $exam->candidates()->whereHas('scores')->exists() || $exam->awards()->exists());
     $hasFourSampleSubjects=!$exam || collect(range(1,12))->contains(fn($grade)=>$workflow->applicableSubjects($exam,$grade)->unique('name')->count()>=4);
 @endphp

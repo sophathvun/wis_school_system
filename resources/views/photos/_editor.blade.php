@@ -1,12 +1,13 @@
 @php
     $editorId = $editorId ?? 'studentPhotoCropModal';
-    $photoWidth = $photoWidth ?? 600;
-    $photoHeight = $photoHeight ?? 800;
-    $photoFormat = $photoWidth === $photoHeight ? 'Square photo' : '3:4 portrait';
+    $allowPhotoSizes = $allowPhotoSizes ?? false;
+    $photoWidth = $photoWidth ?? ($allowPhotoSizes ? 354 : 600);
+    $photoHeight = $photoHeight ?? ($allowPhotoSizes ? 472 : 800);
+    $photoFormat = $allowPhotoSizes ? '3 × 4 cm' : ($photoWidth === $photoHeight ? 'Square photo' : '3:4 portrait');
 @endphp
 <div class="modal modal-blur fade student-photo-editor" id="{{ $editorId }}" tabindex="-1" aria-hidden="true"
     data-background-url="{{ $backgroundUrl ?? route('student-enrollments.photo.background', [], false) }}"
-    data-size-url="{{ route('photos.size', [], false) }}"
+    data-size-url="{{ $sizeUrl ?? route('photos.size', [], false) }}"
     data-photo-format="{{ $photoFormat }}" style="--photo-editor-ratio: {{ $photoWidth / $photoHeight }}">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
         <div class="modal-content">
@@ -18,7 +19,8 @@
             <div class="modal-body">
                 <div class="photo-editor-layout">
                     <div class="photo-editor-preview">
-                        <div class="student-photo-crop-stage"><canvas id="studentPhotoCropCanvas" width="{{ $photoWidth }}" height="{{ $photoHeight }}" aria-label="Photo crop preview"></canvas></div>
+                        <div class="student-photo-crop-stage"><div class="photo-editor-canvas-wrap"><canvas id="studentPhotoCropCanvas" width="{{ $photoWidth }}" height="{{ $photoHeight }}" aria-label="Photo crop preview"></canvas><div class="photo-editor-guide-overlay d-none" id="studentPhotoGuideOverlay" aria-hidden="true"></div></div></div>
+                        <label class="form-check mt-2 mb-0"><input type="checkbox" class="form-check-input" id="studentPhotoGuides"><span class="form-check-label">Show alignment guides</span></label>
                         <div class="small mt-2 fw-semibold" id="photoEditorFileSize" role="status" aria-live="polite">WebP size: —</div>
                         <div class="d-flex justify-content-between align-items-center mt-2 gap-2">
                             <span class="small text-secondary" id="studentPhotoCompareStatus">Edited preview · Drag to reposition</span>
@@ -30,6 +32,23 @@
                     <div class="photo-editor-tools">
                         <section class="photo-editor-section">
                             <h4><i class="ti ti-crop me-1"></i>Frame</h4>
+                            @if ($allowPhotoSizes)
+                                <label class="form-label" for="photoEditorSize">Photo Size</label>
+                                <select class="form-select mb-2" id="photoEditorSize">
+                                    <option value="3x4">3 × 4 cm</option>
+                                    <option value="3.5x4.5">3.5 × 4.5 cm</option>
+                                    <option value="4x6">4 × 6 cm</option>
+                                    <option value="4.5x4.5">4.5 × 4.5 cm</option>
+                                    <option value="600x800">600 × 800 px (5.08 × 6.77 cm)</option>
+                                    <option value="custom">Customize</option>
+                                </select>
+                                <div class="row g-2 d-none mb-2" id="photoEditorCustomSize">
+                                    <div class="col-6"><label class="form-label" for="photoEditorWidth">Width (cm)</label><input type="number" class="form-control" id="photoEditorWidth" min="1" max="10" step="0.1" value="3" aria-describedby="photoEditorSizeError"></div>
+                                    <div class="col-6"><label class="form-label" for="photoEditorHeight">Height (cm)</label><input type="number" class="form-control" id="photoEditorHeight" min="1" max="10" step="0.1" value="4" aria-describedby="photoEditorSizeError"></div>
+                                </div>
+                                <div class="small text-danger d-none mb-2" id="photoEditorSizeError" role="alert"></div>
+                                <div class="form-hint mb-3" id="photoEditorSizeHint">3 × 4 cm · 354 × 472 pixels · JPG at 300 DPI</div>
+                            @endif
                             <label class="form-label" for="studentPhotoZoom">Zoom</label>
                             <div class="d-flex align-items-center gap-2"><button type="button" class="btn btn-icon btn-outline-secondary btn-sm" id="studentPhotoZoomOut" aria-label="Zoom out"><i class="ti ti-minus"></i></button><input type="range" class="form-range" id="studentPhotoZoom" min="1" max="3" step="0.01" value="1"><button type="button" class="btn btn-icon btn-outline-secondary btn-sm" id="studentPhotoZoomIn" aria-label="Zoom in"><i class="ti ti-plus"></i></button></div>
                             <div class="d-flex gap-2 mt-2"><button type="button" class="btn btn-outline-secondary btn-sm" id="studentPhotoRotateLeft"><i class="ti ti-rotate-2 me-1"></i>Left 90&deg;</button><button type="button" class="btn btn-outline-secondary btn-sm" id="studentPhotoRotateRight"><i class="ti ti-rotate-clockwise-2 me-1"></i>Right 90&deg;</button></div>
@@ -72,10 +91,35 @@
                                 </div>
                                 <p class="small text-secondary mt-2 mb-0">Paint over the shirt or another area, then adjust the sliders below. Purple marks the selection; soft edges blend the edit. The selection color is never saved.</p>
                             </div>
-                            @foreach ([['exposure', 'Exposure', -2, 2, 0, 0.01], ['brightness', 'Brightness', -35, 35, 0, 1], ['contrast', 'Contrast', -30, 40, 0, 1], ['saturation', 'Saturation', -100, 100, 0, 1], ['denoise', 'Smooth noise', 0, 60, 0, 1], ['sharpen', 'Sharpen', 0, 100, 0, 1]] as [$key, $label, $min, $max, $value, $step])
-                                <label class="form-label d-flex justify-content-between" for="studentPhoto-{{ $key }}">{{ $label }}<output for="studentPhoto-{{ $key }}" data-photo-value="{{ $key }}">{{ $key === 'exposure' ? '0.00 EV' : $value }}</output></label>
-                                <input type="range" class="form-range mb-2" id="studentPhoto-{{ $key }}" data-photo-adjustment="{{ $key }}" min="{{ $min }}" max="{{ $max }}" step="{{ $step }}" value="{{ $value }}">
+                            <label class="form-label">Portrait presets</label>
+                            <div class="photo-portrait-presets" role="group" aria-label="Portrait presets">
+                                @foreach (['original' => 'Neutral', 'natural' => 'Natural', 'studio' => 'Studio Light', 'warm' => 'Warm Portrait'] as $preset => $presetLabel)
+                                    <button type="button" class="btn btn-outline-primary btn-sm" data-photo-preset="{{ $preset }}" aria-pressed="{{ $preset === 'original' ? 'true' : 'false' }}">{{ $presetLabel }}</button>
+                                @endforeach
+                            </div>
+                            <p class="form-hint mt-2 mb-3">Presets replace the adjustments for the chosen scope. You can fine-tune every slider.</p>
+                            @php
+                                $photoAdjustmentGroups = [
+                                    'Light' => [['exposure', 'Exposure', -2, 2, 0, 0.01], ['brightness', 'Brightness', -35, 35, 0, 1], ['contrast', 'Contrast', -30, 40, 0, 1], ['shadows', 'Shadows', -100, 100, 0, 1], ['highlights', 'Highlights', -100, 100, 0, 1]],
+                                    'Color & White Balance' => [['warmth', 'Warmth', -100, 100, 0, 1], ['tint', 'Tint', -100, 100, 0, 1], ['vibrance', 'Vibrance', -100, 100, 0, 1], ['saturation', 'Saturation', -100, 100, 0, 1]],
+                                    'Texture & Detail' => [['portraitSmooth', 'Portrait smoothing', 0, 60, 0, 1], ['denoise', 'Smooth noise', 0, 60, 0, 1], ['sharpen', 'Sharpen', 0, 100, 0, 1]],
+                                ];
+                            @endphp
+                            @foreach ($photoAdjustmentGroups as $groupLabel => $adjustments)
+                                <details class="photo-adjustment-group" open>
+                                    <summary>{{ $groupLabel }}</summary>
+                                    @if ($groupLabel === 'Color & White Balance')
+                                        <p class="form-hint">Warmth: cool to warm. Tint: green to magenta. Vibrance gently boosts muted colors.</p>
+                                    @elseif ($groupLabel === 'Texture & Detail')
+                                        <p class="form-hint">For a gentle skin touch-up, choose Selected Area, paint over the skin, and use a little Portrait smoothing.</p>
+                                    @endif
+                                    @foreach ($adjustments as [$key, $label, $min, $max, $value, $step])
+                                        <label class="form-label d-flex justify-content-between" for="studentPhoto-{{ $key }}">{{ $label }}<output for="studentPhoto-{{ $key }}" data-photo-value="{{ $key }}">{{ $key === 'exposure' ? '0.00 EV' : $value }}</output></label>
+                                        <input type="range" class="form-range mb-2" id="studentPhoto-{{ $key }}" data-photo-adjustment="{{ $key }}" min="{{ $min }}" max="{{ $max }}" step="{{ $step }}" value="{{ $value }}">
+                                    @endforeach
+                                </details>
                             @endforeach
+                            <button type="button" class="btn btn-outline-secondary btn-sm mt-2" id="studentPhotoAdjustmentReset"><i class="ti ti-refresh me-1"></i>Reset Adjustments</button>
                         </section>
                     </div>
                 </div>

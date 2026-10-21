@@ -4,13 +4,14 @@
     <span class="d-none"></span>
 @endsection
 @section('content')
+    <div id="summer-school-permissions" class="d-none" data-permissions='@json($summerPermissions ?? [])'></div>
     <div class="col-12 summer-school-page-content">
     <div class="card enrollment-list-card summer-school-list-card">
         <div class="card-header">
             <h3 class="card-title">SUMMER SCHOOL LISTS</h3>
-            <button class="btn btn-primary" id="summerSchoolNew"><i class="ti ti-plus me-1"></i>Register Summer Student</button>
+            <button class="btn btn-primary {{ ($summerPermissions['create'] ?? false) ? '' : 'd-none' }}" id="summerSchoolNew"><i class="ti ti-plus me-1"></i>Register Summer Student</button>
         </div>
-        <div class="card-body border-bottom py-3">
+        <div class="card-body border-bottom py-3 {{ ($summerPermissions['filter'] ?? false) ? '' : 'd-none' }}">
             <div class="d-flex align-items-center gap-3 flex-wrap enrollment-list-filter-group summer-list-filter-group">
                 <select id="summerFilterYear" class="form-select form-select-sm summer-list-filter"><option value="">All Academic Year</option></select>
                 <select id="summerFilterCampus" class="form-select form-select-sm summer-list-filter"><option value="">All Campus</option></select>
@@ -154,7 +155,8 @@
                             <div class="col-md-3 summer-external-field d-none"><label class="form-label">Tested By</label><input name="tested_by" class="form-control"></div>
                             <div class="col-md-3 summer-external-field d-none"><label class="form-label">Experienced English</label><textarea name="experienced_english" class="form-control" rows="1"></textarea></div>
                             <div class="col-md-3 summer-external-field d-none"><label class="form-label">Test Result</label><textarea name="test_result" class="form-control" rows="1"></textarea></div>
-                            <div class="col-12"><div class="border rounded p-3 summer-enrollment-section"><h4 class="mb-3">Enrollment Information</h4><div class="row g-3">
+                            <div class="col-12"><fieldset id="summerEnrollmentInformation" class="border rounded p-3 summer-enrollment-section"><h4 class="mb-3">Enrollment Information</h4>
+                            <div id="summerEnrollmentReadOnlyNotice" class="alert alert-info d-none" role="note">Enrollment information is read-only. Use the Transfer module to change the student's enrollment assignment.</div><div class="row g-3">
                             <div class="col-md-4"><label class="form-label">Academic Year *</label><select
                                     name="academic_year_id" id="summerAcademicYear" class="form-select" required></select></div>
                             <div class="col-md-4"><label class="form-label">Campus *</label><select name="campus_id"
@@ -189,7 +191,7 @@
                                     </div>
                                 </div>
                             </div>
-                            </div></div></div>
+                            </div></fieldset></div>
                             <div class="col-12 summer-external-field d-none">
                                 <h4 class="summer-form-section-title">Family Information</h4>
                             </div>

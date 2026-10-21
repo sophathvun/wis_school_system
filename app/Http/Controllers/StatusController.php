@@ -66,6 +66,9 @@ class StatusController
         ];
 
         abort_unless(isset($models[$data['entity']]), 404, 'Status target not found.');
+        if ($data['entity'] === 'family') {
+            return app(FamilyController::class)->setStatus($request, Family::findOrFail($data['id']));
+        }
         $permissionModules = [
             'academic-year' => 'academic-years', 'education-level' => 'education-levels', 'grade' => 'grades', 'program' => 'programs',
             'class' => 'classes', 'session' => 'sessions', 'school-profile' => 'school-info', 'student-enrollment' => 'students.enrollment',

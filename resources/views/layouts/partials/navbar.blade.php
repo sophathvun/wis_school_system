@@ -224,6 +224,10 @@
     <!-- BEGIN NAVBAR MENU -->
     @php
         $nav = match (true) {
+            request()->routeIs('photo-editor.*') => [
+                'parent' => null, 'label' => 'Photo Editor', 'icon' => 'ti-photo-edit',
+                'url' => route('photo-editor.index'),
+            ],
             request()->routeIs('dashboard') => [
                 'parent' => null,
                 'label' => 'Dashboard',

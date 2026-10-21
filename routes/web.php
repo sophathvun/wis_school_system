@@ -130,6 +130,15 @@ Route::middleware('auth')->group(function () {
     Route::post('/profile', [AuthController::class, 'updateProfile'])->name('profile.update');
     Route::post('/photos/size', [\App\Http\Controllers\StudentPhotoController::class, 'size'])
         ->middleware('throttle:60,1')->name('photos.size');
+    Route::middleware(['campus.context', 'permission:photo-editor.view'])->prefix('photo-editor')->name('photo-editor.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\PhotoEditorController::class, 'index'])->name('index');
+        Route::post('/size', [\App\Http\Controllers\PhotoEditorController::class, 'size'])
+            ->middleware('throttle:60,1')->name('size');
+        Route::post('/background', [\App\Http\Controllers\StudentPhotoController::class, 'profileBackground'])
+            ->middleware('throttle:12,1')->name('background');
+        Route::post('/download', [\App\Http\Controllers\PhotoEditorController::class, 'download'])
+            ->middleware('throttle:60,1')->name('download');
+    });
     Route::post('/profile/photo/background', [\App\Http\Controllers\StudentPhotoController::class, 'profileBackground'])
         ->middleware('throttle:12,1')->name('profile.photo.background');
     Route::post('/settings/users/photo/background', [\App\Http\Controllers\StudentPhotoController::class, 'userBackground'])
@@ -262,6 +271,17 @@ Route::middleware(['auth', 'active.user'])->group(function () {
     });
     Route::prefix('students/western-scholarship')->name('western-scholarship.')->controller(\App\Http\Controllers\ScholarshipController::class)->group(function () {
         Route::get('/', 'index')->name('index');
+        Route::get('/exams/{exam}/scholarship-results/{format}','publishedResultReport')->where('format','print|xlsx|pdf')->name('published-results.report');
+        Route::prefix('certificates')->name('certificates.')->controller(\App\Http\Controllers\ScholarshipCertificateController::class)->group(function(){
+            Route::post('/{year}/settings','settings')->name('settings');
+            Route::post('/{year}/layout','layout')->name('layout');
+            Route::post('/{year}/image','image')->name('image');
+            Route::get('/{year}/plan','plan')->name('plan');
+            Route::post('/{year}/assign','assign')->name('assign');
+            Route::post('/cancel/{certificate}','cancel')->name('cancel');
+            Route::get('/{year}/report','report')->name('report');
+            Route::post('/{year}/report','report');
+        });
         Route::get('/students', 'students')->name('students');
         Route::get('/rank-filters', 'rankFilters')->name('rank-filters');
         Route::get('/exam-center-campuses', 'examCenterCampuses')->name('exam-center-campuses');
@@ -527,6 +547,7 @@ Route::get('/summer-school/period-options', [SummerSchoolController::class, 'per
 Route::get('/summer-school/location-options', [SummerSchoolController::class, 'locationOptions'])->name('summer-school.location-options');
 Route::get('/summer-school/next-student-id', [SummerSchoolController::class, 'nextStudentId'])->name('summer-school.next-student-id');
 Route::get('/summer-school/fetch', [SummerSchoolController::class, 'fetch'])->name('summer-school.fetch');
+Route::get('/summer-school/filter-options', [SummerSchoolController::class, 'filterOptions'])->name('summer-school.filter-options');
 Route::get('/summer-school/{enrollment}/details', [SummerSchoolController::class, 'details'])->name('summer-school.details');
 Route::post('/summer-school/save', [SummerSchoolController::class, 'save'])->name('summer-school.save');
 Route::delete('/summer-school/{enrollment}', [SummerSchoolController::class, 'destroy'])->name('summer-school.destroy');
@@ -562,6 +583,12 @@ Route::post('/student-enrollment-workflows/class-transfer', [EnrollmentWorkflowC
 
 Route::get('/families', [FamilyController::class, 'index'])->name('families.index');
 Route::get('/families/fetch', [FamilyController::class, 'fetchData'])->name('families.fetch');
+Route::get('/families/link-options', [FamilyController::class, 'linkOptions'])->name('families.link-options');
+Route::get('/families/history', [FamilyController::class, 'allHistory'])->name('families.all-history');
+Route::get('/families/print', [FamilyController::class, 'report'])->name('families.print');
+Route::get('/families/export', [FamilyController::class, 'export'])->name('families.export');
+Route::get('/families/{family}/history', [FamilyController::class, 'history'])->withTrashed()->name('families.history');
+Route::delete('/families/{family}/students/{student}', [FamilyController::class, 'unlinkStudent'])->name('families.students.unlink');
 Route::get('/families/{family}', [FamilyController::class, 'show'])->name('families.show');
 Route::post('/families/save', [FamilyController::class, 'save'])->name('families.save');
 Route::post('/families/change-student-family', [FamilyController::class, 'changeStudentFamily'])->name('families.change-student-family');

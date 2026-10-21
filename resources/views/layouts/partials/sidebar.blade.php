@@ -578,6 +578,14 @@
                         </div>
                     </li>
                 @endif
+                @if ($canView('photo-editor.view'))
+                    <li class="nav-item {{ request()->routeIs('photo-editor.*') ? 'active' : '' }}">
+                        <a class="nav-link" href="{{ route('photo-editor.index') }}">
+                            <span class="nav-link-icon d-md-none d-lg-inline-block"><i class="ti ti-photo-edit icon"></i></span>
+                            <span class="nav-link-title">Photo Editor</span>
+                        </a>
+                    </li>
+                @endif
                 @if ($canView('communication.view'))
                     <li class="nav-item dropdown {{ request()->routeIs('chat.*') || request()->routeIs('notifications.send*') || request()->routeIs('notifications.manage') || request()->routeIs('feedback.admin') ? 'active' : '' }}">
                         <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown"

@@ -1,0 +1,8 @@
+.photo-editor-workspace .card-header { background: #2d3b59; color: #fff; }
+.photo-editor-upload { display: flex; min-height: 300px; padding: 2rem 1rem; align-items: center; justify-content: center; flex-direction: column; gap: .65rem; text-align: center; border: 2px dashed var(--tblr-border-color); border-radius: 14px; cursor: pointer; background: var(--tblr-bg-surface-secondary); }
+.photo-editor-upload:hover, .photo-editor-upload.is-dragging, .photo-editor-upload:focus-visible { border-color: var(--tblr-primary); background: var(--tblr-primary-lt); outline: 2px solid transparent; }
+.photo-editor-upload-icon { font-size: 3rem; color: var(--tblr-primary); }
+.photo-editor-output { display: grid; place-items: center; min-height: 300px; padding: 1rem; background: var(--tblr-bg-surface-secondary); border: 1px solid var(--tblr-border-color); border-radius: 14px; }
+.photo-editor-result { display: block; max-width: 100%; width: auto; max-height: 420px; margin: 0 auto; border-radius: 8px; }
+.photo-editor-workspace [data-edited-photo-size] { margin-top: .75rem !important; }
+@media (max-width: 767.98px) { .photo-editor-upload { min-height: 190px; } }

@@ -5,7 +5,7 @@
     </div>
     <div class="card-body" id="scholarshipResultFilters">
         <form method="GET" action="{{ route('western-scholarship.index') }}" data-result-filters>
-            <input type="hidden" name="tab" value="result">
+            <input type="hidden" name="tab" value="{{ $resultTab??'result' }}">
             <div class="scholarship-result-filters">
                 <div class="scholarship-field">
                     <label for="resultFilterYear">Academic Year</label>

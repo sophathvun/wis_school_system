@@ -42,8 +42,8 @@
                         @foreach(['print'=>['Print Results','ti-printer'],'xlsx'=>['Excel','ti-file-spreadsheet'],'pdf'=>['PDF','ti-file-type-pdf']] as $format=>[$label,$icon])
                         <a class="btn btn-sm btn-outline-light" data-result-report-link data-result-report-format="{{ $format }}" href="{{ route('western-scholarship.results.report',[$exam,$format]) }}" @if($format==='print')target="_blank" rel="noopener"@endif><i class="ti {{ $icon }} me-1" aria-hidden="true"></i>{{ $label }}</a>
                         @endforeach
-                        <button class="btn btn-sm btn-outline-light" type="button" data-result-print-settings><i class="ti ti-settings me-1" aria-hidden="true"></i>Settings</button>
                         @endif
+                        @if($exam && ($examPermissions['result-print-settings']??false))<button class="btn btn-sm btn-outline-light" type="button" data-result-print-settings><i class="ti ti-settings me-1" aria-hidden="true"></i>Settings</button>@endif
                         <button type="button" class="btn btn-sm btn-outline-light" data-result-fullscreen aria-pressed="false"><i class="ti ti-maximize me-2" aria-hidden="true"></i><span>Full Screen</span></button>
                     </div>
                 @else<span class="badge bg-white text-dark ms-auto">Forms</span>@endif
@@ -96,8 +96,8 @@
     @if($tab==='scoring' && ($canExportScores??false))@include('western-scholarship._score-report-scope')@endif
     @if($tab==='result' && $exam && $examPermissions['export'])
         @include('western-scholarship._result-report-scope')
-        @include('western-scholarship._print-settings',['resultReportSettings'=>true])
     @endif
+    @if($tab==='result' && $exam && ($examPermissions['result-print-settings']??false))@include('western-scholarship._print-settings',['resultReportSettings'=>true])@endif
 </div>
 @vite(['resources/css/pages/western-scholarship.css', 'resources/js/westernScholarship.js'])
 @endsection

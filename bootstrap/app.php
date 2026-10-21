@@ -31,8 +31,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*')
                 || $request->is('hrm/staff-management/address-options')
-                || ($request->is('photos/size', 'hrm/staff-management/photo/*', 'settings/users/photo/*', 'profile/photo/*') && $request->expectsJson())
-                || ($request->is('student-enrollments/*', 'student-documents*', 'students/skipping-grade', 'students/skipping-grade/*', 'students/western-scholarship', 'students/western-scholarship/*', 'student-enrollment-workflows/*', 'communication/chat', 'communication/chat/*', 'push/*') && $request->expectsJson()),
+                || ($request->is('photo-editor', 'photo-editor/*', 'photos/size', 'hrm/staff-management/photo/*', 'settings/users/photo/*', 'profile/photo/*') && $request->expectsJson())
+                || ($request->is('families/*', 'status/*', 'summer-school/*', 'student-enrollments/*', 'student-documents*', 'students/skipping-grade', 'students/skipping-grade/*', 'students/western-scholarship', 'students/western-scholarship/*', 'student-enrollment-workflows/*', 'communication/chat', 'communication/chat/*', 'push/*') && $request->expectsJson()),
         );
 
         $exceptions->render(function (TokenMismatchException $exception, Request $request) {

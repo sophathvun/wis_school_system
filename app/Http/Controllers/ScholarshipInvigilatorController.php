@@ -37,7 +37,7 @@ class ScholarshipInvigilatorController
     public function download(Request $request,ScholarshipExam $exam,ScholarshipInvigilatorWorkbook $workbook)
     {
         $this->service->authorize($request->user(),$exam,false);$sample=$request->boolean('sample');
-        if(!$sample)abort_unless(app(\App\Services\ScholarshipWorkflow::class)->central($request->user(),$exam,'export'),403);
+        if(!$sample)abort_unless(app(\App\Services\ScholarshipWorkflow::class)->central($request->user(),$exam,'export-committee'),403);
         if($sample){
             $book=['Invigilators'=>[
                 ['invigilator_code'=>'INV-001','staff_id'=>'SAMPLE-001','staff_name_english'=>'SAMPLE STAFF A','gender'=>'Male','campus'=>'BCH','position'=>'Teacher','phone'=>'012345678','organization'=>'WIS'],
