@@ -19,7 +19,16 @@
             <div class="modal-body">
                 <div class="photo-editor-layout">
                     <div class="photo-editor-preview">
-                        <div class="student-photo-crop-stage"><div class="photo-editor-canvas-wrap"><canvas id="studentPhotoCropCanvas" width="{{ $photoWidth }}" height="{{ $photoHeight }}" aria-label="Photo crop preview"></canvas><div class="photo-editor-guide-overlay d-none" id="studentPhotoGuideOverlay" aria-hidden="true"></div></div></div>
+                        <div class="student-photo-crop-stage" tabindex="0" aria-label="Photo editing viewport"><div class="photo-editor-zoom-surface"><div class="photo-editor-canvas-wrap"><canvas id="studentPhotoCropCanvas" width="{{ $photoWidth }}" height="{{ $photoHeight }}" aria-label="Photo crop preview"></canvas><div class="photo-editor-guide-overlay d-none" id="studentPhotoGuideOverlay" aria-hidden="true"></div></div></div></div>
+                        <div class="photo-preview-zoom-toolbar mt-2" role="group" aria-label="Preview zoom">
+                            <span class="small text-secondary">Preview zoom</span>
+                            <button type="button" class="btn btn-icon btn-outline-secondary btn-sm" id="photoPreviewZoomOut" aria-label="Zoom out preview" title="Zoom out preview"><i class="ti ti-zoom-out" aria-hidden="true"></i></button>
+                            <output class="small fw-semibold" id="photoPreviewZoomValue" aria-live="polite">100%</output>
+                            <button type="button" class="btn btn-icon btn-outline-secondary btn-sm" id="photoPreviewZoomIn" aria-label="Zoom in preview" title="Zoom in preview"><i class="ti ti-zoom-in" aria-hidden="true"></i></button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" id="photoPreviewFit"><i class="ti ti-arrows-minimize me-1" aria-hidden="true"></i>Fit</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" id="photoPreviewPan" aria-pressed="false"><i class="ti ti-hand-move me-1" aria-hidden="true"></i>Pan</button>
+                        </div>
+                        <div class="form-hint mt-1">Zoom in for detail. Turn Pan on to move around; turn it off to edit.</div>
                         <label class="form-check mt-2 mb-0"><input type="checkbox" class="form-check-input" id="studentPhotoGuides"><span class="form-check-label">Show alignment guides</span></label>
                         <div class="small mt-2 fw-semibold" id="photoEditorFileSize" role="status" aria-live="polite">WebP size: —</div>
                         <div class="d-flex justify-content-between align-items-center mt-2 gap-2">
@@ -49,7 +58,7 @@
                                 <div class="small text-danger d-none mb-2" id="photoEditorSizeError" role="alert"></div>
                                 <div class="form-hint mb-3" id="photoEditorSizeHint">3 × 4 cm · 354 × 472 pixels · JPG at 300 DPI</div>
                             @endif
-                            <label class="form-label" for="studentPhotoZoom">Zoom</label>
+                            <label class="form-label" for="studentPhotoZoom">Crop zoom</label>
                             <div class="d-flex align-items-center gap-2"><button type="button" class="btn btn-icon btn-outline-secondary btn-sm" id="studentPhotoZoomOut" aria-label="Zoom out"><i class="ti ti-minus"></i></button><input type="range" class="form-range" id="studentPhotoZoom" min="1" max="3" step="0.01" value="1"><button type="button" class="btn btn-icon btn-outline-secondary btn-sm" id="studentPhotoZoomIn" aria-label="Zoom in"><i class="ti ti-plus"></i></button></div>
                             <div class="d-flex gap-2 mt-2"><button type="button" class="btn btn-outline-secondary btn-sm" id="studentPhotoRotateLeft"><i class="ti ti-rotate-2 me-1"></i>Left 90&deg;</button><button type="button" class="btn btn-outline-secondary btn-sm" id="studentPhotoRotateRight"><i class="ti ti-rotate-clockwise-2 me-1"></i>Right 90&deg;</button></div>
                             <label class="form-label mt-3" for="studentPhotoAngle">Straighten (degrees)</label>

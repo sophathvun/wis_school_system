@@ -30,6 +30,12 @@ contrast, saturation, gentle noise smoothing, sharpening, and Auto Enhance. Thes
 adjust existing pixels; they cannot recover missing detail from a severely
 blurred original or invent a new face.
 
+Under the editing preview, use **Zoom In / Zoom Out** to magnify the view from
+100% to 400%. Turn **Pan** on and drag with a mouse or finger to reach another
+area; turn it off to resume brushing or retouching. **Fit** shows the whole
+preview again. Preview zoom does not change the crop, photo size or saved pixels.
+The separate **Frame > Crop zoom** control changes the actual crop.
+
 Under **Frame**, use **Straighten (degrees)** to enter an exact angle such as
 5, 6, or 5.5, or drag the slider. Negative angles turn left; positive angles
 turn right (up to 45 degrees each way). The preview automatically crops to fill

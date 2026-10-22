@@ -1,6 +1,7 @@
 import { naturalDefaults, photoPresets, hasNaturalTone, applyNaturalTone, smoothPortrait } from './photoNaturalAdjustments.js';
 import { photoOutputSize } from './photoOutputSize.js';
 import { createPhotoRetouch } from './photoRetouch.js';
+import { createPhotoPreviewZoom } from './photoPreviewZoom.js';
 
 const MAX_SOURCE_BYTES = 10 * 1024 * 1024;
 const canvasBlob = (canvas, type = "image/png", quality) => new Promise((resolve, reject) =>
@@ -61,6 +62,7 @@ export function createPhotoEditor({ bootstrap, csrf, showError, showSuccess, edi
     let background = "original", comparing = false, pointer, smoothStroke, previewUrl, generation = 0, request, busy = false, returnToEnrollment = false;
     let adjustmentFrame = 0;
     let retouch;
+    const previewZoom = createPhotoPreviewZoom({ element, canvas, isBusy: () => busy });
     let sizeTimer, sizeVersion = 0, sizeCache;
     const sizeLabel = data => {
         const label = data.photo_size ? `${data.photo_size.label} · ` : '';
@@ -79,6 +81,7 @@ export function createPhotoEditor({ bootstrap, csrf, showError, showSuccess, edi
         element.querySelectorAll("button:not([data-bs-dismiss]), input, select").forEach(control => control.disabled = value);
         use.disabled = value || Boolean(outputSizeError);
         retouch?.refresh();
+        previewZoom.refreshControls();
         status.textContent = value ? "Processing your photo…" : `${element.dataset.photoFormat || "3:4 portrait"} · Saved as WebP, up to 40 KB`;
         if (!value && source) queueSize();
     };
@@ -292,6 +295,7 @@ export function createPhotoEditor({ bootstrap, csrf, showError, showSuccess, edi
             outputSize = next; pointer = null;
             canvas.width = selectionPreview.width = adjustedPreview.width = next.width;
             canvas.height = selectionPreview.height = adjustedPreview.height = next.height;
+            previewZoom.layout();
             clearTimeout(sizeTimer); sizeVersion++; sizeCache?.controller.abort(); sizeCache = null;
             cancelAnimationFrame(adjustmentFrame); draw();
             retouch?.refresh();
@@ -322,6 +326,7 @@ export function createPhotoEditor({ bootstrap, csrf, showError, showSuccess, edi
         get("studentPhotoSelectionSize").value = "45"; syncSelectionTools();
         retouch?.reset(source);
         background = "original"; zoom.value = "1"; brush.value = "move"; resetSettings(); syncBackground(); clearError(); compare(false);
+        previewZoom.reset();
         const guides = get('studentPhotoGuides');
         if (guides) { guides.checked = false; get('studentPhotoGuideOverlay').classList.add('d-none'); }
     };
