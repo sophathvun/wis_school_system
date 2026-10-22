@@ -76,6 +76,41 @@
                             <label class="form-label mt-2" for="studentPhotoBrushSize">Brush size</label><input type="range" class="form-range" id="studentPhotoBrushSize" min="5" max="100" value="25">
                         </section>
                         <section class="photo-editor-section">
+                            <h4><i class="ti ti-bandage me-1"></i>Healing, Patch &amp; Blur</h4>
+                            <div class="form-label" id="photoRetouchToolLabel">Retouch tool</div>
+                            <div class="photo-retouch-tool-buttons mb-3" role="group" aria-labelledby="photoRetouchToolLabel">
+                                <button type="button" class="btn btn-outline-primary active" data-photo-retouch-tool="move" aria-pressed="true"><i class="ti ti-hand-move" aria-hidden="true"></i><span>Off / Move</span></button>
+                                <button type="button" class="btn btn-outline-primary" data-photo-retouch-tool="spot" aria-pressed="false"><i class="ti ti-wand" aria-hidden="true"></i><span>Spot Healing Brush</span></button>
+                                <button type="button" class="btn btn-outline-primary" data-photo-retouch-tool="heal" aria-pressed="false"><i class="ti ti-brush" aria-hidden="true"></i><span>Healing Brush</span></button>
+                                <button type="button" class="btn btn-outline-primary" data-photo-retouch-tool="patch" aria-pressed="false"><i class="ti ti-lasso" aria-hidden="true"></i><span>Patch Tool</span></button>
+                                <button type="button" class="btn btn-outline-primary" data-photo-retouch-tool="blur" aria-pressed="false"><i class="ti ti-blur" aria-hidden="true"></i><span>Blur Tool</span></button>
+                            </div>
+                            <select class="d-none" id="photoRetouchTool" aria-hidden="true" tabindex="-1">
+                                <option value="move">Off — use frame / selection tools</option>
+                                <option value="spot">Spot Healing Brush</option>
+                                <option value="heal">Healing Brush</option>
+                                <option value="patch">Patch Tool</option>
+                                <option value="blur">Blur Tool</option>
+                            </select>
+                            <div class="d-flex flex-wrap gap-2 mb-3">
+                                <button type="button" class="btn btn-outline-primary btn-sm" id="photoRetouchSource" aria-pressed="false" disabled><i class="ti ti-focus-2 me-1"></i>Set Source</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="photoRetouchClearPatch" disabled><i class="ti ti-x me-1" aria-hidden="true"></i>Clear Patch</button>
+                            </div>
+                            <label class="form-label d-flex justify-content-between" for="photoRetouchSize">Brush size<output id="photoRetouchSizeValue" for="photoRetouchSize">24 px</output></label>
+                            <input type="range" class="form-range mb-2" id="photoRetouchSize" min="6" max="100" value="24">
+                            <label class="form-label d-flex justify-content-between" for="photoRetouchSoftness">Softness<output id="photoRetouchSoftnessValue" for="photoRetouchSoftness">70%</output></label>
+                            <input type="range" class="form-range mb-2" id="photoRetouchSoftness" min="10" max="100" value="70">
+                            <label class="form-label d-flex justify-content-between" for="photoRetouchStrength">Strength<output id="photoRetouchStrengthValue" for="photoRetouchStrength">80%</output></label>
+                            <input type="range" class="form-range mb-2" id="photoRetouchStrength" min="10" max="100" value="80">
+                            <div class="d-flex flex-wrap gap-2 mt-2">
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="photoRetouchUndo" disabled><i class="ti ti-arrow-back-up me-1"></i>Undo Retouch</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="photoRetouchRedo" disabled><i class="ti ti-arrow-forward-up me-1"></i>Redo</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="photoRetouchReset" disabled><i class="ti ti-refresh me-1" aria-hidden="true"></i>Reset Retouching</button>
+                            </div>
+                            <p class="small text-secondary mt-2 mb-0" id="photoRetouchStatus" role="status" aria-live="polite">Choose a retouch tool to begin.</p>
+                            <p class="form-hint mt-2 mb-0">For small blemishes, dust or shirt marks. Use short strokes and a clean source on similar texture. Turn retouching Off to move the photo or paint adjustment selections.</p>
+                        </section>
+                        <section class="photo-editor-section">
                             <div class="d-flex justify-content-between align-items-center gap-2 mb-3"><h4 class="mb-0"><i class="ti ti-adjustments me-1"></i>Clarity</h4><button type="button" class="btn btn-sm btn-outline-primary" id="studentPhotoEnhance">Auto Enhance</button></div>
                             <label class="form-label" for="studentPhotoAdjustmentScope">Apply adjustments to</label>
                             <select class="form-select mb-3" id="studentPhotoAdjustmentScope"><option value="whole">Whole Photo</option><option value="selected">Selected Area</option></select>

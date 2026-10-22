@@ -1,5 +1,6 @@
 import { naturalDefaults, photoPresets, hasNaturalTone, applyNaturalTone, smoothPortrait } from './photoNaturalAdjustments.js';
 import { photoOutputSize } from './photoOutputSize.js';
+import { createPhotoRetouch } from './photoRetouch.js';
 
 const MAX_SOURCE_BYTES = 10 * 1024 * 1024;
 const canvasBlob = (canvas, type = "image/png", quality) => new Promise((resolve, reject) =>
@@ -59,6 +60,7 @@ export function createPhotoEditor({ bootstrap, csrf, showError, showSuccess, edi
     let selection, selectionVisible = true;
     let background = "original", comparing = false, pointer, smoothStroke, previewUrl, generation = 0, request, busy = false, returnToEnrollment = false;
     let adjustmentFrame = 0;
+    let retouch;
     let sizeTimer, sizeVersion = 0, sizeCache;
     const sizeLabel = data => {
         const label = data.photo_size ? `${data.photo_size.label} · ` : '';
@@ -76,6 +78,7 @@ export function createPhotoEditor({ bootstrap, csrf, showError, showSuccess, edi
         element.setAttribute("aria-busy", String(value));
         element.querySelectorAll("button:not([data-bs-dismiss]), input, select").forEach(control => control.disabled = value);
         use.disabled = value || Boolean(outputSizeError);
+        retouch?.refresh();
         status.textContent = value ? "Processing your photo…" : `${element.dataset.photoFormat || "3:4 portrait"} · Saved as WebP, up to 40 KB`;
         if (!value && source) queueSize();
     };
@@ -100,7 +103,7 @@ export function createPhotoEditor({ bootstrap, csrf, showError, showSuccess, edi
     const syncPreviewStatus = () => {
         const action = scope.value === "selected" && selectionBrush.value !== "move"
             ? (selectionBrush.value === "erase" ? "Erase selection" : "Paint selection") : "Drag to reposition";
-        get("studentPhotoCompareStatus").textContent = comparing ? "Original preview" : `Edited preview · ${action}`;
+        get("studentPhotoCompareStatus").textContent = comparing ? "Original preview" : `Edited preview · ${retouch?.active() ? 'Retouching' : action}`;
     };
     const syncSelectionTools = () => {
         const selected = scope.value === "selected";
@@ -186,7 +189,7 @@ export function createPhotoEditor({ bootstrap, csrf, showError, showSuccess, edi
         context.fillRect(0, 0, canvas.width, canvas.height);
         if (comparing) { drawImage(source); return; }
         context.save(); context.filter = colorFilter(settings);
-        const photo = background === "original" ? source : (cutout || source);
+        const photo = background === "original" ? (retouch?.image() || source) : (cutout ? retouch?.composite(cutout) || cutout : retouch?.image() || source);
         if ((settings.exposure || hasNaturalTone(settings) || settings.portraitSmooth) && photo) {
             adjustedContext.clearRect(0, 0, canvas.width, canvas.height);
             drawImage(photo, adjustedContext); applyExposure(adjustedContext, settings.exposure);
@@ -291,6 +294,7 @@ export function createPhotoEditor({ bootstrap, csrf, showError, showSuccess, edi
             canvas.height = selectionPreview.height = adjustedPreview.height = next.height;
             clearTimeout(sizeTimer); sizeVersion++; sizeCache?.controller.abort(); sizeCache = null;
             cancelAnimationFrame(adjustmentFrame); draw();
+            retouch?.refresh();
             if (!busy) status.textContent = `${next.label} · JPG at 300 DPI · WebP up to 40 KB`;
         } catch (exception) {
             outputSizeError = exception.message; errorBox.textContent = outputSizeError; errorBox.classList.remove('d-none');
@@ -308,6 +312,7 @@ export function createPhotoEditor({ bootstrap, csrf, showError, showSuccess, edi
         before.textContent = value ? "View Edited" : "View Original";
         syncPreviewStatus();
         draw();
+        retouch?.refresh();
     };
     const reset = () => {
         clearTimeout(sizeTimer); sizeVersion++; sizeCache?.controller.abort(); sizeCache = null;
@@ -315,6 +320,7 @@ export function createPhotoEditor({ bootstrap, csrf, showError, showSuccess, edi
         angleInput.value = angleRange.value = "0";
         selection = null; selectionVisible = true; scope.value = "whole"; selectionBrush.value = "paint";
         get("studentPhotoSelectionSize").value = "45"; syncSelectionTools();
+        retouch?.reset(source);
         background = "original"; zoom.value = "1"; brush.value = "move"; resetSettings(); syncBackground(); clearError(); compare(false);
         const guides = get('studentPhotoGuides');
         if (guides) { guides.checked = false; get('studentPhotoGuideOverlay').classList.add('d-none'); }
@@ -332,6 +338,7 @@ export function createPhotoEditor({ bootstrap, csrf, showError, showSuccess, edi
     const resetPreview = () => {
         clearTimeout(sizeTimer); sizeVersion++; sizeCache?.controller.abort(); sizeCache = null;
         generation++; request?.abort(); source = null; cutout = null; selection = null;
+        retouch?.reset(null);
         if (previewUrl) URL.revokeObjectURL(previewUrl);
         previewUrl = null; acceptedFile = null; preview.removeAttribute("src"); input.value = "";
         previewContainer?.classList.add("d-none");
@@ -479,6 +486,18 @@ export function createPhotoEditor({ bootstrap, csrf, showError, showSuccess, edi
         return { x: (dx * Math.cos(angle) - dy * Math.sin(angle)) / factor + source.width / 2,
             y: (dx * Math.sin(angle) + dy * Math.cos(angle)) / factor + source.height / 2, factor };
     };
+    retouch = createPhotoRetouch({ element, canvas, toSource: sourcePoint,
+        toView: p => {
+            if (!source) return { x: 0, y: 0 };
+            const angle = rotationRadians(), factor = imageScale(source), dx = (p.x - source.width / 2) * factor, dy = (p.y - source.height / 2) * factor;
+            return { x: canvas.width / 2 + x + dx * Math.cos(angle) - dy * Math.sin(angle), y: canvas.height / 2 + y + dx * Math.sin(angle) + dy * Math.cos(angle) };
+        }, enabled: () => Boolean(source && !busy && !comparing),
+        changed: () => { syncPreviewStatus(); scheduleDraw(); },
+    });
+    get('photoRetouchTool').addEventListener('change', () => { pointer = null; canvas.style.cursor = retouch.active() ? 'crosshair' : 'move'; syncPreviewStatus(); });
+    // Keep source markers aligned when framing changes without exporting them.
+    for (const id of ['studentPhotoZoom','studentPhotoAngle','studentPhotoAngleRange']) get(id).addEventListener('input', () => requestAnimationFrame(() => retouch.refresh()));
+    for (const id of ['studentPhotoRotateLeft','studentPhotoRotateRight','studentPhotoAngleReset']) get(id).addEventListener('click', () => retouch.refresh());
     const paintSelection = (from, to) => {
         if (!selection) { selection = document.createElement("canvas"); selection.width = source.width; selection.height = source.height; }
         const start = sourcePoint(from), end = sourcePoint(to), target = selection.getContext("2d");
@@ -509,6 +528,7 @@ export function createPhotoEditor({ bootstrap, csrf, showError, showSuccess, edi
     canvas.addEventListener("pointerdown", event => {
         if (busy || comparing || !source) return;
         event.preventDefault(); pointer = point(event); canvas.setPointerCapture(event.pointerId);
+        if (retouch.down(event, pointer)) { pointer = null; return; }
         smoothStroke = null;
         if (scope.value === "selected") {
             if (selectionBrush.value !== "move") paintSelection(pointer, pointer);
@@ -535,6 +555,7 @@ export function createPhotoEditor({ bootstrap, csrf, showError, showSuccess, edi
         if (brush.value !== "move") paint(event);
     });
     canvas.addEventListener("pointermove", event => {
+        if (retouch.active() && source && !busy && !comparing) { retouch.move(point(event)); return; }
         if (!pointer) return;
         if (scope.value === "selected" && selectionBrush.value !== "move") {
             const next = point(event); paintSelection(pointer, next); pointer = next; return;
@@ -543,9 +564,10 @@ export function createPhotoEditor({ bootstrap, csrf, showError, showSuccess, edi
         if (brush.value === "move") { const next = point(event); x += next.x - pointer.x; y += next.y - pointer.y; pointer = next; scheduleDraw(); }
         else paint(event);
     });
-    for (const name of ["pointerup", "pointercancel", "lostpointercapture"]) canvas.addEventListener(name, () => { pointer = null; smoothStroke = null; });
+    for (const name of ["pointerup", "pointercancel", "lostpointercapture"]) canvas.addEventListener(name, () => { retouch.up(name !== 'pointerup'); pointer = null; smoothStroke = null; });
     use.addEventListener("click", async () => {
         if (busy || !source || outputSizeError) return;
+        retouch.up(false);
         const token = generation;
         clearError(); compare(false); cancelAnimationFrame(adjustmentFrame); draw(false); setBusy(true);
         clearTimeout(sizeTimer); sizeVersion++;
@@ -564,6 +586,7 @@ export function createPhotoEditor({ bootstrap, csrf, showError, showSuccess, edi
     element.addEventListener("hidden.bs.modal", () => {
         clearTimeout(sizeTimer); sizeVersion++; sizeCache?.controller.abort(); sizeCache = null;
         generation++; request?.abort(); pointer = null; smoothStroke = null; source = null; cutout = null; selection = null; setBusy(false);
+        retouch.reset(null);
         if (returnToEnrollment) { returnToEnrollment = false; bootstrap.Modal.getOrCreateInstance(enrollment).show(); }
     });
     return { showPreview, resetPreview };

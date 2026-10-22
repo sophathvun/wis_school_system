@@ -22,6 +22,19 @@ Start with **Natural**, **Studio Light**, or **Warm Portrait** for gentle adjust
 
 **Show alignment guides** adds a preview-only thirds grid for positioning and straightening. Guides and purple selection marks are never included in the saved photo or download. These controls are shared by the student, staff and profile photo studios as well as the main Photo Editor.
 
+## Healing, Patch and Blur
+
+The **Healing, Patch & Blur** section is shared by Photo Editor, Student Photo Studio, Staff Photo Studio and the user/profile editors. Retouching runs in the browser with no extra AI service or server installation. Select a labeled icon button (**Off / Move**, **Spot Healing Brush**, **Healing Brush**, **Patch Tool**, or **Blur Tool**); the selected tool is highlighted. Adjust **Brush size**, **Softness** and **Strength**, then work directly on the preview. Start with short strokes and a brush slightly larger than the mark.
+
+- **Spot Healing Brush:** brush over a small blemish, dust speck or small shirt mark. The editor searches nearby texture matching the surrounding area and blends it into the mark. If a source cannot fit, reduce the brush or use Healing Brush.
+- **Healing Brush:** click **Set Source**, then tap/click a clean area of similar skin or fabric. Brush over the unwanted mark. Desktop users can also **Alt-click** to set a source. The green cross identifies the source; source texture is frozen during each stroke to avoid copying the repair into itself.
+- **Patch Tool:** draw an outline around the mark. Release, then drag from inside the outlined area onto clean texture and release again to apply. The blue outline is the repair area; the green outline shows the source. Keep the source inside the photo. Use **Clear Patch** to start a different selection. Large patches are limited to 500,000 source pixels.
+- **Blur Tool:** select the blur icon and brush over an area to soften detail. Brush size controls the area, Softness feathers its edges, and Strength controls how much blur is blended in. No source selection is needed. Each stroke has its own Undo/Redo step and works in the main, student and staff editors. Original comparison, background transparency and preview-only brush markers behave the same as other retouch tools.
+
+**Undo Retouch** and **Redo** step through retouch strokes/patches. History is bounded to 20 operations and about 48 MB, retaining the latest operation. **Reset Retouching** removes retouch edits while keeping framing, background and adjustment settings. **Reset All** resets the entire editing session. Choose **Off — use frame / selection tools** to reposition the photo or paint an adjustment selection.
+
+Retouch edits follow the source image through crop, zoom, rotation and photo-size changes. Existing background cutout transparency is preserved. **View Original** excludes retouching; source crosses, brush circles and patch outlines never appear in size measurements, uploads or downloads. Canceling a touch stroke discards the unfinished stroke. Repairs blend existing nearby texture and color; large changes across hair, logos or strongly different textures may need a smaller patch and a more suitable manual source.
+
 ## Deployment and access
 
 Run `php artisan migrate --force` and `npm run build` during normal deployment. The additive migration registers `photo-editor.view` without granting it to other users. In the permission page, enable the **Photo Editor** main-menu permission for departments, roles or users who should have access. It covers the editor and its processing/download routes. Super administrators already have access.

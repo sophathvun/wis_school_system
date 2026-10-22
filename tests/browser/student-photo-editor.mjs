@@ -32,6 +32,8 @@ const server = createServer(async (req, res) => {
         '/editor.js': 'resources/js/helpers/studentPhotoEditor.js',
         '/photoNaturalAdjustments.js': 'resources/js/helpers/photoNaturalAdjustments.js',
         '/photoOutputSize.js': 'resources/js/helpers/photoOutputSize.js',
+        '/photoRetouch.js': 'resources/js/helpers/photoRetouch.js',
+        '/photoHealingPixels.js': 'resources/js/helpers/photoHealingPixels.js',
     };
     if (files[path]) { res.setHeader('Content-Type', path.endsWith('.js') ? 'text/javascript' : 'text/css'); res.end(await readFile(join(root, files[path]))); return; }
     if (path === '/stored.webp') {

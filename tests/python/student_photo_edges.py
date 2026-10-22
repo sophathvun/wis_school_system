@@ -36,6 +36,27 @@ def rough_portrait_fixture():
 
 
 class PortraitEdgeTests(unittest.TestCase):
+    def test_opaque_fabric_contour_still_removes_original_blue_edge_colors(self):
+        height, width = 128, 160
+        y, x = np.mgrid[:height, :width].astype(np.float32)
+        # An antialiased shoulder in front of blue, then a narrower, opaque
+        # fabric contour. The source pixels still contain the old background.
+        source_alpha = np.clip((x - 40 - y * .25) / 10, 0, 1)
+        contour = np.clip((source_alpha - .4) * 5, 0, 1)
+        shirt = np.array([.88, .90, .91], dtype=np.float32)
+        blue = np.array([.08, .30, .72], dtype=np.float32)
+        pixels = np.rint((shirt * source_alpha[..., None] + blue * (1 - source_alpha[..., None])) * 255).astype(np.uint8)
+        image = Image.fromarray(pixels)
+        before = np.asarray(clean_foreground(image, Image.fromarray(contour)))
+        result = np.asarray(clean_foreground(image, Image.fromarray(contour), color_alpha=Image.fromarray(source_alpha)))
+        newly_opaque = (contour == 1) & (source_alpha < .95)
+        self.assertGreater(np.count_nonzero(newly_opaque), 100)
+        expected = shirt * 255
+        self.assertLess(np.abs(result[..., :3][newly_opaque] - expected).mean(),
+                        np.abs(before[..., :3][newly_opaque] - expected).mean() * .3)
+        np.testing.assert_array_equal(result[..., 3], np.rint(contour * 255).astype(np.uint8))
+        np.testing.assert_array_equal(result[..., :3][source_alpha == 1], pixels[source_alpha == 1])
+
     def test_opaque_fabric_contour_removes_fraying_and_retains_hair_detail(self):
         height, width = 180, 140
         y, x = np.mgrid[:height, :width]

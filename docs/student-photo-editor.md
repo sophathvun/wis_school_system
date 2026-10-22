@@ -77,7 +77,11 @@ lightly denoised in that band; the portrait RGB remains from the original image.
 This revisits the pale edge around hair/shoulders rather than just blurring it.
 Foreground color estimation automatically reduces old background color fringing
 around hair and clothing before compositing. It preserves soft edges rather than
-shrinking the entire portrait. Upload the original photo again to reprocess a
+shrinking the entire portrait. Color reconstruction uses the soft matte from
+before fabric contour smoothing, so making a shoulder edge opaque does not lock
+the old background color into the shirt. The final contour and fully opaque
+interior colors remain unchanged. No model or dependency reinstall is needed
+when deploying this correction. Upload the original photo again to reprocess a
 previously saved edit; colors already flattened into an old edit cannot always
 be recovered.
 Reset All restores the original photo and adjustments. Cancel leaves the last
