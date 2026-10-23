@@ -132,6 +132,39 @@ it('keeps uploads private pending verification and rejects exact duplicate uploa
     expect(ScholarshipAnswerScan::count())->toBe(1);
 });
 
+it('uploads light pencil student answers with scan distortion and saves the score only after verification',function($style){
+    [$exam,$user,$paper,$sheet,$service]=answerSheetFixture($style,100);
+    $correct=array_map(fn($i)=>$paper->answer_choices[$i%5],range(0,99));
+    $service->saveKey($user,$paper,$correct,$paper->version);$service->approveKey($user,$paper->fresh(),$paper->fresh()->version);$paper=$paper->fresh();
+    $image=imagecreatefromstring(answerSheetPixels($sheet));$rows=app(ScholarshipAnswerSheetLayout::class)->questions(100,$paper->answer_choices,2);
+    $fill=function($dot,$shade)use($image){imagefilledellipse($image,$dot['x'],$dot['y'],(int)round($dot['radius']*2-1),(int)round($dot['radius']*2-1),imagecolorallocate($image,$shade,$shade,$shade));};
+    foreach($rows as $i=>$row){
+        if(in_array($i,[7,11],true))continue;
+        $fill($row['dots'][$i%5],$i===4?244:($i===3?220:208+($i%4)*4));
+    }
+    foreach(array_slice($rows[7]['dots'],0,2) as $dot)$fill($dot,220);
+    $dot=$rows[11]['dots'][0];$radius=(int)ceil($dot['radius']);imagefilledrectangle($image,$dot['x'],$dot['y']-$radius,$dot['x']+$radius,$dot['y']-1,imagecolorallocate($image,215,215,215));
+    // Simulate the slight answer-grid shift and uneven scan lighting that
+    // affected the real teacher scan, without changing the page identity.
+    $grid=imagecreatetruecolor(900,820);imagecopy($grid,$image,0,0,50,430,900,820);
+    imagefilledrectangle($image,50,430,949,1249,imagecolorallocate($image,255,255,255));imagecopy($image,$grid,52,431,0,0,900,820);imagedestroy($grid);
+    for($y=430;$y<1250;$y++)for($x=65;$x<940;$x++){
+        $value=imagecolorat($image,$x,$y)&255;$shade=(int)round($value*(.88+.1*($x-65)/875));imagesetpixel($image,$x,$y,($shade<<16)|($shade<<8)|$shade);
+    }
+    ob_start();imagejpeg($image,null,90);$pixels=ob_get_clean();imagedestroy($image);
+    $request=answerRequest($user,['paper_id'=>$paper->id]);
+    foreach(['image','original'] as $field)$request->files->set($field,UploadedFile::fake()->createWithContent('student-light-pencil.jpg',$pixels));
+    $controller=app(ScholarshipAnswerSheetController::class);$result=$controller->scan($request,$exam)->getData(true);
+    $scan=ScholarshipAnswerScan::findOrFail($result['id']);$expected=$correct;foreach([4,7,11] as $i)$expected[$i]=null;
+    expect($scan->detected)->toBe($expected)->and($scan->detected[3])->toBe($paper->answer_choices[3])
+        ->and($scan->flags)->toBe([5=>'blank',8=>'multiple',12=>'unclear'])->and($scan->status)->toBe('pending')->and(ScholarshipScore::count())->toBe(0);
+    $details=$controller->details(answerRequest($user),$scan)->getData(true);
+    expect($details['responses'])->toBe($expected)->and($details['flags'])->toBe($scan->flags)->and($details['existing_score'])->toBeNull();
+    $service->verify($user,$scan,$scan->detected,$scan->candidate_version,false,'Checked light pencil against original');
+    expect($scan->fresh()->status)->toBe('accepted')->and($scan->fresh()->score)->toBe(97.0)
+        ->and($sheet->candidate->scores()->where('subject_id',$paper->subject_id)->first()->score)->toBe(97.0);
+})->with(['letters','numbers']);
+
 it('saves server-calculated draft scores and provenance using existing review safeguards',function($style,$correct){
     [$exam,$user,$paper,$sheet,$service]=answerSheetFixture($style);$scan=answerSheetUpload($user,$exam,$paper,$sheet,[1=>[$correct],2=>[$correct]]);
     $service->verify($user,$scan,$scan->detected,$scan->candidate_version,false,'Checked original');

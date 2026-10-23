@@ -90,13 +90,16 @@ requires the existing Scoring permission and a matching Score Entry committee du
    click **Upload & Detect**. Review the aligned image and choose **Use Detected
    Answers** to replace answers in the editor while keeping question scores.
    Blank, multiple or unclear marks get per-question red warnings. The
-   detector compares pencil shading with nearby paper brightness instead of
+   detector compares light-grey pencil shading with nearby paper brightness instead of
    requiring solid black fill, including on dense 100-question sheets. Printed
    choice letters and bubble outlines are excluded from the mark samples.
    After page alignment, each row is fitted to its printed bubble outlines within
    three pixels to compensate for small print/scan distortions. This prevents
    empty outlines from being mistaken for uncertain pencil marks. The same
    detector is used for student sheets and teacher keys; approval remains manual.
+   Student uploads (single photos and batches) therefore receive the same light
+   pencil, local paper-brightness and bubble-position corrections. Detected
+   student responses appear in Review; a score is saved only after verification.
    The scanned preview remains available in the editor for comparison. Review every answer,
    **Save Draft**, then **Approve Key**. Scanning never saves, approves, replaces
    an approved key or changes a student score automatically. Detection activity,

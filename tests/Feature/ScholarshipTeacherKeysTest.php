@@ -129,6 +129,21 @@ it('reads a dense 100-question teacher key with grey pencil on locally shaded pa
     expect($result['answers'])->toBe($expected)->and($result['flags'])->toBe([3=>'blank',8=>'multiple',12=>'unclear'])
         ->and($paper->fresh()->draft_answers)->toBeNull()->and($paper->keys()->count())->toBe(0);
 });
+it('recognizes light pencil while leaving faint erasures blank and partial or multiple marks flagged',function($background,$pencil,$erasure){
+    [$exam,$user,$paper,$sheet,$keys]=teacherFixture();$layout=app(ScholarshipAnswerSheetLayout::class);
+    $image=imagecreatefromstring(answerSheetPixels($sheet));$rows=$layout->questions(20,$paper->answer_choices,2);
+    $fill=function($question,$choice,$value)use($image,$rows){$dot=$rows[$question-1]['dots'][$choice];imagefilledellipse($image,$dot['x'],$dot['y'],(int)round($dot['radius']*2-1),(int)round($dot['radius']*2-1),imagecolorallocate($image,$value,$value,$value));};
+    $fill(4,3,$pencil);$fill(5,4,$erasure);$fill(8,0,$pencil);$fill(8,1,$pencil);
+    $dot=$rows[11]['dots'][0];$radius=(int)ceil($dot['radius']);
+    imagefilledrectangle($image,$dot['x'],$dot['y']-$radius,$dot['x']+$radius,$dot['y']-1,imagecolorallocate($image,$pencil,$pencil,$pencil));
+    for($y=430;$y<1250;$y++)for($x=65;$x<940;$x++)if((imagecolorat($image,$x,$y)&0xffffff)===0xffffff)imagesetpixel($image,$x,$y,($background<<16)|($background<<8)|$background);
+    ob_start();imagepng($image);$pixels=ob_get_clean();imagedestroy($image);
+    $result=$keys->detect($user,$paper,UploadedFile::fake()->createWithContent('light-key.png',$pixels),$paper->version);
+    expect($result['answers'][3])->toBe('D')->and($result['answers'][4])->toBeNull()->and($result['flags'][5])->toBe('blank')
+        ->and($result['flags'][8])->toBe('multiple')->and($result['flags'][12])->toBe('unclear');
+    foreach($result['answers'] as $i=>$answer)if($i!==3)expect($answer)->toBeNull();
+    expect($paper->fresh()->draft_answers)->toBeNull()->and($paper->keys()->count())->toBe(0);
+})->with([[255,220,244],[235,200,230]]);
 it('rejects student sheets wrong papers stale configurations stale drafts and unreadable images',function(){
     [$exam,$user,$paper,$sheet,$keys,$sheets,$studentSheet]=teacherFixture();
     expect(fn()=>$keys->detect($user,$paper,UploadedFile::fake()->createWithContent('student.png',answerSheetPixels($studentSheet)),$paper->version))->toThrow(ValidationException::class);

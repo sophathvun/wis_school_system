@@ -183,8 +183,9 @@ class ScholarshipAnswerSheetLayout
             $paper[]=.2126*(($rgb>>16)&255)+.7152*(($rgb>>8)&255)+.0722*($rgb&255);
         }
         sort($paper);$background=$paper[24];
-        // Require meaningful contrast; very faint/erased pencil is not guessed.
-        return $background-max(30,$background*.16);
+        // Light pencil still needs contrast against the local paper. Retain a
+        // noise margin so paper texture and near-white erasures stay unmarked.
+        return $background-max(26,$background*.12);
     }
     /** Sample outside the printed choice letter and inside the circle outline. */
     private function bubbleRing(\GdImage $image,array $dot): float

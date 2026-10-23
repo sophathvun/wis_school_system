@@ -63,8 +63,9 @@ try{
     }
     // Regression: a real scanned 100-question teacher key with pencil shading
     // and small print distortions used to leave 43 answers flagged as unclear.
-    const scannedKey=await readFile(join(root,'tests/Fixtures/Images/teacher-key-pencil-scan.jpg'));
     const alignmentModule=await readFile(join(root,'resources/js/helpers/answerSheetAlignment.js'),'utf8');
+    for(const filename of ['teacher-key-pencil-scan.jpg','teacher-key-light-pencil-scan.jpg']){
+    const scannedKey=await readFile(join(root,'tests/Fixtures/Images',filename));
     const scannedPixels=await evaluate(`(async()=>{
         const {findSheetCorners,alignSheet}=await import('data:text/javascript;base64,${Buffer.from(alignmentModule).toString('base64')}');
         const image=new Image();image.src='data:image/jpeg;base64,${scannedKey.toString('base64')}';await image.decode();
@@ -78,7 +79,9 @@ try{
     assert.equal(scannedDetection.token,'7e3fe4cd71dee9dca1c33ca7','Real scan identity remains intact');
     assert.deepEqual(scannedDetection.responses,Array.from({length:100},(_,i)=>['A','B','C','D','E','D','C','B'][i%8]),'Every answer matches the manually checked real sheet');
     assert.deepEqual(scannedDetection.flags,[]);
-    console.log('Real teacher-key scan: automatic alignment, identity and all 100 pencil answers verified.');
+    assert.equal(scannedDetection.responses[3],'D','The light grey Q4 fill must be recognized');
+    console.log(`Real scan ${filename}: automatic alignment, identity and all 100 pencil answers verified.`);
+    }
     // The same upload path handles browse, camera, drag/drop and clipboard files.
     await evaluate(`(()=>{const input=document.getElementById('answerScanFile'),zone=document.querySelector('[data-answer-dropzone]');window.browseCalls=0;const original=input.click;input.click=()=>browseCalls++;zone.click();zone.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true}));zone.dispatchEvent(new KeyboardEvent('keydown',{key:' ',bubbles:true,cancelable:true}));input.click=original;zone.dispatchEvent(new DragEvent('dragover',{bubbles:true,cancelable:true,dataTransfer:new DataTransfer()}));})()`);
     assert.equal(await evaluate('browseCalls'),3,'Click, Enter and Space open the file picker');
@@ -321,7 +324,7 @@ try{
             const svg=await(await fetch('/sample.svg')).text(),url=URL.createObjectURL(new Blob([svg],{type:'image/svg+xml'}));
             const im=new Image();im.src=url;await im.decode();const c=document.createElement('canvas');c.width=1000;c.height=1414;const ctx=c.getContext('2d');ctx.drawImage(im,0,0,1000,1414);URL.revokeObjectURL(url);
             const svgDoc=new DOMParser().parseFromString(svg,'image/svg+xml'),dots=[...svgDoc.querySelectorAll('circle')];
-            ctx.fillStyle='black';for(const index of [0,5,10,11]){const dot=dots[index];ctx.beginPath();ctx.arc(Number(dot.getAttribute('cx')),Number(dot.getAttribute('cy')),Number(dot.getAttribute('r'))-.6,0,Math.PI*2);ctx.fill();}
+            ctx.fillStyle='rgb(220,220,220)';for(const index of [0,5,10,11]){const dot=dots[index];ctx.beginPath();ctx.arc(Number(dot.getAttribute('cx')),Number(dot.getAttribute('cy')),Number(dot.getAttribute('r'))-.6,0,Math.PI*2);ctx.fill();}
             ctx.fillRect(500,1200,${width===1440?1:2},1);
             const photo=document.createElement('canvas');photo.width=1200;photo.height=1600;photo.getContext('2d').fillStyle='white';photo.getContext('2d').fillRect(0,0,1200,1600);photo.getContext('2d').drawImage(c,80,90);
             const blob=await new Promise(r=>photo.toBlob(r)),d=new DataTransfer();d.items.add(new File([blob],'phone-sheet.png',{type:'image/png'}));
@@ -336,6 +339,7 @@ try{
         await until('document.querySelector("[data-answer-filter-card]")?.dataset.resultFiltersReady==="true"&&!document.querySelector(".swal2-popup")');
         await click('[data-answer-review]');await until('document.querySelector("#answerReviewModal.show")!==null');
         assert.equal(await evaluate('document.querySelector("[data-answer-response-grid] select").value'),'1');
+        assert.equal(await evaluate('document.querySelectorAll("[data-answer-response-grid] select")[1].value'),'1','Light grey student bubbles reach the review form');
         assert.equal(await evaluate('document.querySelectorAll("[data-answer-response-grid] select")[2].value'),'','Multiple marks remain blank');
         assert.equal(await evaluate('document.querySelectorAll("[data-answer-response-grid] .answer-flagged").length'),98);
         await writeFile(join(root,`storage/app/testing/answer-review-${width}.png`),Buffer.from((await command('Page.captureScreenshot',{format:'png'})).data,'base64'));
