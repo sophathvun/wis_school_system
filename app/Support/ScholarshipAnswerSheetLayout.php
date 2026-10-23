@@ -142,14 +142,58 @@ class ScholarshipAnswerSheetLayout
         }
         return $dark/max(1,$total);
     }
+    /** Fit a row to its printed bubble outlines within a bounded scan tolerance. */
+    private function registerBubbleRow(\GdImage $image,array $row): array
+    {
+        // Paper/scan distortion can shift a small bubble a few pixels even when
+        // all four page markers align. Fit the printed outlines, not the answer.
+        $radius=$row['dots'][0]['radius'];$limit=min(3,max(1,(int)floor($radius*.35)));
+        $best=-INF;$bestX=0;$bestY=0;
+        for($dy=-$limit;$dy<=$limit;$dy++)for($dx=-$limit;$dx<=$limit;$dx++){
+            $scores=[];
+            foreach($row['dots'] as $dot){
+                $score=0;
+                for($i=0;$i<24;$i++){
+                    $angle=$i*M_PI/12;$cos=cos($angle);$sin=sin($angle);$samples=[];
+                    foreach([.70,1,1.30] as $scale){
+                        $rgb=imagecolorat($image,(int)round($dot['x']+$dx+$cos*$radius*$scale),(int)round($dot['y']+$dy+$sin*$radius*$scale));
+                        $samples[]=.2126*(($rgb>>16)&255)+.7152*(($rgb>>8)&255)+.0722*($rgb&255);
+                    }
+                    $score+=($samples[0]+$samples[2])/2-$samples[1];
+                }
+                $scores[]=$score/24;
+            }
+            // Empty outlines have the clearest boundary. Ignore up to two filled
+            // circles during fitting, without changing their mark classification.
+            rsort($scores);$scores=array_slice($scores,0,max(1,count($scores)-2));
+            $score=array_sum($scores)/count($scores)-($dx*$dx+$dy*$dy)*.2;
+            if($score>$best){$best=$score;$bestX=$dx;$bestY=$dy;}
+        }
+        foreach($row['dots'] as &$dot){$dot['x']+=$bestX;$dot['y']+=$bestY;}unset($dot);
+        return $row;
+    }
+    /** Local paper brightness keeps pencil shading readable after scanning. */
+    private function bubbleThreshold(\GdImage $image,array $dot): float
+    {
+        $paper=[];
+        // Sample outside the outline, avoiding the choice letter and its fill.
+        for($i=0;$i<32;$i++){
+            $angle=$i*M_PI/16;$radius=$dot['radius']*1.45;
+            $rgb=imagecolorat($image,(int)round($dot['x']+cos($angle)*$radius),(int)round($dot['y']+sin($angle)*$radius));
+            $paper[]=.2126*(($rgb>>16)&255)+.7152*(($rgb>>8)&255)+.0722*($rgb&255);
+        }
+        sort($paper);$background=$paper[24];
+        // Require meaningful contrast; very faint/erased pencil is not guessed.
+        return $background-max(30,$background*.16);
+    }
     /** Sample outside the printed choice letter and inside the circle outline. */
     private function bubbleRing(\GdImage $image,array $dot): float
     {
-        $dark=0;$total=0;$outer=$dot['radius']*.78;$inner=$dot['radius']*.60;$limit=(int)ceil($outer);
+        $dark=0;$total=0;$outer=$dot['radius']*.78;$inner=$dot['radius']*.60;$limit=(int)ceil($outer);$threshold=$this->bubbleThreshold($image,$dot);
         for($dy=-$limit;$dy<=$limit;$dy++)for($dx=-$limit;$dx<=$limit;$dx++){
             $distance=$dx*$dx+$dy*$dy;if($distance<$inner*$inner||$distance>$outer*$outer)continue;
             $rgb=imagecolorat($image,$dot['x']+$dx,$dot['y']+$dy);
-            $dark+=(int)(.2126*(($rgb>>16)&255)+.7152*(($rgb>>8)&255)+.0722*($rgb&255)<155);$total++;
+            $dark+=(int)(.2126*(($rgb>>16)&255)+.7152*(($rgb>>8)&255)+.0722*($rgb&255)<$threshold);$total++;
         }
         return $dark/max(1,$total);
     }
@@ -176,6 +220,7 @@ class ScholarshipAnswerSheetLayout
             $token='';foreach(str_split($bits,4) as $n)$token.=dechex(bindec($n));
             $responses=[];$flags=[];$confidence=[];
             if($configuration)foreach($this->questions($configuration['question_count'],$configuration['choices'],$configuration['layout_version']??1) as $row){
+                if(($configuration['layout_version']??1)===2)$row=$this->registerBubbleRow($image,$row);
                 $values=[];foreach($row['dots'] as $dot)$values[$dot['label']]=($configuration['layout_version']??1)===2?$this->bubbleRing($image,$dot):$this->dark($image,$dot['x'],$dot['y'],max(2,min(5,(int)floor($dot['radius']-2))));
                 $marks=array_keys(array_filter($values,fn($value)=>$value>=.38));
                 $unclear=count(array_filter($values,fn($value)=>$value>.10&&$value<.38))>0;

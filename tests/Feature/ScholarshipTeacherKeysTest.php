@@ -102,6 +102,33 @@ it('imports a corrected key without changing an approved revision scores or exis
     $sheets->saveKey($user,$paper->fresh(),$result['answers'],$paper->fresh()->version);$new=$sheets->approveKey($user,$paper->fresh(),$paper->fresh()->version);
     expect($new->revision)->toBe(2)->and($old->fresh()->answers)->toBe(array_fill(0,20,'A'))->and($sheets->current($linked->first()))->toBeTrue();
 });
+it('reads a dense 100-question teacher key with grey pencil on locally shaded paper and preserves uncertain marks',function(){
+    [$exam,$user,$paper,$sheet,$keys,$sheets]=teacherFixture();
+    $paper=$sheets->savePaper($user,$exam,['subject_id'=>$paper->subject_id,'grade'=>1,'paper_version'=>'A','question_count'=>100,
+        'choice_style'=>'letters','choice_count'=>5,'points'=>1,'version'=>$paper->version],$paper->id);
+    $sheet=$keys->issue($user,$paper,$paper->version);$image=imagecreatefromstring(answerSheetPixels($sheet));
+    $layout=app(ScholarshipAnswerSheetLayout::class);$expected=[];
+    foreach($layout->questions(100,$paper->answer_choices,2) as $i=>$row){
+        $answer=$paper->answer_choices[$i%5];$expected[]=$answer;
+        foreach($row['dots'] as $dot){
+            if($dot['label']!==$answer||in_array($i,[2,7,11],true))continue;
+            $shade=imagecolorallocate($image,165+($i%4)*8,165+($i%4)*8,165+($i%4)*8);
+            imagefilledellipse($image,$dot['x'],$dot['y'],(int)round($dot['radius']*2-1),(int)round($dot['radius']*2-1),$shade);
+        }
+        if($i===7)foreach(array_slice($row['dots'],0,2) as $dot)imagefilledellipse($image,$dot['x'],$dot['y'],(int)round($dot['radius']*2-1),(int)round($dot['radius']*2-1),imagecolorallocate($image,180,180,180));
+        if($i===11){$dot=$row['dots'][0];$r=(int)ceil($dot['radius']);imagefilledrectangle($image,$dot['x'],$dot['y']-$r,$dot['x']+$r,$dot['y']-1,imagecolorallocate($image,175,175,175));}
+    }
+    // Uneven scanner lighting affects the paper and pencil together.
+    for($y=430;$y<1250;$y++)for($x=65;$x<940;$x++){
+        $rgb=imagecolorat($image,$x,$y);$value=$rgb&255;$shade=(int)round($value*(.84+.14*($x-65)/875));
+        imagesetpixel($image,$x,$y,($shade<<16)|($shade<<8)|$shade);
+    }
+    ob_start();imagejpeg($image,null,85);$pixels=ob_get_clean();imagedestroy($image);
+    $result=$keys->detect($user,$paper,UploadedFile::fake()->createWithContent('pencil-key.jpg',$pixels),$paper->version);
+    foreach([2,7,11] as $i)$expected[$i]=null;
+    expect($result['answers'])->toBe($expected)->and($result['flags'])->toBe([3=>'blank',8=>'multiple',12=>'unclear'])
+        ->and($paper->fresh()->draft_answers)->toBeNull()->and($paper->keys()->count())->toBe(0);
+});
 it('rejects student sheets wrong papers stale configurations stale drafts and unreadable images',function(){
     [$exam,$user,$paper,$sheet,$keys,$sheets,$studentSheet]=teacherFixture();
     expect(fn()=>$keys->detect($user,$paper,UploadedFile::fake()->createWithContent('student.png',answerSheetPixels($studentSheet)),$paper->version))->toThrow(ValidationException::class);

@@ -44,21 +44,41 @@ try{
     const click=selector=>evaluate(`document.querySelector(${JSON.stringify(selector)}).click()`);
     // Decode real printed letters, outlines and filled marks, including dense custom ranges.
     await command('Page.navigate',{url:origin});await until('document.querySelector("[data-answer-filter-card]")?.dataset.resultFiltersReady==="true"');
-    for(const [count,choiceCount]of [[40,5],[100,26]]){
+    for(const [count,choiceCount,shade]of [[40,5,0],[100,26,0],[100,5,180]]){
         const pixels=await evaluate(`(async()=>{
             const svg=await(await fetch('/sample-layout.svg?count=${count}&choices=${choiceCount}')).text(),doc=new DOMParser().parseFromString(svg,'image/svg+xml');
             const image=new Image(),url=URL.createObjectURL(new Blob([svg],{type:'image/svg+xml'}));image.src=url;await image.decode();
             const c=document.createElement('canvas');c.width=1000;c.height=1414;const ctx=c.getContext('2d');ctx.drawImage(image,0,0,1000,1414);URL.revokeObjectURL(url);
-            const dots=[...doc.querySelectorAll('circle')];ctx.fillStyle='black';for(const index of [0,${choiceCount},${choiceCount*2},${choiceCount*2+1},${count*choiceCount-1}]){const dot=dots[index];ctx.beginPath();ctx.arc(Number(dot.getAttribute('cx')),Number(dot.getAttribute('cy')),Number(dot.getAttribute('r'))-.6,0,Math.PI*2);ctx.fill();}
-            return c.toDataURL().split(',')[1];
+            const dots=[...doc.querySelectorAll('circle')];ctx.fillStyle='rgb(${shade},${shade},${shade})';for(const index of [0,${choiceCount},${choiceCount*2},${choiceCount*2+1},${count*choiceCount-1}]){const dot=dots[index];ctx.beginPath();ctx.arc(Number(dot.getAttribute('cx')),Number(dot.getAttribute('cy')),Number(dot.getAttribute('r'))-.6,0,Math.PI*2);ctx.fill();}
+            if(${shade}){const grid=ctx.getImageData(65,430,875,820);for(let y=0;y<820;y++)for(let x=0;x<875;x++){const i=(y*875+x)*4,factor=.84+.14*x/875;for(let channel=0;channel<3;channel++)grid.data[i+channel]*=factor;}ctx.putImageData(grid,65,430);}
+            return c.toDataURL(${shade}?'image/jpeg':'image/png',.85).split(',')[1];
         })()`);
         const result=fixture('/read-layout',{image:pixels,configuration:{question_count:count,choices:Array.from({length:choiceCount},(_,i)=>String.fromCharCode(65+i)),layout_version:2}});
         assert.equal(result.status,200);const detection=JSON.parse(Buffer.from(result.content,'base64').toString());
         assert.equal(detection.responses[0],'A');assert.equal(detection.responses[1],'A');assert.equal(detection.responses[2],null);assert.equal(detection.flags[3],'multiple');
         assert.equal(detection.responses[count-1],String.fromCharCode(64+choiceCount),'Last question is detected in the printed sample layout');
         assert.equal(detection.flags[4],'blank','Printed letters in empty circles are not detected as marks');
-        console.log(`Printed sample ${count} questions / ${choiceCount} choices: actual bubble letters, blanks and multiple marks verified.`);
+        for(let q=3;q<count-1;q++)assert.equal(detection.flags[q+1],'blank',`Unfilled Q${q+1} remains blank even with printed letters and scan shading`);
+        console.log(`Printed sample ${count} questions / ${choiceCount} choices${shade?' / grey pencil, uneven lighting and JPEG':''}: actual bubble letters, blanks and multiple marks verified.`);
     }
+    // Regression: a real scanned 100-question teacher key with pencil shading
+    // and small print distortions used to leave 43 answers flagged as unclear.
+    const scannedKey=await readFile(join(root,'tests/Fixtures/Images/teacher-key-pencil-scan.jpg'));
+    const alignmentModule=await readFile(join(root,'resources/js/helpers/answerSheetAlignment.js'),'utf8');
+    const scannedPixels=await evaluate(`(async()=>{
+        const {findSheetCorners,alignSheet}=await import('data:text/javascript;base64,${Buffer.from(alignmentModule).toString('base64')}');
+        const image=new Image();image.src='data:image/jpeg;base64,${scannedKey.toString('base64')}';await image.decode();
+        const factor=Math.min(1,1600/Math.max(image.width,image.height)),canvas=document.createElement('canvas');canvas.width=Math.round(image.width*factor);canvas.height=Math.round(image.height*factor);
+        const context=canvas.getContext('2d');context.drawImage(image,0,0,canvas.width,canvas.height);
+        const corners=findSheetCorners(context.getImageData(0,0,canvas.width,canvas.height).data,canvas.width,canvas.height);
+        return alignSheet(canvas,corners).toDataURL().split(',')[1];
+    })()`);
+    const scannedResult=fixture('/read-layout',{image:scannedPixels,configuration:{question_count:100,choices:['A','B','C','D','E'],layout_version:2}});
+    assert.equal(scannedResult.status,200);const scannedDetection=JSON.parse(Buffer.from(scannedResult.content,'base64').toString());
+    assert.equal(scannedDetection.token,'7e3fe4cd71dee9dca1c33ca7','Real scan identity remains intact');
+    assert.deepEqual(scannedDetection.responses,Array.from({length:100},(_,i)=>['A','B','C','D','E','D','C','B'][i%8]),'Every answer matches the manually checked real sheet');
+    assert.deepEqual(scannedDetection.flags,[]);
+    console.log('Real teacher-key scan: automatic alignment, identity and all 100 pencil answers verified.');
     // The same upload path handles browse, camera, drag/drop and clipboard files.
     await evaluate(`(()=>{const input=document.getElementById('answerScanFile'),zone=document.querySelector('[data-answer-dropzone]');window.browseCalls=0;const original=input.click;input.click=()=>browseCalls++;zone.click();zone.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true}));zone.dispatchEvent(new KeyboardEvent('keydown',{key:' ',bubbles:true,cancelable:true}));input.click=original;zone.dispatchEvent(new DragEvent('dragover',{bubbles:true,cancelable:true,dataTransfer:new DataTransfer()}));})()`);
     assert.equal(await evaluate('browseCalls'),3,'Click, Enter and Space open the file picker');
@@ -156,7 +176,7 @@ try{
         }
         await evaluate(`(async()=>{
             const html=await(await fetch('${teacherUrl}')).text(),doc=new DOMParser().parseFromString(html,'text/html'),svg=doc.querySelector('svg');
-            const circles=[...svg.querySelectorAll('circle')];circles.forEach((dot,i)=>{const q=Math.floor(i/6),choice=i%6;if((q!==2&&choice===5)||(q===7&&choice===0))dot.setAttribute('fill','black');});
+            const circles=[...svg.querySelectorAll('circle')];circles.forEach((dot,i)=>{const q=Math.floor(i/6),choice=i%6,shade=160+(q%4)*8;if((q!==2&&choice===5)||(q===7&&choice===0))dot.setAttribute('fill','rgb('+shade+','+shade+','+shade+')');});
             const im=new Image(),url=URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(svg)],{type:'image/svg+xml'}));im.src=url;await im.decode();
             const canvas=document.createElement('canvas');canvas.width=1200;canvas.height=1600;const ctx=canvas.getContext('2d');ctx.fillStyle='white';ctx.fillRect(0,0,1200,1600);ctx.drawImage(im,80,90,1000,1414);URL.revokeObjectURL(url);
             const blob=await new Promise(r=>canvas.toBlob(r)),transfer=new DataTransfer();transfer.items.add(new File([blob],'teacher-key.png',{type:'image/png'}));
