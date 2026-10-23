@@ -125,8 +125,16 @@ class ScholarshipWorkflow
             }
             if (ScholarshipExam::where('academic_year_id',$year->id)->when($exam,fn($q)=>$q->whereKeyNot($exam->id))->exists()) $this->fail('A scholarship exam already exists for this academic year. Open its settings to make changes.');
             // A grade must not receive two subjects with the same name through overlapping ranges.
-            if ($exam && $exam->subjects()->whereHas('papers')->exists()) $this->fail('This exam has answer-sheet papers linked to its subjects. Keep the current subjects until paper configuration can be revised through the answer-sheet workflow.');
             $existingSubjects=$exam?$exam->subjects()->get()->keyBy('id'):collect();
+            if($exam&&$exam->subjects()->whereHas('papers')->exists()){
+                $sameSubjects=count($data['subjects'])===$existingSubjects->count()&&collect($data['subjects'])->every(function($subject)use($existingSubjects){
+                    $existing=$existingSubjects->get((int)($subject['id']??0));
+                    return $existing&&trim($subject['name'])===$existing->name&&(int)$subject['grade_from']===(int)$existing->grade_from
+                        &&(int)$subject['grade_to']===(int)$existing->grade_to&&(float)$subject['max_score']===(float)$existing->max_score
+                        &&(float)($subject['weight']??1)===(float)$existing->weight;
+                });
+                if(!$sameSubjects)$this->fail('This exam has answer-sheet papers linked to its subjects. Keep the subject IDs, names, grade ranges, maximum scores and weights unchanged when updating centers or seating settings.');
+            }
             $subjectIds=collect($data['subjects'])->pluck('id')->filter()->map(fn($id)=>(int)$id)->values();
             if($subjectIds->unique()->count()!==$subjectIds->count()||$subjectIds->diff($existingSubjects->keys())->isNotEmpty())$this->fail('Choose each subject once from this exam.');
             $removedIds=$existingSubjects->keys()->diff($subjectIds);

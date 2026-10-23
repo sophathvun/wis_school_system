@@ -369,7 +369,7 @@ try {
         assert.equal(await evaluate('document.activeElement.matches("[data-scholarship-photo]")'),true,'Closing returns focus to the photo');
         // Orientation changes cross the rank form's responsive breakpoint and reset its default.
         if(mobile && await evaluate('document.querySelector("#scholarshipRankFilters").hidden'))await click('[data-rank-filters-toggle]');
-        assert.equal(await evaluate('document.querySelectorAll(".scholarship-navigation a").length'),7);
+        assert.equal(await evaluate('document.querySelectorAll(".scholarship-navigation a").length'),10);
         assert.equal(await evaluate('document.querySelector("[data-scholarship-apply-filters]")===null'),true);
         assert.equal(await evaluate('document.querySelector("#scholarshipClass")===null'),true);
         assert.deepEqual(await evaluate('[...document.querySelector("#scholarshipRank").options].map(o=>o.value)'),['','1','2','3']);
@@ -541,6 +541,7 @@ try {
         await writeFile(join(root,'storage/app/testing/scholarship-pagination-'+(mobile?'mobile':'desktop')+'.png'),Buffer.from(paginationShot.data,'base64'));
     }
     assert.ok(queries.some(query=>query.grade_class==='2:2'));
+    if(!process.env.SCHOLARSHIP_RANK_ONLY){
     for(const mobile of [false,true]) {
         await command('Emulation.setDeviceMetricsOverride',{width:mobile?390:1440,height:mobile?844:980,deviceScaleFactor:1,mobile});
         for(const tab of Object.keys(tabs)) {
@@ -734,6 +735,8 @@ try {
         console.log((mobile?'Mobile':'Desktop')+': ten default records and whole-form scrolling pass in the app shell.');
     }
     }
+    }
+    if(!process.env.SCHOLARSHIP_RANK_ONLY){
     await command('Emulation.setDeviceMetricsOverride',{width:1440,height:1200,deviceScaleFactor:1,mobile:false});
     await command('Page.navigate',{url:'http://127.0.0.1:'+server.address().port+'/test-outstanding-report'});
     await until('document.querySelectorAll(".outstanding-page").length===3');
@@ -787,5 +790,6 @@ try {
     assert.equal(await evaluate(`(()=>{const page=document.querySelector('.outstanding-page').getBoundingClientRect(),table=document.querySelector('.student-list').getBoundingClientRect();return table.bottom-page.top>page.height*.8;})()`),true,'The first page fills its available space instead of splitting a 25-student list in half');
     const shortReportShot=await command('Page.captureScreenshot',{format:'png',captureBeyondViewport:true});
     await writeFile(join(root,'storage/app/testing/scholarship-short-print-report.png'),Buffer.from(shortReportShot.data,'base64'));
+    }
     await command('Browser.close');
 } finally {socket?.close();browser.kill();server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}

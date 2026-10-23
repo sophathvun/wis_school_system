@@ -37,7 +37,7 @@
                 @endif
             </div>
         </section>
-        <section class="card mb-3" id="answerSheetListPanel" data-answer-sheet-list aria-labelledby="answerSheetListTitle"><div class="card-header scholarship-card-header d-flex flex-wrap gap-2"><h3 class="card-title" id="answerSheetListTitle"><i class="ti ti-list-details me-2"></i>Answer Sheet List</h3><button type="button" class="btn btn-sm btn-outline-light ms-auto" data-answer-list-fullscreen aria-controls="answerSheetListPanel" aria-pressed="false"><i class="ti ti-maximize me-2" aria-hidden="true"></i><span>Full Screen</span></button></div>
+        <section class="card mb-3" id="answerSheetListPanel" data-answer-sheet-list aria-labelledby="answerSheetListTitle"><div class="card-header scholarship-card-header d-flex flex-wrap gap-2"><h3 class="card-title" id="answerSheetListTitle"><i class="ti ti-list-details me-2"></i>Answer Sheet List</h3><div class="ms-auto d-flex flex-wrap gap-2">@if($exam)@include('western-scholarship._reseating-reset-button',['canReset'=>$permissions['reset-for-reseating'],'resetClass'=>'btn-outline-light'])@endif<button type="button" class="btn btn-sm btn-outline-light" data-answer-list-fullscreen aria-controls="answerSheetListPanel" aria-pressed="false"><i class="ti ti-maximize me-2"></i><span>Full Screen</span></button></div></div>
             <div class="table-responsive"><table class="table table-vcenter"><thead><tr><th>No.</th><th>Grade / Subject</th><th>Paper</th><th>Questions / Choices</th><th>Key Status</th><th>Student Links</th><th>Actions</th></tr></thead><tbody>
                 @forelse($papers as $p)
                     @php($linked=$p->linked_students_count>0||$p->scores_exists||$p->has_scan_links)

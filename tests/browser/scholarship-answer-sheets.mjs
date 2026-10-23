@@ -40,8 +40,9 @@ try{
     let id=0;const pending=new Map();socket.addEventListener('message',({data})=>{const msg=JSON.parse(data),h=pending.get(msg.id);if(h){pending.delete(msg.id);msg.error?h[1](new Error(JSON.stringify(msg.error))):h[0](msg.result);}});
     const command=(method,params={})=>new Promise((resolve,reject)=>{const n=++id;pending.set(n,[resolve,reject]);socket.send(JSON.stringify({id:n,method,params}));});
     const evaluate=async expression=>{const r=await command('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});if(r.exceptionDetails)throw new Error(r.exceptionDetails.exception?.description||JSON.stringify(r.exceptionDetails));return r.result.value;};
-    const until=async expr=>{for(let i=0;i<120;i++){if(await evaluate(expr))return;await delay(100);}throw new Error('Timeout: '+expr+' '+await evaluate('JSON.stringify({error:document.querySelector(".swal2-popup")?.textContent,errors:window.errors})'));};
+    const until=async expr=>{for(let i=0;i<120;i++){if(await evaluate(expr))return;await delay(100);}throw new Error('Timeout: '+expr+' '+await evaluate('JSON.stringify({error:document.querySelector(".swal2-popup")?.textContent,errors:window.errors,url:location.href,body:document.body.textContent.slice(0,500)})'));};
     const click=selector=>evaluate(`document.querySelector(${JSON.stringify(selector)}).click()`);
+    if(!process.env.SCHOLARSHIP_RESET_ONLY){
     // Decode real printed letters, outlines and filled marks, including dense custom ranges.
     await command('Page.navigate',{url:origin});await until('document.querySelector("[data-answer-filter-card]")?.dataset.resultFiltersReady==="true"');
     for(const [count,choiceCount,shade]of [[40,5,0],[100,26,0],[100,5,180]]){
@@ -385,6 +386,35 @@ try{
             await command('Page.navigate',{url:origin});await until('document.querySelector("[data-answer-filter-card]")?.dataset.resultFiltersReady==="true"');
         }
         assert.deepEqual(await evaluate('window.errors'),[]);console.log(`${width}px: list View/Edit/Delete, linked protection, paper setup, key approval, printed-sheet alignment, upload and review passed.`);
+    }
+    }
+    for(const width of [1440,390]){
+        const seed=fixture('/reset-sample');assert.equal(seed.status,200,Buffer.from(seed.content,'base64').toString());
+        await command('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<500});
+        await command('Page.navigate',{url:origin+'/students/western-scholarship?tab=assign-rank&academic_year_id=1&campus_id=2&grade_class=1:1'});
+        await until('document.readyState==="complete"&&document.querySelector("[data-scholarship-rank-form]")?.dataset.ranksLocked==="true"');
+        assert.equal(await evaluate('document.querySelector("#scholarshipRank").disabled'),true,'Scored exams keep new candidate entry locked');
+        assert.equal(await evaluate('document.querySelector("[data-scholarship-rank-form] [type=submit]").disabled'),true);
+        assert.equal(await evaluate('document.querySelector("[data-late-rank-fields],input[name=late_add]")'),null,'Late additions are unavailable');
+        await command('Page.navigate',{url:origin});await until('document.querySelector("[data-answer-filter-card]")?.dataset.resultFiltersReady==="true"');
+        const state=JSON.parse(Buffer.from(fixture('/state').content,'base64').toString());
+        await click('[data-exam-reseating-reset]');await until('document.querySelector(".swal2-title")?.textContent==="Reset Exam for Reseating?"');await delay(500);
+        assert.ok(await evaluate('document.querySelector(".swal2-html-container").textContent.includes("Entire exam: all campuses")'));
+        assert.ok(await evaluate('document.querySelector(".swal2-html-container").textContent.includes("zero scores")'));
+        await click('.swal2-confirm');await until('document.querySelector(".swal2-validation-message")?.textContent.includes("reason")');
+        await evaluate('document.getElementById("reseatingResetReason").value="Restart testing and rebuild all seats"');
+        await click('.swal2-confirm');await until('document.querySelector(".swal2-validation-message")?.textContent.includes("Type RESET")');
+        await click('.swal2-cancel');await until('!document.querySelector(".swal2-popup")');
+        assert.deepEqual(JSON.parse(Buffer.from(fixture('/state').content,'base64').toString()).scores,state.scores,'Cancel keeps test scores');
+        await click('[data-exam-reseating-reset]');await until('document.querySelector(".swal2-title")?.textContent==="Reset Exam for Reseating?"');await delay(500);
+        await evaluate('document.getElementById("reseatingResetReason").value="Restart testing and rebuild all seats";document.getElementById("reseatingResetConfirm").value="RESET"');
+        await writeFile(join(root,`storage/app/testing/scholarship-reseating-reset-${width}.png`),Buffer.from((await command('Page.captureScreenshot',{format:'png'})).data,'base64'));
+        await click('.swal2-confirm');await until('document.querySelector(".swal2-title")?.textContent==="Ready for New Seating"');
+        const cleared=JSON.parse(Buffer.from(fixture('/state').content,'base64').toString());
+        assert.equal(cleared.scores.length,0);assert.equal(cleared.scans.length,0);assert.equal(cleared.sheets.length,0);assert.equal(cleared.exam.seats_locked_at,null);
+        await click('.swal2-confirm');await until('document.readyState==="complete"&&Array.isArray(window.errors)&&document.querySelector("[data-scholarship-rank-form]")?.dataset.ranksLocked==="false"');
+        assert.deepEqual(await evaluate('window.errors'),[]);
+        console.log(`${width}px: full exam reset preview, required reason/typed confirmation, cancellation, zero-score cleanup, unlinking and reopened rank entry passed.`);
     }
     await command('Browser.close');
 }finally{socket?.close();browser.kill();server.closeAllConnections();await new Promise(r=>server.close(r));}

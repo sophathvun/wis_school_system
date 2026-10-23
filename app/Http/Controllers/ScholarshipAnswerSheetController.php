@@ -24,6 +24,7 @@ class ScholarshipAnswerSheetController
         if(isset($input['exam_id']))abort_unless($exam&&(!isset($input['academic_year_id'])||$exam->academic_year_id===(int)$year),404);
         $permissions=collect(['answer-paper','answer-key','answer-key-approve','answer-key-print','answer-key-scan','answer-link','answer-unlink','answer-print','answer-scan','answer-verify','answer-marked-view','answer-replace','answer-delete','answer-clear-scans'])
             ->mapWithKeys(fn($a)=>[$a=>ScholarshipPermissions::allows($request->user(),$a)])->all();
+        $permissions['reset-for-reseating']=$exam&&$this->workflow->central($request->user(),$exam,'reset-for-reseating');
         $papers=$exam?ScholarshipPaper::with(['subject','latestKey'])->withCount(['sheets as linked_students_count'=>fn($q)=>$q->select(DB::raw('count(distinct candidate_id)'))])->withExists(['scores','keys as has_scan_links'=>fn($q)=>$q->whereHas('scans'),
             'sheets as has_sheet_scan_links'=>fn($q)=>$q->whereHas('scans'),
             'sheets as has_subject_scores'=>fn($q)=>$q->whereHas('candidate.scores',fn($q)=>$q->whereColumn('tb_scholarship_score.subject_id','tb_scholarship_paper.subject_id')->whereNull('source_paper_id')

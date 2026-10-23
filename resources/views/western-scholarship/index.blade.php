@@ -68,7 +68,7 @@
                     </div>
                     </div>
                     <p class="text-secondary small mt-2 mb-0" data-scholarship-search-status aria-live="polite">Search students by ID, Khmer name, or English name.</p>
-                    <p class="text-warning small mt-2 mb-0" data-scholarship-ranks-locked @if(!$ranksLocked) hidden @endif>Class ranks and candidates are locked because seats are confirmed. Reopen an unscored seat plan before making changes.</p>
+                    <p class="text-warning small mt-2 mb-0" data-scholarship-ranks-locked @if(!$ranksLocked) hidden @endif>Class ranks and candidates are locked because seats are confirmed. Reopen an unscored seat plan before making changes. After scoring starts, an authorized exam reset is required before adding students and rebuilding seats.</p>
                     <p class="text-warning small mt-2 mb-0" data-scholarship-rank-permission @if($canAssign) hidden @endif>You need the Assign Student Rank permission for this campus to save ranks.</p>
                 </form>
             @elseif($tab === 'settings')

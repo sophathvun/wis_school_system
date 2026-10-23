@@ -13,9 +13,11 @@ import { initResults } from './scholarshipResults.js';
 import { initHistoricalTransfer } from './scholarshipHistoricalTransfer.js';
 import { initInvigilators } from './scholarshipInvigilators.js';
 import { initPremiumDatePicker } from './premiumDatePicker.js';
+import { initExamReseating } from './scholarshipReseating.js';
 
 const root = document.querySelector('[data-scholarship-page]');
 if (root) {
+    initExamReseating(root);
     const actionSuccess=root.dataset.settingsSuccess||root.dataset.seatSuccess||root.dataset.committeeSuccess||root.dataset.scoringSuccess||root.dataset.resultSuccess;
     if(actionSuccess){
         const savedDrafts=root.querySelector('[data-draft-save-confirmed]');

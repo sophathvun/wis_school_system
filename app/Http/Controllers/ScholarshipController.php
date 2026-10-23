@@ -574,6 +574,30 @@ class ScholarshipController
         $this->workflow->reopenPlan($request->user(),$exam,(int)$data['version'],$data['reason']); return $this->back($exam,'seat-plan','Seat plan reopened. Review and confirm a new preview before scoring.');
     }
 
+    public function reseatingPreview(Request $request,ScholarshipExam $exam)
+    {
+        $preview=app(\App\Services\ScholarshipReseating::class)->preview($request->user(),$exam);
+        $token=bin2hex(random_bytes(16));
+        $request->session()->put('scholarship-reseating.'.$exam->id,['token'=>$token,'user_id'=>$request->user()->id,
+            'fingerprint'=>$preview['fingerprint'],'expires'=>now()->addMinutes(10)->timestamp]);
+        unset($preview['fingerprint']);
+        return response()->json($preview+['token'=>$token])->header('Cache-Control','no-store, private');
+    }
+
+    public function reseatingReset(Request $request,ScholarshipExam $exam)
+    {
+        $service=app(\App\Services\ScholarshipReseating::class);$service->authorize($request->user(),$exam);
+        $data=$request->validate(['token'=>['required','string','regex:/^[a-f0-9]{32}$/'],'confirmed'=>['required','accepted'],
+            'confirmation'=>['required',Rule::in(['RESET'])],'reason'=>['required','string','min:5','max:1000']]);
+        $preview=$request->session()->get('scholarship-reseating.'.$exam->id);
+        abort_unless($preview&&$preview['user_id']===$request->user()->id&&$preview['expires']>now()->timestamp&&hash_equals($preview['token'],$data['token']),422,'The reset confirmation expired. Preview the exam again.');
+        $result=$service->reset($request->user(),$exam,$preview['fingerprint'],$data['reason']);
+        $request->session()->forget('scholarship-reseating.'.$exam->id);
+        return response()->json($result+['message'=>'Exam reset for reseating. Class ranks, paper setups and approved answer keys have been kept. Add students, confirm the new seat plan, then link students and print fresh answer sheets.'
+            .($result['image_cleanup_pending']?' Some stored scan images could not be removed. Ask the administrator to check storage permissions.':''),
+            'url'=>route('western-scholarship.index',['academic_year_id'=>$exam->academic_year_id,'exam_id'=>$exam->id,'tab'=>'assign-rank'])]);
+    }
+
     public function saveScoreDrafts(Request $request, ScholarshipExam $exam)
     {
         if($request->has('score_drafts')){

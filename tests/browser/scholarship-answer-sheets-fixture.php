@@ -20,7 +20,19 @@ $request=Illuminate\Http\Request::create('http://localhost'.$path,empty($payload
 $request->setUserResolver(fn()=>$user);$request->setLaravelSession($session);$app->instance('request',$request);$temps=[];
 try{
     $controller=app(ScholarshipAnswerSheetController::class);
-    if($path==='/batch-samples'){
+    if($path==='/reset-sample'){
+        $workflow=app(App\Services\ScholarshipWorkflow::class);
+        if(!$exam->seats_locked_at){$workflow->lockPlan($user,$exam,$workflow->plan($exam)['token']);$exam=$exam->fresh();}
+        $sheet=app(App\Services\ScholarshipAnswerSheets::class)->issue($user,$paper,[$exam->candidates()->where('grade_number',1)->value('id')])->first();
+        $scan=answerSheetUpload($user,$exam,$paper,$sheet,[1=>['1']]);
+        app(App\Services\ScholarshipAnswerSheets::class)->verify($user,$scan,$scan->detected,$scan->candidate_version,false,'');
+        $sheet->candidate->scores()->where('subject_id','!=',$paper->subject_id)->first()->update(['score'=>0]);
+        $sheet->candidate->update(['reviewed_by'=>2,'reviewed_at'=>now()]);
+        $content=json_encode(['ready'=>true]);$type='application/json';
+    }
+    elseif(preg_match('~/exams/(\d+)/reseating-reset(?:/(preview))?$~',$path,$m))$result=app(ScholarshipController::class)->{isset($m[2])?'reseatingPreview':'reseatingReset'}($request,ScholarshipExam::findOrFail($m[1]));
+    elseif($path==='/students/western-scholarship'&&($payload['tab']??'')==='assign-rank')$result=app(ScholarshipController::class)->index($request);
+    elseif($path==='/batch-samples'){
         $prototype=$exam->candidates()->where('grade_number',1)->first();
         for($number=3;$number<=25;$number++){
             $code=sprintf('G01-%03d',$number);
@@ -42,7 +54,7 @@ try{
         $content=app(ScholarshipAnswerSheetLayout::class)->svg($sheet);$type='image/svg+xml';
     }
     elseif($path==='/read-layout'){$content=json_encode(app(ScholarshipAnswerSheetLayout::class)->read(base64_decode($payload['image']),$payload['configuration']));$type='application/json';}
-    elseif($path==='/state'){$content=json_encode(['scores'=>App\Models\ScholarshipScore::all()->toArray(),'scans'=>App\Models\ScholarshipAnswerScan::all()->toArray()]);$type='application/json';}
+    elseif($path==='/state'){$content=json_encode(['scores'=>App\Models\ScholarshipScore::all()->toArray(),'scans'=>App\Models\ScholarshipAnswerScan::all()->toArray(),'sheets'=>ScholarshipAnswerSheet::all()->toArray(),'exam'=>$exam->fresh()->toArray()]);$type='application/json';}
     elseif(preg_match('~/papers/(\d+)/(teacher-key|teacher-key-scan)$~',$path,$m)){
         if($m[2]==='teacher-key-scan'){$f=dirname($db).'/'.bin2hex(random_bytes(8)).'.png';file_put_contents($f,base64_decode($payload['image']));$temps[]=$f;$request->files->set('image',new Illuminate\Http\UploadedFile($f,'teacher.png','image/png',null,true));}
         $result=$controller->{$m[2]==='teacher-key'?'teacherKeyIssue':'teacherKeyScan'}($request,ScholarshipPaper::findOrFail($m[1]));
@@ -57,7 +69,7 @@ try{
     elseif(preg_match('~/scans/(\d+)(?:/(verify|recheck|image|marked|marked-image))?$~',$path,$m))$result=$controller->{($m[2]??'')==='marked-image'?'markedImage':($m[2]??'details')}($request,App\Models\ScholarshipAnswerScan::findOrFail($m[1]));
     else $result=$controller->index($request,ScholarshipController::TABS);
     if(isset($result)){
-        if($result instanceof Illuminate\View\View){$template=file_get_contents($result->getPath());preg_match("/@section\('content'\)(.*)@endsection/s",$template,$match);$content=Blade::render(preg_replace('/^@vite.*$/m','',$match[1]??$template),$result->getData());$type='text/html';}
+        if($result instanceof Illuminate\View\View){$template=file_get_contents($result->getPath());preg_match("/@section\('content'\)(.*)@endsection/s",$template,$match);$content=Blade::render(preg_replace('/^@vite.*$/m','',$match[1]??$template),$result->getData()+['errors'=>new Illuminate\Support\ViewErrorBag()]);$type='text/html';}
         elseif($result instanceof Symfony\Component\HttpFoundation\BinaryFileResponse){$content=file_get_contents($result->getFile()->getPathname());$type='image/png';}
         else{$content=$result->getContent();$type=$result->headers->get('Content-Type')??'text/html';}
     }

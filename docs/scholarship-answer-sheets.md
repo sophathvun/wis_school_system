@@ -210,6 +210,40 @@ erasure. Test physical sheets from the intended printer and phone/scanner before
 exam use. All uploads require human verification; faint erasures, shadows, blur
 and unusual paper scaling can still need manual correction.
 
+## Reset testing and rebuild all rooms and seats
+
+Grant **Reset Exam for Reseating — clear test work and reopen seats (Central only)**
+under **Students > WIS Scholarship > Seat Plan**. It is a separate permission,
+initially off. Opening Roles & Permissions registers missing entries; migration
+`2026_10_23_000004_add_scholarship_reseating_reset_permission.php` also registers it.
+
+On **Answer Sheets > Answer Sheet List** or **Seat Plan**, choose **Reset Exam for
+Reseating**. The preview covers the entire selected exam across every campus,
+grade, subject and room; current filters do not restrict it. Review the affected
+counts, enter a reason and type **RESET** before confirming. It deletes all manual
+and scanned scores (including zeros), scan attempts and unshared scan images,
+reviews, award selections, issued student-sheet links, seating and room-specific
+committee/invigilator duties. Student records, class ranks, candidate records,
+paper setups, approved key revisions, exam centers, general committee assignments,
+invigilator records and exam sessions are retained. An audit event records the
+operator, reason and removed work. Published/locked results and historical exams
+cannot be reset. Confirmation expires after ten minutes; changed data needs a
+fresh preview and permission is checked again when confirming.
+
+After reset, add the missing class-ranked students through **Assign Student Rank**.
+If another campus needs an exam center, update its assignment in Settings while
+keeping all subject IDs, names, grade ranges, maximum scores and weights unchanged.
+Open **Seat Plan**, review and confirm the regenerated allocation, then **Link
+Students** for each paper and print new student answer sheets. Previously printed
+student sheets are invalid. Reassign duties for the new rooms. You do not need to
+unlink papers individually or cancel reviews first.
+
+Add Late Candidate is no longer available. Class ranks and candidate additions stay
+locked after seats are confirmed, including once scoring has started. Reopen an
+unscored plan, or use the authorized reset above to clear testing before rebuilding.
+Migration `2026_10_23_000005_remove_late_scholarship_candidates_permission.php`
+removes its obsolete permission and role, department and user grants.
+
 ## View marked student sheets
 
 In **Scan History**, choose **View Marked Sheet** to see the aligned scan with
@@ -263,3 +297,9 @@ detection. `tests/browser/scholarship-answer-sheets.mjs` exercises the real Blad
 on desktop and mobile using an isolated SQLite fixture, rasterizes the actual SVG
 print layout, marks its circles, aligns a simulated photo, uploads it and saves a
 verified score. It never uses production students or sessions.
+
+`tests/Feature/ScholarshipReseatingTest.php` covers the whole-exam reset, permission
+and publication restrictions, expired/stale confirmations, rollback and shared-image
+protection, and adding another campus before regenerating seats and student sheets.
+Run the browser suite with `SCHOLARSHIP_RESET_ONLY=1` for its focused desktop/mobile
+reset, cancellation, confirmation and reopened rank-entry checks.

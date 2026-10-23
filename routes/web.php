@@ -328,6 +328,8 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         Route::post('/exams/{exam}/examination-type','saveExaminationType')->name('exams.examination-type');
         Route::post('/exams/{exam}/seats/confirm', 'lockPlan')->name('seats.confirm');
         Route::post('/exams/{exam}/seats/reopen', 'reopenPlan')->name('seats.reopen');
+        Route::get('/exams/{exam}/reseating-reset/preview','reseatingPreview')->name('seats.reset-preview');
+        Route::post('/exams/{exam}/reseating-reset','reseatingReset')->name('seats.reset');
         Route::get('/exams/{exam}/seat-reports/{document}/{format}', 'seatReport')->where('document','candidates|attendance|attendance-cover|envelope-cover|seat-labels|room-plan')->where('format','print|xlsx|pdf')->name('seats.report');
         Route::post('/exams/{exam}/scores', 'saveScoreDrafts')->name('scores.save-drafts');
         Route::get('/exams/{exam}/score-list/{format}', 'scoreReport')->where('format','print|xlsx|pdf')->name('scores.report');
