@@ -20,7 +20,23 @@ $request=Illuminate\Http\Request::create('http://localhost'.$path,empty($payload
 $request->setUserResolver(fn()=>$user);$request->setLaravelSession($session);$app->instance('request',$request);$temps=[];
 try{
     $controller=app(ScholarshipAnswerSheetController::class);
-    if($path==='/print-sample'){
+    if($path==='/history-sample'){
+        App\Models\ScholarshipAnswerScan::query()->delete();App\Models\ScholarshipScore::query()->delete();
+        $template=$exam->candidates()->where('grade_number',1)->first();
+        for($number=3;$number<=27;$number++)if(!$exam->candidates()->where('seat_scope',$template->seat_scope)->where('room_seat',$number)->exists()){
+            $candidate=$template->replicate();$candidate->room_number=$number<=15?1:2;$candidate->room_seat=$number;$candidate->grade_exam_number=$number;
+            $candidate->candidate_code=sprintf('G01-%03d',$number);$candidate->snapshot=array_replace($candidate->snapshot,['name_en'=>'HISTORY STUDENT '.$number]);$candidate->save();
+        }
+        $issued=app(App\Services\ScholarshipAnswerSheets::class)->issue($user,$paper,$exam->candidates()->where('grade_number',1)->pluck('id')->all());
+        foreach($issued as $index=>$entry){
+            $answers=array_fill(0,$paper->question_count,'1');if(!$index)$answers[3]=null;
+            $path='testing/history-'.$entry->id.'.png';Illuminate\Support\Facades\Storage::disk('local')->put($path,base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg=='));
+            App\Models\ScholarshipAnswerScan::create(['sheet_id'=>$entry->id,'key_id'=>$paper->latestKey->id,'image_path'=>$path,'original_path'=>$path,
+                'image_hash'=>hash('sha256',$path),'detected'=>$answers,'flags'=>$index?[]:[4=>'unclear'],'confidence'=>[],'status'=>'pending','uploaded_by'=>2,'candidate_version'=>$entry->candidate->fresh()->version]);
+        }
+        $content=json_encode(['count'=>$issued->count()]);$type='application/json';
+    }
+    elseif($path==='/print-sample'){
         $exam->candidates()->where('campus_id',2)->update(['grade_number'=>1]);
         $exam->candidates()->where('campus_id',1)->where('room_seat',2)->update(['room_number'=>2]);
         $content=json_encode(['ready'=>true]);$type='application/json';
@@ -55,7 +71,7 @@ try{
         $content=app(ScholarshipAnswerSheetLayout::class)->svg($sheet);$type='image/svg+xml';
     }
     elseif($path==='/sample-layout.svg'){
-        $sheet->snapshot=array_replace($sheet->snapshot,['layout_version'=>2,'question_count'=>(int)$payload['count'],'choices'=>array_slice(range('A','Z'),0,(int)$payload['choices'])]);
+        $sheet->snapshot=array_replace($sheet->snapshot,['layout_version'=>(int)($payload['layout_version']??ScholarshipAnswerSheetLayout::VERSION),'question_count'=>(int)$payload['count'],'choices'=>array_slice(range('A','Z'),0,(int)$payload['choices'])]);
         $content=app(ScholarshipAnswerSheetLayout::class)->svg($sheet);$type='image/svg+xml';
     }
     elseif($path==='/read-layout'){$content=json_encode(app(ScholarshipAnswerSheetLayout::class)->read(base64_decode($payload['image']),$payload['configuration']));$type='application/json';}
@@ -68,7 +84,8 @@ try{
     elseif(preg_match('~/exams/(\d+)/(papers|scans)$~',$path,$m)){
         if($m[2]==='scans')foreach(['image','original'] as $name){$f=dirname($db).'/'.bin2hex(random_bytes(8)).'.png';file_put_contents($f,base64_decode($payload[$name]));$temps[]=$f;$request->files->set($name,new Illuminate\Http\UploadedFile($f,$name.'.png','image/png',null,true));}
         $result=$controller->{$m[2]==='papers'?'paper':'scan'}($request,ScholarshipExam::findOrFail($m[1]));
-    }elseif(preg_match('~/papers/(\d+)/(clear-scans-preview|clear-scans)$~',$path,$m))$result=$controller->{$m[2]==='clear-scans-preview'?'clearScansPreview':'clearScans'}($request,ScholarshipPaper::findOrFail($m[1]));
+    }elseif(preg_match('~/papers/(\d+)/(accept-all-preview|accept-all)$~',$path,$m))$result=$controller->{$m[2]==='accept-all-preview'?'acceptAllPreview':'acceptAll'}($request,ScholarshipPaper::findOrFail($m[1]));
+    elseif(preg_match('~/papers/(\d+)/(clear-scans-preview|clear-scans)$~',$path,$m))$result=$controller->{$m[2]==='clear-scans-preview'?'clearScansPreview':'clearScans'}($request,ScholarshipPaper::findOrFail($m[1]));
     elseif(preg_match('~/papers/(\d+)/(key|approve|issue|link|unlink|update|delete)$~',$path,$m))$result=$controller->{$m[2]}($request,ScholarshipPaper::findOrFail($m[1]));
     elseif(preg_match('~/print/([a-f0-9]{32})$~',$path,$m))$result=$controller->print($request,$m[1]);
     elseif(preg_match('~/scans/(\d+)(?:/(verify|recheck|image|marked|marked-image))?$~',$path,$m))$result=$controller->{($m[2]??'')==='marked-image'?'markedImage':($m[2]??'details')}($request,App\Models\ScholarshipAnswerScan::findOrFail($m[1]));

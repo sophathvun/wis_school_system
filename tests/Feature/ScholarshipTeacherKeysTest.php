@@ -77,20 +77,20 @@ it('shares the student sheet question layout while keeping teacher fields and id
     $result=$keys->detect($user,$paper,UploadedFile::fake()->createWithContent('key.png',answerSheetPixels($sheet,array_fill(1,$count,[end($snapshot['choices'])]))),$paper->version);
     expect($result['answers'])->toBe(array_fill(0,$count,end($snapshot['choices'])))->and($result['flags'])->toBe([]);
 })->with([[40,5],[100,26]]);
-it('continues to print and scan previously issued teacher keys after the layout changes',function(){
+it('continues to print and scan previously issued teacher keys after the layout changes',function($legacyVersion){
     [$exam,$user,$paper,$sheet,$keys]=teacherFixture();
-    $snapshot=$sheet->snapshot;unset($snapshot['layout_version']);
+    $snapshot=$sheet->snapshot;if($legacyVersion===1)unset($snapshot['layout_version']);else $snapshot['layout_version']=$legacyVersion;
     $sheet->update(['snapshot'=>$snapshot,'fingerprint'=>hash('sha256',json_encode($snapshot))]);
     $new=$keys->issue($user,$paper,$paper->version);$layout=app(ScholarshipAnswerSheetLayout::class);
-    expect($new->token)->not->toBe($sheet->token)->and($new->snapshot['layout_version'])->toBe(2)
+    expect($new->token)->not->toBe($sheet->token)->and($new->snapshot['layout_version'])->toBe(ScholarshipAnswerSheetLayout::VERSION)
         ->and($keys->current($sheet))->toBeTrue()->and($keys->current($new))->toBeTrue();
-    expect($layout->teacherSvg($sheet))->toContain('Grade: 1')->not->toContain('SCHOLARSHIP EXAMINATION');
+    expect($layout->teacherSvg($sheet))->toContain($legacyVersion===1?'Grade: 1':'SCHOLARSHIP EXAMINATION');
     expect($layout->teacherSvg($new))->toContain('SCHOLARSHIP EXAMINATION');
     foreach([$sheet,$new] as $printed){
         $result=$keys->detect($user,$paper,UploadedFile::fake()->createWithContent('key.png',answerSheetPixels($printed,array_fill(1,20,['D']))),$paper->version);
         expect($result['answers'])->toBe(array_fill(0,20,'D'))->and($result['flags'])->toBe([]);
     }
-});
+})->with([1,2]);
 it('imports a corrected key without changing an approved revision scores or existing student sheets',function(){
     [$exam,$user,$paper,$sheet,$keys,$sheets]=teacherFixture();
     $sheets->saveKey($user,$paper,array_fill(0,20,'A'),$paper->version);$old=$sheets->approveKey($user,$paper->fresh(),$paper->fresh()->version);
@@ -108,7 +108,7 @@ it('reads a dense 100-question teacher key with grey pencil on locally shaded pa
         'choice_style'=>'letters','choice_count'=>5,'points'=>1,'version'=>$paper->version],$paper->id);
     $sheet=$keys->issue($user,$paper,$paper->version);$image=imagecreatefromstring(answerSheetPixels($sheet));
     $layout=app(ScholarshipAnswerSheetLayout::class);$expected=[];
-    foreach($layout->questions(100,$paper->answer_choices,2) as $i=>$row){
+    foreach($layout->questions(100,$paper->answer_choices,$sheet->snapshot['layout_version']) as $i=>$row){
         $answer=$paper->answer_choices[$i%5];$expected[]=$answer;
         foreach($row['dots'] as $dot){
             if($dot['label']!==$answer||in_array($i,[2,7,11],true))continue;
@@ -131,7 +131,7 @@ it('reads a dense 100-question teacher key with grey pencil on locally shaded pa
 });
 it('recognizes light pencil while leaving faint erasures blank and partial or multiple marks flagged',function($background,$pencil,$erasure){
     [$exam,$user,$paper,$sheet,$keys]=teacherFixture();$layout=app(ScholarshipAnswerSheetLayout::class);
-    $image=imagecreatefromstring(answerSheetPixels($sheet));$rows=$layout->questions(20,$paper->answer_choices,2);
+    $image=imagecreatefromstring(answerSheetPixels($sheet));$rows=$layout->questions(20,$paper->answer_choices,$sheet->snapshot['layout_version']);
     $fill=function($question,$choice,$value)use($image,$rows){$dot=$rows[$question-1]['dots'][$choice];imagefilledellipse($image,$dot['x'],$dot['y'],(int)round($dot['radius']*2-1),(int)round($dot['radius']*2-1),imagecolorallocate($image,$value,$value,$value));};
     $fill(4,3,$pencil);$fill(5,4,$erasure);$fill(8,0,$pencil);$fill(8,1,$pencil);
     $dot=$rows[11]['dots'][0];$radius=(int)ceil($dot['radius']);

@@ -158,10 +158,10 @@ class ScholarshipAnswerSheets
             $this->event($user,$exam,'answer-key-approved',['paper_id'=>$paper->id,'key_id'=>$key->id,'revision'=>$key->revision,'recheck_candidates'=>$ids->all()]);return $key;
         });
     }
-    public function snapshot(ScholarshipPaper $paper,$candidate,int $layoutVersion=2): array
+    public function snapshot(ScholarshipPaper $paper,$candidate,int $layoutVersion=ScholarshipAnswerSheetLayout::VERSION): array
     {
         $exam=$this->paperExam($paper);$s=$candidate->snapshot;
-        return ($layoutVersion===2?['layout_version'=>2]:[])+['exam_id'=>$exam->id,'year'=>$exam->academicYear->academic_year,'date'=>$exam->exam_date?->format('F j, Y')??'',
+        return ($layoutVersion>=2?['layout_version'=>$layoutVersion]:[])+['exam_id'=>$exam->id,'year'=>$exam->academicYear->academic_year,'date'=>$exam->exam_date?->format('F j, Y')??'',
             'name'=>$s['name_en']??'','student_code'=>$s['student_code']??'','code'=>$candidate->candidate_code,
             'grade'=>$candidate->grade_number,'center'=>$candidate->exam_center_name??'Main Exam Center','center_id'=>$candidate->exam_center_id,
             'room'=>$candidate->room_number,'seat'=>$candidate->room_seat,'subject_id'=>$paper->subject_id,'subject'=>$paper->subject->name,

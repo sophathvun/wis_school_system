@@ -9,6 +9,7 @@ use Illuminate\Validation\ValidationException;
 /** Fixed A4 geometry shared by printing, detection and regression fixtures. */
 class ScholarshipAnswerSheetLayout
 {
+    public const VERSION=3;
     public const WIDTH=1000;
     public const HEIGHT=1414;
     public const MARKERS=[[35,35],[965,35],[965,1379],[35,1379]];
@@ -16,7 +17,7 @@ class ScholarshipAnswerSheetLayout
 
     public function questions(int $count, array $choices,int $layoutVersion=1): array
     {
-        if($layoutVersion===2)return $this->sampleQuestions($count,$choices);
+        if($layoutVersion>=2)return $this->sampleQuestions($count,$choices,$layoutVersion);
         $rows=[];
         // Preserve the original coordinates for issued 2–5-choice sheets.
         // Wider ranges use two columns with enough rows for all 100 questions.
@@ -32,11 +33,11 @@ class ScholarshipAnswerSheetLayout
         }
         return $rows;
     }
-    /** Three grouped columns like the sample; wider choice ranges use two. */
-    private function sampleQuestions(int $count,array $choices): array
+    /** Evenly spaced rows in three columns; retain the middle gap on older sheets. */
+    private function sampleQuestions(int $count,array $choices,int $layoutVersion): array
     {
         $rows=[];$wide=count($choices)>6;$columns=$wide?2:3;$perColumn=max(16,(int)ceil($count/$columns));
-        $gap=$perColumn>20?12:30;$rowStep=min(48,(770-$gap)/max(1,$perColumn-1));
+        $gap=$layoutVersion===2?($perColumn>20?12:30):0;$rowStep=min(48,(770-$gap)/max(1,$perColumn-1));
         $choiceStep=min(34,($wide?350:136)/max(1,count($choices)-1));
         $radius=min(15,$rowStep*.40,$choiceStep*.44);
         for($i=0;$i<$count;$i++){
@@ -58,7 +59,7 @@ class ScholarshipAnswerSheetLayout
     {return $this->render($sheet->snapshot,$sheet->token,$logo,true);}
     private function render(array $s,string $token,?string $logo,bool $teacher): string
     {
-        if(($s['layout_version']??1)===2)return $this->sampleSvg($s,$token,$logo,$teacher);
+        if(($s['layout_version']??1)>=2)return $this->sampleSvg($s,$token,$logo,$teacher);
         $e=fn($v)=>htmlspecialchars((string)$v,ENT_QUOTES|ENT_XML1,'UTF-8');
         $svg='<svg xmlns="http://www.w3.org/2000/svg" width="210mm" height="297mm" viewBox="0 0 1000 1414" role="img" aria-label="'.($teacher?'Teacher answer key':'Personalized exam answer sheet').'"><rect width="1000" height="1414" fill="white"/>';
         foreach(self::MARKERS as [$x,$y])$svg.='<rect x="'.($x-10).'" y="'.($y-10).'" width="20" height="20" fill="black"/>';
@@ -118,8 +119,9 @@ class ScholarshipAnswerSheetLayout
         $text(125,369,$teacher?'Date:':'Room No.:',23);$line(250,377,465);if(!$teacher)$text(260,369,$s['room'],22);
         $text(490,369,$teacher?'Paper:':'Seat No.:',23);$line(610,377,935);$text(620,369,$teacher?$s['paper_version']:$s['seat'],22);
         $text(500,418,$teacher?'ANSWER KEY':'Answer',32,true,'middle');
-        foreach($this->questions($s['question_count'],$s['choices'],2) as $row){
-            $text($row['x'],$row['y']+$row['font']*.32,$row['number'],$row['font'],false,'end');
+        foreach($this->questions($s['question_count'],$s['choices'],$s['layout_version']) as $row){
+            // Bring labels closer to their answers while preserving all scan coordinates.
+            $text($row['x']+20,$row['y']+$row['font']*.32,$row['number'],$row['font'],false,'end');
             foreach($row['dots'] as $dot){
                 $svg.='<circle cx="'.$dot['x'].'" cy="'.$dot['y'].'" r="'.$dot['radius'].'" fill="white" stroke="#333" stroke-width="1.2"/>';
                 $labelFont=$row['label_font']/(strlen($dot['label'])>1?1.25:1);
@@ -221,8 +223,8 @@ class ScholarshipAnswerSheetLayout
             $token='';foreach(str_split($bits,4) as $n)$token.=dechex(bindec($n));
             $responses=[];$flags=[];$confidence=[];
             if($configuration)foreach($this->questions($configuration['question_count'],$configuration['choices'],$configuration['layout_version']??1) as $row){
-                if(($configuration['layout_version']??1)===2)$row=$this->registerBubbleRow($image,$row);
-                $values=[];foreach($row['dots'] as $dot)$values[$dot['label']]=($configuration['layout_version']??1)===2?$this->bubbleRing($image,$dot):$this->dark($image,$dot['x'],$dot['y'],max(2,min(5,(int)floor($dot['radius']-2))));
+                if(($configuration['layout_version']??1)>=2)$row=$this->registerBubbleRow($image,$row);
+                $values=[];foreach($row['dots'] as $dot)$values[$dot['label']]=($configuration['layout_version']??1)>=2?$this->bubbleRing($image,$dot):$this->dark($image,$dot['x'],$dot['y'],max(2,min(5,(int)floor($dot['radius']-2))));
                 $marks=array_keys(array_filter($values,fn($value)=>$value>=.38));
                 $unclear=count(array_filter($values,fn($value)=>$value>.10&&$value<.38))>0;
                 $responses[]=count($marks)===1&&!$unclear?(string)$marks[0]:null;

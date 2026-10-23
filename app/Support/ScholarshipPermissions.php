@@ -16,6 +16,7 @@ class ScholarshipPermissions
     public const PARENTS = [
         'answer-paper'=>'tab-answer-sheets','answer-key'=>'tab-answer-sheets','answer-key-approve'=>'tab-answer-sheets',
         'answer-key-print'=>'tab-answer-sheets','answer-key-scan'=>'tab-answer-sheets',
+        'answer-accept-all'=>'tab-answer-sheets',
         'answer-link'=>'tab-answer-sheets','answer-unlink'=>'tab-answer-sheets','answer-print'=>'tab-answer-sheets','answer-scan'=>'tab-answer-sheets','answer-verify'=>'tab-answer-sheets','answer-marked-view'=>'tab-answer-sheets','answer-replace'=>'tab-answer-sheets','answer-delete'=>'tab-answer-sheets','answer-clear-scans'=>'tab-answer-sheets',
         'certificate-settings'=>'tab-certificates', 'certificate-template'=>'tab-certificates', 'certificate-assign'=>'tab-certificates', 'certificate-print'=>'tab-certificates', 'certificate-cancel'=>'tab-certificates',
         'assign-rank'=>'tab-assign-rank', 'seat-plan'=>'tab-seat-plan', 'reset-for-reseating'=>'tab-seat-plan', 'scoring'=>'tab-scoring',
@@ -37,6 +38,7 @@ class ScholarshipPermissions
             'answer-unlink'=>'Unlink students from unscanned answer-sheet papers',
             'answer-print'=>'Issue and print personalized answer sheets', 'answer-scan'=>'Upload / photograph answer sheets',
             'answer-verify'=>'Verify scans and save draft scores (Central only; score-entry duties required)',
+            'answer-accept-all'=>'Accept All pending scans, including flagged answers (Central only; requires Verify scans)',
             'answer-marked-view'=>'View marked student answer sheets, correct answers and scores (Central only)',
             'answer-replace'=>'Replace an existing score or recheck with a revised key (Central only)',
             'answer-delete'=>'Delete unlinked answer-sheet papers (Central only)',
@@ -86,7 +88,7 @@ class ScholarshipPermissions
     public static function tabGroups(): array
     {
         return [
-            'answer-sheets'=>['label'=>'Answer Sheets','actions'=>['answer-paper','answer-key','answer-key-approve','answer-key-print','answer-key-scan','answer-link','answer-unlink','answer-print','answer-scan','answer-verify','answer-marked-view','answer-replace','answer-delete','answer-clear-scans']],
+            'answer-sheets'=>['label'=>'Answer Sheets','actions'=>['answer-paper','answer-key','answer-key-approve','answer-key-print','answer-key-scan','answer-link','answer-unlink','answer-print','answer-scan','answer-verify','answer-accept-all','answer-marked-view','answer-replace','answer-delete','answer-clear-scans']],
             'assign-rank'=>['label'=>'Assign Student Rank','actions'=>['assign-rank','export-ranks']],
             'settings'=>['label'=>'Scholarship Settings','actions'=>['settings']],
             'seat-plan'=>['label'=>'Seat Plan','actions'=>['seat-plan','reset-for-reseating','export-seats']],
@@ -125,6 +127,7 @@ class ScholarshipPermissions
     {
         if(!array_key_exists($action,self::catalog()))return false;
         if ($user->isSuperAdmin()) return true;
+        if($action==='answer-accept-all'&&!self::allows($user,'answer-verify',$campusId))return false;
         if(($action==='tab-result' || (self::PARENTS[$action]??null)==='tab-result'
             || in_array($action,['tab-data-transfer','import-history','export-data','certificate-settings','certificate-template','certificate-assign','certificate-cancel','answer-verify','answer-marked-view','answer-replace','answer-delete','answer-clear-scans','reset-for-reseating'],true)) && !self::isCentral($user))return false;
         [$assigned,$central,$all]=self::scope($user);

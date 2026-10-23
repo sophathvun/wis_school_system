@@ -13,6 +13,7 @@
             <div class="card-header scholarship-card-header"><h3 class="card-title"><i class="ti ti-filter me-2"></i>Datas Filter</h3><button type="button" class="btn btn-icon btn-outline-primary scholarship-filter-toggle ms-auto" data-answer-filter-toggle aria-expanded="true" aria-controls="answerFilters" aria-label="Collapse answer sheet filters"><i class="ti ti-chevron-up"></i></button></div>
             <div class="card-body" id="answerFilters"><form method="GET" data-answer-filters action="{{ route('western-scholarship.index') }}">
                 <input type="hidden" name="tab" value="answer-sheets">
+                <input type="hidden" id="answerScansPerPage" name="scan_per_page" value="{{ $scans->perPage() }}">
                 <div class="row g-3">
                     <div class="col-md-3 scholarship-field"><label class="form-label" for="answerYear">Academic Year</label><select class="form-select" id="answerYear" name="academic_year_id"><option value="">Select year</option>@foreach($years as $y)<option value="{{ $y->id }}" @selected($year==$y->id)>{{ $y->academic_year }}</option>@endforeach</select></div>
                     <div class="col-md-3 scholarship-field"><label class="form-label" for="answerPaper">Grade / Subject / Paper</label><select class="form-select" id="answerPaper" name="paper_id"><option value="">Select paper</option>@foreach($papers as $p)<option value="{{ $p->id }}" @selected($paper?->id===$p->id)>Grade {{ $p->grade_number }} · {{ $p->subject->name }} · {{ $p->paper_version }}</option>@endforeach</select></div>
@@ -110,13 +111,11 @@
             </div>
         </div></section>
         @endif
-        <section class="card"><div class="card-header scholarship-card-header"><h3 class="card-title">Scan History</h3>
-            @if($permissions['answer-clear-scans']&&$paper)<div class="card-actions ms-auto"><button type="button" class="btn btn-sm btn-outline-light" data-answer-clear-scans @disabled($data['locked']) title="Clear test scans for the selected paper, exam center and room"><i class="ti ti-trash me-1"></i>Clear Test Scans</button></div>@endif
+        <section class="card" id="answerScanHistory"><div class="card-header scholarship-card-header d-flex flex-wrap gap-2"><h3 class="card-title">Scan History</h3>
+            <div class="ms-auto d-flex flex-wrap gap-2">@if($permissions['answer-accept-all']&&$paper)<button type="button" class="btn btn-sm btn-outline-light" data-answer-accept-all @disabled($data['locked']||!$exam->seats_locked_at)><i class="ti ti-checks me-1"></i>Accept All</button>@endif
+            @if($permissions['answer-clear-scans']&&$paper)<button type="button" class="btn btn-sm btn-outline-light" data-answer-clear-scans @disabled($data['locked']) title="Clear test scans for the selected paper, exam center and room"><i class="ti ti-trash me-1"></i>Clear Test Scans</button>@endif</div>
         </div>
-            <div class="table-responsive"><table class="table table-vcenter"><thead><tr><th>No.</th><th>Student</th><th>Paper / Key</th><th>Status</th><th>Flagged</th><th>Actions</th></tr></thead><tbody>
-                @forelse($scans as $scan)<tr><td>{{ $scan->id }}</td><td>{{ $scan->sheet->candidate->snapshot['name_en']??'' }}<div class="small text-secondary">{{ $scan->sheet->candidate->candidate_code }} · Room {{ $scan->sheet->candidate->room_number }} · Seat {{ $scan->sheet->candidate->room_seat }}</div></td><td>{{ $scan->sheet->paper->subject->name }} · {{ $scan->sheet->paper->paper_version }}<div class="small">Key revision {{ $scan->key->revision }}</div></td><td><span class="badge {{ $scan->status==='accepted'?'bg-green-lt':'bg-yellow-lt' }}">{{ ucfirst($scan->status) }}</span>@if($permissions['answer-verify']&&$scan->status==='accepted')<div>{{ $scan->score }} / {{ $scan->sheet->snapshot['max_score'] }}</div>@endif</td><td>{{ count($scan->flags) }}</td><td><div class="d-flex flex-wrap gap-2">@if($permissions['answer-marked-view'])<button class="btn btn-sm btn-outline-success" type="button" data-answer-marked="{{ $scan->id }}"><i class="ti ti-eye-check me-1"></i>View Marked Sheet</button>@endif @if($permissions['answer-verify'])<button class="btn btn-sm btn-outline-primary" type="button" data-answer-review="{{ $scan->id }}"><i class="ti ti-checklist me-1"></i>Review</button>@elseif(!$permissions['answer-marked-view'])<span class="text-secondary">Awaiting Central verification</span>@endif</div></td></tr>
-                @empty<tr><td colspan="6" class="text-center text-secondary py-4">No scans for these filters.</td></tr>@endforelse
-            </tbody></table></div><div class="card-footer">{{ $scans->links() }}</div>
+            @include('western-scholarship._scan-history-list')
         </section>
         <script type="application/json" id="answerSheetData">{!! json_encode($data,JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT) !!}</script>
     </main>

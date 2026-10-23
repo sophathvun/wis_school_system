@@ -15,7 +15,8 @@ class ScholarshipAnswerSheetController
     {
         abort_unless(ScholarshipPermissions::allows($request->user(),'tab-answer-sheets'),403);
         $input=$request->validate(['academic_year_id'=>['nullable','integer'],'exam_id'=>['nullable','integer'],'paper_id'=>['nullable','integer'],
-            'center'=>['nullable','integer'],'room'=>['nullable','integer','min:1'],'scan_page'=>['nullable','integer','min:1','max:1000000']]);
+            'center'=>['nullable','integer'],'room'=>['nullable','integer','min:1'],'scan_page'=>['nullable','integer','min:1','max:1000000'],
+            'scan_per_page'=>['nullable',Rule::in([10,25,50,100])],'scan_history'=>['sometimes','boolean']]);
         $exams=ScholarshipExam::with('academicYear')->whereHas('academicYear',fn($q)=>$q->regular())->latest('academic_year_id')->get()
             ->filter(fn($e)=>$this->workflow->canView($request->user(),$e));
         $years=$exams->pluck('academicYear')->unique('id')->values();
@@ -25,6 +26,7 @@ class ScholarshipAnswerSheetController
         $permissions=collect(['answer-paper','answer-key','answer-key-approve','answer-key-print','answer-key-scan','answer-link','answer-unlink','answer-print','answer-scan','answer-verify','answer-marked-view','answer-replace','answer-delete','answer-clear-scans'])
             ->mapWithKeys(fn($a)=>[$a=>ScholarshipPermissions::allows($request->user(),$a)])->all();
         $permissions['reset-for-reseating']=$exam&&$this->workflow->central($request->user(),$exam,'reset-for-reseating');
+        $permissions['answer-accept-all']=ScholarshipPermissions::allows($request->user(),'answer-accept-all');
         $papers=$exam?ScholarshipPaper::with(['subject','latestKey'])->withCount(['sheets as linked_students_count'=>fn($q)=>$q->select(DB::raw('count(distinct candidate_id)'))])->withExists(['scores','keys as has_scan_links'=>fn($q)=>$q->whereHas('scans'),
             'sheets as has_sheet_scan_links'=>fn($q)=>$q->whereHas('scans'),
             'sheets as has_subject_scores'=>fn($q)=>$q->whereHas('candidate.scores',fn($q)=>$q->whereColumn('tb_scholarship_score.subject_id','tb_scholarship_paper.subject_id')->whereNull('source_paper_id')
@@ -44,8 +46,12 @@ class ScholarshipAnswerSheetController
         $centers=$candidates->map(fn($c)=>['id'=>$c->exam_center_id??0,'name'=>$c->exam_center_name?:'Main Exam Center'])->unique('id')->values();
         $rooms=$candidates->when(isset($input['center']),fn($rows)=>$rows->filter(fn($c)=>(int)$c->exam_center_id===(int)$input['center']))->pluck('room_number')->filter()->unique()->sort()->values();
         $visible=$candidates->filter(fn($c)=>(!isset($input['center'])||(int)$c->exam_center_id===(int)$input['center'])&&(!isset($input['room'])||$c->room_number===(int)$input['room']));
-        $scans=ScholarshipAnswerScan::with(['sheet.candidate','sheet.paper.subject','key'])->whereHas('sheet',fn($q)=>$q->whereIn('candidate_id',$visible->pluck('id'))->when($paper,fn($q)=>$q->where('paper_id',$paper->id)))
-            ->when(!$permissions['answer-verify']&&!$permissions['answer-marked-view'],fn($q)=>$q->where('uploaded_by',$request->user()->id))->latest('id')->paginate(15,['*'],'scan_page')->withQueryString();
+        $scanQuery=ScholarshipAnswerScan::with(['sheet.candidate','sheet.paper.subject','key'])->whereHas('sheet',fn($q)=>$q->whereIn('candidate_id',$visible->pluck('id'))->when($paper,fn($q)=>$q->where('paper_id',$paper->id)))
+            ->when(!$permissions['answer-verify']&&!$permissions['answer-marked-view'],fn($q)=>$q->where('uploaded_by',$request->user()->id))->latest('id');
+        $scanSize=(int)($input['scan_per_page']??10);$scanTotal=(clone $scanQuery)->count();
+        $scanPage=min((int)($input['scan_page']??1),max(1,(int)ceil($scanTotal/$scanSize)));
+        $scans=$scanQuery->paginate($scanSize,['*'],'scan_page',$scanPage)->withQueryString();
+        if($request->boolean('scan_history'))return response()->json(['html'=>view('western-scholarship._scan-history-list',compact('scans','permissions'))->render()])->header('Cache-Control','no-store, private');
         $paperData=$papers->map(fn($p)=>['id'=>$p->id,'subject_id'=>$p->subject_id,'subject'=>$p->subject->name,'max_score'=>$p->subject->max_score,'grade'=>$p->grade_number,'paper_version'=>$p->paper_version,
             'question_count'=>$p->question_count,'choices'=>$p->answer_choices,'points'=>$p->points_per_question,'version'=>$p->version,
             'linked_sheets'=>$p->linked_students_count,'linked'=>$p->linked_students_count>0||$p->scores_exists||$p->has_scan_links,'has_draft'=>$p->draft_answers!==null,
@@ -102,6 +108,26 @@ class ScholarshipAnswerSheetController
             'filters'=>$filters,'fingerprint'=>$preview['fingerprint'],'expires'=>now()->addMinutes(10)->timestamp]);
         unset($preview['fingerprint']);
         return response()->json($preview+['token'=>$token])->header('Cache-Control','no-store, private');
+    }
+
+    public function acceptAllPreview(Request $request,ScholarshipPaper $paper)
+    {
+        $filters=$request->validate(['center'=>['nullable','integer','min:0'],'room'=>['nullable','integer','min:1']]);
+        $preview=app(\App\Services\ScholarshipScanAcceptance::class)->preview($request->user(),$paper,$filters);$token=bin2hex(random_bytes(16));
+        $request->session()->put('answer-accept-all.'.$paper->id,['token'=>$token,'user_id'=>$request->user()->id,
+            'filters'=>$filters,'fingerprint'=>$preview['fingerprint'],'expires'=>now()->addMinutes(10)->timestamp]);
+        unset($preview['fingerprint']);return response()->json($preview+['token'=>$token])->header('Cache-Control','no-store, private');
+    }
+
+    public function acceptAll(Request $request,ScholarshipPaper $paper)
+    {
+        $this->sheets->authorize($request->user(),$paper->subject->exam,'answer-accept-all');
+        $data=$request->validate(['token'=>['required','string','regex:/^[a-f0-9]{32}$/'],'confirmed'=>['required','accepted'],'accept_flagged'=>['required','boolean']]);
+        $preview=$request->session()->get('answer-accept-all.'.$paper->id);
+        abort_unless($preview&&$preview['user_id']===$request->user()->id&&$preview['expires']>now()->timestamp&&hash_equals($preview['token'],$data['token']),422,'The acceptance preview expired. Open Accept All again.');
+        $result=app(\App\Services\ScholarshipScanAcceptance::class)->accept($request->user(),$paper,$preview['filters'],$preview['fingerprint'],$data['accept_flagged']);
+        $request->session()->forget('answer-accept-all.'.$paper->id);
+        return response()->json($result+['message'=>$result['eligible'].' scan(s) accepted and saved as draft scores. '.array_sum($result['skipped']).' scan(s) skipped. Review scores in Scoring before publication.']);
     }
     public function clearScans(Request $request,ScholarshipPaper $paper)
     {

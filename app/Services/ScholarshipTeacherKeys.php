@@ -13,10 +13,10 @@ class ScholarshipTeacherKeys
     private function fail(string $message): never {throw ValidationException::withMessages(['teacher_key'=>$message]);}
     private function writable(ScholarshipExam $exam): void
     {if($exam->isHistorical()||$exam->published_at)$this->fail('Published or historical exams cannot import or issue teacher answer keys.');}
-    private function snapshot(ScholarshipPaper $paper,int $layoutVersion=2): array
+    private function snapshot(ScholarshipPaper $paper,int $layoutVersion=ScholarshipAnswerSheetLayout::VERSION): array
     {
         $paper->load('subject.exam.academicYear');$exam=$paper->subject->exam;
-        return ($layoutVersion===2?['layout_version'=>2]:[])+['kind'=>'teacher-answer-key','exam_id'=>$exam->id,'year'=>$exam->academicYear->academic_year,
+        return ($layoutVersion>=2?['layout_version'=>$layoutVersion]:[])+['kind'=>'teacher-answer-key','exam_id'=>$exam->id,'year'=>$exam->academicYear->academic_year,
             'date'=>$exam->exam_date?->format('F j, Y')??'','grade'=>$paper->grade_number,'subject_id'=>$paper->subject_id,
             'subject'=>$paper->subject->name,'paper_version'=>$paper->paper_version,'question_count'=>$paper->question_count,
             'choices'=>$paper->answer_choices,'points'=>$paper->points_per_question,'max_score'=>$paper->subject->max_score];

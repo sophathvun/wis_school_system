@@ -136,7 +136,7 @@ it('uploads light pencil student answers with scan distortion and saves the scor
     [$exam,$user,$paper,$sheet,$service]=answerSheetFixture($style,100);
     $correct=array_map(fn($i)=>$paper->answer_choices[$i%5],range(0,99));
     $service->saveKey($user,$paper,$correct,$paper->version);$service->approveKey($user,$paper->fresh(),$paper->fresh()->version);$paper=$paper->fresh();
-    $image=imagecreatefromstring(answerSheetPixels($sheet));$rows=app(ScholarshipAnswerSheetLayout::class)->questions(100,$paper->answer_choices,2);
+    $image=imagecreatefromstring(answerSheetPixels($sheet));$rows=app(ScholarshipAnswerSheetLayout::class)->questions(100,$paper->answer_choices,$sheet->snapshot['layout_version']);
     $fill=function($dot,$shade)use($image){imagefilledellipse($image,$dot['x'],$dot['y'],(int)round($dot['radius']*2-1),(int)round($dot['radius']*2-1),imagecolorallocate($image,$shade,$shade,$shade));};
     foreach($rows as $i=>$row){
         if(in_array($i,[7,11],true))continue;
@@ -221,7 +221,7 @@ it('registers answer-sheet actions and hides keys without permission while prote
     foreach(['answer-paper','answer-key','answer-key-approve'] as $action)expect(ScholarshipPermissions::allows($campus,$action))->toBeTrue();
     foreach(['answer-verify','answer-replace','answer-delete'] as $action)expect(ScholarshipPermissions::allows($campus,$action))->toBeFalse();
     $campus=answerSheetUser(false,array_diff(array_keys(ScholarshipPermissions::catalog()),['answer-paper','answer-key','answer-key-approve']));
-    expect(ScholarshipPermissions::tabGroups()['answer-sheets']['actions'])->toHaveCount(14);
+    expect(ScholarshipPermissions::tabGroups()['answer-sheets']['actions'])->toHaveCount(15);
     expect(DB::table('access_permissions')->where('code','western-scholarship.answer-scan')->exists())->toBeTrue();
     $scan=answerSheetUpload($user,$exam,$paper,$sheet);
     expect(fn()=>app(ScholarshipAnswerSheetController::class)->details(answerRequest($campus),$scan))->toThrow(HttpException::class);
@@ -534,20 +534,21 @@ it('keeps legacy uniform keys and previously issued sheets valid after the score
     expect($scan->fresh()->score)->toBe(10.0);
 });
 
-it('keeps old printed layouts readable while issuing the new sample layout',function(){
-    [$exam,$user,$paper,$sheet,$service]=answerSheetFixture();
-    $snapshot=$service->snapshot($paper,$sheet->candidate,1);
+it('keeps old printed layouts readable while issuing evenly spaced sheets',function($legacyVersion){
+    [$exam,$user,$paper,$sheet,$service]=answerSheetFixture('letters',50);
+    $snapshot=$service->snapshot($paper,$sheet->candidate,$legacyVersion);
     $sheet->update(['snapshot'=>$snapshot,'fingerprint'=>hash('sha256',json_encode($snapshot))]);
     expect($service->current($sheet->fresh()))->toBeTrue();
     $oldSvg=app(ScholarshipAnswerSheetLayout::class)->svg($sheet->fresh());
-    expect($oldSvg)->toContain('WIS SCHOLARSHIP — ANSWER SHEET')->not->toContain('SCHOLARSHIP EXAMINATION');
+    expect($oldSvg)->toContain($legacyVersion===1?'WIS SCHOLARSHIP — ANSWER SHEET':'SCHOLARSHIP EXAMINATION');
     $next=$service->issue($user,$paper,[$sheet->candidate_id])->first();
-    expect($next->token)->not->toBe($sheet->token)->and($next->snapshot['layout_version'])->toBe(2)
+    expect($next->token)->not->toBe($sheet->token)->and($next->snapshot['layout_version'])->toBe(ScholarshipAnswerSheetLayout::VERSION)
         ->and($service->current($sheet->fresh()))->toBeTrue()->and($service->current($next))->toBeTrue();
-    $old=answerSheetUpload($user,$exam,$paper,$sheet->fresh(),[1=>['A']]);
-    $new=answerSheetUpload($user,$exam,$paper,$next,[1=>['B']]);
-    expect($old->detected[0])->toBe('A')->and($new->detected[0])->toBe('B');
-});
+    $old=answerSheetUpload($user,$exam,$paper,$sheet->fresh(),[1=>['A'],8=>['B'],9=>['C'],50=>['D']]);
+    $new=answerSheetUpload($user,$exam,$paper,$next,[1=>['B'],8=>['C'],9=>['D'],50=>['E']]);
+    expect([$old->detected[0],$old->detected[7],$old->detected[8],$old->detected[49]])->toBe(['A','B','C','D'])
+        ->and([$new->detected[0],$new->detected[7],$new->detected[8],$new->detected[49]])->toBe(['B','C','D','E']);
+})->with([1,2]);
 
 it('arranges 40 questions in the sample groups 1 to 16 17 to 32 and 33 to 40',function(){
     $rows=app(ScholarshipAnswerSheetLayout::class)->questions(40,['A','B','C','D','E'],2);
@@ -555,6 +556,17 @@ it('arranges 40 questions in the sample groups 1 to 16 17 to 32 and 33 to 40',fu
         ->and($rows[16]['x'])->toBeGreaterThan($rows[0]['x'])->and($rows[32]['x'])->toBeGreaterThan($rows[16]['x'])
         ->and($rows[8]['y']-$rows[7]['y'])->toBeGreaterThan($rows[7]['y']-$rows[6]['y']);
 });
+
+it('prints new answer sheets with even row spacing across the former middle gap',function($count,$choices){
+    $rows=app(ScholarshipAnswerSheetLayout::class)->questions($count,array_slice(range('A','Z'),0,$choices),ScholarshipAnswerSheetLayout::VERSION);
+    $previous=null;$step=null;
+    foreach($rows as $row){
+        if($previous&&$previous['x']===$row['x']){
+            $distance=round($row['y']-$previous['y'],6);$step??=$distance;expect($distance)->toBe($step);
+        }
+        $previous=$row;
+    }
+})->with([[40,5],[50,5],[100,5],[100,6],[100,26]]);
 
 function unusedAnswerPaper($exam,$user,$original,$service): ScholarshipPaper
 {

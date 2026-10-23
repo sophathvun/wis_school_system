@@ -141,6 +141,8 @@ requires the existing Scoring permission and a matching Score Entry committee du
    shaded instructions, student name/grade/room/seat, and choices inside circles
    under an Answer heading. The usual 40-question A–E sheet uses three grouped
    columns (1–16, 17–32, 33–40). Other question/choice counts fit on one A4 page.
+   New student and teacher prints use even row spacing throughout each column,
+   including rows 8 and 9. Earlier sheets retain their saved scanning geometry.
    QR and sheet-identification blocks are retained for matching scanned scores.
    Layout version is saved on each issued sheet. Previously printed layouts stay
    readable; new print batches issue the new format without rewriting old sheet
@@ -181,6 +183,22 @@ requires the existing Scoring permission and a matching Score Entry committee du
    absence. Corrections require a reason. Confirm the verification checkbox, then
    **Verify & Save Draft Score**. The server calculates the score against the
    approved key's question scores; a client-supplied total score is never used.
+   **Accept All** in the Scan History header accepts pending scans for the selected
+   paper, exam center and room across all pages. Its preview shows eligible,
+   flagged and skipped counts. Flagged scans require a separate confirmation;
+   blank, unclear and multiple responses remain unanswered and receive zero points.
+   Existing scores (including zero), absences, reviewed scores, outdated scans,
+   duplicate pending attempts for one student and missing score-entry duties are
+   skipped. Staff can review those scans individually. Changed data invalidates
+   the preview; published/historical exams remain protected. Each acceptance is
+   audited and still needs the existing Scoring review before publication.
+   Grant **Accept All pending scans, including flagged answers (Central only;
+   requires Verify scans)** under **Students > WIS Scholarship > Answer Sheets**.
+   Migration `2026_10_23_000006_add_answer_sheet_accept_all_permission.php` registers
+   this separate permission without granting it automatically.
+   Scan History uses Student Enrollment pagination: 10 rows by default, choices
+   10/25/50/100, page navigation and Go to page. Paging preserves filters and the
+   current upload workspace without reloading the page.
 7. Continue the existing Scoring review, award selection and publication workflow.
    A changed score clears review and affected grade awards. Other subjects' saved
    scores and provenance are preserved.
@@ -300,6 +318,8 @@ detection. `tests/browser/scholarship-answer-sheets.mjs` exercises the real Blad
 on desktop and mobile using an isolated SQLite fixture, rasterizes the actual SVG
 print layout, marks its circles, aligns a simulated photo, uploads it and saves a
 verified score. It never uses production students or sessions.
+Set `SCHOLARSHIP_LAYOUT_ONLY=1` to check actual printed bubbles in both the older
+and evenly spaced layouts, plus the real light-pencil teacher scans.
 
 `tests/Feature/ScholarshipReseatingTest.php` covers the whole-exam reset, permission
 and publication restrictions, expired/stale confirmations, rollback and shared-image
