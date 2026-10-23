@@ -150,6 +150,11 @@ requires the existing Scoring permission and a matching Score Entry committee du
    uploaded scans remain saved. Unuploaded photos are kept only on the current
    page. The queue summary reports uploaded, needs-attention, failed and ready
    counts. Single-photo uploads and camera capture are also available.
+   If the upload box is greyed out, a yellow **Uploads are currently unavailable**
+   message identifies the selected year/grade/subject/paper and every blocking
+   condition: an unconfirmed Seat Plan, an unapproved key, published results or
+   a historical exam. Confirm seats and approve the selected paper's key, or ask
+   an authorized staff member to reopen published results as appropriate.
    Auto Align looks for corner squares. If it fails, choose
    **Set Corners**, then tap their centers clockwise: top left, top right, bottom
    right, bottom left. Check the aligned preview before uploading.

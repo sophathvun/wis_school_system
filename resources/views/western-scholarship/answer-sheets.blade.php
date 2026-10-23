@@ -64,9 +64,16 @@
         @if($exam&&$paper&&$permissions['answer-scan'])
         <section class="card mb-3"><div class="card-header scholarship-card-header"><h3 class="card-title"><i class="ti ti-camera me-2"></i>Scan &amp; Upload</h3></div><div class="card-body">
             <p>Add up to 25 sheet photos for the selected grade, subject and paper. Sheets upload one at a time and require staff verification before scores are saved.</p>
-            @php($scanDisabled=!$exam->seats_locked_at||!$paper->latestKey||$exam->published_at||$exam->isHistorical())
+            @php($scanDisabled=count($scanBlockers)>0)
+            @if($scanDisabled)
+            <div class="alert alert-warning d-block" id="answerScanUnavailable" role="status" data-answer-scan-unavailable>
+                <div class="fw-semibold mb-1"><i class="ti ti-alert-triangle me-1" aria-hidden="true"></i>Uploads are currently unavailable</div>
+                <div class="small mb-2">Academic Year: {{ $exam->academicYear->academic_year }} &middot; Grade {{ $paper->grade_number }} &middot; {{ $paper->subject->name }} &middot; Paper {{ $paper->paper_version }}</div>
+                <ul class="mb-0 ps-3">@foreach($scanBlockers as $reason=>$message)<li data-answer-scan-blocker="{{ $reason }}">{{ $message }}</li>@endforeach</ul>
+            </div>
+            @endif
             <div class="form-label" id="answerScanLabel">Upload Sheet Photos</div>
-            <div class="answer-sheet-dropzone mb-3" data-answer-dropzone role="button" tabindex="{{ $scanDisabled?-1:0 }}" aria-disabled="{{ $scanDisabled?'true':'false' }}" aria-labelledby="answerScanLabel" aria-describedby="answerScanHint answerScanStatus answerScanError">
+            <div class="answer-sheet-dropzone mb-3" data-answer-dropzone role="button" tabindex="{{ $scanDisabled?-1:0 }}" aria-disabled="{{ $scanDisabled?'true':'false' }}" aria-labelledby="answerScanLabel" aria-describedby="answerScanHint answerScanStatus answerScanError{{ $scanDisabled?' answerScanUnavailable':'' }}" @if($scanDisabled)title="{{ implode(' ',$scanBlockers) }}"@endif>
                 <span class="document-upload-icon"><i class="ti ti-cloud-upload" aria-hidden="true"></i></span>
                 <div class="fw-bold fs-3">Drop Photos Here</div>
                 <div class="mt-1">or <span class="document-browse-link">Browse Files</span></div>

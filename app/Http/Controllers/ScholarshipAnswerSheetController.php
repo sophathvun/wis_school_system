@@ -31,6 +31,13 @@ class ScholarshipAnswerSheetController
             ->orderBy('grade_number')->orderBy('subject_id')->orderBy('paper_version')->get():collect();
         $paper=isset($input['paper_id'])?$papers->firstWhere('id',(int)$input['paper_id']):$papers->first();
         if(isset($input['paper_id']))abort_unless($paper,404);
+        $scanBlockers=[];
+        if($exam&&$paper){
+            if($exam->isHistorical())$scanBlockers['historical']='This exam was imported as historical data and cannot accept answer sheet uploads.';
+            if($exam->published_at)$scanBlockers['published']='Results are published. An authorized staff member must reopen the results before answer sheets can be uploaded.';
+            if(!$exam->seats_locked_at)$scanBlockers['seats']='The Seat Plan is not confirmed. Confirm the Seat Plan before uploading student answer sheets.';
+            if(!$paper->latestKey)$scanBlockers['key']='The answer key for this selected grade, subject and paper is not approved. Save and approve its Answer Key before uploading student sheets.';
+        }
         $candidates=$exam?$this->workflow->candidates($request->user(),$exam)->when($paper,fn($q)=>$q->where('grade_number',$paper->grade_number))
             ->orderBy('exam_center_id')->orderBy('room_number')->orderBy('room_seat')->get():collect();
         $centers=$candidates->map(fn($c)=>['id'=>$c->exam_center_id??0,'name'=>$c->exam_center_name?:'Main Exam Center'])->unique('id')->values();
@@ -47,7 +54,7 @@ class ScholarshipAnswerSheetController
             'approved'=>($permissions['answer-key']||$permissions['answer-key-approve'])?$p->latestKey?->answers:null,'revision'=>$p->latestKey?->revision]);
         $data=['papers'=>$paperData,'exam_id'=>$exam?->id,'locked'=>!$exam||$exam->published_at||$exam->isHistorical(),'permissions'=>$permissions,'candidates'=>$candidates->map(fn($c)=>['id'=>$c->id,'center'=>$c->exam_center_name?:'Main Exam Center','center_id'=>$c->exam_center_id??0,'room'=>$c->room_number,'seat'=>$c->room_seat,'name'=>$c->snapshot['name_en']??$c->candidate_code])->values(),
             'base'=>url('/students/western-scholarship/answer-sheets')];
-        return view('western-scholarship.answer-sheets',compact('tabs','years','year','exam','papers','paper','permissions','centers','rooms','input','scans','data')+['tab'=>'answer-sheets']);
+        return view('western-scholarship.answer-sheets',compact('tabs','years','year','exam','papers','paper','permissions','centers','rooms','input','scans','data','scanBlockers')+['tab'=>'answer-sheets']);
     }
     public function paper(Request $request,ScholarshipExam $exam)
     { $paper=$this->sheets->savePaper($request->user(),$exam,$request->all());return response()->json(['id'=>$paper->id]); }

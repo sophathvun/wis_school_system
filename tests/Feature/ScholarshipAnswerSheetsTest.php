@@ -20,6 +20,26 @@ function answerRequest($user,array $data=[]): Request
     $request->setUserResolver(fn()=>$user);$request->setLaravelSession(app('session')->driver());app()->instance('request',$request);return $request;
 }
 
+it('explains every condition that disables the student scanner without blocking a ready paper',function($condition,$expected){
+    [$exam,$user,$paper,$sheet,$service]=answerSheetFixture();
+    if(in_array($condition,['seats','all'],true))$exam->update(['seats_locked_at'=>null]);
+    if(in_array($condition,['published','all'],true))$exam->update(['published_at'=>now()]);
+    if(in_array($condition,['historical','all'],true))$exam->update(['historical_imported_at'=>now()]);
+    if(in_array($condition,['key','all'],true))$paper->keys()->delete();
+    $view=app(ScholarshipAnswerSheetController::class)->index(answerRequest($user,['paper_id'=>$paper->id]),ScholarshipController::TABS)->getData();
+    expect(array_keys($view['scanBlockers']))->toBe($expected);
+    $template=preg_replace('/^@extends.*$|^@section.*$|^@endsection.*$|^@vite.*$/m','',file_get_contents(resource_path('views/western-scholarship/answer-sheets.blade.php')));
+    $html=Blade::render($template,$view);$dom=new DOMDocument();@$dom->loadHTML($html);$xpath=new DOMXPath($dom);
+    expect($xpath->query('//*[@id="answerScanFile"][@disabled]')->length)->toBe($expected?1:0)
+        ->and($xpath->query('//*[@data-answer-camera][@disabled]')->length)->toBe($expected?1:0)
+        ->and($xpath->query('//*[@data-answer-scan-blocker]')->length)->toBe(count($expected));
+    foreach($view['scanBlockers'] as $message)expect($html)->toContain(e($message));
+    if(!$expected)expect($html)->not->toContain('Uploads are currently unavailable');
+})->with([
+    ['ready',[]],['seats',['seats']],['key',['key']],['published',['published']],['historical',['historical']],
+    ['all',['historical','published','seats','key']],
+]);
+
 it('returns identified student and pending verification status for each queued upload without exposing scores or keys',function(){
     [$exam,$user,$paper,$sheet]=answerSheetFixture();
     $request=answerRequest($user,['paper_id'=>$paper->id]);
