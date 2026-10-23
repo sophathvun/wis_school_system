@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\User;
 use App\Models\SchoolInfo;
+use Illuminate\Support\Facades\DB;
 
 class ScholarshipPermissions
 {
@@ -65,6 +66,19 @@ class ScholarshipPermissions
             'export-committee'=>'Download invigilators and room assignments',
             'export-data'=>'Export scholarship records and scores (Central only)',
         ];
+    }
+
+    /** Register missing catalog rows without changing any role, department or user grants. */
+    public static function registerMissing(): void
+    {
+        $catalog=self::catalog();
+        $existing=DB::table('access_permissions')->whereIn('code',array_map(fn($action)=>'western-scholarship.'.$action,array_keys($catalog)))->pluck('code')->flip();
+        $rows=[];$now=now();
+        foreach($catalog as $action=>$name){
+            $code='western-scholarship.'.$action;
+            if(!$existing->has($code))$rows[]=['code'=>$code,'module'=>'western-scholarship','action'=>$action,'name'=>$name,'created_at'=>$now,'updated_at'=>$now];
+        }
+        if($rows)DB::table('access_permissions')->insertOrIgnore($rows);
     }
 
     /** Main menu > WIS Scholarship submenu > tab > the tab's functions. */

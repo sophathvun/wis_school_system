@@ -30,6 +30,25 @@ it('provides the combined grants for expanded users and the selected user', func
         ->and($data['selectedUserPermissionState']['permissions']->pluck('code'))->toContain('dashboard.customize','dashboard.reset');
 });
 
+it('repairs missing scholarship permission catalog entries when the permission page opens without granting them',function(){
+    $missing=['western-scholarship.answer-marked-view','western-scholarship.answer-clear-scans','western-scholarship.tab-answer-sheets'];
+    DB::table('access_permissions')->whereIn('code',$missing)->delete();
+    $existing=Permission::where('code','western-scholarship.answer-verify')->first();$existing->update(['name'=>'Existing custom permission label']);
+    $grants=[];foreach(['access_role_permissions','access_department_permissions','access_user_permission_overrides'] as $table)$grants[$table]=DB::table($table)->get()->toArray();
+    $controller=app(AccessManagementController::class);$view=$controller->index(Request::create('/settings/access','GET'))->getData();
+    $tab=$view['permissionHierarchy']['students']['modules']['western-scholarship']['tabs']['answer-sheets'];
+    expect($tab['permission']->code)->toBe('western-scholarship.tab-answer-sheets')
+        ->and($tab['actions']->pluck('code'))->toContain('western-scholarship.answer-marked-view','western-scholarship.answer-clear-scans')
+        ->and($existing->fresh()->name)->toBe('Existing custom permission label');
+    $permission=Permission::where('code','western-scholarship.answer-marked-view')->sole();
+    expect($permission->name)->toBe('View marked student answer sheets, correct answers and scores (Central only)');
+    foreach($grants as $table=>$before)expect(DB::table($table)->get()->toArray())->toEqual($before);
+    $html=view('partials.permission-tree',['permissionHierarchy'=>$view['permissionHierarchy'],'permissionPrefix'=>'repair','assignedPermissions'=>collect()])->render();
+    expect($html)->toContain($permission->name,'data-permission-code="western-scholarship.answer-marked-view"');
+    $count=Permission::count();$controller->index(Request::create('/settings/access','GET'));
+    expect(Permission::count())->toBe($count);
+});
+
 it('does not show grants from inactive roles and refreshes after role revocation', function () {
     DB::table('access_roles')->where('id',1)->update(['status'=>0]);
     expect(UserPermissionState::forUser(User::find(1), Permission::all())['permissions']->pluck('code'))->not->toContain('photo-editor.view');

@@ -53,6 +53,16 @@ try{
         assert.equal((await state('dashboard.customize')).on,true,'Clearing extra user grants retains department access');
         assert.equal((await state('dashboard.reset')).on,false);
         await toggle('students.enrollment.update');assert.equal((await state('students.enrollment.update')).on,true,'Additional grants remain editable after Full Access changes');
+        const beforeSearch=await posted();
+        await evaluate(`(()=>{const module=document.querySelector('[data-permission-code="western-scholarship.answer-marked-view"]').closest('[data-permission-module]');module.classList.add('is-collapsed');const s=document.querySelector('[data-permission-module-search]');s.value='marked';s.dispatchEvent(new Event('input'));})()`);
+        assert.equal(await evaluate(`document.querySelector('[data-permission-code="western-scholarship.answer-marked-view"]').closest('[data-permission-module]').classList.contains('is-collapsed')`),false,'Searching reveals matching actions inside collapsed modules');
+        assert.equal(await evaluate(`document.querySelector('[data-permission-code="western-scholarship.answer-marked-view"]').getBoundingClientRect().height>0`),true,'Marked-sheet permission is visible after search');
+        assert.equal(await evaluate(`document.querySelector('[data-permission-code="western-scholarship.answer-verify"]').getBoundingClientRect().height`),0,'Unrelated actions do not bury the matching permission');
+        assert.deepEqual(await posted(),beforeSearch,'Searching does not enable or disable permissions');
+        await writeFile(join(root,`storage/app/testing/marked-permission-search-${width}.png`),Buffer.from((await command('Page.captureScreenshot',{format:'png'})).data,'base64'));
+        await evaluate(`(()=>{const s=document.querySelector('[data-permission-module-search]');s.value='';s.dispatchEvent(new Event('input'));})()`);
+        assert.equal(await evaluate(`document.querySelector('[data-permission-code="western-scholarship.answer-marked-view"]').closest('[data-permission-module]').classList.contains('is-collapsed')`),true,'Clearing search restores the previous collapsed state');
+        assert.equal(await evaluate(`document.querySelector('[data-permission-code="western-scholarship.answer-verify"]').closest('.permission-action').classList.contains('d-none')`),false,'Clearing search restores other actions');
         await evaluate(`document.querySelector('[data-permission-module-search]').value='photo editor';document.querySelector('[data-permission-module-search]').dispatchEvent(new Event('input'));`);
         assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth'),true,'Permission cards fit screen width');
         await writeFile(join(root,`storage/app/testing/user-permission-inheritance-${width}.png`),Buffer.from((await command('Page.captureScreenshot',{format:'png'})).data,'base64'));

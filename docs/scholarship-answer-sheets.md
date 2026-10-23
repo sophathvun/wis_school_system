@@ -226,6 +226,10 @@ Grant **View marked student answer sheets, correct answers and scores (Central
 only)** under **Students > WIS Scholarship > Answer Sheets**. This permission is
 separate from verification and is not automatically granted. Run migration
 `2026_10_23_000002_add_marked_answer_sheet_permission.php` when deploying.
+Opening Roles & Permissions also registers missing WIS Scholarship catalog
+entries, including this action, without granting access or changing existing
+permission labels. Search for **marked** to reveal it even when the WIS
+Scholarship section was collapsed.
 
 ## Clear testing scans
 

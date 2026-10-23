@@ -168,18 +168,37 @@ document.addEventListener("DOMContentLoaded", () => {
     document.querySelectorAll("[data-permission-module-search]").forEach((search) => {
         const form = search.closest("[data-permission-form]");
         if (!form) return;
+        const collapsedBeforeSearch = new Map();
         search.addEventListener("input", () => {
             const term = search.value.toLowerCase().trim();
             form.querySelectorAll("[data-permission-group]").forEach((group) => {
                 const groupMatches = !term || (group.dataset.permissionGroupLabel || "").includes(term);
                 let visibleModules = 0;
                 group.querySelectorAll("[data-permission-module]").forEach((module) => {
+                    const moduleMatches = groupMatches || !term || (module.dataset.permissionModuleLabel || "").includes(term);
                     const matches =
-                        groupMatches ||
-                        !term ||
-                        (module.dataset.permissionModuleLabel || "").includes(term) ||
+                        moduleMatches ||
                         module.textContent.toLowerCase().includes(term);
                     module.classList.toggle("d-none", !matches);
+                    module.querySelectorAll('[data-permission-tab]').forEach(tab => {
+                        const header = tab.firstElementChild;
+                        const tabMatches = moduleMatches || header?.textContent.toLowerCase().includes(term);
+                        let matchingActions = 0;
+                        tab.querySelectorAll('.permission-action').forEach(action => {
+                            if (action === header) return;
+                            const actionMatches = tabMatches || action.textContent.toLowerCase().includes(term);
+                            action.classList.toggle('d-none', !actionMatches);
+                            if (actionMatches) matchingActions++;
+                        });
+                        tab.classList.toggle('d-none', !tabMatches && matchingActions === 0);
+                    });
+                    if (term) {
+                        if (!collapsedBeforeSearch.has(module)) collapsedBeforeSearch.set(module, module.classList.contains("is-collapsed"));
+                        if (matches) module.classList.remove("is-collapsed");
+                    } else if (collapsedBeforeSearch.has(module)) {
+                        module.classList.toggle("is-collapsed", collapsedBeforeSearch.get(module));
+                        collapsedBeforeSearch.delete(module);
+                    }
                     if (matches) visibleModules += 1;
                 });
                 group.closest(".col-md-6")?.classList.toggle("d-none", Boolean(term) && !groupMatches && visibleModules === 0);
