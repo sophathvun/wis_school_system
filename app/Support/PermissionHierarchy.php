@@ -188,6 +188,7 @@ class PermissionHierarchy
         foreach (ScholarshipPermissions::PARENTS as $action=>$parent) {
             if (!$codes->has('western-scholarship.'.$parent)) $codes->forget('western-scholarship.'.$action);
         }
+        if(!$codes->has('western-scholarship.answer-key'))$codes->forget('western-scholarship.answer-key-scan');
 
         if (!$codes->has('hrm-settings.view')) {
             foreach ($codes->keys() as $code) {

@@ -170,3 +170,19 @@ it('returns scoped pagination fragments and preserves all printable records beyo
     $result=app(ScholarshipCertificateController::class)->index($request,ScholarshipController::TABS)->getData(true);
     expect($result['pagination']['total'])->toBe(15)->and($result['pagination']['printable_ids'])->toHaveCount(15);
 });
+
+it('opens certificates from rank navigation without inheriting rank pagination',function($rankSize){
+    certificateFixture();$user=certificateUser(true,['tab-assign-rank']);
+    $template=file_get_contents(resource_path('views/western-scholarship/index.blade.php'));
+    preg_match('/<nav\b[^>]*id="scholarshipTabList"[^>]*>(.*?)<\/nav>/s',$template,$navigation);
+    $html=Blade::render($navigation[1],['tabs'=>ScholarshipController::TABS,'tab'=>'assign-rank',
+        'filters'=>['academic_year_id'=>1,'campus_id'=>1,'per_page'=>$rankSize]]);
+    $document=new DOMDocument();$document->loadHTML($html);
+    $link=(new DOMXPath($document))->query('//a[@data-scholarship-tab-label="Certificates"]')->item(0);
+    parse_str(parse_url($link->getAttribute('href'),PHP_URL_QUERY),$query);
+    $view=app(ScholarshipController::class)->index(certificateRequest($user,$query));
+    expect($view->name())->toBe('western-scholarship.certificates')
+        ->and($query)->toBe(['academic_year_id'=>'1','tab'=>'certificates'])
+        ->and($view->getData()['pageSize'])->toBe(15)
+        ->and($view->getData()['certificateRows']->count())->toBe(15);
+})->with([10,75,25,'all']);

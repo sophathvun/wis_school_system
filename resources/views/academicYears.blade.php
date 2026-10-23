@@ -1,4 +1,4 @@
-﻿@extends('layouts.app')
+@extends('layouts.app')
 @section('title', 'Academic Year')
 @php
     // $categories = \App\Helpers\SelectHelper::categories();

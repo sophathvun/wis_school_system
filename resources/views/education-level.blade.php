@@ -1,4 +1,4 @@
-﻿@extends('layouts.app')
+@extends('layouts.app')
 @section('title', 'Education Levels')
 @section('page-header')
     <div class="container-fluid">

@@ -24,6 +24,7 @@ class ScholarshipController
         'assign-rank' => ['Assign Student Rank', 'ti-list-numbers'],
         'settings' => ['Scholarship Settings', 'ti-settings'],
         'seat-plan' => ['Seat Plan', 'ti-layout-grid'],
+        'answer-sheets' => ['Answer Sheets', 'ti-file-check'],
         'scoring' => ['Scoring', 'ti-pencil-check'],
         'result' => ['Result', 'ti-chart-bar'],
         'scholarship-result' => ['Scholarship Result', 'ti-trophy'],
@@ -157,6 +158,7 @@ class ScholarshipController
         else $tab=array_key_first($tabs);
         if($tab==='scholarship-result')return $this->publishedResultIndex($request,$tabs);
         if($tab==='certificates')return app(ScholarshipCertificateController::class)->index($request,$tabs);
+        if($tab==='answer-sheets')return app(ScholarshipAnswerSheetController::class)->index($request,$tabs);
         $allowedCampuses = $this->campuses($request,$tab==='assign-rank'?'tab-assign-rank':'view');
         $filters = $this->filters($request, $allowedCampuses);
         $exams = ScholarshipExam::with('academicYear')->whereHas('academicYear',fn($q)=>$q->regular())->latest('id')->get()->filter(fn ($exam) => $this->workflow->canView($request->user(), $exam));

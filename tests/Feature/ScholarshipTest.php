@@ -200,7 +200,7 @@ it('blocks viewing when the scholarship or Students permission is denied', funct
 it('loads the scholarship tabs and restores the selected student and saved rank', function () {
     ScholarshipStudentRank::create(['student_enrollment_id'=>1,'rank'=>3,'assigned_by'=>1]);
     $data = app(ScholarshipController::class)->index(scholarshipRequest('GET', ['academic_year_id'=>1,'campus_id'=>1,'enrollment_id'=>1]))->getData();
-    expect($data['tabs'])->toHaveCount(7)->toHaveKeys(['scholarship-result','certificates'])->not->toHaveKeys(['result','data-transfer'])->and($data['tab'])->toBe('assign-rank')->and($data['selected']->id)->toBe(1)->and($data['selectedRank'])->toBe(3)->and($data['canAssign'])->toBeTrue();
+    expect($data['tabs'])->toHaveCount(8)->toHaveKeys(['scholarship-result','certificates','answer-sheets'])->not->toHaveKeys(['result','data-transfer'])->and($data['tab'])->toBe('assign-rank')->and($data['selected']->id)->toBe(1)->and($data['selectedRank'])->toBe(3)->and($data['canAssign'])->toBeTrue();
 });
 
 it('excludes summer periods and rejects forged summer filter and rank requests',function(){

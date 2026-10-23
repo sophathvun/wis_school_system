@@ -70,15 +70,17 @@ Each exam center and room is kept separate, including centers that both have Roo
 
 Print previews and actual PDF downloads use A4 portrait pages and School Logo 1. Candidate and attendance headings use the internal Khmer OS Muol Light font for the national motto. Excel exports use editable styled cells, matching page grids and manual page breaks, with embedded branding; user text remains literal and cannot become a spreadsheet formula. PDF pages are rendered individually with a shared logo to support large exams without exceeding the renderer's HTML size limit. No new production dependency is needed.
 
-## Future answer-sheet scanning
+## Answer sheets and scanning
 
-Only database preparation is included in the current scholarship flow; there are no answer-sheet, answer-key, camera, or automatic-marking controls yet.
-
-`tb_scholarship_paper` reserves a configuration per subject, grade, and paper version. It contains a nullable question count, answer-choice labels, and points per question. A shared Grades 1–6 subject can therefore have different papers for Grade 1 and Grade 2. The academic year is obtained through the subject's exam. No paper configurations are inserted automatically. Existing Settings cannot replace subjects once paper configurations refer to them, protecting those references until the future paper-editing workflow exists.
-
-Scores now record `entry_method` (`manual` for ordinary entry, `historical` for archived CSV imports), nullable `source_paper_id`, and nullable `source_reference` for a future scan-attempt reference. Existing scores remain manual and retain their values. Manual corrections record the previous source in the activity log, then clear the active scan reference and require normal review. These fields are not accepted from the current scoring form.
-
-The next phase will add versioned answer keys, issued sheets with a unique identifier per candidate/paper, printable layouts, scan images and detected responses, confidence/review handling, and phone-camera or file-upload controls. The scanner must validate the candidate's exam, grade, and subject, calculate scores against the correct key on the server, and use the existing review, publication, and award-invalidation safeguards. The future paper editor must validate grade ranges, question counts, choices, and total points against the subject maximum before a paper can be issued. The reserved fields do not implement scanning or guarantee scan accuracy.
+The Answer Sheets tab provides grade/subject paper versions, customizable letter
+or numeric choice counts (2–26), individual question scores, draft/approved answer-key revisions, personalized A4
+sheets, camera/file upload, corner alignment and staff scan verification. Verified
+scores enter the existing draft/review/publication workflow, with private images,
+source tracking, explicit replacement and revised-key rechecks. Apply migration
+`2026_10_22_000001_create_scholarship_answer_sheet_workflow.php` and grant the tab
+and its actions under the WIS Scholarship permissions. See
+[Scholarship answer sheets](scholarship-answer-sheets.md) for setup, operation,
+printing requirements and detection limits.
 
 ## Result reports and signers
 

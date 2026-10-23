@@ -1,4 +1,4 @@
-﻿@extends('layouts.app')
+@extends('layouts.app')
 @section('title', 'Occupations')
 @section('page-header')<div class="container-fluid">
         <div class="row g-2 align-items-center">

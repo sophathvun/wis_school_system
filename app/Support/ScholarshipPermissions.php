@@ -8,10 +8,14 @@ use App\Models\SchoolInfo;
 class ScholarshipPermissions
 {
     public const TABS = [
+        'answer-sheets'=>'tab-answer-sheets',
         'assign-rank'=>'tab-assign-rank', 'seat-plan'=>'tab-seat-plan', 'scoring'=>'tab-scoring',
         'result'=>'tab-result', 'scholarship-result'=>'tab-scholarship-result', 'certificates'=>'tab-certificates', 'exam-committee'=>'tab-exam-committee', 'settings'=>'tab-settings', 'data-transfer'=>'tab-data-transfer',
     ];
     public const PARENTS = [
+        'answer-paper'=>'tab-answer-sheets','answer-key'=>'tab-answer-sheets','answer-key-approve'=>'tab-answer-sheets',
+        'answer-key-print'=>'tab-answer-sheets','answer-key-scan'=>'tab-answer-sheets',
+        'answer-link'=>'tab-answer-sheets','answer-unlink'=>'tab-answer-sheets','answer-print'=>'tab-answer-sheets','answer-scan'=>'tab-answer-sheets','answer-verify'=>'tab-answer-sheets','answer-replace'=>'tab-answer-sheets','answer-delete'=>'tab-answer-sheets',
         'certificate-settings'=>'tab-certificates', 'certificate-template'=>'tab-certificates', 'certificate-assign'=>'tab-certificates', 'certificate-print'=>'tab-certificates', 'certificate-cancel'=>'tab-certificates',
         'assign-rank'=>'tab-assign-rank', 'seat-plan'=>'tab-seat-plan', 'scoring'=>'tab-scoring',
         'review-scores'=>'tab-scoring', 'awards'=>'tab-result', 'publish-results'=>'tab-result',
@@ -24,6 +28,16 @@ class ScholarshipPermissions
     public static function catalog(): array
     {
         return [
+            'tab-answer-sheets'=>'Tab: Answer Sheets', 'answer-paper'=>'Set up shared grade / subject papers',
+            'answer-key'=>'Edit shared draft answer keys', 'answer-key-approve'=>'Approve shared answer key revisions',
+            'answer-key-print'=>'Print blank teacher answer-key sheets',
+            'answer-key-scan'=>'Scan/upload teacher answer keys (requires Edit shared draft answer keys)',
+            'answer-link'=>'Link grade students to answer-sheet papers',
+            'answer-unlink'=>'Unlink students from unscanned answer-sheet papers',
+            'answer-print'=>'Issue and print personalized answer sheets', 'answer-scan'=>'Upload / photograph answer sheets',
+            'answer-verify'=>'Verify scans and save draft scores (Central only; score-entry duties required)',
+            'answer-replace'=>'Replace an existing score or recheck with a revised key (Central only)',
+            'answer-delete'=>'Delete unlinked answer-sheet papers (Central only)',
             'tab-certificates'=>'Tab: Certificates', 'certificate-settings'=>'Set certificate dates, signers and frame / logo (Central only)',
             'certificate-template'=>'Customize certificate text, positions, fonts and colors (Central only)',
             'certificate-assign'=>'Preview and assign school-wide certificate numbers (Central only)',
@@ -55,6 +69,7 @@ class ScholarshipPermissions
     public static function tabGroups(): array
     {
         return [
+            'answer-sheets'=>['label'=>'Answer Sheets','actions'=>['answer-paper','answer-key','answer-key-approve','answer-key-print','answer-key-scan','answer-link','answer-unlink','answer-print','answer-scan','answer-verify','answer-replace','answer-delete']],
             'assign-rank'=>['label'=>'Assign Student Rank','actions'=>['assign-rank','export-ranks']],
             'settings'=>['label'=>'Scholarship Settings','actions'=>['settings']],
             'seat-plan'=>['label'=>'Seat Plan','actions'=>['seat-plan','export-seats']],
@@ -94,7 +109,7 @@ class ScholarshipPermissions
         if(!array_key_exists($action,self::catalog()))return false;
         if ($user->isSuperAdmin()) return true;
         if(($action==='tab-result' || (self::PARENTS[$action]??null)==='tab-result'
-            || in_array($action,['tab-data-transfer','import-history','export-data','certificate-settings','certificate-template','certificate-assign','certificate-cancel'],true)) && !self::isCentral($user))return false;
+            || in_array($action,['tab-data-transfer','import-history','export-data','certificate-settings','certificate-template','certificate-assign','certificate-cancel','answer-verify','answer-replace','answer-delete'],true)) && !self::isCentral($user))return false;
         [$assigned,$central,$all]=self::scope($user);
         if($campusId && !self::campuses($user)->whereKey($campusId)->exists())return false;
         $campusIds = $campusId ? [$campusId] : ($all?self::campuses($user)->pluck('id')->all():$assigned->modelKeys());

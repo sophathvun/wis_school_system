@@ -4,6 +4,7 @@ use App\Http\Controllers\AccessManagementController;
 use App\Models\Permission;
 use App\Models\User;
 use App\Support\UserPermissionState;
+use App\Support\{PermissionHierarchy,ScholarshipPermissions};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -71,4 +72,47 @@ it('includes inherited permissions and their sources in the user permission repo
     $report = (new ReflectionMethod(AccessManagementController::class,'permissionByUserReport'))->invoke(app(AccessManagementController::class));
     $photo = collect($report['rows'])->first(fn ($row) => $row[5]==='photo-editor.view');
     expect($photo)->not->toBeNull()->and($photo[7])->toContain('Role: Registrar Officer');
+});
+
+it('lists and saves every Answer Sheets action through role department and user permission forms',function($source){
+    DB::table('tb_school_info')->insert(['id'=>1,'campus_name_en'=>'BCH','status'=>1]);
+    DB::table('users')->where('id',1)->update(['is_global'=>false,'active_campus_id'=>1]);
+    DB::table('access_user_campuses')->insert(['user_id'=>1,'campus_id'=>1]);
+    DB::table('access_user_roles')->update(['campus_id'=>1]);
+    foreach(['access_role_permissions','access_department_permissions','access_user_permission_overrides'] as $table)DB::table($table)->delete();
+    $actions=ScholarshipPermissions::tabGroups()['answer-sheets']['actions'];
+    $codes=['students.view','western-scholarship.view','western-scholarship.tab-answer-sheets',...array_map(fn($a)=>'western-scholarship.'.$a,$actions)];
+    $ids=array_map(fn($code)=>$this->ids[$code],$codes);
+    [$route,$payload]=match($source){
+        'role'=>['access-management.roles.save',['role_id'=>1,'department_id'=>1]],
+        'department'=>['access-management.departments.permissions.save',['department_id'=>1]],
+        'user'=>['access-management.staff.save',['user_id'=>1,'campuses'=>[1]]],
+    };
+    $this->post(route($route),$payload+['permissions'=>$ids])->assertRedirect();
+    $user=User::find(1);$catalog=Permission::all();$state=UserPermissionState::forUser($user,$catalog);
+    expect($state['permissions']->pluck('code')->intersect($codes))->toHaveCount(count($codes))
+        ->and(ScholarshipPermissions::allows($user,'answer-unlink',1))->toBeTrue();
+    $tree=PermissionHierarchy::tree($catalog);$tab=$tree['students']['modules']['western-scholarship']['tabs']['answer-sheets'];
+    expect($tab['permission']->code)->toBe('western-scholarship.tab-answer-sheets')
+        ->and($tab['actions']->pluck('action')->all())->toBe($actions);
+    $html=view('partials.permission-tree',['permissionHierarchy'=>$tree,'permissionPrefix'=>'test-'.$source,
+        'assignedPermissions'=>$state['permissions'],'userPermissionState'=>$state])->render();
+    $dom=new DOMDocument();@$dom->loadHTML($html);$xpath=new DOMXPath($dom);
+    foreach(['tab-answer-sheets',...$actions] as $action){
+        $toggle=$xpath->query('//*[@data-permission-code="western-scholarship.'.$action.'"][@data-status="1"]');
+        expect($toggle->length)->toBe(1);
+    }
+    if($source!=='user')expect($state['inherited_ids'])->toContain($this->ids['western-scholarship.answer-unlink']);
+    $table=match($source){'role'=>'access_role_permissions','department'=>'access_department_permissions','user'=>'access_user_permission_overrides'};
+    DB::table($table)->where('permission_id',$this->ids['western-scholarship.answer-unlink'])->delete();
+    expect(ScholarshipPermissions::allows(User::find(1),'answer-unlink',1))->toBeFalse();
+})->with(['role','department','user']);
+
+it('requires the Answer Sheets tab to save its action permissions',function(){
+    $actions=ScholarshipPermissions::tabGroups()['answer-sheets']['actions'];
+    $parents=[$this->ids['students.view'],$this->ids['western-scholarship.view']];
+    $ids=array_map(fn($a)=>$this->ids['western-scholarship.'.$a],$actions);
+    expect(PermissionHierarchy::normalizeIds([...$parents,...$ids],Permission::all()))->toBe($parents);
+    $tab=$this->ids['western-scholarship.tab-answer-sheets'];
+    expect(PermissionHierarchy::normalizeIds([...$parents,$tab,...$ids],Permission::all()))->toHaveCount(count($ids)+3);
 });

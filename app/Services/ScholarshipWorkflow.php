@@ -489,6 +489,7 @@ class ScholarshipWorkflow
             if (!$exam->seats_locked_at || $exam->published_at) $this->fail('Only an unpublished exam with confirmed seats can be reviewed.');
             if ($candidate->version!==$version) $this->fail('These scores changed. Refresh before reviewing.');
             if (!$this->calculate($exam,$candidate)['complete']) $this->fail('Complete every subject score, or mark the candidate absent, before reviewing.');
+            ScholarshipAnswerSheets::assertCurrentScanKeys($candidate);
             $candidate->forceFill(['reviewed_by'=>$user->id,'reviewed_at'=>now(),'version'=>$candidate->version+1])->save();
             $this->event($exam,$user,'scores-reviewed',['candidate_id'=>$candidate->id]);
         });
@@ -580,6 +581,7 @@ class ScholarshipWorkflow
             if ($exam->published_at || !$exam->seats_locked_at) $this->fail('Confirm the seat plan before publishing unpublished results.');
             $rows=$this->results($exam);
             if ($rows->isEmpty() || $rows->contains(fn($row)=>!$row['complete'] || !$row['candidate']->reviewed_at)) $this->fail('Every candidate must have complete, reviewed scores or a reviewed absence before publishing.');
+            foreach($rows as $row)ScholarshipAnswerSheets::assertCurrentScanKeys($row['candidate']);
             foreach ($rows->groupBy(fn($row)=>$row['candidate']->grade_number) as $grade=>$gradeRows) {
                 $saved=$exam->awards()->where('grade_number',$grade)->get()->keyBy('slot');
                 if ($saved->count()!==$this->awardSlots($exam,$grade)->count()) $this->fail('Save the scholarship winners for Grade '.$grade.' before publishing.');

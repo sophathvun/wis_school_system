@@ -270,6 +270,25 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         Route::get('/{skipping}', 'show')->name('show');
     });
     Route::prefix('students/western-scholarship')->name('western-scholarship.')->controller(\App\Http\Controllers\ScholarshipController::class)->group(function () {
+        Route::prefix('answer-sheets')->name('answer-sheets.')->controller(\App\Http\Controllers\ScholarshipAnswerSheetController::class)->group(function(){
+            Route::post('/exams/{exam}/papers','paper')->name('paper');
+            Route::post('/papers/{paper}/key','key')->name('key');
+            Route::post('/papers/{paper}/update','update')->name('update');
+            Route::post('/papers/{paper}/delete','delete')->name('delete');
+            Route::post('/papers/{paper}/approve','approve')->name('approve');
+            Route::post('/papers/{paper}/link','link')->name('link');
+            Route::post('/papers/{paper}/unlink','unlink')->name('unlink');
+            Route::post('/papers/{paper}/teacher-key','teacherKeyIssue')->name('teacher-key-issue');
+            Route::post('/papers/{paper}/teacher-key-scan','teacherKeyScan')->name('teacher-key-scan');
+            Route::get('/teacher-key-print/{token}','teacherKeyPrint')->where('token','[a-f0-9]{32}')->name('teacher-key-print');
+            Route::post('/papers/{paper}/issue','issue')->name('issue');
+            Route::get('/print/{token}','print')->where('token','[a-f0-9]{32}')->name('print');
+            Route::post('/exams/{exam}/scans','scan')->name('scan');
+            Route::get('/scans/{scan}','details')->name('details');
+            Route::get('/scans/{scan}/image','image')->name('image');
+            Route::post('/scans/{scan}/verify','verify')->name('verify');
+            Route::post('/scans/{scan}/recheck','recheck')->name('recheck');
+        });
         Route::get('/', 'index')->name('index');
         Route::get('/exams/{exam}/scholarship-results/{format}','publishedResultReport')->where('format','print|xlsx|pdf')->name('published-results.report');
         Route::prefix('certificates')->name('certificates.')->controller(\App\Http\Controllers\ScholarshipCertificateController::class)->group(function(){
