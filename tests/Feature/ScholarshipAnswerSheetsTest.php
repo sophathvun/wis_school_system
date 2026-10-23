@@ -221,7 +221,7 @@ it('registers answer-sheet actions and hides keys without permission while prote
     foreach(['answer-paper','answer-key','answer-key-approve'] as $action)expect(ScholarshipPermissions::allows($campus,$action))->toBeTrue();
     foreach(['answer-verify','answer-replace','answer-delete'] as $action)expect(ScholarshipPermissions::allows($campus,$action))->toBeFalse();
     $campus=answerSheetUser(false,array_diff(array_keys(ScholarshipPermissions::catalog()),['answer-paper','answer-key','answer-key-approve']));
-    expect(ScholarshipPermissions::tabGroups()['answer-sheets']['actions'])->toHaveCount(13);
+    expect(ScholarshipPermissions::tabGroups()['answer-sheets']['actions'])->toHaveCount(14);
     expect(DB::table('access_permissions')->where('code','western-scholarship.answer-scan')->exists())->toBeTrue();
     $scan=answerSheetUpload($user,$exam,$paper,$sheet);
     expect(fn()=>app(ScholarshipAnswerSheetController::class)->details(answerRequest($campus),$scan))->toThrow(HttpException::class);

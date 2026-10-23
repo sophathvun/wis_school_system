@@ -54,7 +54,7 @@ try{
     }elseif(preg_match('~/papers/(\d+)/(clear-scans-preview|clear-scans)$~',$path,$m))$result=$controller->{$m[2]==='clear-scans-preview'?'clearScansPreview':'clearScans'}($request,ScholarshipPaper::findOrFail($m[1]));
     elseif(preg_match('~/papers/(\d+)/(key|approve|issue|link|unlink|update|delete)$~',$path,$m))$result=$controller->{$m[2]}($request,ScholarshipPaper::findOrFail($m[1]));
     elseif(preg_match('~/print/([a-f0-9]{32})$~',$path,$m))$result=$controller->print($request,$m[1]);
-    elseif(preg_match('~/scans/(\d+)(?:/(verify|recheck|image))?$~',$path,$m))$result=$controller->{$m[2]??'details'}($request,App\Models\ScholarshipAnswerScan::findOrFail($m[1]));
+    elseif(preg_match('~/scans/(\d+)(?:/(verify|recheck|image|marked|marked-image))?$~',$path,$m))$result=$controller->{($m[2]??'')==='marked-image'?'markedImage':($m[2]??'details')}($request,App\Models\ScholarshipAnswerScan::findOrFail($m[1]));
     else $result=$controller->index($request,ScholarshipController::TABS);
     if(isset($result)){
         if($result instanceof Illuminate\View\View){$template=file_get_contents($result->getPath());preg_match("/@section\('content'\)(.*)@endsection/s",$template,$match);$content=Blade::render(preg_replace('/^@vite.*$/m','',$match[1]??$template),$result->getData());$type='text/html';}

@@ -324,7 +324,7 @@ try{
             const svg=await(await fetch('/sample.svg')).text(),url=URL.createObjectURL(new Blob([svg],{type:'image/svg+xml'}));
             const im=new Image();im.src=url;await im.decode();const c=document.createElement('canvas');c.width=1000;c.height=1414;const ctx=c.getContext('2d');ctx.drawImage(im,0,0,1000,1414);URL.revokeObjectURL(url);
             const svgDoc=new DOMParser().parseFromString(svg,'image/svg+xml'),dots=[...svgDoc.querySelectorAll('circle')];
-            ctx.fillStyle='rgb(220,220,220)';for(const index of [0,5,10,11]){const dot=dots[index];ctx.beginPath();ctx.arc(Number(dot.getAttribute('cx')),Number(dot.getAttribute('cy')),Number(dot.getAttribute('r'))-.6,0,Math.PI*2);ctx.fill();}
+            ctx.fillStyle='rgb(220,220,220)';for(const index of [0,5,10,11,16]){const dot=dots[index];ctx.beginPath();ctx.arc(Number(dot.getAttribute('cx')),Number(dot.getAttribute('cy')),Number(dot.getAttribute('r'))-.6,0,Math.PI*2);ctx.fill();}
             ctx.fillRect(500,1200,${width===1440?1:2},1);
             const photo=document.createElement('canvas');photo.width=1200;photo.height=1600;photo.getContext('2d').fillStyle='white';photo.getContext('2d').fillRect(0,0,1200,1600);photo.getContext('2d').drawImage(c,80,90);
             const blob=await new Promise(r=>photo.toBlob(r)),d=new DataTransfer();d.items.add(new File([blob],'phone-sheet.png',{type:'image/png'}));
@@ -337,17 +337,37 @@ try{
         await writeFile(join(root,`storage/app/testing/answer-alignment-${width}.png`),Buffer.from((await command('Page.captureScreenshot',{format:'png'})).data,'base64'));
         await click('[data-answer-upload]');await until('document.querySelector(".swal2-icon-success")!==null');await click('.swal2-confirm');
         await until('document.querySelector("[data-answer-filter-card]")?.dataset.resultFiltersReady==="true"&&!document.querySelector(".swal2-popup")');
+        await click('[data-answer-marked]');await until('document.querySelector("#answerMarkedModal.show")!==null');await delay(600);
+        await until('document.querySelector("[data-answer-marked-image]").naturalWidth>0');
+        assert.equal(await evaluate('document.querySelectorAll("[data-answer-marked-rows] tr").length'),100);
+        assert.equal(await evaluate('document.querySelectorAll("[data-answer-marked-rows] tr[data-answer-marked-status=correct]").length'),2);
+        assert.equal(await evaluate('document.querySelectorAll("[data-answer-marked-rows] tr[data-answer-marked-status=incorrect]").length'),1);
+        assert.equal(await evaluate('document.querySelectorAll("[data-answer-marked-rows] tr[data-answer-marked-status=multiple]").length'),1);
+        assert.equal(await evaluate('document.querySelectorAll("[data-answer-marked-overlay] .answer-marked-correct").length'),100);
+        assert.equal(await evaluate('document.querySelector("[data-answer-marked-overlay] .answer-marked-incorrect").dataset.question'),'4');
+        assert.equal(await evaluate('document.querySelector("[data-answer-marked-overlay] .answer-marked-incorrect").dataset.choice'),'2');
+        assert.equal(await evaluate('document.querySelectorAll("[data-answer-marked-overlay] .answer-marked-warning").length'),2);
+        assert.ok(await evaluate('document.querySelector("[data-answer-marked-note]").textContent.includes("awaiting verification")'));
+        await click('[data-answer-marked-zoom="0.25"]');assert.equal(await evaluate('document.querySelector("[data-answer-marked-stage]").style.width'),'125%');
+        assert.ok(await evaluate('Math.abs(document.querySelector("[data-answer-marked-overlay]").getBoundingClientRect().width-document.querySelector("[data-answer-marked-image]").getBoundingClientRect().width)<1'));
+        await click('[data-answer-marked-zoom="reset"]');await click('[data-answer-marked-toggle]');assert.equal(await evaluate('document.querySelector("[data-answer-marked-overlay]").hidden'),true);await click('[data-answer-marked-toggle]');
+        await writeFile(join(root,`storage/app/testing/answer-marked-${width}.png`),Buffer.from((await command('Page.captureScreenshot',{format:'png'})).data,'base64'));
+        await click('#answerMarkedModal [data-bs-dismiss]');await until('getComputedStyle(document.querySelector("#answerMarkedModal")).display==="none"');
         await click('[data-answer-review]');await until('document.querySelector("#answerReviewModal.show")!==null');
         assert.equal(await evaluate('document.querySelector("[data-answer-response-grid] select").value'),'1');
         assert.equal(await evaluate('document.querySelectorAll("[data-answer-response-grid] select")[1].value'),'1','Light grey student bubbles reach the review form');
         assert.equal(await evaluate('document.querySelectorAll("[data-answer-response-grid] select")[2].value'),'','Multiple marks remain blank');
-        assert.equal(await evaluate('document.querySelectorAll("[data-answer-response-grid] .answer-flagged").length'),98);
+        assert.equal(await evaluate('document.querySelectorAll("[data-answer-response-grid] .answer-flagged").length'),97);
         await writeFile(join(root,`storage/app/testing/answer-review-${width}.png`),Buffer.from((await command('Page.captureScreenshot',{format:'png'})).data,'base64'));
         if(width===1440){
             await evaluate(`document.querySelector('[data-answer-review-form] input[name=confirmed]').checked=true;`);
             await click('[data-answer-verify]');await until('document.querySelector(".swal2-icon-success")!==null');await click('.swal2-confirm');
             await until('document.querySelector("[data-answer-filter-card]")?.dataset.resultFiltersReady==="true"&&!document.querySelector(".swal2-popup")');
             const state=JSON.parse(Buffer.from(fixture('/state').content,'base64').toString());assert.equal(state.scans[0].score,2);assert.equal(state.scans[0].status,'accepted');
+            await click('[data-answer-marked]');await until('document.querySelector("#answerMarkedModal.show")!==null');await delay(600);
+            assert.ok(await evaluate('document.querySelector("[data-answer-marked-note]").textContent.includes("Verified responses")'));
+            assert.ok(await evaluate('document.querySelector("[data-answer-marked-summary]").textContent.includes("Score: 2 / 100")'));
+            await click('#answerMarkedModal [data-bs-dismiss]');await until('getComputedStyle(document.querySelector("#answerMarkedModal")).display==="none"');
             await click('[data-answer-clear-scans]');await until('document.querySelector(".swal2-title")?.textContent==="Clear Test Scans?"');
             assert.ok(await evaluate('document.querySelector(".swal2-html-container").textContent.includes("1 accepted")'));
             assert.ok(await evaluate('document.querySelector(".swal2-html-container").textContent.includes("Paper A")'));

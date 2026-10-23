@@ -210,6 +210,23 @@ erasure. Test physical sheets from the intended printer and phone/scanner before
 exam use. All uploads require human verification; faint erasures, shadows, blur
 and unusual paper scaling can still need manual correction.
 
+## View marked student sheets
+
+In **Scan History**, choose **View Marked Sheet** to see the aligned scan with
+green borders on correct answers, red borders on incorrect student selections,
+and orange dashed borders on ambiguous marks. A comparison table lists every
+question, student answer, correct answer, result and individual points. Zoom and
+the Show borders switch help inspect the scan. Verified staff corrections are
+identified in the table; the stored image is unchanged.
+
+The view always uses the approved key revision attached to that attempt, even
+after a newer key is approved. Pending scans show provisional results; viewing
+never saves a score. Published scans remain available for read-only viewing.
+Grant **View marked student answer sheets, correct answers and scores (Central
+only)** under **Students > WIS Scholarship > Answer Sheets**. This permission is
+separate from verification and is not automatically granted. Run migration
+`2026_10_23_000002_add_marked_answer_sheet_permission.php` when deploying.
+
 ## Clear testing scans
 
 Enable **Students > WIS Scholarship > Answer Sheets > Clear Test Scans and

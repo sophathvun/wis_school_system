@@ -287,6 +287,8 @@ Route::middleware(['auth', 'active.user'])->group(function () {
             Route::get('/print/{token}','print')->where('token','[a-f0-9]{32}')->name('print');
             Route::post('/exams/{exam}/scans','scan')->name('scan');
             Route::get('/scans/{scan}','details')->name('details');
+            Route::get('/scans/{scan}/marked','marked')->name('marked');
+            Route::get('/scans/{scan}/marked-image','markedImage')->name('marked-image');
             Route::get('/scans/{scan}/image','image')->name('image');
             Route::post('/scans/{scan}/verify','verify')->name('verify');
             Route::post('/scans/{scan}/recheck','recheck')->name('recheck');

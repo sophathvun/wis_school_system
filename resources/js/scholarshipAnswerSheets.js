@@ -4,6 +4,7 @@ import { initScholarshipFilterCard } from './scholarshipFilterCard.js';
 import { initStudentAnswerUploads } from './scholarshipAnswerUpload.js';
 import { initTeacherKeys } from './scholarshipTeacherKeys.js';
 import { initAnswerSheetListFullscreen } from './helpers/answerSheetListFullscreen.js';
+import { initMarkedAnswers } from './scholarshipMarkedAnswers.js';
 
 const root=document.querySelector('[data-answer-sheets]');
 if(root){
@@ -19,6 +20,7 @@ if(root){
     const success=async text=>Swal.fire({icon:'success',title:'Saved',text});
     const reload=paper=>{const url=new URL(location.href);if(paper){url.searchParams.set('paper_id',paper);url.searchParams.delete('center');url.searchParams.delete('room');}url.searchParams.delete('scan_page');location.assign(url);};
     const modal=id=>Modal.getOrCreateInstance(get(id));
+    initMarkedAnswers({root,get,api,run});
     get('[data-answer-clear-scans]')?.addEventListener('click',()=>run(async()=>{
         const paper=selected();if(!paper)return;
         const query=new URLSearchParams();for(const name of ['center','room']){const value=new URL(location.href).searchParams.get(name);if(value!==null&&value!=='')query.set(name,value);}

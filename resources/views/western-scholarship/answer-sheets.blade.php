@@ -114,7 +114,7 @@
             @if($permissions['answer-clear-scans']&&$paper)<div class="card-actions ms-auto"><button type="button" class="btn btn-sm btn-outline-light" data-answer-clear-scans @disabled($data['locked']) title="Clear test scans for the selected paper, exam center and room"><i class="ti ti-trash me-1"></i>Clear Test Scans</button></div>@endif
         </div>
             <div class="table-responsive"><table class="table table-vcenter"><thead><tr><th>No.</th><th>Student</th><th>Paper / Key</th><th>Status</th><th>Flagged</th><th>Actions</th></tr></thead><tbody>
-                @forelse($scans as $scan)<tr><td>{{ $scan->id }}</td><td>{{ $scan->sheet->candidate->snapshot['name_en']??'' }}<div class="small text-secondary">{{ $scan->sheet->candidate->candidate_code }} · Room {{ $scan->sheet->candidate->room_number }} · Seat {{ $scan->sheet->candidate->room_seat }}</div></td><td>{{ $scan->sheet->paper->subject->name }} · {{ $scan->sheet->paper->paper_version }}<div class="small">Key revision {{ $scan->key->revision }}</div></td><td><span class="badge {{ $scan->status==='accepted'?'bg-green-lt':'bg-yellow-lt' }}">{{ ucfirst($scan->status) }}</span>@if($permissions['answer-verify']&&$scan->status==='accepted')<div>{{ $scan->score }} / {{ $scan->sheet->snapshot['max_score'] }}</div>@endif</td><td>{{ count($scan->flags) }}</td><td>@if($permissions['answer-verify'])<button class="btn btn-sm btn-outline-primary" type="button" data-answer-review="{{ $scan->id }}"><i class="ti ti-checklist me-1"></i>Review</button>@else<span class="text-secondary">Awaiting Central verification</span>@endif</td></tr>
+                @forelse($scans as $scan)<tr><td>{{ $scan->id }}</td><td>{{ $scan->sheet->candidate->snapshot['name_en']??'' }}<div class="small text-secondary">{{ $scan->sheet->candidate->candidate_code }} · Room {{ $scan->sheet->candidate->room_number }} · Seat {{ $scan->sheet->candidate->room_seat }}</div></td><td>{{ $scan->sheet->paper->subject->name }} · {{ $scan->sheet->paper->paper_version }}<div class="small">Key revision {{ $scan->key->revision }}</div></td><td><span class="badge {{ $scan->status==='accepted'?'bg-green-lt':'bg-yellow-lt' }}">{{ ucfirst($scan->status) }}</span>@if($permissions['answer-verify']&&$scan->status==='accepted')<div>{{ $scan->score }} / {{ $scan->sheet->snapshot['max_score'] }}</div>@endif</td><td>{{ count($scan->flags) }}</td><td><div class="d-flex flex-wrap gap-2">@if($permissions['answer-marked-view'])<button class="btn btn-sm btn-outline-success" type="button" data-answer-marked="{{ $scan->id }}"><i class="ti ti-eye-check me-1"></i>View Marked Sheet</button>@endif @if($permissions['answer-verify'])<button class="btn btn-sm btn-outline-primary" type="button" data-answer-review="{{ $scan->id }}"><i class="ti ti-checklist me-1"></i>Review</button>@elseif(!$permissions['answer-marked-view'])<span class="text-secondary">Awaiting Central verification</span>@endif</div></td></tr>
                 @empty<tr><td colspan="6" class="text-center text-secondary py-4">No scans for these filters.</td></tr>@endforelse
             </tbody></table></div><div class="card-footer">{{ $scans->links() }}</div>
         </section>
@@ -197,5 +197,29 @@
     <label class="form-check mt-3"><input class="form-check-input" name="replace" type="checkbox"><span class="form-check-label">Replace the existing subject score (requires replacement permission).</span></label>
     <label class="form-label mt-3">Reason for corrections, replacement or recheck</label><textarea class="form-control" name="reason" maxlength="1000" rows="2"></textarea>
 </div><div class="modal-footer">@if($permissions['answer-replace'])<button class="btn btn-outline-secondary" type="button" data-answer-recheck>Recheck with Current Key</button>@endif<button class="btn btn-primary" type="submit" data-answer-verify>Verify &amp; Save Draft Score</button></div></form></div></div>
+@if($exam&&$permissions['answer-marked-view'])
+<div class="modal fade" id="answerMarkedModal" tabindex="-1" aria-labelledby="answerMarkedTitle"><div class="modal-dialog modal-dialog-centered modal-dialog-scrollable"><div class="modal-content">
+    <div class="modal-header"><h3 id="answerMarkedTitle" class="modal-title"><i class="ti ti-eye-check me-2"></i>Marked Answer Sheet</h3><button class="btn-close" data-bs-dismiss="modal" type="button" aria-label="Close"></button></div>
+    <div class="modal-body">
+        <p class="fw-bold mb-1" data-answer-marked-heading></p><p class="small text-secondary" data-answer-marked-note></p>
+        <p class="alert alert-info py-2" data-answer-marked-summary></p>
+        <div class="answer-marked-grid">
+            <section aria-label="Marked scan image">
+                <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                    <button class="btn btn-sm btn-outline-secondary" type="button" data-answer-marked-zoom="-0.25" aria-label="Zoom out marked sheet"><i class="ti ti-zoom-out"></i></button>
+                    <span class="small" data-answer-marked-zoom-label>100%</span>
+                    <button class="btn btn-sm btn-outline-secondary" type="button" data-answer-marked-zoom="0.25" aria-label="Zoom in marked sheet"><i class="ti ti-zoom-in"></i></button>
+                    <button class="btn btn-sm btn-outline-secondary" type="button" data-answer-marked-zoom="reset">Fit</button>
+                    <label class="form-check m-0 ms-sm-auto"><input class="form-check-input" type="checkbox" data-answer-marked-toggle checked><span class="form-check-label">Show borders</span></label>
+                </div>
+                <div class="answer-marked-legend small mb-2"><span><i class="answer-marked-dot answer-marked-correct"></i>Green: correct answer</span><span><i class="answer-marked-dot answer-marked-incorrect"></i>Red: wrong selection</span><span><i class="answer-marked-dot answer-marked-warning"></i>Orange: ambiguous mark</span></div>
+                <p class="alert alert-warning" data-answer-marked-image-error hidden>The scan image could not be loaded. The answer comparison is still shown.</p>
+                <div class="answer-marked-viewport" data-answer-marked-viewport><div class="answer-marked-stage" data-answer-marked-stage><img data-answer-marked-image alt="Student answer sheet with correct and incorrect answer borders"><svg class="answer-marked-overlay" data-answer-marked-overlay preserveAspectRatio="none" role="img" aria-label="Green correct-answer borders, red incorrect-response borders and orange ambiguous marks"></svg></div></div>
+            </section>
+            <section aria-label="Answer comparison"><h4 class="mb-2">Answer Comparison</h4><div class="answer-marked-table table-responsive"><table class="table table-vcenter table-sm"><thead><tr><th>Question</th><th>Student Answer</th><th>Correct Answer</th><th>Result</th><th>Points</th></tr></thead><tbody data-answer-marked-rows></tbody></table></div></section>
+        </div>
+    </div><div class="modal-footer"><button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Close</button></div>
+</div></div></div>
+@endif
 @vite(['resources/css/pages/western-scholarship.css','resources/css/pages/scholarship-answer-sheets.css','resources/js/westernScholarship.js','resources/js/scholarshipAnswerSheets.js'])
 @endsection

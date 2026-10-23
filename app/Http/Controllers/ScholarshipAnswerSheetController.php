@@ -3,7 +3,7 @@ namespace App\Http\Controllers;
 
 use App\Models\{AcademicYear,ScholarshipExam,ScholarshipPaper,ScholarshipAnswerSheet,ScholarshipAnswerScan,ScholarshipTeacherKeySheet};
 use App\Services\{ScholarshipAnswerSheets,ScholarshipWorkflow,ScholarshipTeacherKeys,ScholarshipTestScans};
-use App\Support\{ScholarshipPermissions,ScholarshipAnswerSheetLayout,ScholarshipExport};
+use App\Support\{ScholarshipPermissions,ScholarshipAnswerSheetLayout,ScholarshipExport,ScholarshipMarkedAnswers};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{DB,Storage};
 use Illuminate\Validation\Rule;
@@ -22,7 +22,7 @@ class ScholarshipAnswerSheetController
         $year=$input['academic_year_id']??($years->firstWhere('lifecycle_status','started')?->id??$years->first()?->id);
         $exam=isset($input['exam_id'])?$exams->firstWhere('id',(int)$input['exam_id']):$exams->firstWhere('academic_year_id',(int)$year);
         if(isset($input['exam_id']))abort_unless($exam&&(!isset($input['academic_year_id'])||$exam->academic_year_id===(int)$year),404);
-        $permissions=collect(['answer-paper','answer-key','answer-key-approve','answer-key-print','answer-key-scan','answer-link','answer-unlink','answer-print','answer-scan','answer-verify','answer-replace','answer-delete','answer-clear-scans'])
+        $permissions=collect(['answer-paper','answer-key','answer-key-approve','answer-key-print','answer-key-scan','answer-link','answer-unlink','answer-print','answer-scan','answer-verify','answer-marked-view','answer-replace','answer-delete','answer-clear-scans'])
             ->mapWithKeys(fn($a)=>[$a=>ScholarshipPermissions::allows($request->user(),$a)])->all();
         $papers=$exam?ScholarshipPaper::with(['subject','latestKey'])->withCount(['sheets as linked_students_count'=>fn($q)=>$q->select(DB::raw('count(distinct candidate_id)'))])->withExists(['scores','keys as has_scan_links'=>fn($q)=>$q->whereHas('scans'),
             'sheets as has_sheet_scan_links'=>fn($q)=>$q->whereHas('scans'),
@@ -44,7 +44,7 @@ class ScholarshipAnswerSheetController
         $rooms=$candidates->when(isset($input['center']),fn($rows)=>$rows->filter(fn($c)=>(int)$c->exam_center_id===(int)$input['center']))->pluck('room_number')->filter()->unique()->sort()->values();
         $visible=$candidates->filter(fn($c)=>(!isset($input['center'])||(int)$c->exam_center_id===(int)$input['center'])&&(!isset($input['room'])||$c->room_number===(int)$input['room']));
         $scans=ScholarshipAnswerScan::with(['sheet.candidate','sheet.paper.subject','key'])->whereHas('sheet',fn($q)=>$q->whereIn('candidate_id',$visible->pluck('id'))->when($paper,fn($q)=>$q->where('paper_id',$paper->id)))
-            ->when(!$permissions['answer-verify'],fn($q)=>$q->where('uploaded_by',$request->user()->id))->latest('id')->paginate(15,['*'],'scan_page')->withQueryString();
+            ->when(!$permissions['answer-verify']&&!$permissions['answer-marked-view'],fn($q)=>$q->where('uploaded_by',$request->user()->id))->latest('id')->paginate(15,['*'],'scan_page')->withQueryString();
         $paperData=$papers->map(fn($p)=>['id'=>$p->id,'subject_id'=>$p->subject_id,'subject'=>$p->subject->name,'max_score'=>$p->subject->max_score,'grade'=>$p->grade_number,'paper_version'=>$p->paper_version,
             'question_count'=>$p->question_count,'choices'=>$p->answer_choices,'points'=>$p->points_per_question,'version'=>$p->version,
             'linked_sheets'=>$p->linked_students_count,'linked'=>$p->linked_students_count>0||$p->scores_exists||$p->has_scan_links,'has_draft'=>$p->draft_answers!==null,
@@ -192,6 +192,24 @@ class ScholarshipAnswerSheetController
             'candidate_version'=>$scan->candidate_version,'current_version'=>$sheet->candidate->version,
             'existing_score'=>$sheet->candidate->scores()->where('subject_id',$paper->subject_id)->value('score'),
             'image'=>route('western-scholarship.answer-sheets.image',$scan),'original'=>route('western-scholarship.answer-sheets.image',[$scan,'original'=>1])])->header('Cache-Control','no-store, private');
+    }
+    public function marked(Request $request,ScholarshipAnswerScan $scan)
+    {
+        $sheet=$scan->sheet;$paper=$sheet->paper;
+        $this->sheets->candidateAccess($request->user(),$paper->subject->exam,$sheet->candidate,'answer-marked-view');
+        return response()->json(app(ScholarshipMarkedAnswers::class)->data($scan)+[
+            'id'=>$scan->id,'status'=>$scan->status,'name'=>$sheet->candidate->snapshot['name_en']??'',
+            'code'=>$sheet->candidate->candidate_code,'subject'=>$sheet->snapshot['subject']??$paper->subject->name,
+            'grade'=>$sheet->snapshot['grade'],'paper'=>$sheet->snapshot['paper_version'],'latest_revision'=>$paper->latestKey?->revision,
+            'image'=>route('western-scholarship.answer-sheets.marked-image',$scan),
+        ])->header('Cache-Control','no-store, private');
+    }
+    public function markedImage(Request $request,ScholarshipAnswerScan $scan)
+    {
+        $sheet=$scan->sheet;
+        $this->sheets->candidateAccess($request->user(),$sheet->paper->subject->exam,$sheet->candidate,'answer-marked-view');
+        abort_unless(Storage::disk('local')->exists($scan->image_path),404);
+        return response()->file(Storage::disk('local')->path($scan->image_path),['Cache-Control'=>'no-store, private','X-Content-Type-Options'=>'nosniff'])->setPrivate();
     }
     public function image(Request $request,ScholarshipAnswerScan $scan)
     {
