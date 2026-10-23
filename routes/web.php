@@ -278,6 +278,8 @@ Route::middleware(['auth', 'active.user'])->group(function () {
             Route::post('/papers/{paper}/approve','approve')->name('approve');
             Route::post('/papers/{paper}/link','link')->name('link');
             Route::post('/papers/{paper}/unlink','unlink')->name('unlink');
+            Route::get('/papers/{paper}/clear-scans-preview','clearScansPreview')->name('clear-scans-preview');
+            Route::post('/papers/{paper}/clear-scans','clearScans')->name('clear-scans');
             Route::post('/papers/{paper}/teacher-key','teacherKeyIssue')->name('teacher-key-issue');
             Route::post('/papers/{paper}/teacher-key-scan','teacherKeyScan')->name('teacher-key-scan');
             Route::get('/teacher-key-print/{token}','teacherKeyPrint')->where('token','[a-f0-9]{32}')->name('teacher-key-print');

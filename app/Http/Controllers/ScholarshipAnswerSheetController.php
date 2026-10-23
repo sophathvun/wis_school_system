@@ -2,7 +2,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\{AcademicYear,ScholarshipExam,ScholarshipPaper,ScholarshipAnswerSheet,ScholarshipAnswerScan,ScholarshipTeacherKeySheet};
-use App\Services\{ScholarshipAnswerSheets,ScholarshipWorkflow,ScholarshipTeacherKeys};
+use App\Services\{ScholarshipAnswerSheets,ScholarshipWorkflow,ScholarshipTeacherKeys,ScholarshipTestScans};
 use App\Support\{ScholarshipPermissions,ScholarshipAnswerSheetLayout,ScholarshipExport};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{DB,Storage};
@@ -22,7 +22,7 @@ class ScholarshipAnswerSheetController
         $year=$input['academic_year_id']??($years->firstWhere('lifecycle_status','started')?->id??$years->first()?->id);
         $exam=isset($input['exam_id'])?$exams->firstWhere('id',(int)$input['exam_id']):$exams->firstWhere('academic_year_id',(int)$year);
         if(isset($input['exam_id']))abort_unless($exam&&(!isset($input['academic_year_id'])||$exam->academic_year_id===(int)$year),404);
-        $permissions=collect(['answer-paper','answer-key','answer-key-approve','answer-key-print','answer-key-scan','answer-link','answer-unlink','answer-print','answer-scan','answer-verify','answer-replace','answer-delete'])
+        $permissions=collect(['answer-paper','answer-key','answer-key-approve','answer-key-print','answer-key-scan','answer-link','answer-unlink','answer-print','answer-scan','answer-verify','answer-replace','answer-delete','answer-clear-scans'])
             ->mapWithKeys(fn($a)=>[$a=>ScholarshipPermissions::allows($request->user(),$a)])->all();
         $papers=$exam?ScholarshipPaper::with(['subject','latestKey'])->withCount(['sheets as linked_students_count'=>fn($q)=>$q->select(DB::raw('count(distinct candidate_id)'))])->withExists(['scores','keys as has_scan_links'=>fn($q)=>$q->whereHas('scans'),
             'sheets as has_sheet_scan_links'=>fn($q)=>$q->whereHas('scans'),
@@ -91,6 +91,27 @@ class ScholarshipAnswerSheetController
         $result=$this->sheets->unlinkStudents($request->user(),$paper,$data['version']);
         return response()->json($result+['message'=>$result['count'].' student link(s) removed. '.$result['remaining'].' link(s) remain. '
             .($result['remaining']?'All links must be removed before editing this shared paper’s setup.':'You can now edit the paper setup and answer key, then link students and print new sheets.')]);
+    }
+    public function clearScansPreview(Request $request,ScholarshipPaper $paper)
+    {
+        $filters=$request->validate(['center'=>['nullable','integer','min:0'],'room'=>['nullable','integer','min:1']]);
+        $preview=app(ScholarshipTestScans::class)->preview($request->user(),$paper,$filters);
+        $token=bin2hex(random_bytes(16));
+        $request->session()->put('answer-clear-scans.'.$paper->id,['token'=>$token,'user_id'=>$request->user()->id,
+            'filters'=>$filters,'fingerprint'=>$preview['fingerprint'],'expires'=>now()->addMinutes(10)->timestamp]);
+        unset($preview['fingerprint']);
+        return response()->json($preview+['token'=>$token])->header('Cache-Control','no-store, private');
+    }
+    public function clearScans(Request $request,ScholarshipPaper $paper)
+    {
+        $this->sheets->authorize($request->user(),$paper->subject->exam,'answer-clear-scans');
+        $data=$request->validate(['confirmed'=>['required','accepted'],'token'=>['required','string','regex:/^[a-f0-9]{32}$/']]);
+        $preview=$request->session()->get('answer-clear-scans.'.$paper->id);
+        abort_unless($preview&&$preview['user_id']===$request->user()->id&&$preview['expires']>now()->timestamp&&hash_equals($preview['token'],$data['token']),422,'The confirmation expired. Open Clear Test Scans again.');
+        $result=app(ScholarshipTestScans::class)->clear($request->user(),$paper,$preview['filters'],$preview['fingerprint']);
+        $request->session()->forget('answer-clear-scans.'.$paper->id);
+        return response()->json($result+['message'=>$result['scans'].' test scan(s) and '.$result['scores'].' scan-created score(s) cleared. Student links and answer keys have been kept.'
+            .($result['image_cleanup_pending']?' '.$result['image_cleanup_pending'].' stored image(s) could not be removed; ask the administrator to check storage permissions.':'')]);
     }
     public function issue(Request $request,ScholarshipPaper $paper)
     {

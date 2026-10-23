@@ -19,6 +19,23 @@ if(root){
     const success=async text=>Swal.fire({icon:'success',title:'Saved',text});
     const reload=paper=>{const url=new URL(location.href);if(paper){url.searchParams.set('paper_id',paper);url.searchParams.delete('center');url.searchParams.delete('room');}url.searchParams.delete('scan_page');location.assign(url);};
     const modal=id=>Modal.getOrCreateInstance(get(id));
+    get('[data-answer-clear-scans]')?.addEventListener('click',()=>run(async()=>{
+        const paper=selected();if(!paper)return;
+        const query=new URLSearchParams();for(const name of ['center','room']){const value=new URL(location.href).searchParams.get(name);if(value!==null&&value!=='')query.set(name,value);}
+        const preview=await api(`/papers/${paper.id}/clear-scans-preview?${query}`);
+        if(!preview.scans){await Swal.fire({icon:'info',title:'No Test Scans',text:'There are no scans for the selected paper, exam center and room.'});return;}
+        const content=document.createElement('div');content.className='text-start';
+        const scope=document.createElement('p');scope.textContent=preview.scope;scope.className='fw-semibold';content.append(scope);
+        const counts=document.createElement('p');counts.textContent=`Delete ${preview.scans} scan(s): ${preview.pending} pending, ${preview.accepted} accepted, for ${preview.students} student(s). Remove ${preview.scores} scan-created score(s) and their scan images.`;content.append(counts);
+        const keep=document.createElement('p');keep.textContent=`Keep student links, paper setup, answer keys and manual scores (${preview.manual_scores_kept} in these filters).`;content.append(keep);
+        if(preview.reviews_reset||preview.awards_reset){const dependent=document.createElement('p');dependent.textContent=`Reset ${preview.reviews_reset} score review(s) and ${preview.awards_reset} award selection(s) affected by the removed scores.`;content.append(dependent);}
+        const warning=document.createElement('p');warning.className='text-danger mb-0';warning.textContent='This cannot be undone. Use only to clear test data.';content.append(warning);
+        const confirmation=await Swal.fire({icon:'warning',title:'Clear Test Scans?',html:content,showCancelButton:true,focusCancel:true,
+            confirmButtonText:`Clear ${preview.scans} Test Scan(s)`,confirmButtonColor:'#d63939',cancelButtonText:'Cancel'});
+        if(!confirmation.isConfirmed)return;
+        const result=await api(`/papers/${paper.id}/clear-scans`,{confirmed:true,token:preview.token});
+        await Swal.fire({icon:result.image_cleanup_pending?'warning':'success',title:'Test Scans Cleared',text:result.message});reload();
+    }));
     const exitListFullscreen=initAnswerSheetListFullscreen(get('[data-answer-sheet-list]'));
     const form=get('[data-answer-filters]');
     form.querySelectorAll('select').forEach(select=>select.dataset.placeholder=select.options[0].textContent);

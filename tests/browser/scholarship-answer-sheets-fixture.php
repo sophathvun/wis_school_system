@@ -51,7 +51,8 @@ try{
     elseif(preg_match('~/exams/(\d+)/(papers|scans)$~',$path,$m)){
         if($m[2]==='scans')foreach(['image','original'] as $name){$f=dirname($db).'/'.bin2hex(random_bytes(8)).'.png';file_put_contents($f,base64_decode($payload[$name]));$temps[]=$f;$request->files->set($name,new Illuminate\Http\UploadedFile($f,$name.'.png','image/png',null,true));}
         $result=$controller->{$m[2]==='papers'?'paper':'scan'}($request,ScholarshipExam::findOrFail($m[1]));
-    }elseif(preg_match('~/papers/(\d+)/(key|approve|issue|link|unlink|update|delete)$~',$path,$m))$result=$controller->{$m[2]}($request,ScholarshipPaper::findOrFail($m[1]));
+    }elseif(preg_match('~/papers/(\d+)/(clear-scans-preview|clear-scans)$~',$path,$m))$result=$controller->{$m[2]==='clear-scans-preview'?'clearScansPreview':'clearScans'}($request,ScholarshipPaper::findOrFail($m[1]));
+    elseif(preg_match('~/papers/(\d+)/(key|approve|issue|link|unlink|update|delete)$~',$path,$m))$result=$controller->{$m[2]}($request,ScholarshipPaper::findOrFail($m[1]));
     elseif(preg_match('~/print/([a-f0-9]{32})$~',$path,$m))$result=$controller->print($request,$m[1]);
     elseif(preg_match('~/scans/(\d+)(?:/(verify|recheck|image))?$~',$path,$m))$result=$controller->{$m[2]??'details'}($request,App\Models\ScholarshipAnswerScan::findOrFail($m[1]));
     else $result=$controller->index($request,ScholarshipController::TABS);

@@ -348,6 +348,19 @@ try{
             await click('[data-answer-verify]');await until('document.querySelector(".swal2-icon-success")!==null');await click('.swal2-confirm');
             await until('document.querySelector("[data-answer-filter-card]")?.dataset.resultFiltersReady==="true"&&!document.querySelector(".swal2-popup")');
             const state=JSON.parse(Buffer.from(fixture('/state').content,'base64').toString());assert.equal(state.scans[0].score,2);assert.equal(state.scans[0].status,'accepted');
+            await click('[data-answer-clear-scans]');await until('document.querySelector(".swal2-title")?.textContent==="Clear Test Scans?"');
+            assert.ok(await evaluate('document.querySelector(".swal2-html-container").textContent.includes("1 accepted")'));
+            assert.ok(await evaluate('document.querySelector(".swal2-html-container").textContent.includes("Paper A")'));
+            await delay(600);
+            await writeFile(join(root,'storage/app/testing/answer-clear-test-scans.png'),Buffer.from((await command('Page.captureScreenshot',{format:'png'})).data,'base64'));
+            await click('.swal2-cancel');await until('document.querySelector("[data-answer-sheets]").getAttribute("aria-busy")==="false"');
+            assert.equal(JSON.parse(Buffer.from(fixture('/state').content,'base64').toString()).scans.length,1,'Cancel preserves scans');
+            await click('[data-answer-clear-scans]');await until('document.querySelector(".swal2-title")?.textContent==="Clear Test Scans?"');await click('.swal2-confirm');
+            await until('document.querySelector(".swal2-title")?.textContent==="Test Scans Cleared"');await click('.swal2-confirm');
+            await until('document.querySelector("[data-answer-filter-card]")?.dataset.resultFiltersReady==="true"&&!document.querySelector(".swal2-popup")');
+            const cleared=JSON.parse(Buffer.from(fixture('/state').content,'base64').toString());assert.equal(cleared.scans.length,0);assert.equal(cleared.scores.filter(s=>s.entry_method==='scan').length,0);
+            assert.equal(await evaluate('JSON.parse(document.getElementById("answerSheetData").textContent).papers[0].linked_sheets'),2,'Clear preserves student links');
+            console.log('Clear Test Scans: scope/count preview, cancellation, confirmed reset, score removal and preserved links passed.');
             // Allow a second genuinely different image on mobile.
             await command('Page.navigate',{url:origin});await until('document.querySelector("[data-answer-filter-card]")?.dataset.resultFiltersReady==="true"');
         }

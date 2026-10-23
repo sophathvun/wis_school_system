@@ -210,6 +210,28 @@ erasure. Test physical sheets from the intended printer and phone/scanner before
 exam use. All uploads require human verification; faint erasures, shadows, blur
 and unusual paper scaling can still need manual correction.
 
+## Clear testing scans
+
+Enable **Students > WIS Scholarship > Answer Sheets > Clear Test Scans and
+scan-created scores (Central only)** in Roles & Permissions for the responsible
+Central staff member or role. This separate permission is not granted automatically.
+Turn it off after testing, at the role or department too if the user inherits it.
+
+In **Scan History**, select the academic year, paper, exam center and room filters,
+then choose **Clear Test Scans**. SweetAlert previews the exact scope and counts
+before confirmation. This removes pending and accepted attempts, their unshared
+private images, and current scores whose provenance points to those attempts.
+Students, issued sheet links/tokens, papers, answer keys, manual scores and other
+papers/centers/rooms remain. Score removal clears affected candidate reviews and
+grade award selections. An audit event records the operator and removed records.
+Published and historical exams remain locked. Changed data requires a new preview;
+confirmation expires after ten minutes. Permission is checked again on confirmation.
+No test data is cleared just by deploying this feature or enabling its permission.
+
+Apply `2026_10_23_000001_add_answer_sheet_clear_scans_permission.php` on the server
+to register the new permission. `ScholarshipClearScansTest.php` verifies authorization,
+scope, provenance preservation, stale confirmations, locks and file cleanup.
+
 ## Verification
 
 `tests/Feature/ScholarshipAnswerSheetsTest.php` covers configuration, both label

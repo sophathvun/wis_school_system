@@ -116,3 +116,24 @@ it('requires the Answer Sheets tab to save its action permissions',function(){
     $tab=$this->ids['western-scholarship.tab-answer-sheets'];
     expect(PermissionHierarchy::normalizeIds([...$parents,$tab,...$ids],Permission::all()))->toHaveCount(count($ids)+3);
 });
+
+it('can grant and revoke Clear Test Scans through role department and user permissions',function($source){
+    DB::table('tb_school_info')->insert(['id'=>1,'campus_name_en'=>'BCH','status'=>1]);
+    DB::table('users')->where('id',1)->update(['is_global'=>true,'active_campus_id'=>1]);
+    DB::table('access_user_campuses')->insert(['user_id'=>1,'campus_id'=>1]);
+    DB::table('access_user_roles')->update(['campus_id'=>1]);
+    foreach(['access_role_permissions','access_department_permissions','access_user_permission_overrides'] as $table)DB::table($table)->delete();
+    $codes=['students.view','western-scholarship.view','western-scholarship.tab-answer-sheets','western-scholarship.answer-clear-scans'];
+    $ids=array_map(fn($code)=>$this->ids[$code],$codes);
+    [$route,$payload]=match($source){
+        'role'=>['access-management.roles.save',['role_id'=>1,'department_id'=>1]],
+        'department'=>['access-management.departments.permissions.save',['department_id'=>1]],
+        'user'=>['access-management.staff.save',['user_id'=>1,'campuses'=>[1]]],
+    };
+    $this->post(route($route),$payload+['permissions'=>$ids])->assertRedirect();
+    expect(ScholarshipPermissions::allows(User::find(1),'answer-clear-scans'))->toBeTrue()
+        ->and(UserPermissionState::forUser(User::find(1),Permission::all())['permissions']->pluck('code'))->toContain('western-scholarship.answer-clear-scans');
+    $this->post(route($route),$payload+['permissions'=>array_slice($ids,0,3)])->assertRedirect();
+    expect(ScholarshipPermissions::allows(User::find(1),'answer-clear-scans'))->toBeFalse()
+        ->and(UserPermissionState::forUser(User::find(1),Permission::all())['permissions']->pluck('code'))->not->toContain('western-scholarship.answer-clear-scans');
+})->with(['role','department','user']);

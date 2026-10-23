@@ -110,7 +110,9 @@
             </div>
         </div></section>
         @endif
-        <section class="card"><div class="card-header scholarship-card-header"><h3 class="card-title">Scan History</h3></div>
+        <section class="card"><div class="card-header scholarship-card-header"><h3 class="card-title">Scan History</h3>
+            @if($permissions['answer-clear-scans']&&$paper)<div class="card-actions ms-auto"><button type="button" class="btn btn-sm btn-outline-light" data-answer-clear-scans @disabled($data['locked']) title="Clear test scans for the selected paper, exam center and room"><i class="ti ti-trash me-1"></i>Clear Test Scans</button></div>@endif
+        </div>
             <div class="table-responsive"><table class="table table-vcenter"><thead><tr><th>No.</th><th>Student</th><th>Paper / Key</th><th>Status</th><th>Flagged</th><th>Actions</th></tr></thead><tbody>
                 @forelse($scans as $scan)<tr><td>{{ $scan->id }}</td><td>{{ $scan->sheet->candidate->snapshot['name_en']??'' }}<div class="small text-secondary">{{ $scan->sheet->candidate->candidate_code }} · Room {{ $scan->sheet->candidate->room_number }} · Seat {{ $scan->sheet->candidate->room_seat }}</div></td><td>{{ $scan->sheet->paper->subject->name }} · {{ $scan->sheet->paper->paper_version }}<div class="small">Key revision {{ $scan->key->revision }}</div></td><td><span class="badge {{ $scan->status==='accepted'?'bg-green-lt':'bg-yellow-lt' }}">{{ ucfirst($scan->status) }}</span>@if($permissions['answer-verify']&&$scan->status==='accepted')<div>{{ $scan->score }} / {{ $scan->sheet->snapshot['max_score'] }}</div>@endif</td><td>{{ count($scan->flags) }}</td><td>@if($permissions['answer-verify'])<button class="btn btn-sm btn-outline-primary" type="button" data-answer-review="{{ $scan->id }}"><i class="ti ti-checklist me-1"></i>Review</button>@else<span class="text-secondary">Awaiting Central verification</span>@endif</td></tr>
                 @empty<tr><td colspan="6" class="text-center text-secondary py-4">No scans for these filters.</td></tr>@endforelse

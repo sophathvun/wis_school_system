@@ -15,7 +15,7 @@ class ScholarshipAnswerSheets
     public function authorize(User $user,ScholarshipExam $exam,string $action='tab-answer-sheets'): void
     {
         abort_unless(ScholarshipPermissions::allows($user,'tab-answer-sheets')&&ScholarshipPermissions::allows($user,$action)&&$this->workflow->canView($user,$exam),403);
-        if($action==='answer-delete')abort_unless($this->workflow->central($user,$exam,$action),403);
+        if(in_array($action,['answer-delete','answer-clear-scans'],true))abort_unless($this->workflow->central($user,$exam,$action),403);
     }
     private function writable(ScholarshipExam $exam): void
     {
