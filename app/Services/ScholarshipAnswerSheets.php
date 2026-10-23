@@ -161,7 +161,9 @@ class ScholarshipAnswerSheets
     public function snapshot(ScholarshipPaper $paper,$candidate,int $layoutVersion=ScholarshipAnswerSheetLayout::VERSION): array
     {
         $exam=$this->paperExam($paper);$s=$candidate->snapshot;
-        return ($layoutVersion>=2?['layout_version'=>$layoutVersion]:[])+['exam_id'=>$exam->id,'year'=>$exam->academicYear->academic_year,'date'=>$exam->exam_date?->format('F j, Y')??'',
+        $class=trim(explode(' / ',(string)($s['class']??''))[0]);
+        $classLabel=$class!==''&&str_starts_with($class,(string)$candidate->grade_number)?$class:$candidate->grade_number.$class;
+        return ($layoutVersion>=2?['layout_version'=>$layoutVersion]:[])+($layoutVersion>=4?['class_label'=>$classLabel,'campus'=>trim((string)($s['campus']??''))]:[])+['exam_id'=>$exam->id,'year'=>$exam->academicYear->academic_year,'date'=>$exam->exam_date?->format('F j, Y')??'',
             'name'=>$s['name_en']??'','student_code'=>$s['student_code']??'','code'=>$candidate->candidate_code,
             'grade'=>$candidate->grade_number,'center'=>$candidate->exam_center_name??'Main Exam Center','center_id'=>$candidate->exam_center_id,
             'room'=>$candidate->room_number,'seat'=>$candidate->room_seat,'subject_id'=>$paper->subject_id,'subject'=>$paper->subject->name,
@@ -171,7 +173,10 @@ class ScholarshipAnswerSheets
     public function current(ScholarshipAnswerSheet $sheet): bool
     {
         $sheet->load(['paper.subject.exam.academicYear','candidate']);
-        return hash_equals($sheet->fingerprint,hash('sha256',json_encode($this->snapshot($sheet->paper,$sheet->candidate,$sheet->snapshot['layout_version']??1))));
+        $snapshot=$this->snapshot($sheet->paper,$sheet->candidate,$sheet->snapshot['layout_version']??1);
+        // Sheets printed before the campus label was added retain their original identity.
+        if(!array_key_exists('campus',$sheet->snapshot))unset($snapshot['campus']);
+        return hash_equals($sheet->fingerprint,hash('sha256',json_encode($snapshot)));
     }
     public function issue(User $user,ScholarshipPaper $paper,array $candidateIds)
     {return $this->linkCandidates($user,$paper,$candidateIds,'answer-print');}

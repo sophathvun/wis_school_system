@@ -104,10 +104,36 @@ it('issues idempotent personalized sheets and rejects wrong grades campuses and 
 it('prints no answer keys and preserves A4 geometry and sheet identification',function(){
     [$exam,$user,$paper,$sheet]=answerSheetFixture('numbers',100);
     $svg=app(ScholarshipAnswerSheetLayout::class)->svg($sheet);
-    expect($svg)->toContain('width="210mm"','height="297mm"',$sheet->token,'>100<','SCHOLARSHIP EXAMINATION','Invigilators','Full Name:','Seat No.:','Answer')->not->toContain('Correct answer','draft_answers');
+    expect($svg)->toContain('width="210mm"','height="297mm"',$sheet->token,'>100<','SCHOLARSHIP EXAMINATION','Invigilators','>Name<','Seat No.:','Answer','CORRECT','WRONG')->not->toContain('Correct answer','draft_answers');
     $html=view('western-scholarship.answer-sheet-report',['pages'=>[$svg,$svg]])->render();
     expect(substr_count($html,'class="answer-print-page"'))->toBe(2)->and($html)->toContain('size:A4 portrait;margin:0','Actual size / 100%');
 });
+
+it('uses the school header with student class and marking examples without changing scan geometry',function($class,$expected){
+    [$exam,$user,$paper,$sheet,$service]=answerSheetFixture('letters',20);
+    $candidate=$sheet->candidate;$candidate->snapshot=array_replace($candidate->snapshot,['class'=>$class,'name_en'=>'STUDENT <NAME> & FAMILY']);$candidate->save();
+    $snapshot=$service->snapshot($paper,$candidate);$sheet->snapshot=$snapshot;
+    $layout=app(ScholarshipAnswerSheetLayout::class);$svg=$layout->svg($sheet,'data:image/png;base64,c2Nob29sLWxvZ28=');
+    expect($snapshot['class_label'])->toBe($expected)->and($svg)->toContain('SCHOLARSHIP EXAMINATION',
+        'Academic Year: 2025-2026','Exam Date: November 20, 2026',$paper->subject->name.' - Grade 1','ID: 001001 | Grade '.$expected.' | BCH',
+        'STUDENT &lt;NAME&gt; &amp; FAMILY','CORRECT','WRONG','x="55" y="55" width="125" height="135"','Code: G01-001')
+        ->not->toContain('Candidate signature:','Full Name:');
+    $document=new DOMDocument();expect($document->loadXML($svg))->toBeTrue();
+    expect($document->getElementsByTagName('circle')->length)->toBe(100)->and($document->getElementsByTagName('ellipse')->length)->toBe(5)
+        ->and($layout->questions(20,$paper->answer_choices,4))->toBe($layout->questions(20,$paper->answer_choices,3));
+    unset($snapshot['campus']);$sheet->update(['snapshot'=>$snapshot,'fingerprint'=>hash('sha256',json_encode($snapshot))]);
+    expect($service->current($sheet->fresh()))->toBeTrue();
+})->with([['A / III','1A'],['1A / III','1A'],['','1']]);
+
+it('uses School Logo 2 for the new school header with a Logo 1 fallback and preserves earlier print batches',function($schoolLogo){
+    [$exam,$user,$paper,$sheet,$service]=answerSheetFixture();$controller=app(ScholarshipAnswerSheetController::class);
+    $export=Mockery::mock(App\Support\ScholarshipExport::class);$export->shouldReceive('reportLogo')->with(1)->andReturn('data:image/png;base64,bG9nby1vbmU=');
+    $export->shouldReceive('reportLogo')->with(2)->andReturn($schoolLogo);app()->instance(App\Support\ScholarshipExport::class,$export);
+    $request=answerRequest($user);$request->session()->put('answer-sheet-print.'.str_repeat('a',32),['ids'=>[$sheet->id],'expires'=>now()->addMinutes(30)->timestamp]);
+    $html=$controller->print($request,str_repeat('a',32))->getContent();expect($html)->toContain($schoolLogo?'bG9nby10d28=':'bG9nby1vbmU=');
+    $snapshot=$service->snapshot($paper,$sheet->candidate,3);$sheet->update(['snapshot'=>$snapshot,'fingerprint'=>hash('sha256',json_encode($snapshot))]);
+    $html=$controller->print($request,str_repeat('a',32))->getContent();expect($html)->toContain('bG9nby1vbmU=')->not->toContain('bG9nby10d28=');
+})->with(['School Logo 2'=>['data:image/png;base64,bG9nby10d28='],'School Logo 1 fallback'=>[null]]);
 
 it('reads real marked pixels identifies the sheet and flags multiple and blank answers',function($style,$correct){
     [$exam,$user,$paper,$sheet]=answerSheetFixture($style);$choices=$paper->answer_choices;
@@ -548,7 +574,7 @@ it('keeps old printed layouts readable while issuing evenly spaced sheets',funct
     $new=answerSheetUpload($user,$exam,$paper,$next,[1=>['B'],8=>['C'],9=>['D'],50=>['E']]);
     expect([$old->detected[0],$old->detected[7],$old->detected[8],$old->detected[49]])->toBe(['A','B','C','D'])
         ->and([$new->detected[0],$new->detected[7],$new->detected[8],$new->detected[49]])->toBe(['B','C','D','E']);
-})->with([1,2]);
+})->with([1,2,3]);
 
 it('arranges 40 questions in the sample groups 1 to 16 17 to 32 and 33 to 40',function(){
     $rows=app(ScholarshipAnswerSheetLayout::class)->questions(40,['A','B','C','D','E'],2);

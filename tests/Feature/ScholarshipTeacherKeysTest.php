@@ -90,7 +90,7 @@ it('continues to print and scan previously issued teacher keys after the layout 
         $result=$keys->detect($user,$paper,UploadedFile::fake()->createWithContent('key.png',answerSheetPixels($printed,array_fill(1,20,['D']))),$paper->version);
         expect($result['answers'])->toBe(array_fill(0,20,'D'))->and($result['flags'])->toBe([]);
     }
-})->with([1,2]);
+})->with([1,2,3]);
 it('imports a corrected key without changing an approved revision scores or existing student sheets',function(){
     [$exam,$user,$paper,$sheet,$keys,$sheets]=teacherFixture();
     $sheets->saveKey($user,$paper,array_fill(0,20,'A'),$paper->version);$old=$sheets->approveKey($user,$paper->fresh(),$paper->fresh()->version);

@@ -131,14 +131,17 @@ requires the existing Scoring permission and a matching Score Entry committee du
    has searchable scope and exam-center dropdowns; rooms and students use searchable
    checkbox selections. Choose an exam center before selecting rooms. Changing the
    center clears previous room and student selections. Each candidate receives
-   one A4 portrait page with School Logo 1, candidate details, QR code, an independent
+   one A4 portrait page with the school logo, candidate details, QR code, an independent
    machine-readable identification block, and four alignment squares. Reprinting
    the same candidate/paper/seating keeps its sheet identity. The browser print
    dialog can also save PDF. Print at Actual size / 100%, no margins, and turn off
    browser headers/footers. Keep all four squares visible.
-   New student sheets follow the reference format: School Logo 1, scholarship
-   examination heading, academic year, subject and grade, invigilator lines,
-   shaded instructions, student name/grade/room/seat, and choices inside circles
+   New student sheets follow `storage/app/imports/QUESTION-SHEET.jpg`: the vertical
+   School Logo 2 (falling back to School Logo 1), scholarship examination heading,
+   academic year and exam date, large subject/grade, invigilator lines, bold student
+   name, ID/class/campus (for example `ID: 2216370 | Grade 1A | BCH`), room/seat,
+   and a bordered instruction box with CORRECT/WRONG
+   marking examples. Choices remain inside circles
    under an Answer heading. The usual 40-question A–E sheet uses three grouped
    columns (1–16, 17–32, 33–40). Other question/choice counts fit on one A4 page.
    New student and teacher prints use even row spacing throughout each column,
@@ -147,6 +150,9 @@ requires the existing Scoring permission and a matching Score Entry committee du
    Layout version is saved on each issued sheet. Previously printed layouts stay
    readable; new print batches issue the new format without rewriting old sheet
    identities. A reprint of the same current layout and seating reuses its ID.
+   The school header uses layout version 4. It retains the version 3 bubble and
+   identification-block coordinates; older sheets and teacher-key headers keep
+   their saved layouts. New class labels are part of the student-sheet snapshot.
 4. In **Scan & Upload**, drag up to **25 photos** into the upload box, click **Browse Files**,
    paste a copied photo with **Ctrl+V / Command+V**, or use **Take Photo** on a phone.
    JPG, PNG and WebP are supported (up to 10 MB and 24 megapixels). The selected

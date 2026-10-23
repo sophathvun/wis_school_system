@@ -186,11 +186,11 @@ class ScholarshipAnswerSheetController
     {
         $batch=$request->session()->get('answer-sheet-print.'.$token);abort_unless($batch&&$batch['expires']>now()->timestamp,404,'The print session expired. Issue or reprint the sheets again.');
         $rows=ScholarshipAnswerSheet::with(['candidate','paper.subject.exam.academicYear'])->whereIn('id',$batch['ids'])->get()->keyBy('id');
-        $logo=app(ScholarshipExport::class)->reportLogo(1);$pages=[];
+        $export=app(ScholarshipExport::class);$logo=$export->reportLogo(1);$schoolLogo=$export->reportLogo(2)??$logo;$pages=[];
         foreach($batch['ids'] as $id){$sheet=$rows->get($id);abort_unless($sheet,404);$exam=$sheet->paper->subject->exam;
             $this->sheets->candidateAccess($request->user(),$exam,$sheet->candidate,'answer-print');
             abort_unless($exam->seats_locked_at&&$this->sheets->current($sheet),422,'A sheet is outdated. Issue it again.');
-            $pages[]=app(ScholarshipAnswerSheetLayout::class)->svg($sheet,$logo);
+            $pages[]=app(ScholarshipAnswerSheetLayout::class)->svg($sheet,($sheet->snapshot['layout_version']??1)>=4?$schoolLogo:$logo);
         }
         return response()->view('western-scholarship.answer-sheet-report',compact('pages'))->header('Cache-Control','no-store, private');
     }

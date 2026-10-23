@@ -9,7 +9,7 @@ use Illuminate\Validation\ValidationException;
 /** Fixed A4 geometry shared by printing, detection and regression fixtures. */
 class ScholarshipAnswerSheetLayout
 {
-    public const VERSION=3;
+    public const VERSION=4;
     public const WIDTH=1000;
     public const HEIGHT=1414;
     public const MARKERS=[[35,35],[965,35],[965,1379],[35,1379]];
@@ -59,6 +59,7 @@ class ScholarshipAnswerSheetLayout
     {return $this->render($sheet->snapshot,$sheet->token,$logo,true);}
     private function render(array $s,string $token,?string $logo,bool $teacher): string
     {
+        if(!$teacher&&($s['layout_version']??1)>=4)return $this->schoolSvg($s,$token,$logo);
         if(($s['layout_version']??1)>=2)return $this->sampleSvg($s,$token,$logo,$teacher);
         $e=fn($v)=>htmlspecialchars((string)$v,ENT_QUOTES|ENT_XML1,'UTF-8');
         $svg='<svg xmlns="http://www.w3.org/2000/svg" width="210mm" height="297mm" viewBox="0 0 1000 1414" role="img" aria-label="'.($teacher?'Teacher answer key':'Personalized exam answer sheet').'"><rect width="1000" height="1414" fill="white"/>';
@@ -86,6 +87,59 @@ class ScholarshipAnswerSheetLayout
         $text(65,1240,'Choices: '.implode(' / ',$s['choices']),count($s['choices'])>10?12:17);
         $text(65,1280,$teacher?'Teacher signature: ____________________   Checked by: ____________________':'Candidate signature: ____________________   Invigilator: ____________________',16);
         $text(500,1330,($teacher?'Teacher Key ID: ':'Sheet ID: ').$token.'   ·   Print A4 at 100% / Actual size',13,'middle');
+        return $svg.'</svg>';
+    }
+    /** School header from QUESTION-SHEET.jpg; bubble and identity coordinates stay fixed. */
+    private function schoolSvg(array $s,string $token,?string $logo): string
+    {
+        $e=fn($value)=>htmlspecialchars((string)$value,ENT_QUOTES|ENT_XML1,'UTF-8');
+        $svg='<svg xmlns="http://www.w3.org/2000/svg" width="210mm" height="297mm" viewBox="0 0 1000 1414" role="img" aria-label="Student scholarship answer sheet"><rect width="1000" height="1414" fill="white"/>';
+        $text=function($x,$y,$value,$size=18,$bold=false,$anchor='start',$color='black')use(&$svg,$e){
+            $svg.='<text x="'.$x.'" y="'.$y.'" font-family="Arial, sans-serif" font-size="'.$size.'" font-weight="'.($bold?'700':'400').'" text-anchor="'.$anchor.'" fill="'.$color.'">'.$e($value).'</text>';
+        };
+        $fit=fn($value,$size,$width)=>min($size,$width/max(1,mb_strwidth((string)$value))/.60);
+        foreach(self::MARKERS as [$x,$y])$svg.='<rect x="'.($x-10).'" y="'.($y-10).'" width="20" height="20" fill="black"/>';
+        if($logo)$svg.='<image href="'.$e($logo).'" x="55" y="55" width="125" height="135" preserveAspectRatio="xMidYMid meet"/>';
+        $text(195,87,'SCHOLARSHIP EXAMINATION',29,true);
+        $text(200,113,'Academic Year: '.$s['year'],21);
+        $date='Exam Date: '.$s['date'];$text(200,140,$date,$fit($date,21,490));
+        $subject=$s['subject'].' - Grade '.$s['grade'];$text(200,187,$subject,$fit($subject,42,500),true);
+        $text(710,85,'Invigilators',23);
+        foreach([1=>130,2=>172] as $number=>$y){$text(710,$y,$number.'.',17);$svg.='<line x1="730" y1="'.$y.'" x2="945" y2="'.$y.'" stroke="#aaa" stroke-width=".7"/>';}
+        $text(70,233,'Name',21);$text(174,233,':',21);$text(195,233,$s['name'],$fit($s['name'],28,510),true);
+        $details='ID: '.$s['student_code'].' | Grade '.($s['class_label']??$s['grade']);
+        if(trim((string)($s['campus']??''))!=='')$details.=' | '.trim($s['campus']);
+        $text(195,253,$details,$fit($details,16,510));
+        $text(70,284,'Room No.',21);$text(174,284,':',21);$text(202,284,$s['room'],28,true);
+        $text(250,284,'Seat No.:',21);$text(345,284,$s['seat'],28,true);
+        foreach($this->bits($token) as $i=>$bit)if($bit==='1')$svg.='<rect x="'.(self::CODE_X+($i%12)*self::CELL).'" y="'.(self::CODE_Y+intdiv($i,12)*self::CELL).'" width="10" height="10" fill="black"/>';
+        $text(740,298,'Sheet identification',11);
+        $qr='data:image/png;base64,'.base64_encode((new Writer(new GDLibRenderer(240,4)))->writeString('WIS-AS:'.$token));
+        $svg.='<image href="'.$qr.'" x="875" y="205" width="70" height="80" preserveAspectRatio="xMidYMid meet"/>';
+        $code='Code: '.$s['code'];$text(910,298,$code,$fit($code,9,88),false,'middle');
+        $svg.='<rect x="52" y="310" width="896" height="68" rx="6" fill="white" stroke="#666" stroke-width=".8"/>';
+        $range='('.$s['choices'][0].')–('.end($s['choices']).')';
+        $instructions='Problems 1 to '.$s['question_count'].'. Choose the best answer from '.$range.' and completely fill in the';
+        $instructionSize=min(17,640/max(1,mb_strwidth($instructions))/.48);
+        $text(73,340,$instructions,$instructionSize);
+        $text(73,361,'circle for your answer. Erase cleanly any answer you wish to change.',$instructionSize);
+        $svg.='<line x1="730" y1="317" x2="730" y2="371" stroke="#777" stroke-width=".7"/><line x1="830" y1="317" x2="830" y2="371" stroke="#777" stroke-width=".7"/>';
+        $text(744,328,'✓',18,true,'start','#12ad32');$text(761,328,'CORRECT',11);
+        $text(840,328,'×',18,true,'start','#ed2024');$text(858,328,'WRONG',11);
+        // These examples are ellipses so answer-circle tools only target real questions.
+        $svg.='<ellipse cx="780" cy="352" rx="14" ry="14" fill="#888" stroke="black" stroke-width="1.5"/>';
+        foreach([850,884,918] as $x)$svg.='<ellipse cx="'.$x.'" cy="352" rx="14" ry="14" fill="white" stroke="black" stroke-width="1.5"/>';
+        $svg.='<ellipse cx="850" cy="356" rx="10" ry="5" fill="black"/><path d="M 878 344 L 890 360 M 890 344 L 878 360 M 910 352 L 916 359 L 928 342" fill="none" stroke="black" stroke-width="2.5"/>';
+        $text(500,418,'Answer',40,true,'middle');
+        foreach($this->questions($s['question_count'],$s['choices'],$s['layout_version']) as $row){
+            $text($row['x']+20,$row['y']+$row['font']*.32,$row['number'],$row['font'],false,'end');
+            foreach($row['dots'] as $dot){
+                $svg.='<circle cx="'.$dot['x'].'" cy="'.$dot['y'].'" r="'.$dot['radius'].'" fill="white" stroke="#333" stroke-width="1.2"/>';
+                $labelFont=$row['label_font']/(strlen($dot['label'])>1?1.25:1);
+                $text($dot['x'],$dot['y']+$labelFont*.34,$dot['label'],$labelFont,false,'middle','#555');
+            }
+        }
+        $text(500,1342,'Sheet ID: '.$token.' · A4 · Actual size / 100% · Keep all four corner squares clear',12,false,'middle');
         return $svg.'</svg>';
     }
     private function sampleSvg(array $s,string $token,?string $logo,bool $teacher): string
