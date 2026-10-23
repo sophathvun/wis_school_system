@@ -127,7 +127,10 @@ requires the existing Scoring permission and a matching Score Entry committee du
    link/unlink totals count distinct students. Historical printed-sheet versions
    and their scans are retained, so older tokens do not inflate the student count.
    **Print Sheets** offers all students in the selected center,
-   selected rooms within one center, or selected students. Each candidate receives
+   selected rooms within one center, or selected students. The compact print modal
+   has searchable scope and exam-center dropdowns; rooms and students use searchable
+   checkbox selections. Choose an exam center before selecting rooms. Changing the
+   center clears previous room and student selections. Each candidate receives
    one A4 portrait page with School Logo 1, candidate details, QR code, an independent
    machine-readable identification block, and four alignment squares. Reprinting
    the same candidate/paper/seating keeps its sheet identity. The browser print

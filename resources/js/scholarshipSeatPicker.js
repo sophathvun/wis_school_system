@@ -22,7 +22,7 @@ export function createSeatPicker(select) {
         const options=[...select.options].filter(option=>!option.disabled&&option.textContent.toLowerCase().includes(search.value.trim().toLowerCase()));
         options.forEach(option=>{
             const item=document.createElement('button');item.type='button';item.className='scholarship-select-option';item.dataset.seatOption=option.value;item.setAttribute('role','option');item.setAttribute('aria-selected',String(option.selected));
-            if(select.multiple){const check=document.createElement('i');check.className='ti me-2 '+(option.selected?'ti-square-check-filled':'ti-square');check.setAttribute('aria-hidden','true');item.append(check);}
+            if(select.multiple){const check=document.createElement('i');check.className='ti me-2 '+(option.selected?'ti-square-check':'ti-square');check.setAttribute('aria-hidden','true');item.append(check);}
             item.append(document.createTextNode(option.textContent));
             item.addEventListener('click',()=>{
                 if(select.multiple)option.selected=!option.selected;else select.value=option.value;

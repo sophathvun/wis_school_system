@@ -20,7 +20,12 @@ $request=Illuminate\Http\Request::create('http://localhost'.$path,empty($payload
 $request->setUserResolver(fn()=>$user);$request->setLaravelSession($session);$app->instance('request',$request);$temps=[];
 try{
     $controller=app(ScholarshipAnswerSheetController::class);
-    if($path==='/reset-sample'){
+    if($path==='/print-sample'){
+        $exam->candidates()->where('campus_id',2)->update(['grade_number'=>1]);
+        $exam->candidates()->where('campus_id',1)->where('room_seat',2)->update(['room_number'=>2]);
+        $content=json_encode(['ready'=>true]);$type='application/json';
+    }
+    elseif($path==='/reset-sample'){
         $workflow=app(App\Services\ScholarshipWorkflow::class);
         if(!$exam->seats_locked_at){$workflow->lockPlan($user,$exam,$workflow->plan($exam)['token']);$exam=$exam->fresh();}
         $sheet=app(App\Services\ScholarshipAnswerSheets::class)->issue($user,$paper,[$exam->candidates()->where('grade_number',1)->value('id')])->first();

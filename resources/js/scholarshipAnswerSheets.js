@@ -5,6 +5,7 @@ import { initStudentAnswerUploads } from './scholarshipAnswerUpload.js';
 import { initTeacherKeys } from './scholarshipTeacherKeys.js';
 import { initAnswerSheetListFullscreen } from './helpers/answerSheetListFullscreen.js';
 import { initMarkedAnswers } from './scholarshipMarkedAnswers.js';
+import { createSeatPicker } from './scholarshipSeatPicker.js';
 
 const root=document.querySelector('[data-answer-sheets]');
 if(root){
@@ -211,15 +212,43 @@ if(root){
         get('[data-teacher-key-import-image]').src=preview;get('[data-teacher-key-import-preview]').hidden=false;
     }});
     const printForm=get('[data-answer-print-form]');
+    const printPickers=new Map(printForm?[...printForm.querySelectorAll('select')].map(select=>[select,createSeatPicker(select)]):[]);
+    const clearPrintError=name=>{
+        const select=printForm.elements[name];select.classList.remove('is-invalid');
+        select.removeAttribute('aria-invalid');get(`[data-answer-print-error="${name}"]`).hidden=true;
+        const picker=printPickers.get(select);picker.refresh();picker.button.removeAttribute('aria-invalid');
+    };
+    const showPrintError=name=>{
+        const select=printForm.elements[name],picker=printPickers.get(select);select.classList.add('is-invalid');select.setAttribute('aria-invalid','true');
+        get(`[data-answer-print-error="${name}"]`).hidden=false;picker.refresh();picker.button.setAttribute('aria-invalid','true');
+        picker.button.setAttribute('aria-describedby',select.getAttribute('aria-describedby'));picker.button.focus();
+    };
+    const printScope=()=>{
+        const scope=printForm.elements.scope.value,center=printForm.elements.center.value;
+        get('[data-answer-print-rooms]').hidden=scope!=='rooms';printForm.elements.rooms.disabled=scope!=='rooms'||center==='';
+        get('[data-answer-print-students]').hidden=scope!=='students';printForm.elements.candidates.disabled=scope!=='students';
+        get('[data-answer-print-room-hint]').textContent=center===''?'Select an exam center to choose rooms.':'Search and select one or more rooms.';
+        for(const name of ['center','rooms','candidates'])clearPrintError(name);
+        printPickers.forEach(picker=>picker.close());
+    };
     const printOptions=()=>{
         const center=printForm.elements.center.value,candidates=data.candidates.filter(c=>center===''||c.center_id===Number(center));
-        printForm.elements.rooms.replaceChildren(...[...new Set(candidates.map(c=>c.room))].sort((a,b)=>a-b).map(r=>new Option('Room '+r,r)));
-        printForm.elements.candidates.replaceChildren(...candidates.map(c=>new Option(`${c.center} · Room ${c.room} · Seat ${c.seat} · ${c.name}`,c.id)));
-        get('[data-answer-print-rooms]').hidden=printForm.elements.scope.value!=='rooms';get('[data-answer-print-students]').hidden=printForm.elements.scope.value!=='students';
+        printPickers.get(printForm.elements.rooms).setOptions([...new Set(candidates.map(c=>c.room))].filter(Boolean).sort((a,b)=>a-b).map(r=>({id:r,label:'Room '+r})));
+        printPickers.get(printForm.elements.candidates).setOptions(candidates.map(c=>({id:c.id,label:`${c.name} · ${c.center} · Room ${c.room} · Seat ${c.seat}`})));
+        printScope();
     };
-    printForm?.addEventListener('change',event=>{if(['scope','center'].includes(event.target.name))printOptions();});
+    printForm?.addEventListener('change',event=>{
+        if(event.target.name==='center')printOptions();
+        else if(event.target.name==='scope')printScope();
+        else if(['rooms','candidates'].includes(event.target.name))clearPrintError(event.target.name);
+    });
     get('[data-answer-print]')?.addEventListener('click',()=>{printOptions();modal('#answerPrintModal').show();});
-    printForm?.addEventListener('submit',event=>{event.preventDefault();if(busy)return;const popup=window.open('about:blank','_blank');run(async()=>{
+    printForm?.addEventListener('submit',event=>{event.preventDefault();if(busy)return;
+        const scope=printForm.elements.scope.value;
+        if(scope==='rooms'&&printForm.elements.center.value===''){showPrintError('center');return;}
+        const selection=scope==='rooms'?'rooms':scope==='students'?'candidates':null;
+        if(selection&&!printForm.elements[selection].selectedOptions.length){showPrintError(selection);return;}
+        printPickers.forEach(picker=>picker.close());const popup=window.open('about:blank','_blank');run(async()=>{
         try{
         const payload={scope:printForm.elements.scope.value,rooms:[...printForm.elements.rooms.selectedOptions].map(o=>Number(o.value)),candidates:[...printForm.elements.candidates.selectedOptions].map(o=>Number(o.value))};
         if(printForm.elements.center.value!=='')payload.center=Number(printForm.elements.center.value);

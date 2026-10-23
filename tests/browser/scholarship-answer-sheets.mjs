@@ -42,7 +42,7 @@ try{
     const evaluate=async expression=>{const r=await command('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});if(r.exceptionDetails)throw new Error(r.exceptionDetails.exception?.description||JSON.stringify(r.exceptionDetails));return r.result.value;};
     const until=async expr=>{for(let i=0;i<120;i++){if(await evaluate(expr))return;await delay(100);}throw new Error('Timeout: '+expr+' '+await evaluate('JSON.stringify({error:document.querySelector(".swal2-popup")?.textContent,errors:window.errors,url:location.href,body:document.body.textContent.slice(0,500)})'));};
     const click=selector=>evaluate(`document.querySelector(${JSON.stringify(selector)}).click()`);
-    if(!process.env.SCHOLARSHIP_RESET_ONLY){
+    if(!process.env.SCHOLARSHIP_RESET_ONLY&&!process.env.SCHOLARSHIP_PRINT_SCOPE_ONLY){
     // Decode real printed letters, outlines and filled marks, including dense custom ranges.
     await command('Page.navigate',{url:origin});await until('document.querySelector("[data-answer-filter-card]")?.dataset.resultFiltersReady==="true"');
     for(const [count,choiceCount,shade]of [[40,5,0],[100,26,0],[100,5,180]]){
@@ -388,7 +388,65 @@ try{
         assert.deepEqual(await evaluate('window.errors'),[]);console.log(`${width}px: list View/Edit/Delete, linked protection, paper setup, key approval, printed-sheet alignment, upload and review passed.`);
     }
     }
+    if(!process.env.SCHOLARSHIP_RESET_ONLY){
+    const printSeed=fixture('/print-sample');assert.equal(printSeed.status,200,Buffer.from(printSeed.content,'base64').toString());
     for(const width of [1440,390]){
+        await command('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<500});
+        await command('Page.navigate',{url:origin});await until('document.querySelector("[data-answer-filter-card]")?.dataset.resultFiltersReady==="true"');
+        await evaluate(`window.printIssues=[];window.printFetch=window.fetch;window.fetch=(url,options)=>{if(String(url).endsWith('/issue'))printIssues.push(JSON.parse(options.body));return printFetch(url,options);};`);
+        const pickerSearch=async(id,query)=>{
+            if(await evaluate(`document.querySelector('#${id}Toggle').getAttribute('aria-expanded')!=='true'`))await click('#'+id+'Toggle');
+            await evaluate(`(()=>{const input=document.querySelector('#${id}').closest('.scholarship-field').querySelector('input[type=search]');input.value=${JSON.stringify(query)};input.dispatchEvent(new Event('input',{bubbles:true}));})()`);await delay(120);
+        };
+        const choose=async(id,value)=>click('#'+id+'Options [data-seat-option="'+value+'"]');
+        const openPrint=async()=>{await click('[data-answer-print]');await until('document.querySelector("#answerPrintModal.show")!==null');await delay(450);};
+        const submitPrint=async(count)=>{
+            await evaluate('window.printUrl=null');await click('[data-answer-print-form] button[type=submit]');
+            await until('window.printUrl?.includes("/print/")&&getComputedStyle(document.querySelector("#answerPrintModal")).display==="none"');
+            const html=await(await fetch(origin+await evaluate('window.printUrl'))).text();
+            assert.equal((html.match(/class="answer-print-page"/g)||[]).length,count);return html;
+        };
+        await openPrint();
+        assert.ok(await evaluate('document.querySelector("#answerPrintModal .modal-dialog").getBoundingClientRect().width<=600'));
+        assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth+1'));
+        assert.equal(await evaluate('document.querySelectorAll("#answerPrintModal .scholarship-select-toggle").length'),4);
+        await pickerSearch('answerPrintScope','rooms');assert.equal(await evaluate('document.querySelectorAll("#answerPrintScopeOptions button").length'),1);await choose('answerPrintScope','rooms');
+        await click('[data-answer-print-form] button[type=submit]');
+        assert.equal(await evaluate('document.querySelector("[data-answer-print-error=center]").hidden'),false);
+        assert.equal(await evaluate('printIssues.length'),0,'Invalid scope never opens or issues a print job');
+        await pickerSearch('answerPrintCenter','north');assert.equal(await evaluate('document.querySelectorAll("#answerPrintCenterOptions button").length'),1);await choose('answerPrintCenter','1');
+        await click('[data-answer-print-form] button[type=submit]');assert.equal(await evaluate('document.querySelector("[data-answer-print-error=rooms]").hidden'),false);
+        await pickerSearch('answerPrintRooms','Room 2');await choose('answerPrintRooms','2');
+        await pickerSearch('answerPrintRooms','Room 1');await choose('answerPrintRooms','1');
+        assert.deepEqual(await evaluate('[...document.getElementById("answerPrintRooms").selectedOptions].map(o=>o.value)'),['1','2']);
+        assert.equal(await evaluate('document.getElementById("answerPrintRoomsToggle").getAttribute("aria-expanded")'),'true','Multiple selection keeps the menu open');
+        await choose('answerPrintRooms','1');await choose('answerPrintRooms','1');
+        assert.equal(await evaluate('document.querySelector("#answerPrintRoomsOptions [data-seat-option=\\"1\\"]").getAttribute("aria-selected")'),'true');
+        await delay(250);
+        assert.ok(await evaluate(`(()=>{const item=document.querySelector('#answerPrintRoomsOptions button'),r=item.getBoundingClientRect();return item.contains(document.elementFromPoint(r.left+10,r.top+r.height/2));})()`),'Room options remain visible and clickable inside the compact modal');
+        await writeFile(join(root,`storage/app/testing/answer-print-rooms-${width}.png`),Buffer.from((await command('Page.captureScreenshot',{format:'png'})).data,'base64'));
+        await submitPrint(2);assert.deepEqual((await evaluate('printIssues.at(-1)')).rooms,[1,2]);
+        await openPrint();await pickerSearch('answerPrintScope','Selected students');await choose('answerPrintScope','students');
+        await click('[data-answer-print-form] button[type=submit]');assert.equal(await evaluate('document.querySelector("[data-answer-print-error=candidates]").hidden'),false);
+        await pickerSearch('answerPrintStudents','NORTH STUDENT 01');await choose('answerPrintStudents','1');
+        await pickerSearch('answerPrintStudents','NORTH STUDENT 02');await choose('answerPrintStudents','2');
+        await pickerSearch('answerPrintStudents','no-such-student');assert.ok(await evaluate('document.getElementById("answerPrintStudentsOptions").textContent.includes("No matches found")'));
+        assert.equal(await evaluate('document.getElementById("answerPrintStudents").selectedOptions.length'),2,'Searching preserves both student selections');
+        await pickerSearch('answerPrintCenter','south');await choose('answerPrintCenter','2');
+        assert.equal(await evaluate('document.getElementById("answerPrintStudents").selectedOptions.length'),0,'Changing centers clears old student selections');
+        assert.equal(await evaluate('[...document.getElementById("answerPrintStudents").options].every(o=>o.textContent.includes("SOUTH"))'),true);
+        await pickerSearch('answerPrintStudents','SOUTH STUDENT');await choose('answerPrintStudents','3');await choose('answerPrintStudents','4');
+        await delay(250);
+        await writeFile(join(root,`storage/app/testing/answer-print-students-${width}.png`),Buffer.from((await command('Page.captureScreenshot',{format:'png'})).data,'base64'));
+        const studentPrint=await submitPrint(2);assert.ok(studentPrint.includes('SOUTH STUDENT')&&!studentPrint.includes('NORTH STUDENT'));
+        assert.deepEqual((await evaluate('printIssues.at(-1)')).candidates,[3,4]);
+        await openPrint();await pickerSearch('answerPrintScope','All students');await choose('answerPrintScope','all');
+        await pickerSearch('answerPrintCenter','All');await choose('answerPrintCenter','');await submitPrint(4);
+        assert.deepEqual(await evaluate('window.errors'),[]);
+        console.log(`${width}px: compact print modal, four searchable pickers, multiple rooms/students, validation, center scoping and exact printed pages passed.`);
+    }
+    }
+    if(!process.env.SCHOLARSHIP_PRINT_SCOPE_ONLY)for(const width of [1440,390]){
         const seed=fixture('/reset-sample');assert.equal(seed.status,200,Buffer.from(seed.content,'base64').toString());
         await command('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:width<500});
         await command('Page.navigate',{url:origin+'/students/western-scholarship?tab=assign-rank&academic_year_id=1&campus_id=2&grade_class=1:1'});

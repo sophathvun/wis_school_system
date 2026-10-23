@@ -36,6 +36,12 @@ body.answer-list-fullscreen-open{overflow:hidden}
 #answerSetupModal .modal-dialog{width:calc(100% - 2rem);max-width:680px;margin-left:auto;margin-right:auto}
 #answerSetupModal .answer-existing-paper-field>.form-label{top:.42rem;left:1rem;margin:0;padding:0 .45rem;font-size:.72rem;font-weight:500;color:#5b4bd1;background:var(--tblr-bg-surface,#fff)}
 #answerKeyModal .modal-dialog{width:calc(100% - 2rem);max-width:500px;margin-left:auto;margin-right:auto}
+#answerPrintModal .modal-dialog{width:calc(100% - 2rem);max-width:600px;margin-left:auto;margin-right:auto}
+#answerPrintModal [hidden]{display:none!important}
+#answerPrintModal .invalid-feedback:not([hidden]){display:block}
+#answerPrintModal .modal-content{max-height:calc(100dvh - 2rem)}
+#answerPrintModal .modal-body{overflow-y:auto;min-height:0}
+#answerPrintModal .modal-header,#answerPrintModal .modal-footer{flex-shrink:0}
 #teacherKeyScanModal .modal-dialog{width:calc(100% - 2rem);max-width:1000px;margin-left:auto;margin-right:auto}
 [data-teacher-key-import-note][hidden],[data-teacher-key-import-preview][hidden],[data-teacher-detected-status][hidden]{display:none!important}
 #answerKeyModal .answer-key-subject{font-size:1.5rem;font-weight:700;color:#14532d}
