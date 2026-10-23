@@ -8,6 +8,7 @@ use App\Models\ScholarshipStudentRank;
 use App\Models\ScholarshipPrintSetting;
 use App\Models\ScholarshipSeatPrintSetting;
 use App\Models\Staff;
+use App\Models\Student;
 use App\Models\StudentEnrollment;
 use App\Models\{ScholarshipExam, ScholarshipCandidate, ScholarshipCommittee, User};
 use App\Services\ScholarshipWorkflow;
@@ -352,6 +353,7 @@ class ScholarshipController
                     $index ? $names->orWhere($column, 'like', '%'.$search.'%') : $names->where($column, 'like', '%'.$search.'%');
                 }
             })))
+            ->orderBy(Student::selectRaw('LOWER(TRIM(full_name_en))')->whereColumn('tb_student.id','tb_student_enrollment.student_id'))
             ->orderBy('student_id')->orderBy('id')->limit(31)->get();
         return response()->json(['has_more' => $rows->count() > 30, 'data' => $rows->take(30)->map(fn ($row) => [
             'id' => $row->id,
