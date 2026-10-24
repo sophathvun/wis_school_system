@@ -11,7 +11,8 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
 require_once __DIR__.'/../Fixtures/ScholarshipSchema.php';
 require_once __DIR__.'/../Fixtures/ScholarshipSeatReports.php';
 require_once __DIR__.'/../Fixtures/ScholarshipAnswerSheets.php';
-beforeEach(function(){createScholarshipSchema();(require database_path('migrations/2026_10_22_000001_create_scholarship_answer_sheet_workflow.php'))->up();(require database_path('migrations/2026_10_22_000002_add_scholarship_question_scores.php'))->up();Storage::fake('local');});
+beforeEach(function(){createScholarshipSchema();(require database_path('migrations/2026_10_22_000001_create_scholarship_answer_sheet_workflow.php'))->up();(require database_path('migrations/2026_10_22_000002_add_scholarship_question_scores.php'))->up();
+    (require database_path('migrations/2026_10_23_000007_add_scholarship_scan_absence_detection.php'))->up();Storage::fake('local');});
 
 function answerRequest($user,array $data=[]): Request
 {
@@ -574,7 +575,7 @@ it('keeps old printed layouts readable while issuing evenly spaced sheets',funct
     $new=answerSheetUpload($user,$exam,$paper,$next,[1=>['B'],8=>['C'],9=>['D'],50=>['E']]);
     expect([$old->detected[0],$old->detected[7],$old->detected[8],$old->detected[49]])->toBe(['A','B','C','D'])
         ->and([$new->detected[0],$new->detected[7],$new->detected[8],$new->detected[49]])->toBe(['B','C','D','E']);
-})->with([1,2,3]);
+})->with([1,2,3,4]);
 
 it('arranges 40 questions in the sample groups 1 to 16 17 to 32 and 33 to 40',function(){
     $rows=app(ScholarshipAnswerSheetLayout::class)->questions(40,['A','B','C','D','E'],2);

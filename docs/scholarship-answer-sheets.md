@@ -223,19 +223,63 @@ requires the existing Scoring permission and a matching Score Entry committee du
   individual scores retain their original uniform scores; existing issued sheets
   remain valid. A wider choice range uses an adapted two-column A4 layout, while
   already issued 2–5-choice sheets retain their original bubble coordinates.
-- Missing sheets leave scores blank. Absence is managed explicitly in Scoring.
-  Scans cannot overwrite a subject/all-exam absence until attendance is corrected.
+- Missing sheets leave scores blank. Subject absence can be recorded in Scoring
+  or from the invigilator's A on new student sheets (see below). Present scans
+  cannot overwrite a subject/all-exam absence until attendance is corrected.
 - Published and historical exams reject mutations. Changed seating or paper
   details invalidate an old sheet. Unauthorized campus candidates/rooms, wrong
   paper identifiers, unreadable codes and misaligned images are rejected.
 - The application stores an activity history for setup, key approval, issuance,
   upload, recheck and verification, including correction/replacement reasons.
 
-Detection uses fill-density thresholds, not handwriting recognition. Use a pen or
+Answer-circle detection uses fill-density thresholds. Use a pen or
 pencil that produces a dark, fully filled circle, consistent lighting and clear
 erasure. Test physical sheets from the intended printer and phone/scanner before
 exam use. All uploads require human verification; faint erasures, shadows, blur
 and unusual paper scaling can still need manual correction.
+
+## Invigilator absence box
+
+Newly issued student sheets (layout 6) have an empty **Absent** box beside Room
+and Seat. The invigilator writes one clear capital **A** inside it for a student
+absent from that subject, leaving the answer circles empty. Leave the box empty
+for a present student. Keep the letter within the box, away from its border.
+
+Upload/scan normally. A local, conservative shape detector checks the aligned
+box, including light-grey pencil marks. A clearly recognized A appears as
+**Auto Absent** in Scan History and the Review form. **Verify & Save Draft Score**
+or **Accept All** saves **0** and **Absent for this subject**. Upload alone does
+not save a score. Other subjects' attendance and scores are retained, and normal
+Scoring review and publication rules still apply.
+
+Unclear writing, or an A alongside detected answer marks, requires individual
+attendance review and is excluded from Accept All. Staff check the image,
+choose Present/Absent, confirm the attendance decision and enter a reason.
+Changing a clear automatic decision also requires this confirmation and reason.
+Existing scores (including zero) require the existing replacement permission,
+confirmation and reason. The raw detection, verified decision and image remain
+available for audit; marked-sheet viewing shows Absent and zero without answer
+borders for absent scans. Clear Test Scans removes scan-created subject absence
+with its score, subject to the existing permissions and publication locks.
+
+This recognizes a single capital A, rather than unrestricted handwriting.
+Unusual writing, faint marks or poor scans may need manual review. Check real
+printer/scanner samples before exam use. Teacher keys do not have this box and
+are never interpreted as student absence. Previously issued layouts 1–4 remain
+scannable with their original geometry and no automatic absence detection;
+issue/print new student sheets to use the box. Do not add a box to old printouts.
+Layout 6 moves the box upward by about 2 mm; previously issued layout 5 sheets
+retain their original box position for both reprinting and scan recognition.
+
+Deployment requires migration
+`2026_10_23_000007_add_scholarship_scan_absence_detection.php` (nullable scan JSON)
+and the rebuilt frontend assets. No new permission is granted: upload, verify,
+replace and Accept All retain their existing permissions and duties.
+`ScholarshipAbsenceTest.php` checks detection, attendance review, subject-only
+scoring, replacement, cleanup, old sheets and publication locks.
+`tests/browser/scholarship-absence.mjs` rasterizes the actual print template and
+checks handwritten/font/light-grey A detection, rejection of other marks, upload,
+Review, Accept All and marked-sheet viewing on desktop and mobile fixtures.
 
 ## Reset testing and rebuild all rooms and seats
 

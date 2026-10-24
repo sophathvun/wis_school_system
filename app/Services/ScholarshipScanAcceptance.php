@@ -20,7 +20,7 @@ class ScholarshipScanAcceptance
             ->when(isset($filters['room']),fn($q)=>$q->where('room_number',$filters['room']))->with('scores')->orderBy('id')->get();
         $scans=ScholarshipAnswerScan::whereHas('sheet',fn($q)=>$q->where('paper_id',$paper->id)->whereIn('candidate_id',$candidates->modelKeys()))
             ->where('status','pending')->with('sheet.paper','sheet.candidate')->orderBy('id')->get();
-        $counts=$scans->countBy('sheet.candidate_id');$eligible=collect();$skipped=[];$flagged=0;
+        $counts=$scans->countBy('sheet.candidate_id');$eligible=collect();$skipped=[];$flagged=0;$absent=0;
         foreach($scans as $scan){
             $candidate=$candidates->find($scan->sheet->candidate_id);$subject=$candidate->scores->firstWhere('subject_id',$paper->subject_id);$reason=null;
             if(!ScholarshipPermissions::allows($user,'answer-accept-all',$candidate->campus_id)
@@ -29,18 +29,19 @@ class ScholarshipScanAcceptance
             elseif($candidate->absent||$subject?->is_absent)$reason='Marked absent';
             elseif($subject?->score!==null)$reason='Existing score (including zero)';
             elseif($candidate->reviewed_at)$reason='Scores already reviewed';
+            elseif($scan->absenceNeedsReview())$reason='Absence mark needs individual review';
             elseif($candidate->version!==$scan->candidate_version||!$paper->latestKey||$paper->latestKey->id!==$scan->key_id||!$this->sheets->current($scan->sheet))$reason='Outdated scan, answer key or student sheet';
             elseif(!is_array($scan->detected)||!array_is_list($scan->detected)||count($scan->detected)!==$paper->question_count
                 ||collect($scan->detected)->contains(fn($answer)=>$answer!==null&&!in_array($answer,$paper->answer_choices,true)))$reason='Invalid detected answers';
             if($reason){$skipped[$reason]=($skipped[$reason]??0)+1;continue;}
-            $eligible->push($scan);if(count($scan->flags)||in_array(null,$scan->detected,true))$flagged++;
+            $eligible->push($scan);if($scan->detectedAbsent())$absent++;elseif(count($scan->flags)||in_array(null,$scan->detected,true))$flagged++;
         }
         $center=isset($filters['center'])?($filters['center']?$exam->centers()->find($filters['center'])?->name:'Main Exam Center'):'All Exam Centers';
         $preview=['scope'=>$exam->academicYear->academic_year.' / Grade '.$paper->grade_number.' / '.$paper->subject->name.' / Paper '.$paper->paper_version.' / '.($center?:'Selected Exam Center').' / '.(isset($filters['room'])?'Room '.$filters['room']:'All Rooms'),
-            'pending'=>$scans->count(),'eligible'=>$eligible->count(),'flagged'=>$flagged,'skipped'=>$skipped];
+            'pending'=>$scans->count(),'eligible'=>$eligible->count(),'flagged'=>$flagged,'absent'=>$absent,'skipped'=>$skipped];
         $preview['fingerprint']=hash('sha256',json_encode([$user->id,$exam->version,$paper->version,$paper->latestKey?->id,$filters,$eligible->pluck('id')->all(),$skipped,
             $candidates->map(fn($c)=>[$c->id,$c->version,$c->absent,$c->reviewed_at,$c->scores->toArray()])->all(),
-            $scans->map(fn($s)=>[$s->only(['id','status','key_id','candidate_version','detected','flags']),$s->sheet->only(['id','snapshot','fingerprint'])])->all()],JSON_THROW_ON_ERROR));
+            $scans->map(fn($s)=>[$s->only(['id','status','key_id','candidate_version','detected','flags','absence']),$s->sheet->only(['id','snapshot','fingerprint'])])->all()],JSON_THROW_ON_ERROR));
         return compact('preview','eligible');
     }
 

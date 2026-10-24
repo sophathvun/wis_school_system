@@ -146,7 +146,7 @@ export function initStudentAnswerUploads({root,data,api,run,isBusy,reload,succes
         const blob=await new Promise(resolve=>aligned.toBlob(resolve,'image/png'));if(!blob)throw new Error('The aligned photo could not be prepared.');
         const payload=new FormData();payload.append('paper_id',document.getElementById('answerPaper').value);payload.append('image',blob,'aligned-sheet.png');payload.append('original',entry.file);
         entry.result=await api(`/exams/${data.exam_id}/scans`,payload);entry.state='uploaded';
-        entry.message=`${entry.result.student_name||entry.result.candidate_code||'Student identified'}${entry.result.student_name&&entry.result.candidate_code?' · '+entry.result.candidate_code:''} · ${entry.result.flagged_count||0} flagged question(s) · Pending staff verification.`;
+        entry.message=`${entry.result.student_name||entry.result.candidate_code||'Student identified'}${entry.result.student_name&&entry.result.candidate_code?' · '+entry.result.candidate_code:''} · ${entry.result.absence_state==='absent'?'Auto Absent — subject score 0': ['unclear','conflict'].includes(entry.result.absence_state)?'Attendance needs review':`${entry.result.flagged_count||0} flagged question(s)`} · Pending staff verification.`;
     }
     function lockControls(){
         const controls=[...root.querySelectorAll('input,select,textarea,button')].filter(control=>!control.hasAttribute('data-answer-batch-pause'));

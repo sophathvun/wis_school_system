@@ -3,7 +3,7 @@ import { Modal } from 'bootstrap';
 export function initMarkedAnswers({root,get,api,run}){
     const dialog=get('#answerMarkedModal');if(!dialog)return;
     const stage=get('[data-answer-marked-stage]'),overlay=get('[data-answer-marked-overlay]'),image=get('[data-answer-marked-image]');
-    const labels={correct:'Correct',incorrect:'Incorrect',unanswered:'Unanswered',multiple:'Multiple marks',unclear:'Unclear mark'};
+    const labels={correct:'Correct',incorrect:'Incorrect',unanswered:'Unanswered',multiple:'Multiple marks',unclear:'Unclear mark',absent:'Absent'};
     let zoom=1;
     const setZoom=value=>{zoom=Math.max(1,Math.min(4,value));stage.style.width=`${zoom*100}%`;get('[data-answer-marked-zoom-label]').textContent=`${Math.round(zoom*100)}%`;};
     dialog.addEventListener('click',event=>{const button=event.target.closest('[data-answer-marked-zoom]');if(button)setZoom(button.dataset.answerMarkedZoom==='reset'?1:zoom+Number(button.dataset.answerMarkedZoom));});
@@ -15,6 +15,7 @@ export function initMarkedAnswers({root,get,api,run}){
             get('[data-answer-marked-heading]').textContent=`${scan.name} · ${scan.code} · ${scan.subject} · Grade ${scan.grade} · Paper ${scan.paper}`;
             get('[data-answer-marked-note]').textContent=`${scan.status==='accepted'?'Verified responses':'Detected answers — awaiting verification'} · Key revision ${scan.key_revision}${scan.latest_revision!==scan.key_revision?` (latest: ${scan.latest_revision}; this view keeps revision ${scan.key_revision})`:''}. Borders show the answers used for this scan. Staff corrections are noted in the table.`;
             get('[data-answer-marked-summary]').textContent=`${scan.totals.correct} correct · ${scan.totals.incorrect} incorrect · ${scan.totals.unanswered} unanswered · ${scan.totals.multiple} multiple · ${scan.totals.unclear} unclear · ${scan.status==='accepted'?'Score':'Provisional score'}: ${scan.total} / ${scan.maximum}`;
+            if(scan.subject_absent)get('[data-answer-marked-summary]').textContent=`${scan.absence?.state==='absent'?'Auto Absent':'Absent'} for this subject · ${scan.status==='accepted'?'Score':'Provisional score'}: 0 / ${scan.maximum}`;
             const body=get('[data-answer-marked-rows]');body.replaceChildren();overlay.replaceChildren();overlay.setAttribute('viewBox',`0 0 ${scan.width} ${scan.height}`);
             for(const row of scan.rows){
                 const tr=document.createElement('tr');tr.dataset.answerMarkedStatus=row.status;

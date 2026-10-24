@@ -15,6 +15,7 @@ beforeEach(function(){
     createScholarshipSchema();
     (require database_path('migrations/2026_10_22_000001_create_scholarship_answer_sheet_workflow.php'))->up();
     (require database_path('migrations/2026_10_22_000002_add_scholarship_question_scores.php'))->up();
+    (require database_path('migrations/2026_10_23_000007_add_scholarship_scan_absence_detection.php'))->up();
     Storage::fake('local');
 });
 function historyRequest($user,array $data=[]): Request

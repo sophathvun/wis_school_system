@@ -61,7 +61,7 @@ class ScholarshipTestScans
             if($scans->isEmpty())throw ValidationException::withMessages(['scans'=>'There are no test scans for these filters.']);
             $paths=$scans->flatMap(fn($scan)=>[$scan->image_path,$scan->original_path])->filter()->unique()->values()->all();
             ScholarshipScore::whereIn('id',$scores->modelKeys())->delete();
-            foreach($affected as $candidate)$candidate->forceFill(['reviewed_by'=>null,'reviewed_at'=>null,
+            foreach($affected as $candidate)$candidate->forceFill(['absent'=>false,'reviewed_by'=>null,'reviewed_at'=>null,
                 'result_total'=>null,'result_percentage'=>null,'result_rank'=>null,'award_percent'=>null,'version'=>$candidate->version+1])->save();
             $exam->awards()->whereIn('id',$awards->modelKeys())->delete();
             ScholarshipAnswerScan::whereIn('id',$scans->modelKeys())->delete();

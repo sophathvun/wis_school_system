@@ -55,6 +55,7 @@ body.answer-list-fullscreen-open{overflow:hidden}
 .answer-key-table th:first-child{width:25%}
 .answer-key-table td{padding:.5rem}
 [data-answer-score-controls][hidden]{display:none!important}
+[data-answer-attendance-confirm][hidden]{display:none!important}
 .answer-review-image{max-height:65vh;overflow:auto;border:1px solid var(--tblr-border-color)}
 .answer-review-image img{display:block;width:100%;max-width:none;height:auto}
 #answerMarkedModal .modal-dialog{width:calc(100% - 2rem);max-width:1450px;margin-left:auto;margin-right:auto}

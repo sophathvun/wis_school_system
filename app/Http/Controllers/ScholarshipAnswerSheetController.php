@@ -203,7 +203,7 @@ class ScholarshipAnswerSheetController
         abort_unless($dimensions&&$dimensions[0]*$dimensions[1]<=24000000,422,'Choose a photo up to 24 megapixels.');
         $scan=$this->sheets->upload($request->user(),$exam,ScholarshipPaper::findOrFail($data['paper_id']),$data['image'],$data['original']);
         return response()->json(['id'=>$scan->id,'student_name'=>$scan->sheet->candidate->snapshot['name_en']??'',
-            'candidate_code'=>$scan->sheet->candidate->candidate_code,'flagged_count'=>count($scan->flags),'status'=>$scan->status,
+            'candidate_code'=>$scan->sheet->candidate->candidate_code,'flagged_count'=>$scan->flaggedCount(),'absence_state'=>$scan->absence['state']??'unsupported','status'=>$scan->status,
             'message'=>'Sheet uploaded. Staff verification is required before scores are saved.']);
     }
     private function authorizeScan(Request $request,ScholarshipAnswerScan $scan): void
@@ -215,7 +215,7 @@ class ScholarshipAnswerSheetController
         $this->authorizeScan($request,$scan);$sheet=$scan->sheet;$paper=$sheet->paper;
         return response()->json(['id'=>$scan->id,'status'=>$scan->status,'name'=>$sheet->candidate->snapshot['name_en']??'',
             'code'=>$sheet->candidate->candidate_code,'subject'=>$paper->subject->name,'choices'=>$paper->answer_choices,'responses'=>$scan->responses??$scan->detected,
-            'flags'=>$scan->flags,'score'=>$scan->score,'key_revision'=>$scan->key->revision,'latest_revision'=>$paper->latestKey->revision,
+            'flags'=>$scan->flags,'score'=>$scan->score,'absence'=>$scan->absence,'subject_absent'=>$scan->subjectAbsent(),'key_revision'=>$scan->key->revision,'latest_revision'=>$paper->latestKey->revision,
             'candidate_version'=>$scan->candidate_version,'current_version'=>$sheet->candidate->version,
             'existing_score'=>$sheet->candidate->scores()->where('subject_id',$paper->subject_id)->value('score'),
             'image'=>route('western-scholarship.answer-sheets.image',$scan),'original'=>route('western-scholarship.answer-sheets.image',[$scan,'original'=>1])])->header('Cache-Control','no-store, private');
@@ -247,8 +247,10 @@ class ScholarshipAnswerSheetController
     public function verify(Request $request,ScholarshipAnswerScan $scan)
     {
         $this->authorizeScan($request,$scan);$data=$request->validate(['responses'=>['required','array','max:100'],'version'=>['required','integer','min:1'],
-            'replace'=>['required','boolean'],'reason'=>['nullable','string','max:1000'],'confirmed'=>['required','accepted']]);
-        $this->sheets->verify($request->user(),$scan,$data['responses'],$data['version'],$data['replace'],$data['reason']??'');return response()->json(['message'=>'Verified scan saved as a draft score. Review it in Scoring before publication.']);
+            'replace'=>['required','boolean'],'reason'=>['nullable','string','max:1000'],'confirmed'=>['required','accepted'],
+            'absent'=>['sometimes','boolean'],'attendance_confirmed'=>['sometimes','boolean']]);
+        $this->sheets->verify($request->user(),$scan,$data['responses'],$data['version'],$data['replace'],$data['reason']??'',$data['absent']??null,$data['attendance_confirmed']??false);
+        return response()->json(['message'=>$scan->fresh()->subjectAbsent()?'Subject marked Absent with score 0. Other subjects are unchanged. Review it in Scoring before publication.':'Verified scan saved as a draft score. Review it in Scoring before publication.']);
     }
     public function recheck(Request $request,ScholarshipAnswerScan $scan)
     {

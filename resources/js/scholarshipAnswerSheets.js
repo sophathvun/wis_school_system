@@ -262,18 +262,31 @@ if(root){
     initStudentAnswerUploads({root,data,api,run,isBusy:()=>busy,reload,success});
     let review,reviewZoom=1;
     const reviewForm=get('[data-answer-review-form]'),responseGrid=get('[data-answer-response-grid]');
+    const reviewAttendance=()=>{
+        const absent=reviewForm.elements.absent.checked,state=review.absence?.state;
+        const manual=review.status==='pending'&&(['unclear','conflict'].includes(state)||absent!==(state==='absent'));
+        get('[data-answer-attendance-confirm]').hidden=!manual;
+        reviewForm.elements.attendance_confirmed.required=manual;
+        reviewForm.elements.attendance_confirmed.disabled=review.status!=='pending';
+        responseGrid.querySelectorAll('select').forEach(field=>field.disabled=absent||review.status!=='pending');
+        const note=get('[data-answer-absence-note]');
+        note.textContent=review.status==='accepted'?(absent?'Verified: Absent for this subject, score 0.':'Verified: Present for this subject.'):state==='conflict'?'Attendance needs review: an A and answer marks were detected. Check the image and choose Present or Absent.':state==='unclear'?'Attendance needs review: writing in the absence box is unclear. Check the image and confirm Present or Absent.':absent?(state==='absent'?'Auto Absent: the invigilator A was detected.':'Absent selected by staff.')+' Acceptance saves 0 for this subject; other subjects stay unchanged.':'Present: answers will be scored normally.';
+        note.classList.toggle('alert-warning',manual);note.classList.toggle('alert-info',!manual);
+    };
+    reviewForm.elements.absent.addEventListener('change',reviewAttendance);
     const openReview=async id=>{
         review=await api(`/scans/${id}`);reviewForm.reset();reviewZoom=1;get('[data-answer-review-image]').style.width='100%';
         get('[data-answer-review-image]').src=review.image;get('[data-answer-original]').href=review.original;
         get('[data-answer-review-heading]').textContent=`${review.name} · ${review.code} · ${review.subject} · Key revision ${review.key_revision} (current: ${review.latest_revision}) · ${review.status}${review.existing_score!==null?' · Existing score: '+review.existing_score:''}`;
         makeResponses(responseGrid,review.choices,review.responses,review.flags,review.status!=='pending');
+        reviewForm.elements.absent.checked=review.subject_absent;reviewForm.elements.absent.disabled=review.status!=='pending';reviewAttendance();
         get('[data-answer-verify]').disabled=review.status!=='pending'||review.key_revision!==review.latest_revision||review.candidate_version!==review.current_version;
         modal('#answerReviewModal').show();
     };
     root.addEventListener('click',event=>{const button=event.target.closest('[data-answer-review]');if(button)run(()=>openReview(button.dataset.answerReview));});
     document.querySelectorAll('[data-answer-image-zoom]').forEach(button=>button.addEventListener('click',()=>{reviewZoom=Math.min(3,Math.max(1,reviewZoom+Number(button.dataset.answerImageZoom)));get('[data-answer-review-image]').style.width=`${reviewZoom*100}%`;}));
     reviewForm.addEventListener('submit',event=>{event.preventDefault();run(async()=>{
-        const result=await api(`/scans/${review.id}/verify`,{responses:answers(responseGrid),version:review.candidate_version,replace:reviewForm.elements.replace.checked,reason:reviewForm.elements.reason.value,confirmed:reviewForm.elements.confirmed.checked});
+        const result=await api(`/scans/${review.id}/verify`,{responses:answers(responseGrid),version:review.candidate_version,replace:reviewForm.elements.replace.checked,reason:reviewForm.elements.reason.value,confirmed:reviewForm.elements.confirmed.checked,absent:reviewForm.elements.absent.checked,attendance_confirmed:reviewForm.elements.attendance_confirmed.checked});
         await success(result.message);reload();
     });});
     get('[data-answer-recheck]')?.addEventListener('click',()=>run(async()=>{

@@ -45,7 +45,7 @@ try{
     if(!process.env.SCHOLARSHIP_RESET_ONLY&&!process.env.SCHOLARSHIP_PRINT_SCOPE_ONLY){
     // Decode real printed letters, outlines and filled marks, including dense custom ranges.
     await command('Page.navigate',{url:origin});await until('document.querySelector("[data-answer-filter-card]")?.dataset.resultFiltersReady==="true"');
-    for(const layoutVersion of [2,3,4])for(const [count,choiceCount,shade]of [[30,5,0],[40,5,0],[100,26,0],[100,5,180]]){
+    for(const layoutVersion of [2,3,4,5,6])for(const [count,choiceCount,shade]of [[30,5,0],[40,5,0],[100,26,0],[100,5,180]]){
         const pixels=await evaluate(`(async()=>{
             const svg=await(await fetch('/sample-layout.svg?count=${count}&choices=${choiceCount}&layout_version=${layoutVersion}')).text(),doc=new DOMParser().parseFromString(svg,'image/svg+xml');
             const image=new Image(),url=URL.createObjectURL(new Blob([svg],{type:'image/svg+xml'}));image.src=url;await image.decode();

@@ -15,6 +15,7 @@ beforeEach(function(){
     createScholarshipSchema();
     foreach(['000001_create_scholarship_answer_sheet_workflow','000002_add_scholarship_question_scores','000007_create_scholarship_teacher_key_sheets'] as $file)
         (require database_path('migrations/2026_10_22_'.$file.'.php'))->up();
+    (require database_path('migrations/2026_10_23_000007_add_scholarship_scan_absence_detection.php'))->up();
     Storage::fake('local');
 });
 function teacherRequest($user,array $data=[]): Request
@@ -90,7 +91,7 @@ it('continues to print and scan previously issued teacher keys after the layout 
         $result=$keys->detect($user,$paper,UploadedFile::fake()->createWithContent('key.png',answerSheetPixels($printed,array_fill(1,20,['D']))),$paper->version);
         expect($result['answers'])->toBe(array_fill(0,20,'D'))->and($result['flags'])->toBe([]);
     }
-})->with([1,2,3]);
+})->with([1,2,3,4]);
 it('imports a corrected key without changing an approved revision scores or existing student sheets',function(){
     [$exam,$user,$paper,$sheet,$keys,$sheets]=teacherFixture();
     $sheets->saveKey($user,$paper,array_fill(0,20,'A'),$paper->version);$old=$sheets->approveKey($user,$paper->fresh(),$paper->fresh()->version);

@@ -31,6 +31,7 @@ export function initScanHistory({root,api,run,selected}){
         const preview=await api(`/papers/${paper.id}/accept-all-preview?${filters}`),content=document.createElement('div');content.className='text-start';
         const paragraph=(value,style='')=>{const p=document.createElement('p');p.textContent=value;p.className=style;content.append(p);};
         paragraph(preview.scope,'fw-semibold');paragraph(`${preview.eligible} pending scan(s) will be accepted across all pages. ${preview.flagged} include flagged answers.`);
+        if(preview.absent)paragraph(`${preview.absent} Auto Absent scan(s): save 0 and mark attendance Absent for this subject only.`,'fw-semibold');
         for(const [reason,count]of Object.entries(preview.skipped))paragraph(`${count} skipped: ${reason}.`,'small text-secondary');
         if(!preview.eligible){await Swal.fire({icon:'info',title:'No Scans Ready to Accept',html:content});return;}
         paragraph('Detected answers will be saved as draft scores. Existing scores are kept. Final review still takes place in Scoring.');

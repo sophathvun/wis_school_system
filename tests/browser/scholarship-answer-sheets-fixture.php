@@ -12,6 +12,7 @@ require_once __DIR__.'/../Fixtures/ScholarshipSchema.php';require_once __DIR__.'
 if(!Schema::hasTable('users')){
     createScholarshipSchema();(require database_path('migrations/2026_10_22_000001_create_scholarship_answer_sheet_workflow.php'))->up();
     (require database_path('migrations/2026_10_22_000002_add_scholarship_question_scores.php'))->up();
+    (require database_path('migrations/2026_10_23_000007_add_scholarship_scan_absence_detection.php'))->up();
     (require database_path('migrations/2026_10_22_000007_create_scholarship_teacher_key_sheets.php'))->up();
     [$exam,$user,$paper,$sheet]=answerSheetFixture('numbers',100);
 }else{$exam=ScholarshipExam::first();$user=answerSheetUser();$paper=ScholarshipPaper::first();$sheet=ScholarshipAnswerSheet::first();}
@@ -20,7 +21,12 @@ $request=Illuminate\Http\Request::create('http://localhost'.$path,empty($payload
 $request->setUserResolver(fn()=>$user);$request->setLaravelSession($session);$app->instance('request',$request);$temps=[];
 try{
     $controller=app(ScholarshipAnswerSheetController::class);
-    if($path==='/history-sample'){
+    if($path==='/absence-reset'){
+        App\Models\ScholarshipAnswerScan::query()->delete();App\Models\ScholarshipScore::query()->delete();
+        $exam->candidates()->update(['absent'=>false,'reviewed_at'=>null,'reviewed_by'=>null]);
+        $content=json_encode(['ready'=>true]);$type='application/json';
+    }
+    elseif($path==='/history-sample'){
         App\Models\ScholarshipAnswerScan::query()->delete();App\Models\ScholarshipScore::query()->delete();
         $template=$exam->candidates()->where('grade_number',1)->first();
         for($number=3;$number<=27;$number++)if(!$exam->candidates()->where('seat_scope',$template->seat_scope)->where('room_seat',$number)->exists()){

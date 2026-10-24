@@ -9,7 +9,7 @@ use Illuminate\Validation\ValidationException;
 /** Fixed A4 geometry shared by printing, detection and regression fixtures. */
 class ScholarshipAnswerSheetLayout
 {
-    public const VERSION=4;
+    public const VERSION=6;
     public const WIDTH=1000;
     public const HEIGHT=1414;
     public const MARKERS=[[35,35],[965,35],[965,1379],[35,1379]];
@@ -112,11 +112,18 @@ class ScholarshipAnswerSheetLayout
         $text(195,253,$details,$fit($details,16,510));
         $text(70,284,'Room No.',21);$text(174,284,':',21);$text(202,284,$s['room'],28,true);
         $text(250,284,'Seat No.:',21);$text(345,284,$s['seat'],28,true);
+        if($s['layout_version']>=5){
+            [$x,$y,$width,$height]=ScholarshipAbsenceMark::box($s['layout_version']);
+            $text(455,$y+17,'Absent',14,true);$text(455,$y+33,'Invigilator only',10);
+            $svg.='<rect x="'.$x.'" y="'.$y.'" width="'.$width.'" height="'.$height.'" rx="2" fill="white" stroke="black" stroke-width="1.2"/>';
+            $text(603,$y+24,'Write A',12);
+        }
         foreach($this->bits($token) as $i=>$bit)if($bit==='1')$svg.='<rect x="'.(self::CODE_X+($i%12)*self::CELL).'" y="'.(self::CODE_Y+intdiv($i,12)*self::CELL).'" width="10" height="10" fill="black"/>';
         $text(740,298,'Sheet identification',11);
-        $qr='data:image/png;base64,'.base64_encode((new Writer(new GDLibRenderer(240,4)))->writeString('WIS-AS:'.$token));
-        $svg.='<image href="'.$qr.'" x="875" y="205" width="70" height="80" preserveAspectRatio="xMidYMid meet"/>';
-        $code='Code: '.$s['code'];$text(910,298,$code,$fit($code,9,88),false,'middle');
+        $qr='data:image/png;base64,'.base64_encode((new Writer(new GDLibRenderer(264,4)))->writeString('WIS-AS:'.$token));
+        // Keep the four-module quiet zone while aligning the visible 80px QR pattern with the sheet code.
+        $svg.='<image href="'.$qr.'" x="861.2" y="192.2" width="105.6" height="105.6" preserveAspectRatio="xMidYMid meet"/>';
+        $code='Code: '.$s['code'];$text(914,300,$code,$fit($code,9,88),false,'middle');
         $svg.='<rect x="52" y="310" width="896" height="68" rx="6" fill="white" stroke="#666" stroke-width=".8"/>';
         $range='('.$s['choices'][0].')–('.end($s['choices']).')';
         $instructions='Problems 1 to '.$s['question_count'].'. Choose the best answer from '.$range.' and completely fill in the';
@@ -286,7 +293,12 @@ class ScholarshipAnswerSheetLayout
                 if($flag)$flags[(string)$row['number']]=$flag;
                 $confidence[]=$values;
             }
-            return compact('token','responses','flags','confidence');
+            $absence=null;
+            if($configuration&&($configuration['layout_version']??1)>=5&&($configuration['student_sheet']??false)){
+                $absence=(new ScholarshipAbsenceMark())->read($image,$configuration['layout_version']);
+                if($absence['state']==='absent'&&(collect($responses)->contains(fn($answer)=>$answer!==null)||collect($flags)->contains(fn($flag)=>$flag!=='blank')))$absence['state']='conflict';
+            }
+            return compact('token','responses','flags','confidence','absence');
         } finally {imagedestroy($image);}
     }
 }

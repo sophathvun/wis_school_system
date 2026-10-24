@@ -222,7 +222,7 @@ class ScholarshipAnswerSheets
         $sheet=ScholarshipAnswerSheet::where('token',$identity['token'])->first();
         if(!$sheet||$sheet->paper_id!==$paper->id)$this->fail('The identification code does not match this exam / grade / subject / paper.');
         $this->candidateAccess($user,$exam,$sheet->candidate,'answer-scan');
-        $detected=$this->layout->read($bytes,['question_count'=>$paper->question_count,'choices'=>$paper->answer_choices,'layout_version'=>$sheet->snapshot['layout_version']??1]);
+        $detected=$this->layout->read($bytes,['question_count'=>$paper->question_count,'choices'=>$paper->answer_choices,'layout_version'=>$sheet->snapshot['layout_version']??1,'student_sheet'=>true]);
         $paths=[];
         try{return DB::transaction(function()use($user,$exam,$paper,$sheet,$bytes,$original,$detected,&$paths){
             $exam=ScholarshipExam::lockForUpdate()->findOrFail($exam->id);$this->writable($exam);
@@ -236,14 +236,14 @@ class ScholarshipAnswerSheets
             $paths=[$path.'.png',$path.'-original.'.$original->guessExtension()];
             if(!Storage::disk('local')->put($paths[0],$bytes)||!Storage::disk('local')->put($paths[1],$original->get()))$this->fail('The scan image could not be stored. Please try again.');
             $scan=$sheet->scans()->create(['key_id'=>$key->id,'image_path'=>$paths[0],'original_path'=>$paths[1],'image_hash'=>$hash,
-                'detected'=>$detected['responses'],'flags'=>$detected['flags'],'confidence'=>$detected['confidence'],'status'=>'pending','candidate_version'=>$sheet->candidate->fresh()->version,'uploaded_by'=>$user->id]);
-            $this->event($user,$exam,'answer-scan-uploaded',['scan_id'=>$scan->id,'sheet_id'=>$sheet->id,'flagged_questions'=>array_keys($detected['flags'])]);return $scan;
+                'detected'=>$detected['responses'],'flags'=>$detected['flags'],'confidence'=>$detected['confidence'],'absence'=>$detected['absence'],'status'=>'pending','candidate_version'=>$sheet->candidate->fresh()->version,'uploaded_by'=>$user->id]);
+            $this->event($user,$exam,'answer-scan-uploaded',['scan_id'=>$scan->id,'sheet_id'=>$sheet->id,'flagged_questions'=>array_keys($detected['flags']),'absence'=>$detected['absence']]);return $scan;
         });}catch(\Throwable $e){if($paths)Storage::disk('local')->delete($paths);throw $e;}
     }
-    public function verify(User $user,ScholarshipAnswerScan $scan,array $responses,int $version,bool $replace,string $reason): void
+    public function verify(User $user,ScholarshipAnswerScan $scan,array $responses,int $version,bool $replace,string $reason,?bool $absent=null,bool $attendanceConfirmed=false): void
     {
         $sheet=$scan->sheet;$exam=$this->paperExam($sheet->paper);$this->candidateAccess($user,$exam,$sheet->candidate,'answer-verify');
-        DB::transaction(function()use($user,$scan,$sheet,$exam,$responses,$version,$replace,$reason){
+        DB::transaction(function()use($user,$scan,$sheet,$exam,$responses,$version,$replace,$reason,$absent,$attendanceConfirmed){
             $exam=ScholarshipExam::lockForUpdate()->findOrFail($exam->id);$this->writable($exam);
             $scan=ScholarshipAnswerScan::lockForUpdate()->findOrFail($scan->id);
             $candidate=$exam->candidates()->lockForUpdate()->findOrFail($sheet->candidate_id);$paper=$sheet->paper;
@@ -251,18 +251,22 @@ class ScholarshipAnswerSheets
             if(!$this->current($sheet)||!$exam->seats_locked_at)$this->fail('This sheet no longer matches the confirmed seating / paper.');
             if($candidate->version!==$version||$scan->candidate_version!==$version)$this->fail('The student’s scores changed since this scan. Recheck it before saving.');
             if($scan->key_id!==$paper->keys()->latest('revision')->first()->id)$this->fail('A new answer key was approved. Recheck this scan first.');
-            $responses=$this->answers($paper,$responses,false);
-            if($responses!==$scan->detected&&mb_strlen(trim($reason))<5)$this->fail('Enter a reason for correcting the detected responses.');
+            $absent??=$scan->detectedAbsent();
+            if(($scan->absenceNeedsReview()||$absent!==$scan->detectedAbsent())&&(!$attendanceConfirmed||mb_strlen(trim($reason))<5))
+                $this->fail('Check the absence box in the image, confirm the attendance decision and enter a reason of at least five characters.');
+            $responses=$absent?array_fill(0,$paper->question_count,null):$this->answers($paper,$responses,false);
+            if(!$absent&&$responses!==$scan->detected&&mb_strlen(trim($reason))<5)$this->fail('Enter a reason for correcting the detected responses.');
             $previous=$candidate->scores()->get()->keyBy('subject_id');$subject=$previous->get($paper->subject_id);
-            if($candidate->absent||$subject?->is_absent)$this->fail('This subject is marked absent. Correct attendance in Scoring before verifying a sheet.');
+            if(!$absent&&($candidate->absent||$subject?->is_absent))$this->fail('This subject is marked absent. Correct attendance in Scoring before verifying a sheet.');
             if($subject&&$subject->score!==null){
                 abort_unless(ScholarshipPermissions::allows($user,'answer-replace',$candidate->campus_id),403);
                 if(!$replace||mb_strlen(trim($reason))<5)$this->fail('Confirm replacement and enter a reason before replacing an existing score.');
             }
             $points=$scan->key->question_points??$this->defaultPoints($paper);
-            $score=round(collect($responses)->map(fn($answer,$i)=>$answer!==null&&$answer===(string)$scan->key->answers[$i]?(float)$points[$i]:0)->sum(),2);
+            $score=$absent?0:round(collect($responses)->map(fn($answer,$i)=>$answer!==null&&$answer===(string)$scan->key->answers[$i]?(float)$points[$i]:0)->sum(),2);
             $values=$previous->pluck('score','subject_id')->all();$values[$paper->subject_id]=$score;
             $absences=$previous->pluck('is_absent','subject_id')->all();
+            $absences[$paper->subject_id]=$absent;
             // Use existing committee, publication, version, review and award safeguards.
             $this->workflow->saveScores($user,$exam,$candidate,$values,false,$version,false,$absences);
             // The existing manual form clears scan provenance. Preserve other
@@ -270,8 +274,9 @@ class ScholarshipAnswerSheets
             foreach($previous as $id=>$old)if($id!==$paper->subject_id)ScholarshipScore::where('candidate_id',$candidate->id)->where('subject_id',$id)
                 ->update($old->only(['entry_method','source_paper_id','source_reference']));
             ScholarshipScore::where('candidate_id',$candidate->id)->where('subject_id',$paper->subject_id)->update(['entry_method'=>'scan','source_paper_id'=>$paper->id,'source_reference'=>(string)$scan->id]);
-            $scan->update(['responses'=>$responses,'score'=>$score,'status'=>'accepted','verified_by'=>$user->id,'verified_at'=>now(),'reason'=>$reason?:null]);
-            $this->event($user,$exam,'answer-scan-verified',['scan_id'=>$scan->id,'key_id'=>$scan->key_id,'score'=>$score,'replaced'=>$subject?->score!==null,'reason'=>$reason,'responses'=>$responses]);
+            $scan->update(['responses'=>$responses,'score'=>$score,'status'=>'accepted','verified_by'=>$user->id,'verified_at'=>now(),'reason'=>$reason?:null,
+                'absence'=>array_replace($scan->absence??['state'=>'unsupported'],['verified_absent'=>$absent,'attendance_confirmed'=>$attendanceConfirmed])]);
+            $this->event($user,$exam,'answer-scan-verified',['scan_id'=>$scan->id,'key_id'=>$scan->key_id,'score'=>$score,'absent'=>$absent,'absence_detection'=>$scan->absence,'replaced'=>$subject?->score!==null,'reason'=>$reason,'responses'=>$responses]);
         });
     }
     public function recheck(User $user,ScholarshipAnswerScan $scan,string $reason): ScholarshipAnswerScan
@@ -283,6 +288,7 @@ class ScholarshipAnswerSheets
             if(!$this->current($sheet)||!$exam->seats_locked_at)$this->fail('This sheet is outdated. Issue a current sheet.');
             $key=$paper->keys()->latest('revision')->firstOrFail();
             $new=$scan->replicate(['responses','score','status','verified_by','verified_at','reason','source_scan_id']);
+            if($new->absence){$absence=$new->absence;unset($absence['verified_absent'],$absence['attendance_confirmed']);$new->absence=$absence;}
             $new->fill(['key_id'=>$key->id,'status'=>'pending','candidate_version'=>$sheet->candidate->fresh()->version,
                 'uploaded_by'=>$user->id,'reason'=>$reason,'source_scan_id'=>$scan->id])->save();
             $this->event($user,$exam,'answer-scan-rechecked',['source_scan_id'=>$scan->id,'scan_id'=>$new->id,'key_id'=>$key->id,'reason'=>$reason]);return $new;
