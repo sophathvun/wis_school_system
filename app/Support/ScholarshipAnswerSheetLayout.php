@@ -101,9 +101,10 @@ class ScholarshipAnswerSheetLayout
         foreach(self::MARKERS as [$x,$y])$svg.='<rect x="'.($x-10).'" y="'.($y-10).'" width="20" height="20" fill="black"/>';
         if($logo)$svg.='<image href="'.$e($logo).'" x="55" y="55" width="125" height="135" preserveAspectRatio="xMidYMid meet"/>';
         $text(195,87,'SCHOLARSHIP EXAMINATION',29,true);
-        $text(200,113,'Academic Year: '.$s['year'],21);
-        $date='Exam Date: '.$s['date'];$text(200,140,$date,$fit($date,21,490));
-        $subject=$s['subject'].' - Grade '.$s['grade'];$text(200,187,$subject,$fit($subject,42,500),true);
+        $yearAndCenter='Academic Year: '.$s['year'].'  |  Exam Center: '.($s['center']??'Main Exam Center');
+        $text(200,113,$yearAndCenter,$fit($yearAndCenter,16,490));
+        $date='Exam Date: '.$s['date'];$text(200,132,$date,$fit($date,16,490));
+        $subject=$s['subject'].' - Grade '.$s['grade'];$text(200,178,$subject,$fit($subject,42,500),true);
         $text(710,85,'Invigilators',23);
         foreach([1=>130,2=>172] as $number=>$y){$text(710,$y,$number.'.',17);$svg.='<line x1="730" y1="'.$y.'" x2="945" y2="'.$y.'" stroke="#aaa" stroke-width=".7"/>';}
         $text(70,233,'Name',21);$text(174,233,':',21);
@@ -113,20 +114,28 @@ class ScholarshipAnswerSheetLayout
         }else $text(195,233,$s['name'],$fit($s['name'],28,$nameWidth),true);
         $details='ID: '.$s['student_code'].' | Grade '.($s['class_label']??$s['grade']);
         if(trim((string)($s['campus']??''))!=='')$details.=' | '.trim($s['campus']);
-        $text(195,253,$details,$fit($details,16,$nameWidth));
+        $text(195,253,$details,$fit($details,16,$s['layout_version']>=8?230:$nameWidth));
         $text(70,284,'Room No.',21);$text(174,284,':',21);$text(202,284,$s['room'],28,true);
         $text(250,284,'Seat No.:',21);$text(345,284,$s['seat'],28,true);
         if($s['layout_version']>=5){
             [$x,$y,$width,$height]=ScholarshipAbsenceMark::box($s['layout_version']);
-            if($s['layout_version']>=7){
+            if($s['layout_version']>=8){
+                $svg.='<rect x="435" y="244" width="154" height="54" rx="4" fill="#f1f3f5" stroke="#dce1e7" stroke-width=".7"/>';
+                $text(461,260,'Write',12);
+                $svg.='<rect x="495" y="248" width="14" height="16" rx="2" fill="white" stroke="#555" stroke-width=".8"/>';
+                $text(502,260,'A',12,true,'middle');
+                $text(514,260,'in the box',12);
+                $text(512,274,'for Absent Student',12,false,'middle');
+                $text(512,288,'For invigilator only',11,false,'middle');
+            }elseif($s['layout_version']>=7){
                 $text(445,266,'Write A in the box',15,true);
                 $text(445,283,'for Absent Student',15,true);
                 $text(445,298,'For invigilator only',10);
             }else{
                 $text(455,$y+17,'Absent',14,true);$text(455,$y+33,'For invigilator only',10);
             }
-            if($s['layout_version']>=8)$svg.='<polygon points="585,210 606,252.5 585,295" fill="#aaa"/>';
-            $svg.='<rect x="'.$x.'" y="'.$y.'" width="'.$width.'" height="'.$height.'" rx="'.($s['layout_version']>=8?0:2).'" fill="white" stroke="black" stroke-width="1.2"/>';
+            if($s['layout_version']>=8)$svg.='<polygon points="595,244 610,271 595,298" fill="#aaa"/>';
+            $svg.='<rect x="'.$x.'" y="'.$y.'" width="'.$width.'" height="'.$height.'" rx="'.($s['layout_version']>=8?5:2).'" fill="white" stroke="black" stroke-width="1.2"/>';
             if($s['layout_version']<7)$text(603,$y+24,'Write A',12);
         }
         foreach($this->bits($token) as $i=>$bit)if($bit==='1')$svg.='<rect x="'.(self::CODE_X+($i%12)*self::CELL).'" y="'.(self::CODE_Y+intdiv($i,12)*self::CELL).'" width="10" height="10" fill="black"/>';
