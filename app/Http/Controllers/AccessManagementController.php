@@ -19,6 +19,7 @@ class AccessManagementController
     public function index(Request $request)
     {
         \App\Support\ScholarshipPermissions::registerMissing();
+        \App\Support\G12NationalExamPermissions::registerMissing();
         $role = Role::with('permissions')->find($request->integer('role_id')) ?? Role::with('permissions')->orderBy('name')->first();
         $departments = \App\Support\DepartmentHierarchy::options();
         $department = Department::with('permissions')->find($request->integer('department_id')) ?? Department::where('status', 1)->orderBy('name')->first();

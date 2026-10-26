@@ -1,9 +1,13 @@
+@if($moduleKey==='western-scholarship')
 <p class="small text-secondary mt-2">Scholarship Result shows only published awarded students within the user's campus scope. Confidential Result and Import / Export are Central only. Each tab has separate report permissions.</p>
+@else
+<p class="small text-secondary mt-2">National exam student records, photos, certificates and reports follow the user's campus permissions. Enable each tab before its actions.</p>
+@endif
 @foreach($module['tabs'] as $tabKey=>$tabGroup)
     @if($tabPermission=$tabGroup['permission'])
         @php
             $tabOn=$assignedPermissions->contains('id',$tabPermission->id);
-            $tabId=$permissionPrefix.'-scholarship-tab-'.$tabKey;
+            $tabId=$permissionPrefix.'-'.$moduleKey.'-tab-'.$tabKey;
         @endphp
         <div class="permission-tab border rounded my-2" data-permission-tab="{{ $tabKey }}">
             <div class="d-flex align-items-center justify-content-between p-2 bg-light permission-action" data-action-parent="{{ $submenuId }}">

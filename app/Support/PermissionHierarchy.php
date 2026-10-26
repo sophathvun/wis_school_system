@@ -9,6 +9,7 @@ class PermissionHierarchy
 {
     public static function moduleLabels(): array
     {
+        $nationalLabels=[];foreach(G12NationalExamPermissions::submenus() as $key=>$section)$nationalLabels['g12-national-exams.'.$key]=$section[0];
         return array_merge([
             'users' => 'Users', 'departments' => 'Departments', 'positions' => 'Positions', 'roles' => 'Roles', 'notifications' => 'Notifications', 'chat' => 'Chat',
             'academic-years' => 'Academic Years', 'grades' => 'Grades', 'classes' => 'Classes', 'sessions' => 'Sessions',
@@ -20,15 +21,17 @@ class PermissionHierarchy
             'students.search' => 'Search Students', 'students.enrollment' => 'Student Enrollment', 'families' => 'Family Management',
             'students.promotion' => 'Student Promotion', 'students.transfer' => 'Student Transfer', 'students.graduation' => 'Student Graduation',
             'student-reentry' => 'Student Re-entry', 'student-skipping-grade' => 'Stu. Skipping Grade', 'student-id-card-qr' => 'Stu. ID Card (QR)', 'student-documents' => 'Student Documents', 'student-data-transfer' => 'Import / Export Data', 'homeroom' => 'Homeroom Activities',
-            'western-scholarship' => 'WIS Scholarship', 'photo-editor' => 'Photo Editor',
+            'western-scholarship' => 'WIS Scholarship', 'g12-national-exams'=>'G12 National Exams', 'photo-editor' => 'Photo Editor',
             'staff' => 'Staff Management', 'hrm-settings' => 'HRM Settings', 'hrm-staff-data'=>'Staff Import / Export',
             'hrm-staff-attendance' => 'Staff Attendance', 'hrm-payroll' => 'Payroll', 'hrm-leave-requests' => 'Leave Requests',
             'hrm-performance-reviews' => 'Performance Reviews', 'hrm-staff-reports' => 'Staff Reports',
-        ], AcademicReportPermissions::moduleLabels());
+        ], $nationalLabels, AcademicReportPermissions::moduleLabels());
     }
 
     public static function groups(): array
     {
+        $nationalModules=[];$nationalActions=[];
+        foreach(G12NationalExamPermissions::submenus() as $key=>$section){$module='g12-national-exams.'.$key;$nationalModules[]=$module;$nationalActions[$module]=array_map(fn($action)=>'g12-national-exams.'.$action,$section[1]);}
         return [
             'photo-editor' => [
                 'label' => 'Photo Editor', 'permission' => 'photo-editor.view',
@@ -80,6 +83,10 @@ class PermissionHierarchy
                 'modules' => [],
                 'actions' => ['grading-system.manage'],
             ],
+            'g12-national-exams'=>[
+                'label'=>'G12 National Exams','permission'=>'g12-national-exams.view','modules'=>$nationalModules,
+                'module_permissions'=>array_combine($nationalModules,$nationalModules),'module_actions'=>$nationalActions,'actions'=>[],
+            ],
             'hrm' => [
                 'label' => 'HRM', 'permission' => 'hrm.view',
                 'modules' => ['staff', 'hrm-settings', 'departments', 'positions', 'hrm-staff-data', 'hrm-staff-attendance', 'hrm-payroll', 'hrm-leave-requests', 'hrm-performance-reviews', 'hrm-staff-reports'],
@@ -102,8 +109,8 @@ class PermissionHierarchy
         foreach (self::groups() as $key => $group) {
             $modules = [];
             foreach ($group['modules'] as $module) {
-                $viewCode = "{$module}.view";
-                $items = $permissions->filter(fn (Permission $permission) => str_starts_with($permission->code, "{$module}.") && $permission->code !== $viewCode
+                $viewCode = $group['module_permissions'][$module]??"{$module}.view";
+                $items = isset($group['module_actions'][$module])?$permissions->whereIn('code',$group['module_actions'][$module])->values():$permissions->filter(fn (Permission $permission) => str_starts_with($permission->code, "{$module}.") && $permission->code !== $viewCode
                     && !($module === 'students.enrollment' && in_array($permission->action, ['manage', 'status'], true))
                     && !(in_array($module, ['summer-school','families'], true) && $permission->action === 'manage')
                     && !($module==='western-scholarship' && $permission->action==='export'))->values();
@@ -141,11 +148,15 @@ class PermissionHierarchy
             }
 
             foreach ($group['modules'] as $module) {
-                $viewCode = "{$module}.view";
+                $viewCode = $group['module_permissions'][$module]??"{$module}.view";
                 if ($permission = $byCode->get($viewCode)) {
                     $ids->push($permission->id);
                 }
 
+                if(isset($group['module_actions'][$module])){
+                    $permissions->whereIn('code',$group['module_actions'][$module])->each(fn(Permission $p)=>$ids->push($p->id));
+                    continue;
+                }
                 $permissions
                     ->filter(fn (Permission $permission) => str_starts_with($permission->code, "{$module}.") && $permission->code !== $viewCode
                         && !($module === 'students.enrollment' && in_array($permission->action, ['manage', 'status'], true))
@@ -170,11 +181,12 @@ class PermissionHierarchy
                 foreach ($group['actions'] as $action) $codes->forget($action);
             }
             foreach ($group['modules'] as $module) {
-                $submenuCode = "{$module}.view";
+                $submenuCode = $group['module_permissions'][$module]??"{$module}.view";
                 $submenuOn = $mainOn && $codes->has($submenuCode);
                 if (!$mainOn) $codes->forget($group['permission']);
                 if (!$submenuOn) {
                     $codes->forget($submenuCode);
+                    foreach($group['module_actions'][$module]??[] as $action)$codes->forget($action);
                     foreach ($codes->keys() as $code) {
                         if (str_starts_with($code, "{$module}.")) $codes->forget($code);
                     }
@@ -187,6 +199,9 @@ class PermissionHierarchy
         }
         foreach (ScholarshipPermissions::PARENTS as $action=>$parent) {
             if (!$codes->has('western-scholarship.'.$parent)) $codes->forget('western-scholarship.'.$action);
+        }
+        foreach(G12NationalExamPermissions::PARENTS as $action=>$parent){
+            if(!$codes->has('g12-national-exams.'.$parent))$codes->forget('g12-national-exams.'.$action);
         }
         if(!$codes->has('western-scholarship.answer-key'))$codes->forget('western-scholarship.answer-key-scan');
         if(!$codes->has('western-scholarship.answer-verify'))$codes->forget('western-scholarship.answer-accept-all');

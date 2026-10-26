@@ -1,0 +1,29 @@
+.g12-header{background:#2e3a57;color:#fff;gap:1rem}.g12-header .card-title{color:inherit}.g12-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem}.g12-fields label{display:block;font-size:.85rem;margin-bottom:.4rem}.g12-fields .form-control,.g12-fields .form-select{min-height:44px}.g12-dropzone{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:.75rem;border:2px dashed #c7bfff;border-radius:14px;padding:2rem;background:#faf9ff;cursor:pointer}.g12-dropzone>i{font-size:2.5rem;color:#8b7fe5}.g12-dropzone span{color:#667085;text-align:center}.g12-dropzone.dragover{border-color:#4263eb;background:#eef2ff}.g12-preview-table{max-height:55vh;overflow:auto}.g12-preview-table thead{position:sticky;top:0;background:var(--tblr-bg-surface,#fff);z-index:1}.g12-photo{width:48px;height:64px;object-fit:cover;border-radius:5px}.g12-detail-photo{width:100px;height:130px;object-fit:cover}.g12-document-image{width:70px;height:75px;object-fit:contain;background:#f4f6fa}.g12-detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:.8rem}.g12-detail-grid dt{color:#667085;font-size:.8rem}.g12-detail-grid dd{margin:0;overflow-wrap:anywhere}.g12-certificate{border:1px solid var(--tblr-border-color);padding:1.25rem;border-radius:10px}.g12-certificate-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem}[data-g12-exams] [hidden]{display:none!important}[data-g12-exams] td{white-space:normal}.g12-fields .scholarship-field{position:relative}.g12-fields .scholarship-select-menu{position:fixed;z-index:1090;background:var(--tblr-bg-surface,#fff);padding:.65rem;border:1px solid var(--tblr-border-color);border-radius:8px;box-shadow:0 8px 24px #0002}.g12-fields .scholarship-seat-options{max-height:240px;overflow:auto}.g12-fields .scholarship-select-option{display:block;width:100%;background:transparent;border:0;padding:.55rem;text-align:left;color:inherit}.g12-fields .scholarship-select-option:hover,.g12-fields .scholarship-select-option[aria-selected=true]{background:#edf2ff}.g12-fields .scholarship-select-toggle{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}@media(max-width:767px){.g12-certificate-grid{grid-template-columns:1fr}.g12-fields{grid-template-columns:1fr}.g12-header{flex-wrap:wrap}.g12-dropzone{padding:1.25rem}}
+[data-g12-exams] .premium-pagination-list .page-link{border-radius:10px}
+[data-g12-exams] .premium-pagination-list .page-item.active .page-link{background:var(--tblr-primary);color:var(--tblr-primary-fg,#fff);box-shadow:0 5px 12px rgba(var(--tblr-primary-rgb),.3)}
+.g12-excel-dropzone{position:relative;min-height:190px;padding:1.5rem;border:1.5px dashed #b8a9f4;border-radius:18px;color:#4b5563;background:linear-gradient(135deg,#fff 0%,#faf8ff 100%);text-align:center;cursor:pointer;transition:border-color .18s ease,box-shadow .18s ease,background-color .18s ease}
+.g12-excel-dropzone:hover,.g12-excel-dropzone.is-dragging,.g12-excel-dropzone:focus-visible{border-color:#6b5bd6;background:var(--tblr-bg-surface,#fff);box-shadow:0 0 0 4px rgba(107,91,214,.12);outline:0}
+.g12-excel-dropzone .document-upload-icon{display:inline-flex;align-items:center;justify-content:center;width:3.5rem;height:3.5rem;margin-bottom:.65rem;border-radius:16px;color:#6b5bd6;background:#eeeaff;font-size:2rem}
+.g12-excel-dropzone .document-browse-link{color:#6b5bd6;font-weight:700}
+.g12-excel-dropzone .document-upload-hint{font-size:.78rem;color:var(--tblr-secondary)}
+.g12-excel-dropzone.is-invalid{border-color:var(--tblr-danger)}
+.g12-excel-file-list{display:grid;gap:.6rem;margin-top:.9rem;text-align:left}
+.g12-excel-file{display:flex;align-items:center;gap:.75rem;width:100%;max-width:100%;box-sizing:border-box;padding:.7rem .85rem;border:1px solid #e5e0fb;border-radius:14px;background:var(--tblr-bg-surface,#fff)}
+.g12-excel-file .document-file-icon{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;width:2.35rem;height:2.35rem;border-radius:10px;color:#6b5bd6;background:#f0edff;font-size:1.25rem}
+.g12-excel-file .min-w-0{min-width:0}
+.g12-excel-file .document-file-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;overflow-wrap:anywhere;font-weight:600}
+.g12-excel-file .document-file-meta{color:var(--tblr-secondary);font-size:.78rem}
+.g12-excel-file .document-file-remove{margin-left:auto;border:0;color:var(--tblr-secondary);background:transparent}
+[data-g12-exams][aria-busy="true"] .g12-excel-dropzone{cursor:progress;opacity:.65}
+[data-bs-theme="dark"] .g12-excel-dropzone{background:var(--tblr-bg-forms,#172033);color:var(--tblr-body-color);border-color:rgba(169,156,255,.55)}
+[data-bs-theme="dark"] .g12-excel-dropzone:hover,[data-bs-theme="dark"] .g12-excel-dropzone.is-dragging,[data-bs-theme="dark"] .g12-excel-dropzone:focus-visible{background:var(--tblr-bg-surface,#1e293b);border-color:#a99cff}
+[data-bs-theme="dark"] .g12-excel-dropzone .document-upload-icon,[data-bs-theme="dark"] .g12-excel-file .document-file-icon{background:rgba(169,156,255,.14);color:#c4b5fd}
+[data-bs-theme="dark"] .g12-excel-dropzone .document-browse-link{color:#c4b5fd}
+[data-bs-theme="dark"] .g12-excel-file{border-color:var(--tblr-border-color)}
+[data-bs-theme="dark"] .g12-excel-dropzone.is-invalid{border-color:var(--tblr-danger)}
+#g12CenterModal .modal-dialog{width:calc(100vw - 2rem);max-width:460px;margin-left:auto;margin-right:auto}
+#g12CenterModal .modal-body{padding:1.25rem}
+#g12CenterModal .modal-header,#g12CenterModal .modal-footer{padding:1rem 1.25rem}
+#g12CenterModal .modal-content{max-height:calc(100dvh - 2rem)}
+#photoYearToggle{position:relative;padding-right:2.75rem;background-image:none}
+#photoYearToggle::after{content:"";position:absolute;right:1.2rem;top:50%;width:.55rem;height:.55rem;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:translateY(-70%) rotate(45deg);pointer-events:none}

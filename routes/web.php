@@ -391,12 +391,17 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         'icon' => 'ti-certificate',
         'description' => 'Use this module to manage Grade 9 national exam records.',
     ])->name('g9-national-exams.index');
-    Route::view('/g12-national-exams', 'academic-module-placeholder', [
-        'title' => 'G12 National Exams',
-        'pretitle' => 'National Exams',
-        'icon' => 'ti-certificate',
-        'description' => 'Use this module to manage Grade 12 national exam records.',
-    ])->name('g12-national-exams.index');
+    Route::prefix('g12-national-exams')->name('g12-national-exams.')->controller(\App\Http\Controllers\G12NationalExamController::class)->group(function(){
+        foreach(\App\Support\G12NationalExamPermissions::PATHS as $section=>$path)Route::get('/'.$path,'index')->defaults('section',$section)->name($section);
+        Route::get('/','index')->name('index');Route::get('/meta','meta')->name('meta');Route::get('/list','list')->name('list');Route::get('/report','report')->name('report');
+        Route::post('/records','save')->name('store');Route::get('/records/{record}','show')->name('show');Route::post('/records/{record}','save')->name('update');
+        Route::get('/records/{record}/photo','photo')->name('photo');Route::post('/records/{record}/files','upload')->name('upload');
+        Route::post('/records/{record}/certificates/{type}','collection')->name('collection');Route::get('/files/{file}','file')->name('file');
+        Route::post('/centers','saveCenter')->name('centers.store');Route::post('/centers/{center}','saveCenter')->name('centers.update');
+        Route::get('/imports','history')->name('history');Route::get('/imports/template','template')->name('template');Route::post('/imports/preview','preview')->name('preview');
+        Route::post('/imports/{batch}/inspect','inspect')->name('inspect');Route::post('/imports/{batch}/confirm','confirm')->name('confirm');
+        Route::post('/photos/preview','photoPreview')->name('photos.preview');Route::post('/photos/{batch}/{index}','photoProcess')->whereNumber('index')->name('photos.process');
+    });
     Route::view('/wmi-management', 'academic-module-placeholder', [
         'title' => 'WMI Management',
         'pretitle' => 'Management',

@@ -19,6 +19,10 @@
 <div class="row g-3 align-items-start mb-3">
 @php($mainMenuIcons['hrm']='ti-users-group')
 @php($mainMenuIcons['photo-editor']='ti-photo-edit')
+@php($mainMenuIcons['g12-national-exams']='ti-certificate')
+@foreach(\App\Support\G12NationalExamPermissions::ICONS as $section=>$icon)
+    @php($submenuIcons['g12-national-exams.'.$section]=$icon)
+@endforeach
 @php($submenuIcons['western-scholarship']='ti-award')
 @php($submenuIcons['hrm-staff-data']='ti-file-import')
 @php($submenuIcons=array_merge($submenuIcons,['staff'=>'ti-id-badge-2','hrm-settings'=>'ti-settings','hrm-staff-attendance'=>'ti-user-check','hrm-payroll'=>'ti-cash-banknote','hrm-leave-requests'=>'ti-calendar-minus','hrm-performance-reviews'=>'ti-chart-bar','hrm-staff-reports'=>'ti-report-analytics']))

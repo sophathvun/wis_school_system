@@ -456,14 +456,7 @@
                         <span class="nav-link-title">G9 National Exams</span>
                     </a>
                 </li>
-                <li class="nav-item {{ request()->routeIs('g12-national-exams.*') ? 'active' : '' }}">
-                    <a class="nav-link" href="{{ route('g12-national-exams.index') }}">
-                        <span class="nav-link-icon d-md-none d-lg-inline-block">
-                            <img src="{{ $moeysMenuIcon }}" alt="MoEYS" style="display:block;width:1.25rem;height:1.25rem;object-fit:contain;background:transparent;border:0;border-radius:0;box-shadow:none;">
-                        </span>
-                        <span class="nav-link-title">G12 National Exams</span>
-                    </a>
-                </li>
+                @include('layouts.partials.g12-national-exams-menu')
                 <li class="nav-item {{ request()->routeIs('wmi-management.*') ? 'active' : '' }}">
                     <a class="nav-link" href="{{ route('wmi-management.index') }}">
                         <span class="nav-link-icon d-md-none d-lg-inline-block">

@@ -1,0 +1,85 @@
+@extends('layouts.app')
+@section('title','G12 National Exams')
+@section('page-header')<div class="container-fluid"><div class="page-pretitle">G12 National Exams</div><h2 class="page-title"><i class="ti {{ \App\Support\G12NationalExamPermissions::ICONS[$tab] }} me-2"></i>{{ \App\Support\G12NationalExamPermissions::submenus()[$tab][0] }}</h2></div>@endsection
+@section('content')
+@vite(['resources/css/pages/g12-national-exams.css','resources/js/g12NationalExams.js'])
+<div data-g12-exams data-tab="{{ $tab }}" data-base="{{ url('/g12-national-exams') }}">
+@if(in_array($tab,['records','certificates','reports']))
+<div class="card mb-3"><div class="card-header g12-header"><h3 class="card-title"><i class="ti ti-filter me-2"></i>Datas Filter</h3><button class="btn btn-outline-light btn-sm ms-auto" type="button" data-bs-toggle="collapse" data-bs-target="#g12Filters" aria-expanded="true">Collapse / Expand</button></div>
+<form id="g12Filters" class="card-body collapse show g12-fields" data-g12-filters>
+@foreach(['academic_year'=>'Academic Year','campus_id'=>'Campus','grade'=>'Grade / Class','center_id'=>'Exam Center','result_status'=>'Result','certificate_type'=>'Certificate Type','certificate_status'=>'Certificate Status'] as $key=>$label)
+<div class="scholarship-field"><label for="filter-{{ $key }}">{{ $label }}</label><select class="form-select" id="filter-{{ $key }}" name="{{ $key }}" data-placeholder="All {{ $label }}"><option value="">All {{ $label }}</option></select></div>
+@endforeach
+<div><label class="form-label" for="g12Search">Student Name / ID</label><input class="form-control" id="g12Search" name="search" placeholder="Search student"></div><div class="d-flex align-items-end"><button class="btn btn-primary" type="submit"><i class="ti ti-search me-1"></i>Filter</button></div>
+</form></div>
+<div class="card"><div class="card-header g12-header"><h3 class="card-title">{{ $tab==='certificates'?'Certificate Tracking':($tab==='reports'?'National Exam Reports':'Student Exam Records') }}</h3>
+<div class="ms-auto d-flex gap-2 flex-wrap">
+@if($tab==='records'&&$permissions['create'])<button type="button" class="btn btn-outline-light" data-g12-new><i class="ti ti-plus me-1"></i>Add New</button>@endif
+@if($tab==='reports'&&$permissions['export'])<button class="btn btn-outline-light" data-g12-export="xlsx"><i class="ti ti-file-spreadsheet me-1"></i>Excel</button><button class="btn btn-outline-light" data-g12-export="print"><i class="ti ti-printer me-1"></i>Print</button>@endif
+</div></div>
+<div class="table-responsive"><table class="table table-vcenter card-table"><thead><tr><th>No.</th><th>Photo</th><th>Student</th><th>Year / Campus / Class</th><th>Exam Center / Room / Seat</th><th>Result</th><th>Soft Certificate</th><th>Hard Certificate</th><th>Actions</th></tr></thead><tbody data-g12-records><tr><td colspan="9" class="text-center py-4">Loading records…</td></tr></tbody></table></div>
+<div class="card-footer"><select id="g12PerPage" hidden><option value="15">15</option><option value="25">25</option><option value="50">50</option><option value="100">100</option><option value="all">All</option></select><div id="g12Pagination"></div></div></div>
+@elseif($tab==='centers')
+<div class="card"><div class="card-header g12-header"><h3 class="card-title">Exam Center Settings</h3>@if($permissions['centers-manage'])<button class="btn btn-outline-light ms-auto" data-g12-center-new><i class="ti ti-plus me-1"></i>Add Exam Center</button>@endif</div><div class="card-body"><input class="form-control mb-3" data-g12-center-search placeholder="Search exam centers" aria-label="Search exam centers"><div class="table-responsive"><table class="table"><thead><tr><th>Exam Center ID</th><th>Exam Center</th><th>Status</th><th>Action</th></tr></thead><tbody data-g12-centers></tbody></table></div></div></div>
+@elseif($tab==='imports')
+<div class="card mb-3"><div class="card-header g12-header flex-wrap gap-2"><h3 class="card-title"><i class="ti ti-file-import me-2"></i>Import MoEYS Excel</h3>@if($permissions['import'])<a class="btn btn-outline-light ms-auto" href="{{ route('g12-national-exams.template') }}" data-g12-template><i class="ti ti-file-download me-1"></i>Download Excel Template</a>@endif</div><div class="card-body">
+<p>Sheet 1: student exam records. Sheet 2: exam center settings. Preview changes and resolve campus / center mappings before import. Existing documents and staff-recorded certificate collection are retained.</p>
+@if($permissions['import'])<p class="text-secondary">New to importing? Download the template with a sample student and instructions. Replace the sample row with your data and keep the column headers.</p>@endif
+@if($permissions['import'])
+<form data-g12-excel-form>
+    <div class="g12-excel-dropzone" data-g12-excel-drop tabindex="0" role="button" aria-label="Upload Excel workbook" aria-describedby="g12ExcelHint g12ExcelError">
+        <span class="document-upload-icon"><i class="ti ti-cloud-upload" aria-hidden="true"></i></span>
+        <div class="fw-bold fs-3">Drop Excel File Here</div>
+        <div class="mt-1">or <span class="document-browse-link">Browse File</span></div>
+        <div class="document-upload-hint mt-3" id="g12ExcelHint">Supports XLSX · Maximum 20 MB<br>You can also copy and paste an Excel file here (Ctrl+V / Command+V)</div>
+        <input class="d-none" type="file" name="file" accept=".xlsx" aria-label="Choose Excel workbook" required>
+    </div>
+    <div class="g12-excel-file-list" data-g12-excel-files aria-live="polite"></div>
+    <div class="invalid-feedback d-block" id="g12ExcelError" data-g12-excel-error role="alert" hidden></div>
+    <button class="btn btn-primary mt-3" data-g12-excel-preview disabled><i class="ti ti-eye me-1"></i>Preview Import</button>
+</form>
+@endif
+<div data-g12-import-preview hidden><h3 class="mt-4" data-g12-import-summary></h3><div class="alert alert-info">“Withdrew” imports as <strong>Collected</strong>. Other unrecognized statuses are retained for review. A signed receipt is required for new collection entries. Importing missing centers requires Manage Exam Centers permission.</div><div data-g12-mappings class="g12-fields"></div><div class="d-flex gap-2 my-3"><button class="btn btn-outline-primary" data-g12-reinspect>Refresh Preview</button><button class="btn btn-primary" data-g12-confirm>Confirm Import</button></div><div class="g12-preview-table"><table class="table table-sm"><thead><tr><th>Excel Row</th><th>Student</th><th>Year</th><th>Campus</th><th>Exam Center</th><th>Action</th><th>Issues</th></tr></thead><tbody data-g12-import-rows></tbody></table></div></div>
+</div></div>
+<div class="card"><div class="card-header"><h3 class="card-title">Your Import / Photo Upload History</h3></div><div class="table-responsive"><table class="table"><thead><tr><th>Date</th><th>File / Batch</th><th>Type</th><th>Status</th><th>Summary</th></tr></thead><tbody data-g12-history></tbody></table></div></div>
+@elseif($tab==='photos')
+<div class="card"><div class="card-header g12-header"><h3 class="card-title"><i class="ti ti-photo-up me-2"></i>Bulk Upload Student Photos</h3></div><div class="card-body">
+<p>Match the MoEYS photo filename first, then an exact Student ID in the filename. Choose the academic year. Unmatched or ambiguous photos can be assigned manually in the preview. Existing photos require replacement permission and confirmation.</p>
+<p class="text-secondary">Student photos are automatically saved as WebP below 40 KB, with proportions preserved and quality optimized. The MoEYS filename is kept for matching; the saved file uses .webp.</p>
+@if($permissions['photos-upload'])<form data-g12-photos-form>
+<div class="g12-fields mb-3"><div class="scholarship-field"><label class="form-label" for="photoYear">Academic Year</label><select class="form-select" id="photoYear" name="academic_year" data-placeholder="" required disabled aria-describedby="g12PhotoYearError"><option value=""></option></select><div class="invalid-feedback d-block" id="g12PhotoYearError" hidden>Select an academic year before previewing photos.</div></div></div>
+<p class="text-secondary" data-g12-photo-year-empty hidden>No student exam records are available for your campuses. Import student exam records first to make their academic years available here.</p>
+<label class="g12-dropzone" data-g12-drop><i class="ti ti-cloud-upload"></i><strong>Drop student photos or ZIP here</strong><span>JPG, PNG, WebP · 20 MB per image · ZIP up to 200 MB / 500 MB expanded · up to 5,000 photos</span><input class="form-control" type="file" name="files[]" accept=".jpg,.jpeg,.png,.webp,.zip" multiple required></label><button class="btn btn-primary mt-3" data-g12-photo-preview-button disabled><i class="ti ti-eye me-1"></i>Preview Photo Matches</button></form>@endif
+<p class="form-hint mt-3" data-g12-photo-help role="status">Choose your photos or ZIP, then click Preview Photo Matches to see the photos and select students before uploading.</p>
+<div data-g12-photo-preview class="d-none" hidden><div class="d-flex gap-3 align-items-center mt-4 mb-3"><button type="button" class="btn btn-primary" data-g12-photo-confirm disabled>Upload Selected Photos</button><span data-g12-photo-progress role="status"></span></div><progress class="w-100" data-g12-photo-bar value="0" max="1"></progress><div class="g12-preview-table"><table class="table"><thead><tr><th><label class="d-flex align-items-center gap-2 mb-0"><input type="checkbox" class="form-check-input" data-g12-photo-select-all aria-label="Select all photo rows">Select</label></th><th>Photo Filename</th><th>Match</th><th>Student</th><th>Replace</th><th>Progress</th></tr></thead><tbody data-g12-photo-rows></tbody></table></div></div>
+</div></div>
+@endif
+
+<div class="modal fade" id="g12EditModal" tabindex="-1" aria-labelledby="g12EditTitle"><div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable"><form class="modal-content" data-g12-edit-form><div class="modal-header"><h3 class="modal-title" id="g12EditTitle">Student Exam Record</h3><button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Close"></button></div><div class="modal-body"><p class="text-secondary">National exam information is kept separately from the school student profile. Student ID and academic year are fixed after creation.</p><div data-g12-edit-fields></div></div><div class="modal-footer"><button type="button" class="btn" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary">Save Record</button></div></form></div></div>
+<div class="modal fade" id="g12CenterModal" tabindex="-1" aria-labelledby="g12CenterTitle">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <form class="modal-content" data-g12-center-form>
+            <div class="modal-header"><h3 class="modal-title" id="g12CenterTitle">Add Exam Center</h3><button class="btn-close" data-bs-dismiss="modal" type="button" aria-label="Close"></button></div>
+            <div class="modal-body">
+                <div class="premium-form-field mb-3 has-value">
+                    <label class="form-label" for="g12CenterCode">Exam Center ID</label>
+                    <input id="g12CenterCode" class="form-control" value="Assigned automatically" readonly aria-describedby="g12CenterCodeHint">
+                </div>
+                <p class="form-hint mb-3" id="g12CenterCodeHint">The system assigns an ID when the center is saved.</p>
+                <div class="premium-form-field mb-3">
+                    <label class="form-label" for="g12CenterName">Exam Center Name <span class="text-danger">*</span></label>
+                    <input id="g12CenterName" name="name" class="form-control" maxlength="255" required autocomplete="off">
+                </div>
+                <div class="premium-form-field has-value">
+                    <label class="form-label" for="g12CenterStatus">Status</label>
+                    <select id="g12CenterStatus" name="active" class="form-select"><option value="1">Active</option><option value="0">Inactive</option></select>
+                </div>
+            </div>
+            <div class="modal-footer"><button class="btn me-auto" type="button" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary" type="submit">Save Center</button></div>
+        </form>
+    </div>
+</div>
+<div class="modal fade" id="g12ViewModal" tabindex="-1" aria-labelledby="g12ViewTitle"><div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h3 class="modal-title" id="g12ViewTitle">Student National Exam Record</h3><button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Close"></button></div><div class="modal-body" data-g12-detail></div><div class="modal-footer"><button class="btn" data-bs-dismiss="modal">Close</button></div></div></div></div>
+</div>
+<script type="application/json" id="g12Permissions">@json($permissions)</script>
+@endsection

@@ -49,6 +49,7 @@ export default defineConfig({
                 "resources/js/k3Certificate.js",
                 "resources/js/g9Certificate.js",
                 "resources/js/g12Certificate.js",
+                "resources/js/g12NationalExams.js",
                 "resources/js/reportsPrint.js",
                 "resources/js/studentPhotoPrint.js",
                 "resources/js/pdfPrint.js",
