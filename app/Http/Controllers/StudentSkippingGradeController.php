@@ -678,7 +678,7 @@ class StudentSkippingGradeController
         $document=$skipping->supporting_documents[$index]??null;
         abort_if(!empty($document['archived_at']),410,'This document is archived. Ask an authorized administrator to restore its backup.');
         abort_unless($document && Storage::disk('local')->exists($document['path']),404);
-        return Storage::disk('local')->response($document['path'],$document['name'],['X-Content-Type-Options'=>'nosniff','Cache-Control'=>'private, no-store']);
+        return Storage::disk('local')->response($document['path'],$document['name'],['Content-Type'=>$document['mime']??'application/octet-stream','X-Content-Type-Options'=>'nosniff','Cache-Control'=>'private, no-store']);
     }
 
     public function settings(Request $request)

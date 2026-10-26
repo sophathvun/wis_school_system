@@ -302,7 +302,7 @@ it('editing a draft appends private supporting documents while preserving earlie
     expect($record->fresh()->supporting_documents)->toHaveCount(2)->and($record->fresh()->supporting_documents[0])->toBe($original)
         ->and($record->fresh()->reason)->toBe('Updated evidence');
     foreach ($record->fresh()->supporting_documents as $document) Storage::disk('local')->assertExists($document['path']);
-    $this->get('/students/skipping-grade/'.$record->id)->assertOk()->assertSee('original.pdf')->assertSee('additional.jpg');
+    $this->get('/students/skipping-grade/'.$record->id)->assertOk()->assertSee('original.pdf')->assertSee('additional.webp');
 });
 
 describe('supporting document archives',function () {

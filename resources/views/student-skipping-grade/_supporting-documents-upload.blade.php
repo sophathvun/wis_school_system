@@ -11,6 +11,7 @@
             <div class="fw-bold fs-3">Drop Files Here</div>
             <div class="mt-1">or <span class="document-browse-link">Browse File</span></div>
             <div id="skippingDocumentsHint" class="document-upload-hint mt-3">Supports PDF, JPG, PNG, WEBP &middot; Maximum 25 MB per file</div>
+            <div class="document-upload-hint mt-1">PDF files larger than 500 KB are automatically optimized. JPG and PNG files are saved as WebP below 100 KB.</div>
             <div class="document-upload-hint mt-1">You can also copy and paste a file here</div>
             <div class="document-upload-hint mt-1">Include the parent-signed request here and mark its file card as Parent-signed Request.</div>
             <div class="document-upload-hint mt-1">Up to 10 files per upload and 20 files per request. Selected files upload when you {{ $documentsSaveAction??'save the draft' }}.</div>
@@ -28,7 +29,9 @@
                             <small class="text-secondary text-break">Backup: {{ $document['archive_reference']??$document['archive_id'] }}</small>
                         @else
                             <a class="document-file-open d-block" target="_blank" rel="noopener" aria-label="View {{ $document['name'] }}" href="{{ route('student-skipping-grade.attachment',['skipping'=>$record,'index'=>$index]) }}"><span class="document-file-name d-block">{{ $document['name'] }}</span></a>
-                            <div class="document-file-meta">Uploaded</div>
+                            <div class="document-file-meta">Uploaded@if(isset($document['size'])) · {{ number_format($document['size']/1048576,2) }} MB@endif</div>
+                            @if(($document['optimization_type']??null)==='pdf' && ($document['compressed']??false))<small class="text-success">PDF optimized from {{ number_format(($document['original_size']??0)/1048576,2) }} MB</small>
+                            @elseif(($document['optimization_type']??null)==='image')<small class="text-success">Converted to WebP from {{ number_format(($document['original_size']??0)/1024,0) }} KB</small>@endif
                         @endif
                         @if($documentsEditable)
                             <label class="document-parent-signed"><input type="checkbox" class="form-check-input" name="parent_signed_documents[]" value="{{ $index }}" @checked($document['is_parent_signed']??false)> Parent-signed Request</label>

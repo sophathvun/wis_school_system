@@ -143,10 +143,11 @@ class StudentSkippingGradeService
         if (count($files)>10) $this->invalid('documents','Upload at most 10 files at a time.');
         if (count($documents)+count($files)>20) $this->invalid('documents','A request can have up to 20 supporting documents.');
         foreach ($files as $file) {
-            $path=$file->store(app(SkippingGradeDocumentStorage::class)->directory($record),'local');
-            if (!$path) $this->invalid('documents','Unable to save the document. Please try again.');
-            $paths[]=$path;
-            $documents[]=['path'=>$path,'name'=>basename($file->getClientOriginalName()),'mime'=>$file->getMimeType(),'uploaded_by'=>$user->id,'uploaded_at'=>now()->toIso8601String()];
+            try { $stored=app(SkippingGradeDocumentStorage::class)->storeUpload($record,$file); }
+            catch (ValidationException $exception) { throw $exception; }
+            catch (\Throwable $exception) { report($exception); $this->invalid('documents','Unable to save the document. Please try again.'); }
+            $paths[]=$stored['path'];
+            $documents[]=$stored+['uploaded_by'=>$user->id,'uploaded_at'=>now()->toIso8601String()];
         }
         if ($parentSignedIndexes!==null) {
             foreach ($parentSignedIndexes as $index) {

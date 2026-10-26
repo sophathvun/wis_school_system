@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\StudentSkippingGrade;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -10,6 +11,8 @@ use RuntimeException;
 
 class SkippingGradeDocumentStorage
 {
+    public function __construct(private readonly GradeSkippingPdfCompressor $pdfs, private readonly GradeSkippingImageOptimizer $images) {}
+
     public function directory(StudentSkippingGrade $record): string
     {
         $year=$record->targetAcademicYear?->academic_year??$record->student_snapshot['target_academic_year']??'Unknown-Year';
@@ -19,6 +22,43 @@ class SkippingGradeDocumentStorage
     public function segment(string $value): string
     {
         return Str::limit(preg_replace('/[^\pL\pN_-]+/u','-',trim($value))?:'Unknown',80,'');
+    }
+
+    public function storeUpload(StudentSkippingGrade $record, UploadedFile $file): array
+    {
+        $extension = strtolower($file->getClientOriginalExtension());
+        $prepared = in_array($extension, ['jpg','jpeg','png','webp'], true) ? $this->images->prepare($file) : $this->pdfs->prepare($file);
+        $extension = $prepared['extension']??$extension;
+        if (!in_array($extension, ['pdf','jpg','jpeg','png','webp'], true)) $extension = 'bin';
+        $path = $this->directory($record).'/'.Str::uuid().'.'.$extension;
+        $stream = @fopen($prepared['path'], 'rb');
+        if (!$stream) {
+            $this->cleanup($prepared);
+            throw new RuntimeException('Unable to read the uploaded document.');
+        }
+        try {
+            if (!Storage::disk('local')->writeStream($path, $stream)) throw new RuntimeException('Unable to save the document.');
+        } finally {
+            fclose($stream);
+            $this->cleanup($prepared);
+        }
+        $size = (int) Storage::disk('local')->size($path);
+        $originalName=basename(str_replace('\\','/',$file->getClientOriginalName()));
+        $name=($prepared['optimization_type']??null)==='image'?(pathinfo($originalName,PATHINFO_FILENAME).'.webp'):$originalName;
+        return [
+            'path' => $path,
+            'name' => $name,
+            'mime' => $prepared['mime']??$file->getMimeType(),
+            'size' => $size,
+            'original_size' => (int) $prepared['original_size'],
+            'compressed' => (bool) $prepared['compressed'],
+            'optimization_type' => $prepared['optimization_type']??(($prepared['compressed']??false)?'pdf':null),
+        ];
+    }
+
+    private function cleanup(array $prepared): void
+    {
+        if (!empty($prepared['temporary_path'])) Storage::disk('local')->delete($prepared['temporary_path']);
     }
 
     public function organize(int $id): void
