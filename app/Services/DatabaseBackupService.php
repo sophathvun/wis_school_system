@@ -2,10 +2,13 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Facades\Cache;
 use Symfony\Component\Process\Process;
 
 class DatabaseBackupService
 {
+    private const STORAGE_USAGE_CACHE_KEY = 'database-backups:storage-usage:v1';
+
     public function directory(): string
     {
         $directory = storage_path('app/private/backups');
@@ -46,6 +49,52 @@ class DatabaseBackupService
         }
     }
 
+    public function storageUsage(): array
+    {
+        return Cache::remember(self::STORAGE_USAGE_CACHE_KEY, now()->addMinutes(5), function (): array {
+            $path = storage_path('app');
+            $total = @disk_total_space($path);
+            $available = @disk_free_space($path);
+            $applicationBytes = 0;
+            $applicationFiles = 0;
+
+            if (is_dir($path)) {
+                try {
+                    $files = new \RecursiveIteratorIterator(
+                        new \RecursiveDirectoryIterator($path, \FilesystemIterator::SKIP_DOTS),
+                        \RecursiveIteratorIterator::LEAVES_ONLY,
+                        \RecursiveIteratorIterator::CATCH_GET_CHILD,
+                    );
+                    foreach ($files as $file) {
+                        if (!$file->isFile() || $file->isLink()) continue;
+                        $applicationBytes += $file->getSize();
+                        $applicationFiles++;
+                    }
+                } catch (\Throwable $exception) {
+                    report($exception);
+                }
+            }
+
+            $total = is_numeric($total) ? (int) $total : 0;
+            $available = is_numeric($available) ? (int) $available : 0;
+            $used = max(0, $total - $available);
+
+            return [
+                'total' => $total,
+                'used' => $used,
+                'available' => $available,
+                'used_percent' => $total > 0 ? round(($used / $total) * 100, 1) : 0,
+                'application_bytes' => $applicationBytes,
+                'application_files' => $applicationFiles,
+            ];
+        });
+    }
+
+    public function clearStorageUsageCache(): void
+    {
+        Cache::forget(self::STORAGE_USAGE_CACHE_KEY);
+    }
+
     public function create(): array
     {
         $connection = config('database.default');
@@ -73,6 +122,8 @@ class DatabaseBackupService
             if (is_file($path)) unlink($path);
             throw new \RuntimeException(trim($process->getErrorOutput()) ?: 'The database backup command failed.');
         }
+
+        $this->clearStorageUsageCache();
 
         return ['path' => 'backups/'.basename($path), 'filename' => basename($path), 'size' => filesize($path), 'created_at' => now('Asia/Phnom_Penh')];
     }

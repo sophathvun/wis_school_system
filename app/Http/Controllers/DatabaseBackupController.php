@@ -19,7 +19,10 @@ class DatabaseBackupController
             ->filter(fn ($path) => str_ends_with(strtolower($path), '.sql'))
             ->map(fn ($path) => ['path' => $path, 'filename' => basename($path), 'size' => $disk->size($path), 'modified' => $disk->lastModified($path)])
             ->sortByDesc('modified')->values();
-        return view('database-backups', ['backups' => $files]);
+        $storageUsage = $this->backups->storageUsage();
+        $storageUsage['backup_bytes'] = (int) $files->sum('size');
+        $storageUsage['backup_files'] = $files->count();
+        return view('database-backups', ['backups' => $files, 'storageUsage' => $storageUsage]);
     }
 
     public function create(Request $request)
@@ -50,6 +53,7 @@ class DatabaseBackupController
         $path = 'backups/'.$filename;
         abort_unless(Storage::disk('local')->exists($path), 404);
         Storage::disk('local')->delete($path);
+        $this->backups->clearStorageUsageCache();
         return back()->with('success', 'Backup deleted successfully.');
     }
 

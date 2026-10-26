@@ -5,3 +5,55 @@
         color: #fff;
     }
 }
+
+.database-storage-card {
+    overflow: hidden;
+}
+
+.database-storage-card .progress {
+    height: .7rem;
+    background: var(--tblr-bg-surface-secondary, #edf1f7);
+}
+
+.database-storage-card .progress-bar {
+    background: var(--tblr-primary);
+}
+
+.database-storage-stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: .75rem;
+}
+
+.database-storage-stats > div {
+    min-width: 0;
+    padding: 1rem;
+    border: 1px solid var(--tblr-border-color);
+    border-radius: 10px;
+    background: var(--tblr-bg-surface-secondary, #f7f8fa);
+}
+
+.database-storage-stats span,
+.database-storage-stats small {
+    display: block;
+    color: var(--tblr-secondary);
+}
+
+.database-storage-stats strong {
+    display: block;
+    margin: .2rem 0;
+    font-size: 1.3rem;
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 991px) {
+    .database-storage-stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 575px) {
+    .database-storage-stats {
+        grid-template-columns: 1fr;
+    }
+}

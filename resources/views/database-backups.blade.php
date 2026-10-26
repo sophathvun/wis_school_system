@@ -17,6 +17,46 @@
 @endsection
 
 @section('content')
+    @php
+        $formatStorageSize = static function (int $bytes): string {
+            $units = ['B', 'KB', 'MB', 'GB', 'TB'];
+            $value = max(0, $bytes);
+            $unit = 0;
+            while ($value >= 1024 && $unit < count($units) - 1) {
+                $value /= 1024;
+                $unit++;
+            }
+            return number_format($value, $unit === 0 ? 0 : 2).' '.$units[$unit];
+        };
+    @endphp
+    <section class="card database-storage-card mb-3" aria-labelledby="databaseStorageTitle">
+        <div class="card-body">
+            <div class="d-flex flex-wrap align-items-start justify-content-between gap-2 mb-3">
+                <div>
+                    <h3 class="card-title mb-1" id="databaseStorageTitle"><i class="ti ti-server-2 me-2"></i>Server Storage</h3>
+                    <p class="text-secondary mb-0">Storage available on the server disk containing this system.</p>
+                </div>
+                <span class="badge bg-blue-lt">Updates every 5 minutes</span>
+            </div>
+            @if($storageUsage['total'] > 0)
+                <div class="database-storage-progress mb-3">
+                    <div class="progress" role="progressbar" aria-label="Server storage used" aria-valuenow="{{ $storageUsage['used_percent'] }}" aria-valuemin="0" aria-valuemax="100">
+                        <div class="progress-bar" style="width: {{ min(100, $storageUsage['used_percent']) }}%"></div>
+                    </div>
+                    <div class="d-flex justify-content-between gap-3 mt-2 text-secondary small">
+                        <span>{{ $storageUsage['used_percent'] }}% used</span>
+                        <span>{{ $formatStorageSize($storageUsage['used']) }} of {{ $formatStorageSize($storageUsage['total']) }}</span>
+                    </div>
+                </div>
+            @endif
+            <div class="database-storage-stats">
+                <div><span>Available</span><strong>{{ $formatStorageSize($storageUsage['available']) }}</strong><small>Space that can still be used</small></div>
+                <div><span>Server Used</span><strong>{{ $formatStorageSize($storageUsage['used']) }}</strong><small>System, database, logs and files</small></div>
+                <div><span>Application Files</span><strong>{{ $formatStorageSize($storageUsage['application_bytes']) }}</strong><small>{{ number_format($storageUsage['application_files']) }} files in storage/app</small></div>
+                <div><span>Database Backups</span><strong>{{ $formatStorageSize($storageUsage['backup_bytes']) }}</strong><small>{{ number_format($storageUsage['backup_files']) }} backup file(s)</small></div>
+            </div>
+        </div>
+    </section>
     <div class="alert alert-info database-backup-notice"><i class="ti ti-info-circle me-2"></i><span>Backups contain sensitive school data and are stored
         privately in <code>storage/app/private/backups</code>. Download a copy to another secure computer or drive.</span></div>
     @if (session('success'))
