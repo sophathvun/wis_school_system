@@ -181,7 +181,10 @@ it('returns JSON upload validation errors through the real G12 route instead of 
         ->assertUnprocessable()->assertJsonValidationErrors('files');
     $response=$this->postJson(route('g12-national-exams.photos.preview'),['academic_year'=>'2025-2026','files'=>[new UploadedFile('', 'photo_2025-2026.zip', 'application/zip', UPLOAD_ERR_INI_SIZE, true)]])
         ->assertUnprocessable()->assertJsonValidationErrors('files.0');
-    expect($response->json('errors')['files.0'][0])->toBe('The server rejected this upload before the photo importer could read it. Try a smaller ZIP or ask your server administrator to increase the upload limit.');
+    expect($response->json('errors')['files.0'][0])->toContain('PHP error 1')->toContain('PHP-FPM');
+    $partial=$this->postJson(route('g12-national-exams.photos.preview'),['academic_year'=>'2025-2026','files'=>[new UploadedFile('', 'photo_2025-2026.zip', 'application/zip', UPLOAD_ERR_PARTIAL, true)]])
+        ->assertUnprocessable()->assertJsonValidationErrors('files.0');
+    expect($partial->json('errors')['files.0'][0])->toContain('partially uploaded')->toContain('PHP error 3');
 });
 it('rejects oversized photo ZIPs with a JSON size error through the upload route',function(){
     $this->withoutMiddleware()->actingAs(User::find(1));

@@ -4,8 +4,9 @@ use App\Models\{G12ExamRecord,G12ExamCenter,G12ExamFile,G12ExamImport,SchoolInfo
 use App\Support\{G12NationalExamPermissions as Access,G12NationalExamFields as Fields,ScholarshipExport};
 use App\Services\{G12NationalExams,G12NationalExamFiles};
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\{DB,Storage,Validator};
-use Illuminate\Validation\Rule;
+use Illuminate\Validation\{Rule,ValidationException};
 class G12NationalExamController {
     public function __construct(private G12NationalExams $exams,private G12NationalExamFiles $files){}
     private function tab(Request $request): string {
@@ -99,7 +100,24 @@ class G12NationalExamController {
         $request->validate(['file'=>'nullable|file|max:20480']);$this->files->collection($request->user(),$record,$type,$request->except('file'),$request->file('file'));
         return response()->json(['message'=>'Certificate tracking saved.']);
     }
+    private function assertValidPhotoUploads(Request $request): void {
+        foreach((array)$request->file('files',[]) as $index=>$file){
+            if(!$file instanceof UploadedFile||$file->isValid())continue;
+            $name=$file->getClientOriginalName()?:'The selected file';$message=match($file->getError()){
+                UPLOAD_ERR_INI_SIZE=>"{$name} exceeds the upload limit used by the website's PHP-FPM process (PHP error 1). Check for PHP-FPM pool or per-directory overrides.",
+                UPLOAD_ERR_FORM_SIZE=>"{$name} exceeds the upload limit declared by the upload form (PHP error 2).",
+                UPLOAD_ERR_PARTIAL=>"{$name} was only partially uploaded (PHP error 3). Check the connection and retry, or use a smaller ZIP.",
+                UPLOAD_ERR_NO_FILE=>"No file was received for {$name} (PHP error 4). Choose the file again.",
+                UPLOAD_ERR_NO_TMP_DIR=>"The server has no usable temporary upload directory (PHP error 6). Ask the administrator to check PHP's temporary folder.",
+                UPLOAD_ERR_CANT_WRITE=>"The server could not write {$name} to temporary storage (PHP error 7). Check free disk space and temporary-folder permissions.",
+                UPLOAD_ERR_EXTENSION=>"A PHP extension stopped the upload of {$name} (PHP error 8). Check the PHP-FPM log.",
+                default=>"The server rejected {$name} before the photo importer could read it (PHP upload error {$file->getError()}).",
+            };
+            throw ValidationException::withMessages(["files.{$index}"=>$message]);
+        }
+    }
     public function photoPreview(Request $request){
+        $this->assertValidPhotoUploads($request);
         $request->validate(['academic_year'=>'required|string|max:9','files'=>'required|array|min:1|max:100','files.*'=>'required|file|max:204800'],[
             'files.required'=>'Choose photos or a ZIP before previewing.',
             'files.*.uploaded'=>'The server rejected this upload before the photo importer could read it. Try a smaller ZIP or ask your server administrator to increase the upload limit.',
