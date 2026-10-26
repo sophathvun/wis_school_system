@@ -397,7 +397,7 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         Route::post('/records','save')->name('store');Route::get('/records/{record}','show')->name('show');Route::post('/records/{record}','save')->name('update');
         Route::get('/records/{record}/photo','photo')->name('photo');Route::post('/records/{record}/files','upload')->name('upload');
         Route::post('/records/{record}/certificates/{type}','collection')->name('collection');Route::get('/files/{file}','file')->name('file');
-        Route::post('/centers','saveCenter')->name('centers.store');Route::post('/centers/{center}','saveCenter')->name('centers.update');
+        Route::get('/centers','centers')->name('centers.list');Route::post('/centers','saveCenter')->name('centers.store');Route::post('/centers/{center}/status','centerStatus')->name('centers.status');Route::post('/centers/{center}','saveCenter')->name('centers.update');
         Route::get('/imports','history')->name('history');Route::get('/imports/template','template')->name('template');Route::post('/imports/preview','preview')->name('preview');
         Route::post('/imports/{batch}/inspect','inspect')->name('inspect');Route::post('/imports/{batch}/confirm','confirm')->name('confirm');
         Route::post('/photos/preview','photoPreview')->name('photos.preview');Route::post('/photos/{batch}/{index}','photoProcess')->whereNumber('index')->name('photos.process');

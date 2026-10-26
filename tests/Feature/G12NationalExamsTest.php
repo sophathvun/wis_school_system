@@ -19,6 +19,21 @@ it('stores unique student-year exam snapshots without changing school profiles a
     expect(fn()=>$service->save($user,g12ExamData(['version'=>1]),$record))->toThrow(ValidationException::class,'another window');
     $next=$service->save($user,g12ExamData(['academic_year'=>'2026-2027']));expect($next->id)->not->toBe($record->id);
 });
+it('returns the student birth date and parent details required by the exam record list',function(){
+    $record=app(G12NationalExams::class)->save(User::find(1),g12ExamData([
+        'dob'=>'2020-09-14','mother_name'=>'Mother Name','mother_occupation'=>'Teacher',
+        'father_name'=>'Father Name','father_occupation'=>'Engineer',
+        'g9_exam_center'=>'G9 Center','g9_exam_date'=>'2023-11-06','g9_exam_room'=>'12','g9_exam_seat'=>'34',
+        'language_exam'=>'English','class_sellected'=>'វិទ្យាសាស្ត្រ',
+    ]));
+    $list=app(G12NationalExamController::class)->list(g12Request(User::find(1),['tab'=>'records']))->getData(true);
+    expect($list['data'][0])->toMatchArray([
+        'id'=>$record->id,'dob'=>'2020-09-14','mother_name'=>'Mother Name','mother_occupation'=>'Teacher',
+        'father_name'=>'Father Name','father_occupation'=>'Engineer','campus'=>'BCH','grade'=>'12A',
+        'g9_exam_center'=>'G9 Center','g9_exam_date'=>'2023-11-06','g9_exam_room'=>'12','g9_exam_seat'=>'34',
+        'language_exam'=>'English','class_selected'=>'វិទ្យាសាស្ត្រ',
+    ]);
+});
 it('inherits permissions from roles, departments and user grants while enforcing campus boundaries',function($source){
     $user=g12ExamUser(['view','records','create'],$source);expect(Access::allows($user,'create',1))->toBeTrue()->and(Access::allows($user,'create',2))->toBeFalse();
     app(G12NationalExams::class)->save($user,g12ExamData());
@@ -93,6 +108,29 @@ it('assigns center IDs automatically and keeps IDs stable when edited',function(
     $controller->saveCenter(g12Request($user,['name'=>'Corrected MoEYS Center','active'=>true]),$imported);
     expect($imported->fresh()->source_id)->toBe('00027');
     expect(fn()=>$controller->saveCenter(g12Request($user,['name'=>'Second Center','active'=>true])))->toThrow(ValidationException::class,'already exists');
+});
+it('toggles exam center status with manage permission and records the change',function(){
+    $manager=g12ExamUser(['view','centers','centers-manage']);$controller=app(G12NationalExamController::class);
+    $center=G12ExamCenter::create(['name'=>'Status Center','name_key'=>'status center','active'=>true]);
+    $response=$controller->centerStatus(g12Request($manager,['active'=>false]),$center)->getData(true);
+    expect($response['active'])->toBeFalse()->and($center->fresh()->active)->toBeFalse()
+        ->and(DB::table('tb_g12_exam_event')->where('action','center-status-updated')->exists())->toBeTrue();
+    DB::table('access_user_permission_overrides')->where('user_id',$manager->id)->where('permission_id',App\Models\Permission::where('code','g12-national-exams.centers-manage')->value('id'))->delete();
+    $viewer=$manager->fresh();
+    expect(fn()=>$controller->centerStatus(g12Request($viewer,['active'=>true]),$center))->toThrow(HttpException::class);
+});
+it('paginates and searches exam center settings like the student enrollment list',function(){
+    $user=g12ExamUser(['view','centers']);$controller=app(G12NationalExamController::class);
+    foreach(range(1,23) as $number)G12ExamCenter::create(['name'=>sprintf('Center %02d',$number),'name_key'=>sprintf('center %02d',$number),'active'=>$number%2===1]);
+    $page=$controller->centers(g12Request($user,['page'=>2,'per_page'=>'10']))->getData(true);
+    expect($page['current_page'])->toBe(2)->and($page['per_page'])->toBe(10)->and($page['total'])->toBe(23)->and($page['data'])->toHaveCount(10)
+        ->and($page['data'][0]['name'])->toBe('Center 11')->and($page['data'][0]['active'])->toBeTrue();
+    $byId=$controller->centers(g12Request($user,['sort_by'=>'source_id','sort_dir'=>'desc','per_page'=>'10']))->getData(true);
+    expect($byId['data'][0]['source_id'])->toBe('EC-000023');
+    $filtered=$controller->centers(g12Request($user,['search'=>'Center 2','per_page'=>'10']))->getData(true);
+    expect($filtered['total'])->toBe(4)->and(array_column($filtered['data'],'name'))->toBe(['Center 20','Center 21','Center 22','Center 23']);
+    DB::table('access_user_permission_overrides')->where('user_id',$user->id)->where('permission_id',App\Models\Permission::where('code','g12-national-exams.centers')->value('id'))->update(['allowed'=>false]);
+    expect(fn()=>$controller->centers(g12Request($user->fresh(),['per_page'=>'10'])))->toThrow(HttpException::class);
 });
 it('blocks duplicate workbook rows, unassigned campuses and stale import previews',function(){
     $user=User::find(1);$service=app(G12NationalExams::class);$row=g12ExamData(['_row'=>2,'g12_exam_center'=>'']);$batch=g12Batch([$row,array_replace($row,['_row'=>3])]);

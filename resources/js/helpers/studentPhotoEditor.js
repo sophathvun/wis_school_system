@@ -14,7 +14,7 @@ const loadImage = blob => new Promise((resolve, reject) => {
 });
 
 // Both the viewer and the download use actual JPEG pixels, including legacy PNG/WebP photos.
-export async function studentPhotoJpeg(url) {
+export async function studentPhotoJpeg(url, quality = .95) {
     const source = new URL(url, window.location.href);
     if (source.origin !== window.location.origin) throw new Error("The student photo must be stored on this server.");
     const response = await fetch(source, { credentials: "same-origin" });
@@ -25,7 +25,8 @@ export async function studentPhotoJpeg(url) {
     const context = canvas.getContext("2d");
     context.fillStyle = "#fff"; context.fillRect(0, 0, canvas.width, canvas.height);
     context.drawImage(image, 0, 0);
-    return canvasBlob(canvas, "image/jpeg", .95);
+    const jpegQuality = Math.max(.1, Math.min(1, Number(quality) || .95));
+    return canvasBlob(canvas, "image/jpeg", jpegQuality);
 }
 
 export function createPhotoEditor({ bootstrap, csrf, showError, showSuccess, editorId = "studentPhotoCropModal", elements = {}, saveMessage = "Save the enrollment to apply this photo.", onApply = () => {} }) {

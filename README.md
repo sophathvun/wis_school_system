@@ -37,6 +37,29 @@ If port 8002 is already in use, check the existing site before starting another
 server. For the separate Laragon Nginx URL, select PHP 8.4.25 or newer in Laragon
 and restart its services; that URL is http://school_system.test:8080/.
 
+## New server document optimization setup
+
+After installing PHP and Composer dependencies on a new Ubuntu server, run:
+
+```bash
+composer server:setup
+```
+
+The command checks Ghostscript for Grade Skipping PDF compression and PHP GD
+WebP support for JPG/PNG optimization. When a package is missing, it explains
+why it is required and asks before installing it with `apt-get`. It also restarts
+the matching PHP-FPM service when GD is newly installed.
+
+Use `composer server:check` to check without changing the server. For an
+unattended deployment, use:
+
+```bash
+bash scripts/setup-server-dependencies.sh --yes
+```
+
+Operating-system packages are installed separately from the application, so run
+this setup command again whenever the system moves to a new server.
+
 ## Server upload limits
 
 Grade Skipping supporting documents allow up to 25 MB **per file**, with up to

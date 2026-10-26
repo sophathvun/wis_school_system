@@ -2,6 +2,8 @@ import {Modal} from 'bootstrap';
 import Swal from 'sweetalert2';
 import {renderPagination} from './helpers/pagination.js';
 import {createSeatPicker} from './scholarshipSeatPicker.js';
+import {studentPhotoJpeg} from './helpers/studentPhotoEditor.js';
+import {dateKhmer} from './helpers/staffProfileFields.js';
 
 const root=document.querySelector('[data-g12-exams]');
 if(root){
@@ -39,11 +41,51 @@ if(root){
         refreshPickers(root);
     };
     const filters=()=>new URLSearchParams(get('[data-g12-filters]')?new FormData(get('[data-g12-filters]')):[]);
+    const studentClass=r=>{const campus=String(r.campus??'').trim(),grade=String(r.grade??'').trim();if(!campus)return grade;if(!grade)return campus;return grade.toLowerCase().startsWith(`${campus.toLowerCase()}-`)?grade:`${campus}-${grade}`;};
+    const studentDob=value=>dateKhmer(value).replace(/^០/u,'');
+    const examLanguageKhmer=value=>({english:'អង់គ្លេស',khmer:'ខ្មែរ',french:'បារាំង'}[String(value??'').trim().toLowerCase()]||String(value??'').trim());
+    const recordRows=res=>res.data.map((r,i)=>`<tr>
+        <td class="text-center g12-number-cell">${res.from+i}</td>
+        <td>${r.photo_url?`<button type="button" class="g12-photo-trigger" data-g12-photo-view="${escape(r.photo_url)}" data-g12-photo-title="${escape(r.name_en||r.student_code||'Student Photo')}" aria-label="View photo of ${escape(r.name_en||r.student_code||'student')}"><img src="${escape(r.photo_url)}" class="g12-photo" loading="lazy" alt="Photo of ${escape(r.name_en||r.student_code||'student')}"></button>`:'—'}</td>
+        <td class="g12-student-cell"><strong class="school-profile-khmer">${escape(r.name_kh||'—')}</strong><div class="g12-student-name-en">${escape(r.name_en||'—')}</div><div class="g12-student-dob"><span>DOB:</span><span class="school-profile-khmer">${escape(studentDob(r.dob)||'—')}</span></div></td>
+        <td class="g12-grade-cell"><strong>${escape(r.academic_year||'—')}</strong><div>${escape(studentClass(r)||'—')}</div></td>
+        <td class="g12-parents-cell"><div class="g12-parent-grid"><div class="g12-parent-entry"><span>Mother</span><strong class="school-profile-khmer">${escape(r.mother_name||'—')}</strong><small><i class="ti ti-briefcase" aria-hidden="true"></i>${escape(r.mother_occupation||'—')}</small></div><div class="g12-parent-entry"><span>Father</span><strong class="school-profile-khmer">${escape(r.father_name||'—')}</strong><small><i class="ti ti-briefcase" aria-hidden="true"></i>${escape(r.father_occupation||'—')}</small></div></div></td>
+        <td class="g12-g9-cell"><div class="g12-g9-center" aria-label="G9 exam center">${escape(r.g9_exam_center||'—')}</div><div class="g12-g9-date" aria-label="G9 exam date">${escape(r.g9_exam_date||'—')}</div><div class="g12-g9-seat school-profile-khmer" aria-label="G9 room and seat"><span>បន្ទប់លេខៈ ${escape(r.g9_exam_room||'—')}</span><span>តុលេខៈ ${escape(r.g9_exam_seat||'—')}</span></div></td>
+        <td class="g12-g12-cell school-profile-khmer"><div>ប្រឡងភាសា៖ <span>${escape(examLanguageKhmer(r.language_exam)||'—')}</span></div><div>ថ្នាក់៖ <span>${escape(r.class_selected||'—')}</span></div></td>
+        <td><div class="d-flex gap-2"><button class="btn btn-sm btn-outline-primary" data-g12-view="${r.id}"><i class="ti ti-eye me-1"></i>View</button>${r.can_edit?`<button class="btn btn-sm btn-outline-primary" data-g12-edit="${r.id}" aria-label="Edit student"><i class="ti ti-edit"></i></button>`:''}</div></td>
+    </tr>`).join('')||'<tr><td colspan="8" class="text-center py-4">No student exam records match these filters.</td></tr>';
+    const trackingRows=res=>res.data.map((r,i)=>`<tr><td>${res.from+i}</td><td>${r.photo_url?`<button type="button" class="g12-photo-trigger" data-g12-photo-view="${escape(r.photo_url)}" data-g12-photo-title="${escape(r.name_en||r.student_code||'Student Photo')}" aria-label="View photo of ${escape(r.name_en||r.student_code||'student')}"><img src="${escape(r.photo_url)}" class="g12-photo" loading="lazy" alt="Photo of ${escape(r.name_en||r.student_code||'student')}"></button>`:'—'}</td><td><strong>${escape(r.name_en)}</strong><div class="school-profile-khmer">${escape(r.name_kh)}</div><div class="text-secondary">${escape(r.student_code)}</div></td><td>${escape(r.academic_year)}<div>${escape(r.campus)} / ${escape(r.grade)}</div></td><td>${escape(r.center??'Not assigned')}<div>Room ${escape(r.room||'—')} / Seat ${escape(r.seat||'—')}</div></td><td>${escape(r.overall_grade)} ${badge(r.result_status)}</td>${['soft','hard'].map(t=>`<td>${badge(r.certificates.find(c=>c.type===t)?.status??'awaiting')}</td>`).join('')}<td><div class="d-flex gap-2"><button class="btn btn-sm btn-outline-primary" data-g12-view="${r.id}"><i class="ti ti-eye me-1"></i>View</button></div></td></tr>`).join('')||'<tr><td colspan="9" class="text-center py-4">No student exam records match these filters.</td></tr>';
     const load=async(page=1,perPage=get('#g12PerPage')?.value??15)=>{
         if(!get('[data-g12-records]'))return;const query=filters();query.set('tab',tab);query.set('page',page);query.set('per_page',perPage);
-        const res=await api('/list?'+query);get('[data-g12-records]').innerHTML=res.data.map((r,i)=>`<tr><td>${res.from+i}</td><td>${r.photo_url?`<img src="${escape(r.photo_url)}" class="g12-photo" loading="lazy" alt="Student photo">`:'—'}</td><td><strong>${escape(r.name_en)}</strong><div class="school-profile-khmer">${escape(r.name_kh)}</div><div class="text-secondary">${escape(r.student_code)}</div></td><td>${escape(r.academic_year)}<div>${escape(r.campus)} / ${escape(r.grade)}</div></td><td>${escape(r.center??'Not assigned')}<div>Room ${escape(r.room||'—')} / Seat ${escape(r.seat||'—')}</div></td><td>${escape(r.overall_grade)} ${badge(r.result_status)}</td>${['soft','hard'].map(t=>`<td>${badge(r.certificates.find(c=>c.type===t)?.status??'awaiting')}</td>`).join('')}<td><div class="d-flex gap-2"><button class="btn btn-sm btn-outline-primary" data-g12-view="${r.id}"><i class="ti ti-eye me-1"></i>View</button>${r.can_edit&&tab==='records'?`<button class="btn btn-sm btn-outline-primary" data-g12-edit="${r.id}" aria-label="Edit student"><i class="ti ti-edit"></i></button>`:''}</div></td></tr>`).join('')||'<tr><td colspan="9" class="text-center py-4">No student exam records match these filters.</td></tr>';
+        const res=await api('/list?'+query);get('[data-g12-records]').innerHTML=tab==='records'?recordRows(res):trackingRows(res);
         renderPagination(res,'g12Pagination','g12PerPage',(p,size)=>run(()=>load(p,size)),['all',15,25,50,100]);
     };
+    const photoViewerElement=get('#g12PhotoViewerModal');
+    if(photoViewerElement){
+        const viewer=s=>photoViewerElement.querySelector(s),photoModal=Modal.getOrCreateInstance(photoViewerElement),photoImage=viewer('[data-g12-photo-image]'),photoStage=viewer('[data-g12-photo-stage]'),photoZoom=viewer('[data-g12-photo-zoom]'),photoQuality=viewer('[data-g12-photo-quality]'),photoDownload=viewer('[data-g12-photo-download]');
+        let photoJpegUrl=null,photoGeneration=0,photoFitWidth=0,photoFitHeight=0,activePhotoUrl='',activePhotoTitle='Student Photo';
+        const setPhotoDownload=ready=>{photoDownload.classList.toggle('disabled',!ready);photoDownload.setAttribute('aria-disabled',String(!ready));photoDownload.tabIndex=ready?0:-1;if(!ready)photoDownload.removeAttribute('href');};
+        const renderPhotoZoom=()=>{
+            const scale=Number(photoZoom.value),width=photoFitWidth*scale,height=photoFitHeight*scale;
+            if(photoFitWidth){photoImage.style.width=`${width}px`;photoViewerElement.style.setProperty('--g12-photo-modal-width',`${Math.max(360,Math.min(window.innerWidth-24,width+34))}px`);photoViewerElement.style.setProperty('--g12-photo-stage-height',`${Math.max(240,Math.min(window.innerHeight-230,height+32))}px`);}
+            viewer('[data-g12-photo-percent]').textContent=`${Math.round(scale*100)}%`;viewer('[data-g12-photo-out]').disabled=scale<=.5;viewer('[data-g12-photo-in]').disabled=scale>=3;
+        };
+        const fitPhoto=()=>{if(!photoImage.naturalWidth)return;const availableWidth=Math.min(640,window.innerWidth-56),availableHeight=Math.min(600,window.innerHeight-270),factor=Math.min(1,availableWidth/photoImage.naturalWidth,availableHeight/photoImage.naturalHeight);photoFitWidth=Math.max(1,photoImage.naturalWidth*factor);photoFitHeight=Math.max(1,photoImage.naturalHeight*factor);renderPhotoZoom();};
+        const resetPhoto=()=>{photoZoom.value='1';fitPhoto();photoStage.scrollTo(0,0);};
+        const preparePhoto=async()=>{
+            if(!activePhotoUrl)return;const token=++photoGeneration,qualityLabel=photoQuality.selectedOptions[0]?.textContent??'JPG';setPhotoDownload(false);viewer('[data-g12-photo-error]').classList.add('d-none');viewer('[data-g12-photo-status]').textContent=`Preparing ${qualityLabel} JPG…`;
+            try{const blob=await studentPhotoJpeg(activePhotoUrl,Number(photoQuality.value));if(token!==photoGeneration)return;const nextUrl=URL.createObjectURL(blob);if(photoJpegUrl)URL.revokeObjectURL(photoJpegUrl);photoJpegUrl=nextUrl;photoImage.src=photoJpegUrl;photoImage.hidden=false;await photoImage.decode();if(token!==photoGeneration)return;fitPhoto();photoDownload.href=photoJpegUrl;photoDownload.download=`${activePhotoTitle.trim().replace(/[^\p{L}\p{N}]+/gu,'-').replace(/^-+|-+$/g,'')||'student-photo'}.jpg`;setPhotoDownload(true);viewer('[data-g12-photo-status]').textContent=`${qualityLabel} JPG ready · ${(blob.size/1024).toFixed(1)} KB. Use the controls to zoom.`;}catch{if(token!==photoGeneration)return;viewer('[data-g12-photo-status]').textContent='';viewer('[data-g12-photo-error]').textContent='The student photo could not be prepared as a JPG. Close this window and try again.';viewer('[data-g12-photo-error]').classList.remove('d-none');}
+        };
+        photoImage.addEventListener('load',fitPhoto);photoViewerElement.addEventListener('shown.bs.modal',fitPhoto);window.addEventListener('resize',fitPhoto);photoZoom.addEventListener('input',renderPhotoZoom);viewer('[data-g12-photo-reset]').addEventListener('click',resetPhoto);
+        photoQuality.addEventListener('change',preparePhoto);
+        for(const [selector,delta]of [['[data-g12-photo-in]',.1],['[data-g12-photo-out]',-.1]])viewer(selector).addEventListener('click',()=>{photoZoom.value=String(Math.max(.5,Math.min(3,Number(photoZoom.value)+delta)));renderPhotoZoom();});
+        photoDownload.addEventListener('click',event=>{if(!photoJpegUrl)event.preventDefault();});
+        root.addEventListener('click',async event=>{
+            const trigger=event.target.closest('[data-g12-photo-view]');if(!trigger)return;event.preventDefault();event.stopPropagation();
+            activePhotoUrl=trigger.dataset.g12PhotoView;activePhotoTitle=trigger.dataset.g12PhotoTitle||'Student Photo';if(photoJpegUrl)URL.revokeObjectURL(photoJpegUrl);photoJpegUrl=null;setPhotoDownload(false);viewer('[data-g12-photo-error]').classList.add('d-none');viewer('#g12PhotoViewerTitle').textContent=activePhotoTitle;photoImage.alt=`Photo of ${activePhotoTitle}`;photoImage.hidden=true;photoImage.removeAttribute('src');photoFitWidth=photoFitHeight=0;photoZoom.value='1';renderPhotoZoom();photoModal.show();await preparePhoto();
+        });
+        photoViewerElement.addEventListener('hidden.bs.modal',()=>{photoGeneration++;if(photoJpegUrl)URL.revokeObjectURL(photoJpegUrl);photoJpegUrl=null;activePhotoUrl='';photoImage.hidden=true;photoImage.removeAttribute('src');photoViewerElement.style.removeProperty('--g12-photo-modal-width');photoViewerElement.style.removeProperty('--g12-photo-stage-height');setPhotoDownload(false);});
+    }
     get('[data-g12-filters]')?.addEventListener('submit',e=>{e.preventDefault();run(()=>load());});
     async function openEdit(id){
         editing=id?await api('/records/'+id):null;const values=editing?.data??{};if(editing){values.photo_filename=editing.photo_filename;values.student_id=editing.student_code;values.academic_year=editing.academic_year;}
@@ -66,7 +108,31 @@ if(root){
         values.campus=meta.campuses.find(c=>c.id===campus)?.campus_name_en??'';values.g12_exam_center=meta.centers.find(c=>c.id===center)?.name??'';
         try{const res=await api('/records'+(editing?'/'+editing.id:''),{data:values,campus_id:campus,center_id:center,version:editing?.version});modal('#g12EditModal').hide();await saved(res.message);await loadMeta();await load();}catch(error){for(const key of Object.keys(error.fields??{})){const input=e.target.elements[key.replace(/^data\./,'')];input?.classList.add('is-invalid');}throw error;}
     });});
-    function centers(){const search=get('[data-g12-center-search]')?.value.toLowerCase()??'';const list=meta.centers.filter(c=>c.name.toLowerCase().includes(search));get('[data-g12-centers]').innerHTML=list.map(c=>`<tr><td>${escape(c.source_id??'')}</td><td>${escape(c.name)}</td><td>${c.active?'Active':'Inactive'}</td><td>${permissions['centers-manage']?`<button class="btn btn-sm btn-outline-primary" data-g12-center-edit="${c.id}"><i class="ti ti-edit me-1"></i>Edit</button>`:''}</td></tr>`).join('')||'<tr><td colspan="4">No exam centers. Import Sheet 2 or add a center.</td></tr>';}
+    let centerPage=1,centerSearchTimer,centerSortBy='name',centerSortDir='asc';
+    const updateCenterSortHeaders=()=>root.querySelectorAll('[data-g12-center-sort]').forEach(button=>{
+        const active=button.dataset.g12CenterSort===centerSortBy,header=button.closest('th'),icon=button.querySelector('[data-g12-center-sort-icon]');
+        button.classList.toggle('is-active',active);header?.setAttribute('aria-sort',active?(centerSortDir==='asc'?'ascending':'descending'):'none');
+        if(icon)icon.className=active?(centerSortDir==='asc'?'ti ti-arrow-up':'ti ti-arrow-down'):'ti ti-arrows-sort';button.setAttribute('aria-label',`Sort ${button.dataset.sortLabel} ${active&&centerSortDir==='asc'?'descending':'ascending'}`);
+    });
+    async function centers(page=1,perPage=get('#g12CentersPerPage')?.value??10){
+        const query=new URLSearchParams({page,per_page:perPage,search:get('[data-g12-center-search]')?.value.trim()??'',sort_by:centerSortBy,sort_dir:centerSortDir});
+        const result=await api('/centers?'+query);centerPage=result.current_page;
+        get('[data-g12-centers]').innerHTML=result.data.map((c,index)=>`<tr><td class="text-center">${(result.from??1)+index}</td><td>${escape(c.name)}</td><td><button type="button" class="status-toggle ${c.active?'is-active':''} ${permissions['centers-manage']?'':'g12-center-status-readonly'}" data-g12-center-status="${c.id}" data-status="${c.active?1:0}" aria-label="${permissions['centers-manage']?`Set ${escape(c.name)} ${c.active?'inactive':'active'}`:`${escape(c.name)} is ${c.active?'active':'inactive'}`}" aria-pressed="${c.active?'true':'false'}" ${permissions['centers-manage']?'':'disabled title="Manage Exam Centers permission is required"'}><span class="status-toggle-label">${c.active?'ON':'OFF'}</span><span class="status-toggle-knob"></span></button></td><td>${permissions['centers-manage']?`<button class="btn btn-sm btn-outline-primary" data-g12-center-edit="${c.id}"><i class="ti ti-edit me-1"></i>Edit</button>`:''}</td></tr>`).join('')||'<tr><td colspan="4" class="text-center py-4">No exam centers match your search.</td></tr>';
+        renderPagination(result,'g12CentersPagination','g12CentersPerPage',(nextPage,size)=>run(()=>centers(nextPage,size)));updateCenterSortHeaders();
+    }
+    async function toggleCenterStatus(button){
+        const nextActive=button.dataset.status!=='1';
+        if(!nextActive){
+            const confirmation=await Swal.fire({icon:'warning',title:'Deactivate exam center?',text:'This center will no longer be available for new student assignments or import templates. Existing student records will remain linked.',showCancelButton:true,confirmButtonText:'Deactivate',cancelButtonText:'Cancel',reverseButtons:true,focusCancel:true});
+            if(!confirmation.isConfirmed)return;
+        }
+        button.disabled=true;
+        try{
+            const response=await api(`/centers/${button.dataset.g12CenterStatus}/status`,{active:nextActive}),active=Boolean(response.active);
+            button.dataset.status=active?'1':'0';button.classList.toggle('is-active',active);button.querySelector('.status-toggle-label').textContent=active?'ON':'OFF';button.setAttribute('aria-pressed',String(active));button.setAttribute('aria-label',`Set exam center ${active?'inactive':'active'}`);
+            await loadMeta();
+        }finally{button.disabled=false;}
+    }
     const centerForm=get('[data-g12-center-form]');
     const syncCenterLabels=()=>centerForm.querySelectorAll('.premium-form-field').forEach(wrapper=>wrapper.classList.toggle('has-value',Boolean(wrapper.querySelector('input,select')?.value.trim())));
     for(const name of ['input','change'])centerForm.addEventListener(name,syncCenterLabels);
@@ -79,8 +145,12 @@ if(root){
         get('#g12CenterCodeHint').textContent=centerEditing?.source_id?'The center ID is kept when you edit this record.':'The system assigns an ID when the center is saved.';
         syncCenterLabels();modal('#g12CenterModal').show();
     };
-    get('[data-g12-center-new]')?.addEventListener('click',()=>openCenter());get('[data-g12-center-search]')?.addEventListener('input',centers);
-    get('[data-g12-center-form]').addEventListener('submit',e=>{e.preventDefault();run(async()=>{const data=Object.fromEntries(new FormData(e.target));data.active=data.active==='1';const res=await api('/centers'+(centerEditing?'/'+centerEditing.id:''),data);modal('#g12CenterModal').hide();await saved(res.message);await loadMeta();centers();});});
+    root.querySelectorAll('[data-g12-center-sort]').forEach(button=>button.addEventListener('click',()=>{
+        const selected=button.dataset.g12CenterSort;if(centerSortBy===selected)centerSortDir=centerSortDir==='asc'?'desc':'asc';else{centerSortBy=selected;centerSortDir='asc';}
+        updateCenterSortHeaders();run(()=>centers(1));
+    }));
+    get('[data-g12-center-new]')?.addEventListener('click',()=>openCenter());get('[data-g12-center-search]')?.addEventListener('input',()=>{clearTimeout(centerSearchTimer);centerSearchTimer=setTimeout(()=>run(()=>centers(1)),250);});
+    get('[data-g12-center-form]').addEventListener('submit',e=>{e.preventDefault();run(async()=>{const data=Object.fromEntries(new FormData(e.target));data.active=data.active==='1';const res=await api('/centers'+(centerEditing?'/'+centerEditing.id:''),data);modal('#g12CenterModal').hide();await saved(res.message);await loadMeta();await centers(centerPage);});});
     const docNames={soft_certificate:'Soft certificate',soft_certificate_received:'Signed soft-certificate receipt',hard_certificate:'Hard certificate',hard_certificate_received:'Signed hard-certificate receipt',other_documents:'Other documents',portrait:'Student portrait'};
     async function openView(id){
         detail=await api('/records/'+id);let html=`<div class="d-flex gap-3 align-items-center mb-3">${detail.photo_url?`<img class="g12-detail-photo" src="${escape(detail.photo_url)}" alt="Student photo">`:''}<div><h2>${escape(detail.name_en)}</h2><div>${escape(detail.name_kh)}</div><strong>${escape(detail.student_code)}</strong> · ${escape(detail.academic_year)} · ${escape(detail.campus)}</div></div>`;
@@ -100,7 +170,7 @@ if(root){
         html+='<details class="border rounded p-3"><summary>Activity history</summary><ul>'+detail.history.map(h=>`<li>${escape(h.action)} · Staff #${h.user_id} · ${escape(h.created_at)}</li>`).join('')+'</ul></details>';
         get('[data-g12-detail]').innerHTML=html;modal('#g12ViewModal').show();
     }
-    root.addEventListener('click',e=>{const view=e.target.closest('[data-g12-view]'),edit=e.target.closest('[data-g12-edit]'),center=e.target.closest('[data-g12-center-edit]'),report=e.target.closest('[data-g12-export]');if(view)run(()=>openView(view.dataset.g12View));if(edit)run(()=>openEdit(edit.dataset.g12Edit));if(center)openCenter(center.dataset.g12CenterEdit);if(report){const query=filters();query.set('format',report.dataset.g12Export);window.open(base+'/report?'+query,'_blank','noopener');}});
+    root.addEventListener('click',e=>{const view=e.target.closest('[data-g12-view]'),edit=e.target.closest('[data-g12-edit]'),center=e.target.closest('[data-g12-center-edit]'),centerStatus=e.target.closest('[data-g12-center-status]'),report=e.target.closest('[data-g12-export]');if(view)run(()=>openView(view.dataset.g12View));if(edit)run(()=>openEdit(edit.dataset.g12Edit));if(center)openCenter(center.dataset.g12CenterEdit);if(centerStatus&&!centerStatus.disabled)run(()=>toggleCenterStatus(centerStatus));if(report){const query=filters();query.set('format',report.dataset.g12Export);window.open(base+'/report?'+query,'_blank','noopener');}});
     root.addEventListener('submit',e=>{
         if(e.target.matches('[data-g12-document-form]')){e.preventDefault();run(async()=>{const res=await api(`/records/${detail.id}/files`,new FormData(e.target));await saved(res.message);await openView(detail.id);});}
         if(e.target.matches('[data-g12-collection]')){e.preventDefault();run(async()=>{const res=await api(`/records/${detail.id}/certificates/${e.target.dataset.g12Collection}`,new FormData(e.target));await saved(res.message);await openView(detail.id);await load();});}
@@ -236,5 +306,5 @@ if(root){
         updatePhotoSelection();
         await Swal.fire({icon:failed?'warning':'success',title:'Photo Batch Complete',text:`${uploaded} uploaded. ${failed} need attention; correct those rows and retry.`});
     }));
-    run(async()=>{await loadMeta();if(get('[data-g12-records]'))await load();if(tab==='centers')centers();if(tab==='imports')await history();});
+    run(async()=>{await loadMeta();if(get('[data-g12-records]'))await load();if(tab==='centers')await centers();if(tab==='imports')await history();});
 }

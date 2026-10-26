@@ -48,6 +48,11 @@ class G12NationalExamController {
         return ['id'=>$r->id,'version'=>$r->version,'name_en'=>$r->name_en,'name_kh'=>$r->name_kh,'student_code'=>$r->student_code,'academic_year'=>$r->academic_year,
             'campus'=>$r->campus?->campus_name_en,'center'=>$r->center?->name,'grade'=>$r->grade,'overall_grade'=>$r->overall_grade,'result_status'=>$r->result_status,
             'room'=>$r->data['g12_exam_room']??'','seat'=>$r->data['g12_exam_seat']??'','photo_url'=>$r->photo_path?route('g12-national-exams.photo',$r):null,
+            'dob'=>$r->data['dob']??'','mother_name'=>$r->data['mother_name']??'','mother_occupation'=>$r->data['mother_occupation']??'',
+            'father_name'=>$r->data['father_name']??'','father_occupation'=>$r->data['father_occupation']??'',
+            'g9_exam_center'=>$r->data['g9_exam_center']??'','g9_exam_date'=>$r->data['g9_exam_date']??'',
+            'g9_exam_room'=>$r->data['g9_exam_room']??'','g9_exam_seat'=>$r->data['g9_exam_seat']??'',
+            'language_exam'=>$r->data['language_exam']??'','class_selected'=>$r->data['class_sellected']??'',
             'certificates'=>$r->certificates,'can_edit'=>Access::allows($request->user(),'edit',$r->campus_id)];
     }
     public function show(Request $request,G12ExamRecord $record){
@@ -68,6 +73,19 @@ class G12NationalExamController {
         $this->exams->authorize($request->user(),'centers-manage');$data=$request->validate(['name'=>'required|string|max:255','active'=>'required|boolean']);
         $data['name_key']=Fields::centerKey($data['name']);if(G12ExamCenter::where('name_key',$data['name_key'])->when($center,fn($q)=>$q->where('id','!=',$center->id))->exists())$this->exams->fail('That exam center already exists.');
         $center??=new G12ExamCenter();$center->fill($data)->save();$this->exams->event($request->user(),'center-saved',$center->toArray());return response()->json(['message'=>'Exam center saved.']);
+    }
+    public function centerStatus(Request $request,G12ExamCenter $center){
+        $this->exams->authorize($request->user(),'centers-manage');$data=$request->validate(['active'=>'required|boolean']);$previous=$center->active;
+        $center->active=$data['active'];$center->save();$this->exams->event($request->user(),'center-status-updated',['center_id'=>$center->id,'source_id'=>$center->source_id,'name'=>$center->name,'from'=>$previous,'to'=>$center->active]);
+        return response()->json(['message'=>$center->active?'Exam center activated.':'Exam center deactivated.','active'=>$center->active]);
+    }
+    public function centers(Request $request){
+        $this->exams->authorize($request->user(),'centers');
+        $data=$request->validate(['search'=>'nullable|string|max:150','per_page'=>['nullable',Rule::in(['10','25','50','100'])],'page'=>'nullable|integer|min:1','sort_by'=>['nullable',Rule::in(['source_id','name'])],'sort_dir'=>['nullable',Rule::in(['asc','desc'])]]);
+        $sortBy=$data['sort_by']??'name';$sortDir=$data['sort_dir']??'asc';
+        $query=G12ExamCenter::query()->when($data['search']??null,fn($q,$search)=>$q->where(fn($match)=>$match->where('name','like','%'.$search.'%')->orWhere('source_id','like','%'.$search.'%')))->orderBy($sortBy,$sortDir)->orderBy('id');
+        $perPage=(int)($data['per_page']??10);$lastPage=max(1,(int)ceil($query->clone()->count()/$perPage));$page=min($request->integer('page',1),$lastPage);
+        return response()->json($query->paginate($perPage,['id','source_id','name','active'],'page',$page));
     }
     public function preview(Request $request){
         $request->validate(['file'=>'required|file|extensions:xlsx|max:20480']);$batch=$this->exams->preview($request->user(),$request->file('file'));

@@ -78,6 +78,13 @@
         ],
         "check:encoding": [
             "@php scripts/check-encoding.php"
+        ],
+        "server:setup": [
+            "Composer\\Config::disableProcessTimeout",
+            "bash scripts/setup-server-dependencies.sh"
+        ],
+        "server:check": [
+            "bash scripts/setup-server-dependencies.sh --check"
         ]
     },
     "extra": {

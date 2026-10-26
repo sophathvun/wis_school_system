@@ -17,10 +17,16 @@
 @if($tab==='records'&&$permissions['create'])<button type="button" class="btn btn-outline-light" data-g12-new><i class="ti ti-plus me-1"></i>Add New</button>@endif
 @if($tab==='reports'&&$permissions['export'])<button class="btn btn-outline-light" data-g12-export="xlsx"><i class="ti ti-file-spreadsheet me-1"></i>Excel</button><button class="btn btn-outline-light" data-g12-export="print"><i class="ti ti-printer me-1"></i>Print</button>@endif
 </div></div>
-<div class="table-responsive"><table class="table table-vcenter card-table"><thead><tr><th>No.</th><th>Photo</th><th>Student</th><th>Year / Campus / Class</th><th>Exam Center / Room / Seat</th><th>Result</th><th>Soft Certificate</th><th>Hard Certificate</th><th>Actions</th></tr></thead><tbody data-g12-records><tr><td colspan="9" class="text-center py-4">Loading records…</td></tr></tbody></table></div>
+<div class="table-responsive"><table class="table table-vcenter card-table @if($tab==='records') g12-record-list @endif"><thead><tr>
+@if($tab==='records')
+<th class="text-center">No.</th><th>Photo</th><th>Student</th><th>Grade</th><th>Parents</th><th>G9 National Exams</th><th>G12 National Exams</th><th>Actions</th>
+@else
+<th>No.</th><th>Photo</th><th>Student</th><th>Year / Campus / Class</th><th>Exam Center / Room / Seat</th><th>Result</th><th>Soft Certificate</th><th>Hard Certificate</th><th>Actions</th>
+@endif
+</tr></thead><tbody data-g12-records><tr><td colspan="{{ $tab==='records'?8:9 }}" class="text-center py-4">Loading records…</td></tr></tbody></table></div>
 <div class="card-footer"><select id="g12PerPage" hidden><option value="15">15</option><option value="25">25</option><option value="50">50</option><option value="100">100</option><option value="all">All</option></select><div id="g12Pagination"></div></div></div>
 @elseif($tab==='centers')
-<div class="card"><div class="card-header g12-header"><h3 class="card-title">Exam Center Settings</h3>@if($permissions['centers-manage'])<button class="btn btn-outline-light ms-auto" data-g12-center-new><i class="ti ti-plus me-1"></i>Add Exam Center</button>@endif</div><div class="card-body"><input class="form-control mb-3" data-g12-center-search placeholder="Search exam centers" aria-label="Search exam centers"><div class="table-responsive"><table class="table"><thead><tr><th>Exam Center ID</th><th>Exam Center</th><th>Status</th><th>Action</th></tr></thead><tbody data-g12-centers></tbody></table></div></div></div>
+<div class="card"><div class="card-header g12-header flex-wrap"><h3 class="card-title">Exam Center Settings</h3><div class="g12-center-header-actions ms-auto"><div class="input-icon g12-center-search"><span class="input-icon-addon"><i class="ti ti-search" aria-hidden="true"></i></span><input type="search" class="form-control" data-g12-center-search placeholder="Search exam centers" aria-label="Search exam centers"></div>@if($permissions['centers-manage'])<button class="btn btn-outline-light" data-g12-center-new><i class="ti ti-plus me-1"></i>Add Exam Center</button>@endif</div></div><div class="card-body"><div class="table-responsive"><table class="table"><thead><tr><th class="text-center">No.</th><th aria-sort="ascending"><button type="button" class="g12-center-sort is-active" data-g12-center-sort="name" data-sort-label="Exam Center" aria-label="Sort Exam Center descending">Exam Center <i class="ti ti-arrow-up" aria-hidden="true" data-g12-center-sort-icon="name"></i></button></th><th>Status</th><th>Action</th></tr></thead><tbody data-g12-centers><tr><td colspan="4" class="text-center py-4">Loading exam centers&hellip;</td></tr></tbody></table></div></div><div class="card-footer"><select id="g12CentersPerPage" hidden><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option></select><div id="g12CentersPagination"></div></div></div>
 @elseif($tab==='imports')
 <div class="card mb-3"><div class="card-header g12-header flex-wrap gap-2"><h3 class="card-title"><i class="ti ti-file-import me-2"></i>Import MoEYS Excel</h3>@if($permissions['import'])<a class="btn btn-outline-light ms-auto" href="{{ route('g12-national-exams.template') }}" data-g12-template><i class="ti ti-file-download me-1"></i>Download Excel Template</a>@endif</div><div class="card-body">
 <p>Sheet 1: student exam records. Sheet 2: exam center settings. Preview changes and resolve campus / center mappings before import. Existing documents and staff-recorded certificate collection are retained.</p>
@@ -80,6 +86,37 @@
     </div>
 </div>
 <div class="modal fade" id="g12ViewModal" tabindex="-1" aria-labelledby="g12ViewTitle"><div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h3 class="modal-title" id="g12ViewTitle">Student National Exam Record</h3><button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Close"></button></div><div class="modal-body" data-g12-detail></div><div class="modal-footer"><button class="btn" data-bs-dismiss="modal">Close</button></div></div></div></div>
+<div class="modal modal-blur fade g12-photo-viewer" id="g12PhotoViewerModal" tabindex="-1" aria-hidden="true" aria-labelledby="g12PhotoViewerTitle">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header"><h3 class="modal-title" id="g12PhotoViewerTitle">Student Photo</h3><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close photo"></button></div>
+            <div class="modal-body p-0">
+                <div class="g12-photo-viewer-stage" data-g12-photo-stage><div class="g12-photo-viewer-frame"><img data-g12-photo-image alt="Student photo" hidden></div></div>
+                <div class="small text-secondary px-3 py-2" data-g12-photo-status role="status" aria-live="polite"></div>
+                <div class="alert alert-danger mx-3 d-none" data-g12-photo-error role="alert"></div>
+            </div>
+            <div class="modal-footer gap-2">
+                <div class="g12-photo-viewer-controls">
+                    <button type="button" class="btn btn-icon btn-outline-secondary" data-g12-photo-out aria-label="Zoom out"><i class="ti ti-zoom-out" aria-hidden="true"></i></button>
+                    <input type="range" class="form-range" min="0.5" max="3" step="0.1" value="1" data-g12-photo-zoom aria-label="Student photo zoom">
+                    <button type="button" class="btn btn-icon btn-outline-secondary" data-g12-photo-in aria-label="Zoom in"><i class="ti ti-zoom-in" aria-hidden="true"></i></button>
+                    <button type="button" class="btn btn-outline-secondary" data-g12-photo-reset>Reset</button>
+                    <output data-g12-photo-percent>100%</output>
+                </div>
+                <div class="g12-photo-quality">
+                    <label for="g12PhotoQuality">JPG Quality</label>
+                    <select class="form-select" id="g12PhotoQuality" data-g12-photo-quality aria-label="JPG download quality">
+                        <option value="1">Maximum (100%)</option>
+                        <option value="0.95" selected>High (95%)</option>
+                        <option value="0.85">Good (85%)</option>
+                        <option value="0.7">Smaller file (70%)</option>
+                    </select>
+                </div>
+                <a class="btn btn-primary disabled" data-g12-photo-download aria-disabled="true" tabindex="-1"><i class="ti ti-download me-1" aria-hidden="true"></i>Download JPG</a>
+            </div>
+        </div>
+    </div>
+</div>
 </div>
 <script type="application/json" id="g12Permissions">@json($permissions)</script>
 @endsection
