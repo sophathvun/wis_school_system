@@ -2,4 +2,15 @@
 <style>@page{size:A4 portrait;margin:0}*{box-sizing:border-box}body{margin:0;background:#e7edf5;font-family:Arial,sans-serif}.answer-print-tools{padding:12px;text-align:center}.answer-print-page{width:210mm;height:297mm;margin:12px auto;background:white;break-after:page;page-break-after:always;overflow:hidden}.answer-print-page:last-child{break-after:auto;page-break-after:auto}.answer-print-page svg{display:block;width:210mm;height:297mm}@media print{body{background:white}.answer-print-tools{display:none}.answer-print-page{margin:0}}@media screen and (max-width:800px){.answer-print-page{margin-left:0}}</style></head><body>
 <div class="answer-print-tools"><button type="button" onclick="window.print()">Print / Save as PDF</button><p>A4 · Portrait · Actual size / 100% · Margins: None · Turn browser headers and footers off.</p></div>
 @foreach($pages as $svg)<section class="answer-print-page">{!! $svg !!}</section>@endforeach
+<script>
+    const fitStudentNames=()=>document.querySelectorAll('[data-answer-student-name]').forEach(name=>{
+        const maximum=Number(name.dataset.maxFontSize),available=Number(name.dataset.fitWidth);
+        name.setAttribute('font-size',maximum);
+        const measured=name.getComputedTextLength();
+        if(measured>available)name.setAttribute('font-size',maximum*available/measured);
+    });
+    fitStudentNames();
+    document.fonts.ready.then(fitStudentNames);
+    window.addEventListener('beforeprint',fitStudentNames);
+</script>
 </body></html>

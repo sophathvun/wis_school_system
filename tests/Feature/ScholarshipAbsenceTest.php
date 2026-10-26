@@ -18,7 +18,7 @@ function absenceSheetPixels($sheet,string $mark='A',array $answers=[],int $shade
 {
     $image=imagecreatefromstring(answerSheetPixels($sheet,$answers));$ink=imagecolorallocate($image,$shade,$shade,$shade);imagesetthickness($image,3);
     [$x,$y,$width,$height]=ScholarshipAbsenceMark::box($sheet->snapshot['layout_version']??1);imagerectangle($image,$x,$y,$x+$width,$y+$height,$ink);
-    $line=fn($x1,$y1,$x2,$y2)=>imageline($image,$x1,$y1+$y-263,$x2,$y2+$y-263,$ink);
+    $line=fn($x1,$y1,$x2,$y2)=>imageline($image,$x1+$x-545,$y1+$y-263,$x2+$x-545,$y2+$y-263,$ink);
     if(in_array($mark,['A','slanted-A'],true)){
         $tip=$mark==='slanted-A'?574:568;$line(553,299,$tip,270);$line($tip,270,585,299);$line(559,289,579,289);
     }
@@ -26,7 +26,7 @@ function absenceSheetPixels($sheet,string $mark='A',array $answers=[],int $shade
     if($mark==='V'){$line(554,270,569,299);$line(569,299,585,270);}
     if($mark==='H'){$line(554,270,554,299);$line(585,270,585,299);$line(554,285,585,285);}
     if($mark==='tick'){$line(554,285,565,298);$line(565,298,585,270);}
-    if($mark==='filled')imagefilledrectangle($image,553,$y+7,585,$y+36,$ink);
+    if($mark==='filled')imagefilledrectangle($image,$x+8,$y+7,$x+40,$y+36,$ink);
     ob_start();imagepng($image);$bytes=ob_get_clean();imagedestroy($image);return $bytes;
 }
 function uploadAbsenceSheet($exam,$user,$paper,$sheet,string $mark='A',array $answers=[],int $shade=0)
@@ -91,13 +91,14 @@ it('keeps earlier layouts scannable without inferring absence from their former 
     expect(app(ScholarshipAnswerSheetLayout::class)->svg($sheet))->not->toContain('Invigilator only','Write A');
 });
 
-it('preserves the printed box and A detection on previously issued layout 5 sheets',function(){
-    [$exam,$user,$paper,$sheet,$sheets]=answerSheetFixture();$snapshot=$sheets->snapshot($paper,$sheet->candidate,5);
+it('preserves the printed box and A detection on previously issued sheets',function($version,$box){
+    [$exam,$user,$paper,$sheet,$sheets]=answerSheetFixture();$snapshot=$sheets->snapshot($paper,$sheet->candidate,$version);
     $sheet->update(['snapshot'=>$snapshot,'fingerprint'=>hash('sha256',json_encode($snapshot))]);
     $svg=app(ScholarshipAnswerSheetLayout::class)->svg($sheet);
-    expect($svg)->toContain('x="545" y="263" width="48" height="42"');
+    [$x,$y,$width,$height]=$box;
+    expect($svg)->toContain('x="'.$x.'" y="'.$y.'" width="'.$width.'" height="'.$height.'"');
     $scan=uploadAbsenceSheet($exam,$user,$paper,$sheet);expect($scan->detectedAbsent())->toBeTrue();
-});
+})->with([[5,[545,263,48,42]],[6,[545,253,48,42]],[7,[635,210,70,85]]]);
 
 it('does not print or read a student absence box on teacher answer keys',function(){
     [$exam,$user,$paper,$sheet]=answerSheetFixture();$layout=app(ScholarshipAnswerSheetLayout::class);

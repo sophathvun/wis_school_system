@@ -44,11 +44,11 @@ try{
     const click=selector=>evaluate(`document.querySelector(${JSON.stringify(selector)}).click()`);
 
     await command('Page.navigate',{url:origin});await until('document.querySelector("[data-answer-filter-card]")?.dataset.resultFiltersReady==="true"');
-    const pixels=async(mark,shade=0)=>evaluate('(async()=>{const svg=await(await fetch("/sample.svg")).text(),url=URL.createObjectURL(new Blob([svg],{type:"image/svg+xml"})),image=new Image();image.src=url;await image.decode();const c=document.createElement("canvas");c.width=1000;c.height=1414;const ctx=c.getContext("2d");ctx.drawImage(image,0,0,1000,1414);URL.revokeObjectURL(url);ctx.translate(0,-10);ctx.strokeStyle=ctx.fillStyle="rgb('+shade+','+shade+','+shade+')";ctx.lineWidth=3;'+(mark==='hand-A'?'ctx.beginPath();ctx.moveTo(553,299);ctx.lineTo(568,270);ctx.lineTo(585,299);ctx.moveTo(559,289);ctx.lineTo(579,289);ctx.stroke();':mark==='blank'?'':'ctx.font="32px Arial";ctx.fillText('+JSON.stringify(mark)+',553,299);')+'return c.toDataURL().split(",")[1];})()');
+    const pixels=async(mark,shade=0)=>evaluate('(async()=>{const svg=await(await fetch("/sample.svg")).text(),url=URL.createObjectURL(new Blob([svg],{type:"image/svg+xml"})),image=new Image();image.src=url;await image.decode();const c=document.createElement("canvas");c.width=1000;c.height=1414;const ctx=c.getContext("2d");ctx.drawImage(image,0,0,1000,1414);URL.revokeObjectURL(url);ctx.translate(628,220);ctx.scale(1.7,1.7);ctx.translate(-545,-263);ctx.strokeStyle=ctx.fillStyle="rgb('+shade+','+shade+','+shade+')";ctx.lineWidth=3;'+(mark==='hand-A'?'ctx.beginPath();ctx.moveTo(553,299);ctx.lineTo(568,270);ctx.lineTo(585,299);ctx.moveTo(559,289);ctx.lineTo(579,289);ctx.stroke();':mark==='blank'?'':'ctx.font="32px Arial";ctx.fillText('+JSON.stringify(mark)+',553,299);')+'return c.toDataURL().split(",")[1];})()');
     for(const [mark,shade,state]of [['blank',0,'blank'],['hand-A',0,'absent'],['A',0,'absent'],['A',210,'absent'],['X',0,'unclear'],['H',0,'unclear'],['V',0,'unclear'],['4',0,'unclear'],['?',0,'unclear']]){
         const image=await pixels(mark,shade);
         await writeFile(join(root,'storage/app/testing/absence-'+mark.replace('?','question')+'-'+shade+'.png'),Buffer.from(image,'base64'));
-        const result=fixture('/read-layout',{image,configuration:{question_count:100,choices:['1','2','3','4','5'],layout_version:6,student_sheet:true}});
+        const result=fixture('/read-layout',{image,configuration:{question_count:100,choices:['1','2','3','4','5'],layout_version:8,student_sheet:true}});
         assert.equal(result.status,200);const detection=JSON.parse(Buffer.from(result.content,'base64').toString());assert.equal(detection.absence.state,state,'Absence classifier: '+mark+'/'+shade+' '+JSON.stringify(detection.absence));
     }
     console.log('Real printed absence box: handwritten and font A, light-grey A, blank, X/H/V/4/question-mark rejection passed.');
@@ -83,5 +83,13 @@ try{
         await click('#answerMarkedModal [data-bs-dismiss]');await until('getComputedStyle(document.querySelector("#answerMarkedModal")).display==="none"');
         assert.deepEqual(await evaluate('window.errors'),[]);console.log(width+'px: printed A recognition, upload alignment, Auto Absent review, '+(width===1440?'individual verification':'bulk acceptance')+', subject-only zero/absence and marked view passed.');
     }
+    await command('Page.navigate',{url:origin+'/name-fit-report'});
+    await until('document.querySelectorAll("[data-answer-student-name]").length===3');
+    const names=await evaluate('(async()=>{await document.fonts.ready;return [...document.querySelectorAll("[data-answer-student-name]")].map(n=>({size:Number(n.getAttribute("font-size")),width:n.getComputedTextLength(),limit:Number(n.dataset.fitWidth)}));})()');
+    assert.equal(names[0].size,30);assert.equal(names[1].size,30);assert.ok(names[2].size<30);
+    for(const name of names)assert.ok(name.width<=name.limit+.1,JSON.stringify(name));
+    await command('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});
+    await writeFile(join(root,'storage/app/testing/answer-large-absence-name-fit.png'),Buffer.from((await command('Page.captureScreenshot',{format:'png'})).data,'base64'));
+    console.log('A4 report: short and medium names enlarge to 30px; long names fit within 380px without entering the absence box.');
     await command('Browser.close');
 }finally{socket?.close();browser.kill();server.closeAllConnections();await new Promise(r=>server.close(r));}

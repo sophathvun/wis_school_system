@@ -4,10 +4,10 @@ namespace App\Support;
 /** Conservative, local recognition of a single capital A in the fixed absence box. */
 class ScholarshipAbsenceMark
 {
-    public const BOX=[545,253,48,42];
+    public const BOX=[620,210,85,85];
 
     public static function box(int $layoutVersion): array
-    {return $layoutVersion===5?[545,263,48,42]:self::BOX;}
+    {return match($layoutVersion){5=>[545,263,48,42],6=>[545,253,48,42],7=>[635,210,70,85],default=>self::BOX};}
 
     public function read(\GdImage $image,int $layoutVersion=ScholarshipAnswerSheetLayout::VERSION): array
     {
@@ -22,7 +22,10 @@ class ScholarshipAbsenceMark
         $left=min(array_column($ink,0));$right=max(array_column($ink,0));$top=min(array_column($ink,1));$bottom=max(array_column($ink,1));
         $width=$right-$left;$height=$bottom-$top;$density=count($ink)/max(1,($width+1)*($height+1));
         if($width<8||$height<12||$width/$height<.32||$width/$height>1.55||$density>.60)return ['state'=>'unclear','confidence'=>0.0];
-        $points=array_map(fn($p)=>[$p[0]-$left,$p[1]-$top],$ink);$mask=[];
+        // Normalize larger handwriting to the same scale as the original absence box.
+        $scale=min(1,32/max($width,$height));
+        $points=array_map(fn($p)=>[(int)round(($p[0]-$left)*$scale),(int)round(($p[1]-$top)*$scale)],$ink);$mask=[];
+        $width*=$scale;$height*=$scale;
         foreach($points as [$x,$y])$mask[$y.':'.$x]=true;
         $near=function($x,$y,$tolerance)use($mask){
             for($dy=-(int)ceil($tolerance);$dy<=ceil($tolerance);$dy++)for($dx=-(int)ceil($tolerance);$dx<=ceil($tolerance);$dx++)

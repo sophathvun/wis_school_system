@@ -9,7 +9,7 @@ use Illuminate\Validation\ValidationException;
 /** Fixed A4 geometry shared by printing, detection and regression fixtures. */
 class ScholarshipAnswerSheetLayout
 {
-    public const VERSION=6;
+    public const VERSION=8;
     public const WIDTH=1000;
     public const HEIGHT=1414;
     public const MARKERS=[[35,35],[965,35],[965,1379],[35,1379]];
@@ -106,17 +106,28 @@ class ScholarshipAnswerSheetLayout
         $subject=$s['subject'].' - Grade '.$s['grade'];$text(200,187,$subject,$fit($subject,42,500),true);
         $text(710,85,'Invigilators',23);
         foreach([1=>130,2=>172] as $number=>$y){$text(710,$y,$number.'.',17);$svg.='<line x1="730" y1="'.$y.'" x2="945" y2="'.$y.'" stroke="#aaa" stroke-width=".7"/>';}
-        $text(70,233,'Name',21);$text(174,233,':',21);$text(195,233,$s['name'],$fit($s['name'],28,510),true);
+        $text(70,233,'Name',21);$text(174,233,':',21);
+        $nameWidth=$s['layout_version']>=8?380:($s['layout_version']>=7?430:510);
+        if($s['layout_version']>=7){
+            $svg.='<text x="195" y="233" font-family="Arial, sans-serif" font-size="'.$fit($s['name'],30,$nameWidth).'" font-weight="700" data-answer-student-name="" data-fit-width="'.$nameWidth.'" data-max-font-size="30">'.$e($s['name']).'</text>';
+        }else $text(195,233,$s['name'],$fit($s['name'],28,$nameWidth),true);
         $details='ID: '.$s['student_code'].' | Grade '.($s['class_label']??$s['grade']);
         if(trim((string)($s['campus']??''))!=='')$details.=' | '.trim($s['campus']);
-        $text(195,253,$details,$fit($details,16,510));
+        $text(195,253,$details,$fit($details,16,$nameWidth));
         $text(70,284,'Room No.',21);$text(174,284,':',21);$text(202,284,$s['room'],28,true);
         $text(250,284,'Seat No.:',21);$text(345,284,$s['seat'],28,true);
         if($s['layout_version']>=5){
             [$x,$y,$width,$height]=ScholarshipAbsenceMark::box($s['layout_version']);
-            $text(455,$y+17,'Absent',14,true);$text(455,$y+33,'Invigilator only',10);
-            $svg.='<rect x="'.$x.'" y="'.$y.'" width="'.$width.'" height="'.$height.'" rx="2" fill="white" stroke="black" stroke-width="1.2"/>';
-            $text(603,$y+24,'Write A',12);
+            if($s['layout_version']>=7){
+                $text(445,266,'Write A in the box',15,true);
+                $text(445,283,'for Absent Student',15,true);
+                $text(445,298,'For invigilator only',10);
+            }else{
+                $text(455,$y+17,'Absent',14,true);$text(455,$y+33,'For invigilator only',10);
+            }
+            if($s['layout_version']>=8)$svg.='<polygon points="585,210 606,252.5 585,295" fill="#aaa"/>';
+            $svg.='<rect x="'.$x.'" y="'.$y.'" width="'.$width.'" height="'.$height.'" rx="'.($s['layout_version']>=8?0:2).'" fill="white" stroke="black" stroke-width="1.2"/>';
+            if($s['layout_version']<7)$text(603,$y+24,'Write A',12);
         }
         foreach($this->bits($token) as $i=>$bit)if($bit==='1')$svg.='<rect x="'.(self::CODE_X+($i%12)*self::CELL).'" y="'.(self::CODE_Y+intdiv($i,12)*self::CELL).'" width="10" height="10" fill="black"/>';
         $text(740,298,'Sheet identification',11);

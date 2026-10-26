@@ -72,6 +72,13 @@ try{
         $wrong=new ScholarshipAnswerSheet(['token'=>str_repeat('0',24),'snapshot'=>$sheets->first()->snapshot]);
         $content=json_encode(['sheets'=>$sheets->map(fn($issued)=>['svg'=>$layout->svg($issued),'name'=>$issued->candidate->snapshot['name_en']])->all(),'wrong_svg'=>$layout->svg($wrong)]);$type='application/json';
     }
+    elseif($path==='/name-fit-report'){
+        $pages=[];$layout=app(ScholarshipAnswerSheetLayout::class);
+        foreach(['LI AN','CHEA SOKHADAVINNA',str_repeat('WILLIAM ',10).'FAMILY <NAME>'] as $name){
+            $sample=clone $sheet;$sample->snapshot=array_replace($sheet->snapshot,['name'=>$name]);$pages[]=$layout->svg($sample);
+        }
+        $content=view('western-scholarship.answer-sheet-report',compact('pages'))->render();$type='text/html';
+    }
     elseif($path==='/sample.svg'){
         if(isset($payload['paper_id']))$sheet=ScholarshipAnswerSheet::where('paper_id',$payload['paper_id'])->firstOrFail();
         $content=app(ScholarshipAnswerSheetLayout::class)->svg($sheet);$type='image/svg+xml';

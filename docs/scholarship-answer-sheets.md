@@ -240,8 +240,10 @@ and unusual paper scaling can still need manual correction.
 
 ## Invigilator absence box
 
-Newly issued student sheets (layout 6) have an empty **Absent** box beside Room
-and Seat. The invigilator writes one clear capital **A** inside it for a student
+Newly issued student sheets (layout 8) have an empty square **Absent** box spanning the
+Name and Room rows, with **Write A in the box for Absent Student** and a grey arrow before it.
+Student names automatically enlarge or shrink to fit their reserved width in
+the print preview and on paper. The invigilator writes one clear capital **A** inside it for a student
 absent from that subject, leaving the answer circles empty. Leave the box empty
 for a present student. Keep the letter within the box, away from its border.
 
@@ -268,8 +270,9 @@ printer/scanner samples before exam use. Teacher keys do not have this box and
 are never interpreted as student absence. Previously issued layouts 1–4 remain
 scannable with their original geometry and no automatic absence detection;
 issue/print new student sheets to use the box. Do not add a box to old printouts.
-Layout 6 moves the box upward by about 2 mm; previously issued layout 5 sheets
-retain their original box position for both reprinting and scan recognition.
+Previously issued layouts 5–7 retain their original box positions and sizes
+for both reprinting and scan recognition. Layout 8 uses the square box and
+normalizes larger handwriting for recognition.
 
 Deployment requires migration
 `2026_10_23_000007_add_scholarship_scan_absence_detection.php` (nullable scan JSON)
