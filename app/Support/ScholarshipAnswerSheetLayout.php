@@ -123,9 +123,9 @@ class ScholarshipAnswerSheetLayout
                 $svg.='<rect x="435" y="244" width="154" height="54" rx="4" fill="#f1f3f5" stroke="#dce1e7" stroke-width=".7"/>';
                 $text(461,260,'Write',12);
                 $svg.='<rect x="495" y="248" width="14" height="16" rx="2" fill="white" stroke="#555" stroke-width=".8"/>';
-                $text(502,260,'A',12,true,'middle');
+                $text(502,260,'A',12,true,'middle','#ed2024');
                 $text(514,260,'in the box',12);
-                $text(512,274,'for Absent Student',12,false,'middle');
+                $svg.='<text x="512" y="274" font-family="Arial, sans-serif" font-size="12" text-anchor="middle" fill="black">for <tspan font-weight="700">Absent</tspan> Student</text>';
                 $text(512,288,'For invigilator only',11,false,'middle');
             }elseif($s['layout_version']>=7){
                 $text(445,266,'Write A in the box',15,true);
