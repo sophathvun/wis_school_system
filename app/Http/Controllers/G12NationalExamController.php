@@ -19,10 +19,12 @@ class G12NationalExamController {
         return view('g12-national-exams.index',compact('tab','permissions'));
     }
     private function query(Request $request,string $action){
-        $data=$request->validate(['academic_year'=>'nullable|string|max:9','campus_id'=>'nullable|integer','center_id'=>'nullable|integer','grade'=>'nullable|string|max:80','result_status'=>'nullable|in:pending,passed,failed','certificate_status'=>'nullable|in:awaiting,available,collected,not_applicable,review','certificate_type'=>'nullable|in:soft,hard','search'=>'nullable|string|max:150']);
+        $data=$request->validate(['academic_year'=>'nullable|string|max:9','language_exam'=>'nullable|string|max:80','class_selected'=>'nullable|string|max:150','campus_id'=>'nullable|integer','center_id'=>'nullable|integer','grade'=>'nullable|string|max:80','result_status'=>'nullable|in:pending,passed,failed','certificate_status'=>'nullable|in:awaiting,available,collected,not_applicable,review','certificate_type'=>'nullable|in:soft,hard','search'=>'nullable|string|max:150']);
         return G12ExamRecord::whereIn('campus_id',Access::campusIds($request->user(),$action))
             ->when($data['academic_year']??null,fn($q,$v)=>$q->where('academic_year',$v))->when($data['campus_id']??null,fn($q,$v)=>$q->where('campus_id',$v))
             ->when($data['center_id']??null,fn($q,$v)=>$q->where('center_id',$v))->when($data['grade']??null,fn($q,$v)=>$q->where('grade',$v))
+            ->when($data['language_exam']??null,fn($q,$v)=>$q->where('data->language_exam',$v))
+            ->when($data['class_selected']??null,fn($q,$v)=>$q->where(fn($classes)=>$classes->where('data->class_sellected',$v)->orWhere('data->class_selected',$v)))
             ->when($data['result_status']??null,fn($q,$v)=>$q->where('result_status',$v))
             ->when($data['search']??null,fn($q,$v)=>$q->where(fn($s)=>$s->where('student_code','like','%'.$v.'%')->orWhere('name_en','like','%'.$v.'%')->orWhere('name_kh','like','%'.$v.'%')))
             ->when(($data['certificate_status']??null)||($data['certificate_type']??null),fn($q)=>$q->whereHas('certificates',fn($s)=>$s->when($data['certificate_status']??null,fn($t,$v)=>$t->where('status',$v))->when($data['certificate_type']??null,fn($t,$v)=>$t->where('type',$v))));
@@ -30,9 +32,13 @@ class G12NationalExamController {
     public function meta(Request $request){
         $tab=$this->tab($request);$ids=Access::campusIds($request->user(),$tab);
         $students=G12ExamRecord::whereIn('campus_id',$ids);
+        $examData=$students->clone()->get(['data']);
+        $examLanguages=$examData->map(fn($record)=>trim((string)($record->data['language_exam']??'')))->filter()->unique()->sortBy(fn($value)=>mb_strtolower($value))->values();
+        $selectedClasses=$examData->map(fn($record)=>trim((string)($record->data['class_sellected']??$record->data['class_selected']??'')))->filter()->unique()->sortBy(fn($value)=>mb_strtolower($value))->values();
         return response()->json(['campuses'=>SchoolInfo::whereIn('id',$ids)->orderBy('campus_name_en')->get(['id','campus_name_en']),
             'centers'=>G12ExamCenter::orderBy('name')->get(),'years'=>$students->clone()->distinct()->orderByDesc('academic_year')->pluck('academic_year'),
             'grades'=>$students->clone()->whereNotNull('grade')->distinct()->orderBy('grade')->pluck('grade'),
+            'exam_languages'=>$examLanguages,'selected_classes'=>$selectedClasses,
             'students'=>$students->orderBy('name_en')->get(['id','name_en','student_code','academic_year']),
             'fields'=>Fields::GROUPS,'document_fields'=>Fields::DOCUMENT_FIELDS]);
     }
@@ -52,7 +58,7 @@ class G12NationalExamController {
             'father_name'=>$r->data['father_name']??'','father_occupation'=>$r->data['father_occupation']??'',
             'g9_exam_center'=>$r->data['g9_exam_center']??'','g9_exam_date'=>$r->data['g9_exam_date']??'',
             'g9_exam_room'=>$r->data['g9_exam_room']??'','g9_exam_seat'=>$r->data['g9_exam_seat']??'',
-            'language_exam'=>$r->data['language_exam']??'','class_selected'=>$r->data['class_sellected']??'',
+            'language_exam'=>$r->data['language_exam']??'','class_selected'=>$r->data['class_sellected']??$r->data['class_selected']??'',
             'certificates'=>$r->certificates,'can_edit'=>Access::allows($request->user(),'edit',$r->campus_id)];
     }
     public function show(Request $request,G12ExamRecord $record){

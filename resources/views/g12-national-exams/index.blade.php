@@ -5,25 +5,30 @@
 @vite(['resources/css/pages/g12-national-exams.css','resources/js/g12NationalExams.js'])
 <div data-g12-exams data-tab="{{ $tab }}" data-base="{{ url('/g12-national-exams') }}">
 @if(in_array($tab,['records','certificates','reports']))
-<div class="card mb-3"><div class="card-header g12-header"><h3 class="card-title"><i class="ti ti-filter me-2"></i>Datas Filter</h3><button class="btn btn-outline-light btn-sm ms-auto" type="button" data-bs-toggle="collapse" data-bs-target="#g12Filters" aria-expanded="true">Collapse / Expand</button></div>
-<form id="g12Filters" class="card-body collapse show g12-fields" data-g12-filters>
-@foreach(['academic_year'=>'Academic Year','campus_id'=>'Campus','grade'=>'Grade / Class','center_id'=>'Exam Center','result_status'=>'Result','certificate_type'=>'Certificate Type','certificate_status'=>'Certificate Status'] as $key=>$label)
-<div class="scholarship-field"><label for="filter-{{ $key }}">{{ $label }}</label><select class="form-select" id="filter-{{ $key }}" name="{{ $key }}" data-placeholder="All {{ $label }}"><option value="">All {{ $label }}</option></select></div>
+<div class="card mb-3"><div class="card-header g12-header"><h3 class="card-title"><i class="ti ti-filter me-2"></i>Datas Filter</h3><button type="button" class="btn btn-icon btn-outline-primary g12-filter-toggle ms-auto" data-g12-filter-toggle aria-expanded="true" aria-controls="g12Filters" aria-label="Collapse exam record filters"><i class="ti ti-chevron-up" aria-hidden="true"></i></button></div>
+<form id="g12Filters" @class(['card-body','g12-fields','g12-filter-fields','g12-record-filter-fields'=>$tab==='records']) data-g12-filters>
+@php
+$filterFields=$tab==='records'
+    ? ['academic_year'=>'Academic Year','language_exam'=>'Exam Language','class_selected'=>'Selected Class','campus_id'=>'Campus','grade'=>'Grade']
+    : ['academic_year'=>'Academic Year','campus_id'=>'Campus','grade'=>'Grade / Class','center_id'=>'Exam Center','result_status'=>'Result','certificate_type'=>'Certificate Type','certificate_status'=>'Certificate Status'];
+@endphp
+@foreach($filterFields as $key=>$label)
+<div class="scholarship-field premium-form-field"><label class="form-label" for="filter-{{ $key }}">{{ $label }}</label><select class="form-select" id="filter-{{ $key }}" name="{{ $key }}" data-placeholder="" data-empty-label="All {{ $label }}"><option value="">All {{ $label }}</option></select></div>
 @endforeach
-<div><label class="form-label" for="g12Search">Student Name / ID</label><input class="form-control" id="g12Search" name="search" placeholder="Search student"></div><div class="d-flex align-items-end"><button class="btn btn-primary" type="submit"><i class="ti ti-search me-1"></i>Filter</button></div>
+<div class="scholarship-field premium-form-field g12-filter-search-field"><label class="form-label" for="g12Search">Search</label><input class="form-control" type="search" id="g12Search" name="search" placeholder="Student ID or name" aria-label="Search by student ID or name" autocomplete="off" data-search-normalized="true"><i class="ti ti-search g12-filter-search-icon" aria-hidden="true"></i></div>
 </form></div>
 <div class="card"><div class="card-header g12-header"><h3 class="card-title">{{ $tab==='certificates'?'Certificate Tracking':($tab==='reports'?'National Exam Reports':'Student Exam Records') }}</h3>
 <div class="ms-auto d-flex gap-2 flex-wrap">
 @if($tab==='records'&&$permissions['create'])<button type="button" class="btn btn-outline-light" data-g12-new><i class="ti ti-plus me-1"></i>Add New</button>@endif
 @if($tab==='reports'&&$permissions['export'])<button class="btn btn-outline-light" data-g12-export="xlsx"><i class="ti ti-file-spreadsheet me-1"></i>Excel</button><button class="btn btn-outline-light" data-g12-export="print"><i class="ti ti-printer me-1"></i>Print</button>@endif
 </div></div>
-<div class="table-responsive"><table class="table table-vcenter card-table @if($tab==='records') g12-record-list @endif"><thead><tr>
+<div class="table-responsive @if($tab==='records') g12-record-table-wrap @endif"><table class="table table-vcenter card-table @if($tab==='records') g12-record-list @endif"><thead><tr>
 @if($tab==='records')
 <th class="text-center">No.</th><th>Photo</th><th>Student</th><th>Grade</th><th>Parents</th><th>G9 National Exams</th><th>G12 National Exams</th><th>Actions</th>
 @else
 <th>No.</th><th>Photo</th><th>Student</th><th>Year / Campus / Class</th><th>Exam Center / Room / Seat</th><th>Result</th><th>Soft Certificate</th><th>Hard Certificate</th><th>Actions</th>
 @endif
-</tr></thead><tbody data-g12-records><tr><td colspan="{{ $tab==='records'?8:9 }}" class="text-center py-4">Loading records…</td></tr></tbody></table></div>
+</tr></thead><tbody data-g12-records><tr><td colspan="{{ $tab==='records'?8:9 }}" class="text-center py-4">Select an Academic Year to display records.</td></tr></tbody></table></div>
 <div class="card-footer"><select id="g12PerPage" hidden><option value="15">15</option><option value="25">25</option><option value="50">50</option><option value="100">100</option><option value="all">All</option></select><div id="g12Pagination"></div></div></div>
 @elseif($tab==='centers')
 <div class="card"><div class="card-header g12-header flex-wrap"><h3 class="card-title">Exam Center Settings</h3><div class="g12-center-header-actions ms-auto"><div class="input-icon g12-center-search"><span class="input-icon-addon"><i class="ti ti-search" aria-hidden="true"></i></span><input type="search" class="form-control" data-g12-center-search placeholder="Search exam centers" aria-label="Search exam centers"></div>@if($permissions['centers-manage'])<button class="btn btn-outline-light" data-g12-center-new><i class="ti ti-plus me-1"></i>Add Exam Center</button>@endif</div></div><div class="card-body"><div class="table-responsive"><table class="table"><thead><tr><th class="text-center">No.</th><th aria-sort="ascending"><button type="button" class="g12-center-sort is-active" data-g12-center-sort="name" data-sort-label="Exam Center" aria-label="Sort Exam Center descending">Exam Center <i class="ti ti-arrow-up" aria-hidden="true" data-g12-center-sort-icon="name"></i></button></th><th>Status</th><th>Action</th></tr></thead><tbody data-g12-centers><tr><td colspan="4" class="text-center py-4">Loading exam centers&hellip;</td></tr></tbody></table></div></div><div class="card-footer"><select id="g12CentersPerPage" hidden><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option></select><div id="g12CentersPagination"></div></div></div>

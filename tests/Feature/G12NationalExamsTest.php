@@ -34,6 +34,16 @@ it('returns the student birth date and parent details required by the exam recor
         'language_exam'=>'English','class_selected'=>'វិទ្យាសាស្ត្រ',
     ]);
 });
+it('filters student exam records by exam language and selected class and returns searchable options',function(){
+    $user=User::find(1);$service=app(G12NationalExams::class);$controller=app(G12NationalExamController::class);
+    $service->save($user,g12ExamData(['language_exam'=>'English','class_sellected'=>'Science']));
+    $service->save($user,g12ExamData(['student_id'=>'00999','student_name_en'=>'SECOND STUDENT','language_exam'=>'French','class_sellected'=>'Social Science']));
+    $filtered=$controller->list(g12Request($user,['tab'=>'records','language_exam'=>'French','class_selected'=>'Social Science']))->getData(true);
+    $meta=$controller->meta(g12Request($user,['tab'=>'records']))->getData(true);
+    expect($filtered['total'])->toBe(1)->and($filtered['data'][0]['student_code'])->toBe('00999')
+        ->and($meta['exam_languages'])->toBe(['English','French'])
+        ->and($meta['selected_classes'])->toBe(['Science','Social Science']);
+});
 it('inherits permissions from roles, departments and user grants while enforcing campus boundaries',function($source){
     $user=g12ExamUser(['view','records','create'],$source);expect(Access::allows($user,'create',1))->toBeTrue()->and(Access::allows($user,'create',2))->toBeFalse();
     app(G12NationalExams::class)->save($user,g12ExamData());
