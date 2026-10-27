@@ -1,8 +1,14 @@
+const storedThemeFont = window.localStorage.getItem("tabler-theme-font");
+document.documentElement.setAttribute(
+    "data-bs-theme-font",
+    storedThemeFont || "poppins",
+);
+
 document.addEventListener("DOMContentLoaded", function () {
     var themeConfig = {
         theme: "light",
         "theme-base": "gray",
-        "theme-font": "sans-serif",
+        "theme-font": "poppins",
         "theme-primary": "blue",
         "theme-radius": "1",
     };

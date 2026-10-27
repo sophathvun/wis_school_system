@@ -2,6 +2,7 @@
 @import "@tabler/core/dist/css/tabler-themes.css";
 @import "@tabler/icons-webfont/dist/tabler-icons.min.css";
 @import "@fontsource/noto-sans-khmer/400.css";
+@import "./poppins-fonts.css";
 @import "./khmer-fonts.css";
 @import "./install-shortcut.css";
 @import "./photo-editor.css";

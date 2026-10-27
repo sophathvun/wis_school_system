@@ -140,8 +140,15 @@
                         <div>
                             <label class="form-check">
                                 <div class="form-selectgroup-item">
-                                    <input type="radio" name="theme-font" value="sans-serif"
+                                    <input type="radio" name="theme-font" value="poppins"
                                         class="form-check-input" checked />
+                                    <div class="form-check-label theme-font-poppins-label">Poppins</div>
+                                </div>
+                            </label>
+                            <label class="form-check">
+                                <div class="form-selectgroup-item">
+                                    <input type="radio" name="theme-font" value="sans-serif"
+                                        class="form-check-input" />
                                     <div class="form-check-label">Sans-serif</div>
                                 </div>
                             </label>

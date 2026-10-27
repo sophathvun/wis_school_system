@@ -82,7 +82,7 @@ button,
 .table-responsive .table,
 .table-responsive .table th,
 .table-responsive .table td {
-    font-family: var(--khmer-font-siemreap);
+    font-family: var(--app-font-sans);
 }
 
 .khmer-font-muol {
