@@ -46,9 +46,29 @@ class G12NationalExamController {
         $tab=$this->tab($request);abort_unless(in_array($tab,['records','certificates','reports'],true),403);
         $request->validate(['per_page'=>['nullable',Rule::in(['15','25','50','100','all'])],'page'=>'nullable|integer|min:1']);
         $q=$this->query($request,$tab)->with(['center','campus','certificates'])->orderBy('name_en')->orderBy('id');
+        $summary=$tab==='records'?$this->recordSummary(clone $q):null;
         $size=$request->input('per_page','15');$perPage=$size==='all'?max(1,$q->clone()->count()):(int)$size;
         $page=min(max(1,$request->integer('page',1)),max(1,(int)ceil($q->clone()->count()/$perPage)));
-        $result=$q->paginate($perPage,['*'],'page',$page);$result->getCollection()->transform(fn($r)=>$this->summary($r,$request));return response()->json($result);
+        $result=$q->paginate($perPage,['*'],'page',$page);$result->getCollection()->transform(fn($r)=>$this->summary($r,$request));
+        $payload=$result->toArray();if($summary!==null)$payload['summary']=$summary;return response()->json($payload);
+    }
+    private function recordSummary($query): array {
+        $query->setEagerLoads(['campus'=>fn($campus)=>$campus->select('id','campus_name_en')]);
+        $records=$query->reorder()->get(['id','campus_id','data']);
+        $summary=['total'=>$records->count(),'male'=>0,'female'=>0,'groups'=>['science_khmer'=>0,'science_english'=>0,'social_khmer'=>0,'social_english'=>0],'campuses'=>[]];
+        foreach($records as $record){
+            $gender=mb_strtolower(trim((string)($record->data['gender']??'')));
+            if(in_array($gender,['male','m','ប្រុស'],true))$summary['male']++;elseif(in_array($gender,['female','f','ស្រី'],true))$summary['female']++;
+            $language=mb_strtolower(trim((string)($record->data['language_exam']??'')));
+            $languageGroup=str_contains($language,'english')||str_contains($language,'អង់គ្លេស')?'english':(str_contains($language,'khmer')||str_contains($language,'ខ្មែរ')?'khmer':null);
+            $class=mb_strtolower(trim((string)($record->data['class_sellected']??$record->data['class_selected']??'')));
+            $classGroup=str_contains($class,'social')||str_contains($class,'សង្គម')?'social':(str_contains($class,'science')||str_contains($class,'វិទ្យា')?'science':null);
+            if($classGroup&&$languageGroup)$summary['groups'][$classGroup.'_'.$languageGroup]++;
+            $campus=trim((string)($record->campus?->campus_name_en??$record->data['campus']??'Other Campus'))?:'Other Campus';
+            $summary['campuses'][$campus]=($summary['campuses'][$campus]??0)+1;
+        }
+        uksort($summary['campuses'],fn($left,$right)=>strnatcasecmp($left,$right));
+        return $summary;
     }
     private function summary(G12ExamRecord $r,Request $request): array {
         return ['id'=>$r->id,'version'=>$r->version,'name_en'=>$r->name_en,'name_kh'=>$r->name_kh,'student_code'=>$r->student_code,'academic_year'=>$r->academic_year,

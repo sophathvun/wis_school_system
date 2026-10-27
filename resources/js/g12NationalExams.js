@@ -74,11 +74,19 @@ if(root){
         <td class="g12-action-cell" data-label="Actions"><div class="d-flex gap-2"><button class="btn btn-sm btn-outline-primary" data-g12-view="${r.id}"><i class="ti ti-eye me-1"></i>View</button>${r.can_edit?`<button class="btn btn-sm btn-outline-primary" data-g12-edit="${r.id}" aria-label="Edit student"><i class="ti ti-edit"></i></button>`:''}</div></td>
     </tr>`).join('')||'<tr><td colspan="8" class="text-center py-4">No student exam records match these filters.</td></tr>';
     const trackingRows=res=>res.data.map((r,i)=>`<tr><td>${res.from+i}</td><td>${r.photo_url?`<button type="button" class="g12-photo-trigger" data-g12-photo-view="${escape(r.photo_url)}" data-g12-photo-title="${escape(r.name_en||r.student_code||'Student Photo')}" aria-label="View photo of ${escape(r.name_en||r.student_code||'student')}"><img src="${escape(r.photo_url)}" class="g12-photo" loading="lazy" alt="Photo of ${escape(r.name_en||r.student_code||'student')}"></button>`:'—'}</td><td><strong>${escape(r.name_en)}</strong><div class="school-profile-khmer">${escape(r.name_kh)}</div><div class="text-secondary">${escape(r.student_code)}</div></td><td>${escape(r.academic_year)}<div>${escape(r.campus)} / ${escape(r.grade)}</div></td><td>${escape(r.center??'Not assigned')}<div>Room ${escape(r.room||'—')} / Seat ${escape(r.seat||'—')}</div></td><td>${escape(r.overall_grade)} ${badge(r.result_status)}</td>${['soft','hard'].map(t=>`<td>${badge(r.certificates.find(c=>c.type===t)?.status??'awaiting')}</td>`).join('')}<td><div class="d-flex gap-2"><button class="btn btn-sm btn-outline-primary" data-g12-view="${r.id}"><i class="ti ti-eye me-1"></i>View</button></div></td></tr>`).join('')||'<tr><td colspan="9" class="text-center py-4">No student exam records match these filters.</td></tr>';
+    const renderRecordSummary=summary=>{
+        const panel=get('[data-g12-summary]');if(!panel)return;
+        const values={total:summary?.total??0,male:summary?.male??0,female:summary?.female??0,'science-khmer':summary?.groups?.science_khmer??0,'science-english':summary?.groups?.science_english??0,'social-khmer':summary?.groups?.social_khmer??0,'social-english':summary?.groups?.social_english??0};
+        for(const [name,value]of Object.entries(values)){const target=panel.querySelector(`[data-g12-summary-${name}]`);if(target)target.textContent=Number(value).toLocaleString();}
+        const campuses=panel.querySelector('[data-g12-summary-campuses]'),entries=Object.entries(summary?.campuses??{});
+        campuses.innerHTML=entries.length?entries.map(([name,total])=>`<span class="g12-summary-campus"><span>${escape(name)}:</span> <strong>${Number(total).toLocaleString()}</strong></span>`).join(''):'<div class="g12-summary-empty">No students match the selected filters.</div>';
+    };
+    const resetRecordSummary=()=>{renderRecordSummary(null);const campuses=get('[data-g12-summary-campuses]');if(campuses)campuses.innerHTML='<div class="g12-summary-empty">Select an Academic Year to display totals.</div>';};
     const load=async(page=1,perPage=get('#g12PerPage')?.value??15)=>{
         const rows=get('[data-g12-records]');if(!rows)return;
-        if(!filterForm?.elements.academic_year?.value){rows.innerHTML=`<tr><td colspan="${tab==='records'?8:9}" class="text-center py-4">Select an Academic Year to display records.</td></tr>`;get('#g12Pagination').innerHTML='';return;}
+        if(!filterForm?.elements.academic_year?.value){rows.innerHTML=`<tr><td colspan="${tab==='records'?8:9}" class="text-center py-4">Select an Academic Year to display records.</td></tr>`;get('#g12Pagination').innerHTML='';resetRecordSummary();return;}
         const query=filters();query.set('tab',tab);query.set('page',page);query.set('per_page',perPage);
-        const res=await api('/list?'+query);rows.innerHTML=tab==='records'?recordRows(res):trackingRows(res);
+        const res=await api('/list?'+query);rows.innerHTML=tab==='records'?recordRows(res):trackingRows(res);if(tab==='records')renderRecordSummary(res.summary);
         renderPagination(res,'g12Pagination','g12PerPage',(p,size)=>run(()=>load(p,size)),['all',15,25,50,100]);
     };
     const photoViewerElement=get('#g12PhotoViewerModal');

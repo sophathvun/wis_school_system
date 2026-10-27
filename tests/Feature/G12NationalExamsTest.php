@@ -44,6 +44,22 @@ it('filters student exam records by exam language and selected class and returns
         ->and($meta['exam_languages'])->toBe(['English','French'])
         ->and($meta['selected_classes'])->toBe(['Science','Social Science']);
 });
+it('returns filtered student totals by gender exam group and campus',function(){
+    $user=User::find(1);$service=app(G12NationalExams::class);
+    $rows=[
+        ['student_id'=>'1001','gender'=>'Male','class_sellected'=>'Science','language_exam'=>'Khmer','campus_id'=>1,'campus'=>'BCH'],
+        ['student_id'=>'1002','gender'=>'Female','class_sellected'=>'Science','language_exam'=>'English','campus_id'=>1,'campus'=>'BCH'],
+        ['student_id'=>'1003','gender'=>'ស្រី','class_sellected'=>'Social Science','language_exam'=>'ខ្មែរ','campus_id'=>2,'campus'=>'BKK'],
+        ['student_id'=>'1004','gender'=>'ប្រុស','class_sellected'=>'វិទ្យាសាស្ត្រសង្គម','language_exam'=>'អង់គ្លេស','campus_id'=>2,'campus'=>'BKK'],
+    ];
+    foreach($rows as $index=>$row)$service->save($user,g12ExamData($row+['student_name_en'=>'STUDENT '.($index+1)]));
+    $list=app(G12NationalExamController::class)->list(g12Request($user,['tab'=>'records','academic_year'=>'2025-2026']))->getData(true);
+    expect($list['summary'])->toMatchArray([
+        'total'=>4,'male'=>2,'female'=>2,
+        'groups'=>['science_khmer'=>1,'science_english'=>1,'social_khmer'=>1,'social_english'=>1],
+        'campuses'=>['BCH'=>2,'BKK'=>2],
+    ]);
+});
 it('inherits permissions from roles, departments and user grants while enforcing campus boundaries',function($source){
     $user=g12ExamUser(['view','records','create'],$source);expect(Access::allows($user,'create',1))->toBeTrue()->and(Access::allows($user,'create',2))->toBeFalse();
     app(G12NationalExams::class)->save($user,g12ExamData());

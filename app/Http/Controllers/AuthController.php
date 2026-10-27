@@ -112,7 +112,7 @@ class AuthController
 
     public function profile(Request $request)
     {
-        $user = $request->user()->load(['department', 'position', 'campuses', 'roles']);
+        $user = $request->user()->load(['department', 'position', 'campuses', 'roles', 'webauthnCredentials']);
         $this->ensurePublicCardToken($user);
         $dashboardPermissionCampusId = $user->active_campus_id
             ?: $user->accessibleCampuses()->value('tb_school_info.id');

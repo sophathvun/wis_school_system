@@ -387,6 +387,47 @@
                                     <div class="col-12 premium-form-field"><label class="form-label">Confirm Password</label><input class="form-control"
                                             type="password" name="password_confirmation" minlength="8" placeholder=" "></div>
                                 </div>
+                                <div class="profile-passkey-panel mt-4" data-passkey-settings
+                                    data-options-url="{{ route('profile.passkeys.options') }}"
+                                    data-store-url="{{ route('profile.passkeys.store') }}">
+                                    <div class="profile-passkey-heading">
+                                        <div>
+                                            <strong><i class="ti ti-scan-face me-1" aria-hidden="true"></i>Face or Passkey Login</strong>
+                                            <small>Use Windows Hello, Face ID, Android biometrics, a device PIN, or a security key.</small>
+                                        </div>
+                                        <span class="badge bg-primary-lt" data-passkey-count>{{ $profileUser->webauthnCredentials->count() }}</span>
+                                    </div>
+                                    <div class="profile-passkey-enroll">
+                                        <label for="passkeyDeviceName">Device name</label>
+                                        <input class="form-control" id="passkeyDeviceName" type="text" maxlength="120"
+                                            value="My device" autocomplete="off">
+                                        <label for="passkeyCurrentPassword">Current password</label>
+                                        <input class="form-control" id="passkeyCurrentPassword" type="password"
+                                            autocomplete="current-password">
+                                        <button class="btn btn-outline-primary" type="button" id="addProfilePasskey">
+                                            <i class="ti ti-plus me-1" aria-hidden="true"></i>Add Face or Passkey
+                                        </button>
+                                    </div>
+                                    <div class="profile-passkey-status" id="profilePasskeyStatus" role="status" aria-live="polite"></div>
+                                    <div class="profile-passkey-list" id="profilePasskeyList">
+                                        @forelse ($profileUser->webauthnCredentials->sortByDesc('created_at') as $passkey)
+                                            <div class="profile-passkey-item" data-passkey-item>
+                                                <i class="ti ti-key" aria-hidden="true"></i>
+                                                <div>
+                                                    <strong>{{ $passkey->name }}</strong>
+                                                    <small>Added {{ $passkey->created_at?->format('d-M-Y H:i') }}@if ($passkey->last_used_at) · Last used {{ $passkey->last_used_at->format('d-M-Y H:i') }}@endif</small>
+                                                </div>
+                                                <button class="btn btn-sm btn-outline-danger" type="button" data-remove-passkey
+                                                    data-delete-url="{{ route('profile.passkeys.destroy', $passkey) }}"
+                                                    aria-label="Remove {{ $passkey->name }}" title="Remove passkey">
+                                                    <i class="ti ti-trash" aria-hidden="true"></i>
+                                                </button>
+                                            </div>
+                                        @empty
+                                            <div class="profile-passkey-empty" data-passkey-empty>No face or passkey login is registered yet.</div>
+                                        @endforelse
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>

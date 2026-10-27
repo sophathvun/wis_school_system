@@ -60,6 +60,12 @@ bash scripts/setup-server-dependencies.sh --yes
 Operating-system packages are installed separately from the application, so run
 this setup command again whenever the system moves to a new server.
 
+## Face or passkey login
+
+See [Face or passkey login](docs/passkeys.md) for enrollment, HTTPS and
+deployment requirements. The feature uses the device authenticator through
+WebAuthn; the server does not receive or compare a user's biometric image.
+
 ## Server upload limits
 
 Grade Skipping supporting documents allow up to 25 MB **per file**, with up to

@@ -24,6 +24,7 @@ const fieldHasValue = (wrapper) => {
 let premiumFormRefreshFrame = null;
 const enhanceEmailFields = (root = document) => {
     root.querySelectorAll("form input[type='email']").forEach((input) => {
+        if (input.dataset.emailEnhance === "off") return;
         if (input.closest(".summer-email-input")) return;
         if (input.dataset.emailEnhanced === "1") return;
         input.dataset.emailEnhanced = "1";

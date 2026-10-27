@@ -45,13 +45,14 @@
                             <div class="auth-input-wrap"><i class="ti ti-user" aria-hidden="true"></i><input
                                     class="form-control" id="usernameIdentifier" type="text"
                                     value="{{ old('login_by') === 'username' ? old('identifier') : '' }}"
-                                    autocomplete="username"></div>
+                                    autocomplete="username" autocapitalize="none" spellcheck="false"></div>
                         </div>
                         <div class="mb-3" id="emailInputGroup">
                             <label class="form-label" for="emailIdentifier">Email address</label>
                             <div class="auth-input-wrap"><i class="ti ti-mail" aria-hidden="true"></i><input
-                                    class="form-control" id="emailIdentifier" type="email"
-                                    value="{{ old('login_by') === 'email' ? old('identifier') : '' }}" autocomplete="email">
+                                    class="form-control" id="emailIdentifier" type="email" data-email-enhance="off"
+                                    value="{{ old('login_by') === 'email' ? old('identifier') : '' }}"
+                                    autocomplete="username" autocapitalize="none" spellcheck="false">
                             </div>
                         </div>
                         <div class="mb-3">
@@ -65,6 +66,14 @@
                         <label class="form-check mb-3"><input class="form-check-input" type="checkbox" name="remember"><span
                                 class="form-check-label">Remember me</span></label>
                         <button class="auth-submit" type="submit">Sign in</button>
+                        <div class="auth-passkey-separator"><span>or</span></div>
+                        <button class="auth-passkey-button" type="button" id="passkeyLogin"
+                            data-options-url="{{ route('passkeys.login.options') }}"
+                            data-login-url="{{ route('passkeys.login') }}">
+                            <i class="ti ti-scan-face" aria-hidden="true"></i>
+                            <span>Sign in with Face or Passkey</span>
+                        </button>
+                        <div class="auth-passkey-status" id="passkeyLoginStatus" role="status" aria-live="polite"></div>
                         <div class="auth-mode-note"><a href="{{ route('password.request') }}">Forgot password?</a></div>
                     </form>
                 </div>

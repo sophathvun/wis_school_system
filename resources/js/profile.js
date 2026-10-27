@@ -1,3 +1,10 @@
+import {
+    createPasskey,
+    deletePasskey,
+    passkeyRequest,
+    supportsPasskeys,
+} from "./helpers/webauthn";
+
 document.addEventListener("DOMContentLoaded", () => {
     const profileLinks = document.querySelectorAll("[data-profile-panel]");
     const profilePanels = document.querySelectorAll("[data-profile-panel-content]");
@@ -108,6 +115,80 @@ document.addEventListener("DOMContentLoaded", () => {
         const printWindow = window.open(url, "staff-card-print", "popup,width=900,height=900");
         if (printWindow) printWindow.focus();
     });
+
+    const passkeyPanel = document.querySelector("[data-passkey-settings]");
+    const addPasskeyButton = document.getElementById("addProfilePasskey");
+    const passkeyStatus = document.getElementById("profilePasskeyStatus");
+    const setPasskeyStatus = (message = "", isError = false) => {
+        if (!passkeyStatus) return;
+        passkeyStatus.textContent = message;
+        passkeyStatus.classList.toggle("is-error", isError);
+    };
+    if (passkeyPanel && addPasskeyButton) {
+        if (!supportsPasskeys()) {
+            addPasskeyButton.disabled = true;
+            setPasskeyStatus("Face or passkey login requires a supported browser and HTTPS.", true);
+        } else {
+            addPasskeyButton.addEventListener("click", async () => {
+                const name = document.getElementById("passkeyDeviceName")?.value.trim();
+                const currentPassword = document.getElementById("passkeyCurrentPassword")?.value || "";
+                if (!name || !currentPassword) {
+                    setPasskeyStatus("Enter a device name and your current password.", true);
+                    return;
+                }
+                addPasskeyButton.disabled = true;
+                setPasskeyStatus("Waiting for verification on your device…");
+                try {
+                    const options = await passkeyRequest(passkeyPanel.dataset.optionsUrl, {
+                        name,
+                        current_password: currentPassword,
+                    });
+                    const credential = await createPasskey(options.publicKey);
+                    const result = await passkeyRequest(passkeyPanel.dataset.storeUrl, { credential });
+                    setPasskeyStatus(result.message || "Face or passkey login was added.");
+                    window.location.reload();
+                } catch (error) {
+                    const cancelled = error?.name === "NotAllowedError";
+                    setPasskeyStatus(
+                        cancelled ? "Passkey registration was cancelled." : error.message,
+                        true,
+                    );
+                } finally {
+                    addPasskeyButton.disabled = false;
+                }
+            });
+        }
+
+        passkeyPanel.addEventListener("click", async (event) => {
+            const button = event.target.closest("[data-remove-passkey]");
+            if (!button) return;
+            const confirmation = window.schoolShowConfirm
+                ? await window.schoolShowConfirm(
+                      "Remove this passkey?",
+                      "This device will no longer be able to sign in with this passkey.",
+                      "Remove",
+                      "Cancel",
+                  )
+                : { isConfirmed: window.confirm("Remove this passkey?") };
+            if (!confirmation.isConfirmed) return;
+            button.disabled = true;
+            try {
+                const result = await deletePasskey(button.dataset.deleteUrl);
+                button.closest("[data-passkey-item]")?.remove();
+                const count = passkeyPanel.querySelectorAll("[data-passkey-item]").length;
+                const badge = passkeyPanel.querySelector("[data-passkey-count]");
+                if (badge) badge.textContent = count;
+                if (count === 0) {
+                    document.getElementById("profilePasskeyList").innerHTML =
+                        '<div class="profile-passkey-empty" data-passkey-empty>No face or passkey login is registered yet.</div>';
+                }
+                setPasskeyStatus(result.message || "Passkey removed successfully.");
+            } catch (error) {
+                button.disabled = false;
+                setPasskeyStatus(error.message, true);
+            }
+        });
+    }
 
     document.querySelector('form[action$="/profile"]')?.classList.add("profile-account-form");
 

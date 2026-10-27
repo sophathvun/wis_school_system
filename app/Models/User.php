@@ -11,6 +11,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
     #[Fillable(['staff_profile_id', 'staff_id', 'name', 'gender', 'date_of_birth', 'phone', 'position_id', 'username', 'email', 'password', 'status', 'preferred_locale', 'active_campus_id', 'department_id', 'photo_path', 'public_card_token', 'public_card_enabled', 'public_card_orientation', 'public_card_background', 'public_card_scan_count', 'public_card_last_viewed_at', 'login_identifier', 'is_global', 'must_change_password', 'last_seen_at'])]
 #[Hidden(['password', 'remember_token'])]
@@ -38,6 +39,11 @@ class User extends Authenticatable
     public function staffProfile(): BelongsTo
     {
         return $this->belongsTo(Staff::class, 'staff_profile_id');
+    }
+
+    public function webauthnCredentials(): HasMany
+    {
+        return $this->hasMany(WebauthnCredential::class);
     }
 
     public function userNotifications()

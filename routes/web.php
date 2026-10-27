@@ -21,6 +21,7 @@ use App\Http\Controllers\NationalityController;
 use App\Http\Controllers\BrandingSettingController;
 use App\Http\Controllers\AccessManagementController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\PasskeyController;
 use App\Http\Controllers\UserManagementController;
 use App\Http\Controllers\DepartmentManagementController;
 use App\Http\Controllers\PositionManagementController;
@@ -104,6 +105,10 @@ Route::middleware('guest')->group(function () {
     Route::post('/setup/admin', [AuthController::class, 'setupAdmin']);
     Route::get('/login', [AuthController::class, 'loginForm'])->name('login');
     Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/login/passkey/options', [PasskeyController::class, 'authenticationOptions'])
+        ->middleware('throttle:10,1')->name('passkeys.login.options');
+    Route::post('/login/passkey', [PasskeyController::class, 'authenticate'])
+        ->middleware('throttle:10,1')->name('passkeys.login');
     Route::get('/forgot-password', [AuthController::class, 'forgotForm'])->name('password.request');
     Route::post('/forgot-password', [AuthController::class, 'forgot'])->name('password.email');
     Route::get('/reset-password/{token}', [AuthController::class, 'resetForm'])->name('password.reset');
@@ -128,6 +133,12 @@ Route::middleware(['auth', 'active.user'])->group(function () {
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [AuthController::class, 'profile'])->name('profile');
     Route::post('/profile', [AuthController::class, 'updateProfile'])->name('profile.update');
+    Route::post('/profile/passkeys/options', [PasskeyController::class, 'registrationOptions'])
+        ->middleware('throttle:6,1')->name('profile.passkeys.options');
+    Route::post('/profile/passkeys', [PasskeyController::class, 'register'])
+        ->middleware('throttle:6,1')->name('profile.passkeys.store');
+    Route::delete('/profile/passkeys/{passkey}', [PasskeyController::class, 'destroy'])
+        ->middleware('throttle:12,1')->name('profile.passkeys.destroy');
     Route::post('/photos/size', [\App\Http\Controllers\StudentPhotoController::class, 'size'])
         ->middleware('throttle:60,1')->name('photos.size');
     Route::middleware(\App\Http\Middleware\EnsurePhotoEditorAccess::class)->prefix('photo-editor')->name('photo-editor.')->group(function () {

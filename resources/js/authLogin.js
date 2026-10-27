@@ -1,3 +1,5 @@
+import { getPasskey, passkeyRequest, supportsPasskeys } from "./helpers/webauthn";
+
 document.addEventListener("DOMContentLoaded", () => {
     const card = document.getElementById("authFlipCard");
     const loginBy = document.getElementById("loginBy");
@@ -15,6 +17,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const password = document.getElementById("authPassword");
     const togglePassword = document.getElementById("togglePassword");
     const themeToggle = document.getElementById("authThemeToggle");
+    const passkeyLogin = document.getElementById("passkeyLogin");
+    const passkeyStatus = document.getElementById("passkeyLoginStatus");
     if (!card || !loginBy || !identifier || !usernameGroup || !emailGroup || !usernameInput || !emailInput || !title || !subtitle || !switchTitle || !switchText || !switchButton || !form || !password || !togglePassword || !themeToggle) return;
 
     const updateThemeToggle = () => {
@@ -68,6 +72,43 @@ document.addEventListener("DOMContentLoaded", () => {
         loginBy.value = mode;
         identifier.value = mode === "email" ? emailInput.value : usernameInput.value;
     });
+
+    const setPasskeyStatus = (message = "", isError = false) => {
+        if (!passkeyStatus) return;
+        passkeyStatus.textContent = message;
+        passkeyStatus.classList.toggle("is-error", isError);
+    };
+    if (passkeyLogin) {
+        if (!supportsPasskeys()) {
+            passkeyLogin.disabled = true;
+            setPasskeyStatus("Face or passkey login requires a supported browser and HTTPS.");
+        } else {
+            passkeyLogin.addEventListener("click", async () => {
+                passkeyLogin.disabled = true;
+                passkeyLogin.classList.add("is-loading");
+                setPasskeyStatus("Waiting for your device verification…");
+                try {
+                    const options = await passkeyRequest(passkeyLogin.dataset.optionsUrl);
+                    const credential = await getPasskey(options.publicKey);
+                    const result = await passkeyRequest(passkeyLogin.dataset.loginUrl, {
+                        credential,
+                        remember: Boolean(form.querySelector('[name="remember"]')?.checked),
+                    });
+                    setPasskeyStatus(result.message || "Signed in successfully.");
+                    window.location.assign(result.redirect);
+                } catch (error) {
+                    const cancelled = error?.name === "NotAllowedError";
+                    setPasskeyStatus(
+                        cancelled ? "Face or passkey sign-in was cancelled." : error.message,
+                        true,
+                    );
+                } finally {
+                    passkeyLogin.disabled = false;
+                    passkeyLogin.classList.remove("is-loading");
+                }
+            });
+        }
+    }
 
     updateThemeToggle();
     render();
