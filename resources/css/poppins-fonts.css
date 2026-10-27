@@ -155,7 +155,3 @@
 [data-bs-theme-font="poppins"] {
     --tblr-body-font-family: var(--tblr-font-poppins);
 }
-
-.theme-font-poppins-label {
-    font-family: var(--tblr-font-poppins);
-}

@@ -17,6 +17,7 @@ class BrandingSettingController
     {
         $validated = $request->validate([
             'sidebar_logo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,svg', 'max:4096'],
+            'light_sidebar_logo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,svg', 'max:4096'],
             'login_logo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,svg', 'max:4096'],
             'shortcut_icon' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,svg', 'max:4096'],
             'favicon' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,ico,svg', 'max:2048'],
@@ -27,7 +28,7 @@ class BrandingSettingController
         ]);
 
         $branding = BrandingSetting::current();
-        foreach (['sidebar_logo', 'login_logo', 'shortcut_icon', 'favicon', 'footer_logo', 'report_logo_1', 'report_logo_2'] as $field) {
+        foreach (['sidebar_logo', 'light_sidebar_logo', 'login_logo', 'shortcut_icon', 'favicon', 'footer_logo', 'report_logo_1', 'report_logo_2'] as $field) {
             if ($request->hasFile($field)) {
                 $pathField = $field . '_path';
                 if ($branding->{$pathField}) Storage::disk('public')->delete($branding->{$pathField});

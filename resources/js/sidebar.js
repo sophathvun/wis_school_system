@@ -1,10 +1,263 @@
+const SIDEBAR_COLLAPSED_STORAGE_KEY = "schoolSidebarCollapsed";
+const desktopSidebarMedia = window.matchMedia("(min-width: 992px)");
+
+// Apply the saved desktop state before DOMContentLoaded to avoid the sidebar
+// visibly jumping from expanded to compact after the page is painted.
+if (
+    desktopSidebarMedia.matches &&
+    window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === "true"
+) {
+    document.documentElement.classList.add("sidebar-collapsed");
+}
+
 // Handle navbar toggler and menu closing
 document.addEventListener("DOMContentLoaded", function () {
-    const toggler = document.querySelector(".navbar-toggler");
+    const sidebar = document.getElementById("appSidebar");
     const sidebarMenu = document.getElementById("sidebar-menu");
-    const navLinks = document.querySelectorAll(".navbar-nav .nav-link");
+    const toggler = sidebar?.querySelector(".navbar-toggler");
+    const desktopCollapseToggle = document.getElementById(
+        "sidebarCollapseToggle",
+    );
+    const navLinks = sidebarMenu?.querySelectorAll(".navbar-nav .nav-link");
 
-    if (!toggler || !sidebarMenu) return;
+    if (!sidebar || !toggler || !sidebarMenu || !navLinks) return;
+
+    const getDirectChild = (element, selector) =>
+        Array.from(element.children).find((child) => child.matches(selector));
+
+    const closeSiblingDropdowns = (currentItem = null) => {
+        sidebarMenu
+            .querySelectorAll(":scope > .navbar-nav > .nav-item.dropdown")
+            .forEach((item) => {
+                if (item === currentItem) return;
+
+                const otherToggle = getDirectChild(
+                    item,
+                    ".nav-link.dropdown-toggle",
+                );
+                const dropdownInstance = otherToggle
+                    ? window.bootstrap?.Dropdown?.getInstance(otherToggle)
+                    : null;
+
+                if (dropdownInstance) {
+                    dropdownInstance.hide();
+                }
+
+                item.classList.remove("show", "is-mobile-open");
+                getDirectChild(item, ".dropdown-menu")?.classList.remove(
+                    "show",
+                );
+                otherToggle?.classList.remove("show");
+                otherToggle?.setAttribute("aria-expanded", "false");
+            });
+    };
+
+    const sidebarTooltips = [];
+    const storedSidebarIsCollapsed = () =>
+        window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === "true";
+
+    const updateSidebarTooltips = (enabled) => {
+        sidebarTooltips.forEach((tooltip) => {
+            if (enabled) {
+                tooltip.enable();
+            } else {
+                tooltip.hide();
+                tooltip.disable();
+            }
+        });
+    };
+
+    const applyDesktopSidebarState = (collapsed, persist = false) => {
+        const shouldCollapse = desktopSidebarMedia.matches && collapsed;
+        document.documentElement.classList.toggle(
+            "sidebar-collapsed",
+            shouldCollapse,
+        );
+
+        if (persist) {
+            window.localStorage.setItem(
+                SIDEBAR_COLLAPSED_STORAGE_KEY,
+                String(collapsed),
+            );
+        }
+
+        if (desktopCollapseToggle) {
+            const label = shouldCollapse
+                ? "Expand sidebar"
+                : "Collapse sidebar";
+            desktopCollapseToggle.setAttribute(
+                "aria-expanded",
+                String(!shouldCollapse),
+            );
+            desktopCollapseToggle.setAttribute("aria-label", label);
+            desktopCollapseToggle.title = label;
+
+            const icon = desktopCollapseToggle.querySelector("i");
+            if (icon) {
+                icon.className = shouldCollapse
+                    ? "ti ti-layout-sidebar-left-expand"
+                    : "ti ti-layout-sidebar-left-collapse";
+            }
+        }
+
+        updateSidebarTooltips(shouldCollapse);
+        window.dispatchEvent(
+            new CustomEvent("sidebar:toggle", {
+                detail: { collapsed: shouldCollapse },
+            }),
+        );
+    };
+
+    if (window.bootstrap?.Tooltip) {
+        sidebarMenu
+            .querySelectorAll(":scope > .navbar-nav > .nav-item > .nav-link")
+            .forEach((link) => {
+                const label = link
+                    .querySelector(".nav-link-title")
+                    ?.textContent.trim();
+                if (!label) return;
+
+                link.dataset.sidebarLabel = label;
+                const tooltip = new window.bootstrap.Tooltip(link, {
+                    title: label,
+                    placement: "right",
+                    trigger: "hover focus",
+                    container: "body",
+                    customClass: "premium-sidebar-tooltip",
+                });
+                tooltip.disable();
+                sidebarTooltips.push(tooltip);
+            });
+
+        const profileLink = sidebar.querySelector(
+            "[data-sidebar-profile-link]",
+        );
+        if (profileLink) {
+            const tooltip = new window.bootstrap.Tooltip(profileLink, {
+                title: "My Profile",
+                placement: "right",
+                trigger: "hover focus",
+                container: "body",
+                customClass: "premium-sidebar-tooltip",
+            });
+            tooltip.disable();
+            sidebarTooltips.push(tooltip);
+        }
+    }
+
+    desktopCollapseToggle?.addEventListener("click", () => {
+        applyDesktopSidebarState(
+            !document.documentElement.classList.contains("sidebar-collapsed"),
+            true,
+        );
+    });
+
+    const handleDesktopBreakpointChange = () => {
+        applyDesktopSidebarState(storedSidebarIsCollapsed());
+    };
+
+    if (typeof desktopSidebarMedia.addEventListener === "function") {
+        desktopSidebarMedia.addEventListener(
+            "change",
+            handleDesktopBreakpointChange,
+        );
+    } else {
+        desktopSidebarMedia.addListener(handleDesktopBreakpointChange);
+    }
+
+    // A compact parent menu expands the sidebar first, then opens its
+    // submenu. This keeps every destination visible and keyboard reachable.
+    sidebarMenu.addEventListener(
+        "click",
+        function (event) {
+            if (
+                !desktopSidebarMedia.matches ||
+                !document.documentElement.classList.contains(
+                    "sidebar-collapsed",
+                )
+            ) {
+                return;
+            }
+
+            const dropdownToggle = event.target.closest(
+                ".nav-item.dropdown > .nav-link.dropdown-toggle",
+            );
+            if (!dropdownToggle || !sidebarMenu.contains(dropdownToggle)) {
+                return;
+            }
+
+            event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation();
+            applyDesktopSidebarState(false, true);
+
+            window.setTimeout(() => {
+                const parentItem = dropdownToggle.closest(
+                    ".nav-item.dropdown",
+                );
+                if (!parentItem) return;
+
+                closeSiblingDropdowns(parentItem);
+
+                if (window.bootstrap?.Dropdown) {
+                    window.bootstrap.Dropdown.getOrCreateInstance(
+                        dropdownToggle,
+                    ).show();
+                } else {
+                    getDirectChild(
+                        parentItem,
+                        ".dropdown-menu",
+                    )?.classList.add("show");
+                    dropdownToggle.setAttribute("aria-expanded", "true");
+                }
+
+                dropdownToggle.focus({ preventScroll: true });
+            }, 180);
+        },
+        true,
+    );
+
+    // Desktop submenu groups work as an accordion. Bootstrap keeps dropdowns
+    // open when data-bs-auto-close is false, so explicitly close every sibling
+    // as soon as the next main menu starts opening.
+    sidebarMenu.addEventListener("show.bs.dropdown", function (event) {
+        if (!desktopSidebarMedia.matches) return;
+
+        const dropdownToggle = event.target.closest(
+            ".nav-item.dropdown > .nav-link.dropdown-toggle",
+        );
+        const currentItem = dropdownToggle?.closest(".nav-item.dropdown");
+        if (!currentItem || !sidebarMenu.contains(currentItem)) return;
+
+        closeSiblingDropdowns(currentItem);
+    });
+
+    sidebarMenu.addEventListener(
+        "click",
+        function (event) {
+            if (
+                !desktopSidebarMedia.matches ||
+                document.documentElement.classList.contains(
+                    "sidebar-collapsed",
+                )
+            ) {
+                return;
+            }
+
+            const dropdownToggle = event.target.closest(
+                ".nav-item.dropdown > .nav-link.dropdown-toggle",
+            );
+            const currentItem = dropdownToggle?.closest(
+                ".nav-item.dropdown",
+            );
+            if (!currentItem || !sidebarMenu.contains(currentItem)) return;
+
+            closeSiblingDropdowns(currentItem);
+        },
+        true,
+    );
+
+    applyDesktopSidebarState(storedSidebarIsCollapsed());
 
     // The profile control is a separate floating dropdown. Close the main
     // mobile navigation first so both menus can never render together.
@@ -82,9 +335,6 @@ document.addEventListener("DOMContentLoaded", function () {
     sidebarMenu.addEventListener("hide.bs.collapse", function () {
         toggler.setAttribute("aria-expanded", "false");
     });
-
-    const getDirectChild = (element, selector) =>
-        Array.from(element.children).find((child) => child.matches(selector));
 
     // On mobile, make parent menu clicks explicitly toggle their submenu.
     // Use our own class so Bootstrap dropdown behavior cannot hide it again.

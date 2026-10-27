@@ -8,6 +8,7 @@
 @import "./photo-editor.css";
 
 @import "./pages/index.css";
+@import "./premium-sidebar.css";
 
 .install-app-shortcut {
     position: fixed;
@@ -119,8 +120,159 @@
     margin: 0;
 }
 
+.theme-font-option {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: 0.65rem;
+}
+
+.theme-font-option-label {
+    display: flex;
+    flex: 1;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    min-width: 0;
+}
+
+.theme-font-sample {
+    color: var(--tblr-secondary-color);
+    font-size: 0.9rem;
+    font-weight: 400;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+}
+
+.theme-font-sample-poppins {
+    font-family: var(--tblr-font-poppins);
+}
+
+.theme-font-sample-sans-serif {
+    font-family: var(--tblr-font-sans-serif);
+}
+
+.theme-font-sample-serif {
+    font-family: var(--tblr-font-serif);
+}
+
+.theme-font-sample-monospace {
+    font-family: var(--tblr-font-monospace);
+}
+
+.theme-font-sample-comic {
+    font-family: var(--tblr-font-comic);
+}
+
+.sidebar-theme-options {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.55rem;
+}
+
+.sidebar-theme-option {
+    position: relative;
+    min-width: 0;
+    margin: 0;
+    cursor: pointer;
+}
+
+.sidebar-theme-option input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.sidebar-theme-choice {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    min-height: 2.65rem;
+    padding: 0.45rem 0.6rem;
+    border: 1px solid var(--tblr-border-color);
+    border-radius: 0.75rem;
+    color: var(--tblr-body-color);
+    background: var(--tblr-bg-surface, #fff);
+    font-size: 0.76rem;
+    transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.sidebar-theme-option:hover .sidebar-theme-choice {
+    border-color: rgba(var(--tblr-primary-rgb), 0.48);
+    background: rgba(var(--tblr-primary-rgb), 0.04);
+}
+
+.sidebar-theme-option input:focus-visible + .sidebar-theme-choice,
+.sidebar-theme-option input:checked + .sidebar-theme-choice {
+    border-color: var(--tblr-primary);
+    box-shadow: 0 0 0 2px rgba(var(--tblr-primary-rgb), 0.14);
+}
+
+.sidebar-theme-option input:checked + .sidebar-theme-choice::after {
+    margin-left: auto;
+    color: var(--tblr-primary);
+    content: "✓";
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.sidebar-theme-swatch {
+    flex: 0 0 1.3rem;
+    width: 1.3rem;
+    height: 1.3rem;
+    border: 1px solid rgba(148, 163, 184, 0.38);
+    border-radius: 0.42rem;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+}
+
+.sidebar-theme-swatch-system {
+    background: linear-gradient(135deg, #1e293b, #0b1220);
+}
+
+.sidebar-theme-swatch-theme {
+    background: linear-gradient(135deg, rgb(var(--tblr-primary-rgb)), #172033);
+}
+
+.sidebar-theme-swatch-dark {
+    background: linear-gradient(135deg, #27272a, #09090b);
+}
+
+.sidebar-theme-swatch-light {
+    background: linear-gradient(135deg, #fff, #e2e8f0);
+}
+
+.sidebar-theme-swatch-navy {
+    background: linear-gradient(135deg, #173f70, #071a33);
+}
+
+.sidebar-theme-swatch-ocean {
+    background: linear-gradient(135deg, #0f6b78, #073642);
+}
+
+.sidebar-theme-swatch-emerald {
+    background: linear-gradient(135deg, #0f6a4f, #062f25);
+}
+
+.sidebar-theme-swatch-violet {
+    background: linear-gradient(135deg, #6d3db8, #2f185d);
+}
+
+.sidebar-theme-swatch-rose {
+    background: linear-gradient(135deg, #9f3357, #4a1329);
+}
+
+.sidebar-theme-swatch-sunset {
+    background: linear-gradient(135deg, #b4532a, #4f2114);
+}
+
 @media (max-width: 420px) {
     .theme-base-options {
+        grid-template-columns: 1fr;
+    }
+
+    .sidebar-theme-options {
         grid-template-columns: 1fr;
     }
 }

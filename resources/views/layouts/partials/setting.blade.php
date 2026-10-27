@@ -134,43 +134,136 @@
                     </div>
                     <div class="mb-4 theme-settings-section">
                         <div class="theme-settings-section-header">
+                            <span class="theme-settings-section-icon"><i class="ti ti-layout-sidebar-left"></i></span>
+                            <div><strong>Sidebar Color</strong><small>Choose a sidebar style that adapts to light and dark mode.</small></div>
+                        </div>
+                        <div class="sidebar-theme-options">
+                            <label class="sidebar-theme-option">
+                                <input type="radio" name="sidebar-theme" value="system" checked />
+                                <span class="sidebar-theme-choice">
+                                    <span class="sidebar-theme-swatch sidebar-theme-swatch-system"></span>
+                                    <span>System</span>
+                                </span>
+                            </label>
+                            <label class="sidebar-theme-option">
+                                <input type="radio" name="sidebar-theme" value="theme" />
+                                <span class="sidebar-theme-choice">
+                                    <span class="sidebar-theme-swatch sidebar-theme-swatch-theme"></span>
+                                    <span>Theme Color</span>
+                                </span>
+                            </label>
+                            <label class="sidebar-theme-option">
+                                <input type="radio" name="sidebar-theme" value="dark" />
+                                <span class="sidebar-theme-choice">
+                                    <span class="sidebar-theme-swatch sidebar-theme-swatch-dark"></span>
+                                    <span>Dark</span>
+                                </span>
+                            </label>
+                            <label class="sidebar-theme-option">
+                                <input type="radio" name="sidebar-theme" value="light" />
+                                <span class="sidebar-theme-choice">
+                                    <span class="sidebar-theme-swatch sidebar-theme-swatch-light"></span>
+                                    <span>Light</span>
+                                </span>
+                            </label>
+                            <label class="sidebar-theme-option">
+                                <input type="radio" name="sidebar-theme" value="navy" />
+                                <span class="sidebar-theme-choice">
+                                    <span class="sidebar-theme-swatch sidebar-theme-swatch-navy"></span>
+                                    <span>Navy</span>
+                                </span>
+                            </label>
+                            <label class="sidebar-theme-option">
+                                <input type="radio" name="sidebar-theme" value="ocean" />
+                                <span class="sidebar-theme-choice">
+                                    <span class="sidebar-theme-swatch sidebar-theme-swatch-ocean"></span>
+                                    <span>Ocean</span>
+                                </span>
+                            </label>
+                            <label class="sidebar-theme-option">
+                                <input type="radio" name="sidebar-theme" value="emerald" />
+                                <span class="sidebar-theme-choice">
+                                    <span class="sidebar-theme-swatch sidebar-theme-swatch-emerald"></span>
+                                    <span>Emerald</span>
+                                </span>
+                            </label>
+                            <label class="sidebar-theme-option">
+                                <input type="radio" name="sidebar-theme" value="violet" />
+                                <span class="sidebar-theme-choice">
+                                    <span class="sidebar-theme-swatch sidebar-theme-swatch-violet"></span>
+                                    <span>Violet</span>
+                                </span>
+                            </label>
+                            <label class="sidebar-theme-option">
+                                <input type="radio" name="sidebar-theme" value="rose" />
+                                <span class="sidebar-theme-choice">
+                                    <span class="sidebar-theme-swatch sidebar-theme-swatch-rose"></span>
+                                    <span>Rose</span>
+                                </span>
+                            </label>
+                            <label class="sidebar-theme-option">
+                                <input type="radio" name="sidebar-theme" value="sunset" />
+                                <span class="sidebar-theme-choice">
+                                    <span class="sidebar-theme-swatch sidebar-theme-swatch-sunset"></span>
+                                    <span>Sunset</span>
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="mb-4 theme-settings-section">
+                        <div class="theme-settings-section-header">
                             <span class="theme-settings-section-icon"><i class="ti ti-typography"></i></span>
                             <div><strong>Font Family</strong><small>Choose the font family that fits your app.</small></div>
                         </div>
                         <div>
                             <label class="form-check">
-                                <div class="form-selectgroup-item">
+                                <div class="form-selectgroup-item theme-font-option">
                                     <input type="radio" name="theme-font" value="poppins"
                                         class="form-check-input" checked />
-                                    <div class="form-check-label theme-font-poppins-label">Poppins</div>
+                                    <div class="form-check-label theme-font-option-label">
+                                        <span>Poppins</span>
+                                        <span class="theme-font-sample theme-font-sample-poppins">Aa Bb 123</span>
+                                    </div>
                                 </div>
                             </label>
                             <label class="form-check">
-                                <div class="form-selectgroup-item">
+                                <div class="form-selectgroup-item theme-font-option">
                                     <input type="radio" name="theme-font" value="sans-serif"
                                         class="form-check-input" />
-                                    <div class="form-check-label">Sans-serif</div>
+                                    <div class="form-check-label theme-font-option-label">
+                                        <span>Sans-serif</span>
+                                        <span class="theme-font-sample theme-font-sample-sans-serif">Aa Bb 123</span>
+                                    </div>
                                 </div>
                             </label>
                             <label class="form-check">
-                                <div class="form-selectgroup-item">
+                                <div class="form-selectgroup-item theme-font-option">
                                     <input type="radio" name="theme-font" value="serif"
                                         class="form-check-input" />
-                                    <div class="form-check-label">Serif</div>
+                                    <div class="form-check-label theme-font-option-label">
+                                        <span>Serif</span>
+                                        <span class="theme-font-sample theme-font-sample-serif">Aa Bb 123</span>
+                                    </div>
                                 </div>
                             </label>
                             <label class="form-check">
-                                <div class="form-selectgroup-item">
+                                <div class="form-selectgroup-item theme-font-option">
                                     <input type="radio" name="theme-font" value="monospace"
                                         class="form-check-input" />
-                                    <div class="form-check-label">Monospace</div>
+                                    <div class="form-check-label theme-font-option-label">
+                                        <span>Monospace</span>
+                                        <span class="theme-font-sample theme-font-sample-monospace">Aa Bb 123</span>
+                                    </div>
                                 </div>
                             </label>
                             <label class="form-check">
-                                <div class="form-selectgroup-item">
+                                <div class="form-selectgroup-item theme-font-option">
                                     <input type="radio" name="theme-font" value="comic"
                                         class="form-check-input" />
-                                    <div class="form-check-label">Comic</div>
+                                    <div class="form-check-label theme-font-option-label">
+                                        <span>Comic</span>
+                                        <span class="theme-font-sample theme-font-sample-comic">Aa Bb 123</span>
+                                    </div>
                                 </div>
                             </label>
                         </div>

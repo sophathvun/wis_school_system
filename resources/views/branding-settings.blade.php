@@ -18,7 +18,7 @@
                         <div class="alert alert-danger">{{ $errors->first() }}</div>
                     @endif
                     <div class="row g-4">
-                        @foreach ([['sidebar_logo', 'Sidebar Logo', 'sidebar_logo_path', 'image/*,.svg'], ['login_logo', 'Login Logo', 'login_logo_path', 'image/*,.svg'], ['shortcut_icon', 'Mobile Shortcut Icon', 'shortcut_icon_path', 'image/*,.svg'], ['favicon', 'Favicon', 'favicon_path', 'image/*,.ico,.svg'], ['footer_logo', 'Footer Logo', 'footer_logo_path', 'image/*,.svg'], ['report_logo_1', 'School Logo 1', 'report_logo_1_path', 'image/*,.svg'], ['report_logo_2', 'School Logo 2', 'report_logo_2_path', 'image/*,.svg']] as [$field, $label, $path, $accept])
+                        @foreach ([['sidebar_logo', 'Dark Sidebar Logo', 'sidebar_logo_path', 'image/*,.svg'], ['light_sidebar_logo', 'White Sidebar Logo', 'light_sidebar_logo_path', 'image/*,.svg'], ['login_logo', 'Login Logo', 'login_logo_path', 'image/*,.svg'], ['shortcut_icon', 'Mobile Shortcut Icon', 'shortcut_icon_path', 'image/*,.svg'], ['favicon', 'Favicon', 'favicon_path', 'image/*,.ico,.svg'], ['footer_logo', 'Footer Logo', 'footer_logo_path', 'image/*,.svg'], ['report_logo_1', 'School Logo 1', 'report_logo_1_path', 'image/*,.svg'], ['report_logo_2', 'School Logo 2', 'report_logo_2_path', 'image/*,.svg']] as [$field, $label, $path, $accept])
                             <div class="col-md-4">
                                 <div class="logo-upload-row d-flex align-items-stretch gap-3">
                                     <div class="logo-dropzone branding-dropzone flex-fill" data-branding-dropzone="{{ $field }}"
@@ -45,7 +45,15 @@
                                             class="form-check-label text-danger">Remove current
                                             {{ strtolower($label) }}</span></label>
                                 @endif
-                                <div class="text-secondary small mt-2">Upload a new image to replace the current one.</div>
+                                <div class="text-secondary small mt-2">
+                                    @if ($field === 'sidebar_logo')
+                                        Used for dark, navy, and theme-colored sidebars.
+                                    @elseif ($field === 'light_sidebar_logo')
+                                        Used when Sidebar Color is Light and the system is in light mode.
+                                    @else
+                                        Upload a new image to replace the current one.
+                                    @endif
+                                </div>
                             </div>
                         @endforeach
                         <div class="col-12">
@@ -63,7 +71,5 @@
 @endsection
 @vite('resources/js/brandingSettings.js')
 @vite('resources/css/pages/branding-settings.css')
-
-
 
 

@@ -1,10 +1,14 @@
-<aside class="navbar navbar-vertical navbar-expand-lg" data-bs-theme="dark">
+<aside class="navbar navbar-vertical navbar-expand-lg app-sidebar" id="appSidebar" data-bs-theme="dark">
     @php
     $sidebarPermissionCodes = $permissionCodes ?? [];
     $canView = fn(string $permission) => in_array('*', $sidebarPermissionCodes, true) || in_array($permission, $sidebarPermissionCodes, true);
     $hrmActive = request()->routeIs('hrm.*','staff-management.*','departments.*','positions.*');
     $moeysMenuIcon = asset('images/moeys_logo.png') . '?v=' . filemtime(public_path('images/moeys_logo.png'));
     $wmiMenuIcon = asset('images/wmi_logo.png') . '?v=' . filemtime(public_path('images/wmi_logo.png'));
+    $sidebarUser = auth()->user();
+    $sidebarRole = $sidebarUser?->roles?->pluck('name')->first() ?: 'School System User';
+    $sidebarLogoPath = $branding?->sidebar_logo_path ?: $branding?->light_sidebar_logo_path;
+    $lightSidebarLogoPath = $branding?->light_sidebar_logo_path;
 @endphp
     <div class="container-fluid">
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#sidebar-menu"
@@ -12,12 +16,21 @@
             <span class="navbar-toggler-icon"></span>
         </button>
 
-        <div class="navbar-brand">
-            @if (!empty($branding?->sidebar_logo_path))
-                <img src="{{ asset('storage/' . $branding->sidebar_logo_path) }}" alt="School logo"
-                    class="navbar-brand-image">
+        <div class="navbar-brand {{ $lightSidebarLogoPath ? 'has-light-sidebar-logo' : '' }}" data-sidebar-brand>
+            @if ($sidebarLogoPath)
+                <img src="{{ asset('storage/' . $sidebarLogoPath) }}" alt="School logo"
+                    class="navbar-brand-image sidebar-logo-default">
+            @endif
+            @if ($lightSidebarLogoPath)
+                <img src="{{ asset('storage/' . $lightSidebarLogoPath) }}" alt="School logo for light sidebar"
+                    class="navbar-brand-image sidebar-logo-light">
             @endif
         </div>
+
+        <button type="button" class="sidebar-collapse-toggle d-none d-lg-inline-flex" id="sidebarCollapseToggle"
+            aria-label="Collapse sidebar" aria-expanded="true" title="Collapse sidebar">
+            <i class="ti ti-layout-sidebar-left-collapse" aria-hidden="true"></i>
+        </button>
 
         <div class="navbar-nav flex-row d-lg-none">
             <div class="nav-item">
@@ -607,6 +620,23 @@
                     </li>
                 @endif
             </ul>
+            @auth
+                <div class="sidebar-user-card d-none d-lg-block">
+                    <a href="{{ route('profile') }}" class="sidebar-user-link" data-sidebar-profile-link>
+                        <span class="avatar sidebar-user-avatar"
+                            @if ($sidebarUser->photo_path) style="background-image: url('{{ asset('storage/' . $sidebarUser->photo_path) }}')" @endif>
+                            @if (!$sidebarUser->photo_path)
+                                {{ \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr($sidebarUser->name, 0, 1)) }}
+                            @endif
+                        </span>
+                        <span class="sidebar-user-details">
+                            <strong>{{ $sidebarUser->name }}</strong>
+                            <small>{{ $sidebarRole }}</small>
+                        </span>
+                        <i class="ti ti-chevron-right sidebar-user-arrow" aria-hidden="true"></i>
+                    </a>
+                </div>
+            @endauth
         </div>
     </div>
 </aside>

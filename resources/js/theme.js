@@ -1,7 +1,13 @@
 const storedThemeFont = window.localStorage.getItem("tabler-theme-font");
+const storedSidebarTheme =
+    window.localStorage.getItem("tabler-sidebar-theme") || "system";
 document.documentElement.setAttribute(
     "data-bs-theme-font",
     storedThemeFont || "poppins",
+);
+document.documentElement.setAttribute(
+    "data-bs-sidebar-theme",
+    storedSidebarTheme,
 );
 
 document.addEventListener("DOMContentLoaded", function () {
@@ -10,11 +16,40 @@ document.addEventListener("DOMContentLoaded", function () {
         "theme-base": "gray",
         "theme-font": "poppins",
         "theme-primary": "blue",
+        "sidebar-theme": "system",
         "theme-radius": "1",
     };
     var url = new URL(window.location);
     var form = document.getElementById("offcanvasSettings");
     var resetButton = document.getElementById("reset-changes");
+    var syncSidebarComponentTheme = function () {
+        var sidebar = document.getElementById("appSidebar");
+        if (!sidebar) return;
+
+        var colorMode =
+            document.documentElement.getAttribute("data-bs-theme") ||
+            window.localStorage.getItem("tabler-theme") ||
+            "light";
+        var sidebarTheme =
+            document.documentElement.getAttribute("data-bs-sidebar-theme") ||
+            "system";
+        var useLightComponents =
+            sidebarTheme === "light" && colorMode !== "dark";
+
+        sidebar.setAttribute(
+            "data-bs-theme",
+            useLightComponents ? "light" : "dark",
+        );
+    };
+
+    syncSidebarComponentTheme();
+    new MutationObserver(syncSidebarComponentTheme).observe(
+        document.documentElement,
+        {
+            attributes: true,
+            attributeFilter: ["data-bs-theme", "data-bs-sidebar-theme"],
+        },
+    );
     // The settings panel is not rendered on public pages such as login.
     // Tabler's theme bootstrap script already applies the saved theme there.
     if (!form || !resetButton) return;
@@ -43,6 +78,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 url.searchParams.set(key, value);
             }
         }
+        syncSidebarComponentTheme();
         window.history.pushState({}, "", url);
     });
     resetButton.addEventListener("click", function () {
@@ -53,6 +89,7 @@ document.addEventListener("DOMContentLoaded", function () {
             url.searchParams.delete(key);
         }
         checkItems();
+        syncSidebarComponentTheme();
         window.history.pushState({}, "", url);
     });
     checkItems();
