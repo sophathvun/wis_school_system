@@ -127,7 +127,7 @@ class NotificationController
                 'id' => $item->id,
                 'title' => $item->title,
                 'message' => Str::limit(strip_tags($item->message), 120),
-                'url' => $item->action_url ? route('notifications.open', $item) : route('notifications.index'),
+                'url' => route('notifications.open', $item),
                 'created_at' => $item->created_at?->toIso8601String(),
                 'time' => $item->created_at?->diffForHumans(),
                 'read' => (bool) $item->read_at,
@@ -140,7 +140,7 @@ class NotificationController
                 'id' => $latest->id,
                 'title' => $latest->title,
                 'message' => Str::limit(strip_tags($latest->message), 120),
-                'url' => $latest->action_url ? route('notifications.open', $latest) : route('notifications.index'),
+                'url' => route('notifications.open', $latest),
                 'created_at' => $latest->created_at?->toIso8601String(),
                 'read' => (bool) $latest->read_at,
             ] : null,
@@ -153,12 +153,20 @@ class NotificationController
     {
         abort_unless($notification->user_id === $request->user()->id, 403);
         $notification->update(['read_at' => now()]);
-        return $notification->action_url ? redirect($notification->action_url) : back();
+
+        return $notification->action_url
+            ? redirect($notification->action_url)
+            : redirect()->route('notifications.index');
     }
 
     public function readAll(Request $request)
     {
         $request->user()->userNotifications()->whereNull('read_at')->update(['read_at' => now()]);
+
+        if ($request->expectsJson()) {
+            return response()->json(['ok' => true]);
+        }
+
         return back()->with('success', 'All notifications marked as read.');
     }
 

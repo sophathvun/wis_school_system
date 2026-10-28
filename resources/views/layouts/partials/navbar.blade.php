@@ -1,24 +1,3 @@
-@php
-    $headerNotificationPayload = $headerNotificationPayload ?? [];
-    $headerUnreadNotifications = $headerUnreadNotifications ?? 0;
-    if (auth()->check()) {
-        $headerNotifications = auth()->user()->userNotifications()->latest('id')->limit(5)->get();
-        $headerUnreadNotifications = auth()->user()->userNotifications()->whereNull('read_at')->count();
-        $headerNotificationPayload = $headerNotifications
-            ->map(
-                fn($item) => [
-                    'id' => $item->id,
-                    'title' => $item->title,
-                    'message' => \Illuminate\Support\Str::limit(strip_tags($item->message), 90),
-                    'url' => $item->action_url ? route('notifications.open', $item) : route('notifications.index'),
-                    'read' => (bool) $item->read_at,
-                    'time' => $item->created_at?->diffForHumans(),
-                ],
-            )
-            ->values();
-    }
-@endphp
-
 <header class="navbar navbar-expand-md sticky-top d-none d-lg-flex d-print-none">
     <div class="container-fluid">
         <!-- BEGIN NAVBAR TOGGLER -->
@@ -65,120 +44,7 @@
                         </svg>
                         <span class="navbar-notification-badge" data-navbar-notification-badge></span>
                     </a>
-                    <div class="dropdown-menu dropdown-menu-arrow dropdown-menu-end dropdown-menu-card"
-                        data-navbar-notification-menu data-navbar-notification-payload='@json($headerNotificationPayload)'
-                        data-navbar-notification-count="{{ $headerUnreadNotifications }}">
-                        <div class="card">
-                            <div class="card-header d-flex">
-                                <h3 class="card-title">Notifications</h3>
-                                <button type="button" class="btn-close ms-auto" aria-label="Close notifications"
-                                    data-navbar-notification-close></button>
-                            </div>
-                            <div class="list-group list-group-flush list-group-hoverable"
-                                data-navbar-notification-list>
-                                <div class="list-group-item">
-                                    <div class="row align-items-center">
-                                        <div class="col-auto"><span
-                                                class="status-dot status-dot-animated bg-red d-block"></span></div>
-                                        <div class="col text-truncate">
-                                            <a href="#" class="text-body d-block">Example 1</a>
-                                            <div class="d-block text-secondary text-truncate mt-n1">Change deprecated
-                                                html tags to text decoration classes (#29604)</div>
-                                        </div>
-                                        <div class="col-auto">
-                                            <a href="#" class="list-group-item-actions">
-                                                <!-- Download SVG icon from http://tabler.io/icons/icon/star -->
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
-                                                    viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                                                    class="icon text-muted icon-2">
-                                                    <path
-                                                        d="M12 17.75l-6.172 3.245l1.179 -6.873l-5 -4.867l6.9 -1l3.086 -6.253l3.086 6.253l6.9 1l-5 4.867l1.179 6.873z" />
-                                                </svg>
-                                            </a>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="list-group-item">
-                                    <div class="row align-items-center">
-                                        <div class="col-auto"><span class="status-dot d-block"></span></div>
-                                        <div class="col text-truncate">
-                                            <a href="#" class="text-body d-block">Example 2</a>
-                                            <div class="d-block text-secondary text-truncate mt-n1">
-                                                justify-content:between ⇒ justify-content:space-between (#29734)</div>
-                                        </div>
-                                        <div class="col-auto">
-                                            <a href="#" class="list-group-item-actions show">
-                                                <!-- Download SVG icon from http://tabler.io/icons/icon/star -->
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
-                                                    viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                                                    class="icon text-yellow icon-2">
-                                                    <path
-                                                        d="M12 17.75l-6.172 3.245l1.179 -6.873l-5 -4.867l6.9 -1l3.086 -6.253l3.086 6.253l6.9 1l-5 4.867l1.179 6.873z" />
-                                                </svg>
-                                            </a>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="list-group-item">
-                                    <div class="row align-items-center">
-                                        <div class="col-auto"><span class="status-dot d-block"></span></div>
-                                        <div class="col text-truncate">
-                                            <a href="#" class="text-body d-block">Example 3</a>
-                                            <div class="d-block text-secondary text-truncate mt-n1">Update
-                                                change-version.js (#29736)</div>
-                                        </div>
-                                        <div class="col-auto">
-                                            <a href="#" class="list-group-item-actions">
-                                                <!-- Download SVG icon from http://tabler.io/icons/icon/star -->
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
-                                                    viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                                                    class="icon text-muted icon-2">
-                                                    <path
-                                                        d="M12 17.75l-6.172 3.245l1.179 -6.873l-5 -4.867l6.9 -1l3.086 -6.253l3.086 6.253l6.9 1l-5 4.867l1.179 6.873z" />
-                                                </svg>
-                                            </a>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="list-group-item">
-                                    <div class="row align-items-center">
-                                        <div class="col-auto"><span
-                                                class="status-dot status-dot-animated bg-green d-block"></span></div>
-                                        <div class="col text-truncate">
-                                            <a href="#" class="text-body d-block">Example 4</a>
-                                            <div class="d-block text-secondary text-truncate mt-n1">Regenerate
-                                                package-lock.json (#29730)</div>
-                                        </div>
-                                        <div class="col-auto">
-                                            <a href="#" class="list-group-item-actions">
-                                                <!-- Download SVG icon from http://tabler.io/icons/icon/star -->
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
-                                                    viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                                                    class="icon text-muted icon-2">
-                                                    <path
-                                                        d="M12 17.75l-6.172 3.245l1.179 -6.873l-5 -4.867l6.9 -1l3.086 -6.253l3.086 6.253l6.9 1l-5 4.867l1.179 6.873z" />
-                                                </svg>
-                                            </a>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="card-body">
-                                <div class="row">
-                                    <div class="col">
-                                        <a href="#" class="btn btn-2 w-100"> Archive all </a>
-                                    </div>
-                                    <div class="col">
-                                        <a href="#" class="btn btn-2 w-100"> Mark all as read </a>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    @include('layouts.partials.notification-menu')
                 </div>
             </div>
             <div class="nav-item ms-3">
@@ -206,18 +72,7 @@
                 </div>
             </div>
         </a>
-        <div class="dropdown-menu dropdown-menu-end dropdown-menu-arrow">
-            @auth
-                <a href="{{ route('profile') }}" class="dropdown-item"><i class="ti ti-user me-2"></i>My Profile</a>
-                <button type="button" class="dropdown-item" data-enable-phone-notifications><i class="ti ti-bell-ringing me-2"></i>Enable Phone Notifications</button>
-                <a href="{{ route('profile.status') }}" class="dropdown-item"><i class="ti ti-adjustments me-2"></i>Status</a>
-                <a href="{{ route('feedback') }}" class="dropdown-item"><i class="ti ti-message me-2"></i>Feedback</a>
-                <div class="dropdown-divider"></div>
-                <form method="POST" action="{{ route('logout') }}" data-clear-dashboard-hero>@csrf<button class="dropdown-item" type="submit"><i class="ti ti-logout me-2"></i>Logout</button></form>
-            @else
-                <a href="{{ route('login') }}" class="dropdown-item"><i class="ti ti-login me-2"></i>Sign in</a>
-            @endauth
-        </div>
+        @include('layouts.partials.profile-menu')
     </div>
 </div>
 <div class="collapse navbar-collapse" id="navbar-menu">

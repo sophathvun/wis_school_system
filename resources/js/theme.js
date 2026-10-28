@@ -26,15 +26,10 @@ document.addEventListener("DOMContentLoaded", function () {
         var sidebar = document.getElementById("appSidebar");
         if (!sidebar) return;
 
-        var colorMode =
-            document.documentElement.getAttribute("data-bs-theme") ||
-            window.localStorage.getItem("tabler-theme") ||
-            "light";
         var sidebarTheme =
             document.documentElement.getAttribute("data-bs-sidebar-theme") ||
             "system";
-        var useLightComponents =
-            sidebarTheme === "light" && colorMode !== "dark";
+        var useLightComponents = sidebarTheme === "light";
 
         sidebar.setAttribute(
             "data-bs-theme",

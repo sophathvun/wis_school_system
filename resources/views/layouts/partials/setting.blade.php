@@ -135,7 +135,7 @@
                     <div class="mb-4 theme-settings-section">
                         <div class="theme-settings-section-header">
                             <span class="theme-settings-section-icon"><i class="ti ti-layout-sidebar-left"></i></span>
-                            <div><strong>Sidebar Color</strong><small>Choose a sidebar style that adapts to light and dark mode.</small></div>
+                            <div><strong>Sidebar Color</strong><small>Choose a sidebar color independently from light and dark mode.</small></div>
                         </div>
                         <div class="sidebar-theme-options">
                             <label class="sidebar-theme-option">

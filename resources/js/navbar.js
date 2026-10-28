@@ -1,18 +1,22 @@
 ﻿document.addEventListener("DOMContentLoaded", () => {
-    const notificationMenu = document.querySelector("[data-navbar-notification-menu]");
-    const notificationList = document.querySelector("[data-navbar-notification-list]");
-    const notificationBadge = document.querySelector("[data-navbar-notification-badge]");
-    const notificationToggle = document.querySelector("[data-navbar-notification-toggle]");
-    const notificationClose = document.querySelector("[data-navbar-notification-close]");
+    const notificationMenus = [...document.querySelectorAll("[data-navbar-notification-menu]")];
+    const notificationLists = [...document.querySelectorAll("[data-navbar-notification-list]")];
+    const notificationBadges = [...document.querySelectorAll("[data-navbar-notification-badge], [data-navbar-mobile-notification-badge]")];
+    const notificationToggles = [...document.querySelectorAll("[data-navbar-notification-toggle]")];
+    const notificationCloses = [...document.querySelectorAll("[data-navbar-notification-close]")];
+    const notificationFilterButtons = [...document.querySelectorAll("[data-navbar-notification-filter]")];
+    const notificationReadAllButtons = [...document.querySelectorAll("[data-navbar-notification-read-all]")];
+    const notificationMenu = notificationMenus[0] || null;
     const chatBadge = document.getElementById("chat-unread-badge");
     const chatLauncherBadge = document.getElementById("school-chat-unread-badge");
     const appIconUrl = document.querySelector('link[rel="apple-touch-icon"]')?.href || "/app-icon.svg";
 
-    const items = notificationMenu ? JSON.parse(notificationMenu.dataset.navbarNotificationPayload || "[]") : [];
+    let notificationItems = notificationMenu ? JSON.parse(notificationMenu.dataset.navbarNotificationPayload || "[]") : [];
     const initialNotificationUnread = notificationMenu ? Number(notificationMenu.dataset.navbarNotificationCount || 0) : 0;
-    let latestNotificationId = items[0]?.id || null;
+    let latestNotificationId = notificationItems[0]?.id || null;
     let chatUnread = 0;
     let notificationUnread = initialNotificationUnread;
+    let notificationFilter = "all";
 
     const showBrowserNotification = async (title, options = {}) => {
         if (!("Notification" in window) || Notification.permission !== "granted") return;
@@ -56,7 +60,7 @@
     };
 
     const renderNotificationBadge = (count) => {
-        [notificationBadge, document.querySelector('[data-navbar-mobile-notification-badge]')].forEach((badge) => {
+        notificationBadges.forEach((badge) => {
             if (!badge) return;
             badge.textContent = count > 99 ? "99+" : count || "";
             badge.classList.toggle("d-none", !count);
@@ -74,30 +78,60 @@
 
     const escapeAttribute = (value = "") => escapeHtml(value);
 
-    const renderNotificationList = (list) => {
-        if (!notificationList) return;
-        notificationList.innerHTML = list.length
-            ? `${list
+    const renderNotificationList = (list = notificationItems) => {
+        notificationItems = Array.isArray(list) ? list : [];
+        const visibleItems = notificationFilter === "unread"
+            ? notificationItems.filter((item) => !item.read)
+            : notificationItems;
+        const markup = visibleItems.length
+            ? visibleItems
                   .map(
-                      (item) => `
-                        <a class="list-group-item navbar-notification-card" href="${escapeAttribute(item.url || "/notifications")}" target="_blank" rel="noopener noreferrer">
-                            <div class="row align-items-center">
-                                <div class="col-auto"><span class="status-dot ${item.read ? "" : "status-dot-animated bg-red"} d-block"></span></div>
-                                <div class="col text-truncate">
-                                    <div class="navbar-notification-title">${escapeHtml(item.title || "Notification")}</div>
-                                    <div class="navbar-notification-message text-truncate mt-n1">${escapeHtml(item.message || "")}</div>
-                                    <small class="navbar-notification-time">${escapeHtml(item.time || "")}</small>
-                                </div>
-                            </div>
+                      (item, index) => `
+                        <a class="navbar-notification-card ${item.read ? "" : "is-unread"}" href="${escapeAttribute(item.url || "/notifications")}" target="_blank" rel="noopener noreferrer"
+                            data-navbar-notification-id="${escapeAttribute(item.id || "")}" data-navbar-notification-read="${item.read ? "1" : "0"}">
+                            <span class="navbar-notification-icon navbar-notification-icon-tone-${(index % 4) + 1}">
+                                <i class="ti ${item.read ? "ti-bell" : "ti-bell-ringing"}"></i>
+                            </span>
+                            <span class="navbar-notification-content">
+                                <span class="navbar-notification-title">${escapeHtml(item.title || "Notification")}</span>
+                                <span class="navbar-notification-message">${escapeHtml(item.message || "")}</span>
+                                <span class="navbar-notification-time">${escapeHtml(item.time || "")}</span>
+                            </span>
+                            <span class="navbar-notification-card-end">
+                                ${item.read ? "" : '<span class="navbar-notification-unread-dot" aria-label="Unread"></span>'}
+                                <i class="ti ti-chevron-right" aria-hidden="true"></i>
+                            </span>
                         </a>`,
                   )
-                  .join("")}
-                <div class="list-group-item navbar-notification-footer"><a class="btn btn-primary w-100" href="/notifications">View all notifications</a></div>`
-            : '<div class="list-group-item text-center text-secondary py-4">No notifications.</div>';
+                  .join("")
+            : `<div class="premium-notification-empty">
+                    <span><i class="ti ${notificationFilter === "unread" ? "ti-checks" : "ti-bell-off"}"></i></span>
+                    <strong>${notificationFilter === "unread" ? "You're all caught up" : "No notifications yet"}</strong>
+                    <small>${notificationFilter === "unread" ? "There are no unread notifications." : "New notifications will appear here."}</small>
+                </div>`;
+
+        notificationLists.forEach((notificationList) => {
+            notificationList.innerHTML = markup;
+        });
+        document.querySelectorAll("[data-navbar-notification-summary]").forEach((summary) => {
+            summary.textContent = `${notificationUnread} unread`;
+        });
+        document.querySelectorAll("[data-navbar-notification-unread-count]").forEach((count) => {
+            count.textContent = notificationUnread > 99 ? "99+" : notificationUnread;
+            count.classList.toggle("d-none", notificationUnread === 0);
+        });
+        notificationFilterButtons.forEach((button) => {
+            const active = button.dataset.navbarNotificationFilter === notificationFilter;
+            button.classList.toggle("active", active);
+            button.setAttribute("aria-selected", active ? "true" : "false");
+        });
+        notificationReadAllButtons.forEach((button) => {
+            button.disabled = notificationUnread === 0;
+        });
     };
 
     renderNotificationBadge(notificationUnread);
-    renderNotificationList(items);
+    renderNotificationList(notificationItems);
 
     const refreshChatUnread = async () => {
         if (!chatBadge && !chatLauncherBadge) return;
@@ -145,6 +179,7 @@
                 badge.classList.toggle('d-none', skippingPending === 0);
             });
             const refreshedItems = Array.isArray(data.items) ? data.items : [];
+            notificationUnread = unreadCount;
             renderNotificationBadge(unreadCount);
             renderNotificationList(refreshedItems);
             if (refreshNotificationsUnread.previousUnread !== null && unreadCount > refreshNotificationsUnread.previousUnread && latest && latest.id !== latestNotificationId) {
@@ -156,7 +191,6 @@
             }
             latestNotificationId = latest?.id || latestNotificationId;
             refreshNotificationsUnread.previousUnread = unreadCount;
-            notificationUnread = unreadCount;
             updateAppBadge();
         } catch {}
     };
@@ -171,19 +205,77 @@
     refreshNotificationsUnread();
     window.setInterval(refreshChatUnread, 5000);
     window.setInterval(refreshNotificationsUnread, 10000);
-    notificationToggle?.addEventListener("click", () => {
-        refreshNotificationsUnread();
+    notificationToggles.forEach((notificationToggle) => {
+        notificationToggle.addEventListener("click", () => {
+            refreshNotificationsUnread();
+        });
     });
-    notificationClose?.addEventListener("click", (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        if (window.bootstrap?.Dropdown && notificationToggle) {
-            window.bootstrap.Dropdown.getOrCreateInstance(notificationToggle).hide();
-            return;
-        }
-        notificationMenu?.classList.remove("show");
-        notificationToggle?.classList.remove("show");
-        notificationToggle?.setAttribute("aria-expanded", "false");
+    notificationCloses.forEach((notificationClose) => {
+        notificationClose.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            const menu = notificationClose.closest("[data-navbar-notification-menu]");
+            const notificationToggle = menu?.parentElement?.querySelector("[data-navbar-notification-toggle]");
+            if (window.bootstrap?.Dropdown && notificationToggle) {
+                window.bootstrap.Dropdown.getOrCreateInstance(notificationToggle).hide();
+                return;
+            }
+            menu?.classList.remove("show");
+            notificationToggle?.classList.remove("show");
+            notificationToggle?.setAttribute("aria-expanded", "false");
+        });
+    });
+    notificationFilterButtons.forEach((button) => {
+        button.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            notificationFilter = button.dataset.navbarNotificationFilter === "unread" ? "unread" : "all";
+            renderNotificationList();
+        });
+    });
+    notificationLists.forEach((notificationList) => {
+        notificationList.addEventListener("click", (event) => {
+            const card = event.target.closest("[data-navbar-notification-id]");
+            if (!card || card.dataset.navbarNotificationRead === "1") return;
+            const notificationId = String(card.dataset.navbarNotificationId || "");
+            window.setTimeout(() => {
+                notificationItems = notificationItems.map((item) =>
+                    String(item.id) === notificationId ? { ...item, read: true } : item,
+                );
+                notificationUnread = Math.max(0, notificationUnread - 1);
+                renderNotificationBadge(notificationUnread);
+                renderNotificationList();
+                updateAppBadge();
+            }, 0);
+        });
+    });
+    notificationReadAllButtons.forEach((button) => {
+        button.addEventListener("click", async (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            if (button.disabled || notificationUnread === 0) return;
+            notificationReadAllButtons.forEach((item) => { item.disabled = true; });
+            try {
+                const response = await fetch(button.dataset.url || "/notifications/read-all", {
+                    method: "POST",
+                    credentials: "same-origin",
+                    headers: {
+                        "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')?.content || "",
+                        Accept: "application/json",
+                    },
+                });
+                if (!response.ok) throw new Error("Unable to mark notifications as read.");
+                notificationItems = notificationItems.map((item) => ({ ...item, read: true }));
+                notificationUnread = 0;
+                renderNotificationBadge(0);
+                renderNotificationList();
+                updateAppBadge();
+            } catch {
+                refreshNotificationsUnread();
+            } finally {
+                notificationReadAllButtons.forEach((item) => { item.disabled = false; });
+            }
+        });
     });
 
     document.querySelectorAll("[data-clear-dashboard-hero]").forEach((form) => {

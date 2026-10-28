@@ -43,13 +43,15 @@
                     <i class="ti ti-sun icon"></i>
                 </a>
             </div>
-            <div class="nav-item ms-3 mobile-navbar-notifications">
-                <a href="{{ route('notifications.index') }}" class="nav-link px-0 position-relative" title="Notifications" data-bs-toggle="tooltip"
-                    data-bs-placement="bottom" aria-label="Notifications">
+            <div class="nav-item dropdown ms-3 mobile-navbar-notifications">
+                <a href="#" class="nav-link px-0 position-relative" data-bs-toggle="dropdown"
+                    data-bs-auto-close="outside" aria-expanded="false" aria-label="Show notifications"
+                    data-navbar-notification-toggle>
                     <i class="ti ti-bell icon"></i>
-                    @php($mobileNotificationCount=auth()->user()?->userNotifications()->whereNull('read_at')->count()??0)
-                    <span class="navbar-notification-badge {{ $mobileNotificationCount ? '' : 'd-none' }}" data-navbar-mobile-notification-badge>{{ $mobileNotificationCount }}</span>
+                    <span class="navbar-notification-badge {{ $headerUnreadNotifications ? '' : 'd-none' }}"
+                        data-navbar-notification-badge>{{ $headerUnreadNotifications }}</span>
                 </a>
+                @include('layouts.partials.notification-menu', ['mobile' => true])
             </div>
             @auth
                 <div class="nav-item dropdown ms-3">
@@ -58,15 +60,7 @@
                         <span class="avatar avatar-sm"
                             @if (auth()->user()->photo_path) style="background-image: url('{{ asset('storage/' . auth()->user()->photo_path) }}')" @endif></span>
                     </a>
-                    <div class="dropdown-menu dropdown-menu-end dropdown-menu-arrow mobile-profile-menu">
-                        <div class="dropdown-header">{{ auth()->user()->name }}</div>
-                        <a href="{{ route('profile') }}" class="dropdown-item"><i class="ti ti-user me-2"></i>My Profile</a>
-                        <a href="{{ route('profile.status') }}" class="dropdown-item"><i class="ti ti-adjustments me-2"></i>Status</a>
-                        <button type="button" class="dropdown-item" data-enable-phone-notifications><i class="ti ti-bell-ringing me-2"></i>Enable Phone Notifications</button>
-                        <a href="{{ route('feedback') }}" class="dropdown-item"><i class="ti ti-message me-2"></i>Feedback</a>
-                        <div class="dropdown-divider"></div>
-                        <form method="POST" action="{{ route('logout') }}">@csrf<button class="dropdown-item" type="submit"><i class="ti ti-logout me-2"></i>Logout</button></form>
-                    </div>
+                    @include('layouts.partials.profile-menu', ['mobile' => true])
                 </div>
             @endauth
         </div>

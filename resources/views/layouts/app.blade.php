@@ -2,6 +2,8 @@
     $branding = \App\Models\BrandingSetting::current();
     $permissionUser = auth()->user();
     $permissionCodes = [];
+    $headerNotificationPayload = [];
+    $headerUnreadNotifications = 0;
 
     if ($permissionUser) {
         $permissionCodes = $permissionUser->isSuperAdmin()
@@ -19,6 +21,21 @@
                 ->unique()
                 ->values()
                 ->all();
+
+        $headerNotifications = $permissionUser->userNotifications()->latest('id')->limit(5)->get();
+        $headerUnreadNotifications = $permissionUser->userNotifications()->whereNull('read_at')->count();
+        $headerNotificationPayload = $headerNotifications
+            ->map(
+                fn($item) => [
+                    'id' => $item->id,
+                    'title' => $item->title,
+                    'message' => \Illuminate\Support\Str::limit(strip_tags($item->message), 90),
+                    'url' => route('notifications.open', $item),
+                    'read' => (bool) $item->read_at,
+                    'time' => $item->created_at?->diffForHumans(),
+                ],
+            )
+            ->values();
     }
 @endphp
 <!DOCTYPE html>
