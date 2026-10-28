@@ -58,7 +58,7 @@ class G12NationalExamController {
         $summary=['total'=>$records->count(),'male'=>0,'female'=>0,'groups'=>['science_khmer'=>0,'science_english'=>0,'social_khmer'=>0,'social_english'=>0],'campuses'=>[]];
         foreach($records as $record){
             $gender=mb_strtolower(trim((string)($record->data['gender']??'')));
-            if(in_array($gender,['male','m','ប្រុស'],true))$summary['male']++;elseif(in_array($gender,['female','f','ស្រី'],true))$summary['female']++;
+            if(in_array($gender,['male','m','ប','ប្រុស'],true))$summary['male']++;elseif(in_array($gender,['female','f','ស','ស្រី'],true))$summary['female']++;
             $language=mb_strtolower(trim((string)($record->data['language_exam']??'')));
             $languageGroup=str_contains($language,'english')||str_contains($language,'អង់គ្លេស')?'english':(str_contains($language,'khmer')||str_contains($language,'ខ្មែរ')?'khmer':null);
             $class=mb_strtolower(trim((string)($record->data['class_sellected']??$record->data['class_selected']??'')));
@@ -78,7 +78,7 @@ class G12NationalExamController {
             'father_name'=>$r->data['father_name']??'','father_occupation'=>$r->data['father_occupation']??'',
             'g9_exam_center'=>$r->data['g9_exam_center']??'','g9_exam_date'=>$r->data['g9_exam_date']??'',
             'g9_exam_room'=>$r->data['g9_exam_room']??'','g9_exam_seat'=>$r->data['g9_exam_seat']??'',
-            'language_exam'=>$r->data['language_exam']??'','class_selected'=>$r->data['class_sellected']??$r->data['class_selected']??'',
+            'language_exam'=>$r->data['language_exam']??'','class_selected'=>$r->data['class_sellected']??$r->data['class_selected']??'','g12_exam_date'=>$r->data['g12_exam_date']??'',
             'certificates'=>$r->certificates,'can_edit'=>Access::allows($request->user(),'edit',$r->campus_id)];
     }
     public function show(Request $request,G12ExamRecord $record){

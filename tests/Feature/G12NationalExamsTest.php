@@ -24,14 +24,14 @@ it('returns the student birth date and parent details required by the exam recor
         'dob'=>'2020-09-14','mother_name'=>'Mother Name','mother_occupation'=>'Teacher',
         'father_name'=>'Father Name','father_occupation'=>'Engineer',
         'g9_exam_center'=>'G9 Center','g9_exam_date'=>'2023-11-06','g9_exam_room'=>'12','g9_exam_seat'=>'34',
-        'language_exam'=>'English','class_sellected'=>'វិទ្យាសាស្ត្រ',
+        'language_exam'=>'English','class_sellected'=>'វិទ្យាសាស្ត្រ','g12_exam_date'=>'2026-11-03',
     ]));
     $list=app(G12NationalExamController::class)->list(g12Request(User::find(1),['tab'=>'records']))->getData(true);
     expect($list['data'][0])->toMatchArray([
         'id'=>$record->id,'dob'=>'2020-09-14','mother_name'=>'Mother Name','mother_occupation'=>'Teacher',
         'father_name'=>'Father Name','father_occupation'=>'Engineer','campus'=>'BCH','grade'=>'12A',
         'g9_exam_center'=>'G9 Center','g9_exam_date'=>'2023-11-06','g9_exam_room'=>'12','g9_exam_seat'=>'34',
-        'language_exam'=>'English','class_selected'=>'វិទ្យាសាស្ត្រ',
+        'language_exam'=>'English','class_selected'=>'វិទ្យាសាស្ត្រ','g12_exam_date'=>'2026-11-03',
     ]);
 });
 it('filters student exam records by exam language and selected class and returns searchable options',function(){
@@ -47,8 +47,8 @@ it('filters student exam records by exam language and selected class and returns
 it('returns filtered student totals by gender exam group and campus',function(){
     $user=User::find(1);$service=app(G12NationalExams::class);
     $rows=[
-        ['student_id'=>'1001','gender'=>'Male','class_sellected'=>'Science','language_exam'=>'Khmer','campus_id'=>1,'campus'=>'BCH'],
-        ['student_id'=>'1002','gender'=>'Female','class_sellected'=>'Science','language_exam'=>'English','campus_id'=>1,'campus'=>'BCH'],
+        ['student_id'=>'1001','gender'=>'ប','class_sellected'=>'Science','language_exam'=>'Khmer','campus_id'=>1,'campus'=>'BCH'],
+        ['student_id'=>'1002','gender'=>'ស','class_sellected'=>'Science','language_exam'=>'English','campus_id'=>1,'campus'=>'BCH'],
         ['student_id'=>'1003','gender'=>'ស្រី','class_sellected'=>'Social Science','language_exam'=>'ខ្មែរ','campus_id'=>2,'campus'=>'BKK'],
         ['student_id'=>'1004','gender'=>'ប្រុស','class_sellected'=>'វិទ្យាសាស្ត្រសង្គម','language_exam'=>'អង់គ្លេស','campus_id'=>2,'campus'=>'BKK'],
     ];

@@ -65,13 +65,13 @@ if(root){
     const examLanguageKhmer=value=>({english:'អង់គ្លេស',khmer:'ខ្មែរ',french:'បារាំង'}[String(value??'').trim().toLowerCase()]||String(value??'').trim());
     const recordRows=res=>res.data.map((r,i)=>`<tr>
         <td class="text-center g12-number-cell" data-label="No.">${res.from+i}</td>
-        <td data-label="Photo">${r.photo_url?`<button type="button" class="g12-photo-trigger" data-g12-photo-view="${escape(r.photo_url)}" data-g12-photo-title="${escape(r.name_en||r.student_code||'Student Photo')}" aria-label="View photo of ${escape(r.name_en||r.student_code||'student')}"><img src="${escape(r.photo_url)}" class="g12-photo" loading="lazy" alt="Photo of ${escape(r.name_en||r.student_code||'student')}"></button>`:'—'}</td>
+        <td class="g12-photo-cell" data-label="Photo">${r.photo_url?`<button type="button" class="g12-photo-trigger" data-g12-photo-view="${escape(r.photo_url)}" data-g12-photo-title="${escape(r.name_en||r.student_code||'Student Photo')}" aria-label="View photo of ${escape(r.name_en||r.student_code||'student')}"><img src="${escape(r.photo_url)}" class="g12-photo" loading="lazy" alt="Photo of ${escape(r.name_en||r.student_code||'student')}"></button>`:'—'}</td>
         <td class="g12-student-cell" data-label="Student"><strong class="school-profile-khmer">${escape(r.name_kh||'—')}</strong><div class="g12-student-name-en">${escape(r.name_en||'—')}</div><div class="g12-student-dob"><span>DOB:</span><span class="school-profile-khmer">${escape(studentDob(r.dob)||'—')}</span></div></td>
         <td class="g12-grade-cell" data-label="Grade"><strong>${escape(r.academic_year||'—')}</strong><div>${escape(studentClass(r)||'—')}</div></td>
         <td class="g12-parents-cell" data-label="Parents"><div class="g12-parent-grid"><div class="g12-parent-entry"><div class="g12-parent-name school-profile-khmer"><span>ម្តាយ៖</span> ${escape(r.mother_name||'—')}</div><small><i class="ti ti-briefcase" aria-hidden="true"></i>${escape(r.mother_occupation||'—')}</small></div><div class="g12-parent-entry"><div class="g12-parent-name school-profile-khmer"><span>ឪពុក៖</span> ${escape(r.father_name||'—')}</div><small><i class="ti ti-briefcase" aria-hidden="true"></i>${escape(r.father_occupation||'—')}</small></div></div></td>
         <td class="g12-g9-cell" data-label="G9 National Exams"><div class="g12-g9-center" aria-label="G9 exam center" title="${escape(r.g9_exam_center||'—')}">${escape(r.g9_exam_center||'—')}</div><div class="g12-g9-date" aria-label="G9 exam date">${escape(r.g9_exam_date||'—')}</div><div class="g12-g9-seat school-profile-khmer" aria-label="G9 room and seat"><span>បន្ទប់លេខៈ ${escape(r.g9_exam_room||'—')}</span><span>តុលេខៈ ${escape(r.g9_exam_seat||'—')}</span></div></td>
-        <td class="g12-g12-cell school-profile-khmer" data-label="G12 National Exams"><div>ប្រឡងភាសា៖ <span>${escape(examLanguageKhmer(r.language_exam)||'—')}</span></div><div>ថ្នាក់៖ <span>${escape(r.class_selected||'—')}</span></div><div class="g12-g12-center" title="${escape(r.center||'—')}">មណ្ឌល៖ <span>${escape(r.center||'—')}</span></div><div class="g12-g12-seat" aria-label="G12 room and seat"><span>លេខបន្ទប់៖ ${escape(r.room||'—')}</span><span>លេខតុ៖ ${escape(r.seat||'—')}</span></div></td>
-        <td class="g12-action-cell" data-label="Actions"><div class="d-flex gap-2"><button class="btn btn-sm btn-outline-primary" data-g12-view="${r.id}"><i class="ti ti-eye me-1"></i>View</button>${r.can_edit?`<button class="btn btn-sm btn-outline-primary" data-g12-edit="${r.id}" aria-label="Edit student"><i class="ti ti-edit"></i></button>`:''}</div></td>
+        <td class="g12-g12-cell school-profile-khmer" data-label="G12 National Exams"><div class="g12-g12-overview"><div class="g12-g12-detail g12-g12-language">ប្រឡងភាសា៖ <span>${escape(examLanguageKhmer(r.language_exam)||'—')}</span></div><div class="g12-g12-detail g12-g12-class">ថ្នាក់៖ <span>${escape(r.class_selected||'—')}</span></div></div><div class="g12-g12-center" title="${escape(r.center||'—')}">មណ្ឌល៖ <span>${escape(r.center||'—')}</span></div><div class="g12-g12-date">សម័យប្រឡង៖ <span>${escape(r.g12_exam_date||'—')}</span></div><div class="g12-g12-seat" aria-label="G12 room and seat"><span>លេខបន្ទប់៖ ${escape(r.room||'—')}</span><span>លេខតុ៖ ${escape(r.seat||'—')}</span></div></td>
+        <td class="g12-action-cell" data-label="Actions"><div class="d-flex gap-2"><button class="btn btn-sm btn-outline-primary" data-g12-view="${r.id}"><i class="ti ti-eye me-1"></i>View</button>${r.can_edit?`<button class="btn btn-sm btn-outline-primary" data-g12-edit="${r.id}" aria-label="Edit student"><i class="ti ti-edit me-1"></i><span class="g12-action-label">Edit</span></button>`:''}</div></td>
     </tr>`).join('')||'<tr><td colspan="8" class="text-center py-4">No student exam records match these filters.</td></tr>';
     const trackingRows=res=>res.data.map((r,i)=>`<tr><td>${res.from+i}</td><td>${r.photo_url?`<button type="button" class="g12-photo-trigger" data-g12-photo-view="${escape(r.photo_url)}" data-g12-photo-title="${escape(r.name_en||r.student_code||'Student Photo')}" aria-label="View photo of ${escape(r.name_en||r.student_code||'student')}"><img src="${escape(r.photo_url)}" class="g12-photo" loading="lazy" alt="Photo of ${escape(r.name_en||r.student_code||'student')}"></button>`:'—'}</td><td><strong>${escape(r.name_en)}</strong><div class="school-profile-khmer">${escape(r.name_kh)}</div><div class="text-secondary">${escape(r.student_code)}</div></td><td>${escape(r.academic_year)}<div>${escape(r.campus)} / ${escape(r.grade)}</div></td><td>${escape(r.center??'Not assigned')}<div>Room ${escape(r.room||'—')} / Seat ${escape(r.seat||'—')}</div></td><td>${escape(r.overall_grade)} ${badge(r.result_status)}</td>${['soft','hard'].map(t=>`<td>${badge(r.certificates.find(c=>c.type===t)?.status??'awaiting')}</td>`).join('')}<td><div class="d-flex gap-2"><button class="btn btn-sm btn-outline-primary" data-g12-view="${r.id}"><i class="ti ti-eye me-1"></i>View</button></div></td></tr>`).join('')||'<tr><td colspan="9" class="text-center py-4">No student exam records match these filters.</td></tr>';
     const renderRecordSummary=summary=>{
@@ -185,30 +185,56 @@ if(root){
     }));
     get('[data-g12-center-new]')?.addEventListener('click',()=>openCenter());get('[data-g12-center-search]')?.addEventListener('input',()=>{clearTimeout(centerSearchTimer);centerSearchTimer=setTimeout(()=>run(()=>centers(1)),250);});
     get('[data-g12-center-form]').addEventListener('submit',e=>{e.preventDefault();run(async()=>{const data=Object.fromEntries(new FormData(e.target));data.active=data.active==='1';const res=await api('/centers'+(centerEditing?'/'+centerEditing.id:''),data);modal('#g12CenterModal').hide();await saved(res.message);await loadMeta();await centers(centerPage);});});
-    const docNames={soft_certificate:'Soft certificate',soft_certificate_received:'Signed soft-certificate receipt',hard_certificate:'Hard certificate',hard_certificate_received:'Signed hard-certificate receipt',other_documents:'Other documents',portrait:'Student portrait'};
     async function openView(id){
-        detail=await api('/records/'+id);let html=`<div class="d-flex gap-3 align-items-center mb-3">${detail.photo_url?`<img class="g12-detail-photo" src="${escape(detail.photo_url)}" alt="Student photo">`:''}<div><h2>${escape(detail.name_en)}</h2><div>${escape(detail.name_kh)}</div><strong>${escape(detail.student_code)}</strong> · ${escape(detail.academic_year)} · ${escape(detail.campus)}</div></div>`;
-        html+='<div class="g12-certificate-grid mb-4">';for(const type of ['soft','hard']){
-            const cert=detail.certificates.find(c=>c.type===type),editable=detail.permissions.collection;html+=`<section class="g12-certificate"><h3>${type==='soft'?'Soft':'Hard'} Certificate ${badge(cert.status)}</h3>`;
-            if(cert.imported_status)html+=`<p class="small text-secondary">Imported status: ${escape(cert.imported_status)}</p>`;
-            if(cert.status==='collected'&&!detail.files.some(f=>f.kind===type+'_certificate_received'))html+='<p class="small text-warning">The collection was imported; no signed receipt has been uploaded yet.</p>';
-            if(editable){
-                html+=`<form data-g12-collection="${type}"><input type="hidden" name="version" value="${cert.version}"><div class="g12-fields"><div><label class="form-label">Status</label><select name="status" class="form-select">${['awaiting','available','collected','not_applicable','review'].map(s=>`<option value="${s}" ${s===cert.status?'selected':''}>${statusLabels[s]}</option>`).join('')}</select></div>${field('number','Certificate Number',cert.number??'')}${field('available_date','Date Received at School',cert.available_date??'','type="date"')}${field('collected_date','Date Collected',cert.collected_date??'','type="date"')}${field('recipient','Collected By',cert.recipient??'')}</div><label class="form-label mt-3">Signed certificate-copy photo / PDF</label><input type="file" class="form-control" name="file" accept=".jpg,.jpeg,.png,.webp,.pdf" ${detail.permissions['documents-upload']?'':'disabled'}><label class="form-label mt-3">Reason for correcting an existing collection</label><textarea class="form-control" name="reason" maxlength="1000" rows="2"></textarea><button class="btn btn-primary mt-3">Save Certificate Tracking</button></form>`;
-            }else html+=`<dl><dt>Certificate Number</dt><dd>${escape(cert.number??'—')}</dd><dt>Collected Date / Recipient</dt><dd>${escape(cert.collected_date??'—')} / ${escape(cert.recipient??'—')}</dd></dl>`;
-            html+='</section>';
-        }html+='</div>';
-        html+='<h3>Documents and versions</h3>';
-        if(detail.permissions['documents-upload'])html+=`<form data-g12-document-form class="g12-fields mb-3"><div><label class="form-label">Document Type</label><select class="form-select" name="kind">${Object.entries(docNames).filter(([kind])=>kind!=='portrait').map(([kind,label])=>`<option value="${kind}">${label}</option>`).join('')}</select></div><div><label class="form-label">File (up to 20 MB)</label><input type="file" name="file" class="form-control" accept=".jpg,.jpeg,.png,.webp,.pdf" required></div><div class="d-flex align-items-end"><button class="btn btn-outline-primary">Upload Document</button></div></form>`;
-        html+=detail.files.length?'<div class="table-responsive"><table class="table"><thead><tr><th>Preview</th><th>Document / Original Filename</th><th>Uploaded</th><th>Actions</th></tr></thead><tbody>'+detail.files.map(f=>`<tr><td>${f.mime.startsWith('image/')?`<img class="g12-document-image" loading="lazy" src="${escape(f.url)}" alt="Document preview">`:'PDF'}</td><td>${escape(docNames[f.kind]??f.kind)}<div class="small">${escape(f.original_name)}</div></td><td>${escape(new Date(f.created_at).toLocaleString())}</td><td><a class="btn btn-sm btn-outline-primary" href="${escape(f.url)}" target="_blank" rel="noopener">View</a> <a class="btn btn-sm btn-outline-secondary" href="${escape(f.download)}">Download</a></td></tr>`).join('')+'</tbody></table></div>':'<p class="text-secondary">No documents available to view.</p>';
-        for(const [group,fields]of Object.entries(meta.fields)){html+=`<details class="border rounded p-3 my-3"><summary class="fw-semibold">${escape(group)}</summary><dl class="g12-detail-grid mt-3">`;for(const [key,label]of Object.entries(fields))html+=`<div><dt>${escape(label)}</dt><dd>${escape(detail.data[key]??'—')}</dd></div>`;html+='</dl></details>';}
-        html+='<details class="border rounded p-3"><summary>Activity history</summary><ul>'+detail.history.map(h=>`<li>${escape(h.action)} · Staff #${h.user_id} · ${escape(h.created_at)}</li>`).join('')+'</ul></details>';
+        detail=await api('/records/'+id);
+        const gradeLabel=[detail.academic_year,studentClass(detail)].filter(Boolean).join('-')||'—';
+        const letterGrade=String(detail.overall_grade??'').trim().toUpperCase();
+        const failedGrade=letterGrade.charAt(0)==='F';
+        let html=`<section class="g12-detail-identity ${failedGrade?'has-fail-stamp':''} mb-4">
+            <div class="g12-detail-photo-shell">${detail.photo_url?`<img class="g12-detail-photo" src="${escape(detail.photo_url)}" alt="Photo of ${escape(detail.name_en||detail.name_kh||'student')}">`:'<div class="g12-detail-photo-placeholder"><i class="ti ti-user" aria-hidden="true"></i><span>No photo</span></div>'}</div>
+            <div class="g12-detail-student">
+                <div class="g12-detail-name-kh school-profile-khmer">${escape(detail.name_kh||'—')}</div>
+                <h2 class="g12-detail-name-en">${escape(detail.name_en||'—')}</h2>
+                <div class="g12-detail-student-line"><span>Date of Birth:</span><strong class="school-profile-khmer">${escape(studentDob(detail.dob)||'—')}</strong></div>
+                <div class="g12-detail-student-line"><span>Grade:</span><strong>${escape(gradeLabel)}</strong></div>
+            </div>
+            ${failedGrade?'<div class="g12-detail-fail-stamp" role="img" aria-label="Letter grade F: Failed">F</div>':''}
+        </section>`;
+        const detailItem=(label,value,valueClass='',badgeClass='',extraBadgeValue='')=>{const displayValue=value===null||value===undefined||value===''?'—':value,hasExtra=extraBadgeValue!==null&&extraBadgeValue!==undefined&&String(extraBadgeValue).trim()!=='',badge=badgeClass?`<span class="g12-view-badge ${escape(badgeClass)}">${escape(displayValue)}</span>`:escape(displayValue),extra=hasExtra?`<span class="g12-view-badge is-score">${escape(extraBadgeValue)}</span>`:'';return `<div class="g12-view-field"><dt class="school-profile-khmer">${escape(label)}</dt><dd class="${escape(valueClass)}" title="${escape(displayValue)}${hasExtra?` · ${escape(extraBadgeValue)}`:''}">${badge}${extra}</dd></div>`;};
+        const resultKey=String(detail.result_status??'').trim().toLowerCase();
+        const resultBadge=resultKey==='passed'?'is-success':resultKey==='failed'||resultKey==='fail'?'is-danger':'is-neutral';
+        const gradeBadge={A:'is-success',B:'is-purple',C:'is-blue',D:'is-amber',E:'is-orange',F:'is-danger'}[letterGrade.charAt(0)]??'is-neutral';
+        const rawScoreRank=detail.data?.g12_score_rank;
+        const scoreRank=rawScoreRank===null||rawScoreRank===undefined||String(rawScoreRank).trim()===''?'':String(rawScoreRank).trim().replace(/-?\d+(?:\.\d+)?/g,value=>value.includes('.')?Number(value).toFixed(3):value);
+        html+=`<section class="g12-view-information mb-4" aria-label="Student and national exam information">
+            <div class="g12-view-grid g12-view-parent-grid">
+                ${detailItem('ឈ្មោះឪពុក',detail.father_name,'school-profile-khmer')}
+                ${detailItem('មុខរបរ',detail.father_occupation,'school-profile-khmer')}
+                ${detailItem('ឈ្មោះម្តាយ',detail.mother_name,'school-profile-khmer')}
+                ${detailItem('មុខរបរ',detail.mother_occupation,'school-profile-khmer')}
+            </div>
+            <h3 class="g12-view-section-title school-profile-khmer">ព័ត៌មានប្រឡងថ្នាក់ជាតិទី៩</h3>
+            <div class="g12-view-grid">
+                ${detailItem('មណ្ឌលប្រឡង',detail.g9_exam_center)}
+                ${detailItem('សម័យប្រឡង',detail.g9_exam_date)}
+                ${detailItem('លេខបន្ទប់',detail.g9_exam_room)}
+                ${detailItem('លេខតុ',detail.g9_exam_seat)}
+            </div>
+            <h3 class="g12-view-section-title school-profile-khmer">ព័ត៌មានប្រឡងថ្នាក់ជាតិទី១២</h3>
+            <div class="g12-view-grid">
+                ${detailItem('ភាសាប្រឡង',detail.language_exam)}
+                ${detailItem('ថ្នាក់ជម្រើស',detail.class_selected,'school-profile-khmer')}
+                ${detailItem('មណ្ឌលប្រឡង',detail.center,'school-profile-khmer')}
+                ${detailItem('សម័យប្រឡង',detail.g12_exam_date,'school-profile-khmer')}
+                ${detailItem('លេខបន្ទប់',detail.room)}
+                ${detailItem('លេខតុ',detail.seat)}
+                ${detailItem('លទ្ធផលប្រឡង',statusLabels[detail.result_status]??detail.result_status,'',resultBadge)}
+                ${detailItem('និទ្ទេស',detail.overall_grade,'',gradeBadge,scoreRank)}
+            </div>
+        </section>`;
         get('[data-g12-detail]').innerHTML=html;modal('#g12ViewModal').show();
     }
     root.addEventListener('click',e=>{const view=e.target.closest('[data-g12-view]'),edit=e.target.closest('[data-g12-edit]'),center=e.target.closest('[data-g12-center-edit]'),centerStatus=e.target.closest('[data-g12-center-status]'),report=e.target.closest('[data-g12-export]');if(view)run(()=>openView(view.dataset.g12View));if(edit)run(()=>openEdit(edit.dataset.g12Edit));if(center)openCenter(center.dataset.g12CenterEdit);if(centerStatus&&!centerStatus.disabled)run(()=>toggleCenterStatus(centerStatus));if(report){const query=filters();query.set('format',report.dataset.g12Export);window.open(base+'/report?'+query,'_blank','noopener');}});
-    root.addEventListener('submit',e=>{
-        if(e.target.matches('[data-g12-document-form]')){e.preventDefault();run(async()=>{const res=await api(`/records/${detail.id}/files`,new FormData(e.target));await saved(res.message);await openView(detail.id);});}
-        if(e.target.matches('[data-g12-collection]')){e.preventDefault();run(async()=>{const res=await api(`/records/${detail.id}/certificates/${e.target.dataset.g12Collection}`,new FormData(e.target));await saved(res.message);await openView(detail.id);await load();});}
-    });
     root.querySelectorAll('[data-g12-drop]').forEach(zone=>{
         for(const type of ['dragenter','dragover'])zone.addEventListener(type,e=>{e.preventDefault();zone.classList.add('dragover');});
         for(const type of ['dragleave','drop'])zone.addEventListener(type,e=>{e.preventDefault();zone.classList.remove('dragover');});
