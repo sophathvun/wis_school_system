@@ -34,6 +34,22 @@ it('returns the student birth date and parent details required by the exam recor
         'language_exam'=>'English','class_selected'=>'វិទ្យាសាស្ត្រ','g12_exam_date'=>'2026-11-03',
     ]);
 });
+it('renders the filtered A4 candidate print report with Branding School Logo 1',function(){
+    Storage::fake('public');
+    \Illuminate\Support\Facades\Schema::create('tb_branding_setting',function(\Illuminate\Database\Schema\Blueprint $table){
+        $table->id();$table->string('report_logo_1_path')->nullable();$table->string('footer_text')->nullable();$table->timestamps();
+    });
+    Storage::disk('public')->put('branding/g12-report-logo.jpg',g12PhotoBytes());
+    DB::table('tb_branding_setting')->insert(['report_logo_1_path'=>'branding/g12-report-logo.jpg','footer_text'=>'School','created_at'=>now(),'updated_at'=>now()]);
+    app(G12NationalExams::class)->save(User::find(1),g12ExamData());
+    $response=app(G12NationalExamController::class)->report(g12Request(User::find(1),['format'=>'print','academic_year'=>'2025-2026']));
+    $html=$response->render();
+    $pdf=app(G12NationalExamController::class)->report(g12Request(User::find(1),['format'=>'pdf','academic_year'=>'2025-2026']));
+    expect($html)->toContain('List of Candidates','School Logo 1','data:image/jpeg;base64','@page{size:A4 landscape')
+        ->and($pdf->headers->get('Content-Type'))->toBe('application/pdf')
+        ->and($pdf->headers->get('Content-Disposition'))->toContain('g12-list-of-candidates.pdf')
+        ->and(substr($pdf->getContent(),0,4))->toBe('%PDF');
+});
 it('filters student exam records by exam language and selected class and returns searchable options',function(){
     $user=User::find(1);$service=app(G12NationalExams::class);$controller=app(G12NationalExamController::class);
     $service->save($user,g12ExamData(['language_exam'=>'English','class_sellected'=>'Science']));
@@ -67,7 +83,7 @@ it('inherits permissions from roles, departments and user grants while enforcing
 })->with(['role','department','user']);
 it('groups every action under the independent G12 main menu and enforces submenu dependencies',function(){
     $catalog=App\Models\Permission::all();$tree=PermissionHierarchy::tree($catalog);
-    expect($tree['g12-national-exams']['modules'])->toHaveCount(6)
+    expect($tree['g12-national-exams']['modules'])->toHaveCount(8)
         ->and($tree['students']['modules'])->not->toHaveKey('g12-national-exams');
     foreach(Access::submenus() as $key=>$section){
         $module=$tree['g12-national-exams']['modules']['g12-national-exams.'.$key];
@@ -82,7 +98,7 @@ it('groups every action under the independent G12 main menu and enforces submenu
     $withoutMain=$catalog->where('module','g12-national-exams')->where('action','!=','view')->pluck('id')->all();
     expect(PermissionHierarchy::normalizeIds($withoutMain,$catalog))->toBe([]);
 });
-it('resolves all six submenu URLs and blocks direct access to ungranted sections',function(){
+it('resolves all eight submenu URLs and blocks direct access to ungranted sections',function(){
     $user=g12ExamUser(['view','records']);$controller=app(G12NationalExamController::class);
     foreach(Access::PATHS as $section=>$path){
         $request=g12Request($user,[], '/g12-national-exams/'.$path);
@@ -92,6 +108,59 @@ it('resolves all six submenu URLs and blocks direct access to ungranted sections
         if($section==='records')expect($controller->index($request)->getData()['tab'])->toBe('records');
         else expect(fn()=>$controller->index($request))->toThrow(HttpException::class);
     }
+});
+it('places Assign Exam Center below Student Exam Records with its requested filters',function(){
+    $user=g12ExamUser(['view','assign-centers']);$request=g12Request($user,[], '/g12-national-exams/assign-exam-center');
+    $route=app('router')->getRoutes()->match($request);$request->setRouteResolver(fn()=>$route);
+    $view=app(G12NationalExamController::class)->index($request);$template=file_get_contents(resource_path('views/g12-national-exams/index.blade.php'));
+    expect(array_slice(array_keys(Access::submenus()),0,3))->toBe(['records','assign-centers','scoring'])
+        ->and($view->getData()['tab'])->toBe('assign-centers')
+        ->and($template)->toContain('Datas Filter','g12-assign-filter-fields','data-g12-filter-toggle')
+        ->and($template)->toContain("'academic_year'=>'Academic Year','campus_id'=>'Campus','language_exam'=>'Exam Language','class_selected'=>'Select','grade'=>'Grade'",'name="search"','Exam Center List','Phone Number','Examinations','Added by','data-g12-records');
+});
+it('places Scoring below Assign Exam Center with searchable filter data',function(){
+    app(G12NationalExams::class)->save(User::find(1),g12ExamData(['student_name_en'=>'SCORING STUDENT','language_exam'=>'English']));
+    $user=g12ExamUser(['view','scoring']);$request=g12Request($user,[], '/g12-national-exams/scoring');
+    $route=app('router')->getRoutes()->match($request);$request->setRouteResolver(fn()=>$route);
+    $controller=app(G12NationalExamController::class);$view=$controller->index($request);
+    $meta=$controller->meta(g12Request($user,['tab'=>'scoring']))->getData(true);
+    $template=file_get_contents(resource_path('views/g12-national-exams/index.blade.php'));
+    expect(array_slice(array_keys(Access::submenus()),0,3))->toBe(['records','assign-centers','scoring'])
+        ->and($route->getName())->toBe('g12-national-exams.scoring')
+        ->and($view->getData()['tab'])->toBe('scoring')
+        ->and($template)->toContain('g12-scoring-filter-fields',"'academic_year'=>'Academic Year','campus_id'=>'Campus','language_exam'=>'Language Exam','center_id'=>'Exam Center','record_id'=>'Student Name'")
+        ->and($meta['students'][0])->toMatchArray(['name_en'=>'SCORING STUDENT','student_code'=>'00123']);
+});
+it('lists students for exam center assignment and securely saves center room and seat',function(){
+    $record=app(G12NationalExams::class)->save(User::find(1),g12ExamData(['phone_number'=>'012 345 678','gender'=>'ប']));
+    $center=G12ExamCenter::create(['name'=>'Assignment Center','name_key'=>'assignment center','active'=>true]);
+    $viewer=g12ExamUser(['view','assign-centers']);$controller=app(G12NationalExamController::class);
+    $list=$controller->list(g12Request($viewer,['tab'=>'assign-centers','academic_year'=>'2025-2026']))->getData(true);
+    expect($list['data'][0])->toMatchArray(['id'=>$record->id,'phone_number'=>'012 345 678','center_id'=>null,'room'=>'01','seat'=>'005','can_assign'=>false])
+        ->and($list['summary'])->toMatchArray(['total'=>1,'male'=>1,'female'=>0,'centers'=>['assigned'=>0,'blank'=>1],'rooms'=>['assigned'=>1,'blank'=>0],'seats'=>['assigned'=>1,'blank'=>0]])
+        ->and($list['data'][0]['added_by'])->toMatchArray(['name'=>'National Exam Admin','position'=>'—','campus'=>'BCH'])
+        ->and($list['data'][0]['added_by']['date'])->not->toBeEmpty()
+        ->and(route('g12-national-exams.assignment.update',$record,false))->toBe('/g12-national-exams/records/'.$record->id.'/exam-assignment');
+    expect(fn()=>$controller->saveExamAssignment(g12Request($viewer,['center_id'=>$center->id,'room'=>'18','seat'=>'440','version'=>$record->version],'/g12-national-exams/records/'.$record->id.'/exam-assignment','POST'),$record))->toThrow(HttpException::class);
+    $permission=App\Models\Permission::where('code','g12-national-exams.assign-centers-manage')->value('id');
+    DB::table('access_user_permission_overrides')->insert(['user_id'=>$viewer->id,'permission_id'=>$permission,'allowed'=>true,'created_at'=>now(),'updated_at'=>now()]);
+    $response=$controller->saveExamAssignment(g12Request($viewer->fresh(),['center_id'=>$center->id,'room'=>'18','seat'=>'440','version'=>$record->version],'/g12-national-exams/records/'.$record->id.'/exam-assignment','POST'),$record)->getData(true);
+    $saved=$record->fresh();
+    expect($response)->toMatchArray(['message'=>'Exam assignment saved.','version'=>2,'center'=>'Assignment Center','room'=>'18','seat'=>'440'])
+        ->and($saved->center_id)->toBe($center->id)
+        ->and($saved->data)->toMatchArray(['g12_exam_center'=>'Assignment Center','g12_exam_room'=>'18','g12_exam_seat'=>'440'])
+        ->and(DB::table('tb_g12_exam_event')->where('record_id',$record->id)->where('action','exam-center-assigned')->exists())->toBeTrue();
+});
+it('orders exam center assignments by campus grade and Khmer student name',function(){
+    DB::table('tb_school_info')->where('id',1)->update(['campus_name_en'=>'Zeta Campus']);
+    DB::table('tb_school_info')->where('id',2)->update(['campus_name_en'=>'Alpha Campus']);
+    $service=app(G12NationalExams::class);$user=User::find(1);
+    $service->save($user,g12ExamData(['student_id'=>'1001','student_name_kh'=>'KHMER D','campus_id'=>1,'grade'=>'12A']));
+    $service->save($user,g12ExamData(['student_id'=>'1002','student_name_kh'=>'KHMER C','campus_id'=>2,'grade'=>'12B']));
+    $service->save($user,g12ExamData(['student_id'=>'1003','student_name_kh'=>'KHMER B','campus_id'=>2,'grade'=>'12A']));
+    $service->save($user,g12ExamData(['student_id'=>'1004','student_name_kh'=>'KHMER A','campus_id'=>2,'grade'=>'12A']));
+    $list=app(G12NationalExamController::class)->list(g12Request($user,['tab'=>'assign-centers','academic_year'=>'2025-2026']))->getData(true);
+    expect(collect($list['data'])->pluck('name_kh')->all())->toBe(['KHMER A','KHMER B','KHMER C','KHMER D']);
 });
 it('shows only granted sidebar submenus and marks the current section active',function(){
     $user=g12ExamUser(['view','records']);$request=g12Request($user,[], '/g12-national-exams/student-records');

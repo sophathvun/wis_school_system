@@ -405,7 +405,7 @@ Route::middleware(['auth', 'active.user'])->group(function () {
     Route::prefix('g12-national-exams')->name('g12-national-exams.')->controller(\App\Http\Controllers\G12NationalExamController::class)->group(function(){
         foreach(\App\Support\G12NationalExamPermissions::PATHS as $section=>$path)Route::get('/'.$path,'index')->defaults('section',$section)->name($section);
         Route::get('/','index')->name('index');Route::get('/meta','meta')->name('meta');Route::get('/list','list')->name('list');Route::get('/report','report')->name('report');
-        Route::post('/records','save')->name('store');Route::get('/records/{record}','show')->name('show');Route::post('/records/{record}','save')->name('update');
+        Route::post('/records','save')->name('store');Route::get('/records/{record}','show')->name('show');Route::post('/records/{record}','save')->name('update');Route::post('/records/{record}/exam-assignment','saveExamAssignment')->name('assignment.update');
         Route::get('/records/{record}/photo','photo')->name('photo');Route::post('/records/{record}/files','upload')->name('upload');
         Route::post('/records/{record}/certificates/{type}','collection')->name('collection');Route::get('/files/{file}','file')->name('file');
         Route::get('/centers','centers')->name('centers.list');Route::post('/centers','saveCenter')->name('centers.store');Route::post('/centers/{center}/status','centerStatus')->name('centers.status');Route::post('/centers/{center}','saveCenter')->name('centers.update');

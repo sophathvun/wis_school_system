@@ -53,11 +53,17 @@ export function createSeatPicker(select) {
         }
         if(event.key==='Tab')close();
     });
-    document.addEventListener('pointerdown',event=>{if(!field.contains(event.target))close();});
-    document.addEventListener('scholarship:close-seat-pickers',event=>{if(event.detail!==select)close();});
-    select.closest('.modal')?.addEventListener('hidden.bs.modal',close);
+    const outsidePointer=event=>{if(!field.contains(event.target))close();};
+    const closeOtherPicker=event=>{if(event.detail!==select)close();};
+    const parentModal=select.closest('.modal');
+    document.addEventListener('pointerdown',outsidePointer);
+    document.addEventListener('scholarship:close-seat-pickers',closeOtherPicker);
+    parentModal?.addEventListener('hidden.bs.modal',close);
     render();
-    return {refresh:render,close,button,setOptions:(items,values=[])=>{
+    return {refresh:render,close,button,destroy:()=>{
+        close();document.removeEventListener('pointerdown',outsidePointer);document.removeEventListener('scholarship:close-seat-pickers',closeOtherPicker);parentModal?.removeEventListener('hidden.bs.modal',close);
+        button.remove();menu.remove();select.hidden=false;label.htmlFor=select.id;field.classList.remove('scholarship-seat-picker','is-open');
+    },setOptions:(items,values=[])=>{
         const chosen=new Set([values].flat().map(String));select.replaceChildren();
         if(!select.multiple)select.add(new Option(select.dataset.placeholder,''));
         items.forEach(item=>select.add(new Option(item.label,String(item.id),false,chosen.has(String(item.id)))));

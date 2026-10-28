@@ -4,19 +4,36 @@
 @section('content')
 @vite(['resources/css/pages/g12-national-exams.css','resources/js/g12NationalExams.js'])
 <div data-g12-exams data-tab="{{ $tab }}" data-base="{{ url('/g12-national-exams') }}">
-@if(in_array($tab,['records','certificates','reports']))
-<div class="card mb-3"><div class="card-header g12-header"><h3 class="card-title"><i class="ti ti-filter me-2"></i>Datas Filter</h3><button type="button" class="btn btn-icon btn-outline-primary g12-filter-toggle ms-auto" data-g12-filter-toggle aria-expanded="true" aria-controls="g12Filters" aria-label="Collapse exam record filters"><i class="ti ti-chevron-up" aria-hidden="true"></i></button></div>
-<form id="g12Filters" @class(['card-body','g12-fields','g12-filter-fields','g12-record-filter-fields'=>$tab==='records']) data-g12-filters>
+@if(in_array($tab,['records','assign-centers','scoring','certificates','reports']))
+<div class="card mb-3"><div class="card-header g12-header"><h3 class="card-title"><i class="ti ti-filter me-2"></i>Datas Filter</h3><button type="button" class="btn btn-icon btn-outline-primary g12-filter-toggle ms-auto" data-g12-filter-toggle aria-expanded="true" aria-controls="g12Filters" aria-label="Collapse data filters"><i class="ti ti-chevron-up" aria-hidden="true"></i></button></div>
+<form id="g12Filters" @class(['card-body','g12-fields','g12-filter-fields','g12-record-filter-fields'=>$tab==='records','g12-assign-filter-fields'=>$tab==='assign-centers','g12-scoring-filter-fields'=>$tab==='scoring']) data-g12-filters>
 @php
 $filterFields=$tab==='records'
     ? ['academic_year'=>'Academic Year','language_exam'=>'Exam Language','class_selected'=>'Selected Class','campus_id'=>'Campus','grade'=>'Grade']
-    : ['academic_year'=>'Academic Year','campus_id'=>'Campus','grade'=>'Grade / Class','center_id'=>'Exam Center','result_status'=>'Result','certificate_type'=>'Certificate Type','certificate_status'=>'Certificate Status'];
+    : ($tab==='assign-centers'
+        ? ['academic_year'=>'Academic Year','campus_id'=>'Campus','language_exam'=>'Exam Language','class_selected'=>'Select','grade'=>'Grade']
+        : ($tab==='scoring'
+            ? ['academic_year'=>'Academic Year','campus_id'=>'Campus','language_exam'=>'Language Exam','center_id'=>'Exam Center','record_id'=>'Student Name']
+            : ['academic_year'=>'Academic Year','campus_id'=>'Campus','grade'=>'Grade / Class','center_id'=>'Exam Center','result_status'=>'Result','certificate_type'=>'Certificate Type','certificate_status'=>'Certificate Status']));
 @endphp
 @foreach($filterFields as $key=>$label)
 <div class="scholarship-field premium-form-field"><label class="form-label" for="filter-{{ $key }}">{{ $label }}</label><select class="form-select" id="filter-{{ $key }}" name="{{ $key }}" data-placeholder="" data-empty-label="All {{ $label }}"><option value="">All {{ $label }}</option></select></div>
 @endforeach
 <div class="scholarship-field premium-form-field g12-filter-search-field"><label class="form-label" for="g12Search">Search</label><input class="form-control" type="search" id="g12Search" name="search" placeholder="Student ID or name" aria-label="Search by student ID or name" autocomplete="off" data-search-normalized="true"><i class="ti ti-search g12-filter-search-icon" aria-hidden="true"></i></div>
 </form></div>
+@if($tab==='assign-centers')
+<section class="card g12-assignment-summary-card mb-3" data-g12-assignment-summary aria-label="Exam center assignment totals"><div class="card-body g12-assignment-summary-grid">
+<article class="g12-assignment-summary-item"><div class="g12-assignment-summary-title">Total</div><strong class="g12-assignment-summary-total" data-g12-assignment-summary-total>0</strong><div class="g12-assignment-summary-notes"><span>Male: <strong data-g12-assignment-summary-male>0</strong></span><span>Female: <strong data-g12-assignment-summary-female>0</strong></span></div></article>
+<article class="g12-assignment-summary-item"><div class="g12-assignment-summary-title">Exam Center</div><div class="g12-assignment-summary-notes"><span>Assigned: <strong data-g12-assignment-summary-center-assigned>0</strong></span><span>Blank: <strong data-g12-assignment-summary-center-blank>0</strong></span></div></article>
+<article class="g12-assignment-summary-item"><div class="g12-assignment-summary-title">Room No.</div><div class="g12-assignment-summary-notes"><span>Assigned: <strong data-g12-assignment-summary-room-assigned>0</strong></span><span>Blank: <strong data-g12-assignment-summary-room-blank>0</strong></span></div></article>
+<article class="g12-assignment-summary-item"><div class="g12-assignment-summary-title">Seat No.</div><div class="g12-assignment-summary-notes"><span>Assigned: <strong data-g12-assignment-summary-seat-assigned>0</strong></span><span>Blank: <strong data-g12-assignment-summary-seat-blank>0</strong></span></div></article>
+</div></section>
+<div class="card"><div class="card-header g12-header"><h3 class="card-title">Exam Center List</h3></div>
+<div class="table-responsive g12-assignment-table-wrap"><table class="table table-vcenter card-table g12-assignment-table"><thead><tr><th class="text-center">No.</th><th>Photo</th><th>Student</th><th>Grade</th><th>Phone Number</th><th>Examinations</th><th>Room</th><th>Seat</th><th>Added by</th></tr></thead><tbody data-g12-records><tr><td colspan="9" class="text-center py-4">Select an Academic Year to display students.</td></tr></tbody></table></div>
+<div class="card-footer"><select id="g12PerPage" hidden><option value="15">15</option><option value="25">25</option><option value="50">50</option><option value="100">100</option><option value="all">All</option></select><div id="g12Pagination"></div></div></div>
+@elseif($tab==='scoring')
+<div class="card g12-scoring-workspace"><div class="card-header g12-header"><h3 class="card-title"><i class="ti ti-calculator me-2" aria-hidden="true"></i>Scoring</h3></div><div class="card-body text-secondary">Select an Academic Year and the required filters to prepare student scoring records.</div></div>
+@else
 @if($tab==='records')
 <section class="g12-summary-grid mb-3" data-g12-summary aria-label="Student exam record totals">
 <article class="card g12-summary-card"><div class="card-body g12-summary-columns"><div class="g12-summary-column"><div class="g12-summary-heading g12-summary-heading-total"><span class="g12-summary-icon"><i class="ti ti-users" aria-hidden="true"></i></span><div class="g12-summary-total-content"><div class="text-secondary">Total Students</div><strong class="g12-summary-total" data-g12-summary-total>0</strong><div class="g12-summary-notes"><div class="g12-summary-note-row"><span>Male: <strong data-g12-summary-male>0</strong></span><span>Female: <strong data-g12-summary-female>0</strong></span></div></div></div></div></div><div class="g12-summary-column g12-summary-class-column"><div class="g12-summary-heading"><span class="g12-summary-icon"><i class="ti ti-books" aria-hidden="true"></i></span><div class="g12-summary-notes g12-summary-class-notes"><div class="g12-summary-note-row school-profile-khmer"><span>វិទ្យាសាស្ត្រ (ខ្មែរ): <strong data-g12-summary-science-khmer>0</strong></span><span>វិទ្យាសាស្ត្រ (អង់គ្លេស): <strong data-g12-summary-science-english>0</strong></span></div><div class="g12-summary-note-row school-profile-khmer"><span>វិទ្យាសាស្ត្រសង្គម (ខ្មែរ): <strong data-g12-summary-social-khmer>0</strong></span><span>វិទ្យាសាស្ត្រសង្គម (អង់គ្លេស): <strong data-g12-summary-social-english>0</strong></span></div></div></div></div><div class="g12-summary-column g12-summary-campus-column"><div class="g12-summary-heading"><span class="g12-summary-icon"><i class="ti ti-building" aria-hidden="true"></i></span><div><div class="text-secondary">Student by Campus</div><div class="g12-summary-campuses" data-g12-summary-campuses><div class="g12-summary-empty">Select an Academic Year to display totals.</div></div></div></div></div></div></article>
@@ -24,6 +41,7 @@ $filterFields=$tab==='records'
 @endif
 <div class="card"><div class="card-header g12-header"><h3 class="card-title">{{ $tab==='certificates'?'Certificate Tracking':($tab==='reports'?'National Exam Reports':'List of Candidates') }}</h3>
 <div class="ms-auto d-flex gap-2 flex-wrap">
+@if($tab==='records'&&$permissions['export'])<button type="button" class="btn btn-outline-light" data-g12-export="print"><i class="ti ti-printer me-1"></i>Print</button><button type="button" class="btn btn-outline-light" data-g12-export="xlsx"><i class="ti ti-file-spreadsheet me-1"></i>Excel</button><button type="button" class="btn btn-outline-light" data-g12-export="pdf"><i class="ti ti-file-type-pdf me-1"></i>PDF</button>@endif
 @if($tab==='records'&&$permissions['create'])<button type="button" class="btn btn-outline-light" data-g12-new><i class="ti ti-plus me-1"></i>Add New</button>@endif
 @if($tab==='reports'&&$permissions['export'])<button class="btn btn-outline-light" data-g12-export="xlsx"><i class="ti ti-file-spreadsheet me-1"></i>Excel</button><button class="btn btn-outline-light" data-g12-export="print"><i class="ti ti-printer me-1"></i>Print</button>@endif
 </div></div>
@@ -35,6 +53,7 @@ $filterFields=$tab==='records'
 @endif
 </tr></thead><tbody data-g12-records><tr><td colspan="{{ $tab==='records'?8:9 }}" class="text-center py-4">Select an Academic Year to display records.</td></tr></tbody></table></div>
 <div class="card-footer"><select id="g12PerPage" hidden><option value="15">15</option><option value="25">25</option><option value="50">50</option><option value="100">100</option><option value="all">All</option></select><div id="g12Pagination"></div></div></div>
+@endif
 @elseif($tab==='centers')
 <div class="card"><div class="card-header g12-header flex-wrap"><h3 class="card-title">Exam Center Settings</h3><div class="g12-center-header-actions ms-auto"><div class="input-icon g12-center-search"><span class="input-icon-addon"><i class="ti ti-search" aria-hidden="true"></i></span><input type="search" class="form-control" data-g12-center-search placeholder="Search exam centers" aria-label="Search exam centers"></div>@if($permissions['centers-manage'])<button class="btn btn-outline-light" data-g12-center-new><i class="ti ti-plus me-1"></i>Add Exam Center</button>@endif</div></div><div class="card-body"><div class="table-responsive"><table class="table"><thead><tr><th class="text-center">No.</th><th aria-sort="ascending"><button type="button" class="g12-center-sort is-active" data-g12-center-sort="name" data-sort-label="Exam Center" aria-label="Sort Exam Center descending">Exam Center <i class="ti ti-arrow-up" aria-hidden="true" data-g12-center-sort-icon="name"></i></button></th><th>Status</th><th>Action</th></tr></thead><tbody data-g12-centers><tr><td colspan="4" class="text-center py-4">Loading exam centers&hellip;</td></tr></tbody></table></div></div><div class="card-footer"><select id="g12CentersPerPage" hidden><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option></select><div id="g12CentersPagination"></div></div></div>
 @elseif($tab==='imports')

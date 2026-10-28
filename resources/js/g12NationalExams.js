@@ -39,7 +39,7 @@ if(root){
             if(!expanded&&filterForm.contains(document.activeElement))filterToggle.focus();
             filterForm.hidden=!expanded;
             filterToggle.setAttribute('aria-expanded',String(expanded));
-            filterToggle.setAttribute('aria-label',expanded?'Collapse exam record filters':'Expand exam record filters');
+            filterToggle.setAttribute('aria-label',expanded?'Collapse data filters':'Expand data filters');
             filterToggle.querySelector('i').className=expanded?'ti ti-chevron-up':'ti ti-chevron-down';
             filterForm.dataset.g12FiltersReady='true';
         };
@@ -49,7 +49,7 @@ if(root){
     }
     const loadMeta=async()=>{
         meta=await api('/meta?tab='+tab);
-        for(const [name,rows,label,id]of [['academic_year',meta.years.map(v=>({id:v,label:v})),'label'],['language_exam',meta.exam_languages.map(v=>({id:v,label:v})),'label'],['class_selected',meta.selected_classes.map(v=>({id:v,label:v})),'label'],['campus_id',meta.campuses,'campus_name_en'],['center_id',meta.centers,'name'],['grade',meta.grades.map(v=>({id:v,label:v})),'label'],['result_status',['pending','passed','failed'].map(v=>({id:v,label:statusLabels[v]})),'label'],['certificate_type',[{id:'soft',label:'Soft Certificate'},{id:'hard',label:'Hard Certificate'}],'label'],['certificate_status',Object.entries(statusLabels).filter(([v])=>['awaiting','available','collected','not_applicable','review'].includes(v)).map(([id,label])=>({id,label})),'label']])options(get(`[data-g12-filters] [name="${name}"]`),rows,label,id);
+        for(const [name,rows,label,id]of [['academic_year',meta.years.map(v=>({id:v,label:v})),'label'],['language_exam',meta.exam_languages.map(v=>({id:v,label:v})),'label'],['class_selected',meta.selected_classes.map(v=>({id:v,label:v})),'label'],['campus_id',meta.campuses,'campus_name_en'],['center_id',meta.centers,'name'],['record_id',meta.students,r=>[r.name_kh,r.name_en].filter(Boolean).join(' / ')||r.student_code],['grade',meta.grades.map(v=>({id:v,label:v})),'label'],['result_status',['pending','passed','failed'].map(v=>({id:v,label:statusLabels[v]})),'label'],['certificate_type',[{id:'soft',label:'Soft Certificate'},{id:'hard',label:'Hard Certificate'}],'label'],['certificate_status',Object.entries(statusLabels).filter(([v])=>['awaiting','available','collected','not_applicable','review'].includes(v)).map(([id,label])=>({id,label})),'label']])options(get(`[data-g12-filters] [name="${name}"]`),rows,label,id);
         const photoYearSelect=get('#photoYear');
         if(photoYearSelect){
             options(photoYearSelect,meta.years.map(year=>({id:year,label:year})),'label');
@@ -61,7 +61,9 @@ if(root){
     };
     const filters=()=>new URLSearchParams(get('[data-g12-filters]')?new FormData(get('[data-g12-filters]')):[]);
     const studentClass=r=>{const campus=String(r.campus??'').trim(),grade=String(r.grade??'').trim();if(!campus)return grade;if(!grade)return campus;return grade.toLowerCase().startsWith(`${campus.toLowerCase()}-`)?grade:`${campus}-${grade}`;};
+    const assignmentGrade=r=>[String(r.academic_year??'').trim(),studentClass(r)].filter(Boolean).join('-');
     const studentDob=value=>dateKhmer(value).replace(/^០/u,'');
+    const addedDate=value=>{if(!value)return '—';const date=new Date(value);return Number.isNaN(date.getTime())?String(value):date.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}).replace(/ /g,'-');};
     const examLanguageKhmer=value=>({english:'អង់គ្លេស',khmer:'ខ្មែរ',french:'បារាំង'}[String(value??'').trim().toLowerCase()]||String(value??'').trim());
     const recordRows=res=>res.data.map((r,i)=>`<tr>
         <td class="text-center g12-number-cell" data-label="No.">${res.from+i}</td>
@@ -74,6 +76,18 @@ if(root){
         <td class="g12-action-cell" data-label="Actions"><div class="d-flex gap-2"><button class="btn btn-sm btn-outline-primary" data-g12-view="${r.id}"><i class="ti ti-eye me-1"></i>View</button>${r.can_edit?`<button class="btn btn-sm btn-outline-primary" data-g12-edit="${r.id}" aria-label="Edit student"><i class="ti ti-edit me-1"></i><span class="g12-action-label">Edit</span></button>`:''}</div></td>
     </tr>`).join('')||'<tr><td colspan="8" class="text-center py-4">No student exam records match these filters.</td></tr>';
     const trackingRows=res=>res.data.map((r,i)=>`<tr><td>${res.from+i}</td><td>${r.photo_url?`<button type="button" class="g12-photo-trigger" data-g12-photo-view="${escape(r.photo_url)}" data-g12-photo-title="${escape(r.name_en||r.student_code||'Student Photo')}" aria-label="View photo of ${escape(r.name_en||r.student_code||'student')}"><img src="${escape(r.photo_url)}" class="g12-photo" loading="lazy" alt="Photo of ${escape(r.name_en||r.student_code||'student')}"></button>`:'—'}</td><td><strong>${escape(r.name_en)}</strong><div class="school-profile-khmer">${escape(r.name_kh)}</div><div class="text-secondary">${escape(r.student_code)}</div></td><td>${escape(r.academic_year)}<div>${escape(r.campus)} / ${escape(r.grade)}</div></td><td>${escape(r.center??'Not assigned')}<div>Room ${escape(r.room||'—')} / Seat ${escape(r.seat||'—')}</div></td><td>${escape(r.overall_grade)} ${badge(r.result_status)}</td>${['soft','hard'].map(t=>`<td>${badge(r.certificates.find(c=>c.type===t)?.status??'awaiting')}</td>`).join('')}<td><div class="d-flex gap-2"><button class="btn btn-sm btn-outline-primary" data-g12-view="${r.id}"><i class="ti ti-eye me-1"></i>View</button></div></td></tr>`).join('')||'<tr><td colspan="9" class="text-center py-4">No student exam records match these filters.</td></tr>';
+    const assignmentCenterOptions=record=>`<option value="">Select Exam Center</option>${meta.centers.map(center=>`<option value="${center.id}" ${String(center.id)===String(record.center_id)?'selected':''} ${!center.active&&String(center.id)!==String(record.center_id)?'disabled':''}>${escape(center.name)}${center.active?'':' (Inactive)'}</option>`).join('')}`;
+    const assignmentRows=res=>res.data.map((r,i)=>`<tr data-g12-assignment-row data-record-id="${r.id}" data-version="${r.version}" data-can-assign="${r.can_assign?'true':'false'}">
+        <td class="text-center g12-assignment-number" data-label="No.">${res.from+i}</td>
+        <td class="g12-assignment-photo" data-label="Photo">${r.photo_url?`<button type="button" class="g12-photo-trigger" data-g12-photo-view="${escape(r.photo_url)}" data-g12-photo-title="${escape(r.name_en||r.student_code||'Student Photo')}" aria-label="View photo of ${escape(r.name_en||r.student_code||'student')}"><img src="${escape(r.photo_url)}" class="g12-photo" loading="lazy" alt="Photo of ${escape(r.name_en||r.student_code||'student')}"></button>`:'—'}</td>
+        <td class="g12-assignment-student" data-label="Student"><strong class="school-profile-khmer">${escape(r.name_kh||'—')}</strong><span>${escape(r.name_en||'—')}</span></td>
+        <td class="g12-assignment-grade" data-label="Grade">${escape(assignmentGrade(r)||'—')}</td>
+        <td data-label="Phone Number"><span class="g12-assignment-phone"><i class="ti ti-phone" aria-hidden="true"></i>${escape(r.phone_number||'—')}</span></td>
+        <td class="g12-assignment-center-cell" data-label="Examinations"><div class="scholarship-field"><label class="visually-hidden" for="assignment-center-${r.id}">Exam Center for ${escape(r.name_en||r.student_code)}</label><select class="form-select" id="assignment-center-${r.id}" data-g12-assignment-center data-placeholder="Select Exam Center" ${r.can_assign?'':'disabled'}>${assignmentCenterOptions(r)}</select></div><div class="g12-assignment-exam-meta school-profile-khmer"><span>ប្រឡងជាភាសា៖ ${escape(examLanguageKhmer(r.language_exam)||'—')}</span><span>ថ្នាក់៖ ${escape(r.class_selected||'—')}</span></div><small class="g12-assignment-status text-secondary" data-g12-assignment-status aria-live="polite"></small></td>
+        <td data-label="Room"><input class="form-control g12-assignment-input" data-g12-assignment-room value="${escape(r.room||'')}" maxlength="80" aria-label="Room for ${escape(r.name_en||r.student_code)}" ${r.can_assign?'':'disabled'}></td>
+        <td data-label="Seat"><input class="form-control g12-assignment-input" data-g12-assignment-seat value="${escape(r.seat||'')}" maxlength="80" aria-label="Seat for ${escape(r.name_en||r.student_code)}" ${r.can_assign?'':'disabled'}></td>
+        <td class="g12-assignment-added" data-label="Added by"><strong>${escape(r.added_by?.name||'System')}</strong><span>${escape(r.added_by?.position||'—')}</span><div class="g12-assignment-added-meta"><span>${escape(r.added_by?.campus||'—')}</span><time datetime="${escape(r.added_by?.date||'')}">${escape(addedDate(r.added_by?.date))}</time></div></td>
+    </tr>`).join('')||'<tr><td colspan="9" class="text-center py-4">No students match these filters.</td></tr>';
     const renderRecordSummary=summary=>{
         const panel=get('[data-g12-summary]');if(!panel)return;
         const values={total:summary?.total??0,male:summary?.male??0,female:summary?.female??0,'science-khmer':summary?.groups?.science_khmer??0,'science-english':summary?.groups?.science_english??0,'social-khmer':summary?.groups?.social_khmer??0,'social-english':summary?.groups?.social_english??0};
@@ -82,13 +96,44 @@ if(root){
         campuses.innerHTML=entries.length?entries.map(([name,total])=>`<span class="g12-summary-campus"><span>${escape(name)}:</span> <strong>${Number(total).toLocaleString()}</strong></span>`).join(''):'<div class="g12-summary-empty">No students match the selected filters.</div>';
     };
     const resetRecordSummary=()=>{renderRecordSummary(null);const campuses=get('[data-g12-summary-campuses]');if(campuses)campuses.innerHTML='<div class="g12-summary-empty">Select an Academic Year to display totals.</div>';};
+    const renderAssignmentSummary=summary=>{
+        const panel=get('[data-g12-assignment-summary]');if(!panel)return;
+        const values={total:summary?.total??0,male:summary?.male??0,female:summary?.female??0,
+            'center-assigned':summary?.centers?.assigned??0,'center-blank':summary?.centers?.blank??0,
+            'room-assigned':summary?.rooms?.assigned??0,'room-blank':summary?.rooms?.blank??0,
+            'seat-assigned':summary?.seats?.assigned??0,'seat-blank':summary?.seats?.blank??0};
+        for(const [name,value]of Object.entries(values)){const target=panel.querySelector(`[data-g12-assignment-summary-${name}]`);if(target)target.textContent=Number(value).toLocaleString();}
+    };
+    const resetAssignmentSummary=()=>renderAssignmentSummary(null);
+    const disposeAssignmentPickers=rows=>rows.querySelectorAll('[data-g12-assignment-center]').forEach(select=>{pickers.get(select)?.destroy?.();pickers.delete(select);});
     const load=async(page=1,perPage=get('#g12PerPage')?.value??15)=>{
         const rows=get('[data-g12-records]');if(!rows)return;
-        if(!filterForm?.elements.academic_year?.value){rows.innerHTML=`<tr><td colspan="${tab==='records'?8:9}" class="text-center py-4">Select an Academic Year to display records.</td></tr>`;get('#g12Pagination').innerHTML='';resetRecordSummary();return;}
+        if(!filterForm?.elements.academic_year?.value){if(tab==='assign-centers')disposeAssignmentPickers(rows);rows.innerHTML=`<tr><td colspan="${tab==='records'?8:tab==='assign-centers'?9:9}" class="text-center py-4">Select an Academic Year to display records.</td></tr>`;get('#g12Pagination').innerHTML='';resetRecordSummary();resetAssignmentSummary();return;}
         const query=filters();query.set('tab',tab);query.set('page',page);query.set('per_page',perPage);
-        const res=await api('/list?'+query);rows.innerHTML=tab==='records'?recordRows(res):trackingRows(res);if(tab==='records')renderRecordSummary(res.summary);
+        const res=await api('/list?'+query);if(tab==='assign-centers')disposeAssignmentPickers(rows);rows.innerHTML=tab==='records'?recordRows(res):(tab==='assign-centers'?assignmentRows(res):trackingRows(res));if(tab==='records')renderRecordSummary(res.summary);if(tab==='assign-centers'){renderAssignmentSummary(res.summary);refreshPickers(rows);}
         renderPagination(res,'g12Pagination','g12PerPage',(p,size)=>run(()=>load(p,size)),['all',15,25,50,100]);
     };
+    const refreshAssignmentSummary=async()=>{
+        if(tab!=='assign-centers'||!filterForm?.elements.academic_year?.value)return;
+        const query=filters();query.set('tab',tab);query.set('page','1');query.set('per_page','15');
+        renderAssignmentSummary((await api('/list?'+query)).summary);
+    };
+    const assignmentQueues=new WeakMap();
+    const saveAssignment=row=>{
+        if(!row||row.dataset.canAssign!=='true')return;
+        const previous=assignmentQueues.get(row)??Promise.resolve();
+        const next=previous.catch(()=>{}).then(async()=>{
+            const center=row.querySelector('[data-g12-assignment-center]'),controls=[center,row.querySelector('[data-g12-assignment-room]'),row.querySelector('[data-g12-assignment-seat]')],status=row.querySelector('[data-g12-assignment-status]');
+            controls.forEach(control=>control.disabled=true);pickers.get(center)?.refresh();status.className='g12-assignment-status text-secondary';status.textContent='Saving…';
+            try{
+                const result=await api(`/records/${row.dataset.recordId}/exam-assignment`,{center_id:center.value||null,room:controls[1].value,seat:controls[2].value,version:Number(row.dataset.version)});
+                row.dataset.version=result.version;status.className='g12-assignment-status text-success';status.textContent='Saved';await refreshAssignmentSummary();
+            }catch(error){status.className='g12-assignment-status text-danger';status.textContent='Not saved';await Swal.fire({icon:'error',title:'Assign Exam Center',text:error.message});}
+            finally{controls.forEach(control=>control.disabled=false);pickers.get(center)?.refresh();}
+        });
+        assignmentQueues.set(row,next);return next;
+    };
+    root.addEventListener('change',event=>{if(event.target.matches('[data-g12-assignment-center],[data-g12-assignment-room],[data-g12-assignment-seat]'))saveAssignment(event.target.closest('[data-g12-assignment-row]'));});
     const photoViewerElement=get('#g12PhotoViewerModal');
     if(photoViewerElement){
         const viewer=s=>photoViewerElement.querySelector(s),photoModal=Modal.getOrCreateInstance(photoViewerElement),photoImage=viewer('[data-g12-photo-image]'),photoStage=viewer('[data-g12-photo-stage]'),photoZoom=viewer('[data-g12-photo-zoom]'),photoQuality=viewer('[data-g12-photo-quality]'),photoDownload=viewer('[data-g12-photo-download]');
