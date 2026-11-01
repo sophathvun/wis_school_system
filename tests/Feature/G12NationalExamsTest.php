@@ -1,6 +1,6 @@
 <?php
 use App\Models\{User,G12ExamRecord,G12ExamImport,G12ExamCenter,G12ExamFile,G12ExamCertificate};
-use App\Services\{G12NationalExams,G12NationalExamFiles};
+use App\Services\{G12NationalExams,G12NationalExamFiles,G12ScoringImports,G12ResultImageOcr};
 use App\Support\{G12NationalExamPermissions as Access,G12NationalExamWorkbook,PermissionHierarchy};
 use App\Http\Controllers\G12NationalExamController;
 use Illuminate\Support\Facades\{DB,Storage,Blade};
@@ -119,17 +119,126 @@ it('places Assign Exam Center below Student Exam Records with its requested filt
         ->and($template)->toContain("'academic_year'=>'Academic Year','campus_id'=>'Campus','language_exam'=>'Exam Language','class_selected'=>'Select','grade'=>'Grade'",'name="search"','Exam Center List','Phone Number','Examinations','Added by','data-g12-records');
 });
 it('places Scoring below Assign Exam Center with searchable filter data',function(){
-    app(G12NationalExams::class)->save(User::find(1),g12ExamData(['student_name_en'=>'SCORING STUDENT','language_exam'=>'English']));
+    $record=app(G12NationalExams::class)->save(User::find(1),g12ExamData(['student_name_en'=>'SCORING STUDENT','language_exam'=>'English','class_sellected'=>'Science']));
     $user=g12ExamUser(['view','scoring']);$request=g12Request($user,[], '/g12-national-exams/scoring');
     $route=app('router')->getRoutes()->match($request);$request->setRouteResolver(fn()=>$route);
     $controller=app(G12NationalExamController::class);$view=$controller->index($request);
     $meta=$controller->meta(g12Request($user,['tab'=>'scoring']))->getData(true);
+    $list=$controller->list(g12Request($user,['tab'=>'scoring','academic_year'=>'2025-2026']))->getData(true);
     $template=file_get_contents(resource_path('views/g12-national-exams/index.blade.php'));
     expect(array_slice(array_keys(Access::submenus()),0,3))->toBe(['records','assign-centers','scoring'])
         ->and($route->getName())->toBe('g12-national-exams.scoring')
         ->and($view->getData()['tab'])->toBe('scoring')
-        ->and($template)->toContain('g12-scoring-filter-fields',"'academic_year'=>'Academic Year','campus_id'=>'Campus','language_exam'=>'Language Exam','center_id'=>'Exam Center','record_id'=>'Student Name'")
-        ->and($meta['students'][0])->toMatchArray(['name_en'=>'SCORING STUDENT','student_code'=>'00123']);
+        ->and($template)->toContain('g12-scoring-filter-fields','g12-scoring-table','Scoring List',"'academic_year'=>'Academic Year','campus_id'=>'Campus','class_selected'=>'Selected','language_exam'=>'Language Exam','center_id'=>'Exam Center','record_id'=>'Student Name'")
+        ->and($meta['students'][0])->toMatchArray(['name_en'=>'SCORING STUDENT','student_code'=>'00123'])
+        ->and($list['total'])->toBe(1)
+        ->and($list['data'][0])->toMatchArray(['name_en'=>'SCORING STUDENT','language_exam'=>'English','score_rank'=>'','can_score'=>false])
+        ->and(collect($list['data'][0]['subject_scores'])->pluck('key')->all())->toBe(['khmer','math','biology','history','chemistry','physics'])
+        ->and(route('g12-national-exams.scores.update',$record,false))->toBe('/g12-national-exams/records/'.$record->id.'/scores');
+    $scores=['khmer'=>'A','math'=>'B','biology'=>'C','history'=>'D','chemistry'=>'E','physics'=>'F'];
+    expect(fn()=>$controller->saveScores(g12Request($user,['scores'=>$scores,'score_rank'=>'12.345','letter_grade'=>'B','version'=>1],'/g12-national-exams/records/'.$record->id.'/scores','POST'),$record))->toThrow(HttpException::class);
+    (require database_path('migrations/2026_10_31_000001_add_g12_scoring_manage_permission.php'))->up();
+    $authorized=$controller->list(g12Request($user->fresh(),['tab'=>'scoring','academic_year'=>'2025-2026']))->getData(true);
+    expect($authorized['data'][0]['can_score'])->toBeTrue();
+    $response=$controller->saveScores(g12Request($user->fresh(),['scores'=>$scores,'score_rank'=>'12.345','letter_grade'=>'B','version'=>1],'/g12-national-exams/records/'.$record->id.'/scores','POST'),$record)->getData(true);
+    expect($response)->toMatchArray(['message'=>'Grades saved.','version'=>2,'score_rank'=>'12.345','letter_grade'=>'B','result_status'=>'passed','scores'=>$scores])
+        ->and($record->fresh()->data)->toMatchArray(['lettergrade_khmer'=>'A','lettergrade_math'=>'B','lettergrade_biology'=>'C','lettergrade_history'=>'D','lettergrade_chemistry'=>'E','lettergrade_physics'=>'F','g12_score_rank'=>'12.345','g12_letter_grade'=>'B'])
+        ->and($record->fresh()->overall_grade)->toBe('B')
+        ->and($record->fresh()->result_status)->toBe('passed')
+        ->and(DB::table('tb_g12_exam_event')->where('record_id',$record->id)->where('action','scores-updated')->exists())->toBeTrue();
+    expect(fn()=>$controller->saveScores(g12Request($user->fresh(),['scores'=>$scores+['english'=>'A'],'score_rank'=>'12','letter_grade'=>'B','version'=>2],'/g12-national-exams/records/'.$record->id.'/scores','POST'),$record->fresh()))->toThrow(ValidationException::class);
+    expect(fn()=>$controller->saveScores(g12Request($user->fresh(),['scores'=>array_replace($scores,['khmer'=>'G']),'score_rank'=>'12','letter_grade'=>'B','version'=>2],'/g12-national-exams/records/'.$record->id.'/scores','POST'),$record->fresh()))->toThrow(ValidationException::class);
+    expect(fn()=>$controller->saveScores(g12Request($user->fresh(),['scores'=>$scores,'score_rank'=>'12.3456','letter_grade'=>'B','version'=>2],'/g12-national-exams/records/'.$record->id.'/scores','POST'),$record->fresh()))->toThrow(ValidationException::class);
+    $failed=$controller->saveScores(g12Request($user->fresh(),['scores'=>$scores,'score_rank'=>'12.3','letter_grade'=>'F','version'=>2],'/g12-national-exams/records/'.$record->id.'/scores','POST'),$record->fresh())->getData(true);
+    expect($failed)->toMatchArray(['letter_grade'=>'F','result_status'=>'failed','score_rank'=>'12.3']);
+});
+it('returns filtered scoring totals by gender selection language and letter grade',function(){
+    $user=User::find(1);$service=app(G12NationalExams::class);
+    $rows=[
+        ['student_id'=>'3101','gender'=>'ប','class_sellected'=>'Science','language_exam'=>'Khmer','g12_letter_grade'=>'A'],
+        ['student_id'=>'3102','gender'=>'ស','class_sellected'=>'Science','language_exam'=>'English','g12_letter_grade'=>'A'],
+        ['student_id'=>'3103','gender'=>'ស្រី','class_sellected'=>'Social Science','language_exam'=>'Khmer','g12_letter_grade'=>'B'],
+        ['student_id'=>'3104','gender'=>'ប្រុស','class_sellected'=>'Social Science','language_exam'=>'English','g12_letter_grade'=>'C'],
+        ['student_id'=>'3105','gender'=>'ស','class_sellected'=>'Science','language_exam'=>'ខ្មែរ','g12_letter_grade'=>'D'],
+        ['student_id'=>'3106','gender'=>'ប','class_sellected'=>'វិទ្យាសាស្ត្រសង្គម','language_exam'=>'អង់គ្លេស','g12_letter_grade'=>'F'],
+        ['student_id'=>'3107','gender'=>'ស','class_sellected'=>'វិទ្យាសាស្ត្រ','language_exam'=>'ខ្មែរ','g12_letter_grade'=>''],
+    ];
+    foreach($rows as $index=>$row)$service->save($user,g12ExamData($row+['student_name_en'=>'SCORING SUMMARY '.($index+1)]));
+    $list=app(G12NationalExamController::class)->list(g12Request($user,['tab'=>'scoring','academic_year'=>'2025-2026']))->getData(true);
+    expect($list['summary'])->toMatchArray([
+        'total'=>7,'male'=>3,'female'=>4,
+        'selections'=>['science'=>4,'social'=>3],
+        'languages'=>['khmer'=>4,'english'=>3],
+        'groups'=>['science_khmer'=>3,'social_khmer'=>1,'science_english'=>1,'social_english'=>2],
+        'grades'=>[
+            'A'=>['total'=>2,'percentage'=>28.6,'male'=>1,'female'=>1],
+            'B'=>['total'=>1,'percentage'=>14.3,'male'=>0,'female'=>1],
+            'C'=>['total'=>1,'percentage'=>14.3,'male'=>1,'female'=>0],
+            'D'=>['total'=>1,'percentage'=>14.3,'male'=>0,'female'=>1],
+            'E'=>['total'=>0,'percentage'=>0,'male'=>0,'female'=>0],
+            'F'=>['total'=>1,'percentage'=>14.3,'male'=>1,'female'=>0],
+            'pending'=>['total'=>1,'percentage'=>14.3,'male'=>0,'female'=>1],
+        ],
+    ]);
+    expect(file_get_contents(resource_path('views/g12-national-exams/index.blade.php')))->toContain('data-g12-scoring-summary','Letter Grade Distribution','Total Candidates');
+});
+it('selects scoring subjects from exam language and selected class',function(){
+    $service=app(G12NationalExams::class);$user=User::find(1);
+    $service->save($user,g12ExamData(['student_id'=>'2001','student_name_en'=>'ENGLISH SCIENCE','language_exam'=>'English','class_sellected'=>'Science']));
+    $service->save($user,g12ExamData(['student_id'=>'2002','student_name_en'=>'KHMER SCIENCE','language_exam'=>'Khmer','class_sellected'=>'Science']));
+    $service->save($user,g12ExamData(['student_id'=>'2003','student_name_en'=>'KHMER SOCIAL','language_exam'=>'Khmer','class_sellected'=>'Social Science']));
+    $rows=collect(app(G12NationalExamController::class)->list(g12Request($user,['tab'=>'scoring','academic_year'=>'2025-2026','per_page'=>'all']))->getData(true)['data'])->keyBy('name_en');
+    $keys=fn($name)=>collect($rows[$name]['subject_scores'])->pluck('key')->all();
+    $social=app(G12NationalExamController::class)->list(g12Request($user,['tab'=>'scoring','academic_year'=>'2025-2026','class_selected'=>'Social Science']))->getData(true);
+    expect($keys('ENGLISH SCIENCE'))->toBe(['khmer','math','biology','history','chemistry','physics'])
+        ->and($keys('KHMER SCIENCE'))->toBe(['khmer','math','biology','history','chemistry','physics','english'])
+        ->and($keys('KHMER SOCIAL'))->toBe(['khmer','math','earthscience','geography','history','values','english'])
+        ->and($social['total'])->toBe(1)->and($social['data'][0]['name_en'])->toBe('KHMER SOCIAL');
+});
+it('exports a scoring CSV and previews and confirms validated A-F score updates',function(){
+    $user=User::find(1);$record=app(G12NationalExams::class)->save($user,g12ExamData(['language_exam'=>'English','class_sellected'=>'Science']));$service=app(G12ScoringImports::class);
+    $row=$service->exportRows([$record->load(['campus','center'])])[0];
+    foreach(['Khmer'=>'A','Math'=>'B','Biology'=>'C','History'=>'D','Chemistry'=>'E','Physics'=>'F'] as $subject=>$grade)$row[$subject]=$grade;
+    $row['Score Rank']='12.345';$row['Letter Grade']='B';$stream=fopen('php://temp','w+');fputcsv($stream,$service->headers());fputcsv($stream,$row);rewind($stream);$csv=stream_get_contents($stream);fclose($stream);
+    $batch=$service->preview($user,UploadedFile::fake()->createWithContent('scores.csv',$csv));$preview=$service->inspect($user,$batch);
+    expect($preview)->toMatchArray(['total'=>1,'valid'=>1,'errors'=>0]);$summary=$service->confirm($user,$batch);
+    expect($summary)->toBe(['total'=>1,'updated'=>1])
+        ->and($record->fresh()->data)->toMatchArray(['lettergrade_khmer'=>'A','lettergrade_math'=>'B','lettergrade_biology'=>'C','lettergrade_history'=>'D','lettergrade_chemistry'=>'E','lettergrade_physics'=>'F','g12_score_rank'=>'12.345','g12_letter_grade'=>'B'])
+        ->and($record->fresh()->result_status)->toBe('passed')
+        ->and(DB::table('tb_g12_exam_event')->where('action','scores-csv-imported')->exists())->toBeTrue();
+});
+it('encrypts OCR credentials enforces the monthly limit and imports only reviewed image matches',function(){
+    $user=User::find(1);$center=G12ExamCenter::create(['name'=>'OCR Center','name_key'=>'ocr center','active'=>true]);
+    $record=app(G12NationalExams::class)->save($user,g12ExamData(['center_id'=>$center->id,'g12_exam_center'=>'OCR Center','language_exam'=>'English','class_sellected'=>'Science','g12_exam_seat'=>'005']));
+    $privateKey=<<<'PEM'
+-----BEGIN PRIVATE KEY-----
+MIICdgIBADANBgkqhkiG9w0BAQEFAASCAmAwggJcAgEAAoGBANLWdJgTWPB0sYUB
+MEcfSRmyykOZlnSju8ZqwijW8pdzjP4DoaGc+AbRONeBn0EAj71l7xi9nKMiHMcs
+IcnY7+GSZrP1FwWxbHUg773UBnq7eCiJmfzR5yOOUGrmTK/9lcHnbfsaAsm2YgJA
+slBMfXEFe3Zdl0PzPBXTOaSEOonpAgMBAAECgYBZEWv0CshZ3JJZ4+SnRxo0lwlH
+gYzD/Z+H9PXNFvEo9hGsBZC0m4FUL/LZZ9MFPN18X6GgTAnuCK0rnwMvKEw9tLO1
+TK+V/kxhIuY+Nh324OytcFN4nMCoEaj+epg+sFleW0LBDZ6YbUpk+aZtr92Pp8zf
+EliMYHwJBSLvvGoQGQJBAOq8wacMjU1uQ9kRoCdXHDkqR0lHETroDyiv/myJePvF
+x7K5ySjVcjirExS7WOVuKOuMJL/ia1xFDifgtZP8rcMCQQDl73/BQ2LBNpVMT80d
+goOiirNJYIp/vSTojEiQ2o9OX5HcqpzdohaZjr8NYfSD0suOYYrqN0VuOIl/oU6q
+LFLjAkAVIsvZC8NJXo1TZUfjYu+SoiDrEzAU+sIqqrYg9bvkB6n0iM/5EkcHnTfJ
+nRjjB6k9lE/Wyz9ZfopIwu32lkDbAkBD0pApbnn7qeEB4GwNL0kqsaTOmQZhRWZU
+ncRtzboFkRUSNNUOXtgxtTRPezxHge7+8XCrQ2BccZrFJcxxT5+nAkEAi+4bNC+o
+BOSVBb56eqxwDQ8kekM154JDkjO/lVPQP79UsHrLuah6S4Y7u6VL97vTT9tXGRVe
+bHYxGamZGUsR6Q==
+-----END PRIVATE KEY-----
+PEM;
+    $credentials=['type'=>'service_account','project_id'=>'school-ocr','client_email'=>'ocr@school.test','private_key'=>$privateKey,'token_uri'=>'https://oauth2.googleapis.com/token'];
+    $service=app(G12ResultImageOcr::class);$service->saveSetting($user,['enabled'=>true,'monthly_limit'=>1,'school_aliases'=>'Western International School'],UploadedFile::fake()->createWithContent('service-account.json',json_encode($credentials)));
+    expect(DB::table('tb_g12_ocr_setting')->value('credentials'))->not->toContain('ocr@school.test');
+    $batch=$service->upload($user,['academic_year'=>'2025-2026','center_id'=>$center->id,'language_exam'=>'English','class_selected'=>'Science','room'=>'01'],[UploadedFile::fake()->createWithContent('room-01.jpg',g12PhotoBytes())]);
+    expect($service->status($user))->toMatchArray(['used'=>1,'remaining'=>0]);
+    expect(fn()=>$service->upload($user,['academic_year'=>'2025-2026','center_id'=>$center->id,'language_exam'=>'English','class_selected'=>'Science','room'=>'01'],[UploadedFile::fake()->createWithContent('extra.jpg',g12PhotoBytes())]))->toThrow(ValidationException::class,'only 0 remain');
+    $tokens=['005','Student','A','B','C','D','E','F','B'];$words=[];foreach($tokens as $index=>$token)$words[]=['symbols'=>array_map(fn($letter)=>['text'=>$letter],str_split($token)),'boundingBox'=>['vertices'=>[['x'=>$index*40,'y'=>20],['x'=>$index*40+25,'y'=>20],['x'=>$index*40+25,'y'=>35],['x'=>$index*40,'y'=>35]]]];
+    \Illuminate\Support\Facades\Http::fake(['https://oauth2.googleapis.com/token'=>\Illuminate\Support\Facades\Http::response(['access_token'=>'test-token']),
+        'https://vision.googleapis.com/v1/images:annotate'=>\Illuminate\Support\Facades\Http::response(['responses'=>[['fullTextAnnotation'=>['pages'=>[['blocks'=>[['paragraphs'=>[['words'=>$words]]]]]]]]]])]);
+    $preview=$service->processNext($user,$batch);expect($preview['pending_images'])->toBe(0)->and($preview['rows'])->toHaveCount(1)->and($preview['rows'][0])->toMatchArray(['record_id'=>$record->id,'seat'=>'5','letter_grade'=>'B','match_status'=>'matched']);
+    $summary=$service->confirm($user,$batch,$preview['rows']);expect($summary['updated'])->toBe(1)->and($record->fresh()->overall_grade)->toBe('B')->and($record->fresh()->data['lettergrade_physics'])->toBe('F');
 });
 it('lists students for exam center assignment and securely saves center room and seat',function(){
     $record=app(G12NationalExams::class)->save(User::find(1),g12ExamData(['phone_number'=>'012 345 678','gender'=>'ប']));

@@ -2,14 +2,14 @@
 namespace App\Http\Controllers;
 use App\Models\{BrandingSetting,G12ExamRecord,G12ExamCenter,G12ExamFile,G12ExamImport,SchoolInfo,User};
 use App\Support\{G12NationalExamPermissions as Access,G12NationalExamFields as Fields,ScholarshipExport};
-use App\Services\{G12NationalExams,G12NationalExamFiles};
+use App\Services\{G12NationalExams,G12NationalExamFiles,G12ScoringImports,G12ResultImageOcr};
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\{DB,File,Storage,Validator};
 use Illuminate\Validation\{Rule,ValidationException};
 class G12NationalExamController {
-    public function __construct(private G12NationalExams $exams,private G12NationalExamFiles $files){}
+    public function __construct(private G12NationalExams $exams,private G12NationalExamFiles $files,private G12ScoringImports $scoringImports,private G12ResultImageOcr $resultOcr){}
     private function tab(Request $request): string {
         $tab=$request->route('section')??$request->input('section',$request->input('tab'));$tabs=array_keys(Access::submenus());
         if(!$tab)$tab=collect($tabs)->first(fn($t)=>Access::allows($request->user(),$t));
@@ -36,18 +36,20 @@ class G12NationalExamController {
         $examData=$students->clone()->get(['data']);
         $examLanguages=$examData->map(fn($record)=>trim((string)($record->data['language_exam']??'')))->filter()->unique()->sortBy(fn($value)=>mb_strtolower($value))->values();
         $selectedClasses=$examData->map(fn($record)=>trim((string)($record->data['class_sellected']??$record->data['class_selected']??'')))->filter()->unique()->sortBy(fn($value)=>mb_strtolower($value))->values();
-        return response()->json(['campuses'=>SchoolInfo::whereIn('id',$ids)->orderBy('campus_name_en')->get(['id','campus_name_en']),
+        $result=['campuses'=>SchoolInfo::whereIn('id',$ids)->orderBy('campus_name_en')->get(['id','campus_name_en']),
             'centers'=>G12ExamCenter::orderBy('name')->get(),'years'=>$students->clone()->distinct()->orderByDesc('academic_year')->pluck('academic_year'),
             'grades'=>$students->clone()->whereNotNull('grade')->distinct()->orderBy('grade')->pluck('grade'),
             'exam_languages'=>$examLanguages,'selected_classes'=>$selectedClasses,
             'students'=>$students->orderBy('name_kh')->orderBy('name_en')->get(['id','name_kh','name_en','student_code','academic_year']),
-            'fields'=>Fields::GROUPS,'document_fields'=>Fields::DOCUMENT_FIELDS]);
+            'fields'=>Fields::GROUPS,'document_fields'=>Fields::DOCUMENT_FIELDS];
+        if($tab==='scoring')$result['ocr']=$this->resultOcr->status($request->user());
+        return response()->json($result);
     }
     public function list(Request $request){
-        $tab=$this->tab($request);abort_unless(in_array($tab,['records','assign-centers','certificates','reports'],true),403);
+        $tab=$this->tab($request);abort_unless(in_array($tab,['records','assign-centers','scoring','certificates','reports'],true),403);
         $request->validate(['per_page'=>['nullable',Rule::in(['15','25','50','100','all'])],'page'=>'nullable|integer|min:1']);
         $q=$this->query($request,$tab)->with(['center','campus','certificates']);
-        if($tab==='assign-centers'){
+        if(in_array($tab,['assign-centers','scoring'],true)){
             $q->orderBy(SchoolInfo::select('campus_name_en')->whereColumn('tb_school_info.id','tb_g12_exam_record.campus_id'))
                 ->orderBy('grade')->orderBy('name_kh')->orderBy('id');
         }else{
@@ -56,6 +58,7 @@ class G12NationalExamController {
         $summary=match($tab){
             'records'=>$this->recordSummary(clone $q),
             'assign-centers'=>$this->assignmentSummary(clone $q),
+            'scoring'=>$this->scoringSummary(clone $q),
             default=>null,
         };
         $size=$request->input('per_page','15');$perPage=$size==='all'?max(1,$q->clone()->count()):(int)$size;
@@ -106,7 +109,72 @@ class G12NationalExamController {
         uksort($summary['campuses'],fn($left,$right)=>strnatcasecmp($left,$right));
         return $summary;
     }
+    private function scoringSummary($query): array {
+        $records=$query->reorder()->get(['id','overall_grade','data']);
+        $summary=[
+            'total'=>$records->count(),'male'=>0,'female'=>0,
+            'selections'=>['science'=>0,'social'=>0],
+            'languages'=>['khmer'=>0,'english'=>0],
+            'groups'=>['science_khmer'=>0,'social_khmer'=>0,'science_english'=>0,'social_english'=>0],
+            'grades'=>[],
+        ];
+        foreach(array_merge(range('A','F'),['pending']) as $grade)$summary['grades'][$grade]=['total'=>0,'percentage'=>0,'male'=>0,'female'=>0];
+        foreach($records as $record){
+            $gender=$this->genderGroup($record->data['gender']??'');
+            if($gender)$summary[$gender]++;
+            $selection=$this->selectionGroup($record->data['class_sellected']??$record->data['class_selected']??'');
+            if($selection)$summary['selections'][$selection]++;
+            $language=$this->languageGroup($record->data['language_exam']??'');
+            if($language)$summary['languages'][$language]++;
+            if($selection&&$language)$summary['groups'][$selection.'_'.$language]++;
+            $letterGrade=$this->normalizedGrade($record->overall_grade??$record->data['g12_letter_grade']??'');
+            $grade=array_key_exists($letterGrade,$summary['grades'])?$letterGrade:'pending';
+            $summary['grades'][$grade]['total']++;
+            if($gender)$summary['grades'][$grade][$gender]++;
+        }
+        foreach($summary['grades'] as &$grade)$grade['percentage']=$summary['total']>0?round(($grade['total']/$summary['total'])*100,1):0;
+        unset($grade);
+        return $summary;
+    }
+    private function genderGroup(mixed $value): ?string {
+        $gender=mb_strtolower(trim((string)$value));
+        if(in_array($gender,['male','m','ប','ប្រុស'],true))return 'male';
+        if(in_array($gender,['female','f','ស','ស្រី'],true))return 'female';
+        return null;
+    }
+    private function languageGroup(mixed $value): ?string {
+        $language=mb_strtolower(trim((string)$value));
+        if(str_contains($language,'english')||str_contains($language,'អង់គ្លេស'))return 'english';
+        if(str_contains($language,'khmer')||str_contains($language,'ខ្មែរ'))return 'khmer';
+        return null;
+    }
+    private function selectionGroup(mixed $value): ?string {
+        $selection=mb_strtolower(trim((string)$value));
+        if(str_contains($selection,'social')||str_contains($selection,'សង្គម'))return 'social';
+        if(str_contains($selection,'science')||str_contains($selection,'វិទ្យា'))return 'science';
+        return null;
+    }
+    private function scoringSubjects(G12ExamRecord $record): array {
+        $language=mb_strtolower(trim((string)($record->data['language_exam']??'')));
+        $selected=mb_strtolower(trim((string)($record->data['class_sellected']??$record->data['class_selected']??'')));
+        $isKhmer=str_contains($language,'khmer')||str_contains($language,'ខ្មែរ');
+        $isSocial=str_contains($selected,'social')||str_contains($selected,'សង្គម');
+        $isScience=!$isSocial&&(str_contains($selected,'science')||str_contains($selected,'វិទ្យា'));
+        if($isSocial)$subjects=['khmer'=>'Khmer','math'=>'Math','earthscience'=>'Earth Science','geography'=>'Geography','history'=>'History','values'=>'Values'];
+        elseif($isScience)$subjects=['khmer'=>'Khmer','math'=>'Math','biology'=>'Biology','history'=>'History','chemistry'=>'Chemistry','physics'=>'Physics'];
+        else $subjects=[];
+        if($isKhmer)$subjects['english']='English';
+        return $subjects;
+    }
+    private function normalizedScore(mixed $value): string {
+        if($value===null||trim((string)$value)==='')return '';
+        return rtrim(rtrim(number_format((float)$value,3,'.',''),'0'),'.');
+    }
+    private function normalizedGrade(mixed $value): string {
+        return mb_strtoupper(trim((string)($value??'')));
+    }
     private function summary(G12ExamRecord $r,Request $request): array {
+        $subjectScores=collect($this->scoringSubjects($r))->map(fn($label,$key)=>['key'=>$key,'label'=>$label,'value'=>$r->data['lettergrade_'.$key]??''])->values()->all();
         return ['id'=>$r->id,'version'=>$r->version,'name_en'=>$r->name_en,'name_kh'=>$r->name_kh,'student_code'=>$r->student_code,'academic_year'=>$r->academic_year,
             'campus'=>$r->campus?->campus_name_en,'center'=>$r->center?->name,'grade'=>$r->grade,'overall_grade'=>$r->overall_grade,'result_status'=>$r->result_status,
             'room'=>$r->data['g12_exam_room']??'','seat'=>$r->data['g12_exam_seat']??'','photo_url'=>$r->photo_path?route('g12-national-exams.photo',$r):null,
@@ -114,12 +182,13 @@ class G12NationalExamController {
             'father_name'=>$r->data['father_name']??'','father_occupation'=>$r->data['father_occupation']??'',
             'g9_exam_center'=>$r->data['g9_exam_center']??'','g9_exam_date'=>$r->data['g9_exam_date']??'',
             'g9_exam_room'=>$r->data['g9_exam_room']??'','g9_exam_seat'=>$r->data['g9_exam_seat']??'',
-            'language_exam'=>$r->data['language_exam']??'','class_selected'=>$r->data['class_sellected']??$r->data['class_selected']??'','g12_exam_date'=>$r->data['g12_exam_date']??'',
+            'language_exam'=>$r->data['language_exam']??'','class_selected'=>$r->data['class_sellected']??$r->data['class_selected']??'','g12_exam_date'=>$r->data['g12_exam_date']??'','score_rank'=>$r->data['g12_score_rank']??'',
+            'subject_scores'=>$subjectScores,
             'phone_number'=>$r->data['phone_number']??'','campus_id'=>$r->campus_id,'center_id'=>$r->center_id,
-            'certificates'=>$r->certificates,'can_edit'=>Access::allows($request->user(),'edit',$r->campus_id),'can_assign'=>Access::allows($request->user(),'assign-centers-manage',$r->campus_id)];
+            'certificates'=>$r->certificates,'can_edit'=>Access::allows($request->user(),'edit',$r->campus_id),'can_assign'=>Access::allows($request->user(),'assign-centers-manage',$r->campus_id),'can_score'=>Access::allows($request->user(),'scoring-manage',$r->campus_id)];
     }
     public function show(Request $request,G12ExamRecord $record){
-        abort_unless(Access::allows($request->user(),'records',$record->campus_id)||Access::allows($request->user(),'certificates',$record->campus_id)||Access::allows($request->user(),'reports',$record->campus_id),403);
+        abort_unless(Access::allows($request->user(),'records',$record->campus_id)||Access::allows($request->user(),'scoring',$record->campus_id)||Access::allows($request->user(),'certificates',$record->campus_id)||Access::allows($request->user(),'reports',$record->campus_id),403);
         $record->load(['center','campus','certificates']);$data=$this->summary($record,$request)+['data'=>$record->data,'campus_id'=>$record->campus_id,'center_id'=>$record->center_id,'photo_filename'=>$record->photo_filename,'document_folder'=>$record->document_folder];
         $data['files']=Access::allows($request->user(),'documents-view',$record->campus_id)?$record->files()->latest('id')->get()->map(fn($f)=>$f->only(['id','kind','original_name','mime','size','created_at'])+['url'=>route('g12-national-exams.file',$f),'download'=>route('g12-national-exams.file',[$f,'download'=>1])]):[];
         $data['history']=DB::table('tb_g12_exam_event')->where('record_id',$record->id)->latest('id')->limit(30)->get(['action','user_id','created_at']);
@@ -150,6 +219,66 @@ class G12NationalExamController {
             return $record->fresh('center');
         });
         return response()->json(['message'=>'Exam assignment saved.','version'=>$saved->version,'center'=>$saved->center?->name,'room'=>$saved->data['g12_exam_room']??'','seat'=>$saved->data['g12_exam_seat']??'']);
+    }
+    public function saveScores(Request $request,G12ExamRecord $record){
+        $this->exams->authorize($request->user(),'scoring-manage',$record->campus_id);
+        $grades=['A','B','C','D','E','F','a','b','c','d','e','f'];
+        $input=$request->validate([
+            'scores'=>'required|array','scores.*'=>['nullable','string',Rule::in($grades)],
+            'score_rank'=>'nullable|numeric|min:0|max:999.999|decimal:0,3',
+            'letter_grade'=>['nullable','string',Rule::in($grades)],'version'=>'required|integer|min:1',
+        ],[
+            'scores.*.in'=>'Each subject grade must be A, B, C, D, E, or F.',
+            'letter_grade.in'=>'The Letter Grade must be A, B, C, D, E, or F.',
+            'score_rank.decimal'=>'Score / Rank can have no more than three decimal places.',
+        ]);
+        $subjects=$this->scoringSubjects($record);$unexpected=array_diff(array_keys($input['scores']),array_keys($subjects));
+        if($unexpected)throw ValidationException::withMessages(['scores'=>'Scores may be entered only for the subjects assigned to this exam language and selected class.']);
+        $saved=DB::transaction(function()use($request,$record,$input,$subjects){
+            $record=G12ExamRecord::lockForUpdate()->findOrFail($record->id);$this->exams->authorize($request->user(),'scoring-manage',$record->campus_id);
+            if((int)$input['version']!==$record->version)$this->exams->fail('These scores were changed in another window. Refresh the list and try again.');
+            $currentSubjects=$this->scoringSubjects($record);
+            if(array_keys($currentSubjects)!==array_keys($subjects))$this->exams->fail('The exam language or selected class changed. Refresh the list before entering scores.');
+            $data=$record->data;$before=['scores'=>[],'score_rank'=>$data['g12_score_rank']??'','letter_grade'=>$record->overall_grade??''];
+            $after=['scores'=>[],'score_rank'=>$this->normalizedScore($input['score_rank']??''),'letter_grade'=>$this->normalizedGrade($input['letter_grade']??'')];
+            foreach($subjects as $key=>$label){
+                $field='lettergrade_'.$key;$before['scores'][$key]=$data[$field]??'';
+                if(array_key_exists($key,$input['scores']))$data[$field]=$this->normalizedGrade($input['scores'][$key]);
+                $after['scores'][$key]=$data[$field]??'';
+            }
+            $data['g12_score_rank']=$after['score_rank'];$data['g12_letter_grade']=$after['letter_grade'];
+            $record->update(['data'=>$data,'overall_grade'=>$after['letter_grade']?:null,'result_status'=>$this->exams->status($after['letter_grade']),'version'=>$record->version+1]);
+            $this->exams->event($request->user(),'scores-updated',['before'=>$before,'after'=>$after],$record->id);return $record->fresh();
+        });
+        return response()->json(['message'=>'Grades saved.','version'=>$saved->version,'score_rank'=>$saved->data['g12_score_rank']??'','letter_grade'=>$saved->overall_grade??'','result_status'=>$saved->result_status,
+            'scores'=>collect($this->scoringSubjects($saved))->mapWithKeys(fn($label,$key)=>[$key=>$saved->data['lettergrade_'.$key]??''])]);
+    }
+    public function scoringCsvExport(Request $request){
+        $this->exams->authorize($request->user(),'scoring-csv-export');
+        $records=$this->query($request,'scoring-csv-export')->with(['center','campus'])->orderBy('campus_id')->orderBy('grade')->orderBy('name_kh')->get();
+        $rows=$this->scoringImports->exportRows($records);$headers=$this->scoringImports->headers();$filename='g12-scoring-'.($request->input('academic_year')?:now()->format('Y-m-d')).'.csv';
+        return response()->streamDownload(function()use($rows,$headers){$out=fopen('php://output','wb');fwrite($out,"\xEF\xBB\xBF");fputcsv($out,$headers);foreach($rows as $row)fputcsv($out,$row);fclose($out);},$filename,['Content-Type'=>'text/csv; charset=UTF-8','Cache-Control'=>'private, no-store']);
+    }
+    public function scoringCsvPreview(Request $request){
+        $request->validate(['file'=>'required|file|extensions:csv,txt|max:20480']);$batch=$this->scoringImports->preview($request->user(),$request->file('file'));
+        return response()->json(['id'=>$batch->id,'preview'=>$batch->summary]);
+    }
+    public function scoringCsvInspect(Request $request,G12ExamImport $batch){return response()->json(['id'=>$batch->id,'preview'=>$this->scoringImports->inspect($request->user(),$batch)]);}
+    public function scoringCsvConfirm(Request $request,G12ExamImport $batch){$request->validate(['confirmed'=>'required|accepted']);return response()->json(['message'=>'CSV scores imported.','summary'=>$this->scoringImports->confirm($request->user(),$batch)]);}
+    public function ocrSettings(Request $request){$this->exams->authorize($request->user(),'scoring-ocr-settings');return response()->json($this->resultOcr->status($request->user()));}
+    public function saveOcrSettings(Request $request){
+        $input=$request->validate(['enabled'=>'required|boolean','monthly_limit'=>'required|integer|min:1|max:999','school_aliases'=>'nullable|string|max:2000','credentials'=>'nullable|file|extensions:json|max:1024']);
+        return response()->json(['message'=>'Image scanning settings saved.','ocr'=>$this->resultOcr->saveSetting($request->user(),$input,$request->file('credentials'))]);
+    }
+    public function ocrUpload(Request $request){
+        $input=$request->validate(['academic_year'=>'required|string|max:9','center_id'=>'required|integer|exists:tb_g12_exam_center,id','language_exam'=>'required|string|max:80','class_selected'=>'required|string|max:150','room'=>'nullable|string|max:80','images'=>'required|array|min:1|max:250','images.*'=>'required|image|mimes:jpeg,jpg,png,webp|max:20480']);
+        $images=$request->file('images');unset($input['images']);$batch=$this->resultOcr->upload($request->user(),$input,$images);return response()->json($this->resultOcr->preview($request->user(),$batch));
+    }
+    public function ocrProcess(Request $request,G12ExamImport $batch){return response()->json($this->resultOcr->processNext($request->user(),$batch));}
+    public function ocrInspect(Request $request,G12ExamImport $batch){return response()->json($this->resultOcr->preview($request->user(),$batch));}
+    public function ocrConfirm(Request $request,G12ExamImport $batch){
+        $grades=['A','B','C','D','E','F',''];$input=$request->validate(['rows'=>'required|array|min:1','rows.*.record_id'=>'nullable|integer|exists:tb_g12_exam_record,id','rows.*.scores'=>'required|array','rows.*.scores.*'=>['nullable','string',Rule::in($grades)],'rows.*.score_rank'=>'nullable|numeric|min:0|max:999.999|decimal:0,3','rows.*.letter_grade'=>['nullable','string',Rule::in($grades)],'rows.*.version'=>'nullable|integer|min:1']);
+        return response()->json(['message'=>'Scanned scores imported.','summary'=>$this->resultOcr->confirm($request->user(),$batch,$input['rows'])]);
     }
     public function saveCenter(Request $request,?G12ExamCenter $center=null){
         $this->exams->authorize($request->user(),'centers-manage');$data=$request->validate(['name'=>'required|string|max:255','active'=>'required|boolean']);
@@ -231,13 +360,13 @@ class G12NationalExamController {
         $data=$request->validate(['record_id'=>'nullable|integer','replace'=>'required|boolean']);return response()->json($this->files->process($request->user(),$batch,$index,$data['record_id']??null,$data['replace']));
     }
     public function file(Request $request,G12ExamFile $file){
-        if($file->kind==='portrait')abort_unless(collect(['records','assign-centers','certificates','photos','reports'])->contains(fn($a)=>Access::allows($request->user(),$a,$file->record->campus_id)),403);
+        if($file->kind==='portrait')abort_unless(collect(['records','assign-centers','scoring','certificates','photos','reports'])->contains(fn($a)=>Access::allows($request->user(),$a,$file->record->campus_id)),403);
         else $this->exams->authorize($request->user(),'documents-view',$file->record->campus_id);
         abort_unless(Storage::disk('local')->exists($file->path),404);
         return Storage::disk('local')->response($file->path,$file->kind==='portrait'?basename($file->path):$file->original_name,['Content-Type'=>$file->mime,'X-Content-Type-Options'=>'nosniff','Cache-Control'=>'no-store, private'],$request->boolean('download')?'attachment':'inline');
     }
     public function photo(Request $request,G12ExamRecord $record){
-        abort_unless(Access::allows($request->user(),'records',$record->campus_id)||Access::allows($request->user(),'assign-centers',$record->campus_id)||Access::allows($request->user(),'certificates',$record->campus_id)||Access::allows($request->user(),'photos',$record->campus_id)||Access::allows($request->user(),'reports',$record->campus_id),403);
+        abort_unless(Access::allows($request->user(),'records',$record->campus_id)||Access::allows($request->user(),'assign-centers',$record->campus_id)||Access::allows($request->user(),'scoring',$record->campus_id)||Access::allows($request->user(),'certificates',$record->campus_id)||Access::allows($request->user(),'photos',$record->campus_id)||Access::allows($request->user(),'reports',$record->campus_id),403);
         abort_unless($record->photo_path&&Storage::disk('local')->exists($record->photo_path),404);
         return Storage::disk('local')->response($record->photo_path,null,['X-Content-Type-Options'=>'nosniff','Cache-Control'=>'no-store, private']);
     }

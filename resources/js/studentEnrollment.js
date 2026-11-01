@@ -4695,6 +4695,60 @@ loadEnrollmentStats().catch((error) => {
     if (error.name !== "AbortError") console.error(error);
 });
 fetchRows().catch((error) => console.error(error));
+const placementEnrollmentPrefill = (() => {
+    try {
+        return JSON.parse(
+            document.getElementById("placementEnrollmentPrefill")?.textContent || "null",
+        );
+    } catch {
+        return null;
+    }
+})();
+if (placementEnrollmentPrefill && canEnrollment("create")) {
+    openCreate(false)
+        .then(() => {
+            const p = placementEnrollmentPrefill;
+            field("placement_attempt_id").value = p.attempt_id || "";
+            field("student_id").value = p.application_code || "";
+            field("full_name_en").value = p.full_name_en || "";
+            field("full_name_kh").value = p.full_name_kh || "";
+            field("email").value = p.email || "";
+            field("previous_school").value = p.previous_school || "";
+            field("tested_by").value = p.tested_by || "";
+            field("test_result").value = p.test_result || "";
+            field("academic_year_id").value = p.academic_year_id || "";
+            field("campus_id").value = p.campus_id || "";
+            field("grade_id").value = p.grade_id || "";
+            field("guardian_name_en").value = p.parent_name || "";
+            field("guardian_phone").value = p.parent_phone || "";
+            if (p.date_of_birth) setDobValue(p.date_of_birth);
+            const gender = String(p.gender || "").toLowerCase();
+            const genderOption = [...(field("gender")?.options || [])].find((option) => {
+                const value = option.value.toLowerCase();
+                return ["female", "f", "ស", "ស្រី"].includes(gender)
+                    ? value === "female"
+                    : ["male", "m", "ប", "ប្រុស"].includes(gender)
+                      ? value === "male"
+                      : value === gender;
+            });
+            field("gender").value = genderOption?.value || "";
+            if (field("home_phone_number"))
+                field("home_phone_number").value = formatCambodiaPhoneDisplay(p.phone || "");
+            setCampusSelectedText();
+            refreshSearchableEnrollmentLabels();
+            updateAcademicTrackVisibility();
+            autoFamilyNumber();
+            syncDobDisplay();
+            refreshPremiumFieldStates();
+            showSuccess(
+                "Placement test passed",
+                "Applicant details were copied from the verified result. Complete the family, class, session, and required enrollment information.",
+            );
+        })
+        .catch((error) =>
+            showError("Unable to prepare enrollment", error.message),
+        );
+}
 window.enrollmentsPage = {
     edit: openEdit,
     remove,

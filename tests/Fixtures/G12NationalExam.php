@@ -23,6 +23,7 @@ function createG12NationalSchema(bool $fakeStorage=true): void {
     DB::table('access_user_campuses')->insert(['user_id'=>2,'campus_id'=>1]);
     DB::table('tb_student')->insert(['id'=>1,'student_id'=>'00123','full_name_en'=>'Existing school name']);
     (require database_path('migrations/2026_10_26_000001_create_g12_national_exam_module.php'))->up();
+    (require database_path('migrations/2026_10_31_000002_create_g12_scoring_import_workflows.php'))->up();
     if($fakeStorage)Storage::fake('local');
 }
 function g12ExamUser(array $actions=['view','records'],string $source='user'): User {

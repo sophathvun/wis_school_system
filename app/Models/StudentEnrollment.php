@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class StudentEnrollment extends Model
 {
     protected $table = 'tb_student_enrollment';
-    protected $fillable = ['student_id', 'campus_id', 'academic_year_id', 'grade_id', 'class_id', 'academic_track_id', 'group_id', 'session_id', 'status', 'student_type', 'id_book_list_no', 'enrollment_origin', 'external_student_id', 'previous_school', 'continue_at_western', 'summer_remarks', 'enrollment_status', 'enrolled_on', 'ended_on', 'exit_reason', 'notes'];
+    protected $fillable = ['student_id', 'campus_id', 'academic_year_id', 'grade_id', 'class_id', 'academic_track_id', 'group_id', 'session_id', 'placement_attempt_id', 'status', 'student_type', 'id_book_list_no', 'enrollment_origin', 'external_student_id', 'previous_school', 'continue_at_western', 'summer_remarks', 'enrollment_status', 'enrolled_on', 'ended_on', 'exit_reason', 'notes'];
 
     protected $casts = ['status' => 'boolean', 'enrolled_on' => 'date', 'ended_on' => 'date'];
 
@@ -20,4 +20,5 @@ class StudentEnrollment extends Model
     public function schoolGroup() { return $this->belongsTo(SchoolGroup::class, 'group_id'); }
     public function session() { return $this->belongsTo(Session::class); }
     public function history() { return $this->hasMany(StudentEnrollmentHistory::class, 'enrollment_id')->latest('effective_on'); }
+    public function placementAttempt() { return $this->belongsTo(PlacementTestAttempt::class, 'placement_attempt_id'); }
 }

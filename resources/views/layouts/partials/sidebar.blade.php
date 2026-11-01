@@ -305,6 +305,7 @@
                         request()->routeIs('student-documents.*') ||
                         request()->routeIs('student-skipping-grade.*') ||
                         request()->routeIs('western-scholarship.*') ||
+                        request()->routeIs('placement-tests.*') ||
                         request()->routeIs('student-data-transfer.*')
                             ? 'active'
                             : '' }}">
@@ -330,6 +331,7 @@
                             request()->routeIs('student-documents.*') ||
                             request()->routeIs('student-skipping-grade.*') ||
                             request()->routeIs('western-scholarship.*') ||
+                            request()->routeIs('placement-tests.*') ||
                             request()->routeIs('student-data-transfer.*')
                                 ? 'show'
                                 : '' }}">
@@ -345,6 +347,12 @@
                                         <a class="dropdown-item {{ request()->routeIs('studentEnrollment.*') ? 'active' : '' }}"
                                             href="{{ route('studentEnrollment.index') }}">
                                             <i class="ti ti-user-plus me-2"></i> Student Enrollment
+                                        </a>
+                                    @endif
+                                    @if ($canView('placement-tests.view'))
+                                        <a class="dropdown-item {{ request()->routeIs('placement-tests.*') ? 'active' : '' }}"
+                                            href="{{ route('placement-tests.index', ['section' => 'dashboard']) }}">
+                                            <i class="ti ti-clipboard-check me-2"></i> Student Placement Test
                                         </a>
                                     @endif
                                     @if ($canView('students.enrollment.view'))

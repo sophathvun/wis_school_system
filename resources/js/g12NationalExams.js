@@ -57,6 +57,7 @@ if(root){
             get('[data-g12-photo-year-empty]').hidden=!!meta.years.length;
             get('[data-g12-photo-preview-button]').disabled=!meta.years.length;
         }
+        if(tab==='scoring')prepareScoringTools();
         refreshPickers(root);syncFilterFields();
     };
     const filters=()=>new URLSearchParams(get('[data-g12-filters]')?new FormData(get('[data-g12-filters]')):[]);
@@ -65,6 +66,9 @@ if(root){
     const studentDob=value=>dateKhmer(value).replace(/^០/u,'');
     const addedDate=value=>{if(!value)return '—';const date=new Date(value);return Number.isNaN(date.getTime())?String(value):date.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}).replace(/ /g,'-');};
     const examLanguageKhmer=value=>({english:'អង់គ្លេស',khmer:'ខ្មែរ',french:'បារាំង'}[String(value??'').trim().toLowerCase()]||String(value??'').trim());
+    const resultFromLetterGrade=value=>{const grade=String(value??'').trim().toUpperCase();return ['A','B','C','D','E'].includes(grade)?'passed':grade==='F'?'failed':'pending';};
+    const gradeInput=(value,attribute,label,canScore,extraClass='')=>`<input type="text" class="form-control g12-score-input g12-grade-input ${extraClass} ${String(value??'').trim().toUpperCase()==='F'?'is-failing-grade':''}" maxlength="1" pattern="[A-Fa-f]" inputmode="text" autocomplete="off" autocapitalize="characters" value="${escape(value)}" ${attribute} aria-label="${escape(label)}" ${canScore?'':'disabled'}>`;
+    const subjectScores=(subjects,canScore)=>subjects?.length?`<div class="g12-subject-scores">${subjects.map(subject=>`<label><small>${escape(subject.label)}</small>${gradeInput(subject.value,`data-g12-subject-score="${escape(subject.key)}"`,`${subject.label} grade`,canScore,'g12-subject-grade-input')}</label>`).join('')}</div>`:'<span class="text-secondary">No subjects configured for this exam language and selected class.</span>';
     const recordRows=res=>res.data.map((r,i)=>`<tr>
         <td class="text-center g12-number-cell" data-label="No.">${res.from+i}</td>
         <td class="g12-photo-cell" data-label="Photo">${r.photo_url?`<button type="button" class="g12-photo-trigger" data-g12-photo-view="${escape(r.photo_url)}" data-g12-photo-title="${escape(r.name_en||r.student_code||'Student Photo')}" aria-label="View photo of ${escape(r.name_en||r.student_code||'student')}"><img src="${escape(r.photo_url)}" class="g12-photo" loading="lazy" alt="Photo of ${escape(r.name_en||r.student_code||'student')}"></button>`:'—'}</td>
@@ -88,6 +92,18 @@ if(root){
         <td data-label="Seat"><input class="form-control g12-assignment-input" data-g12-assignment-seat value="${escape(r.seat||'')}" maxlength="80" aria-label="Seat for ${escape(r.name_en||r.student_code)}" ${r.can_assign?'':'disabled'}></td>
         <td class="g12-assignment-added" data-label="Added by"><strong>${escape(r.added_by?.name||'System')}</strong><span>${escape(r.added_by?.position||'—')}</span><div class="g12-assignment-added-meta"><span>${escape(r.added_by?.campus||'—')}</span><time datetime="${escape(r.added_by?.date||'')}">${escape(addedDate(r.added_by?.date))}</time></div></td>
     </tr>`).join('')||'<tr><td colspan="9" class="text-center py-4">No students match these filters.</td></tr>';
+    const scoringRows=res=>res.data.map((r,i)=>`<tr data-g12-scoring-row data-record-id="${r.id}" data-version="${r.version}" data-can-score="${r.can_score?'true':'false'}" data-letter-grade="${escape(r.overall_grade||'')}">
+        <td class="text-center g12-scoring-number" data-label="No.">${res.from+i}</td>
+        <td class="g12-scoring-photo" data-label="Photo">${r.photo_url?`<button type="button" class="g12-photo-trigger" tabindex="-1" data-g12-photo-view="${escape(r.photo_url)}" data-g12-photo-title="${escape(r.name_en||r.student_code||'Student Photo')}" aria-label="View photo of ${escape(r.name_en||r.student_code||'student')}"><img src="${escape(r.photo_url)}" class="g12-photo" loading="lazy" alt="Photo of ${escape(r.name_en||r.student_code||'student')}"></button>`:'—'}</td>
+        <td class="g12-scoring-student" data-label="Student"><strong class="school-profile-khmer">${escape(r.name_kh||'—')}</strong><span>${escape(r.name_en||'—')}</span><small>${escape(r.student_code||'—')}</small></td>
+        <td data-label="Grade">${escape(assignmentGrade(r)||'—')}</td>
+        <td class="g12-scoring-exam" data-label="Examinations"><strong>${escape(r.center||'Not assigned')}</strong><span class="school-profile-khmer">${escape(examLanguageKhmer(r.language_exam)||'—')} <b aria-hidden="true">|</b> ${escape(r.class_selected||'—')}</span><div class="g12-scoring-room-seat"><span>Room: ${escape(r.room||'—')}</span><b aria-hidden="true">|</b><span>Seat: ${escape(r.seat||'—')}</span></div></td>
+        <td data-label="Subject Scores">${subjectScores(r.subject_scores,r.can_score)}</td>
+        <td class="g12-score-rank-cell" data-label="Score / Rank"><input type="number" class="form-control g12-score-input g12-rank-input" min="0" max="999.999" step="0.001" inputmode="decimal" value="${escape(r.score_rank)}" data-g12-score-rank aria-label="Score or rank for ${escape(r.name_en||r.student_code)}" ${r.can_score?'':'disabled'}><small class="g12-score-status text-secondary" data-g12-score-status aria-live="polite"></small></td>
+        <td class="g12-scoring-letter" data-label="Letter Grade">${gradeInput(r.overall_grade,'data-g12-letter-grade','Overall Letter Grade',r.can_score,'g12-letter-grade-input')}</td>
+        <td class="g12-scoring-result" data-label="Result"><span data-g12-result-badge>${badge(resultFromLetterGrade(r.overall_grade))}</span></td>
+        <td class="g12-scoring-actions" data-label="Actions"><button class="btn btn-sm btn-outline-primary" tabindex="-1" data-g12-view="${r.id}"><i class="ti ti-eye me-1" aria-hidden="true"></i>View</button></td>
+    </tr>`).join('')||'<tr><td colspan="10" class="text-center py-4">No students match these filters.</td></tr>';
     const renderRecordSummary=summary=>{
         const panel=get('[data-g12-summary]');if(!panel)return;
         const values={total:summary?.total??0,male:summary?.male??0,female:summary?.female??0,'science-khmer':summary?.groups?.science_khmer??0,'science-english':summary?.groups?.science_english??0,'social-khmer':summary?.groups?.social_khmer??0,'social-english':summary?.groups?.social_english??0};
@@ -105,13 +121,34 @@ if(root){
         for(const [name,value]of Object.entries(values)){const target=panel.querySelector(`[data-g12-assignment-summary-${name}]`);if(target)target.textContent=Number(value).toLocaleString();}
     };
     const resetAssignmentSummary=()=>renderAssignmentSummary(null);
+    const renderScoringSummary=summary=>{
+        const panel=get('[data-g12-scoring-summary]');if(!panel)return;
+        const values={total:summary?.total??0,male:summary?.male??0,female:summary?.female??0,
+            khmer:summary?.languages?.khmer??0,english:summary?.languages?.english??0,
+            'science-khmer':summary?.groups?.science_khmer??0,'social-khmer':summary?.groups?.social_khmer??0,
+            'science-english':summary?.groups?.science_english??0,'social-english':summary?.groups?.social_english??0};
+        for(const [name,value]of Object.entries(values)){const target=panel.querySelector(`[data-g12-scoring-summary-${name}]`);if(target)target.textContent=Number(value).toLocaleString();}
+        for(const stat of panel.querySelectorAll('[data-grade]')){
+            const grade=summary?.grades?.[stat.dataset.grade]??{};
+            stat.querySelector('[data-grade-total]').textContent=Number(grade.total??0).toLocaleString();
+            stat.querySelector('[data-grade-percentage]').textContent=`${Number(grade.percentage??0).toLocaleString(undefined,{maximumFractionDigits:1})}%`;
+            stat.querySelector('[data-grade-male]').textContent=Number(grade.male??0).toLocaleString();
+            stat.querySelector('[data-grade-female]').textContent=Number(grade.female??0).toLocaleString();
+        }
+    };
+    const resetScoringSummary=()=>renderScoringSummary(null);
     const disposeAssignmentPickers=rows=>rows.querySelectorAll('[data-g12-assignment-center]').forEach(select=>{pickers.get(select)?.destroy?.();pickers.delete(select);});
     const load=async(page=1,perPage=get('#g12PerPage')?.value??15)=>{
         const rows=get('[data-g12-records]');if(!rows)return;
-        if(!filterForm?.elements.academic_year?.value){if(tab==='assign-centers')disposeAssignmentPickers(rows);rows.innerHTML=`<tr><td colspan="${tab==='records'?8:tab==='assign-centers'?9:9}" class="text-center py-4">Select an Academic Year to display records.</td></tr>`;get('#g12Pagination').innerHTML='';resetRecordSummary();resetAssignmentSummary();return;}
+        if(!filterForm?.elements.academic_year?.value){if(tab==='assign-centers')disposeAssignmentPickers(rows);rows.innerHTML=`<tr><td colspan="${tab==='records'?8:tab==='assign-centers'?9:tab==='scoring'?10:9}" class="text-center py-4">Select an Academic Year to display records.</td></tr>`;get('#g12Pagination').innerHTML='';resetRecordSummary();resetAssignmentSummary();resetScoringSummary();return;}
         const query=filters();query.set('tab',tab);query.set('page',page);query.set('per_page',perPage);
-        const res=await api('/list?'+query);if(tab==='assign-centers')disposeAssignmentPickers(rows);rows.innerHTML=tab==='records'?recordRows(res):(tab==='assign-centers'?assignmentRows(res):trackingRows(res));if(tab==='records')renderRecordSummary(res.summary);if(tab==='assign-centers'){renderAssignmentSummary(res.summary);refreshPickers(rows);}
+        const res=await api('/list?'+query);if(tab==='assign-centers')disposeAssignmentPickers(rows);rows.innerHTML=tab==='records'?recordRows(res):(tab==='assign-centers'?assignmentRows(res):(tab==='scoring'?scoringRows(res):trackingRows(res)));if(tab==='records')renderRecordSummary(res.summary);if(tab==='assign-centers'){renderAssignmentSummary(res.summary);refreshPickers(rows);}if(tab==='scoring')renderScoringSummary(res.summary);
         renderPagination(res,'g12Pagination','g12PerPage',(p,size)=>run(()=>load(p,size)),['all',15,25,50,100]);
+    };
+    const refreshScoringSummary=async()=>{
+        if(tab!=='scoring'||!filterForm?.elements.academic_year?.value)return;
+        const query=filters();query.set('tab',tab);query.set('page','1');query.set('per_page','15');
+        renderScoringSummary((await api('/list?'+query)).summary);
     };
     const refreshAssignmentSummary=async()=>{
         if(tab!=='assign-centers'||!filterForm?.elements.academic_year?.value)return;
@@ -134,6 +171,48 @@ if(root){
         assignmentQueues.set(row,next);return next;
     };
     root.addEventListener('change',event=>{if(event.target.matches('[data-g12-assignment-center],[data-g12-assignment-room],[data-g12-assignment-seat]'))saveAssignment(event.target.closest('[data-g12-assignment-row]'));});
+    const scoringQueues=new WeakMap();
+    const validateGradeInput=input=>{
+        input.value=input.value.trim().toUpperCase();
+        const valid=input.value===''||/^[A-F]$/.test(input.value);
+        input.setCustomValidity(valid?'':'Only A, B, C, D, E, or F is allowed.');input.classList.toggle('is-invalid',!valid);input.classList.toggle('is-failing-grade',input.value==='F');
+        if(input.matches('[data-g12-letter-grade]')){const target=input.closest('[data-g12-scoring-row]')?.querySelector('[data-g12-result-badge]');if(target)target.innerHTML=badge(resultFromLetterGrade(valid?input.value:''));}
+        return valid;
+    };
+    root.addEventListener('input',event=>{if(event.target.matches('[data-g12-subject-score],[data-g12-letter-grade]'))validateGradeInput(event.target);});
+    const saveScoring=row=>{
+        if(!row||row.dataset.canScore!=='true')return;
+        const controls=[...row.querySelectorAll('[data-g12-subject-score],[data-g12-score-rank],[data-g12-letter-grade]')];
+        const invalid=controls.filter(control=>control.matches('[data-g12-subject-score],[data-g12-letter-grade]')?!validateGradeInput(control):!control.checkValidity())[0];
+        controls.forEach(control=>{if(!control.matches('[data-g12-subject-score],[data-g12-letter-grade]'))control.classList.toggle('is-invalid',!control.checkValidity());});
+        if(invalid){
+            const message=invalid.matches('[data-g12-score-rank]')?'Score / Rank must be a number with no more than three decimal places.':'Only A, B, C, D, E, or F is allowed in grade fields.';
+            invalid.classList.add('is-invalid');invalid.focus();void Swal.fire({icon:'error',title:'Invalid Grade',text:message});return;
+        }
+        const previous=scoringQueues.get(row)??Promise.resolve();
+        const next=previous.catch(()=>{}).then(async()=>{
+            const status=row.querySelector('[data-g12-score-status]'),rank=row.querySelector('[data-g12-score-rank]'),letterGrade=row.querySelector('[data-g12-letter-grade]'),scores=Object.fromEntries([...row.querySelectorAll('[data-g12-subject-score]')].map(input=>[input.dataset.g12SubjectScore,input.value.trim()===''?null:input.value]));
+            const submittedRank=rank.value,submittedLetterGrade=letterGrade.value;status.className='g12-score-status text-secondary';status.textContent='Saving…';
+            try{
+                const result=await api(`/records/${row.dataset.recordId}/scores`,{scores,score_rank:rank.value.trim()===''?null:rank.value,letter_grade:letterGrade.value.trim()===''?null:letterGrade.value,version:Number(row.dataset.version)});
+                row.dataset.version=result.version;
+                if(rank.value===submittedRank)rank.value=result.score_rank??'';
+                if(letterGrade.value===submittedLetterGrade)letterGrade.value=result.letter_grade??'';
+                for(const input of row.querySelectorAll('[data-g12-subject-score]')){const submitted=scores[input.dataset.g12SubjectScore]??'';if(input.value.trim().toUpperCase()===String(submitted??'').trim().toUpperCase())input.value=result.scores?.[input.dataset.g12SubjectScore]??'';validateGradeInput(input);}
+                row.querySelector('[data-g12-result-badge]').innerHTML=badge(resultFromLetterGrade(letterGrade.value));controls.forEach(control=>control.classList.remove('is-invalid'));status.className='g12-score-status text-success';status.textContent='Saved';
+                if(row.dataset.letterGrade!==letterGrade.value){row.dataset.letterGrade=letterGrade.value;await refreshScoringSummary();}
+            }catch(error){
+                status.className='g12-score-status text-danger';status.textContent='Not saved';controls.forEach(control=>control.classList.remove('is-invalid'));
+                for(const field of Object.keys(error.fields??{})){
+                    const subject=field.match(/^scores\.([^.]*)/)?.[1],control=subject?[...row.querySelectorAll('[data-g12-subject-score]')].find(input=>input.dataset.g12SubjectScore===subject):field==='letter_grade'?letterGrade:field==='score_rank'?rank:null;
+                    control?.classList.add('is-invalid');
+                }
+                await Swal.fire({icon:'error',title:'Scoring',text:error.message});
+            }
+        });
+        scoringQueues.set(row,next);return next;
+    };
+    root.addEventListener('change',event=>{if(event.target.matches('[data-g12-subject-score],[data-g12-score-rank],[data-g12-letter-grade]'))saveScoring(event.target.closest('[data-g12-scoring-row]'));});
     const photoViewerElement=get('#g12PhotoViewerModal');
     if(photoViewerElement){
         const viewer=s=>photoViewerElement.querySelector(s),photoModal=Modal.getOrCreateInstance(photoViewerElement),photoImage=viewer('[data-g12-photo-image]'),photoStage=viewer('[data-g12-photo-stage]'),photoZoom=viewer('[data-g12-photo-zoom]'),photoQuality=viewer('[data-g12-photo-quality]'),photoDownload=viewer('[data-g12-photo-download]');
@@ -411,5 +490,49 @@ if(root){
         updatePhotoSelection();
         await Swal.fire({icon:failed?'warning':'success',title:'Photo Batch Complete',text:`${uploaded} uploaded. ${failed} need attention; correct those rows and retry.`});
     }));
+    let scoreCsvBatch=null,ocrBatch=null,ocrRows=[];
+    const ocrUsageText=ocr=>ocr?`<strong>${ocr.enabled?'Image scanning is enabled':'Image scanning is off'}</strong><span>${Number(ocr.used).toLocaleString()} / ${Number(ocr.monthly_limit).toLocaleString()} OCR images reserved this month</span><span>${Number(ocr.remaining).toLocaleString()} remaining</span>`:'Image scanning status is unavailable.';
+    function prepareScoringTools(){
+        if(!meta?.ocr)return;
+        const usage=get('[data-g12-ocr-usage]');if(usage)usage.innerHTML=ocrUsageText(meta.ocr);
+        const button=get('[data-g12-score-ocr-open]');if(button){button.disabled=!meta.ocr.enabled;button.title=meta.ocr.enabled?'Upload MoEYS result images':'Image scanning is turned off in settings';}
+        const form=get('[data-g12-score-ocr-form]');if(form){
+            options(form.elements.academic_year,meta.years.map(v=>({id:v,label:v})),'label');options(form.elements.center_id,meta.centers.filter(v=>v.active),'name');options(form.elements.language_exam,meta.exam_languages.map(v=>({id:v,label:v})),'label');options(form.elements.class_selected,meta.selected_classes.map(v=>({id:v,label:v})),'label');
+            const current=new FormData(filterForm);for(const name of ['academic_year','center_id','language_exam','class_selected'])if(current.get(name))form.elements[name].value=current.get(name);
+        }
+    }
+    get('[data-g12-score-csv-export]')?.addEventListener('click',()=>{
+        const query=filters();if(!query.get('academic_year')){Swal.fire({icon:'info',title:'Select Academic Year',text:'Select an academic year before exporting the scoring list.'});return;}window.location.assign(base+'/scoring/csv/export?'+query);
+    });
+    get('[data-g12-score-csv-import]')?.addEventListener('click',()=>{scoreCsvBatch=null;get('[data-g12-score-csv-form]').reset();get('[data-g12-score-csv-preview]').hidden=true;get('[data-g12-score-csv-confirm]').disabled=true;modal('#g12ScoreCsvModal').show();});
+    get('[data-g12-score-csv-form]')?.addEventListener('submit',event=>{event.preventDefault();run(async()=>{
+        const result=await api('/scoring/csv/preview',new FormData(event.target));scoreCsvBatch=result.id;const preview=result.preview,panel=get('[data-g12-score-csv-preview]'),summary=get('[data-g12-score-csv-summary]');panel.hidden=false;summary.className=`alert mt-3 ${preview.errors?'alert-danger':'alert-success'}`;summary.textContent=`${preview.total} students checked · ${preview.valid} ready · ${preview.errors} with issues`;
+        get('[data-g12-score-csv-rows]').innerHTML=preview.rows.map(row=>`<tr><td>${row.line}</td><td>${escape(row.name)}<div class="text-secondary">${escape(row.student_id)}</div></td><td>${escape(row.score_rank||'—')}</td><td>${escape(row.letter_grade||'—')}</td><td class="${row.issues.length?'text-danger':'text-success'}">${escape(row.issues.join(', ')||'Ready')}</td></tr>`).join('');get('[data-g12-score-csv-confirm]').disabled=preview.errors>0;
+    });});
+    get('[data-g12-score-csv-confirm]')?.addEventListener('click',()=>run(async()=>{
+        if(!scoreCsvBatch)throw new Error('Validate a CSV file first.');const confirmation=await Swal.fire({icon:'question',title:'Import CSV scores?',text:'This will update every valid student shown in the preview.',showCancelButton:true,confirmButtonText:'Import Scores'});if(!confirmation.isConfirmed)return;
+        const result=await api(`/scoring/csv/${scoreCsvBatch}/confirm`,{confirmed:true});modal('#g12ScoreCsvModal').hide();await saved(`${result.summary.updated} students updated from CSV.`);await load();
+    }));
+    get('[data-g12-score-ocr-open]')?.addEventListener('click',()=>{if(!meta?.ocr?.enabled)return;ocrBatch=null;ocrRows=[];const form=get('[data-g12-score-ocr-form]');form.reset();prepareScoringTools();get('[data-g12-ocr-progress]').hidden=true;get('[data-g12-ocr-preview]').hidden=true;get('[data-g12-ocr-confirm]')&&(get('[data-g12-ocr-confirm]').disabled=true);modal('#g12ScoreOcrModal').show();});
+    const ocrStudentOptions=selected=>`<option value="">Select student</option>${meta.students.map(student=>`<option value="${student.id}" ${String(student.id)===String(selected)?'selected':''}>${escape([student.student_code,student.name_kh,student.name_en].filter(Boolean).join(' · '))}</option>`).join('')}`;
+    const renderOcrPreview=result=>{
+        ocrBatch=result.id;ocrRows=result.rows||[];const progress=get('[data-g12-ocr-progress]'),bar=get('[data-g12-ocr-bar]');progress.hidden=false;bar.max=result.total_images||1;bar.value=result.processed_images;get('[data-g12-ocr-progress-text]').textContent=`${result.processed_images} / ${result.total_images} images processed`;get('[data-g12-ocr-failures]').textContent=result.failed_images?`${result.failed_images} failed`:'';
+        if(result.pending_images)return;const panel=get('[data-g12-ocr-preview]');panel.hidden=false;get('[data-g12-ocr-rows]').innerHTML=ocrRows.map((row,index)=>`<tr data-g12-ocr-row="${index}" data-version="${row.version??''}"><td>${escape(row.seat??'—')}</td><td><select class="form-select form-select-sm" data-g12-ocr-student>${ocrStudentOptions(row.record_id)}</select><div class="small text-secondary mt-1">${escape(row.image_line||'')}</div></td><td><div class="g12-ocr-grades">${Object.entries(row.scores||{}).map(([subject,value])=>`<label><span>${escape(subject)}</span><input class="form-control form-control-sm ${String(value).toUpperCase()==='F'?'text-danger':''}" maxlength="1" pattern="[A-Fa-f]" data-g12-ocr-grade="${escape(subject)}" value="${escape(value)}"></label>`).join('')}</div></td><td><input type="number" class="form-control form-control-sm" min="0" max="999.999" step="0.001" data-g12-ocr-rank value="${escape(row.score_rank||'')}"></td><td><input class="form-control form-control-sm ${String(row.letter_grade).toUpperCase()==='F'?'text-danger':''}" maxlength="1" pattern="[A-Fa-f]" data-g12-ocr-letter value="${escape(row.letter_grade||'')}"></td><td>${badge(row.match_status==='matched'?'passed':'pending')}<div class="small text-danger">${escape((row.issues||[]).join(', '))}</div></td></tr>`).join('')||'<tr><td colspan="6" class="text-center py-4">No candidate rows were recognized. Check failed images or try clearer images.</td></tr>';get('[data-g12-ocr-confirm]')&&(get('[data-g12-ocr-confirm]').disabled=!ocrRows.length);
+        if(result.usage)meta.ocr=result.usage;prepareScoringTools();
+    };
+    get('[data-g12-score-ocr-form]')?.addEventListener('submit',event=>{event.preventDefault();run(async()=>{
+        if(!meta?.ocr?.enabled)throw new Error('Image scanning is turned off.');const formData=new FormData(event.target);const result=await api('/scoring/ocr/upload',formData);renderOcrPreview(result);
+        let current=result;while(current.pending_images){current=await api(`/scoring/ocr/${current.id}/process`,{});renderOcrPreview(current);}if(current.failed_images)await Swal.fire({icon:'warning',title:'Scanning Completed with Errors',text:`${current.failed_images} image(s) could not be scanned. Review the remaining rows before confirming.`});
+    });});
+    get('[data-g12-ocr-rows]')?.addEventListener('input',event=>{if(event.target.matches('[data-g12-ocr-grade],[data-g12-ocr-letter]')){event.target.value=event.target.value.toUpperCase().replace(/[^A-F]/g,'').slice(0,1);event.target.classList.toggle('text-danger',event.target.value==='F');}});
+    get('[data-g12-ocr-confirm]')?.addEventListener('click',()=>run(async()=>{
+        if(!ocrBatch)throw new Error('Upload and scan images first.');const rows=[...get('[data-g12-ocr-rows]').querySelectorAll('[data-g12-ocr-row]')].map(element=>({record_id:element.querySelector('[data-g12-ocr-student]').value||null,version:element.dataset.version||null,scores:Object.fromEntries([...element.querySelectorAll('[data-g12-ocr-grade]')].map(input=>[input.dataset.g12OcrGrade,input.value.toUpperCase()])),score_rank:element.querySelector('[data-g12-ocr-rank]').value,letter_grade:element.querySelector('[data-g12-ocr-letter]').value.toUpperCase()}));
+        if(!rows.some(row=>row.record_id))throw new Error('Select at least one matched student.');const confirmation=await Swal.fire({icon:'warning',title:'Confirm scanned scores?',text:'Only selected students will be updated. Review every grade before continuing.',showCancelButton:true,confirmButtonText:'Import Reviewed Scores'});if(!confirmation.isConfirmed)return;const result=await api(`/scoring/ocr/${ocrBatch}/confirm`,{rows});modal('#g12ScoreOcrModal').hide();await saved(`${result.summary.updated} students updated from scanned images.`);await load();
+    }));
+    get('[data-g12-score-ocr-settings]')?.addEventListener('click',()=>run(async()=>{
+        const setting=await api('/scoring/ocr/settings'),form=get('[data-g12-ocr-settings-form]'),help=get('[data-g12-ocr-help-panel]'),helpButton=get('[data-g12-ocr-help]');form.elements.enabled.checked=setting.enabled;form.elements.monthly_limit.value=setting.monthly_limit;form.elements.school_aliases.value=setting.school_aliases||'';get('[data-g12-ocr-credential-status]').textContent=setting.configured?`Configured for ${setting.service_account_email||setting.project_id}`:'No key configured.';get('[data-g12-ocr-setting-usage]').innerHTML=ocrUsageText(setting);help?.classList.add('d-none');if(helpButton)helpButton.setAttribute('aria-expanded','false');modal('#g12ScoreOcrSettingsModal').show();
+    }));
+    root.addEventListener('click',event=>{const button=event.target.closest('[data-g12-ocr-help]');if(!button)return;event.preventDefault();const panel=get('[data-g12-ocr-help-panel]'),expanded=button.getAttribute('aria-expanded')==='true';panel?.classList.toggle('d-none',expanded);button.setAttribute('aria-expanded',String(!expanded));});
+    get('[data-g12-ocr-settings-form]')?.addEventListener('submit',event=>{event.preventDefault();run(async()=>{const data=new FormData(event.target);data.set('enabled',event.target.elements.enabled.checked?'1':'0');const result=await api('/scoring/ocr/settings',data);meta.ocr=result.ocr;prepareScoringTools();modal('#g12ScoreOcrSettingsModal').hide();await saved(result.message);});});
     run(async()=>{await loadMeta();if(get('[data-g12-records]'))await load();if(tab==='centers')await centers();if(tab==='imports')await history();});
 }

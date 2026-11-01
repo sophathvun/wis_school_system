@@ -128,6 +128,39 @@ Route::get('/certificates/k3/{token}', [\App\Http\Controllers\K3CertificateVerif
 Route::get('/certificates/g12/{token}', [\App\Http\Controllers\G12CertificateVerificationController::class, 'show'])
     ->where('token', '[A-Za-z0-9]{40}')->middleware('throttle:60,1')->name('g12-certificate.verify');
 
+Route::prefix('placement-test/{token}')->name('placement-test.')
+    ->controller(\App\Http\Controllers\PlacementTestController::class)->group(function () {
+        Route::get('/', 'take')->middleware('throttle:60,1')->name('take');
+        Route::post('/start', 'startOnline')->middleware('throttle:10,1')->name('start');
+        Route::post('/submit', 'submitOnline')->middleware('throttle:10,1')->name('submit');
+    });
+
+Route::middleware(['auth', 'active.user'])->prefix('students/placement-tests')->name('placement-tests.')
+    ->controller(\App\Http\Controllers\PlacementTestController::class)->group(function () {
+        Route::get('/data', 'data')->name('data');
+        Route::post('/applicants', 'saveApplicant')->name('applicants.store');
+        Route::post('/applicants/{applicant}', 'saveApplicant')->name('applicants.update');
+        Route::post('/applicants/{applicant}/archive', 'archiveApplicant')->name('applicants.archive');
+        Route::post('/questions', 'saveQuestion')->name('questions.store');
+        Route::post('/questions/{question}', 'saveQuestion')->name('questions.update');
+        Route::post('/questions/{question}/duplicate', 'duplicateQuestion')->name('questions.duplicate');
+        Route::post('/questions/{question}/archive', 'archiveQuestion')->name('questions.archive');
+        Route::post('/forms', 'saveForm')->name('forms.store');
+        Route::post('/forms/{form}', 'saveForm')->name('forms.update');
+        Route::post('/forms/{form}/questions', 'formQuestions')->name('forms.questions');
+        Route::post('/forms/{form}/status', 'formStatus')->name('forms.status');
+        Route::post('/forms/{form}/duplicate', 'duplicateForm')->name('forms.duplicate');
+        Route::post('/applicants/{applicant}/assign', 'assign')->name('applicants.assign');
+        Route::post('/attempts/{attempt}/manual-score', 'manualScore')->name('attempt.manual-score');
+        Route::post('/attempts/{attempt}/scan', 'scan')->name('attempt.scan');
+        Route::post('/attempts/{attempt}/invalidate', 'invalidateAttempt')->name('attempt.invalidate');
+        Route::post('/scans/{scan}/verify', 'verifyScan')->name('scan.verify');
+        Route::get('/attempts/{attempt}/print', 'print')->name('attempt.print');
+        Route::post('/applicants/{applicant}/prepare-enrollment', 'prepareEnrollment')->name('applicants.enrollment');
+        Route::post('/settings', 'saveSettings')->name('settings.save');
+        Route::get('/{section?}', 'index')->where('section', 'dashboard|applicants|questions|forms|sessions|marking|results|enrollment|settings')->name('index');
+    });
+
 Route::middleware(['auth', 'active.user'])->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 Route::middleware('auth')->group(function () {
@@ -405,7 +438,9 @@ Route::middleware(['auth', 'active.user'])->group(function () {
     Route::prefix('g12-national-exams')->name('g12-national-exams.')->controller(\App\Http\Controllers\G12NationalExamController::class)->group(function(){
         foreach(\App\Support\G12NationalExamPermissions::PATHS as $section=>$path)Route::get('/'.$path,'index')->defaults('section',$section)->name($section);
         Route::get('/','index')->name('index');Route::get('/meta','meta')->name('meta');Route::get('/list','list')->name('list');Route::get('/report','report')->name('report');
-        Route::post('/records','save')->name('store');Route::get('/records/{record}','show')->name('show');Route::post('/records/{record}','save')->name('update');Route::post('/records/{record}/exam-assignment','saveExamAssignment')->name('assignment.update');
+        Route::post('/records','save')->name('store');Route::get('/records/{record}','show')->name('show');Route::post('/records/{record}','save')->name('update');Route::post('/records/{record}/exam-assignment','saveExamAssignment')->name('assignment.update');Route::post('/records/{record}/scores','saveScores')->name('scores.update');
+        Route::get('/scoring/csv/export','scoringCsvExport')->name('scoring.csv.export');Route::post('/scoring/csv/preview','scoringCsvPreview')->name('scoring.csv.preview');Route::get('/scoring/csv/{batch}','scoringCsvInspect')->name('scoring.csv.inspect');Route::post('/scoring/csv/{batch}/confirm','scoringCsvConfirm')->name('scoring.csv.confirm');
+        Route::get('/scoring/ocr/settings','ocrSettings')->name('scoring.ocr.settings');Route::post('/scoring/ocr/settings','saveOcrSettings')->name('scoring.ocr.settings.update');Route::post('/scoring/ocr/upload','ocrUpload')->name('scoring.ocr.upload');Route::get('/scoring/ocr/{batch}','ocrInspect')->name('scoring.ocr.inspect');Route::post('/scoring/ocr/{batch}/process','ocrProcess')->name('scoring.ocr.process');Route::post('/scoring/ocr/{batch}/confirm','ocrConfirm')->name('scoring.ocr.confirm');
         Route::get('/records/{record}/photo','photo')->name('photo');Route::post('/records/{record}/files','upload')->name('upload');
         Route::post('/records/{record}/certificates/{type}','collection')->name('collection');Route::get('/files/{file}','file')->name('file');
         Route::get('/centers','centers')->name('centers.list');Route::post('/centers','saveCenter')->name('centers.store');Route::post('/centers/{center}/status','centerStatus')->name('centers.status');Route::post('/centers/{center}','saveCenter')->name('centers.update');

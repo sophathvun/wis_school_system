@@ -139,6 +139,7 @@
                         @endforeach
                     @endforeach
                     <input type="hidden" id="enrollment_id" name="enrollment_id">
+                    <input type="hidden" id="placement_attempt_id" name="placement_attempt_id">
                     <input type="hidden" id="student_record_id" name="student_record_id">
                     <div class="modal-header">
                         <h5 id="enrollmentModalTitle" class="modal-title">Create Student Enrollment</h5>
@@ -875,6 +876,7 @@
             </div>
         </div>
     </div>
+    <script type="application/json" id="placementEnrollmentPrefill">@json($placementEnrollmentPrefill ?? null)</script>
     @vite('resources/js/studentEnrollment.js')
     @vite('resources/css/pages/student-enrollment.css')
 @endsection

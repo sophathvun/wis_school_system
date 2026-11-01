@@ -26,18 +26,40 @@ use App\Models\FamilyMember;
 use App\Models\AcademicTrack;
 use App\Models\EnrollmentWorkflowAction;
 use App\Support\StudentEnrollmentPermissions;
+use App\Support\PlacementTestPermissions;
+use App\Models\PlacementTestAttempt;
 
 class StudentEnrollmentController
 {
     public function __construct(private readonly FamilyService $familyService) {}
-    public function index()
+    public function index(Request $request)
     {
         $this->authorizeAction('view');
+        $placementEnrollmentPrefill = null;
+        if ($request->filled('placement_attempt')) {
+            $attempt = PlacementTestAttempt::with(['applicant.academicYear', 'applicant.campus', 'applicant.recommendedGrade', 'form.grade', 'verifiedBy'])
+                ->whereKey($request->integer('placement_attempt'))->where('status', 'verified')->where('result', 'passed')->firstOrFail();
+            abort_unless(PlacementTestPermissions::allows($request->user(), 'enroll', $attempt->applicant->campus_id), 403);
+            abort_if($attempt->applicant->enrolled_student_id || StudentEnrollment::where('placement_attempt_id', $attempt->id)->exists(), 422, 'This placement-test applicant has already been enrolled.');
+            $applicant = $attempt->applicant;
+            $placementEnrollmentPrefill = [
+                'attempt_id' => $attempt->id, 'application_code' => $applicant->application_code,
+                'academic_year_id' => $applicant->academic_year_id, 'campus_id' => $applicant->campus_id,
+                'grade_id' => $applicant->recommended_grade_id ?: $applicant->target_grade_id,
+                'full_name_en' => $applicant->full_name_en, 'full_name_kh' => $applicant->full_name_kh,
+                'gender' => $applicant->gender, 'date_of_birth' => $applicant->date_of_birth?->format('Y-m-d'),
+                'phone' => $applicant->phone, 'email' => $applicant->email, 'previous_school' => $applicant->previous_school,
+                'parent_name' => $applicant->parent_name, 'parent_phone' => $applicant->parent_phone,
+                'tested_by' => $attempt->verifiedBy?->name ?: 'Placement Test System',
+                'test_result' => sprintf('Placement Test · Form %s · Passed · %s/%s (%s%%)', $attempt->form->form_code, $attempt->score, $attempt->max_score, $attempt->percentage),
+            ];
+        }
         return view('student-enrollment', [
             'enrollmentPermissions' => StudentEnrollmentPermissions::current()->flags(),
             'activeListAcademicYear' => app(\App\Services\EnrollmentListSelection::class)->activeYear(),
             'listAcademicYears' => AcademicYear::orderByDesc('academic_year')
                 ->get(['id', 'academic_year', 'period_type', 'parent_academic_year_id', 'lifecycle_status', 'start_date', 'end_date']),
+            'placementEnrollmentPrefill' => $placementEnrollmentPrefill,
         ]);
     }
 
@@ -429,6 +451,7 @@ class StudentEnrollmentController
             'ended_on' => ['nullable', 'date', 'after_or_equal:enrolled_on'],
             'exit_reason' => ['nullable', 'string', 'max:255'],
             'enrollment_notes' => ['nullable', 'string', 'max:5000'],
+            'placement_attempt_id' => ['nullable', 'integer', 'exists:tb_placement_test_attempt,id'],
             'mother_name_en' => ['required', 'string', 'max:160'],
             'mother_name_kh' => ['nullable', 'string', 'max:160'],
             'mother_occupation_en' => ['nullable', 'string', 'max:120'],
@@ -458,6 +481,21 @@ class StudentEnrollmentController
             'student_id.unique' => 'This Student ID already exists. Please enter a different Student ID.',
         ]);
 
+        $placementAttempt = null;
+        if (!$existingEnrollment && !empty($validated['placement_attempt_id'])) {
+            $placementAttempt = PlacementTestAttempt::with(['applicant', 'form', 'verifiedBy'])
+                ->whereKey($validated['placement_attempt_id'])->where('status', 'verified')->where('result', 'passed')->firstOrFail();
+            abort_unless(PlacementTestPermissions::allows($request->user(), 'enroll', $placementAttempt->applicant->campus_id), 403);
+            if ($placementAttempt->applicant->enrolled_student_id || StudentEnrollment::where('placement_attempt_id', $placementAttempt->id)->exists()) {
+                throw ValidationException::withMessages(['placement_attempt_id' => 'This placement-test applicant has already been enrolled.']);
+            }
+            if ((int) $placementAttempt->applicant->campus_id !== (int) $validated['campus_id'] || (int) $placementAttempt->applicant->academic_year_id !== (int) $validated['academic_year_id']) {
+                throw ValidationException::withMessages(['placement_attempt_id' => 'The enrollment campus and academic year must match the verified placement test.']);
+            }
+            $validated['test_result'] = sprintf('Placement Test · Form %s · Passed · %s/%s (%s%%)', $placementAttempt->form->form_code, $placementAttempt->score, $placementAttempt->max_score, $placementAttempt->percentage);
+            $validated['tested_by'] = $placementAttempt->verifiedBy?->name ?: 'Placement Test System';
+        }
+
         $grade = Grade::find($validated['grade_id']);
         $isGrade12 = $this->isGrade12($grade);
         if (!$existingEnrollment && $isGrade12 && empty($validated['academic_track_id'])) {
@@ -475,7 +513,7 @@ class StudentEnrollmentController
 
         $newPhotoPath = null;
         try {
-            $enrollment = DB::transaction(function () use ($validated, $id, $request, &$newPhotoPath) {
+            $enrollment = DB::transaction(function () use ($validated, $id, $request, &$newPhotoPath, $placementAttempt) {
                 $student = $request->input('student_record_id')
                     ? Student::query()->lockForUpdate()->findOrFail($request->input('student_record_id'))
                     : new Student();
@@ -589,7 +627,7 @@ class StudentEnrollmentController
                     }
                 }
                 if (!$wasExisting) {
-                    $enrollment->fill(collect($validated)->only(['campus_id', 'academic_year_id', 'grade_id', 'class_id', 'academic_track_id', 'session_id', 'status'])->all());
+                    $enrollment->fill(collect($validated)->only(['campus_id', 'academic_year_id', 'grade_id', 'class_id', 'academic_track_id', 'session_id', 'placement_attempt_id', 'status'])->all());
                     $enrollment->group_id = null;
                     $enrollment->student_id = $student->id;
                     $academicYear = AcademicYear::findOrFail($validated['academic_year_id']);
@@ -617,6 +655,10 @@ class StudentEnrollmentController
                         $enrollment->notes = $validated['enrollment_notes'];
                     }
                     $enrollment->save();
+                    if ($placementAttempt) {
+                        $placementAttempt->applicant->update(['enrolled_student_id' => $student->id, 'status' => 'enrolled']);
+                        app(\App\Services\PlacementTests::class)->event($request->user(), 'student-enrolled', $placementAttempt->applicant, $placementAttempt, ['student_id' => $student->id, 'enrollment_id' => $enrollment->id]);
+                    }
                 }
 
                 $newAssignment = $enrollment->only(['campus_id', 'academic_year_id', 'grade_id', 'class_id', 'academic_track_id', 'session_id']);
