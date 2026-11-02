@@ -1,0 +1,18 @@
+body{font-family:dejavusans;font-size:9pt;color:#172033}
+.khmer{font-family:g12siemreap}
+.muol{font-family:g12muol;font-weight:normal}
+.english{font-family:dejavusans}
+.official-heading{width:100%;border-collapse:collapse;margin-bottom:4mm}
+.official-heading td{border:0;vertical-align:top;line-height:1.4}
+.authority{width:53%;padding-top:5mm;font-size:12pt}
+.motto{width:47%;text-align:center;font-size:13pt}
+.ornament{font-family:dejavusans;font-size:8pt;margin-top:2mm}
+h1,h2,h3{text-align:center;font-size:12pt;font-weight:normal;margin:1mm 0;color:#173c71}
+h2,h3{color:#172033}
+h3{margin-bottom:3mm}
+.candidates{width:100%;border-collapse:collapse;table-layout:fixed}
+.candidates th,.candidates td{border:.2mm solid #2f3540;text-align:center;vertical-align:middle;padding:1mm 1.2mm;line-height:1.1;font-size:9pt}
+.candidates th{background:#dbeafe;font-size:7pt;height:9mm;font-weight:normal}
+.candidates .name{text-align:left}
+.candidates .campus-heading td{background:#fff2cc;text-align:left;font-family:g12siemreap;font-size:9pt;padding:2mm;page-break-after:avoid}
+.summary{margin-top:3mm;line-height:1.6;font-size:9pt;page-break-inside:avoid}

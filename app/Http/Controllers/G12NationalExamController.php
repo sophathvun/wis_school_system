@@ -437,11 +437,19 @@ class G12NationalExamController {
         unset($filters['campus_id']);
         if($input['format']==='xlsx'){
             $filename=$this->resultReports->filename($input['report_type'],'xlsx');
-            return response(app(ScholarshipExport::class)->xlsx($this->resultReports->excelRows($report,$filters)),200,['Content-Type'=>'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','Content-Disposition'=>'attachment; filename="'.$filename.'"']);
+            $workbook=in_array($input['report_type'],['grade-a','grade-a-campus','result-list'],true)
+                ?app(\App\Support\G12GradeAWorkbook::class)->generate($report,$filters)
+                :app(ScholarshipExport::class)->xlsx($this->resultReports->excelRows($report,$filters));
+            return response($workbook,200,['Content-Type'=>'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','Content-Disposition'=>'attachment; filename="'.$filename.'"']);
         }
         $fontPath=public_path('fonts/khmer/KhmerOSsiemreap.ttf');$khmerFontData=is_file($fontPath)?'data:font/truetype;base64,'.base64_encode(file_get_contents($fontPath)):null;
-        $data=$report+['filters'=>$filters,'reportLogo'=>app(ScholarshipExport::class)->reportLogo(1),'khmerFontData'=>$khmerFontData,'reportDate'=>now('Asia/Bangkok'),'pdfExport'=>$input['format']==='pdf'];
+        $muolFontPath=public_path('fonts/khmer/KhmerOSmuollight.ttf');$khmerMuolFontData=is_file($muolFontPath)?'data:font/truetype;base64,'.base64_encode(file_get_contents($muolFontPath)):null;
+        $data=$report+['filters'=>$filters,'reportLogo'=>app(ScholarshipExport::class)->reportLogo(1),'khmerFontData'=>$khmerFontData,'khmerMuolFontData'=>$khmerMuolFontData,'reportDate'=>now('Asia/Bangkok'),'pdfExport'=>$input['format']==='pdf'];
         if($input['format']==='print')return view('g12-national-exams.result-report',$data);
+        if(in_array($input['report_type'],['grade-a','grade-a-campus','result-list'],true))return response(app(\App\Support\G12GradeAPdf::class)->render($data),200,[
+            'Content-Type'=>'application/pdf',
+            'Content-Disposition'=>'attachment; filename="'.$this->resultReports->filename($input['report_type'],'pdf').'"',
+        ]);
         File::ensureDirectoryExists(storage_path('fonts'),0755,true);
         return Pdf::loadView('g12-national-exams.result-report',$data)->setPaper('a4',$report['orientation'])->download($this->resultReports->filename($input['report_type'],'pdf'));
     }

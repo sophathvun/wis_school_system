@@ -1,0 +1,6 @@
+.authority{padding-top:16mm}
+.results{margin-top:3mm}
+.results th,.results td{font-size:11pt;font-weight:normal;line-height:1.3;padding:1mm .5mm}
+.results th{white-space:nowrap}
+.results .school-heading td{background:#fff1a8;text-align:left;font-size:11pt;padding:2mm;page-break-after:avoid}
+.results .failed td{background:#fff0f0;color:#b71926}

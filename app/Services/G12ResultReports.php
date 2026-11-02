@@ -19,22 +19,31 @@ class G12ResultReports
         $rows = $records->values()->map(fn ($record, $index) => $this->record($record, $index + 1));
 
         if (in_array($type, ['grade-a', 'grade-a-campus'], true)) {
-            $rows = $rows->where('letter_grade', 'A')->sortByDesc(fn ($row) => (float) ($row['score_rank'] ?: -1))->values();
-            $rows = $rows->map(fn ($row, $index) => array_replace($row, ['certificate_number' => $row['certificate_number'] ?: $this->certificateNumber($row, $index + 1)]));
+            $rows = $rows->where('letter_grade', 'A')->sort(function ($left, $right) {
+                $rank = ((float) ($right['score_rank'] ?: -1)) <=> ((float) ($left['score_rank'] ?: -1));
+                if ($rank !== 0) return $rank;
+                $certificate = strnatcasecmp((string) $left['certificate_number'], (string) $right['certificate_number']);
+                return $certificate !== 0 ? $certificate : strnatcasecmp($left['name_en'], $right['name_en']);
+            })->values();
+            $rows = $rows->map(fn ($row, $index) => array_replace($row, ['number' => $index + 1, 'certificate_number' => $row['certificate_number'] ?: $this->certificateNumber($row, $index + 1)]));
         } elseif ($type === 'result-list') {
             $order = array_flip(['A', 'B', 'C', 'D', 'E', 'F', '']);
-            $rows = $rows->sortBy(fn ($row) => sprintf('%s|%03d|%s', $row['campus'], $order[$row['letter_grade']] ?? 99, $row['name_kh']))->values();
+            $rows = $rows->sortBy(fn ($row) => sprintf('%s|%03d|%s', $row['school_group'], $order[$row['letter_grade']] ?? 99, $row['name_kh']))->values();
         }
 
         $groups = $type === 'grade-a-campus' || $type === 'result-list'
-            ? $rows->groupBy('campus')->map(fn ($items) => $items->values())->all()
+            ? $rows->groupBy($type === 'result-list' ? 'school_group' : 'campus')->map(fn ($items) => $items->values())->all()
             : [];
 
         return [
             'type' => $type,
             'title' => self::TYPES[$type],
+            'exam_session' => $rows->pluck('exam_date')->filter()->unique()->map(fn ($date) => $this->examSessionDate($date))->implode(' / '),
             'orientation' => str_starts_with($type, 'statistics-') ? 'landscape' : 'portrait',
             'rows' => $rows->all(),
+            'pages' => $type === 'grade-a' ? $this->gradeAPages($rows) : [],
+            'previewPages' => $type === 'grade-a' ? $rows->chunk(25)->map(fn ($page) => $page->values()->all())->all() : [],
+            'summary' => ['total' => $rows->count(), 'female' => $rows->where('gender_key', 'female')->count(), 'male' => $rows->where('gender_key', 'male')->count()],
             'groups' => $groups,
             'statistics' => str_starts_with($type, 'statistics-') ? $this->statistics($rows, $type === 'statistics-all') : [],
         ];
@@ -85,11 +94,19 @@ class G12ResultReports
         $selected = $this->selected((string) ($data['class_sellected'] ?? $data['class_selected'] ?? ''));
         $score = $data['g12_score_rank'] ?? '';
         $certificate = $record->certificates->first(fn ($item) => filled($item->number ?? null));
+        $schoolName = $record->campus?->school_name_kh ?: ($record->campus?->school_name_en ?: 'សាលាវេស្ទើនអន្តរជាតិ');
+        $campusName = $record->campus?->campus_name_kh ?: ($record->campus?->campus_name_en ?: ($data['campus'] ?? ''));
+        $schoolGroup = trim((string) ($data['school_name'] ?? ''));
+        if ($schoolGroup === '') $schoolGroup = $schoolName.($campusName !== '' ? ' ('.$campusName.')' : '').($language === 'English' ? '(អង់គ្លេស)' : '');
 
         return [
             'number' => $number, 'academic_year' => $record->academic_year, 'campus' => $record->campus?->campus_name_en ?: ($data['campus'] ?? 'Unassigned'),
             'name_en' => $record->name_en, 'name_kh' => $record->name_kh, 'student_code' => $record->student_code,
+            'school_name_kh' => $record->campus?->school_name_kh ?: ($record->campus?->school_name_en ?: 'សាលាវេស្ទើនអន្តរជាតិ'),
+            'campus_name_kh' => $record->campus?->campus_name_kh ?: ($record->campus?->campus_name_en ?: ($data['campus'] ?? '')),
+            'school_group' => $schoolGroup,
             'gender' => $gender['label'], 'gender_key' => $gender['key'], 'dob' => $data['dob'] ?? '', 'phone' => $data['phone_number'] ?? '',
+            'dob_display' => $this->displayDate($data['dob'] ?? ''),
             'grade' => $record->grade, 'grade_line' => implode('-', array_filter([$record->academic_year, $record->campus?->campus_name_en ?: ($data['campus'] ?? null), $record->grade])),
             'center' => $record->center?->name ?: ($data['g12_exam_center'] ?? ''), 'exam_date' => $data['g12_exam_date'] ?? '',
             'room' => $data['g12_exam_room'] ?? '', 'seat' => $data['g12_exam_seat'] ?? '',
@@ -112,6 +129,34 @@ class G12ResultReports
         }
         if ($byCampus) $output[] = $this->statRow($rows, 'All Campuses', 'Grand Total', true);
         return ['rows' => $output];
+    }
+
+    private function gradeAPages(Collection $rows): array
+    {
+        if ($rows->isEmpty()) return [[]];
+        $pages = [$rows->take(17)->values()->all()];
+        foreach ($rows->skip(17)->chunk(25) as $page) $pages[] = $page->values()->all();
+        return $pages;
+    }
+
+    private function displayDate(?string $value): string
+    {
+        if (blank($value)) return '';
+        try {
+            return \Carbon\CarbonImmutable::parse($value)->format('d-m-Y');
+        } catch (\Throwable) {
+            return $value;
+        }
+    }
+
+    private function examSessionDate(string $value): string
+    {
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}/', $value)) return $value;
+        try {
+            $date = \Carbon\CarbonImmutable::parse($value);
+            $months = ['មករា','កុម្ភៈ','មីនា','មេសា','ឧសភា','មិថុនា','កក្កដា','សីហា','កញ្ញា','តុលា','វិច្ឆិកា','ធ្នូ'];
+            return strtr($date->format('d').' '.$months[$date->month-1].' '.$date->year, array_combine(range(0,9), ['០','១','២','៣','៤','៥','៦','៧','៨','៩']));
+        } catch (\Throwable) { return $value; }
     }
 
     private function statRow(Collection $rows, string $campus, string $label, bool $total = false): array

@@ -68,13 +68,19 @@ $filterFields=$tab==='records'
 </div>
 @elseif($permissions['results-export'])
 <div class="g12-result-report-actions ms-auto">
-<label class="visually-hidden" for="g12ResultReportType">Result report</label>
-<select class="form-select" id="g12ResultReportType" data-g12-result-report aria-label="Result report type">
-@foreach(\App\Services\G12ResultReports::TYPES as $value=>$label)<option value="{{ $value }}">{{ $label }}</option>@endforeach
-</select>
-<button type="button" class="btn btn-outline-light" data-g12-export="print"><i class="ti ti-printer me-1"></i>Print</button>
-<button type="button" class="btn btn-outline-light" data-g12-export="xlsx"><i class="ti ti-file-spreadsheet me-1"></i>Excel</button>
-<button type="button" class="btn btn-outline-light" data-g12-export="pdf"><i class="ti ti-file-type-pdf me-1"></i>PDF</button>
+@foreach(['print'=>['Print','ti-printer'],'xlsx'=>['Excel','ti-file-spreadsheet'],'pdf'=>['PDF','ti-file-type-pdf']] as $format=>[$action,$icon])
+<div class="dropdown">
+    <button type="button" class="btn btn-outline-light dropdown-toggle" id="g12ReportMenu-{{ $format }}" data-bs-toggle="dropdown" aria-expanded="false"><i class="ti {{ $icon }} me-1" aria-hidden="true"></i>{{ $action }}</button>
+    <div class="dropdown-menu dropdown-menu-end g12-report-menu" aria-labelledby="g12ReportMenu-{{ $format }}">
+        @foreach(\App\Services\G12ResultReports::TYPES as $value=>$label)
+        <button type="button" class="dropdown-item g12-report-menu-item" data-g12-export="{{ $format }}" data-g12-report-type="{{ $value }}">
+            <span class="g12-report-menu-icon"><i class="ti {{ match($value) {'grade-a'=>'ti-award','grade-a-campus'=>'ti-building','result-list'=>'ti-list-check','statistics-doeys'=>'ti-report-analytics',default=>'ti-chart-pie'} }}" aria-hidden="true"></i></span>
+            <span>{{ $label }}</span>
+        </button>
+        @endforeach
+    </div>
+</div>
+@endforeach
 </div>
 @endif</div>
 <div class="table-responsive g12-scoring-table-wrap"><table class="table table-vcenter card-table g12-scoring-table @if($tab==='results') g12-results-table @endif"><thead><tr><th class="text-center">No.</th><th>Photo</th><th>Student</th><th>Grade</th><th>Examinations</th><th>{{ $tab==='scoring'?'Subject Scores':'Subject Results' }}</th><th>Score / Rank</th><th>Letter Grade</th><th>Result</th><th>Actions</th></tr></thead><tbody data-g12-records><tr><td colspan="10" class="text-center py-4">Select an Academic Year to display students.</td></tr></tbody></table></div>

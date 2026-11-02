@@ -553,7 +553,15 @@ if(root){
         }else if(receipt){const upload=new FormData();upload.append('kind',`${type}_certificate_received`);upload.append('file',receipt);await api(`/records/${recordId}/files`,upload);}
         modal('#g12CertificateModal').hide();await saved('Certificate documents and tracking details were saved.');await load();
     });});
-    root.addEventListener('click',e=>{const view=e.target.closest('[data-g12-view]'),edit=e.target.closest('[data-g12-edit]'),certificate=e.target.closest('[data-g12-certificate-manage]'),center=e.target.closest('[data-g12-center-edit]'),centerStatus=e.target.closest('[data-g12-center-status]'),report=e.target.closest('[data-g12-export]');if(view)run(()=>openView(view.dataset.g12View));if(edit)run(()=>openEdit(edit.dataset.g12Edit));if(certificate)run(()=>openCertificate(certificate.dataset.g12CertificateManage,certificate.dataset.certificateType));if(center)openCenter(center.dataset.g12CenterEdit);if(centerStatus&&!centerStatus.disabled)run(()=>toggleCenterStatus(centerStatus));if(report){const query=filters();query.set('format',report.dataset.g12Export);if(tab==='results'){query.set('tab','results');query.set('report_type',get('[data-g12-result-report]')?.value||'grade-a');}window.open(base+'/report?'+query,'_blank','noopener');}});
+    root.addEventListener('click',e=>{const view=e.target.closest('[data-g12-view]'),edit=e.target.closest('[data-g12-edit]'),certificate=e.target.closest('[data-g12-certificate-manage]'),center=e.target.closest('[data-g12-center-edit]'),centerStatus=e.target.closest('[data-g12-center-status]'),report=e.target.closest('[data-g12-export]');if(view)run(()=>openView(view.dataset.g12View));if(edit)run(()=>openEdit(edit.dataset.g12Edit));if(certificate)run(()=>openCertificate(certificate.dataset.g12CertificateManage,certificate.dataset.certificateType));if(center)openCenter(center.dataset.g12CenterEdit);if(centerStatus&&!centerStatus.disabled)run(()=>toggleCenterStatus(centerStatus));if(report){
+        const query=filters();
+        query.set('format',report.dataset.g12Export);
+        if(tab==='results'){
+            query.set('tab','results');
+            query.set('report_type',report.dataset.g12ReportType);
+        }
+        window.open(base+'/report?'+query,'_blank','noopener');
+    }});
     root.querySelectorAll('[data-g12-drop]').forEach(zone=>{
         for(const type of ['dragenter','dragover'])zone.addEventListener(type,e=>{e.preventDefault();zone.classList.add('dragover');});
         for(const type of ['dragleave','drop'])zone.addEventListener(type,e=>{e.preventDefault();zone.classList.remove('dragover');});

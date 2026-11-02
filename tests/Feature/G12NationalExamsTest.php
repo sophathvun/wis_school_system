@@ -17,9 +17,21 @@ it('prepares the five G12 result reports with Khmer gender totals and three-deci
     $a->certificates()->where('type','soft')->update(['number'=>'1226-009']);
     $records=G12ExamRecord::with(['center','campus','certificates'])->get();$reports=app(G12ResultReports::class);
     $gradeA=$reports->prepare($records,'grade-a');$statistics=$reports->prepare($records,'statistics-doeys');
-    expect($gradeA['rows'])->toHaveCount(1)->and($gradeA['rows'][0]['certificate_number'])->toBe('1226-009')->and($gradeA['rows'][0]['score_rank'])->toBe('98.100')
+    expect($gradeA['rows'])->toHaveCount(1)->and($gradeA['pages'])->toHaveCount(1)->and($gradeA['rows'][0]['number'])->toBe(1)
+        ->and($gradeA['rows'][0]['certificate_number'])->toBe('1226-009')->and($gradeA['rows'][0]['score_rank'])->toBe('98.100')
         ->and($statistics['statistics']['rows'][0]['registered']['male'])->toBe(1)
         ->and(collect($statistics['statistics']['rows'])->firstWhere('label','Social Science - Khmer')['grades']['F']['female'])->toBe(1);
+});
+
+it('uses full preview pages and print-safe pages for the Grade A A4 report',function(){
+    $records=collect(range(1,49))->map(function($number){
+        $record=new G12ExamRecord(['academic_year'=>'2025-2026','student_code'=>(string)$number,'name_en'=>'STUDENT '.$number,'name_kh'=>'សិស្ស','grade'=>'12A','overall_grade'=>'A','data'=>['gender'=>$number%2?'ប':'ស','g12_score_rank'=>100-$number/100]]);
+        $record->setRelation('campus',new App\Models\SchoolInfo(['campus_name_en'=>'BCH']));$record->setRelation('certificates',collect());return $record;
+    });
+    $report=app(G12ResultReports::class)->prepare($records,'grade-a');
+    expect(array_map('count',$report['previewPages']))->toBe([25,24])
+        ->and(array_map('count',$report['pages']))->toBe([17,25,7])
+        ->and($report['rows'][0]['number'])->toBe(1)->and($report['rows'][48]['number'])->toBe(49);
 });
 
 it('exports every G12 result report as print Excel and PDF',function(){
@@ -27,10 +39,38 @@ it('exports every G12 result report as print Excel and PDF',function(){
     $controller=app(G12NationalExamController::class);
     foreach(array_keys(G12ResultReports::TYPES) as $type){
         $print=$controller->report(g12Request(User::find(1),['tab'=>'results','format'=>'print','report_type'=>$type,'academic_year'=>'2025-2026']));
-        expect($print->render())->toContain(G12ResultReports::TYPES[$type],'WESTERN INTERNATIONAL SCHOOL');
+        $html=$print->render();expect($html)->toContain(G12ResultReports::TYPES[$type]);
+        if(in_array($type,['grade-a','grade-a-campus','result-list'],true))expect($html)->toContain('font-family:KhmerMuolLight','class="grade-a-authority khmer-muol"','<h1 class="khmer-muol">')
+            ->not->toContain('WESTERN INTERNATIONAL SCHOOL');
+        else expect($html)->toContain('WESTERN INTERNATIONAL SCHOOL');
     }
     $excel=$controller->report(g12Request(User::find(1),['tab'=>'results','format'=>'xlsx','report_type'=>'grade-a']));
+    $workbookPath=tempnam(sys_get_temp_dir(),'g12-report-test-');
+    try{
+        file_put_contents($workbookPath,$excel->getContent());
+        $archive=new \ZipArchive();expect($archive->open($workbookPath))->toBeTrue();
+        foreach(['xl/workbook.xml','xl/worksheets/sheet1.xml','xl/styles.xml'] as $part){
+            $xml=new \DOMDocument();expect($xml->loadXML($archive->getFromName($part)))->toBeTrue();
+        }
+        expect($archive->getFromName('xl/worksheets/sheet1.xml'))->toContain('paperSize="9"','orientation="portrait"','Letter Grade','99.125','mergeCell')
+            ->and($archive->getFromName('xl/styles.xml'))->toContain('Khmer OS Muol Light','FFDBEAFE');
+        $archive->close();
+        $campusExcel=$controller->report(g12Request(User::find(1),['tab'=>'results','format'=>'xlsx','report_type'=>'grade-a-campus']));
+        file_put_contents($workbookPath,$campusExcel->getContent());
+        expect($archive->open($workbookPath))->toBeTrue();
+        $sheet=$archive->getFromName('xl/worksheets/sheet1.xml');
+        $xml=new \DOMDocument();expect($xml->loadXML($sheet))->toBeTrue();
+        expect($sheet)->toContain('BCH Campus','Name in Khmer','paperSize="9"','s="11"')
+            ->and($archive->getFromName('xl/styles.xml'))->toContain('FFFFF2CC');
+        $archive->close();
+    }finally{unlink($workbookPath);}
     $pdf=$controller->report(g12Request(User::find(1),['tab'=>'results','format'=>'pdf','report_type'=>'statistics-all']));
+    $gradeAPdf=$controller->report(g12Request(User::find(1),['tab'=>'results','format'=>'pdf','report_type'=>'grade-a']));
+    $campusPdf=$controller->report(g12Request(User::find(1),['tab'=>'results','format'=>'pdf','report_type'=>'grade-a-campus']));
+    expect(substr($campusPdf->getContent(),0,4))->toBe('%PDF')
+        ->and($campusPdf->headers->get('Content-Disposition'))->toContain('g12-grade-a-campus-');
+    expect(substr($gradeAPdf->getContent(),0,4))->toBe('%PDF')
+        ->and($gradeAPdf->headers->get('Content-Disposition'))->toContain('g12-grade-a-');
     expect(substr($excel->getContent(),0,2))->toBe('PK')->and($excel->headers->get('Content-Disposition'))->toContain('g12-grade-a-')
         ->and(substr($pdf->getContent(),0,4))->toBe('%PDF')->and($pdf->headers->get('Content-Disposition'))->toContain('g12-statistics-all-');
 });

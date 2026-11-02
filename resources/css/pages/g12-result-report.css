@@ -1,3 +1,92 @@
-﻿*{box-sizing:border-box}html,body{margin:0;background:#eef2f7;color:#172033;font-family:Arial,KhmerReport,sans-serif;font-size:10px}.khmer{font-family:KhmerReport,Arial,sans-serif}.report-toolbar{position:sticky;top:0;z-index:10;display:flex;justify-content:flex-end;gap:8px;padding:10px 20px;background:#172b55}.report-toolbar button{padding:8px 18px;border:1px solid #fff;border-radius:5px;background:#fff;color:#172b55;font-weight:700;cursor:pointer}main{width:210mm;min-height:297mm;margin:14px auto;padding:10mm 9mm;background:#fff;box-shadow:0 8px 30px #17203322}.orientation-landscape main{width:297mm;min-height:210mm}.report-heading{display:grid;grid-template-columns:44mm 1fr 35mm;align-items:center;gap:8px;padding-bottom:8px;border-bottom:3px solid #234a8c;text-align:center}.report-brand img{display:block;max-width:42mm;max-height:22mm;object-fit:contain}.report-heading h1{margin:4px 0;font-size:20px;color:#17356c}.report-school{font-size:12px;font-weight:800;letter-spacing:.8px}.report-meta,.report-date{color:#53627a;font-size:9px}.report-date{text-align:right;line-height:1.6}.report-table{width:100%;margin-top:9px;border-collapse:collapse;table-layout:fixed}.report-table th,.report-table td{border:1px solid #66758a;padding:4px 3px;text-align:center;vertical-align:middle;word-break:break-word}.report-table thead{display:table-header-group}.report-table th{background:#244a88;color:#fff;font-size:8.5px}.report-table tbody tr:nth-child(even):not(.campus-row){background:#f6f8fb}.campus-row td{padding:5px 8px!important;background:#fff1a8!important;color:#17356c;text-align:left!important;font-weight:800}.student-name{text-align:left!important}.student-name strong,.student-name span{display:block}.student-name span{margin-top:2px;font-size:8px;color:#4b586e}.grade-badge{display:inline-grid;min-width:21px;height:21px;place-items:center;border-radius:50%;font-weight:800}.grade-a{background:#dff4e8;color:#147548}.grade-b{background:#eee4ff;color:#7041ad}.grade-c{background:#dfeeff;color:#2467a9}.grade-d{background:#fff2cf;color:#94660a}.grade-e{background:#ffe5cb;color:#ad5918}.grade-f{background:#fee1e1;color:#bd2727}.failed-row{color:#b71926;background:#fff0f0!important}.grade-a-table th:nth-child(1){width:5%}.grade-a-table th:nth-child(2){width:12%}.grade-a-table th:nth-child(3){width:25%}.grade-a-table th:nth-child(4){width:7%}.grade-a-table th:nth-child(5){width:11%}.grade-a-table th:nth-child(6){width:18%}.grade-a-table th:nth-child(7){width:10%}.grade-a-table th:nth-child(8){width:12%}.result-table th:nth-child(1){width:5%}.result-table th:nth-child(2){width:21%}.result-table th:nth-child(3){width:6%}.result-table th:nth-child(4){width:11%}.result-table th:nth-child(5){width:25%}.result-table th:nth-child(6),.result-table th:nth-child(7){width:6%}.result-table th:nth-child(8){width:7%}.result-table th:nth-child(9){width:13%}.statistics-table{font-size:8px}.statistics-table th,.statistics-table td{padding:3px 2px}.statistics-table th{background:#2e66ad}.statistics-table .grade-a{background:#23885b;color:#fff}.statistics-table .grade-b{background:#6845a9;color:#fff}.statistics-table .grade-c{background:#2583b8;color:#fff}.statistics-table .grade-d{background:#c49320;color:#fff}.statistics-table .grade-e{background:#d47626;color:#fff}.statistics-table .grade-f{background:#bd343d;color:#fff}.statistics-table .total-row{background:#dff0e7!important;font-weight:800}.statistics-table td small{display:block;margin-top:1px;color:#607087;font-size:6px}.report-signatures{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:18px;text-align:center;line-height:1.7}footer{margin-top:10px;padding-top:5px;border-top:1px solid #cad2df;color:#66758a;text-align:center;font-size:8px}@media print{html,body{background:#fff}.report-toolbar{display:none}main,.orientation-landscape main{width:auto;min-height:0;margin:0;padding:0;box-shadow:none}.report-table tr{break-inside:avoid}footer{position:fixed;bottom:0;left:0;right:0}}
+*{box-sizing:border-box}html,body{margin:0;background:#eef2f7;color:#172033;font-family:Arial,KhmerReport,sans-serif;font-size:10px}.khmer{font-family:KhmerReport,Arial,sans-serif}.report-toolbar{position:sticky;top:0;z-index:10;display:flex;justify-content:flex-end;gap:8px;padding:10px 20px;background:#172b55}.report-toolbar button{padding:8px 18px;border:1px solid #fff;border-radius:5px;background:#fff;color:#172b55;font-weight:700;cursor:pointer}main{width:210mm;min-height:297mm;margin:14px auto;padding:10mm 9mm;background:#fff;box-shadow:0 8px 30px #17203322}.orientation-landscape main{width:297mm;min-height:210mm}.report-heading{display:grid;grid-template-columns:44mm 1fr 35mm;align-items:center;gap:8px;padding-bottom:8px;border-bottom:3px solid #234a8c;text-align:center}.report-brand img{display:block;max-width:42mm;max-height:22mm;object-fit:contain}.report-heading h1{margin:4px 0;font-size:20px;color:#17356c}.report-school{font-size:12px;font-weight:800;letter-spacing:.8px}.report-meta,.report-date{color:#53627a;font-size:9px}.report-date{text-align:right;line-height:1.6}.report-table{width:100%;margin-top:9px;border-collapse:collapse;table-layout:fixed}.report-table th,.report-table td{border:1px solid #66758a;padding:4px 3px;text-align:center;vertical-align:middle;word-break:break-word}.report-table thead{display:table-header-group}.report-table th{background:#244a88;color:#fff;font-size:8.5px}.report-table tbody tr:nth-child(even):not(.campus-row){background:#f6f8fb}.campus-row td{padding:5px 8px!important;background:#fff1a8!important;color:#17356c;text-align:left!important;font-weight:800}.student-name{text-align:left!important}.student-name strong,.student-name span{display:block}.student-name span{margin-top:2px;font-size:8px;color:#4b586e}.grade-badge{display:inline-grid;min-width:21px;height:21px;place-items:center;border-radius:50%;font-weight:800}.grade-a{background:#dff4e8;color:#147548}.grade-b{background:#eee4ff;color:#7041ad}.grade-c{background:#dfeeff;color:#2467a9}.grade-d{background:#fff2cf;color:#94660a}.grade-e{background:#ffe5cb;color:#ad5918}.grade-f{background:#fee1e1;color:#bd2727}.failed-row{color:#b71926;background:#fff0f0!important}.grade-a-table th:nth-child(1){width:5%}.grade-a-table th:nth-child(2){width:12%}.grade-a-table th:nth-child(3){width:25%}.grade-a-table th:nth-child(4){width:7%}.grade-a-table th:nth-child(5){width:11%}.grade-a-table th:nth-child(6){width:18%}.grade-a-table th:nth-child(7){width:10%}.grade-a-table th:nth-child(8){width:12%}.result-table th:nth-child(1){width:5%}.result-table th:nth-child(2){width:21%}.result-table th:nth-child(3){width:6%}.result-table th:nth-child(4){width:11%}.result-table th:nth-child(5){width:25%}.result-table th:nth-child(6),.result-table th:nth-child(7){width:6%}.result-table th:nth-child(8){width:7%}.result-table th:nth-child(9){width:13%}.statistics-table{font-size:8px}.statistics-table th,.statistics-table td{padding:3px 2px}.statistics-table th{background:#2e66ad}.statistics-table .grade-a{background:#23885b;color:#fff}.statistics-table .grade-b{background:#6845a9;color:#fff}.statistics-table .grade-c{background:#2583b8;color:#fff}.statistics-table .grade-d{background:#c49320;color:#fff}.statistics-table .grade-e{background:#d47626;color:#fff}.statistics-table .grade-f{background:#bd343d;color:#fff}.statistics-table .total-row{background:#dff0e7!important;font-weight:800}.statistics-table td small{display:block;margin-top:1px;color:#607087;font-size:6px}.report-signatures{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:18px;text-align:center;line-height:1.7}footer{margin-top:10px;padding-top:5px;border-top:1px solid #cad2df;color:#66758a;text-align:center;font-size:8px}@media print{html,body{background:#fff}.report-toolbar{display:none}main,.orientation-landscape main{width:auto;min-height:0;margin:0;padding:0;box-shadow:none}.report-table tr{break-inside:avoid}footer{position:fixed;bottom:0;left:0;right:0}}
 
 
+
+/* Grade A A4 print preview */
+.khmer-muol{font-family:KhmerMuolLight,KhmerReport,serif;font-weight:400}
+.report-grade-a main{width:auto;min-height:0;margin:0;padding:0;background:transparent;box-shadow:none}
+.grade-a-page-set-print,.grade-a-page-set-browser-print{display:none}
+.grade-a-print-page{position:relative;width:210mm;min-height:297mm;margin:14px auto;padding:10mm 7.5mm 9mm;background:#fff;box-shadow:0 8px 30px #17203322;break-after:page;page-break-after:always}
+.grade-a-print-page:last-child{break-after:auto;page-break-after:auto}
+.grade-a-official-heading{display:grid;grid-template-columns:1fr 1fr;align-items:start;min-height:24mm;padding:.5mm 0 0;color:#070b12}
+.grade-a-authority,.grade-a-kingdom{font-weight:400;line-height:1.3}
+.grade-a-authority{padding-top:5mm;font-size:12pt}
+.grade-a-kingdom{padding-right:7mm;text-align:center;font-size:13pt}
+.grade-a-ornament{position:relative;width:18mm;height:3mm;margin:1.5mm auto 0;border-top:.25mm solid #1a1d23}
+.grade-a-ornament:before,.grade-a-ornament:after{content:none}
+.grade-a-ornament span{position:absolute;left:8.3mm;top:-.9mm;display:block;width:1.4mm;height:1.4mm;border:.25mm solid #1a1d23;background:#fff;transform:rotate(45deg)}
+.grade-a-title{min-height:19mm;text-align:center}
+.grade-a-title h1{margin:0;color:#173c71;font-size:12pt;line-height:1.2;font-weight:400}
+.grade-a-title h1 b{padding:0 3mm;font-family:Arial,sans-serif;font-size:12pt;color:#101318}
+.grade-a-title h2{margin:1mm 0 .6mm;font-size:12pt;font-weight:500}
+.grade-a-title h3{margin:0;font-size:12pt;font-weight:600}
+.grade-a-title h3 .khmer-muol{font-size:12pt;font-weight:400;color:#173c71}
+.report-grade-a .grade-a-table{margin-top:0;font-size:12px}
+.report-grade-a .grade-a-table th{height:11mm;background:#dbeafe;color:#111827;font-size:9px;font-weight:500;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+.report-grade-a .grade-a-table td{height:auto;padding:1mm 1.2mm;border-color:#2f3540;line-height:1}
+.report-grade-a .grade-a-table tbody tr:nth-child(even){background:#fff}
+.report-grade-a .grade-a-table th:nth-child(1){width:5%}
+.report-grade-a .grade-a-table th:nth-child(2){width:11.5%}
+.report-grade-a .grade-a-table th:nth-child(3){width:20%}
+.report-grade-a .grade-a-table th:nth-child(4){width:20.5%}
+.report-grade-a .grade-a-table th:nth-child(5){width:6.5%}
+.report-grade-a .grade-a-table th:nth-child(6){width:11.5%}
+.report-grade-a .grade-a-table th:nth-child(7){width:5.5%}
+.report-grade-a .grade-a-table th:nth-child(8){width:7%}
+.report-grade-a .grade-a-table th:nth-child(9){width:12.5%}
+.grade-a-name-en,.grade-a-name-kh{text-align:left!important;font-size:12px;line-height:1}
+.grade-a-class strong,.grade-a-class span,.grade-a-letter strong,.grade-a-letter span{display:block}
+.grade-a-class strong{font-size:12px;font-weight:500}
+.grade-a-class span{margin-top:0;font-size:12px}
+.grade-a-letter strong{font-size:12px}
+.grade-a-letter span{margin-top:0;font-size:12px}
+.empty-report-row{height:30mm!important;color:#67758b}
+.grade-a-final-summary{display:flex;flex-direction:column;align-items:flex-start;gap:1mm;padding-top:2.5mm;font-size:11px}
+.grade-a-final-summary>div{font-size:11px;font-weight:400}
+.grade-a-final-summary>strong{display:block;margin-top:1mm;color:#173c71;font-size:14px}
+.grade-a-final-summary>span{display:block;margin-top:.5mm;font-size:11px}
+.grade-a-page-number{position:absolute;right:8mm;bottom:4mm;color:#8893a4;font-size:7px}
+@media print{.grade-a-page-set-preview{display:none}.grade-a-page-set-print,.grade-a-page-set-browser-print{display:block}.grade-a-print-page{width:auto;min-height:0;margin:0;padding:3mm .5mm 0;box-shadow:none}.grade-a-page-set-browser-print .grade-a-print-page{break-after:auto;page-break-after:auto}.grade-a-official-heading,.grade-a-title,.grade-a-final-summary{break-inside:avoid}.grade-a-page-number{display:none}}
+.pdf-export .grade-a-page-set-preview{display:none}
+.pdf-export .grade-a-page-set-print{display:block}
+.pdf-export .grade-a-print-page{width:auto;min-height:0;margin:0;padding:3mm .5mm 0;box-shadow:none}
+.pdf-export .grade-a-page-number{display:none}
+.pdf-export,.pdf-export main{background:#fff}
+.report-grade-a-campus .grade-a-authority{padding-top:16mm}
+.report-grade-a-campus .campus-row{break-after:avoid;page-break-after:avoid}
+.report-grade-a-campus .campus-row td{background:#fff2cc!important;font-size:12px;padding:2mm!important}
+.report-grade-a-campus footer{display:none}
+.report-result-list .grade-a-authority{padding-top:16mm}
+.report-result-list .grade-a-title{padding:3mm 0}
+.report-result-list .result-table{table-layout:fixed;font-size:11pt}
+.report-result-list .result-table th{width:auto;font-family:KhmerReport,Arial,sans-serif;font-weight:400;font-size:11pt;white-space:nowrap;word-break:normal;background:#dbeafe;color:#172033;padding:2mm .5mm;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+.report-result-list .result-table td{font-size:11pt;padding:1mm .5mm;line-height:1.3}
+.report-result-list .result-table th:nth-child(1){width:5%}
+.report-result-list .result-table th:nth-child(2){width:19%}
+.report-result-list .result-table th:nth-child(3){width:4%}
+.report-result-list .result-table th:nth-child(4){width:13%}
+.report-result-list .result-table th:nth-child(5){width:23%}
+.report-result-list .result-table th:nth-child(6){width:7%}
+.report-result-list .result-table th:nth-child(7){width:6%}
+.report-result-list .result-table th:nth-child(8){width:7%}
+.report-result-list .result-table th:nth-child(9){width:16%}
+.result-fit-cell{white-space:nowrap;word-break:normal!important}
+.report-result-list .result-table td:first-child{white-space:nowrap;word-break:normal}
+.result-fit-cell [data-result-fit]{display:inline-block;white-space:nowrap}
+.report-result-list .campus-row{break-after:avoid;page-break-after:avoid}
+.report-result-list .campus-row td{font-weight:400}
+.report-result-list footer{display:none}
+
+.report-grade-a-campus .grade-a-table{margin-top:0;font-size:12px}
+.report-grade-a-campus .grade-a-table th{height:11mm;background:#dbeafe;color:#111827;font-size:9px;font-weight:500;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+.report-grade-a-campus .grade-a-table td{height:auto;padding:1mm 1.2mm;border-color:#2f3540;line-height:1}
+.report-grade-a-campus .grade-a-table tbody tr:nth-child(even){background:#fff}
+.report-grade-a-campus .grade-a-table th:nth-child(1){width:5%}
+.report-grade-a-campus .grade-a-table th:nth-child(2){width:11.5%}
+.report-grade-a-campus .grade-a-table th:nth-child(3){width:20%}
+.report-grade-a-campus .grade-a-table th:nth-child(4){width:20.5%}
+.report-grade-a-campus .grade-a-table th:nth-child(5){width:6.5%}
+.report-grade-a-campus .grade-a-table th:nth-child(6){width:11.5%}
+.report-grade-a-campus .grade-a-table th:nth-child(7){width:5.5%}
+.report-grade-a-campus .grade-a-table th:nth-child(8){width:7%}
+.report-grade-a-campus .grade-a-table th:nth-child(9){width:12.5%}

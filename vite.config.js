@@ -53,6 +53,7 @@ export default defineConfig({
                 "resources/js/g9Certificate.js",
                 "resources/js/g12Certificate.js",
                 "resources/js/g12NationalExams.js",
+                "resources/js/g12ResultReport.js",
                 "resources/js/reportsPrint.js",
                 "resources/js/studentPhotoPrint.js",
                 "resources/js/pdfPrint.js",
