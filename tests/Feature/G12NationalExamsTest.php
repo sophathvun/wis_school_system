@@ -352,6 +352,27 @@ it('preserves managed certificate collections and all document versions when rei
     $service->save($user,g12ExamData(['received_soft_certificate'=>'Not Yet']),$record,true);
     expect($record->certificates()->where('type','soft')->sole()->status)->toBe('collected')->and($record->files()->count())->toBe(1);Storage::disk('local')->assertExists($receipt->path);
 });
+it('marks failed students as certificate ineligible and restores eligibility after a corrected result',function(){
+    $user=User::find(1);$exams=app(G12NationalExams::class);$files=app(G12NationalExamFiles::class);
+    $record=$exams->save($user,g12ExamData(['g12_letter_grade'=>'F']));
+    $certificates=$record->certificates()->orderBy('type')->get();
+    expect($record->result_status)->toBe('failed')
+        ->and($certificates)->toHaveCount(2)
+        ->and($certificates->pluck('status')->unique()->all())->toBe(['not_applicable'])
+        ->and($certificates->pluck('remark')->unique()->all())->toBe([G12NationalExams::FAILED_CERTIFICATE_REMARK]);
+    expect(fn()=>$files->store($user,$record,'soft_certificate',g12PhotoBytes(),'certificate.jpg'))
+        ->toThrow(ValidationException::class,'not issued');
+    expect(fn()=>$files->collection($user,$record,'soft',['status'=>'awaiting','version'=>1]))
+        ->toThrow(ValidationException::class,'not applicable');
+    $list=app(G12NationalExamController::class)->list(g12Request($user,['tab'=>'certificates']))->getData(true);
+    expect($list['data'][0])->toMatchArray(['certificate_eligible'=>false,'can_upload_documents'=>false,'can_manage_collection'=>false]);
+
+    $exams->save($user,g12ExamData(['g12_letter_grade'=>'B','version'=>$record->version]),$record);
+    $certificates=$record->fresh()->certificates()->orderBy('type')->get();
+    expect($record->fresh()->result_status)->toBe('passed')
+        ->and($certificates->pluck('status')->unique()->all())->toBe(['awaiting'])
+        ->and($certificates->pluck('remark')->filter())->toBeEmpty();
+});
 it('requires a signed receipt, permission and reason for collection corrections and keeps other certificates unchanged',function(){
     $admin=User::find(1);$record=app(G12NationalExams::class)->save($admin,g12ExamData());$service=app(G12NationalExamFiles::class);
     $data=['status'=>'collected','collected_date'=>'2026-10-26','recipient'=>'Student','version'=>1];
@@ -375,7 +396,24 @@ it('stores portraits by year and documents by stable student folder, retaining r
     expect(fn()=>$service->store($user,$record->fresh(),'portrait',g12PhotoBytes(),'replacement.jpg'))->toThrow(ValidationException::class,'Confirm Replace');
     $bytes=g12PhotoBytes(180);$replacement=$service->store($user,$record->fresh(),'portrait',$bytes,'replacement.jpg',true);
     expect($record->fresh()->photo_path)->toBe($replacement->path)->and($replacement->path)->toEndWith('/replacement.webp');Storage::disk('local')->assertExists($photo->path);
-    $doc=$service->store($user,$record,'hard_certificate',g12PhotoBytes(),'MoEYS Diploma.jpg');expect($doc->path)->toStartWith('g12_national_exam_documents/2025-2026/'.$record->document_folder.'/hard_certificate/');
+    $doc=$service->store($user,$record,'hard_certificate',g12PhotoBytes(),'MoEYS Diploma.jpg');expect($doc->path)->toStartWith('g12_national_exam_documents/2025-2026/'.$record->document_folder.'/hard_certificate/')
+        ->and($doc->path)->toEndWith('/MoEYS Diploma.webp')->and($doc->original_name)->toBe('MoEYS Diploma.jpg')->and($doc->mime)->toBe('image/webp')
+        ->and($doc->size)->toBeLessThanOrEqual(App\Services\G12CertificateImage::MAX_MASTER_BYTES)
+        ->and($doc->thumbnail_size)->toBeLessThanOrEqual(App\Services\G12CertificateImage::MAX_THUMBNAIL_BYTES)
+        ->and($doc->width)->toBe(600)->and($doc->height)->toBe(800);
+    Storage::disk('local')->assertExists($doc->path);Storage::disk('local')->assertExists($doc->thumbnail_path);
+    expect(getimagesizefromstring(Storage::disk('local')->get($doc->path))['mime'])->toBe('image/webp')
+        ->and(getimagesizefromstring(Storage::disk('local')->get($doc->thumbnail_path))['mime'])->toBe('image/webp');
+    $thumbnail=app(G12NationalExamController::class)->file(g12Request($user,['variant'=>'thumbnail']),$doc);
+    $jpeg=app(G12NationalExamController::class)->file(g12Request($user,['format'=>'jpg','download'=>1,'quality'=>94]),$doc);
+    expect($thumbnail->headers->get('Content-Type'))->toBe('image/webp')
+        ->and($jpeg->headers->get('Content-Type'))->toBe('image/jpeg')
+        ->and($jpeg->headers->get('Content-Disposition'))->toContain('MoEYS-Diploma-high-quality.jpg')
+        ->and(getimagesizefromstring($jpeg->getContent())['mime'])->toBe('image/jpeg');
+    $certificateList=app(G12NationalExamController::class)->list(g12Request($user,['tab'=>'certificates','academic_year'=>'2025-2026']))->getData(true);
+    expect($certificateList['data'][0]['documents']['hard_certificate'])->toMatchArray(['id'=>$doc->id,'optimized'=>true,'is_image'=>true])
+        ->and($certificateList['data'][0]['documents']['hard_certificate']['thumbnail_url'])->toContain('variant=thumbnail')
+        ->and($certificateList['data'][0]['documents']['hard_certificate']['download_jpg'])->toContain('format=jpg');
     expect(fn()=>$service->store($user,$record,'other_documents','malicious code','file.jpg'))->toThrow(ValidationException::class,'Choose a JPG');
 });
 it('matches exact MoEYS photo filenames and student IDs, flags ambiguity, and permits manual unmatched assignment',function(){

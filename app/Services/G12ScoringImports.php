@@ -111,7 +111,9 @@ class G12ScoringImports {
         foreach($subjects as $key=>$label){$before['scores'][$key]=$data['lettergrade_'.$key]??'';$value=mb_strtoupper(trim((string)($row['scores'][$key]??'')));$data['lettergrade_'.$key]=$value;}
         $rank=trim((string)($row['score_rank']??''));$grade=mb_strtoupper(trim((string)($row['letter_grade']??'')));$data['g12_score_rank']=$rank;$data['g12_letter_grade']=$grade;
         $after=['scores'=>collect($subjects)->mapWithKeys(fn($label,$key)=>[$key=>$data['lettergrade_'.$key]])->all(),'score_rank'=>$rank,'letter_grade'=>$grade];
-        $record->update(['data'=>$data,'overall_grade'=>$grade?:null,'result_status'=>app(G12NationalExams::class)->status($grade),'version'=>$record->version+1]);
+        $exams=app(G12NationalExams::class);
+        $record->update(['data'=>$data,'overall_grade'=>$grade?:null,'result_status'=>$exams->status($grade),'version'=>$record->version+1]);
+        $exams->syncCertificateEligibility($record);
         app(G12NationalExams::class)->event($user,$event,['before'=>$before,'after'=>$after],$record->id);return $record;
     }
 }

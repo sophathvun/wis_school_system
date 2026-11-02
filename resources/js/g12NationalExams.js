@@ -9,7 +9,7 @@ const root=document.querySelector('[data-g12-exams]');
 if(root){
     const get=s=>document.querySelector(s),base=root.dataset.base,tab=root.dataset.tab,permissions=JSON.parse(get('#g12Permissions').textContent);
     const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-    const statusLabels={awaiting:'Awaiting certificate',available:'Available at school',collected:'Collected',not_applicable:'Not applicable',review:'Needs review',pending:'Pending',passed:'Passed',failed:'Failed'};
+    const statusLabels={awaiting:'Awaiting certificate',available:'Available at school',collected:'Collected',not_applicable:'Not issued',review:'Needs review',pending:'Pending',passed:'Passed',failed:'Failed'};
     const badge=value=>`<span class="badge ${value==='collected'||value==='passed'?'bg-green-lt':value==='failed'?'bg-red-lt':'bg-blue-lt'}">${escape(statusLabels[value]??value)}</span>`;
     const api=async(path,body)=>{
         const result=await fetch(base+path,{method:body?'POST':'GET',credentials:'same-origin',headers:{Accept:'application/json','X-CSRF-TOKEN':get('meta[name=csrf-token]')?.content,...(body&&!(body instanceof FormData)?{'Content-Type':'application/json'}:{})},body:body?(body instanceof FormData?body:JSON.stringify(body)):undefined});
@@ -79,7 +79,31 @@ if(root){
         <td class="g12-g12-cell school-profile-khmer" data-label="G12 National Exams"><div class="g12-g12-overview"><div class="g12-g12-detail g12-g12-language">ប្រឡងភាសា៖ <span>${escape(examLanguageKhmer(r.language_exam)||'—')}</span></div><div class="g12-g12-detail g12-g12-class">ថ្នាក់៖ <span>${escape(r.class_selected||'—')}</span></div></div><div class="g12-g12-center" title="${escape(r.center||'—')}">មណ្ឌល៖ <span>${escape(r.center||'—')}</span></div><div class="g12-g12-date">សម័យប្រឡង៖ <span>${escape(r.g12_exam_date||'—')}</span></div><div class="g12-g12-seat" aria-label="G12 room and seat"><span>លេខបន្ទប់៖ ${escape(r.room||'—')}</span><span>លេខតុ៖ ${escape(r.seat||'—')}</span></div></td>
         <td class="g12-action-cell" data-label="Actions"><div class="d-flex gap-2"><button class="btn btn-sm btn-outline-primary" data-g12-view="${r.id}"><i class="ti ti-eye me-1"></i>View</button>${r.can_edit?`<button class="btn btn-sm btn-outline-primary" data-g12-edit="${r.id}" aria-label="Edit student"><i class="ti ti-edit me-1"></i><span class="g12-action-label">Edit</span></button>`:''}</div></td>
     </tr>`).join('')||'<tr><td colspan="8" class="text-center py-4">No student exam records match these filters.</td></tr>';
-    const trackingRows=res=>res.data.map((r,i)=>`<tr><td>${res.from+i}</td><td>${r.photo_url?`<button type="button" class="g12-photo-trigger" data-g12-photo-view="${escape(r.photo_url)}" data-g12-photo-title="${escape(r.name_en||r.student_code||'Student Photo')}" aria-label="View photo of ${escape(r.name_en||r.student_code||'student')}"><img src="${escape(r.photo_url)}" class="g12-photo" loading="lazy" alt="Photo of ${escape(r.name_en||r.student_code||'student')}"></button>`:'—'}</td><td><strong>${escape(r.name_en)}</strong><div class="school-profile-khmer">${escape(r.name_kh)}</div><div class="text-secondary">${escape(r.student_code)}</div></td><td>${escape(r.academic_year)}<div>${escape(r.campus)} / ${escape(r.grade)}</div></td><td>${escape(r.center??'Not assigned')}<div>Room ${escape(r.room||'—')} / Seat ${escape(r.seat||'—')}</div></td><td>${escape(r.overall_grade)} ${badge(r.result_status)}</td>${['soft','hard'].map(t=>`<td>${badge(r.certificates.find(c=>c.type===t)?.status??'awaiting')}</td>`).join('')}<td><div class="d-flex gap-2"><button class="btn btn-sm btn-outline-primary" data-g12-view="${r.id}"><i class="ti ti-eye me-1"></i>View</button></div></td></tr>`).join('')||'<tr><td colspan="9" class="text-center py-4">No student exam records match these filters.</td></tr>';
+    const fileSize=value=>{const bytes=Number(value??0);if(!bytes)return '0 KB';return bytes>=1048576?`${(bytes/1048576).toFixed(1)} MB`:`${Math.max(1,Math.round(bytes/1024))} KB`;};
+    const certificateDocument=(file,label)=>{
+        if(!file)return `<div class="g12-certificate-document is-empty"><span class="g12-certificate-document-icon"><i class="ti ti-file-off" aria-hidden="true"></i></span><div><strong>${escape(label)}</strong><small>Not uploaded</small></div></div>`;
+        const title=`${label} · ${file.original_name}`;
+        const preview=file.is_image
+            ?`<button type="button" class="g12-certificate-preview" data-g12-photo-view="${escape(file.url)}" data-g12-photo-download-url="${escape(file.download_jpg||'')}" data-g12-photo-title="${escape(title)}" aria-label="View ${escape(title)}"><img src="${escape(file.thumbnail_url)}" alt="${escape(label)} thumbnail" loading="lazy"></button>`
+            :`<a class="g12-certificate-preview is-pdf" href="${escape(file.url)}" target="_blank" rel="noopener" aria-label="Open ${escape(title)}"><i class="ti ti-file-type-pdf" aria-hidden="true"></i></a>`;
+        return `<div class="g12-certificate-document">${preview}<div class="g12-certificate-document-info"><strong>${escape(label)}</strong><small title="${escape(file.original_name)}">${escape(file.original_name)}</small><span>${fileSize(file.size)}${file.optimized?' · Optimized WebP':''}</span></div><a class="g12-certificate-download" href="${escape(file.download_jpg||file.download)}" aria-label="Download ${escape(label)}${file.is_image?' as high-quality JPG':''}"><i class="ti ti-download" aria-hidden="true"></i></a></div>`;
+    };
+    const certificateCell=(record,type)=>{
+        const certificate=record.certificates?.find(item=>item.type===type),source=record.documents?.[`${type}_certificate`],receipt=record.documents?.[`${type}_certificate_received`];
+        const label=type==='soft'?'Provisional Certificate':'Diploma';
+        if(!record.certificate_eligible)return `<td class="g12-certificate-cell" data-label="${label}"><div class="g12-certificate-group is-not-issued"><div class="g12-certificate-group-header">${badge('not_applicable')}</div><p class="g12-certificate-remark">${escape(certificate?.remark||'Certificate not issued — Failed National Examination')}</p></div></td>`;
+        const manage=record.can_upload_documents||record.can_manage_collection?`<button type="button" class="btn btn-sm btn-outline-primary g12-certificate-manage" data-g12-certificate-manage="${record.id}" data-certificate-type="${type}"><i class="ti ti-folder-open me-1" aria-hidden="true"></i>Manage</button>`:'';
+        return `<td class="g12-certificate-cell" data-label="${label}"><div class="g12-certificate-group"><div class="g12-certificate-group-header">${badge(certificate?.status??'awaiting')}${manage}</div>${certificateDocument(source,'MoEYS Copy')}${certificateDocument(receipt,'Signed Receipt')}</div></td>`;
+    };
+    const trackingRows=res=>res.data.map((r,i)=>`<tr>
+        <td class="text-center" data-label="No.">${res.from+i}</td>
+        <td data-label="Photo">${r.photo_url?`<button type="button" class="g12-photo-trigger" data-g12-photo-view="${escape(r.photo_url)}" data-g12-photo-title="${escape(r.name_en||r.student_code||'Student Photo')}" aria-label="View photo of ${escape(r.name_en||r.student_code||'student')}"><img src="${escape(r.photo_url)}" class="g12-photo" loading="lazy" alt="Photo of ${escape(r.name_en||r.student_code||'student')}"></button>`:'&mdash;'}</td>
+        <td data-label="Student"><strong class="school-profile-khmer">${escape(r.name_kh||'—')}</strong><div class="g12-student-name-en">${escape(r.name_en||'—')}</div><div class="text-secondary">${escape(r.student_code)}</div></td>
+        <td class="g12-tracking-grade" data-label="Grade"><strong>${escape(r.academic_year)}</strong><div>${escape(r.campus)} / ${escape(r.grade)}</div></td>
+        <td class="g12-tracking-examination" data-label="Examination"><strong>${escape(r.center??'Not assigned')}</strong><div class="g12-tracking-exam-date"><span>Exam Date:</span> ${escape(r.g12_exam_date||'—')}</div><div class="g12-tracking-room-seat"><span>Room: ${escape(r.room||'—')}</span><b aria-hidden="true">|</b><span>Seat: ${escape(r.seat||'—')}</span></div><div class="g12-tracking-result"><span>Letter Grade: <strong>${escape(r.overall_grade||'—')}</strong></span>${badge(r.result_status)}</div></td>
+        ${certificateCell(r,'soft')}${certificateCell(r,'hard')}
+        <td class="g12-action-cell" data-label="Actions"><button class="btn btn-sm btn-outline-primary" data-g12-view="${r.id}"><i class="ti ti-eye me-1"></i>View</button></td>
+    </tr>`).join('')||'<tr><td colspan="8" class="text-center py-4">No student exam records match these filters.</td></tr>';
     const assignmentCenterOptions=record=>`<option value="">Select Exam Center</option>${meta.centers.map(center=>`<option value="${center.id}" ${String(center.id)===String(record.center_id)?'selected':''} ${!center.active&&String(center.id)!==String(record.center_id)?'disabled':''}>${escape(center.name)}${center.active?'':' (Inactive)'}</option>`).join('')}`;
     const assignmentRows=res=>res.data.map((r,i)=>`<tr data-g12-assignment-row data-record-id="${r.id}" data-version="${r.version}" data-can-assign="${r.can_assign?'true':'false'}">
         <td class="text-center g12-assignment-number" data-label="No.">${res.from+i}</td>
@@ -140,7 +164,7 @@ if(root){
     const disposeAssignmentPickers=rows=>rows.querySelectorAll('[data-g12-assignment-center]').forEach(select=>{pickers.get(select)?.destroy?.();pickers.delete(select);});
     const load=async(page=1,perPage=get('#g12PerPage')?.value??15)=>{
         const rows=get('[data-g12-records]');if(!rows)return;
-        if(!filterForm?.elements.academic_year?.value){if(tab==='assign-centers')disposeAssignmentPickers(rows);rows.innerHTML=`<tr><td colspan="${tab==='records'?8:tab==='assign-centers'?9:tab==='scoring'?10:9}" class="text-center py-4">Select an Academic Year to display records.</td></tr>`;get('#g12Pagination').innerHTML='';resetRecordSummary();resetAssignmentSummary();resetScoringSummary();return;}
+        if(!filterForm?.elements.academic_year?.value){if(tab==='assign-centers')disposeAssignmentPickers(rows);rows.innerHTML=`<tr><td colspan="${tab==='records'||tab==='certificates'?8:tab==='assign-centers'?9:tab==='scoring'?10:9}" class="text-center py-4">Select an Academic Year to display records.</td></tr>`;get('#g12Pagination').innerHTML='';resetRecordSummary();resetAssignmentSummary();resetScoringSummary();return;}
         const query=filters();query.set('tab',tab);query.set('page',page);query.set('per_page',perPage);
         const res=await api('/list?'+query);if(tab==='assign-centers')disposeAssignmentPickers(rows);rows.innerHTML=tab==='records'?recordRows(res):(tab==='assign-centers'?assignmentRows(res):(tab==='scoring'?scoringRows(res):trackingRows(res)));if(tab==='records')renderRecordSummary(res.summary);if(tab==='assign-centers'){renderAssignmentSummary(res.summary);refreshPickers(rows);}if(tab==='scoring')renderScoringSummary(res.summary);
         renderPagination(res,'g12Pagination','g12PerPage',(p,size)=>run(()=>load(p,size)),['all',15,25,50,100]);
@@ -215,29 +239,133 @@ if(root){
     root.addEventListener('change',event=>{if(event.target.matches('[data-g12-subject-score],[data-g12-score-rank],[data-g12-letter-grade]'))saveScoring(event.target.closest('[data-g12-scoring-row]'));});
     const photoViewerElement=get('#g12PhotoViewerModal');
     if(photoViewerElement){
-        const viewer=s=>photoViewerElement.querySelector(s),photoModal=Modal.getOrCreateInstance(photoViewerElement),photoImage=viewer('[data-g12-photo-image]'),photoStage=viewer('[data-g12-photo-stage]'),photoZoom=viewer('[data-g12-photo-zoom]'),photoQuality=viewer('[data-g12-photo-quality]'),photoDownload=viewer('[data-g12-photo-download]');
-        let photoJpegUrl=null,photoGeneration=0,photoFitWidth=0,photoFitHeight=0,activePhotoUrl='',activePhotoTitle='Student Photo';
-        const setPhotoDownload=ready=>{photoDownload.classList.toggle('disabled',!ready);photoDownload.setAttribute('aria-disabled',String(!ready));photoDownload.tabIndex=ready?0:-1;if(!ready)photoDownload.removeAttribute('href');};
+        const viewer=selector=>photoViewerElement.querySelector(selector);
+        const photoModal=Modal.getOrCreateInstance(photoViewerElement);
+        const photoImage=viewer('[data-g12-photo-image]');
+        const photoStage=viewer('[data-g12-photo-stage]');
+        const photoZoom=viewer('[data-g12-photo-zoom]');
+        const photoQuality=viewer('[data-g12-photo-quality]');
+        const photoDownload=viewer('[data-g12-photo-download]');
+        let photoJpegUrl=null;
+        let photoGeneration=0;
+        let photoFitWidth=0;
+        let photoFitHeight=0;
+        let activePhotoUrl='';
+        let activePhotoDownloadUrl='';
+        let activePhotoTitle='Student Photo';
+
+        const setPhotoDownload=ready=>{
+            photoDownload.classList.toggle('disabled',!ready);
+            photoDownload.setAttribute('aria-disabled',String(!ready));
+            photoDownload.tabIndex=ready?0:-1;
+            if(!ready)photoDownload.removeAttribute('href');
+        };
         const renderPhotoZoom=()=>{
             const scale=Number(photoZoom.value),width=photoFitWidth*scale,height=photoFitHeight*scale;
-            if(photoFitWidth){photoImage.style.width=`${width}px`;photoViewerElement.style.setProperty('--g12-photo-modal-width',`${Math.max(360,Math.min(window.innerWidth-24,width+34))}px`);photoViewerElement.style.setProperty('--g12-photo-stage-height',`${Math.max(240,Math.min(window.innerHeight-230,height+32))}px`);}
-            viewer('[data-g12-photo-percent]').textContent=`${Math.round(scale*100)}%`;viewer('[data-g12-photo-out]').disabled=scale<=.5;viewer('[data-g12-photo-in]').disabled=scale>=3;
+            if(photoFitWidth){
+                photoImage.style.width=`${width}px`;
+                photoViewerElement.style.setProperty('--g12-photo-modal-width',`${Math.max(360,Math.min(window.innerWidth-24,width+34))}px`);
+                photoViewerElement.style.setProperty('--g12-photo-stage-height',`${Math.max(240,Math.min(window.innerHeight-230,height+32))}px`);
+            }
+            viewer('[data-g12-photo-percent]').textContent=`${Math.round(scale*100)}%`;
+            viewer('[data-g12-photo-out]').disabled=scale<=.5;
+            viewer('[data-g12-photo-in]').disabled=scale>=3;
         };
-        const fitPhoto=()=>{if(!photoImage.naturalWidth)return;const availableWidth=Math.min(640,window.innerWidth-56),availableHeight=Math.min(600,window.innerHeight-270),factor=Math.min(1,availableWidth/photoImage.naturalWidth,availableHeight/photoImage.naturalHeight);photoFitWidth=Math.max(1,photoImage.naturalWidth*factor);photoFitHeight=Math.max(1,photoImage.naturalHeight*factor);renderPhotoZoom();};
+        const fitPhoto=()=>{
+            if(!photoImage.naturalWidth)return;
+            const availableWidth=Math.min(640,window.innerWidth-56),availableHeight=Math.min(600,window.innerHeight-270);
+            const factor=Math.min(1,availableWidth/photoImage.naturalWidth,availableHeight/photoImage.naturalHeight);
+            photoFitWidth=Math.max(1,photoImage.naturalWidth*factor);
+            photoFitHeight=Math.max(1,photoImage.naturalHeight*factor);
+            renderPhotoZoom();
+        };
         const resetPhoto=()=>{photoZoom.value='1';fitPhoto();photoStage.scrollTo(0,0);};
         const preparePhoto=async()=>{
-            if(!activePhotoUrl)return;const token=++photoGeneration,qualityLabel=photoQuality.selectedOptions[0]?.textContent??'JPG';setPhotoDownload(false);viewer('[data-g12-photo-error]').classList.add('d-none');viewer('[data-g12-photo-status]').textContent=`Preparing ${qualityLabel} JPG…`;
-            try{const blob=await studentPhotoJpeg(activePhotoUrl,Number(photoQuality.value));if(token!==photoGeneration)return;const nextUrl=URL.createObjectURL(blob);if(photoJpegUrl)URL.revokeObjectURL(photoJpegUrl);photoJpegUrl=nextUrl;photoImage.src=photoJpegUrl;photoImage.hidden=false;await photoImage.decode();if(token!==photoGeneration)return;fitPhoto();photoDownload.href=photoJpegUrl;photoDownload.download=`${activePhotoTitle.trim().replace(/[^\p{L}\p{N}]+/gu,'-').replace(/^-+|-+$/g,'')||'student-photo'}.jpg`;setPhotoDownload(true);viewer('[data-g12-photo-status]').textContent=`${qualityLabel} JPG ready · ${(blob.size/1024).toFixed(1)} KB. Use the controls to zoom.`;}catch{if(token!==photoGeneration)return;viewer('[data-g12-photo-status]').textContent='';viewer('[data-g12-photo-error]').textContent='The student photo could not be prepared as a JPG. Close this window and try again.';viewer('[data-g12-photo-error]').classList.remove('d-none');}
+            if(!activePhotoUrl)return;
+            const token=++photoGeneration,qualityLabel=photoQuality.selectedOptions[0]?.textContent??'JPG';
+            setPhotoDownload(false);
+            viewer('[data-g12-photo-error]').classList.add('d-none');
+            viewer('[data-g12-photo-status]').textContent=`Preparing ${qualityLabel} JPG...`;
+            try{
+                if(activePhotoDownloadUrl){
+                    photoImage.src=activePhotoUrl;
+                    photoImage.hidden=false;
+                    await photoImage.decode();
+                    if(token!==photoGeneration)return;
+                    fitPhoto();
+                    const downloadUrl=new URL(activePhotoDownloadUrl,window.location.origin);
+                    downloadUrl.searchParams.set('quality',String(Math.max(70,Math.min(96,Math.round(Number(photoQuality.value)*100)))));
+                    photoDownload.href=downloadUrl.toString();
+                    photoDownload.removeAttribute('download');
+                    setPhotoDownload(true);
+                    viewer('[data-g12-photo-status]').textContent=`Optimized certificate master ready. Download creates a ${qualityLabel.toLowerCase()} JPG.`;
+                    return;
+                }
+                const blob=await studentPhotoJpeg(activePhotoUrl,Number(photoQuality.value));
+                if(token!==photoGeneration)return;
+                const nextUrl=URL.createObjectURL(blob);
+                if(photoJpegUrl)URL.revokeObjectURL(photoJpegUrl);
+                photoJpegUrl=nextUrl;
+                photoImage.src=photoJpegUrl;
+                photoImage.hidden=false;
+                await photoImage.decode();
+                if(token!==photoGeneration)return;
+                fitPhoto();
+                photoDownload.href=photoJpegUrl;
+                photoDownload.download=`${activePhotoTitle.trim().replace(/[^\p{L}\p{N}]+/gu,'-').replace(/^-+|-+$/g,'')||'student-photo'}.jpg`;
+                setPhotoDownload(true);
+                viewer('[data-g12-photo-status]').textContent=`${qualityLabel} JPG ready · ${(blob.size/1024).toFixed(1)} KB. Use the controls to zoom.`;
+            }catch{
+                if(token!==photoGeneration)return;
+                viewer('[data-g12-photo-status]').textContent='';
+                viewer('[data-g12-photo-error]').textContent='The image could not be prepared as a JPG. Close this window and try again.';
+                viewer('[data-g12-photo-error]').classList.remove('d-none');
+            }
         };
-        photoImage.addEventListener('load',fitPhoto);photoViewerElement.addEventListener('shown.bs.modal',fitPhoto);window.addEventListener('resize',fitPhoto);photoZoom.addEventListener('input',renderPhotoZoom);viewer('[data-g12-photo-reset]').addEventListener('click',resetPhoto);
+        photoImage.addEventListener('load',fitPhoto);
+        photoViewerElement.addEventListener('shown.bs.modal',fitPhoto);
+        window.addEventListener('resize',fitPhoto);
+        photoZoom.addEventListener('input',renderPhotoZoom);
+        viewer('[data-g12-photo-reset]').addEventListener('click',resetPhoto);
         photoQuality.addEventListener('change',preparePhoto);
-        for(const [selector,delta]of [['[data-g12-photo-in]',.1],['[data-g12-photo-out]',-.1]])viewer(selector).addEventListener('click',()=>{photoZoom.value=String(Math.max(.5,Math.min(3,Number(photoZoom.value)+delta)));renderPhotoZoom();});
-        photoDownload.addEventListener('click',event=>{if(!photoJpegUrl)event.preventDefault();});
+        for(const [selector,delta]of [['[data-g12-photo-in]',.1],['[data-g12-photo-out]',-.1]]){
+            viewer(selector).addEventListener('click',()=>{photoZoom.value=String(Math.max(.5,Math.min(3,Number(photoZoom.value)+delta)));renderPhotoZoom();});
+        }
+        photoDownload.addEventListener('click',event=>{if(!photoJpegUrl&&!activePhotoDownloadUrl)event.preventDefault();});
         root.addEventListener('click',async event=>{
-            const trigger=event.target.closest('[data-g12-photo-view]');if(!trigger)return;event.preventDefault();event.stopPropagation();
-            activePhotoUrl=trigger.dataset.g12PhotoView;activePhotoTitle=trigger.dataset.g12PhotoTitle||'Student Photo';if(photoJpegUrl)URL.revokeObjectURL(photoJpegUrl);photoJpegUrl=null;setPhotoDownload(false);viewer('[data-g12-photo-error]').classList.add('d-none');viewer('#g12PhotoViewerTitle').textContent=activePhotoTitle;photoImage.alt=`Photo of ${activePhotoTitle}`;photoImage.hidden=true;photoImage.removeAttribute('src');photoFitWidth=photoFitHeight=0;photoZoom.value='1';renderPhotoZoom();photoModal.show();await preparePhoto();
+            const trigger=event.target.closest('[data-g12-photo-view]');
+            if(!trigger)return;
+            event.preventDefault();
+            event.stopPropagation();
+            activePhotoUrl=trigger.dataset.g12PhotoView;
+            activePhotoDownloadUrl=trigger.dataset.g12PhotoDownloadUrl||'';
+            activePhotoTitle=trigger.dataset.g12PhotoTitle||'Student Photo';
+            if(photoJpegUrl)URL.revokeObjectURL(photoJpegUrl);
+            photoJpegUrl=null;
+            setPhotoDownload(false);
+            viewer('[data-g12-photo-error]').classList.add('d-none');
+            viewer('#g12PhotoViewerTitle').textContent=activePhotoTitle;
+            photoImage.alt=`Photo of ${activePhotoTitle}`;
+            photoImage.hidden=true;
+            photoImage.removeAttribute('src');
+            photoFitWidth=photoFitHeight=0;
+            photoZoom.value='1';
+            renderPhotoZoom();
+            photoModal.show();
+            await preparePhoto();
         });
-        photoViewerElement.addEventListener('hidden.bs.modal',()=>{photoGeneration++;if(photoJpegUrl)URL.revokeObjectURL(photoJpegUrl);photoJpegUrl=null;activePhotoUrl='';photoImage.hidden=true;photoImage.removeAttribute('src');photoViewerElement.style.removeProperty('--g12-photo-modal-width');photoViewerElement.style.removeProperty('--g12-photo-stage-height');setPhotoDownload(false);});
+        photoViewerElement.addEventListener('hidden.bs.modal',()=>{
+            photoGeneration++;
+            if(photoJpegUrl)URL.revokeObjectURL(photoJpegUrl);
+            photoJpegUrl=null;
+            activePhotoUrl='';
+            activePhotoDownloadUrl='';
+            photoImage.hidden=true;
+            photoImage.removeAttribute('src');
+            photoViewerElement.style.removeProperty('--g12-photo-modal-width');
+            photoViewerElement.style.removeProperty('--g12-photo-stage-height');
+            setPhotoDownload(false);
+        });
     }
     let filterLoadTimer;
     const autoLoadFilters=async()=>{if(busy){filterLoadTimer=setTimeout(autoLoadFilters,100);return;}await run(()=>load());};
@@ -358,7 +486,60 @@ if(root){
         </section>`;
         get('[data-g12-detail]').innerHTML=html;modal('#g12ViewModal').show();
     }
-    root.addEventListener('click',e=>{const view=e.target.closest('[data-g12-view]'),edit=e.target.closest('[data-g12-edit]'),center=e.target.closest('[data-g12-center-edit]'),centerStatus=e.target.closest('[data-g12-center-status]'),report=e.target.closest('[data-g12-export]');if(view)run(()=>openView(view.dataset.g12View));if(edit)run(()=>openEdit(edit.dataset.g12Edit));if(center)openCenter(center.dataset.g12CenterEdit);if(centerStatus&&!centerStatus.disabled)run(()=>toggleCenterStatus(centerStatus));if(report){const query=filters();query.set('format',report.dataset.g12Export);window.open(base+'/report?'+query,'_blank','noopener');}});
+    const certificateForm=get('[data-g12-certificate-form]');
+    const setCertificateFileLabel=input=>{
+        const label=input?.closest('[data-g12-certificate-file-label]');
+        if(!label)return;
+        label.classList.toggle('has-file',Boolean(input.files?.length));
+        const title=label.querySelector('strong');
+        if(input.files?.[0])title.textContent=input.files[0].name;
+    };
+    const syncCertificateStatus=()=>{
+        if(!certificateForm)return;
+        const collected=certificateForm.elements.status.value==='collected';
+        certificateForm.elements.collected_date.required=collected;
+        certificateForm.elements.recipient.required=collected;
+        if(!collected){certificateForm.elements.collected_date.value='';certificateForm.elements.recipient.value='';}
+    };
+    async function openCertificate(recordId,type){
+        if(!certificateForm)return;
+        const record=await api('/records/'+recordId),certificate=record.certificates?.find(item=>item.type===type)??{status:'awaiting',version:1};
+        const source=record.documents?.[`${type}_certificate`],receipt=record.documents?.[`${type}_certificate_received`],label=type==='soft'?'Provisional Certificate':'Diploma';
+        certificateForm.reset();
+        certificateForm.elements.record_id.value=record.id;
+        certificateForm.elements.certificate_type.value=type;
+        certificateForm.elements.version.value=certificate.version??1;
+        for(const name of ['status','number','available_date','collected_date','recipient'])certificateForm.elements[name].value=certificate[name]??'';
+        get('[data-g12-certificate-title]').textContent=label;
+        get('[data-g12-certificate-student]').textContent=[record.name_kh,record.name_en,record.student_code].filter(Boolean).join(' · ');
+        get('[data-g12-certificate-current="source"]').innerHTML=certificateDocument(source,'Current MoEYS Copy');
+        get('[data-g12-certificate-current="receipt"]').innerHTML=certificateDocument(receipt,'Current Signed Receipt');
+        const canUpload=Boolean(record.can_upload_documents),isCorrection=certificate.status==='collected',canManage=Boolean(record.can_manage_collection)&&(!isCorrection||Boolean(record.can_correct_collection));
+        certificateForm.elements.source_file.disabled=!canUpload;
+        certificateForm.elements.receipt_file.disabled=!canUpload;
+        for(const name of ['status','number','available_date','collected_date','recipient'])certificateForm.elements[name].disabled=!canManage;
+        const reasonField=get('[data-g12-certificate-reason-field]');reasonField.hidden=!isCorrection||!canManage;certificateForm.elements.reason.disabled=!isCorrection||!canManage;
+        for(const labelElement of certificateForm.querySelectorAll('[data-g12-certificate-file-label]')){
+            labelElement.hidden=!canUpload;labelElement.classList.remove('has-file');
+            labelElement.querySelector('strong').textContent=labelElement.dataset.g12CertificateFileLabel==='source'?'Choose certificate image or PDF':'Choose signed copy image or PDF';
+        }
+        get('[data-g12-certificate-save]').hidden=!canUpload&&!canManage;
+        syncCertificateStatus();
+        modal('#g12CertificateModal').show();
+    }
+    certificateForm?.addEventListener('change',event=>{
+        if(event.target.matches('input[type="file"]'))setCertificateFileLabel(event.target);
+        if(event.target.name==='status')syncCertificateStatus();
+    });
+    certificateForm?.addEventListener('submit',event=>{event.preventDefault();run(async()=>{
+        const form=event.currentTarget,recordId=form.elements.record_id.value,type=form.elements.certificate_type.value,source=form.elements.source_file.files[0],receipt=form.elements.receipt_file.files[0];
+        if(source){const upload=new FormData();upload.append('kind',`${type}_certificate`);upload.append('file',source);await api(`/records/${recordId}/files`,upload);}
+        if(!form.elements.status.disabled){
+            const tracking=new FormData();for(const name of ['status','number','available_date','collected_date','recipient','reason','version'])tracking.append(name,form.elements[name].value);if(receipt)tracking.append('file',receipt);await api(`/records/${recordId}/certificates/${type}`,tracking);
+        }else if(receipt){const upload=new FormData();upload.append('kind',`${type}_certificate_received`);upload.append('file',receipt);await api(`/records/${recordId}/files`,upload);}
+        modal('#g12CertificateModal').hide();await saved('Certificate documents and tracking details were saved.');await load();
+    });});
+    root.addEventListener('click',e=>{const view=e.target.closest('[data-g12-view]'),edit=e.target.closest('[data-g12-edit]'),certificate=e.target.closest('[data-g12-certificate-manage]'),center=e.target.closest('[data-g12-center-edit]'),centerStatus=e.target.closest('[data-g12-center-status]'),report=e.target.closest('[data-g12-export]');if(view)run(()=>openView(view.dataset.g12View));if(edit)run(()=>openEdit(edit.dataset.g12Edit));if(certificate)run(()=>openCertificate(certificate.dataset.g12CertificateManage,certificate.dataset.certificateType));if(center)openCenter(center.dataset.g12CenterEdit);if(centerStatus&&!centerStatus.disabled)run(()=>toggleCenterStatus(centerStatus));if(report){const query=filters();query.set('format',report.dataset.g12Export);window.open(base+'/report?'+query,'_blank','noopener');}});
     root.querySelectorAll('[data-g12-drop]').forEach(zone=>{
         for(const type of ['dragenter','dragover'])zone.addEventListener(type,e=>{e.preventDefault();zone.classList.add('dragover');});
         for(const type of ['dragleave','drop'])zone.addEventListener(type,e=>{e.preventDefault();zone.classList.remove('dragover');});

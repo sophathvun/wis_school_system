@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\{DB,Storage,Validator};
 use Illuminate\Http\UploadedFile;
 use Illuminate\Validation\ValidationException;
 class G12NationalExams {
+    public const FAILED_CERTIFICATE_REMARK = 'Certificate not issued — Failed National Examination | មិនមានវិញ្ញាបនបត្រ — មិនបានជាប់ការប្រឡងថ្នាក់ជាតិ';
     public function fail(string $message): never {throw ValidationException::withMessages(['record'=>$message]);}
     public function authorize(User $user,string $action,?int $campus=null): void {abort_unless(Access::allows($user,$action,$campus),403);}
     public function event(User $user,string $action,array $details,?int $record=null): void {DB::table('tb_g12_exam_event')->insert(['record_id'=>$record,'user_id'=>$user->id,'action'=>$action,'details'=>json_encode($details,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),'created_at'=>now(),'updated_at'=>now()]);}
@@ -14,6 +15,16 @@ class G12NationalExams {
     }
     public function status(string $grade): string {
         $grade=mb_strtoupper(trim($grade));return in_array($grade,['A','B','C','D','E'],true)?'passed':(in_array($grade,['F','FAILED','ធ្លាក់'],true)?'failed':'pending');
+    }
+    public function syncCertificateEligibility(G12ExamRecord $record): void {
+        $failed=$record->result_status==='failed'||mb_strtoupper(trim((string)$record->overall_grade))==='F';
+        foreach($record->certificates()->get() as $certificate){
+            if($failed){
+                $certificate->update(['status'=>'not_applicable','number'=>null,'available_date'=>null,'collected_date'=>null,'recipient'=>null,'remark'=>self::FAILED_CERTIFICATE_REMARK]);
+            }elseif($certificate->status==='not_applicable'&&$certificate->remark===self::FAILED_CERTIFICATE_REMARK){
+                $certificate->update(['status'=>'awaiting','remark'=>null]);
+            }
+        }
     }
     private function folder(string $name,string $code): string {
         $name=trim(preg_replace('/[^A-Za-z0-9_-]+/','_',$name),'_');$id=preg_replace('/[^A-Za-z0-9_-]+/','_',$code);
@@ -45,6 +56,7 @@ class G12NationalExams {
                         'recipient'=>$status==='collected'?($input['received_'.$type.'_cert_by']??null):null]);
                 }
             }
+            $this->syncCertificateEligibility($record);
             $this->event($user,$import?'import-record':($before?'edit-record':'create-record'),['before'=>$before,'after'=>$record->toArray()],$record->id);return $record;
         });
     }

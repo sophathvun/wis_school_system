@@ -2,14 +2,14 @@
 namespace App\Http\Controllers;
 use App\Models\{BrandingSetting,G12ExamRecord,G12ExamCenter,G12ExamFile,G12ExamImport,SchoolInfo,User};
 use App\Support\{G12NationalExamPermissions as Access,G12NationalExamFields as Fields,ScholarshipExport};
-use App\Services\{G12NationalExams,G12NationalExamFiles,G12ScoringImports,G12ResultImageOcr};
+use App\Services\{G12CertificateImage,G12NationalExams,G12NationalExamFiles,G12ScoringImports,G12ResultImageOcr};
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\{DB,File,Storage,Validator};
 use Illuminate\Validation\{Rule,ValidationException};
 class G12NationalExamController {
-    public function __construct(private G12NationalExams $exams,private G12NationalExamFiles $files,private G12ScoringImports $scoringImports,private G12ResultImageOcr $resultOcr){}
+    public function __construct(private G12NationalExams $exams,private G12NationalExamFiles $files,private G12ScoringImports $scoringImports,private G12ResultImageOcr $resultOcr,private G12CertificateImage $certificateImages){}
     private function tab(Request $request): string {
         $tab=$request->route('section')??$request->input('section',$request->input('tab'));$tabs=array_keys(Access::submenus());
         if(!$tab)$tab=collect($tabs)->first(fn($t)=>Access::allows($request->user(),$t));
@@ -49,6 +49,7 @@ class G12NationalExamController {
         $tab=$this->tab($request);abort_unless(in_array($tab,['records','assign-centers','scoring','certificates','reports'],true),403);
         $request->validate(['per_page'=>['nullable',Rule::in(['15','25','50','100','all'])],'page'=>'nullable|integer|min:1']);
         $q=$this->query($request,$tab)->with(['center','campus','certificates']);
+        if($tab==='certificates')$q->with(['files'=>fn($files)=>$files->latest('id')]);
         if(in_array($tab,['assign-centers','scoring'],true)){
             $q->orderBy(SchoolInfo::select('campus_name_en')->whereColumn('tb_school_info.id','tb_g12_exam_record.campus_id'))
                 ->orderBy('grade')->orderBy('name_kh')->orderBy('id');
@@ -173,8 +174,20 @@ class G12NationalExamController {
     private function normalizedGrade(mixed $value): string {
         return mb_strtoupper(trim((string)($value??'')));
     }
+    private function fileSummary(G12ExamFile $file): array {
+        $isImage=str_starts_with($file->mime,'image/');
+        return $file->only(['id','kind','original_name','mime','size','thumbnail_size','width','height','created_at'])+[
+            'url'=>route('g12-national-exams.file',$file),
+            'thumbnail_url'=>$file->thumbnail_path?route('g12-national-exams.file',['file'=>$file,'variant'=>'thumbnail']):route('g12-national-exams.file',$file),
+            'download'=>route('g12-national-exams.file',['file'=>$file,'download'=>1]),
+            'download_jpg'=>$isImage?route('g12-national-exams.file',['file'=>$file,'format'=>'jpg','download'=>1]):null,
+            'is_image'=>$isImage,
+            'optimized'=>(bool)$file->thumbnail_path,
+        ];
+    }
     private function summary(G12ExamRecord $r,Request $request): array {
         $subjectScores=collect($this->scoringSubjects($r))->map(fn($label,$key)=>['key'=>$key,'label'=>$label,'value'=>$r->data['lettergrade_'.$key]??''])->values()->all();
+        $certificateEligible=$r->result_status!=='failed';
         return ['id'=>$r->id,'version'=>$r->version,'name_en'=>$r->name_en,'name_kh'=>$r->name_kh,'student_code'=>$r->student_code,'academic_year'=>$r->academic_year,
             'campus'=>$r->campus?->campus_name_en,'center'=>$r->center?->name,'grade'=>$r->grade,'overall_grade'=>$r->overall_grade,'result_status'=>$r->result_status,
             'room'=>$r->data['g12_exam_room']??'','seat'=>$r->data['g12_exam_seat']??'','photo_url'=>$r->photo_path?route('g12-national-exams.photo',$r):null,
@@ -185,12 +198,15 @@ class G12NationalExamController {
             'language_exam'=>$r->data['language_exam']??'','class_selected'=>$r->data['class_sellected']??$r->data['class_selected']??'','g12_exam_date'=>$r->data['g12_exam_date']??'','score_rank'=>$r->data['g12_score_rank']??'',
             'subject_scores'=>$subjectScores,
             'phone_number'=>$r->data['phone_number']??'','campus_id'=>$r->campus_id,'center_id'=>$r->center_id,
-            'certificates'=>$r->certificates,'can_edit'=>Access::allows($request->user(),'edit',$r->campus_id),'can_assign'=>Access::allows($request->user(),'assign-centers-manage',$r->campus_id),'can_score'=>Access::allows($request->user(),'scoring-manage',$r->campus_id)];
+            'certificates'=>$r->certificates,'certificate_eligible'=>$certificateEligible,
+            'documents'=>$r->relationLoaded('files')&&Access::allows($request->user(),'documents-view',$r->campus_id)?$r->files->unique('kind')->mapWithKeys(fn($file)=>[$file->kind=>$this->fileSummary($file)]):[],
+            'can_edit'=>Access::allows($request->user(),'edit',$r->campus_id),'can_assign'=>Access::allows($request->user(),'assign-centers-manage',$r->campus_id),'can_score'=>Access::allows($request->user(),'scoring-manage',$r->campus_id),
+            'can_upload_documents'=>$certificateEligible&&Access::allows($request->user(),'documents-upload',$r->campus_id),'can_manage_collection'=>$certificateEligible&&Access::allows($request->user(),'collection',$r->campus_id),'can_correct_collection'=>$certificateEligible&&Access::allows($request->user(),'collection-correct',$r->campus_id),'can_view_documents'=>Access::allows($request->user(),'documents-view',$r->campus_id)];
     }
     public function show(Request $request,G12ExamRecord $record){
         abort_unless(Access::allows($request->user(),'records',$record->campus_id)||Access::allows($request->user(),'scoring',$record->campus_id)||Access::allows($request->user(),'certificates',$record->campus_id)||Access::allows($request->user(),'reports',$record->campus_id),403);
-        $record->load(['center','campus','certificates']);$data=$this->summary($record,$request)+['data'=>$record->data,'campus_id'=>$record->campus_id,'center_id'=>$record->center_id,'photo_filename'=>$record->photo_filename,'document_folder'=>$record->document_folder];
-        $data['files']=Access::allows($request->user(),'documents-view',$record->campus_id)?$record->files()->latest('id')->get()->map(fn($f)=>$f->only(['id','kind','original_name','mime','size','created_at'])+['url'=>route('g12-national-exams.file',$f),'download'=>route('g12-national-exams.file',[$f,'download'=>1])]):[];
+        $record->load(['center','campus','certificates','files'=>fn($files)=>$files->latest('id')]);$data=$this->summary($record,$request)+['data'=>$record->data,'campus_id'=>$record->campus_id,'center_id'=>$record->center_id,'photo_filename'=>$record->photo_filename,'document_folder'=>$record->document_folder];
+        $data['files']=Access::allows($request->user(),'documents-view',$record->campus_id)?$record->files->map(fn($file)=>$this->fileSummary($file))->values():[];
         $data['history']=DB::table('tb_g12_exam_event')->where('record_id',$record->id)->latest('id')->limit(30)->get(['action','user_id','created_at']);
         foreach(['collection','collection-correct','documents-upload','documents-view'] as $action)$data['permissions'][$action]=Access::allows($request->user(),$action,$record->campus_id);
         return response()->json($data)->header('Cache-Control','no-store, private');
@@ -248,6 +264,7 @@ class G12NationalExamController {
             }
             $data['g12_score_rank']=$after['score_rank'];$data['g12_letter_grade']=$after['letter_grade'];
             $record->update(['data'=>$data,'overall_grade'=>$after['letter_grade']?:null,'result_status'=>$this->exams->status($after['letter_grade']),'version'=>$record->version+1]);
+            $this->exams->syncCertificateEligibility($record);
             $this->exams->event($request->user(),'scores-updated',['before'=>$before,'after'=>$after],$record->id);return $record->fresh();
         });
         return response()->json(['message'=>'Grades saved.','version'=>$saved->version,'score_rank'=>$saved->data['g12_score_rank']??'','letter_grade'=>$saved->overall_grade??'','result_status'=>$saved->result_status,
@@ -323,7 +340,7 @@ class G12NationalExamController {
     public function upload(Request $request,G12ExamRecord $record){
         $data=$request->validate(['kind'=>['required',Rule::in(G12NationalExamFiles::KINDS)],'file'=>'required|file|max:20480','replace'=>'nullable|boolean']);
         $file=$this->files->store($request->user(),$record,$data['kind'],$request->file('file')->get(),$request->file('file')->getClientOriginalName(),$request->boolean('replace'));
-        return response()->json(['message'=>'File uploaded; previous versions are retained.','id'=>$file->id]);
+        return response()->json(['message'=>'File uploaded and optimized; previous versions are retained.','file'=>$this->fileSummary($file)]);
     }
     public function collection(Request $request,G12ExamRecord $record,string $type){
         $request->validate(['file'=>'nullable|file|max:20480']);$this->files->collection($request->user(),$record,$type,$request->except('file'),$request->file('file'));
@@ -362,7 +379,18 @@ class G12NationalExamController {
     public function file(Request $request,G12ExamFile $file){
         if($file->kind==='portrait')abort_unless(collect(['records','assign-centers','scoring','certificates','photos','reports'])->contains(fn($a)=>Access::allows($request->user(),$a,$file->record->campus_id)),403);
         else $this->exams->authorize($request->user(),'documents-view',$file->record->campus_id);
+        $request->validate(['variant'=>'nullable|in:thumbnail','format'=>'nullable|in:jpg','quality'=>'nullable|integer|min:70|max:96']);
+        if($request->input('variant')==='thumbnail'){
+            $path=$file->thumbnail_path?:$file->path;abort_unless(Storage::disk('local')->exists($path),404);
+            return Storage::disk('local')->response($path,'certificate-thumbnail.webp',['Content-Type'=>$file->thumbnail_path?'image/webp':$file->mime,'X-Content-Type-Options'=>'nosniff','Cache-Control'=>'private, max-age=3600'],'inline');
+        }
         abort_unless(Storage::disk('local')->exists($file->path),404);
+        if($request->input('format')==='jpg'){
+            abort_unless(str_starts_with($file->mime,'image/'),422);
+            $jpeg=$this->certificateImages->jpeg(Storage::disk('local')->get($file->path),$request->integer('quality',94));
+            $base=preg_replace('/[^A-Za-z0-9._-]+/','-',pathinfo($file->original_name,PATHINFO_FILENAME));$downloadName=trim($base,'-.')?:'certificate';
+            return response($jpeg,200,['Content-Type'=>'image/jpeg','Content-Length'=>(string)strlen($jpeg),'Content-Disposition'=>'attachment; filename="'.$downloadName.'-high-quality.jpg"','X-Content-Type-Options'=>'nosniff','Cache-Control'=>'no-store, private']);
+        }
         return Storage::disk('local')->response($file->path,$file->kind==='portrait'?basename($file->path):$file->original_name,['Content-Type'=>$file->mime,'X-Content-Type-Options'=>'nosniff','Cache-Control'=>'no-store, private'],$request->boolean('download')?'attachment':'inline');
     }
     public function photo(Request $request,G12ExamRecord $record){

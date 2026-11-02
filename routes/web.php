@@ -157,6 +157,12 @@ Route::middleware(['auth', 'active.user'])->prefix('students/placement-tests')->
         Route::post('/scans/{scan}/verify', 'verifyScan')->name('scan.verify');
         Route::get('/attempts/{attempt}/print', 'print')->name('attempt.print');
         Route::post('/applicants/{applicant}/prepare-enrollment', 'prepareEnrollment')->name('applicants.enrollment');
+        Route::post('/settings/subjects', 'saveSubject')->name('subjects.store');
+        Route::post('/settings/subjects/{subject}', 'saveSubject')->name('subjects.update');
+        Route::post('/settings/subjects/{subject}/status', 'subjectStatus')->name('subjects.status');
+        Route::post('/settings/topics', 'saveTopic')->name('topics.store');
+        Route::post('/settings/topics/{topic}', 'saveTopic')->name('topics.update');
+        Route::post('/settings/topics/{topic}/status', 'topicStatus')->name('topics.status');
         Route::post('/settings', 'saveSettings')->name('settings.save');
         Route::get('/{section?}', 'index')->where('section', 'dashboard|applicants|questions|forms|sessions|marking|results|enrollment|settings')->name('index');
     });

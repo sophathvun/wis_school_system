@@ -8,13 +8,18 @@ use Illuminate\Http\UploadedFile;
 use ZipArchive;
 class G12NationalExamFiles {
     public const KINDS=['portrait','soft_certificate','soft_certificate_received','hard_certificate','hard_certificate_received','other_documents'];
-    public function __construct(private G12NationalExams $exams){}
+    private const CERTIFICATE_KINDS=['soft_certificate','soft_certificate_received','hard_certificate','hard_certificate_received'];
+    public function __construct(
+        private G12NationalExams $exams,
+        private G12CertificateImage $certificateImages,
+    ){}
     private function filename(string $name): string {
         $name=basename(str_replace('\\','/',$name));$name=preg_replace('/[\x00-\x1f<>:"\/\\\\|?*]/u','_',$name);$name=trim($name," .");
         if(!$name||strlen($name)>220)$this->exams->fail('Use a filename up to 220 bytes without directory separators.');return $name;
     }
     public function store(User $user,G12ExamRecord $record,string $kind,string $bytes,string $name,bool $replace=false): G12ExamFile {
         if(!in_array($kind,self::KINDS,true))$this->exams->fail('Select a document type.');
+        if(in_array($kind,self::CERTIFICATE_KINDS,true)&&$record->result_status==='failed')$this->exams->fail('Certificates are not issued to students who failed the National Examination.');
         $this->exams->authorize($user,$kind==='portrait'?'photos-upload':'documents-upload',$record->campus_id);
         $name=$this->filename($name);$size=strlen($bytes);if($size>20*1024*1024||!$size)$this->exams->fail('Each file must be between 1 byte and 20 MB.');
         $mime=(new \finfo(FILEINFO_MIME_TYPE))->buffer($bytes);
@@ -22,14 +27,21 @@ class G12NationalExamFiles {
         if(!isset($images[$mime])&&($mime!=='application/pdf'||$kind==='portrait'))$this->exams->fail('Choose a JPG, PNG or WebP image'.($kind==='portrait'?'.':' or PDF document.'));
         if(isset($images[$mime])){$dimensions=@getimagesizefromstring($bytes);if(!$dimensions||$dimensions[0]*$dimensions[1]>40000000)$this->exams->fail('Choose an image up to 40 megapixels.');}
         $ext=strtolower(pathinfo($name,PATHINFO_EXTENSION));if(!in_array($ext,['jpg','jpeg','png','webp','pdf'],true))$name.='.'.($images[$mime]??'pdf');
-        $storedName=$name;
+
+        $storedName=$name;$thumbnailBytes=null;$width=null;$height=null;
         if($kind==='portrait'){
             $bytes=app(G12NationalExamPhoto::class)->webp($bytes);$mime='image/webp';$size=strlen($bytes);
             $storedName=pathinfo($name,PATHINFO_FILENAME).'.webp';
+        }elseif(isset($images[$mime])&&in_array($kind,['soft_certificate','soft_certificate_received','hard_certificate','hard_certificate_received'],true)){
+            $optimized=$this->certificateImages->optimize($bytes);$bytes=$optimized['master'];$thumbnailBytes=$optimized['thumbnail'];
+            $width=$optimized['width'];$height=$optimized['height'];$mime='image/webp';$size=strlen($bytes);
+            $storedName=pathinfo($name,PATHINFO_FILENAME).'.webp';
         }
-        $path=null;
-        try{return DB::transaction(function()use($user,$record,$kind,$bytes,$name,$storedName,$replace,$mime,$size,&$path){
+
+        $path=null;$thumbnailPath=null;
+        try{return DB::transaction(function()use($user,$record,$kind,$bytes,$thumbnailBytes,$name,$storedName,$replace,$mime,$size,$width,$height,&$path,&$thumbnailPath){
             $record=G12ExamRecord::lockForUpdate()->findOrFail($record->id);$this->exams->authorize($user,$kind==='portrait'?'photos-upload':'documents-upload',$record->campus_id);
+            if(in_array($kind,self::CERTIFICATE_KINDS,true)&&$record->result_status==='failed')$this->exams->fail('Certificates are not issued to students who failed the National Examination.');
             if($kind==='portrait'&&$record->photo_path){$this->exams->authorize($user,'photos-replace',$record->campus_id);if(!$replace)$this->exams->fail('A photo already exists. Confirm Replace to keep the old version and upload a replacement.');}
             $hash=hash('sha256',$bytes);$duplicate=$record->files()->where('kind',$kind)->where('sha256',$hash)->first();
             if($duplicate){
@@ -44,22 +56,28 @@ class G12NationalExamFiles {
                 if(!$stream){$path=null;$this->exams->fail('The photo could not be stored. Check available storage.');}
                 try{$offset=0;while($offset<$size){$written=fwrite($stream,substr($bytes,$offset));if(!$written)$this->exams->fail('The photo could not be stored completely. Try again.');$offset+=$written;}}finally{fclose($stream);}
             }else{
-                $path='g12_national_exam_documents/'.$record->academic_year.'/'.$record->document_folder.'/'.$kind.'/'.Str::uuid().'/'.$name;
+                $directory='g12_national_exam_documents/'.$record->academic_year.'/'.$record->document_folder.'/'.$kind.'/'.Str::uuid();
+                $path=$directory.'/'.$storedName;
                 if(!Storage::disk('local')->put($path,$bytes))$this->exams->fail('The file could not be stored. Try again.');
+                if($thumbnailBytes!==null){
+                    $thumbnailPath=$directory.'/thumbnail.webp';
+                    if(!Storage::disk('local')->put($thumbnailPath,$thumbnailBytes))$this->exams->fail('The certificate thumbnail could not be stored. Try again.');
+                }
             }
-            $file=$record->files()->create(['kind'=>$kind,'path'=>$path,'original_name'=>$name,'mime'=>$mime,'size'=>$size,'sha256'=>$hash,'uploaded_by'=>$user->id]);
+            $file=$record->files()->create(['kind'=>$kind,'path'=>$path,'thumbnail_path'=>$thumbnailPath,'original_name'=>$name,'mime'=>$mime,'size'=>$size,'thumbnail_size'=>$thumbnailBytes===null?null:strlen($thumbnailBytes),'width'=>$width,'height'=>$height,'sha256'=>$hash,'uploaded_by'=>$user->id]);
             if($kind==='portrait')$record->update(['photo_path'=>$path,'version'=>$record->version+1]);
-            $this->exams->event($user,'file-uploaded',['file_id'=>$file->id,'kind'=>$kind,'original_name'=>$name,'sha256'=>$hash,'replaced'=>$replace],$record->id);return $file;
-        });}catch(\Throwable $e){if($path)Storage::disk('local')->delete($path);throw $e;}
+            $this->exams->event($user,'file-uploaded',['file_id'=>$file->id,'kind'=>$kind,'original_name'=>$name,'sha256'=>$hash,'replaced'=>$replace,'optimized'=>$thumbnailBytes!==null],$record->id);return $file;
+        });}catch(\Throwable $e){Storage::disk('local')->delete(array_filter([$path,$thumbnailPath]));throw $e;}
     }
     public function collection(User $user,G12ExamRecord $record,string $type,array $data,?UploadedFile $file=null): G12ExamCertificate {
         $this->exams->authorize($user,'collection',$record->campus_id);
+        if($record->result_status==='failed')$this->exams->fail('Certificate tracking is not applicable because this student failed the National Examination.');
         $data=Validator::make($data,['status'=>'required|in:awaiting,available,collected,not_applicable,review','number'=>'nullable|string|max:100','available_date'=>'nullable|date_format:Y-m-d','collected_date'=>'required_if:status,collected|nullable|date_format:Y-m-d','recipient'=>'required_if:status,collected|nullable|string|max:255','version'=>'required|integer|min:1','reason'=>'nullable|string|max:1000'])->validate();
         if(!in_array($type,['soft','hard'],true))$this->exams->fail('Choose soft or hard certificate.');
         if(!empty($data['available_date'])&&!empty($data['collected_date'])&&$data['collected_date']<$data['available_date'])$this->exams->fail('Collection date cannot be before the school received the certificate.');
         $newFile=null;
         try{return DB::transaction(function()use($user,$record,$type,$data,$file,&$newFile){
-            G12ExamRecord::lockForUpdate()->findOrFail($record->id);$cert=G12ExamCertificate::where('record_id',$record->id)->where('type',$type)->lockForUpdate()->firstOrFail();
+            $record=G12ExamRecord::lockForUpdate()->findOrFail($record->id);if($record->result_status==='failed')$this->exams->fail('Certificate tracking is not applicable because this student failed the National Examination.');$cert=G12ExamCertificate::where('record_id',$record->id)->where('type',$type)->lockForUpdate()->firstOrFail();
             if($cert->version!==(int)$data['version'])$this->exams->fail('The certificate record changed. Reopen it before saving.');
             if($cert->status==='collected'){$this->exams->authorize($user,'collection-correct',$record->campus_id);if(mb_strlen(trim($data['reason']??''))<5)$this->exams->fail('Enter a reason of at least five characters to correct a collection.');}
             if($data['status']!=='collected'&&(!empty($data['recipient'])||!empty($data['collected_date'])))$this->exams->fail('Clear recipient and collection date when the certificate is not collected.');
@@ -67,7 +85,7 @@ class G12NationalExamFiles {
             if($data['status']==='collected'&&!$record->files()->where('kind',$type.'_certificate_received')->exists())$this->exams->fail('Upload the signed certificate-copy photo or PDF before recording collection.');
             $before=$cert->toArray();$cert->fill(collect($data)->only(['status','number','available_date','collected_date','recipient'])->all()+['managed'=>true,'recorded_by'=>$user->id,'version'=>$cert->version+1])->save();
             $this->exams->event($user,'certificate-updated',['before'=>$before,'after'=>$cert->toArray(),'reason'=>$data['reason']??null,'receipt_file_id'=>$newFile?->id],$record->id);return $cert;
-        });}catch(\Throwable $e){if($newFile?->wasRecentlyCreated)Storage::disk('local')->delete($newFile->path);throw $e;}
+        });}catch(\Throwable $e){if($newFile?->wasRecentlyCreated)Storage::disk('local')->delete(array_filter([$newFile->path,$newFile->thumbnail_path]));throw $e;}
     }
     public function preview(User $user,string $year,array $files): G12ExamImport {
         $this->exams->authorize($user,'photos-upload');$this->exams->year($year);$entries=[];$paths=[];

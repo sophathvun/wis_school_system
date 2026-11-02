@@ -7,7 +7,9 @@ use Illuminate\Database\Eloquent\Model;
 class PlacementTestSetting extends Model
 {
     protected $table = 'tb_placement_test_setting';
+
     protected $guarded = ['id'];
+
     protected $casts = [
         'online_enabled' => 'boolean',
         'paper_enabled' => 'boolean',
@@ -40,10 +42,20 @@ class PlacementTestSetting extends Model
 
     public static function effective(?int $campusId): array
     {
-        if (!$campusId) return static::defaults();
+        if (! $campusId) {
+            return static::defaults();
+        }
+
         return array_replace(static::defaults($campusId), static::where('campus_id', $campusId)->first()?->toArray() ?? []);
     }
 
-    public function campus() { return $this->belongsTo(SchoolInfo::class, 'campus_id'); }
-    public function updatedBy() { return $this->belongsTo(User::class, 'updated_by'); }
+    public function campus()
+    {
+        return $this->belongsTo(SchoolInfo::class, 'campus_id');
+    }
+
+    public function updatedBy()
+    {
+        return $this->belongsTo(User::class, 'updated_by');
+    }
 }

@@ -25,6 +25,7 @@ export default defineConfig({
                 "resources/js/studentEnrollment.js",
                 "resources/js/placementTests.js",
                 "resources/js/placementTestTake.js",
+                "resources/js/placementTestPrint.js",
                 "resources/js/summerSchool.js",
                 "resources/js/locations.js",
                 "resources/js/families.js",

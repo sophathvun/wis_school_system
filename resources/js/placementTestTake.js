@@ -1,15 +1,192 @@
 import Swal from "sweetalert2";
-const root=document.querySelector("#placementTakeApp");
-if(root){
-let state=JSON.parse(document.querySelector("#ptPublicData").textContent),index=0,timer;const token=root.dataset.token,box=document.querySelector("#ptTakeContent"),csrf=document.querySelector('meta[name="csrf-token"]')?.content||"";const storageKey=`placement-test-${token}`;let responses={...JSON.parse(localStorage.getItem(storageKey)||"{}"),...(state.responses||{})};
-const esc=v=>String(v??"").replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
-const optionLabels=q=>(q.options||[]).map((_,index)=>(q.option_label_style||"letters")==="numbers"?String(index+1):String.fromCharCode(65+index));
-const post=async path=>{const r=await fetch(`/placement-test/${token}/${path}`,{method:"POST",headers:{"X-CSRF-TOKEN":csrf,"Content-Type":"application/json",Accept:"application/json"},body:path==="submit"?JSON.stringify({responses}):"{}"});const data=await r.json().catch(()=>({}));if(!r.ok)throw new Error(data.message||"The request could not be completed.");return data};
-const welcome=()=>{const f=state.form;box.innerHTML=`<div class="pt-welcome"><div class="pt-welcome-main"><span class="pt-overline">READY FOR YOUR ASSESSMENT</span><h1>${esc(f.name||"Student Placement Test")}</h1><p class="pt-welcome-sub">Read each question carefully and select the best answer. Your result will help the school recommend the correct grade.</p><div class="pt-candidate"><span>${esc(state.applicant.name?.split(/\s+/).map(x=>x[0]).slice(0,2).join(""))}</span><div><strong>${esc(state.applicant.name)}</strong><small>Application ${esc(state.applicant.code)}</small></div></div><div class="pt-test-facts"><div><small>GRADE</small><strong>${esc(f.grade)}</strong></div><div><small>TEST VERSION</small><strong>Form ${esc(f.form_code)}</strong></div><div><small>TIME LIMIT</small><strong>${esc(f.duration_minutes)} minutes</strong></div></div><button class="pt-primary" data-start><i class="ti ti-player-play"></i> Start Placement Test</button></div><div class="pt-welcome-visual"><i class="ti ti-clipboard-check"></i></div></div>`};
-const exam=()=>{const questions=state.form.questions||[];if(!questions.length){box.innerHTML=finished("This test form has no questions.");return}index=Math.min(index,questions.length-1);const q=questions[index],labels=optionLabels(q);box.innerHTML=`<div class="pt-exam"><header class="pt-exam-head"><div class="pt-progress-meta"><strong>${esc(state.form.name)} · Form ${esc(state.form.form_code)}</strong><small>Question ${index+1} of ${questions.length} · ${Object.keys(responses).filter(k=>responses[k]).length} answered</small></div><div class="pt-timer" id="ptTimer"><i class="ti ti-clock"></i><span>--:--</span></div></header><div class="pt-exam-body"><article class="pt-question"><div class="pt-question-label"><span>${esc(q.subject)}</span><span>${esc(q.points)} point${Number(q.points)===1?"":"s"}</span></div><h2>${esc(q.prompt)}</h2><div class="pt-choice-list">${(q.options||[]).map((option,i)=>{const key=labels[i],selected=responses[q.order_no]===key;return`<label class="pt-choice ${selected?"selected":""}"><input type="radio" name="answer" value="${key}" ${selected?"checked":""}><b>${key}</b><span>${esc(option)}</span></label>`}).join("")}</div></article><aside class="pt-navigator"><strong>QUESTION NAVIGATOR</strong><div class="pt-nav-grid">${questions.map((x,i)=>`<button type="button" data-question="${i}" class="${responses[x.order_no]?"answered":""} ${i===index?"current":""}">${i+1}</button>`).join("")}</div></aside></div><footer class="pt-exam-foot"><button class="pt-secondary" data-prev ${index===0?"disabled":""}><i class="ti ti-arrow-left"></i> Previous</button>${index===questions.length-1?'<button class="pt-primary" data-submit><i class="ti ti-send"></i> Submit Test</button>':'<button class="pt-primary" data-next>Next <i class="ti ti-arrow-right"></i></button>'}</footer></div>`;startTimer()};
-const startTimer=()=>{clearInterval(timer);const tick=()=>{const el=document.querySelector("#ptTimer");if(!el)return;const seconds=Math.max(0,Math.floor((new Date(state.expires_at)-Date.now())/1000));el.querySelector("span").textContent=`${String(Math.floor(seconds/60)).padStart(2,"0")}:${String(seconds%60).padStart(2,"0")}`;el.classList.toggle("urgent",seconds<300);if(seconds<=0){clearInterval(timer);submit(true)}};tick();timer=setInterval(tick,1000)};
-const finished=message=>`<div class="pt-finished"><span class="pt-finished-icon"><i class="ti ti-circle-check"></i></span><h1>Assessment submitted</h1><p>${esc(message||"Thank you. The admissions team will review your verified placement result and contact you.")}</p><div class="pt-candidate"><span><i class="ti ti-shield-check"></i></span><div><strong>Response received securely</strong><small>${esc(state.applicant?.code||"")}</small></div></div></div>`;
-const submit=async automatic=>{if(!automatic){const total=state.form.questions.length,answered=Object.values(responses).filter(Boolean).length;const ask=await Swal.fire({icon:"question",title:"Submit your placement test?",text:answered<total?`${total-answered} question(s) are still blank.`:"You have answered every question.",showCancelButton:true,confirmButtonText:"Submit test",confirmButtonColor:"#316fd6"});if(!ask.isConfirmed)return}try{const data=await post("submit");localStorage.removeItem(storageKey);clearInterval(timer);state.status="submitted";box.innerHTML=finished(data.message)}catch(e){Swal.fire({icon:"error",title:"Submission failed",text:e.message})}};
-document.addEventListener("change",e=>{if(e.target.name!=="answer")return;const q=state.form.questions[index];responses[q.order_no]=e.target.value;localStorage.setItem(storageKey,JSON.stringify(responses));exam()});document.addEventListener("click",async e=>{const t=e.target.closest("button");if(!t)return;if(t.matches("[data-start]")){t.disabled=true;try{state=await post("start");exam()}catch(error){Swal.fire({icon:"error",title:"Unable to start",text:error.message});t.disabled=false}}if(t.dataset.question!==undefined){index=+t.dataset.question;exam()}if(t.matches("[data-prev]")){index--;exam()}if(t.matches("[data-next]")){index++;exam()}if(t.matches("[data-submit]"))submit(false)});
-if(["submitted","verified"].includes(state.status))box.innerHTML=finished();else if(state.status==="in_progress")exam();else welcome();
+const root = document.querySelector("#placementTakeApp");
+if (root) {
+    let state = JSON.parse(
+            document.querySelector("#ptPublicData").content.textContent,
+        ),
+        index = 0,
+        timer;
+    const token = root.dataset.token,
+        box = document.querySelector("#ptTakeContent"),
+        csrf = document.querySelector('meta[name="csrf-token"]')?.content || "";
+    const storageKey = `placement-test-${token}`;
+    let responses = {
+        ...JSON.parse(localStorage.getItem(storageKey) || "{}"),
+        ...(state.responses || {}),
+    };
+    const esc = (v) =>
+        String(v ?? "").replace(
+            /[&<>'"]/g,
+            (c) =>
+                ({
+                    "&": "&amp;",
+                    "<": "&lt;",
+                    ">": "&gt;",
+                    "'": "&#39;",
+                    '"': "&quot;",
+                })[c],
+        );
+    const optionLabels = (q) =>
+        (q.options || []).map((_, index) =>
+            (q.option_label_style || "letters") === "numbers"
+                ? String(index + 1)
+                : String.fromCharCode(65 + index),
+        );
+    const answerControl = (q, labels) => {
+        const type = q.type || "multiple_choice",
+            answer = responses[q.order_no] || "";
+        if (["multiple_choice", "true_false"].includes(type))
+            return `<div class="pt-choice-list">${(q.options || [])
+                .map((option, i) => {
+                    const key = labels[i],
+                        selected = answer === key;
+                    return `<label class="pt-choice ${selected ? "selected" : ""}"><input type="radio" name="answer" value="${key}" ${selected ? "checked" : ""}><b>${key}</b><span>${esc(option)}</span></label>`;
+                })
+                .join("")}</div>`;
+        if (type === "fill_blank")
+            return `<label class="pt-writing-answer"><span>Your answer</span><input type="text" name="written_answer" value="${esc(answer)}" autocomplete="off" placeholder="Type your answer here"></label>`;
+        return `<label class="pt-writing-answer"><span>${type === "essay" ? "Your essay" : "Your answer"}</span><textarea name="written_answer" rows="${type === "essay" ? 10 : 5}" placeholder="Type your response here">${esc(answer)}</textarea><small>${type === "essay" ? "Write a clear, complete response. Your examiner will mark it after submission." : "Answer clearly. Your examiner will review this response."}</small></label>`;
+    };
+    const post = async (path) => {
+        const r = await fetch(`/placement-test/${token}/${path}`, {
+            method: "POST",
+            headers: {
+                "X-CSRF-TOKEN": csrf,
+                "Content-Type": "application/json",
+                Accept: "application/json",
+            },
+            body: path === "submit" ? JSON.stringify({ responses }) : "{}",
+        });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok)
+            throw new Error(
+                data.message || "The request could not be completed.",
+            );
+        return data;
+    };
+    const welcome = () => {
+        const f = state.form;
+        box.innerHTML = `<div class="pt-welcome"><div class="pt-welcome-main"><span class="pt-overline">READY FOR YOUR ASSESSMENT</span><h1>${esc(f.name || "Student Placement Test")}</h1><p class="pt-welcome-sub">Read each question carefully and select the best answer. Your result will help the school recommend the correct grade.</p><div class="pt-candidate"><span>${esc(
+            state.applicant.name
+                ?.split(/\s+/)
+                .map((x) => x[0])
+                .slice(0, 2)
+                .join(""),
+        )}</span><div><strong>${esc(state.applicant.name)}</strong><small>Application ${esc(state.applicant.code)}</small></div></div><div class="pt-test-facts"><div><small>GRADE</small><strong>${esc(f.grade)}</strong></div><div><small>TEST VERSION</small><strong>Form ${esc(f.form_code)}</strong></div><div><small>TIME LIMIT</small><strong>${esc(f.duration_minutes)} minutes</strong></div></div><button class="pt-primary" data-start><i class="ti ti-player-play"></i> Start Placement Test</button></div><div class="pt-welcome-visual"><i class="ti ti-clipboard-check"></i></div></div>`;
+    };
+    const exam = () => {
+        const questions = state.form.questions || [];
+        if (!questions.length) {
+            box.innerHTML = finished("This test form has no questions.");
+            return;
+        }
+        index = Math.min(index, questions.length - 1);
+        const q = questions[index],
+            labels = optionLabels(q);
+        box.innerHTML = `<div class="pt-exam"><header class="pt-exam-head"><div class="pt-progress-meta"><strong>${esc(state.form.name)} · Form ${esc(state.form.form_code)}</strong><small>Question ${index + 1} of ${questions.length} · ${Object.keys(responses).filter((k) => responses[k]).length} answered</small></div><div class="pt-timer" id="ptTimer"><i class="ti ti-clock"></i><span>--:--</span></div></header><div class="pt-exam-body"><article class="pt-question"><div class="pt-question-label"><span>${esc(q.subject)}</span><span>${esc(q.points)} point${Number(q.points) === 1 ? "" : "s"}</span></div><h2>${esc(q.prompt)}</h2>${answerControl(q, labels)}</article><aside class="pt-navigator"><strong>QUESTION NAVIGATOR</strong><div class="pt-nav-grid">${questions.map((x, i) => `<button type="button" data-question="${i}" class="${responses[x.order_no] ? "answered" : ""} ${i === index ? "current" : ""}">${i + 1}</button>`).join("")}</div></aside></div><footer class="pt-exam-foot"><button class="pt-secondary" data-prev ${index === 0 ? "disabled" : ""}><i class="ti ti-arrow-left"></i> Previous</button>${index === questions.length - 1 ? '<button class="pt-primary" data-submit><i class="ti ti-send"></i> Submit Test</button>' : '<button class="pt-primary" data-next>Next <i class="ti ti-arrow-right"></i></button>'}</footer></div>`;
+        startTimer();
+    };
+    const startTimer = () => {
+        clearInterval(timer);
+        const tick = () => {
+            const el = document.querySelector("#ptTimer");
+            if (!el) return;
+            const seconds = Math.max(
+                0,
+                Math.floor((new Date(state.expires_at) - Date.now()) / 1000),
+            );
+            el.querySelector("span").textContent =
+                `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
+            el.classList.toggle("urgent", seconds < 300);
+            if (seconds <= 0) {
+                clearInterval(timer);
+                submit(true);
+            }
+        };
+        tick();
+        timer = setInterval(tick, 1000);
+    };
+    const finished = (message) =>
+        `<div class="pt-finished"><span class="pt-finished-icon"><i class="ti ti-circle-check"></i></span><h1>Assessment submitted</h1><p>${esc(message || "Thank you. The admissions team will review your verified placement result and contact you.")}</p><div class="pt-candidate"><span><i class="ti ti-shield-check"></i></span><div><strong>Response received securely</strong><small>${esc(state.applicant?.code || "")}</small></div></div></div>`;
+    const submit = async (automatic) => {
+        if (!automatic) {
+            const total = state.form.questions.length,
+                answered = Object.values(responses).filter(Boolean).length;
+            const ask = await Swal.fire({
+                icon: "question",
+                title: "Submit your placement test?",
+                text:
+                    answered < total
+                        ? `${total - answered} question(s) are still blank.`
+                        : "You have answered every question.",
+                showCancelButton: true,
+                confirmButtonText: "Submit test",
+                confirmButtonColor: "#316fd6",
+            });
+            if (!ask.isConfirmed) return;
+        }
+        try {
+            const data = await post("submit");
+            localStorage.removeItem(storageKey);
+            clearInterval(timer);
+            state.status = "submitted";
+            box.innerHTML = finished(data.message);
+        } catch (e) {
+            Swal.fire({
+                icon: "error",
+                title: "Submission failed",
+                text: e.message,
+            });
+        }
+    };
+    const saveWritten = (e) => {
+        if (e.target.name !== "written_answer") return;
+        const q = state.form.questions[index];
+        responses[q.order_no] = e.target.value;
+        localStorage.setItem(storageKey, JSON.stringify(responses));
+    };
+    document.addEventListener("input", saveWritten);
+    document.addEventListener("change", (e) => {
+        if (e.target.name === "written_answer") return saveWritten(e);
+        if (e.target.name !== "answer") return;
+        const q = state.form.questions[index];
+        responses[q.order_no] = e.target.value;
+        localStorage.setItem(storageKey, JSON.stringify(responses));
+        exam();
+    });
+    document.addEventListener("click", async (e) => {
+        const t = e.target.closest("button");
+        if (!t) return;
+        if (t.matches("[data-start]")) {
+            t.disabled = true;
+            try {
+                state = await post("start");
+                exam();
+            } catch (error) {
+                Swal.fire({
+                    icon: "error",
+                    title: "Unable to start",
+                    text: error.message,
+                });
+                t.disabled = false;
+            }
+        }
+        if (t.dataset.question !== undefined) {
+            index = +t.dataset.question;
+            exam();
+        }
+        if (t.matches("[data-prev]")) {
+            index--;
+            exam();
+        }
+        if (t.matches("[data-next]")) {
+            index++;
+            exam();
+        }
+        if (t.matches("[data-submit]")) submit(false);
+    });
+    if (["submitted", "verified"].includes(state.status))
+        box.innerHTML = finished();
+    else if (state.status === "in_progress") exam();
+    else welcome();
 }

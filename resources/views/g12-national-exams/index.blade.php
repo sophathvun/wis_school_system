@@ -77,13 +77,13 @@ $filterFields=$tab==='records'
 @if($tab==='records'&&$permissions['create'])<button type="button" class="btn btn-outline-light" data-g12-new><i class="ti ti-plus me-1"></i>Add New</button>@endif
 @if($tab==='reports'&&$permissions['export'])<button class="btn btn-outline-light" data-g12-export="xlsx"><i class="ti ti-file-spreadsheet me-1"></i>Excel</button><button class="btn btn-outline-light" data-g12-export="print"><i class="ti ti-printer me-1"></i>Print</button>@endif
 </div></div>
-<div class="table-responsive @if($tab==='records') g12-record-table-wrap @endif"><table class="table table-vcenter card-table @if($tab==='records') g12-record-list @endif"><thead><tr>
+<div class="table-responsive @if($tab==='records') g12-record-table-wrap @elseif($tab==='certificates') g12-certificate-table-wrap @endif"><table class="table table-vcenter card-table @if($tab==='records') g12-record-list @elseif($tab==='certificates') g12-certificate-table @endif"><thead><tr>
 @if($tab==='records')
 <th class="text-center">No.</th><th>Photo</th><th>Student</th><th>Grade</th><th>Parents</th><th>G9 National Exams</th><th>G12 National Exams</th><th>Actions</th>
 @else
-<th>No.</th><th>Photo</th><th>Student</th><th>Year / Campus / Class</th><th>Exam Center / Room / Seat</th><th>Result</th><th>Soft Certificate</th><th>Hard Certificate</th><th>Actions</th>
+<th>No.</th><th>Photo</th><th>Student</th><th>Grade</th><th>Examination</th><th>Provisional Certificate</th><th>Diploma</th><th>Actions</th>
 @endif
-</tr></thead><tbody data-g12-records><tr><td colspan="{{ $tab==='records'?8:9 }}" class="text-center py-4">Select an Academic Year to display records.</td></tr></tbody></table></div>
+</tr></thead><tbody data-g12-records><tr><td colspan="8" class="text-center py-4">Select an Academic Year to display records.</td></tr></tbody></table></div>
 <div class="card-footer"><select id="g12PerPage" hidden><option value="15">15</option><option value="25">25</option><option value="50">50</option><option value="100">100</option><option value="all">All</option></select><div id="g12Pagination"></div></div></div>
 @endif
 @elseif($tab==='centers')
@@ -155,6 +155,62 @@ $filterFields=$tab==='records'
 @endif
 @if($tab==='scoring'&&$permissions['scoring-ocr-settings'])
 <div class="modal fade" id="g12ScoreOcrSettingsModal" tabindex="-1" aria-labelledby="g12ScoreOcrSettingsTitle"><div class="modal-dialog modal-dialog-centered g12-ocr-settings-dialog"><form class="modal-content g12-ocr-settings-modal" data-g12-ocr-settings-form><div class="modal-header"><div class="min-w-0"><h3 class="modal-title" id="g12ScoreOcrSettingsTitle">Result Image Scanning Settings</h3><div class="text-secondary g12-ocr-settings-subtitle">Configure Google Vision for MoEYS result images.</div></div><div class="g12-ocr-header-actions ms-auto"><button class="btn btn-icon btn-outline-primary g12-ocr-help-button" type="button" data-g12-ocr-help aria-expanded="false" aria-controls="g12OcrSetupHelp" aria-label="How to set up result image scanning" title="Setup help"><i class="ti ti-help-circle" aria-hidden="true"></i></button><button class="btn-close g12-ocr-settings-close" type="button" data-bs-dismiss="modal" aria-label="Close"></button></div></div><div class="modal-body"><section class="g12-ocr-setup-help d-none" id="g12OcrSetupHelp" data-g12-ocr-help-panel aria-live="polite"><div class="d-flex gap-2"><i class="ti ti-bulb text-primary" aria-hidden="true"></i><div><strong>How to set it up</strong><ol><li>Create or select a Google Cloud project and connect billing.</li><li>Enable the <strong>Cloud Vision API</strong>.</li><li>Open <strong>IAM &amp; Admin → Service Accounts</strong> and create a service account.</li><li>Open its <strong>Keys</strong> tab, choose <strong>Add key → Create new key → JSON</strong>.</li><li>Upload the downloaded JSON file below, choose a monthly limit, enable scanning, and save.</li></ol><div class="g12-ocr-help-links"><a href="https://docs.cloud.google.com/vision/docs/setup" target="_blank" rel="noopener">Vision setup <i class="ti ti-external-link"></i></a><a href="https://docs.cloud.google.com/iam/docs/keys-create-delete" target="_blank" rel="noopener">Create JSON key <i class="ti ti-external-link"></i></a></div></div></div></section><div class="form-check form-switch mb-3"><input class="form-check-input" type="checkbox" role="switch" id="g12OcrEnabled" name="enabled" value="1"><label class="form-check-label" for="g12OcrEnabled">Enable Google Cloud Vision scanning</label></div><div class="mb-3"><label class="form-label">Monthly hard limit</label><input class="form-control" type="number" name="monthly_limit" min="1" max="999" value="999" required><div class="form-hint">New image batches stop before this limit is exceeded.</div></div><div class="mb-3"><label class="form-label">School name aliases <span class="text-secondary fw-normal">(one per line)</span></label><textarea class="form-control" name="school_aliases" rows="2" placeholder="Western International School&#10;សាលាវេស្ទើនអន្តរជាតិ"></textarea></div><div class="mb-3"><label class="form-label">Google service-account JSON key</label><input class="form-control" type="file" name="credentials" accept=".json,application/json"><div class="form-hint" data-g12-ocr-credential-status>No key configured.</div></div><div class="alert alert-secondary py-2 mb-0" data-g12-ocr-setting-usage></div></div><div class="modal-footer"><button class="btn" type="button" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary" type="submit">Save Settings</button></div></form></div></div>
+@endif
+@if($tab==='certificates')
+<div class="modal fade g12-certificate-modal" id="g12CertificateModal" tabindex="-1" aria-labelledby="g12CertificateModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <form class="modal-content" data-g12-certificate-form>
+            <div class="modal-header g12-certificate-modal-header">
+                <div>
+                    <div class="g12-certificate-modal-kicker">Certificate Tracking</div>
+                    <h3 class="modal-title" id="g12CertificateModalTitle" data-g12-certificate-title>Certificate Documents</h3>
+                    <div class="g12-certificate-modal-student" data-g12-certificate-student></div>
+                </div>
+                <button class="btn-close btn-close-white" type="button" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" name="record_id">
+                <input type="hidden" name="certificate_type">
+                <input type="hidden" name="version">
+
+                <div class="g12-certificate-upload-grid">
+                    <section class="g12-certificate-upload-card">
+                        <div class="g12-certificate-upload-heading"><span class="g12-certificate-upload-icon"><i class="ti ti-certificate" aria-hidden="true"></i></span><div><strong>MoEYS Copy</strong><small>Original certificate received by the school</small></div></div>
+                        <div data-g12-certificate-current="source"></div>
+                        <label class="g12-certificate-file-control" data-g12-certificate-file-label="source">
+                            <i class="ti ti-cloud-upload" aria-hidden="true"></i>
+                            <span><strong>Choose certificate image or PDF</strong><small>JPG, PNG and WebP images are optimized automatically</small></span>
+                            <input type="file" name="source_file" accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf">
+                        </label>
+                    </section>
+                    <section class="g12-certificate-upload-card">
+                        <div class="g12-certificate-upload-heading"><span class="g12-certificate-upload-icon is-receipt"><i class="ti ti-signature" aria-hidden="true"></i></span><div><strong>Student-Signed Receipt</strong><small>Copy signed when the student receives it</small></div></div>
+                        <div data-g12-certificate-current="receipt"></div>
+                        <label class="g12-certificate-file-control" data-g12-certificate-file-label="receipt">
+                            <i class="ti ti-cloud-upload" aria-hidden="true"></i>
+                            <span><strong>Choose signed copy image or PDF</strong><small>Required before status can be marked Collected</small></span>
+                            <input type="file" name="receipt_file" accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf">
+                        </label>
+                    </section>
+                </div>
+
+                <section class="g12-certificate-tracking-panel">
+                    <div class="g12-certificate-panel-title"><i class="ti ti-progress-check" aria-hidden="true"></i><span>Collection Details</span></div>
+                    <div class="g12-certificate-fields">
+                        <div><label class="form-label" for="g12CertificateStatus">Status</label><select class="form-select" id="g12CertificateStatus" name="status" required><option value="awaiting">Awaiting from MoEYS</option><option value="available">Available at School</option><option value="collected">Collected by Student</option><option value="review">Needs Review</option><option value="not_applicable">Not Applicable</option></select></div>
+                        <div><label class="form-label" for="g12CertificateNumber">Certificate Number</label><input class="form-control" id="g12CertificateNumber" name="number" maxlength="100"></div>
+                        <div><label class="form-label" for="g12CertificateAvailableDate">School Received Date</label><input class="form-control" id="g12CertificateAvailableDate" name="available_date" type="date"></div>
+                        <div><label class="form-label" for="g12CertificateCollectedDate">Student Received Date</label><input class="form-control" id="g12CertificateCollectedDate" name="collected_date" type="date"></div>
+                        <div class="g12-certificate-field-wide"><label class="form-label" for="g12CertificateRecipient">Received By</label><input class="form-control" id="g12CertificateRecipient" name="recipient" maxlength="255" placeholder="Student or authorized recipient name"></div>
+                        <div class="g12-certificate-field-wide" data-g12-certificate-reason-field hidden><label class="form-label" for="g12CertificateReason">Correction Reason</label><textarea class="form-control" id="g12CertificateReason" name="reason" rows="2" maxlength="1000" placeholder="Required when correcting a collected record"></textarea></div>
+                    </div>
+                </section>
+                <div class="alert alert-info g12-certificate-storage-note mb-0"><i class="ti ti-photo-check" aria-hidden="true"></i><span>Images are stored as a clear WebP master with a thumbnail below 70 KB. Download creates a high-quality JPG from the master.</span></div>
+            </div>
+            <div class="modal-footer"><button class="btn" type="button" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary" type="submit" data-g12-certificate-save><i class="ti ti-device-floppy me-1" aria-hidden="true"></i>Save Certificate</button></div>
+        </form>
+    </div>
+</div>
 @endif
 <div class="modal modal-blur fade g12-photo-viewer" id="g12PhotoViewerModal" tabindex="-1" aria-hidden="true" aria-labelledby="g12PhotoViewerTitle">
     <div class="modal-dialog modal-dialog-centered">

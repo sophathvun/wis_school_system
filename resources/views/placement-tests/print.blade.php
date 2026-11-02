@@ -1,20 +1,208 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Placement Test · {{ $attempt->applicant->application_code }}</title>
-<style>
-@page{size:A4;margin:14mm}*{box-sizing:border-box}body{margin:0;color:#172033;font:12px Arial,"Noto Sans Khmer",sans-serif;background:#eef1f5}.toolbar{position:sticky;top:0;z-index:10;display:flex;justify-content:center;gap:8px;padding:10px;background:#17264a}.toolbar button,.toolbar a{padding:8px 14px;border:0;border-radius:6px;color:#fff;background:#3474d4;text-decoration:none;cursor:pointer}.page{width:210mm;min-height:297mm;margin:14px auto;padding:14mm;background:#fff;box-shadow:0 4px 24px #b7bec9;page-break-after:always}.page:last-child{page-break-after:auto}.head{display:grid;grid-template-columns:34mm 1fr 34mm;align-items:center;padding-bottom:10px;border-bottom:2px solid #1f3764;text-align:center}.logo{max-width:31mm;max-height:24mm}.head h1{margin:0;font-size:21px}.head p{margin:4px 0 0;color:#5f6b7e}.form-badge{justify-self:end;padding:7px 10px;border-radius:8px;color:#fff;background:#244e93;font-weight:700}.candidate{display:grid;grid-template-columns:1fr 1fr;gap:5px 24px;margin:12px 0;padding:9px;border:1px solid #d5dce6;border-radius:7px}.candidate div{display:flex;justify-content:space-between;border-bottom:1px dotted #c6cfda;padding:4px}.instructions{padding:9px;border-left:4px solid #3474d4;background:#f1f6fd;white-space:pre-line}.subject{margin:17px 0 8px;padding:6px 8px;color:#fff;background:#213b6a;font-size:13px}.question{margin:0 0 13px;break-inside:avoid}.question-title{display:flex;gap:7px;font-weight:700;line-height:1.5}.question-points{margin-left:auto;white-space:nowrap;color:#687487;font-size:10px}.answers{display:grid;grid-template-columns:1fr 1fr;gap:5px 20px;margin:7px 0 0 25px}.answer{display:flex;gap:6px;line-height:1.4}.answer b{display:grid;place-items:center;flex:0 0 18px;height:18px;border:1px solid #7f8b9c;border-radius:50%;font-size:9px}.answer-sheet{padding:0}.answer-sheet svg{display:block;width:210mm;height:297mm}.key table{width:100%;border-collapse:collapse}.key th,.key td{padding:7px;border:1px solid #ccd5e1;text-align:left}.key th{background:#eaf1fb}.signature{display:flex;justify-content:space-between;margin-top:24px;padding-top:12px;border-top:1px solid #aaa}.watermark{position:fixed;inset:0;display:grid;place-items:center;pointer-events:none;color:rgba(20,50,100,.035);font-size:72px;font-weight:900;transform:rotate(-28deg)}
-@media print{body{background:#fff}.toolbar{display:none}.page{width:auto;min-height:auto;margin:0;padding:0;box-shadow:none}.answer-sheet{margin:-14mm}.watermark{display:none}}
-</style></head><body><div class="toolbar"><button onclick="window.print()">Print A4</button><a href="?document=package">Full Package</a><a href="?document=questions">Questions</a><a href="?document=answer-sheet">Answer Sheet</a><a href="?document=answer-key">Answer Key</a></div>
-@php($snapshot=$attempt->snapshot)
-@if(in_array($document,['package','questions']))
-<section class="page"><div class="watermark">PLACEMENT TEST</div><header class="head"><div>@if($logo)<img class="logo" src="{{ $logo }}">@endif</div><div><h1>STUDENT PLACEMENT TEST</h1><p>{{ $snapshot['name'] ?? 'Placement Test' }} · Grade {{ $snapshot['grade'] ?? '' }}</p></div><div class="form-badge">FORM {{ $snapshot['form_code'] ?? '' }}</div></header>
-<div class="candidate"><div><span>Applicant</span><strong>{{ $attempt->applicant->full_name_en }}</strong></div><div><span>Application Code</span><strong>{{ $attempt->applicant->application_code }}</strong></div><div><span>Academic Year</span><strong>{{ $attempt->applicant->academicYear?->academic_year }}</strong></div><div><span>Campus</span><strong>{{ $attempt->applicant->campus?->campus_name_en }}</strong></div><div><span>Duration</span><strong>{{ $snapshot['duration_minutes'] }} minutes</strong></div><div><span>Maximum Score</span><strong>{{ $snapshot['max_score'] }}</strong></div></div>
-<div class="instructions"><strong>Instructions</strong><br>{{ $snapshot['instructions'] ?: 'Choose the best answer for every question. Mark one answer only.' }}</div>
-@php($lastSubject=null)
-@foreach($snapshot['questions'] ?? [] as $q)
-@if(($q['subject'] ?? '') !== $lastSubject)<h2 class="subject">{{ $q['subject'] ?? 'General' }}</h2>@php($lastSubject=$q['subject'] ?? '')@endif
-<article class="question"><div class="question-title"><span>{{ $q['order_no'] }}.</span><span>{{ $q['prompt'] }}</span><span class="question-points">{{ $q['points'] }} pt</span></div><div class="answers">@foreach($q['options'] ?? [] as $i=>$answer)<div class="answer"><b>{{ ($q['option_label_style'] ?? 'letters') === 'numbers' ? $i + 1 : chr(65+$i) }}</b><span>{{ $answer }}</span></div>@endforeach</div></article>
-@endforeach
-<div class="signature"><span>Candidate signature: ____________________</span><span>Invigilator: ____________________</span></div></section>
-@endif
-@if(in_array($document,['package','answer-sheet']))<section class="page answer-sheet">{!! $svg !!}</section>@endif
-@if($document==='answer-key')<section class="page key"><header class="head"><div>@if($logo)<img class="logo" src="{{ $logo }}">@endif</div><div><h1>CONFIDENTIAL ANSWER KEY</h1><p>{{ $snapshot['name'] ?? '' }} · Form {{ $snapshot['form_code'] ?? '' }}</p></div><div class="form-badge">STAFF ONLY</div></header><table><thead><tr><th>No.</th><th>Subject</th><th>Correct Answer</th><th>Points</th></tr></thead><tbody>@foreach($snapshot['questions'] ?? [] as $q)<tr><td>{{ $q['order_no'] }}</td><td>{{ $q['subject'] }}</td><td><strong>{{ $q['correct_answer'] }}</strong></td><td>{{ $q['points'] }}</td></tr>@endforeach</tbody></table></section>@endif
-</body></html>
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Placement Test &middot; {{ $attempt->applicant->application_code }}</title>
+    @vite(['resources/css/pages/placement-test-print.css', 'resources/js/placementTestPrint.js'])
+</head>
+
+<body>
+    @php
+        $snapshot = $attempt->snapshot;
+        $questions = $snapshot['questions'] ?? [];
+        $questionDocument = in_array($document, ['package', 'questions'], true);
+        $answerSheetDocument = in_array($document, ['package', 'answer-sheet'], true);
+    @endphp
+
+    {{-- Document controls are hidden automatically when printing. --}}
+    <nav class="toolbar" aria-label="Print document options">
+        <button type="button" data-placement-test-print>Print A4</button>
+        <a href="?document=package">Full Package</a>
+        <a href="?document=questions">Questions</a>
+        <a href="?document=answer-sheet">Answer Sheet</a>
+        <a href="?document=answer-key">Answer Key</a>
+    </nav>
+
+    {{-- Question paper --}}
+    @if ($questionDocument)
+        <section class="page">
+            <div class="watermark">PLACEMENT TEST</div>
+
+            <header class="head">
+                <div>
+                    @if ($logo)
+                        <img class="logo" src="{{ $logo }}" alt="School logo">
+                    @endif
+                </div>
+
+                <div>
+                    <h1>STUDENT PLACEMENT TEST</h1>
+                    <p>
+                        {{ $snapshot['name'] ?? 'Placement Test' }}
+                        &middot; Grade {{ $snapshot['grade'] ?? '' }}
+                    </p>
+                </div>
+
+                <div class="form-badge">FORM {{ $snapshot['form_code'] ?? '' }}</div>
+            </header>
+
+            <div class="candidate">
+                <div>
+                    <span>Applicant</span>
+                    <strong>{{ $attempt->applicant->full_name_en }}</strong>
+                </div>
+                <div>
+                    <span>Application Code</span>
+                    <strong>{{ $attempt->applicant->application_code }}</strong>
+                </div>
+                <div>
+                    <span>Academic Year</span>
+                    <strong>{{ $attempt->applicant->academicYear?->academic_year }}</strong>
+                </div>
+                <div>
+                    <span>Campus</span>
+                    <strong>{{ $attempt->applicant->campus?->campus_name_en }}</strong>
+                </div>
+                <div>
+                    <span>Duration</span>
+                    <strong>{{ $snapshot['duration_minutes'] }} minutes</strong>
+                </div>
+                <div>
+                    <span>Maximum Score</span>
+                    <strong>{{ $snapshot['max_score'] }}</strong>
+                </div>
+            </div>
+
+            <div class="instructions">
+                <strong>Instructions</strong><br>
+                {{ $snapshot['instructions'] ?: 'Choose the best answer for every question. Mark one answer only.' }}
+            </div>
+
+            @php($lastSubject = null)
+
+            @foreach ($questions as $question)
+                @php
+                    $subject = $question['subject'] ?? 'General';
+                    $questionType = $question['type'] ?? 'multiple_choice';
+                    $isChoiceQuestion = in_array($questionType, ['multiple_choice', 'true_false'], true);
+                @endphp
+
+                @if ($subject !== $lastSubject)
+                    <h2 class="subject">{{ $subject }}</h2>
+                    @php($lastSubject = $subject)
+                @endif
+
+                <article class="question">
+                    <div class="question-title">
+                        <span>{{ $question['order_no'] }}.</span>
+                        <span>{{ $question['prompt'] }}</span>
+                        <span class="question-points">{{ $question['points'] }} pt</span>
+                    </div>
+
+                    @if ($isChoiceQuestion)
+                        <div class="answers">
+                            @foreach ($question['options'] ?? [] as $index => $answer)
+                                @php
+                                    $answerLabel =
+                                        ($question['option_label_style'] ?? 'letters') === 'numbers'
+                                            ? $index + 1
+                                            : chr(65 + $index);
+                                @endphp
+
+                                <div class="answer">
+                                    <b>{{ $answerLabel }}</b>
+                                    <span>{{ $answer }}</span>
+                                </div>
+                            @endforeach
+                        </div>
+                    @else
+                        @php
+                            $writtenLineCount = match ($questionType) {
+                                'essay' => 10,
+                                'short_answer' => 5,
+                                default => 2,
+                            };
+                        @endphp
+
+                        <div class="written-lines">
+                            @for ($line = 0; $line < $writtenLineCount; $line++)
+                                <i></i>
+                            @endfor
+                        </div>
+                    @endif
+                </article>
+            @endforeach
+
+            <div class="signature">
+                <span>Candidate signature: ____________________</span>
+                <span>Invigilator: ____________________</span>
+            </div>
+        </section>
+    @endif
+
+    {{-- Optical answer sheet SVG generated by the placement-test service. --}}
+    @if ($answerSheetDocument)
+        <section class="page answer-sheet">
+            {!! $svg !!}
+        </section>
+    @endif
+
+    {{-- Confidential answer key --}}
+    @if ($document === 'answer-key')
+        <section class="page key">
+            <header class="head">
+                <div>
+                    @if ($logo)
+                        <img class="logo" src="{{ $logo }}" alt="School logo">
+                    @endif
+                </div>
+
+                <div>
+                    <h1>CONFIDENTIAL ANSWER KEY</h1>
+                    <p>
+                        {{ $snapshot['name'] ?? '' }}
+                        &middot; Form {{ $snapshot['form_code'] ?? '' }}
+                    </p>
+                </div>
+
+                <div class="form-badge">STAFF ONLY</div>
+            </header>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>No.</th>
+                        <th>Subject</th>
+                        <th>Answer / Marking Reference</th>
+                        <th>Points</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($questions as $question)
+                        @php
+                            $isWrittenQuestion = in_array($question['type'] ?? '', ['short_answer', 'essay'], true);
+                            $answerReference =
+                                $question['correct_answer'] ?:
+                                ($isWrittenQuestion
+                                    ? 'Use marking guidance and examiner judgment'
+                                    : 'Not provided');
+                        @endphp
+
+                        <tr>
+                            <td>{{ $question['order_no'] }}</td>
+                            <td>{{ $question['subject'] }}</td>
+                            <td>
+                                <strong>{{ $answerReference }}</strong>
+                            </td>
+                            <td>{{ $question['points'] }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </section>
+    @endif
+</body>
+
+</html>
