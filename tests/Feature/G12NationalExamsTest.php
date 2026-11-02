@@ -1,6 +1,6 @@
 <?php
 use App\Models\{User,G12ExamRecord,G12ExamImport,G12ExamCenter,G12ExamFile,G12ExamCertificate};
-use App\Services\{G12NationalExams,G12NationalExamFiles,G12ScoringImports,G12ResultImageOcr};
+use App\Services\{G12NationalExams,G12NationalExamFiles,G12ScoringImports,G12ResultImageOcr,G12ResultReports};
 use App\Support\{G12NationalExamPermissions as Access,G12NationalExamWorkbook,PermissionHierarchy};
 use App\Http\Controllers\G12NationalExamController;
 use Illuminate\Support\Facades\{DB,Storage,Blade};
@@ -9,6 +9,31 @@ use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 require_once __DIR__.'/../Fixtures/G12NationalExam.php';
 beforeEach(fn()=>createG12NationalSchema());
+
+it('prepares the five G12 result reports with Khmer gender totals and three-decimal ranks',function(){
+    $user=User::find(1);$exams=app(G12NationalExams::class);
+    $a=$exams->save($user,g12ExamData(['student_id'=>'A001','student_name_en'=>'GRADE A STUDENT','student_name_kh'=>'សិស្ស និទ្ទេសអេ','gender'=>'ប','language_exam'=>'English','class_sellected'=>'Science','g12_score_rank'=>'98.1','g12_letter_grade'=>'A']));
+    $exams->save($user,g12ExamData(['student_id'=>'F001','student_name_en'=>'FAILED STUDENT','student_name_kh'=>'សិស្ស ធ្លាក់','gender'=>'ស','language_exam'=>'Khmer','class_sellected'=>'Social Science','g12_letter_grade'=>'F']));
+    $a->certificates()->where('type','soft')->update(['number'=>'1226-009']);
+    $records=G12ExamRecord::with(['center','campus','certificates'])->get();$reports=app(G12ResultReports::class);
+    $gradeA=$reports->prepare($records,'grade-a');$statistics=$reports->prepare($records,'statistics-doeys');
+    expect($gradeA['rows'])->toHaveCount(1)->and($gradeA['rows'][0]['certificate_number'])->toBe('1226-009')->and($gradeA['rows'][0]['score_rank'])->toBe('98.100')
+        ->and($statistics['statistics']['rows'][0]['registered']['male'])->toBe(1)
+        ->and(collect($statistics['statistics']['rows'])->firstWhere('label','Social Science - Khmer')['grades']['F']['female'])->toBe(1);
+});
+
+it('exports every G12 result report as print Excel and PDF',function(){
+    app(G12NationalExams::class)->save(User::find(1),g12ExamData(['gender'=>'ប','language_exam'=>'English','class_sellected'=>'Science','g12_score_rank'=>'99.125','g12_letter_grade'=>'A']));
+    $controller=app(G12NationalExamController::class);
+    foreach(array_keys(G12ResultReports::TYPES) as $type){
+        $print=$controller->report(g12Request(User::find(1),['tab'=>'results','format'=>'print','report_type'=>$type,'academic_year'=>'2025-2026']));
+        expect($print->render())->toContain(G12ResultReports::TYPES[$type],'WESTERN INTERNATIONAL SCHOOL');
+    }
+    $excel=$controller->report(g12Request(User::find(1),['tab'=>'results','format'=>'xlsx','report_type'=>'grade-a']));
+    $pdf=$controller->report(g12Request(User::find(1),['tab'=>'results','format'=>'pdf','report_type'=>'statistics-all']));
+    expect(substr($excel->getContent(),0,2))->toBe('PK')->and($excel->headers->get('Content-Disposition'))->toContain('g12-grade-a-')
+        ->and(substr($pdf->getContent(),0,4))->toBe('%PDF')->and($pdf->headers->get('Content-Disposition'))->toContain('g12-statistics-all-');
+});
 
 it('stores unique student-year exam snapshots without changing school profiles and keeps folders stable',function(){
     $service=app(G12NationalExams::class);$user=User::find(1);$record=$service->save($user,g12ExamData());$folder=$record->document_folder;
@@ -83,7 +108,7 @@ it('inherits permissions from roles, departments and user grants while enforcing
 })->with(['role','department','user']);
 it('groups every action under the independent G12 main menu and enforces submenu dependencies',function(){
     $catalog=App\Models\Permission::all();$tree=PermissionHierarchy::tree($catalog);
-    expect($tree['g12-national-exams']['modules'])->toHaveCount(8)
+    expect($tree['g12-national-exams']['modules'])->toHaveCount(9)
         ->and($tree['students']['modules'])->not->toHaveKey('g12-national-exams');
     foreach(Access::submenus() as $key=>$section){
         $module=$tree['g12-national-exams']['modules']['g12-national-exams.'.$key];
@@ -279,6 +304,23 @@ it('shows only granted sidebar submenus and marks the current section active',fu
     DB::table('access_user_permission_overrides')->where('user_id',2)->where('permission_id',App\Models\Permission::where('code','g12-national-exams.view')->value('id'))->update(['allowed'=>false]);
     auth()->setUser($user->fresh());
     expect(trim(view('layouts.partials.g12-national-exams-menu',['moeysMenuIcon'=>'/icon.png'])->render()))->toBe('');
+});
+it('adds the Result submenu immediately below Scoring and preserves existing scoring access',function(){
+    $user=g12ExamUser(['view','scoring']);
+    expect(Access::allows($user,'results',1))->toBeFalse();
+    (require database_path('migrations/2026_11_02_000002_add_g12_result_submenu.php'))->up();
+    $user=$user->fresh();
+    expect(Access::allows($user,'results',1))->toBeTrue()
+        ->and(route('g12-national-exams.results'))->toEndWith('/g12-national-exams/result');
+    auth()->setUser($user);
+    $html=view('layouts.partials.g12-national-exams-menu',['moeysMenuIcon'=>'/icon.png'])->render();
+    $sections=array_keys(Access::submenus());
+    expect(array_search('results',$sections,true))->toBe(array_search('scoring',$sections,true)+1)
+        ->and(strpos($html,'>Result<'))->toBeGreaterThan(strpos($html,'>Scoring<'));
+
+    app(G12NationalExams::class)->save(User::find(1),g12ExamData());
+    $list=app(G12NationalExamController::class)->list(g12Request($user,['tab'=>'results','academic_year'=>'2025-2026']))->getData(true);
+    expect($list['total'])->toBe(1)->and($list['data'][0])->toMatchArray(['student_code'=>'00123','result_status'=>'passed','overall_grade'=>'A']);
 });
 it('renames old tab labels without changing permission IDs or grants',function(){
     $user=g12ExamUser(['view','records','edit'],'role');

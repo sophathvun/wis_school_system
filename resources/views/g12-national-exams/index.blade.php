@@ -4,9 +4,9 @@
 @section('content')
 @vite(['resources/css/pages/g12-national-exams.css','resources/js/g12NationalExams.js'])
 <div data-g12-exams data-tab="{{ $tab }}" data-base="{{ url('/g12-national-exams') }}">
-@if(in_array($tab,['records','assign-centers','scoring','certificates','reports']))
+@if(in_array($tab,['records','assign-centers','scoring','results','certificates','reports']))
 <div class="card mb-3"><div class="card-header g12-header"><h3 class="card-title"><i class="ti ti-filter me-2"></i>Datas Filter</h3><button type="button" class="btn btn-icon btn-outline-primary g12-filter-toggle ms-auto" data-g12-filter-toggle aria-expanded="true" aria-controls="g12Filters" aria-label="Collapse data filters"><i class="ti ti-chevron-up" aria-hidden="true"></i></button></div>
-<form id="g12Filters" @class(['card-body','g12-fields','g12-filter-fields','g12-record-filter-fields'=>$tab==='records','g12-assign-filter-fields'=>$tab==='assign-centers','g12-scoring-filter-fields'=>$tab==='scoring']) data-g12-filters>
+<form id="g12Filters" @class(['card-body','g12-fields','g12-filter-fields','g12-record-filter-fields'=>$tab==='records','g12-assign-filter-fields'=>$tab==='assign-centers','g12-scoring-filter-fields'=>in_array($tab,['scoring','results'])]) data-g12-filters>
 @php
 $filterFields=$tab==='records'
     ? ['academic_year'=>'Academic Year','language_exam'=>'Exam Language','class_selected'=>'Selected Class','campus_id'=>'Campus','grade'=>'Grade']
@@ -14,7 +14,9 @@ $filterFields=$tab==='records'
         ? ['academic_year'=>'Academic Year','campus_id'=>'Campus','language_exam'=>'Exam Language','class_selected'=>'Select','grade'=>'Grade']
         : ($tab==='scoring'
             ? ['academic_year'=>'Academic Year','campus_id'=>'Campus','class_selected'=>'Selected','language_exam'=>'Language Exam','center_id'=>'Exam Center','record_id'=>'Student Name']
-            : ['academic_year'=>'Academic Year','campus_id'=>'Campus','grade'=>'Grade / Class','center_id'=>'Exam Center','result_status'=>'Result','certificate_type'=>'Certificate Type','certificate_status'=>'Certificate Status']));
+            : ($tab==='results'
+                ? ['academic_year'=>'Academic Year','campus_id'=>'Campus','class_selected'=>'Selected','language_exam'=>'Language Exam','center_id'=>'Exam Center','result_status'=>'Result','record_id'=>'Student Name']
+                : ['academic_year'=>'Academic Year','campus_id'=>'Campus','grade'=>'Grade / Class','center_id'=>'Exam Center','result_status'=>'Result','certificate_type'=>'Certificate Type','certificate_status'=>'Certificate Status'])));
 @endphp
 @foreach($filterFields as $key=>$label)
 <div class="scholarship-field premium-form-field"><label class="form-label" for="filter-{{ $key }}">{{ $label }}</label><select class="form-select" id="filter-{{ $key }}" name="{{ $key }}" data-placeholder="" data-empty-label="All {{ $label }}"><option value="">All {{ $label }}</option></select></div>
@@ -31,7 +33,7 @@ $filterFields=$tab==='records'
 <div class="card"><div class="card-header g12-header"><h3 class="card-title">Exam Center List</h3></div>
 <div class="table-responsive g12-assignment-table-wrap"><table class="table table-vcenter card-table g12-assignment-table"><thead><tr><th class="text-center">No.</th><th>Photo</th><th>Student</th><th>Grade</th><th>Phone Number</th><th>Examinations</th><th>Room</th><th>Seat</th><th>Added by</th></tr></thead><tbody data-g12-records><tr><td colspan="9" class="text-center py-4">Select an Academic Year to display students.</td></tr></tbody></table></div>
 <div class="card-footer"><select id="g12PerPage" hidden><option value="15">15</option><option value="25">25</option><option value="50">50</option><option value="100">100</option><option value="all">All</option></select><div id="g12Pagination"></div></div></div>
-@elseif($tab==='scoring')
+@elseif(in_array($tab,['scoring','results']))
 <section class="card g12-scoring-summary-card mb-3" data-g12-scoring-summary aria-label="Scoring candidate totals">
 <div class="card-body g12-scoring-summary-grid">
 <article class="g12-scoring-summary-section g12-scoring-summary-candidates">
@@ -56,14 +58,26 @@ $filterFields=$tab==='records'
 </article>
 </div>
 </section>
-<div class="card g12-scoring-workspace"><div class="card-header g12-header flex-wrap"><h3 class="card-title"><i class="ti ti-calculator me-2" aria-hidden="true"></i>Scoring List</h3><div class="g12-scoring-workflows ms-auto">
+<div class="card g12-scoring-workspace"><div class="card-header g12-header flex-wrap"><h3 class="card-title"><i class="ti {{ $tab==='scoring'?'ti-calculator':'ti-award' }} me-2" aria-hidden="true"></i>{{ $tab==='scoring'?'Scoring List':'Result List' }}</h3>
+@if($tab==='scoring')<div class="g12-scoring-workflows ms-auto">
 <span class="g12-workflow-label"><i class="ti ti-keyboard me-1"></i>Manual Entry</span>
 @if($permissions['scoring-csv-export'])<button type="button" class="btn btn-outline-light" data-g12-score-csv-export><i class="ti ti-file-download me-1"></i>Export CSV</button>@endif
 @if($permissions['scoring-csv-import'])<button type="button" class="btn btn-outline-light" data-g12-score-csv-import><i class="ti ti-file-upload me-1"></i>Import CSV</button>@endif
 @if($permissions['scoring-ocr-upload'])<button type="button" class="btn btn-outline-light" data-g12-score-ocr-open><i class="ti ti-scan me-1"></i>Scan Images</button>@endif
 @if($permissions['scoring-ocr-settings'])<button type="button" class="btn btn-icon btn-outline-light" data-g12-score-ocr-settings aria-label="Image scanning settings"><i class="ti ti-settings"></i></button>@endif
-</div></div>
-<div class="table-responsive g12-scoring-table-wrap"><table class="table table-vcenter card-table g12-scoring-table"><thead><tr><th class="text-center">No.</th><th>Photo</th><th>Student</th><th>Grade</th><th>Examinations</th><th>Subject Scores</th><th>Score / Rank</th><th>Letter Grade</th><th>Result</th><th>Actions</th></tr></thead><tbody data-g12-records><tr><td colspan="10" class="text-center py-4">Select an Academic Year to display students.</td></tr></tbody></table></div>
+</div>
+@elseif($permissions['results-export'])
+<div class="g12-result-report-actions ms-auto">
+<label class="visually-hidden" for="g12ResultReportType">Result report</label>
+<select class="form-select" id="g12ResultReportType" data-g12-result-report aria-label="Result report type">
+@foreach(\App\Services\G12ResultReports::TYPES as $value=>$label)<option value="{{ $value }}">{{ $label }}</option>@endforeach
+</select>
+<button type="button" class="btn btn-outline-light" data-g12-export="print"><i class="ti ti-printer me-1"></i>Print</button>
+<button type="button" class="btn btn-outline-light" data-g12-export="xlsx"><i class="ti ti-file-spreadsheet me-1"></i>Excel</button>
+<button type="button" class="btn btn-outline-light" data-g12-export="pdf"><i class="ti ti-file-type-pdf me-1"></i>PDF</button>
+</div>
+@endif</div>
+<div class="table-responsive g12-scoring-table-wrap"><table class="table table-vcenter card-table g12-scoring-table @if($tab==='results') g12-results-table @endif"><thead><tr><th class="text-center">No.</th><th>Photo</th><th>Student</th><th>Grade</th><th>Examinations</th><th>{{ $tab==='scoring'?'Subject Scores':'Subject Results' }}</th><th>Score / Rank</th><th>Letter Grade</th><th>Result</th><th>Actions</th></tr></thead><tbody data-g12-records><tr><td colspan="10" class="text-center py-4">Select an Academic Year to display students.</td></tr></tbody></table></div>
 <div class="card-footer"><select id="g12PerPage" hidden><option value="15">15</option><option value="25">25</option><option value="50">50</option><option value="100">100</option><option value="all">All</option></select><div id="g12Pagination"></div></div></div>
 @else
 @if($tab==='records')

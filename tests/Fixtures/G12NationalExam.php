@@ -26,6 +26,8 @@ function createG12NationalSchema(bool $fakeStorage=true): void {
     (require database_path('migrations/2026_10_31_000002_create_g12_scoring_import_workflows.php'))->up();
     (require database_path('migrations/2026_11_01_000007_add_g12_certificate_image_derivatives.php'))->up();
     (require database_path('migrations/2026_11_02_000001_add_g12_certificate_eligibility_remark.php'))->up();
+    (require database_path('migrations/2026_11_02_000002_add_g12_result_submenu.php'))->up();
+    (require database_path('migrations/2026_11_02_000003_add_g12_result_export_permission.php'))->up();
     if($fakeStorage)Storage::fake('local');
 }
 function g12ExamUser(array $actions=['view','records'],string $source='user'): User {
