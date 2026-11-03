@@ -101,6 +101,19 @@
 .g12-reports-layout.is-collapsed .g12-report-navigation .nav{flex-direction:column!important;flex-wrap:nowrap}
 .g12-reports-layout.is-collapsed .g12-report-navigation .nav-link{justify-content:center;min-width:0;padding:1rem .5rem;flex:none}
 .g12-reports-layout.is-collapsed .g12-report-navigation .nav-link i{margin:0!important;font-size:1.3rem}
+@media(max-width:767.98px){
+    .g12-reports-layout,.g12-reports-layout.is-collapsed{grid-template-columns:minmax(0,1fr)}
+    .g12-report-navigation{width:100%;min-width:0}
+    .g12-reports-layout.is-collapsed .g12-report-navigation{display:flex;flex-direction:column;align-items:stretch}
+    .g12-report-navigation .card-header,.g12-reports-layout.is-collapsed .g12-report-navigation .card-header{display:flex;width:100%;justify-content:space-between;padding:.8rem 1rem}
+    .g12-reports-layout.is-collapsed .g12-report-navigation .card-title{display:block}
+    .g12-reports-layout.is-collapsed [data-g12-report-toggle]{margin-left:auto!important}
+    .g12-reports-layout.is-collapsed .g12-report-navigation .nav{display:none}
+    .g12-reports-layout:not(.is-collapsed) .g12-report-navigation .nav{display:flex;flex-direction:column!important;gap:.5rem;padding:.75rem!important}
+    .g12-reports-layout:not(.is-collapsed) .g12-report-navigation .nav-link{width:100%;min-width:0;flex:none;margin:0;padding:.8rem 1rem;border:1px solid var(--tblr-border-color);border-radius:10px;background:var(--tblr-bg-surface);font-size:.85rem}
+    .g12-reports-layout:not(.is-collapsed) .g12-report-navigation .nav-link.active{background:linear-gradient(110deg,#3973cf,#7060d5);border-color:transparent}
+    .g12-report-content{width:100%;min-width:0}
+}
 .g12-report-menu{width:360px;max-width:calc(100vw - 2rem);padding:.65rem;border:1px solid var(--tblr-border-color,#e2e8f0);border-radius:18px;background:var(--tblr-bg-surface,#fff);box-shadow:0 16px 40px rgba(23,43,85,.16);z-index:1050}
 .g12-report-menu-item{display:flex;align-items:center;gap:.9rem;padding:.7rem .8rem;border-radius:12px;white-space:normal;color:var(--tblr-body-color,#273248);font-size:.95rem;line-height:1.4}
 .g12-report-menu-item:hover,.g12-report-menu-item:focus{background:rgba(57,115,207,.09);color:var(--tblr-primary,#3973cf)}

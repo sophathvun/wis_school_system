@@ -7,6 +7,32 @@ const result = student => {
 };
 const summarize = students => students.reduce((counts, student) => { counts[result(student)]++; return counts; }, {passed:0, failed:0, pending:0});
 
+// SVG styles must be resolved before the dashboard is captured in foreignObject.
+async function rasterizeGraphSvg(svg) {
+    const copy=svg.cloneNode(true);
+    const originals=[svg,...svg.querySelectorAll('*')];
+    const copies=[copy,...copy.querySelectorAll('*')];
+    const properties=['fill','stroke','stroke-width','stroke-dasharray','stroke-dashoffset','font-family','font-size','font-weight','letter-spacing','text-anchor','dominant-baseline','opacity'];
+    originals.forEach((node,index)=>{
+        const style=getComputedStyle(node);
+        copies[index].removeAttribute('class');
+        copies[index].removeAttribute('style');
+        properties.forEach(property=>copies[index].style.setProperty(property,style.getPropertyValue(property)));
+    });
+    copy.setAttribute('xmlns','http://www.w3.org/2000/svg');
+    copy.setAttribute('width','660');copy.setAttribute('height','660');
+    const image=new Image();
+    image.src=`data:image/svg+xml;charset=utf-8,${encodeURIComponent(new XMLSerializer().serializeToString(copy))}`;
+    await image.decode();
+    const canvas=document.createElement('canvas');canvas.width=660;canvas.height=660;
+    canvas.getContext('2d').drawImage(image,0,0,660,660);
+    const snapshot=new Image();snapshot.src=canvas.toDataURL('image/png');
+    snapshot.alt=svg.getAttribute('aria-label')||'Result overview chart';
+    snapshot.style.width='100%';snapshot.style.display='block';
+    await snapshot.decode();
+    return snapshot;
+}
+
 export function initG12ResultGraph(root) {
     const target = root.querySelector('[data-g12-report-summary="graph"]');
     if (!target) return;
@@ -123,11 +149,14 @@ export function initG12ResultGraph(root) {
             const {toCanvas}=await import('html-to-image');
             const campusList=target.querySelector('.g12-graph-campus-list');
             const oldMax=campusList.style.maxHeight,oldOverflow=campusList.style.overflow;
+            const svg=target.querySelector('.g12-graph-donut svg');
+            let chartImage;
             let canvas;
             try{
                 campusList.style.maxHeight='none';campusList.style.overflow='visible';
+                if(svg){chartImage=await rasterizeGraphSvg(svg);svg.replaceWith(chartImage);}
                 canvas=await toCanvas(target,{pixelRatio:2,backgroundColor:getComputedStyle(target).backgroundColor==='rgba(0, 0, 0, 0)'?getComputedStyle(document.body).backgroundColor:getComputedStyle(target).backgroundColor});
-            }finally{campusList.style.maxHeight=oldMax;campusList.style.overflow=oldOverflow;}
+            }finally{chartImage?.replaceWith(svg);campusList.style.maxHeight=oldMax;campusList.style.overflow=oldOverflow;}
             let blob;
             const format=button.dataset.g12GraphExport;
             if(format==='image')blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
