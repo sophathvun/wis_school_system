@@ -143,6 +143,17 @@ it('verifies an issued G12 certificate publicly without a login and reflects pre
     $this->get($url)->assertOk()->assertSee('FIX-G12001')->assertDontSee('26G12001');
 });
 
+it('verifies issued G12 certificates only on the public hostname while preserving legacy links',function(){
+    $this->service->save($this->request,$this->data);
+    $token=G12Certificate::where('student_id',3)->firstOrFail()->qr_token;
+    config(['app.url'=>'https://registrar.western.edu.kh','services.verification_url'=>'https://verify.western.edu.kh']);
+    $path='/certificates/g12/'.$token;
+    $this->get('https://verify.western.edu.kh'.$path)->assertOk()->assertSee('ALICE')->assertDontSee('ID-3');
+    $this->get('https://registrar.western.edu.kh'.$path)->assertRedirect('https://verify.western.edu.kh'.$path);
+    $this->get('https://verify.western.edu.kh/certificates/g12/'.str_repeat('z',40))->assertNotFound();
+    expect(G12Certificate::where('student_id',3)->value('qr_token'))->toBe($token);
+});
+
 it('rejects missing and malformed public G12 tokens', function () {
     $this->get(route('g12-certificate.verify', str_repeat('a', 40)))->assertNotFound();
     $this->get('/certificates/g12/1')->assertNotFound();
@@ -192,7 +203,7 @@ it('shows QR in preview and printed content only when checked', function () {
     expect(view('reports.g12-certificate-print', $without)->render())->not->toContain('class="g12-certificate-qr"');
     $html = view('reports.g12-certificate-print', $with)->render();
     expect($html)->toContain('class="g12-certificate-qr"', 'data:image/png;base64,', 'data-g12-layout-key="qr"');
-    $verificationUrl = route('g12-certificate.verify', G12Certificate::where('student_id', 3)->firstOrFail()->qr_token);
+    $verificationUrl = \App\Support\G12CertificateQr::url(G12Certificate::where('student_id', 3)->firstOrFail()->qr_token);
     expect($html)->toContain('class="g12-qr-verification-note"', 'href="'.$verificationUrl.'"', 'g12-qr-verification-tick', 'Verify:');
     $png = base64_decode(substr($with['certificates']->first()->certificate_qr_image, strlen('data:image/png;base64,')));
     expect(substr($png, 0, 8))->toBe("\x89PNG\r\n\x1a\n");

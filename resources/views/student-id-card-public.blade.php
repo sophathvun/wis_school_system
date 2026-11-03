@@ -11,7 +11,7 @@
         $logoPath = $branding?->report_logo_2_path ?: $branding?->report_logo_1_path ?: $branding?->login_logo_path ?: $branding?->sidebar_logo_path;
         $studentName = $student->full_name_en ?: $student->full_name_kh ?: 'Student Name';
         $studentCode = $student->student_id ?: $student->student_no ?: 'Student ID';
-        $homePhone = $student->home_phone ?: '—';
+
         $isInactive = $isInactive ?? false;
         $cardStatusClass = $isWithdrawn ? 'is-withdrawn' : ($isInactive ? 'is-inactive' : '');
     @endphp
@@ -33,7 +33,7 @@
 
                 <div class="student-id-public-logo">
                     @if ($logoPath)
-                        <img src="{{ asset('storage/' . $logoPath) }}" alt="School logo">
+                        <img src="{{ rtrim(config('app.url'), '/') . '/storage/' . $logoPath }}" alt="School logo">
                     @else
                         <strong>Western International School</strong>
                     @endif
@@ -55,20 +55,6 @@
                         <span class="student-id-public-value">{{ $studentCode }}</span>
                     </div>
 
-                    @if (! $isWithdrawn && ! $isInactive)
-                        <div class="student-id-public-row">
-                            <span class="student-id-public-label">Home Phone</span>
-                            <span class="student-id-public-value">{{ $homePhone }}</span>
-                        </div>
-                        <div class="student-id-public-row">
-                            <span class="student-id-public-label">Mother Phone</span>
-                            <span class="student-id-public-value">{{ $motherPhone }}</span>
-                        </div>
-                        <div class="student-id-public-row">
-                            <span class="student-id-public-label">Father Phone</span>
-                            <span class="student-id-public-value">{{ $fatherPhone }}</span>
-                        </div>
-                    @endif
 
                     <div class="student-id-public-row">
                         <span class="student-id-public-label">Academic Year</span>

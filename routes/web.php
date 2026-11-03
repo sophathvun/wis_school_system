@@ -119,14 +119,24 @@ Route::get('/staff-card/{token}', [AuthController::class, 'publicStaffCard'])->n
 Route::get('/staff-card/{token}/share.png', [AuthController::class, 'staffCardShareImage'])->name('staff-card.share-image');
 Route::get('/staff-card/{token}/qr.svg', [AuthController::class, 'staffCardQr'])->name('staff-card.qr');
 Route::get('/staff-card/{token}/vcard', [AuthController::class, 'staffCardVcard'])->name('staff-card.vcard');
-Route::get('/student-card/{qr}', [StudentIdCardQrController::class, 'publicCard'])->name('student-id-card.public');
-Route::get('/student-card/{qr}/qr.svg', [StudentIdCardQrController::class, 'publicQr'])->name('student-id-card.public.qr');
+Route::withoutMiddleware([
+    \Illuminate\Cookie\Middleware\EncryptCookies::class,
+    \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
+    \Illuminate\Session\Middleware\StartSession::class,
+    \Illuminate\View\Middleware\ShareErrorsFromSession::class,
+    \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+    \Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class,
+    \App\Http\Middleware\TrackUserPresence::class,
+])->group(function(){
+Route::get('/student-card/{qr}', [StudentIdCardQrController::class, 'publicCard'])->where('qr','[A-Za-z0-9_-]{1,100}')->middleware('throttle:60,1')->name('student-id-card.public');
+Route::get('/student-card/{qr}/qr.svg', [StudentIdCardQrController::class, 'publicQr'])->where('qr','[A-Za-z0-9_-]{1,100}')->middleware('throttle:60,1')->name('student-id-card.public.qr');
 Route::get('/certificates/g9/{token}', [\App\Http\Controllers\G9CertificateVerificationController::class, 'show'])
     ->where('token', '[A-Za-z0-9]{40}')->middleware('throttle:60,1')->name('g9-certificate.verify');
 Route::get('/certificates/k3/{token}', [\App\Http\Controllers\K3CertificateVerificationController::class, 'show'])
     ->where('token', '[A-Za-z0-9]{40}')->middleware('throttle:60,1')->name('k3-certificate.verify');
 Route::get('/certificates/g12/{token}', [\App\Http\Controllers\G12CertificateVerificationController::class, 'show'])
     ->where('token', '[A-Za-z0-9]{40}')->middleware('throttle:60,1')->name('g12-certificate.verify');
+});
 
 Route::prefix('placement-test/{token}')->name('placement-test.')
     ->controller(\App\Http\Controllers\PlacementTestController::class)->group(function () {

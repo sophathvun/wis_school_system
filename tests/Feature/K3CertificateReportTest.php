@@ -185,7 +185,7 @@ it('shows QR in preview and printed content only when checked', function () {
     expect(view('reports.k3-certificate-print', $without)->render())->not->toContain('class="k3-certificate-qr"');
     $html = view('reports.k3-certificate-print', $with)->render();
     expect($html)->toContain('class="k3-certificate-qr"', 'data:image/png;base64,', 'data-k3-layout-key="qr"');
-    $verificationUrl = route('k3-certificate.verify', K3Certificate::where('student_id', 3)->firstOrFail()->qr_token);
+    $verificationUrl = \App\Support\K3CertificateQr::url(K3Certificate::where('student_id', 3)->firstOrFail()->qr_token);
     expect($html)->toContain('class="k3-qr-verification-note"', 'href="'.$verificationUrl.'"', 'k3-qr-verification-tick', 'Verify:');
     $png = base64_decode(substr($with['certificates']->first()->certificate_qr_image, strlen('data:image/png;base64,')));
     expect(substr($png, 0, 8))->toBe("\x89PNG\r\n\x1a\n");
@@ -747,4 +747,15 @@ it('fits edited multiline content with the same font size on every line in a sin
     $pdf->render();
     expect($pdf->getCanvas()->get_page_count())->toBe(1)->and($sizes)->toHaveCount(2)
         ->and($sizes[0])->toBeLessThan(24)->and(abs($sizes[0]-$sizes[1]))->toBeLessThan(.01);
+});
+
+it('accepts existing K3 documents only on the verification hostname',function(){
+    $this->service->save($this->request,$this->data);
+    $token=K3Certificate::where('student_id',3)->firstOrFail()->qr_token;
+    config(['app.url'=>'https://registrar.western.edu.kh','services.verification_url'=>'https://verify.western.edu.kh']);
+    $path='/certificates/k3/'.$token;
+    $this->get('https://verify.western.edu.kh'.$path)->assertOk()->assertSee('ALICE')->assertHeaderMissing('Set-Cookie');
+    $this->get('https://registrar.western.edu.kh'.$path)->assertRedirect('https://verify.western.edu.kh'.$path);
+    $this->get('https://verify.western.edu.kh/certificates/k3/'.str_repeat('z',40))->assertNotFound();
+    expect(K3Certificate::where('student_id',3)->value('qr_token'))->toBe($token);
 });

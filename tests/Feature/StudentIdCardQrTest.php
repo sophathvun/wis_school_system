@@ -337,6 +337,26 @@ it('keeps grade options scoped to the selected year and campus', function () {
         ->and($empty['classes'])->toBeEmpty();
 });
 
+it('verifies existing student tokens on the public hostname without exposing private contacts',function(){
+    config(['app.url'=>'https://registrar.western.edu.kh','services.verification_url'=>'https://verify.western.edu.kh']);
+    Schema::table('tb_student',function(Blueprint $t){$t->string('id_card_qr_code')->nullable()->unique();});
+    Schema::table('tb_academic_year',fn(Blueprint $t)=>$t->string('lifecycle_status')->default('started'));
+    Schema::table('tb_student_enrollment',function(Blueprint $t){$t->integer('status')->default(1);$t->string('enrollment_status')->default('active');$t->date('ended_on')->nullable();});
+    $token='SID-'.str_repeat('A',24);
+    DB::table('tb_student')->where('id',1)->update(['id_card_qr_code'=>$token,'home_phone'=>'PRIVATE-CONTACT-123']);
+    $this->get('https://verify.western.edu.kh/student-card/'.$token)->assertOk()->assertSee('STUDENT 1')
+        ->assertDontSee('PRIVATE-CONTACT-123')->assertDontSee('Mother Phone')->assertDontSee('Father Phone')
+        ->assertHeader('Cache-Control','no-store, private')->assertHeader('X-Robots-Tag','noindex, nofollow')->assertHeaderMissing('Set-Cookie');
+    $this->get('https://verify.western.edu.kh/student-card/SID-NOTFOUND')->assertNotFound();
+    $this->get('https://registrar.western.edu.kh/student-card/'.$token)->assertRedirect('https://verify.western.edu.kh/student-card/'.$token);
+    $this->get('https://verify.western.edu.kh/student-card/'.$token.'/qr.svg')->assertOk()->assertHeader('Content-Type','image/svg+xml');
+    $renderer=new \BaconQrCode\Renderer\ImageRenderer(new \BaconQrCode\Renderer\RendererStyle\RendererStyle(360,1),new \BaconQrCode\Renderer\Image\SvgImageBackEnd());
+    $expected=(new \BaconQrCode\Writer($renderer))->writeString('https://verify.western.edu.kh/student-card/'.$token);
+    $generated=(new StudentIdCardQrController)->qr(idCardRequest('/students/id-card-qr/1/qr'),\App\Models\Student::find(1));
+    expect($generated->getContent())->toBe($expected);
+    expect(DB::table('tb_student')->where('id',1)->value('id_card_qr_code'))->toBe($token);
+});
+
 it('avoids repeating a grade already included in a class name', function (string $code, string $class, string $expected) {
     DB::table('tb_grade')->where('id', 1)->update(['grade' => $code, 'grade_short_name' => $code]);
     DB::table('tb_class')->where('id', 1)->update(['class_name' => $class]);

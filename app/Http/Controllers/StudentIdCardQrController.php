@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\BrandingSetting;
 use App\Models\AcademicYear;
 use App\Models\Grade;
-use App\Models\FamilyMember;
 use App\Models\SchoolClass;
 use App\Models\SchoolInfo;
 use App\Models\Student;
@@ -51,6 +50,7 @@ class StudentIdCardQrController
 
     private function publicQrUrl(string $qr): string
     {
+        if(config('services.verification_url'))return \App\Support\DocumentVerificationUrl::route('student-id-card.public',['qr'=>$qr]);
         $baseUrl = rtrim((string) config('services.public_qr_base_url', config('app.url')), '/');
         if ($baseUrl !== '') {
             return $baseUrl . route('student-id-card.public', ['qr' => $qr], false);
@@ -64,10 +64,7 @@ class StudentIdCardQrController
         abort_unless(Schema::hasColumn((new Student())->getTable(), 'id_card_qr_code'), 404);
 
         $student = Student::query()
-            ->select(['id', 'student_id', 'student_no', 'id_card_qr_code', 'full_name_en', 'full_name_kh', 'photo_path', 'home_phone'])
-            ->with([
-                'familyMembers:id,full_name_en,relationship_type,phone',
-            ])
+            ->select(['id', 'student_id', 'student_no', 'id_card_qr_code', 'full_name_en', 'full_name_kh'])
             ->where('id_card_qr_code', $qr)
             ->firstOrFail();
 
@@ -106,7 +103,7 @@ class StudentIdCardQrController
                 ->value('effective_on');
         }
 
-        return view('student-id-card-public', [
+        return response()->view('student-id-card-public', [
             'branding' => BrandingSetting::current(),
             'student' => $student,
             'latestEnrollment' => $latestEnrollment,
@@ -116,13 +113,7 @@ class StudentIdCardQrController
             'academicYearText' => $latestEnrollment?->academicYear?->academic_year ?: '—',
             'campusText' => $latestEnrollment?->campus?->campus_name_en ?: $latestEnrollment?->campus?->campus_name_kh ?: '—',
             'gradeText' => $gradeClassLabel ?: '—',
-            'motherPhone' => $student->familyMembers->firstWhere('pivot.relationship_type', FamilyMember::RELATIONSHIP_MOTHER)?->phone
-                ?: $student->familyMembers->firstWhere('relationship_type', FamilyMember::RELATIONSHIP_MOTHER)?->phone
-                ?: '—',
-            'fatherPhone' => $student->familyMembers->firstWhere('pivot.relationship_type', FamilyMember::RELATIONSHIP_FATHER)?->phone
-                ?: $student->familyMembers->firstWhere('relationship_type', FamilyMember::RELATIONSHIP_FATHER)?->phone
-                ?: '—',
-        ]);
+        ])->header('Cache-Control','no-store, private')->header('X-Robots-Tag','noindex, nofollow');
     }
 
     public function publicQr(string $qr)
@@ -337,7 +328,7 @@ class StudentIdCardQrController
         $hasStoredQrCode = Schema::hasColumn($student->getTable(), 'id_card_qr_code');
         abort_if($hasStoredQrCode && blank($student->id_card_qr_code), 404, 'Generate this student QR code first.');
         $value = $hasStoredQrCode
-            ? route('student-id-card.public', ['qr' => $student->id_card_qr_code])
+            ? $this->publicQrUrl($student->id_card_qr_code)
             : route('student-id-card-qr.index', ['student_id' => $student->id]);
         $renderer = new ImageRenderer(new RendererStyle(360, 1), new SvgImageBackEnd());
 

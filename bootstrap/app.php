@@ -16,6 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
         __DIR__.'/../app/Console/Commands',
     ])
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->prepend(\App\Http\Middleware\IsolateVerificationHost::class);
         $middleware->web(append: [
             \App\Http\Middleware\EnsureUtf8Encoding::class,
             \App\Http\Middleware\TrackUserPresence::class,
