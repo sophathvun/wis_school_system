@@ -425,6 +425,12 @@ Route::middleware(['auth', 'active.user'])->group(function () {
     Route::get('/students/id-card-qr/{student}/qr.svg', [StudentIdCardQrController::class, 'qr'])->name('student-id-card-qr.qr');
 
     Route::prefix('attendance')->name('attendance.')->middleware('permission:attendance.view')->controller(\App\Http\Controllers\AttendanceController::class)->group(function(){
+        Route::match(['GET','POST'],'/calendar',[\App\Http\Controllers\AttendanceLeaveController::class,'calendar'])->name('calendar');
+        Route::get('/leaves',[\App\Http\Controllers\AttendanceLeaveController::class,'listing'])->name('leaves');
+        Route::post('/leaves',[\App\Http\Controllers\AttendanceLeaveController::class,'create'])->name('leaves.create');
+        Route::post('/leaves/{leave}/cancel',[\App\Http\Controllers\AttendanceLeaveController::class,'cancel'])->whereNumber('leave')->name('leaves.cancel');
+        Route::post('/leaves/{leave}/shorten',[\App\Http\Controllers\AttendanceLeaveController::class,'shorten'])->whereNumber('leave')->name('leaves.shorten');
+        Route::get('/leaves/{leave}/attachment',[\App\Http\Controllers\AttendanceLeaveController::class,'attachment'])->whereNumber('leave')->name('leaves.attachment');
         Route::get('/daily',[\App\Http\Controllers\DailyAttendanceController::class,'show'])->name('daily.show');
         Route::post('/daily',[\App\Http\Controllers\DailyAttendanceController::class,'save'])->name('daily.save');
         Route::get('/','index')->name('index');

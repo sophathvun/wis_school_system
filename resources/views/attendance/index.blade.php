@@ -38,7 +38,7 @@
         </form>
     </div>
     <section class="card mb-3" data-att-daily hidden>
-        <div class="card-header att-header flex-wrap gap-2"><h3 class="card-title">Daily Class Attendance</h3><button type="button" class="btn btn-success ms-auto" data-daily-present disabled><i class="ti ti-checks me-1"></i>P — Apply Present to All</button></div>
+        <div class="card-header att-header flex-wrap gap-2"><h3 class="card-title">Daily Class Attendance</h3><div class="ms-auto d-flex gap-2 flex-wrap att-daily-actions"><button type="button" class="btn btn-light att-leave-button" data-leave-open><i class="ti ti-calendar-plus me-1"></i>Record Leave</button><button type="button" class="btn btn-outline-light" data-daily-edit hidden><i class="ti ti-edit me-1"></i>Edit</button><button type="button" class="btn btn-success" data-daily-present disabled title="Apply Present to blank attendance only"><i class="ti ti-checks me-1"></i>P — Apply to Blank</button></div></div>
         <div class="card-body">
             <p class="text-secondary">Select a campus, grade/class, and date. Missing one, two, or more subject sessions still counts as one attendance day. Add the session count and remarks for context.</p>
             <nav class="att-date-navigation" data-att-date-navigation aria-label="Daily attendance dates">
@@ -55,6 +55,7 @@
             </form>
             <div class="form-hint mt-3">P: Present · EX: Excused absence · UX: Unexcused absence · L: Late. EX and UX count as one absence day each; missed sessions are not added to the daily total. Select EX, UX, or L to choose absent periods and enter a reason.</div>
             <details class="att-history mt-3"><summary>Daily Register History</summary><div data-daily-history class="mt-2"></div></details>
+            <details class="att-history mt-3" data-leave-panel><summary>Approved Leave — Selected Campus</summary><div data-leave-list class="mt-2">Select a class to view leave.</div></details>
         </div>
     </section>
     <div class="att-summary" data-att-summary></div>
@@ -80,4 +81,5 @@
         </div>
     </section>
 </div>
+@include('attendance._leave-modal')
 @endsection

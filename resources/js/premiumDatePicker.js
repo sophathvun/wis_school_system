@@ -128,7 +128,8 @@ export function initPremiumDatePicker(picker) {
         cursor = new Date(selected.getFullYear(), selected.getMonth(), 1);
         yearPopup?.classList.add('d-none');
         render();
-        if(picker.dataset.premiumDatePortal==='true')document.body.append(popup);
+        // Keep modal calendars inside the focus trap, outside the scrolling dialog.
+        if(picker.dataset.premiumDatePortal==='true')(picker.closest('.modal')||document.body).append(popup);
         popup.classList.remove('d-none');
         picker.classList.add('is-open');
         toggle.setAttribute('aria-expanded', 'true');

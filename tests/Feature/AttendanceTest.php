@@ -9,6 +9,7 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
 
 require_once __DIR__.'/../Fixtures/G12NationalExam.php';
 beforeEach(function(){
+    $this->travelTo(\Carbon\CarbonImmutable::parse('2026-11-02 12:00:00','Asia/Bangkok'));
     createG12NationalSchema();
     Schema::table('users',fn(Blueprint $t)=>$t->unsignedBigInteger('position_id')->nullable());
     Schema::create('access_positions',function(Blueprint $t){$t->id();$t->string('name');});
@@ -31,6 +32,8 @@ beforeEach(function(){
     (require database_path('migrations/2026_11_03_000008_add_daily_absent_periods.php'))->up();
     (require database_path('migrations/2026_11_03_000009_scope_periods_to_study_groups.php'))->up();
     (require database_path('migrations/2026_11_03_000010_configure_full_day_period_grades.php'))->up();
+    (require database_path('migrations/2026_11_03_000011_create_attendance_leave.php'))->up();
+    (require database_path('migrations/2026_11_03_000012_add_holiday_descriptions.php'))->up();
     DB::table('access_permissions')->insert(['code'=>'schedules.view','module'=>'schedules','action'=>'view','name'=>'Schedules']);
     foreach(['view','manage'] as $action)DB::table('access_permissions')->insert(['code'=>'attendance.'.$action,'module'=>'attendance','action'=>$action,'name'=>$action]);
     DB::table('tb_academic_year')->insert(['id'=>1,'academic_year'=>'2025-2026']);
@@ -341,6 +344,37 @@ it('limits full-day nursery through grade three to six periods and retains seven
     DB::table('tb_student_enrollment')->where('student_id',1)->update(['grade_id'=>1]);
     $input=$scope+['version'=>0,'marks'=>[['student_id'=>1,'status'=>'UX','missed_sessions'=>1,'absent_period_ids'=>[$eleven]]]];
     expect(fn()=>$controller->save(g12Request($admin,$input)))->toThrow(ValidationException::class);
+});
+
+it('requires explicit edit mode for past dates and rejects future dates even in edit mode',function(){
+    $controller=app(\App\Http\Controllers\DailyAttendanceController::class);$admin=User::find(1);
+    $input=['academic_year_id'=>1,'campus_id'=>1,'class_id'=>1,'date'=>'2026-11-01','version'=>0,'partial'=>true,'marks'=>[['student_id'=>1,'status'=>'P','missed_sessions'=>0]]];
+    expect(fn()=>$controller->save(g12Request($admin,$input)))->toThrow(HttpException::class);
+    $input['edit_past']=true;$controller->save(g12Request($admin,$input));
+    expect(DB::table('attendance_daily_marks')->value('status'))->toBe('P');
+    $input['version']=1;$input['marks'][0]['status']='EX';unset($input['edit_past']);
+    expect(fn()=>$controller->save(g12Request($admin,$input)))->toThrow(HttpException::class);
+    $input['edit_past']=true;$controller->save(g12Request($admin,$input));
+    expect(DB::table('attendance_daily_marks')->value('status'))->toBe('EX');
+    $input['date']='2026-11-03';$input['version']=0;
+    expect(fn()=>$controller->save(g12Request($admin,$input)))->toThrow(HttpException::class);
+});
+
+it('applies present only to blank students while preserving every recorded status',function(){
+    for($id=2;$id<=5;$id++){
+        DB::table('tb_student')->insert(['id'=>$id,'student_id'=>'S'.$id,'full_name_en'=>'Student '.$id]);
+        DB::table('tb_student_enrollment')->insert(['student_id'=>$id,'campus_id'=>1,'academic_year_id'=>1,'class_id'=>1,'enrollment_status'=>'active']);
+    }
+    $controller=app(\App\Http\Controllers\DailyAttendanceController::class);$admin=User::find(1);
+    $statuses=['P','EX','UX','L'];
+    $input=['academic_year_id'=>1,'campus_id'=>1,'class_id'=>1,'date'=>'2026-11-02','version'=>0,'partial'=>true,
+        'marks'=>array_map(fn($index)=>['student_id'=>$index+1,'status'=>$statuses[$index],'missed_sessions'=>0,'remarks'=>'Original note'],range(0,3))];
+    $controller->save(g12Request($admin,$input));
+    $input['version']=1;$input['only_blank']=true;
+    $input['marks']=array_map(fn($id)=>['student_id'=>$id,'status'=>'P','missed_sessions'=>0],range(1,5));
+    $controller->save(g12Request($admin,$input));
+    expect(DB::table('attendance_daily_marks')->orderBy('student_id')->pluck('status')->all())->toBe(['P','EX','UX','L','P']);
+    expect(DB::table('attendance_daily_marks')->where('student_id',2)->value('remarks'))->toBe('Original note');
 });
 
 it('restricts daily attendance to campus admins and rejects invalid daily statuses',function(){

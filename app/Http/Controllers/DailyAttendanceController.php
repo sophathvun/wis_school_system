@@ -42,6 +42,7 @@ class DailyAttendanceController
     public function show(Request $request)
     {
         $scope=$this->scope($request);
+        app(\App\Services\AttendanceLeave::class)->applyDue($scope['academic_year_id'],$scope['campus_id'],$scope['date']);
         $register=DB::table('attendance_daily_registers')->where($this->registerScope($scope))->first();
         $roster=$this->roster($scope);
         $marks=DB::table('attendance_daily_marks')->where('academic_year_id',$scope['academic_year_id'])->where('attendance_date',$scope['date'])->whereIn('student_id',$roster->pluck('student_id'))->get()->keyBy('student_id');
@@ -65,16 +66,18 @@ class DailyAttendanceController
             return $student;
         });
         $history=$register?DB::table('attendance_daily_events as e')->join('users as u','u.id','=','e.user_id')->where('e.register_id',$register->id)->orderByDesc('e.id')->limit(20)->get(['u.name','e.created_at']):[];
-        return response()->json(['register'=>$register,'students'=>$students,'history'=>$history]);
+        return response()->json(['register'=>$register,'students'=>$students,'history'=>$history,'today'=>now('Asia/Bangkok')->toDateString()]);
     }
     public function save(Request $request)
     {
         $scope=$this->scope($request);
+        app(\App\Services\AttendanceLeave::class)->applyDue($scope['academic_year_id'],$scope['campus_id'],$scope['date']);
         abort_if($scope['date']>now('Asia/Bangkok')->toDateString(),422,'Daily attendance cannot be saved for a future date.');
-        $input=$request->validate(['version'=>['required','integer','min:0'],'partial'=>['sometimes','boolean'],'marks'=>['required','array','min:1'],
+        $input=$request->validate(['version'=>['required','integer','min:0'],'partial'=>['sometimes','boolean'],'edit_past'=>['sometimes','boolean'],'only_blank'=>['sometimes','boolean'],'marks'=>['required','array','min:1'],
             'marks.*.student_id'=>['required','integer','distinct'],'marks.*.status'=>['required',Rule::in(['P','EX','UX','L'])],
             'marks.*.missed_sessions'=>['required','integer','between:0,99'],'marks.*.remarks'=>['nullable','string','max:500'],
             'marks.*.absent_period_ids'=>['sometimes','array','max:99'],'marks.*.absent_period_ids.*'=>['integer']]);
+        abort_if($scope['date']<now('Asia/Bangkok')->toDateString()&&!($input['edit_past']??false),422,'Past attendance is read only. Click Edit before making corrections.');
         $roster=$this->roster($scope)->keyBy('student_id');
         if(!($input['partial']??false)&&count($input['marks'])!==$roster->count())throw ValidationException::withMessages(['marks'=>'Mark every student in the class before saving.']);
         foreach($input['marks'] as $mark)if(!isset($roster[$mark['student_id']]))throw ValidationException::withMessages(['marks'=>'A student is not enrolled in the selected class on this date.']);
@@ -89,6 +92,7 @@ class DailyAttendanceController
             $id=$register?->id??DB::table('attendance_daily_registers')->insertGetId($this->registerScope($scope)+['updated_by'=>$request->user()->id,'created_at'=>now(),'updated_at'=>now()]);
             foreach($input['marks'] as $mark){
                 $previous=$existing->firstWhere('student_id',$mark['student_id']);
+                if(($input['only_blank']??false)&&$previous)continue;
                 $snapshots=json_decode($previous?->absent_periods??'[]',true)?:[];
                 if(array_key_exists('absent_period_ids',$mark)){
                     $saved=collect($snapshots)->keyBy('id');$snapshots=[];
@@ -105,7 +109,7 @@ class DailyAttendanceController
                     ['register_id'=>$id,'enrollment_id'=>$roster[$mark['student_id']]->id,'status'=>$mark['status'],'missed_sessions'=>$missed,'absent_periods'=>json_encode($snapshots),'remarks'=>$mark['remarks']??null,'created_by'=>$previous?->created_by??($previous?null:$request->user()->id),'created_at'=>$previous?->created_at??now(),'updated_at'=>now()]);
             }
             DB::table('attendance_daily_registers')->where('id',$id)->update(['version'=>$input['version']+1,'updated_by'=>$request->user()->id,'updated_at'=>now()]);
-            DB::table('attendance_daily_events')->insert(['register_id'=>$id,'user_id'=>$request->user()->id,'details'=>json_encode(['before'=>$existing,'after'=>$input['marks']]),'created_at'=>now(),'updated_at'=>now()]);
+            DB::table('attendance_daily_events')->insert(['register_id'=>$id,'user_id'=>$request->user()->id,'details'=>json_encode(['before'=>$existing,'after'=>DB::table('attendance_daily_marks')->where('register_id',$id)->get(),'edit_past'=>$input['edit_past']??false,'only_blank'=>$input['only_blank']??false]),'created_at'=>now(),'updated_at'=>now()]);
         });
         return response()->json(['message'=>'Daily attendance saved. Each student is counted once for this date.','version'=>$input['version']+1]);
     }

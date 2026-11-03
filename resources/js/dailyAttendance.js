@@ -1,6 +1,6 @@
-import Swal from 'sweetalert2';
 import {renderDailyAttendanceRow} from './dailyAttendanceRow.js';
 import {initAttendancePeriodPopup} from './attendancePeriodPopup.js';
+import {initAttendanceLeave} from './attendanceLeave.js';
 
 export function initDailyAttendance(root,meta){
     const get=s=>root.querySelector(s),filters=get('[data-att-filters]');
@@ -8,8 +8,10 @@ export function initDailyAttendance(root,meta){
     const escape=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     let scope,register,students=[],dirty=false,loading=0,busy=false,lastFilters;
     let autosaveTimer,revision=0;
+    let editPast=false,blankOnly=false,locked=true;
+    const leave=initAttendanceLeave(root,meta,()=>({scope,students,busy,dirty}),load);
     const queueSave=()=>{clearTimeout(autosaveTimer);autosaveTimer=setTimeout(saveChanges,700);};
-    const changed=()=>{dirty=true;revision++;counts();get('[data-daily-message]').textContent='Changes will save automatically…';queueSave();};
+    const changed=()=>{if(locked)return;blankOnly=false;dirty=true;revision++;counts();get('[data-daily-message]').textContent='Changes will save automatically…';queueSave();};
     const statuses={P:'Present',EX:'Excused',UX:'Unexcused',L:'Late'};
     const studentFilter=get('[data-daily-student-filter]');
     const filterStudents=()=>{
@@ -72,6 +74,7 @@ export function initDailyAttendance(root,meta){
     async function load(){
         periodPopup.close();
         clearTimeout(autosaveTimer);
+        editPast=false;blankOnly=false;locked=true;get('[data-daily-edit]').hidden=true;
         const version=++loading;
         const daily=active();get('[data-att-daily]').hidden=!daily;get('[data-att-daily-class]').hidden=!daily;
         root.querySelectorAll('[data-att-daily-filter]').forEach(field=>field.hidden=!daily);
@@ -87,6 +90,7 @@ export function initDailyAttendance(root,meta){
         const [class_id,grade_id]=String(lastFilters.class_id||'').split(':');
         get('[data-daily-save]').disabled=true;get('[data-daily-save]').hidden=true;get('[data-daily-present]').disabled=true;
         scope=null;students=[];get('[data-daily-counts]').innerHTML='';get('[data-daily-history]').textContent='';
+        leave.load();
         syncStudentFilter();
         if(!academic_year_id||!campus_id||!class_id||!date){get('[data-daily-students]').innerHTML='<tr><td colspan="7">Select Academic Year, Campus, and Grade/Class to display students.</td></tr>';return;}
         if(!meta.manage_campuses.includes(Number(campus_id))){get('[data-daily-students]').innerHTML='<tr><td colspan="7">Choose a campus where you can administer attendance.</td></tr>';return;}
@@ -94,14 +98,17 @@ export function initDailyAttendance(root,meta){
         try{
             const data=await call(null,new URLSearchParams({academic_year_id,campus_id,class_id,...(Number(grade_id)?{grade_id}:{}),date}));if(version!==loading)return;
             scope={academic_year_id,campus_id,class_id,...(Number(grade_id)?{grade_id}:{}),date};register=data.register;students=data.students;dirty=false;
-            const now=new Date(),today=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
-            const future=date>today,disabled=future||students.some(s=>s.other_class);
+            const today=data.today;
+            const future=date>today,past=date<today,conflict=students.some(s=>s.other_class),disabled=future||past||conflict;
+            locked=disabled;
+            get('[data-daily-edit]').hidden=!past||conflict||!students.length;
             get('[data-daily-students]').innerHTML=students.length?students.map((student,index)=>renderDailyAttendanceRow(student,index,disabled,statuses,escape,meta.periods)).join(''):'<tr><td colspan="7">No students enrolled in this class on the selected date.</td></tr>';
             get('[data-daily-save]').disabled=disabled||!students.length;get('[data-daily-present]').disabled=disabled||!students.length;
-            get('[data-daily-message]').textContent=future?'Future date — read only.':disabled?'Update the original class register to avoid duplicate daily attendance.':register?'Saved register loaded. Changes save automatically.':'Changes save automatically when you mark attendance.';
+            get('[data-daily-message]').textContent=future?'Future date — read only.':conflict?'Update the original class register to avoid duplicate daily attendance.':past?'Past attendance — read only. Click Edit to make corrections.':register?'Saved register loaded. Changes save automatically.':'Changes save automatically when you mark attendance.';
             get('[data-daily-history]').innerHTML=data.history.length?data.history.map(event=>`<div class="border-bottom py-2">${escape(event.name)} · ${escape(event.created_at)}</div>`).join(''):'No saved changes yet.';
             counts();
             syncStudentFilter(selectedStudent);
+            leave.load();
         }catch(error){if(version===loading)get('[data-daily-students]').innerHTML=`<tr><td colspan="7" class="text-danger">${escape(error.message)}</td></tr>`;}
     }
     filters.addEventListener('change',event=>{
@@ -113,12 +120,22 @@ export function initDailyAttendance(root,meta){
         dirty=false;
         if(['academic_year_id','campus_id'].includes(event.target.name))syncClasses();
     },true);
-    get('[data-daily-present]').addEventListener('click',async()=>{
-        const hasExceptions=[...get('[data-daily-students]').querySelectorAll('[data-daily-status]')].some(input=>input.value&&input.value!=='P');
-        if(hasExceptions){const result=await Swal.fire({icon:'question',title:'Apply P to All Students?',text:'This will replace existing EX, UX, and L selections with P. Remarks are kept.',showCancelButton:true,confirmButtonText:'Apply P to All'});if(!result.isConfirmed)return;}
-        get('[data-daily-students]').querySelectorAll('[data-daily-status]').forEach(input=>input.value='P');
-        get('[data-daily-students]').querySelectorAll('[data-daily-missed]').forEach(input=>input.value=0);
-        changed();
+    get('[data-daily-edit]').addEventListener('click',()=>{
+        if(busy||!scope)return;
+        editPast=true;locked=false;
+        get('[data-daily-students]').querySelectorAll('[data-daily-status]').forEach(input=>input.disabled=false);
+        get('[data-daily-edit]').hidden=true;get('[data-daily-present]').disabled=false;get('[data-daily-save]').disabled=false;
+        counts();get('[data-daily-message]').textContent='Editing past attendance. Corrections save automatically.';
+    });
+    get('[data-daily-present]').addEventListener('click',()=>{
+        if(locked||busy)return;
+        let filled=0;
+        get('[data-daily-students]').querySelectorAll('[data-daily-status]').forEach(input=>{
+            if(input.value||input.disabled)return;
+            input.value='P';input.closest('[data-daily-student]').querySelector('[data-daily-missed]').value=0;filled++;
+        });
+        if(!filled){get('[data-daily-message]').textContent='No blank attendance to fill. Existing statuses are unchanged.';return;}
+        const wasDirty=dirty;changed();blankOnly=!wasDirty;
     });
     get('[data-daily-form]').addEventListener('click',event=>{
         const button=event.target.closest('[data-status-choice]');
@@ -145,7 +162,7 @@ export function initDailyAttendance(root,meta){
     studentFilter.addEventListener('change',filterStudents);
     async function saveChanges(){
         clearTimeout(autosaveTimer);
-        if(busy||!scope||!dirty)return;
+        if(busy||locked||!scope||!dirty)return;
         const marks=[...get('[data-daily-students]').querySelectorAll('[data-daily-student]')].map(row=>({student_id:Number(row.dataset.dailyStudent),status:row.querySelector('[data-daily-status]').value,missed_sessions:Number(row.querySelector('[data-daily-missed]').value||0),absent_period_ids:[...row.querySelectorAll('[data-daily-period]:checked')].map(input=>Number(input.value)),remarks:row.querySelector('[data-daily-remarks]').value}));
         const marked=marks.filter(mark=>mark.status);
         if(!marked.length){get('[data-daily-message]').textContent='Choose an attendance status to save. Unmarked students remain blank.';return;}
@@ -154,7 +171,7 @@ export function initDailyAttendance(root,meta){
         busy=true;get('[data-daily-save]').disabled=true;
         get('[data-daily-message]').textContent='Saving…';
         try{
-            const result=await call({...scope,version:register?.version||0,partial:true,marks:marked});
+            const result=await call({...scope,version:register?.version||0,partial:true,edit_past:editPast,only_blank:blankOnly,marks:marked});
             register={...register,version:result.version};dirty=revision!==savedRevision;
             // Refresh attribution without replacing controls or interrupting typing.
             const savedScope={...scope};
