@@ -4,6 +4,7 @@ import {renderPagination} from './helpers/pagination.js';
 import {createSeatPicker} from './scholarshipSeatPicker.js';
 import {studentPhotoJpeg} from './helpers/studentPhotoEditor.js';
 import {dateKhmer} from './helpers/staffProfileFields.js';
+import {initG12ResultGraph} from './g12ResultGraph.js';
 
 const root=document.querySelector('[data-g12-exams]');
 if(root){
@@ -24,6 +25,33 @@ if(root){
     const run=async action=>{if(busy)return;busy=true;root.setAttribute('aria-busy','true');try{await action();}catch(error){await Swal.fire({icon:'error',title:'G12 National Exams',text:error.message});}finally{busy=false;root.setAttribute('aria-busy','false');}};
     const saved=message=>Swal.fire({icon:'success',title:'Saved',text:message});
     const modal=id=>Modal.getOrCreateInstance(get(id));
+    initG12ResultGraph(root);
+    get('[data-g12-report-toggle]')?.addEventListener('click',event=>{
+        const button=event.currentTarget;
+        const collapsed=get('[data-g12-report-layout]').classList.toggle('is-collapsed');
+        button.setAttribute('aria-expanded',String(!collapsed));
+        button.setAttribute('aria-label',collapsed?'Expand report tabs':'Collapse report tabs');
+        button.querySelector('i').className=`ti ti-layout-sidebar-left-${collapsed?'expand':'collapse'}`;
+    });
+    root.querySelectorAll('[data-g12-report-tab]').forEach(button=>button.addEventListener('click',()=>{
+        const key=button.dataset.g12ReportTab;
+        root.querySelectorAll('[data-g12-report-tab]').forEach(item=>{const active=item===button;item.classList.toggle('active',active);item.setAttribute('aria-selected',String(active));});
+        root.querySelectorAll('[data-g12-report-panel]').forEach(panel=>panel.hidden=panel.dataset.g12ReportPanel!==key);
+        if(key==='certificate')return;
+        if(key==='graph'){root.dispatchEvent(new Event('g12-graph-open'));return;}
+        run(async()=>{
+            const target=get(`[data-g12-report-summary="${key}"]`);
+            const query=filters();
+            if(!query.get('academic_year')){target.textContent='Select an Academic Year to display the report.';return;}
+            target.textContent='Loading report…';
+            query.set('tab','reports');query.set('per_page','all');
+            const result=await api('/list?'+query);
+            const counts={Passed:0,Failed:0,Pending:0};
+            result.data.forEach(student=>{const grade=String(student.overall_grade||'').toUpperCase();counts[['A','B','C','D','E'].includes(grade)?'Passed':grade==='F'?'Failed':'Pending']++;});
+            const total=result.data.length;
+            target.innerHTML=key==='graph'?Object.entries(counts).map(([label,count])=>`<div>${label}: <strong>${count}</strong> (${total?(count*100/total).toFixed(2):'0.00'}%)<div class="g12-report-bar"><span style="width:${total?count*100/total:0}%"></span></div></div>`).join(''):`<div class="table-responsive"><table class="table"><thead><tr><th>Result</th><th>Students</th><th>Percentage</th></tr></thead><tbody>${Object.entries(counts).map(([label,count])=>`<tr><td>${label}</td><td>${count}</td><td>${total?(count*100/total).toFixed(2):'0.00'}%</td></tr>`).join('')}<tr><th>Total</th><th>${total}</th><th>${total?'100':'0'}%</th></tr></tbody></table></div>`;
+        });
+    }));
     const optionList=(rows,label,id='id')=>rows.map(r=>`<option value="${escape(r[id])}">${escape(typeof label==='function'?label(r):r[label])}</option>`).join('');
     const options=(select,rows,label,id='id')=>{if(!select)return;const value=select.value,emptyLabel=select.dataset.emptyLabel??select.dataset.placeholder??'Select';select.innerHTML=`<option value="">${escape(emptyLabel)}</option>`+optionList(rows,label,id);select.value=value;pickers.get(select)?.refresh();};
     const field=(name,label,value='',attrs='')=>`<div><label class="form-label" for="edit-${escape(name)}">${escape(label)}</label><input class="form-control" id="edit-${escape(name)}" name="${escape(name)}" value="${escape(value)}" ${attrs}></div>`;
@@ -47,6 +75,16 @@ if(root){
         filterToggle.addEventListener('click',()=>setFiltersExpanded(filterForm.hidden));
         phoneLayout.addEventListener('change',()=>setFiltersExpanded(!phoneLayout.matches));
     }
+    const syncYearCampuses=()=>{
+        if(!meta||!filterForm?.elements.campus_id)return;
+        const year=filterForm.elements.academic_year?.value;
+        const ids=new Set((meta.campuses_by_year?.[year]||[]).map(String));
+        options(filterForm.elements.campus_id,year?meta.campuses.filter(campus=>ids.has(String(campus.id))):meta.campuses,'campus_name_en');
+        syncFilterFields();
+    };
+    filterForm?.addEventListener('change',event=>{
+        if(event.target.name==='academic_year')syncYearCampuses();
+    },true);
     const loadMeta=async()=>{
         meta=await api('/meta?tab='+tab);
         for(const [name,rows,label,id]of [['academic_year',meta.years.map(v=>({id:v,label:v})),'label'],['language_exam',meta.exam_languages.map(v=>({id:v,label:v})),'label'],['class_selected',meta.selected_classes.map(v=>({id:v,label:v})),'label'],['campus_id',meta.campuses,'campus_name_en'],['center_id',meta.centers,'name'],['record_id',meta.students,r=>[r.name_kh,r.name_en].filter(Boolean).join(' / ')||r.student_code],['grade',meta.grades.map(v=>({id:v,label:v})),'label'],['result_status',['pending','passed','failed'].map(v=>({id:v,label:statusLabels[v]})),'label'],['certificate_type',[{id:'soft',label:'Soft Certificate'},{id:'hard',label:'Hard Certificate'}],'label'],['certificate_status',Object.entries(statusLabels).filter(([v])=>['awaiting','available','collected','not_applicable','review'].includes(v)).map(([id,label])=>({id,label})),'label']])options(get(`[data-g12-filters] [name="${name}"]`),rows,label,id);
@@ -57,6 +95,7 @@ if(root){
             get('[data-g12-photo-year-empty]').hidden=!!meta.years.length;
             get('[data-g12-photo-preview-button]').disabled=!meta.years.length;
         }
+        syncYearCampuses();
         if(tab==='scoring')prepareScoringTools();
         refreshPickers(root);syncFilterFields();
     };
@@ -559,6 +598,10 @@ if(root){
         if(tab==='results'){
             query.set('tab','results');
             query.set('report_type',report.dataset.g12ReportType);
+            const reportDate=get('[data-g12-report-date]')?.value;
+            if(reportDate)query.set('report_date',reportDate);
+            const reportLocation=get('[data-g12-report-location]')?.value.trim();
+            if(reportLocation)query.set('report_location',reportLocation);
         }
         window.open(base+'/report?'+query,'_blank','noopener');
     }});

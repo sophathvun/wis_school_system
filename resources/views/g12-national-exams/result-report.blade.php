@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{{ $title }}</title>
-@if($type==='result-list' && !$pdfExport)
+@if(in_array($type,['result-list','statistics-doeys'],true) && !$pdfExport)
 @vite('resources/js/g12ResultReport.js')
 @endif
 <style>{!! file_get_contents(resource_path('css/pages/g12-result-report.css')) !!}</style>
@@ -41,6 +41,11 @@
 @endforeach
 </div>
 @endforeach
+@else
+@if($type==='statistics-doeys')
+@include('g12-national-exams._statistics-doeys')
+@elseif($type==='statistics-all')
+@include('g12-national-exams._statistics-all')
 @else
 @if(in_array($type,['grade-a-campus','result-list'],true))
 <header class="grade-a-official-heading">
@@ -97,6 +102,7 @@
 <section class="report-signatures"><div>Prepared by<br><br><br>________________________</div><div>Checked by<br><br><br>________________________</div><div>Approved by<br><br><br>________________________</div></section>
 @endif
 <footer>Western International School &nbsp; • &nbsp; {{ $title }}</footer>
+@endif
 @endif
 </main>
 </body>

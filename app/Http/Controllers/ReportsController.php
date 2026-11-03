@@ -2385,17 +2385,17 @@ class ReportsController
         return $sheetName;
     }
 
-    private function moeysKhmerDateLines(?string $reportDate, ?SchoolInfo $campus): array
+    public function moeysKhmerDateLines(?string $reportDate, ?SchoolInfo $campus, ?string $reportLocation = null): array
     {
         $date = \Carbon\Carbon::parse($reportDate ?: now('Asia/Phnom_Penh')->format('Y-m-d'));
         $digits = fn ($value) => $this->khmerDigits((string) $value);
-        $weekdays = ['អាទិ្យ', 'ចន្ទ', 'អង្គារ', 'ពុធ', 'ព្រហស្បិ', 'សុក្រ', 'សៅរ'];
-        $months = ['មករា', 'កុម្ភៈ', 'មីនា', 'មសា', 'ឧសភា', 'មិុនា', 'កក្កដា', 'សីហា', 'កញ្ញា', 'ុលា', 'វិច្ឆិកា', 'ធ្នូ'];
-        $location = $this->moeysLocation($campus);
+        $weekdays = ['អាទិត្យ', 'ចន្ទ', 'អង្គារ', 'ពុធ', 'ព្រហស្បតិ៍', 'សុក្រ', 'សៅរ៍'];
+        $months = ['មករា', 'កុម្ភៈ', 'មីនា', 'មេសា', 'ឧសភា', 'មិថុនា', 'កក្កដា', 'សីហា', 'កញ្ញា', 'តុលា', 'វិច្ឆិកា', 'ធ្នូ'];
+        $location = filled($reportLocation) ? trim($reportLocation) : $this->moeysLocation($campus);
 
         return [
-            $this->moeysKhmerLunarDate($date) ?: ('្ងៃ' . $weekdays[$date->dayOfWeek] . ' ព.ស.' . $digits($date->year + 544)),
-            $location . ' ្ងៃទី' . $digits($date->day) . ' ែ' . $months[$date->month - 1] . ' ឆ្នាំ' . $digits($date->year),
+            $this->moeysKhmerLunarDate($date) ?: ('ថ្ងៃ' . $weekdays[$date->dayOfWeek] . ' ព.ស.' . $digits($date->year + 544)),
+            $location . ' ថ្ងៃទី' . $digits($date->day) . ' ខែ' . $months[$date->month - 1] . ' ឆ្នាំ' . $digits($date->year),
         ];
     }
 
@@ -2419,7 +2419,7 @@ const day = Number(process.argv[4]);
 const khmerDigits = (value) => String(value).replace(/[0-9]/g, (digit) => '០១២៣៤៥៦៧៨៩'[digit]);
 const result = momentkh.fromGregorian(year, month, day);
 const lunar = result.khmer;
-process.stdout.write(`្ងៃ${lunar.dayOfWeekName} ${khmerDigits(lunar.day)}${lunar.moonPhaseName} ែ${lunar.monthName} ឆ្នាំ${lunar.animalYearName} ${lunar.sakName} ព.ស.${khmerDigits(lunar.beYear)}`);
+process.stdout.write(`ថ្ងៃ${lunar.dayOfWeekName} ${khmerDigits(lunar.day)}${lunar.moonPhaseName} ខែ${lunar.monthName} ឆ្នាំ${lunar.animalYearName} ${lunar.sakName} ព.ស.${khmerDigits(lunar.beYear)}`);
 JS;
 
         try {
@@ -3498,5 +3498,3 @@ JS;
         return ['groups' => $groups, 'campuses' => $campuses, 'totals' => $totals];
     }
 }
-
-

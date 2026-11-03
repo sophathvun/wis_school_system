@@ -37,6 +37,7 @@ class G12NationalExamController {
         $examLanguages=$examData->map(fn($record)=>trim((string)($record->data['language_exam']??'')))->filter()->unique()->sortBy(fn($value)=>mb_strtolower($value))->values();
         $selectedClasses=$examData->map(fn($record)=>trim((string)($record->data['class_sellected']??$record->data['class_selected']??'')))->filter()->unique()->sortBy(fn($value)=>mb_strtolower($value))->values();
         $result=['campuses'=>SchoolInfo::whereIn('id',$ids)->orderBy('campus_name_en')->get(['id','campus_name_en']),
+            'campuses_by_year'=>$students->clone()->select('academic_year','campus_id')->distinct()->get()->groupBy('academic_year')->map(fn($rows)=>$rows->pluck('campus_id')->values()),
             'centers'=>G12ExamCenter::orderBy('name')->get(),'years'=>$students->clone()->distinct()->orderByDesc('academic_year')->pluck('academic_year'),
             'grades'=>$students->clone()->whereNotNull('grade')->distinct()->orderBy('grade')->pluck('grade'),
             'exam_languages'=>$examLanguages,'selected_classes'=>$selectedClasses,
@@ -430,23 +431,38 @@ class G12NationalExamController {
     private function resultReport(Request $request){
         $this->exams->authorize($request->user(),'results-export');
         $input=$request->validate(['format'=>['required',Rule::in(['print','xlsx','pdf'])],'report_type'=>['required',Rule::in(array_keys(G12ResultReports::TYPES))]]);
+        $request->validate(['report_date'=>['nullable','date_format:Y-m-d'],'report_location'=>['nullable','string','max:150']]);
         $records=$this->query($request,'results-export')->with(['center','campus','certificates'])->orderBy('academic_year')->orderBy('name_kh')->get();
         $report=$this->resultReports->prepare($records,$input['report_type']);
         $filters=$request->only(['academic_year','language_exam','class_selected','campus_id','grade','result_status','search']);
+        $selectedSchool=filled($filters['campus_id']??null)?SchoolInfo::find($filters['campus_id']):null;
+        $selectedSchoolHeading='វិ. សាលាវេស្ទើនអន្តរជាតិ';
+        if($selectedSchool){
+            $campusName=trim($selectedSchool->campus_name_kh?:$selectedSchool->campus_name_en?:'');
+            if($campusName!=='')$selectedSchoolHeading.=' ('.$campusName.')';
+        }
+        $recordSchoolNames=$records->map(fn($record)=>trim((string)($record->data['school_name']??'')))->filter()->unique()->values();
+        if($selectedSchool&&filled($filters['language_exam']??null)&&$recordSchoolNames->isNotEmpty())$selectedSchoolHeading=$recordSchoolNames->implode(' / ');
+        if(!$selectedSchool)$selectedSchoolHeading='វិ. សាលាវេស្ទើនអន្តរជាតិ';
         if(filled($filters['campus_id']??null))$filters['campus']=SchoolInfo::find($filters['campus_id'])?->campus_name_en;
         unset($filters['campus_id']);
+        $statisticsDates=[];
+        if($input['report_type']==='statistics-doeys'){
+            [$statisticsDates['khmerLunarDate'],$statisticsDates['khmerSolarDate']]=app(ReportsController::class)->moeysKhmerDateLines($request->input('report_date'),$selectedSchool,$request->input('report_location','រាជធានីភ្នំពេញ'));
+        }
         if($input['format']==='xlsx'){
             $filename=$this->resultReports->filename($input['report_type'],'xlsx');
             $workbook=in_array($input['report_type'],['grade-a','grade-a-campus','result-list'],true)
                 ?app(\App\Support\G12GradeAWorkbook::class)->generate($report,$filters)
-                :app(ScholarshipExport::class)->xlsx($this->resultReports->excelRows($report,$filters));
+                :app(\App\Support\G12StatisticsWorkbook::class)->generate($report+['selectedSchoolName'=>$selectedSchoolHeading,'reportDate'=>now('Asia/Bangkok')]+$statisticsDates,$filters);
             return response($workbook,200,['Content-Type'=>'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','Content-Disposition'=>'attachment; filename="'.$filename.'"']);
         }
         $fontPath=public_path('fonts/khmer/KhmerOSsiemreap.ttf');$khmerFontData=is_file($fontPath)?'data:font/truetype;base64,'.base64_encode(file_get_contents($fontPath)):null;
         $muolFontPath=public_path('fonts/khmer/KhmerOSmuollight.ttf');$khmerMuolFontData=is_file($muolFontPath)?'data:font/truetype;base64,'.base64_encode(file_get_contents($muolFontPath)):null;
-        $data=$report+['filters'=>$filters,'reportLogo'=>app(ScholarshipExport::class)->reportLogo(1),'khmerFontData'=>$khmerFontData,'khmerMuolFontData'=>$khmerMuolFontData,'reportDate'=>now('Asia/Bangkok'),'pdfExport'=>$input['format']==='pdf'];
+        $data=$report+['filters'=>$filters,'selectedSchoolName'=>$selectedSchoolHeading,'reportLogo'=>app(ScholarshipExport::class)->reportLogo(1),'khmerFontData'=>$khmerFontData,'khmerMuolFontData'=>$khmerMuolFontData,'reportDate'=>now('Asia/Bangkok'),'pdfExport'=>$input['format']==='pdf'];
+        $data+=$statisticsDates;
         if($input['format']==='print')return view('g12-national-exams.result-report',$data);
-        if(in_array($input['report_type'],['grade-a','grade-a-campus','result-list'],true))return response(app(\App\Support\G12GradeAPdf::class)->render($data),200,[
+        if(in_array($input['report_type'],array_keys(G12ResultReports::TYPES),true))return response(app(\App\Support\G12GradeAPdf::class)->render($data),200,[
             'Content-Type'=>'application/pdf',
             'Content-Disposition'=>'attachment; filename="'.$this->resultReports->filename($input['report_type'],'pdf').'"',
         ]);

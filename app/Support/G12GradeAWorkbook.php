@@ -98,6 +98,9 @@ class G12GradeAWorkbook
             $zip->addFromString('xl/workbook.xml','<?xml version="1.0"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Grade A Students" sheetId="1" r:id="rId1"/></sheets><definedNames><definedName name="_xlnm.Print_Area" localSheetId="0">\'Grade A Students\'!$A$1:$I$'.$last.'</definedName><definedName name="_xlnm.Print_Titles" localSheetId="0">\'Grade A Students\'!$8:$8</definedName></definedNames></workbook>');
             $zip->addFromString('xl/worksheets/sheet1.xml',$sheet);
             $zip->addFromString('xl/styles.xml',$this->styles($isResult));
+            if ($isResult) {
+                $zip->addFromString('xl/workbook.xml',str_replace('Grade A Students','List of Results',$zip->getFromName('xl/workbook.xml')));
+            }
             $zip->close();
             return file_get_contents($path);
         } finally {

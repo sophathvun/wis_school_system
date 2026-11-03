@@ -1,0 +1,13 @@
+html,body{background:#fff;font-family:dejavusans;color:#172033}
+.doeys-heading{display:none}
+.statistics-pdf-heading{width:100%;border-collapse:collapse;margin-bottom:3mm;color:#173c71}
+.statistics-pdf-heading td{border:0;vertical-align:top;line-height:1.6;font-size:12pt}
+.statistics-pdf-authority{width:60%;padding-top:5mm}
+.statistics-pdf-motto{width:40%;text-align:center}
+.statistics-pdf-motto div{font-family:dejavusans;font-size:8pt}
+.doeys-title h1,.doeys-title h2{font-family:g12muol;font-weight:normal}
+.doeys-table thead,.all-statistics-table thead{display:table-header-group}
+.doeys-table th,.all-statistics-table th{font-family:g12siemreap;font-weight:normal}
+.all-statistics-table .stat-percent{font-family:dejavusans;font-size:5.5pt;color:#217695;line-height:1.2}
+.all-statistics-table .all-stat-f-value .stat-percent{color:#b71926}
+.all-statistics-table td{font-size:10pt;white-space:nowrap}

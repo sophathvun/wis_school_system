@@ -100,7 +100,7 @@ class G12ResultReports
         if ($schoolGroup === '') $schoolGroup = $schoolName.($campusName !== '' ? ' ('.$campusName.')' : '').($language === 'English' ? '(អង់គ្លេស)' : '');
 
         return [
-            'number' => $number, 'academic_year' => $record->academic_year, 'campus' => $record->campus?->campus_name_en ?: ($data['campus'] ?? 'Unassigned'),
+            'id' => $record->id, 'number' => $number, 'academic_year' => $record->academic_year, 'campus' => $record->campus?->campus_name_en ?: ($data['campus'] ?? 'Unassigned'),
             'name_en' => $record->name_en, 'name_kh' => $record->name_kh, 'student_code' => $record->student_code,
             'school_name_kh' => $record->campus?->school_name_kh ?: ($record->campus?->school_name_en ?: 'សាលាវេស្ទើនអន្តរជាតិ'),
             'campus_name_kh' => $record->campus?->campus_name_kh ?: ($record->campus?->campus_name_en ?: ($data['campus'] ?? '')),

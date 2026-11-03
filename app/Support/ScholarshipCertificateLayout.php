@@ -6,11 +6,12 @@ use Illuminate\Validation\{Rule,ValidationException};
 class ScholarshipCertificateLayout
 {
     public const TYPES=['class'=>'Class Rank','exam'=>'Exam Place','subject'=>'Best in Subject'];
-    public const TOKENS=['student_name','campus','certificate_number','place','grade','class','academic_year','scholarship_year','award_percent','subject','issue_date','location','signer_1_name','signer_1_position','signer_2_name','signer_2_position'];
+    public const TOKENS=['student_name','student_name_kh','exam_date','score_rank','campus','certificate_number','place','grade','class','academic_year','scholarship_year','award_percent','subject','issue_date','location','signer_1_name','signer_1_position','signer_2_name','signer_2_position'];
     public static function fonts(): array
     {
         return [
             'schcertsans'=>['label'=>'DejaVu Sans','file'=>'DejaVuSans.ttf','bold'=>'DejaVuSans-Bold.ttf','directory'=>'certificates'],
+            'schcertpoppins'=>['label'=>'Poppins','file'=>'Poppins-Regular.ttf','bold'=>'Poppins-Bold.ttf','directory'=>'poppins'],
             'schcertserif'=>['label'=>'DejaVu Serif','file'=>'DejaVuSerif.ttf','bold'=>'DejaVuSerif-Bold.ttf','directory'=>'certificates'],
             'schcertmaiandra'=>['label'=>'Maiandra GD','file'=>'MaiandraGD.ttf','directory'=>'certificates'],
             'schcertold'=>['label'=>'Old English Text MT','file'=>'OldEnglishTextMT.ttf','directory'=>'certificates'],

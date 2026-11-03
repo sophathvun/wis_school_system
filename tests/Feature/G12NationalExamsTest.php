@@ -42,6 +42,8 @@ it('exports every G12 result report as print Excel and PDF',function(){
         $html=$print->render();expect($html)->toContain(G12ResultReports::TYPES[$type]);
         if(in_array($type,['grade-a','grade-a-campus','result-list'],true))expect($html)->toContain('font-family:KhmerMuolLight','class="grade-a-authority khmer-muol"','<h1 class="khmer-muol">')
             ->not->toContain('WESTERN INTERNATIONAL SCHOOL');
+        elseif($type==='statistics-doeys')expect($html)->toContain('doeys-table','បេក្ខជនចុះឈ្មោះ','នាយកសាលា');
+        elseif($type==='statistics-all')expect($html)->toContain('all-statistics-table','សរុបរួម','ការិយាល័យសិក្សា');
         else expect($html)->toContain('WESTERN INTERNATIONAL SCHOOL');
     }
     $excel=$controller->report(g12Request(User::find(1),['tab'=>'results','format'=>'xlsx','report_type'=>'grade-a']));
@@ -65,8 +67,33 @@ it('exports every G12 result report as print Excel and PDF',function(){
         $archive->close();
     }finally{unlink($workbookPath);}
     $pdf=$controller->report(g12Request(User::find(1),['tab'=>'results','format'=>'pdf','report_type'=>'statistics-all']));
+    foreach(['statistics-all','statistics-doeys'] as $statisticsType){
+        $statisticsExcel=$controller->report(g12Request(User::find(1),['tab'=>'results','format'=>'xlsx','report_type'=>$statisticsType]));
+        $statisticsPath=tempnam(sys_get_temp_dir(),'g12-stat-test-');
+        try{
+            file_put_contents($statisticsPath,$statisticsExcel->getContent());$statisticsZip=new \ZipArchive();
+            expect($statisticsZip->open($statisticsPath))->toBeTrue();
+            foreach(['xl/workbook.xml','xl/worksheets/sheet1.xml','xl/styles.xml'] as $part){$document=new \DOMDocument();expect($document->loadXML($statisticsZip->getFromName($part)))->toBeTrue();}
+            expect($statisticsZip->getFromName('xl/worksheets/sheet1.xml'))->toContain('orientation="landscape"','បេក្ខជនចុះឈ្មោះ','សរុប');
+            $statisticsZip->close();
+        }finally{unlink($statisticsPath);}
+    }
     $gradeAPdf=$controller->report(g12Request(User::find(1),['tab'=>'results','format'=>'pdf','report_type'=>'grade-a']));
     $campusPdf=$controller->report(g12Request(User::find(1),['tab'=>'results','format'=>'pdf','report_type'=>'grade-a-campus']));
+    $resultPdf=$controller->report(g12Request(User::find(1),['tab'=>'results','format'=>'pdf','report_type'=>'result-list']));
+    expect(substr($resultPdf->getContent(),0,4))->toBe('%PDF')
+        ->and($resultPdf->headers->get('Content-Disposition'))->toContain('g12-result-list-');
+    $resultExcel=$controller->report(g12Request(User::find(1),['tab'=>'results','format'=>'xlsx','report_type'=>'result-list']));
+    $resultPath=tempnam(sys_get_temp_dir(),'g12-result-test-');
+    try {
+        file_put_contents($resultPath,$resultExcel->getContent());
+        $resultZip=new \ZipArchive();expect($resultZip->open($resultPath))->toBeTrue();
+        $resultSheet=$resultZip->getFromName('xl/worksheets/sheet1.xml');
+        $resultXml=new \DOMDocument();expect($resultXml->loadXML($resultSheet))->toBeTrue();
+        expect($resultSheet)->toContain('គោត្តនាម និងនាមខ្លួន','ថ្នាក់ជម្រើស','វិទ្យាសាស្ត្រ','paperSize="9"')
+            ->not->toContain('Name in English','NATIONAL EXAM STUDENT');
+        $resultZip->close();
+    } finally { unlink($resultPath); }
     expect(substr($campusPdf->getContent(),0,4))->toBe('%PDF')
         ->and($campusPdf->headers->get('Content-Disposition'))->toContain('g12-grade-a-campus-');
     expect(substr($gradeAPdf->getContent(),0,4))->toBe('%PDF')

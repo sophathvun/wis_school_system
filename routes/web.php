@@ -442,6 +442,11 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         'description' => 'Use this module to manage Grade 9 national exam records.',
     ])->name('g9-national-exams.index');
     Route::prefix('g12-national-exams')->name('g12-national-exams.')->controller(\App\Http\Controllers\G12NationalExamController::class)->group(function(){
+        Route::post('/graph/pdf',[\App\Http\Controllers\G12GraphExportController::class,'pdf'])->name('graph.pdf');
+        Route::get('/grade-a-certificate/editor',[\App\Http\Controllers\G12GradeACertificateController::class,'show'])->name('grade-a-certificate.editor');
+        Route::post('/grade-a-certificate/settings',[\App\Http\Controllers\G12GradeACertificateController::class,'save'])->name('grade-a-certificate.save');
+        Route::post('/grade-a-certificate/assign-numbers',[\App\Http\Controllers\G12GradeACertificateController::class,'assignNumbers'])->name('grade-a-certificate.assign-numbers');
+        Route::post('/grade-a-certificate/pdf',[\App\Http\Controllers\G12GradeACertificateController::class,'pdf'])->name('grade-a-certificate.pdf');
         foreach(\App\Support\G12NationalExamPermissions::PATHS as $section=>$path)Route::get('/'.$path,'index')->defaults('section',$section)->name($section);
         Route::get('/','index')->name('index');Route::get('/meta','meta')->name('meta');Route::get('/list','list')->name('list');Route::get('/report','report')->name('report');
         Route::post('/records','save')->name('store');Route::get('/records/{record}','show')->name('show');Route::post('/records/{record}','save')->name('update');Route::post('/records/{record}/exam-assignment','saveExamAssignment')->name('assignment.update');Route::post('/records/{record}/scores','saveScores')->name('scores.update');

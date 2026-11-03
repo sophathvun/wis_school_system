@@ -4,6 +4,18 @@
 @section('content')
 @vite(['resources/css/pages/g12-national-exams.css','resources/js/g12NationalExams.js'])
 <div data-g12-exams data-tab="{{ $tab }}" data-base="{{ url('/g12-national-exams') }}">
+@if($tab==='reports')
+<div class="g12-reports-layout is-collapsed" data-g12-report-layout>
+    <aside class="card g12-report-navigation">
+        <div class="card-header g12-header"><h3 class="card-title g12-report-nav-label">Reports</h3><button type="button" class="btn btn-icon btn-outline-light ms-auto" data-g12-report-toggle aria-expanded="false" aria-controls="g12ReportTabs" aria-label="Expand report tabs"><i class="ti ti-layout-sidebar-left-expand" aria-hidden="true"></i></button></div>
+        <div class="nav flex-column p-2" id="g12ReportTabs" role="tablist" aria-orientation="vertical">
+            @foreach(['certificate'=>['Grade A Certificate','ti-certificate'],'graph'=>['Passed/Failed Graph','ti-chart-bar'],'statistics'=>['Passed/Failed Statistics','ti-table']] as $key=>[$label,$icon])
+            <button type="button" class="nav-link text-start @if($loop->first) active @endif" id="g12-report-tab-{{ $key }}" role="tab" aria-label="{{ $label }}" title="{{ $label }}" aria-selected="{{ $loop->first?'true':'false' }}" aria-controls="g12-report-panel-{{ $key }}" data-g12-report-tab="{{ $key }}"><i class="ti {{ $icon }} me-2" aria-hidden="true"></i><span class="g12-report-nav-label">{{ $label }}</span></button>
+            @endforeach
+        </div>
+    </aside>
+    <div class="g12-report-content">
+@endif
 @if(in_array($tab,['records','assign-centers','scoring','results','certificates','reports']))
 <div class="card mb-3"><div class="card-header g12-header"><h3 class="card-title"><i class="ti ti-filter me-2"></i>Datas Filter</h3><button type="button" class="btn btn-icon btn-outline-primary g12-filter-toggle ms-auto" data-g12-filter-toggle aria-expanded="true" aria-controls="g12Filters" aria-label="Collapse data filters"><i class="ti ti-chevron-up" aria-hidden="true"></i></button></div>
 <form id="g12Filters" @class(['card-body','g12-fields','g12-filter-fields','g12-record-filter-fields'=>$tab==='records','g12-assign-filter-fields'=>$tab==='assign-centers','g12-scoring-filter-fields'=>in_array($tab,['scoring','results'])]) data-g12-filters>
@@ -18,6 +30,9 @@ $filterFields=$tab==='records'
                 ? ['academic_year'=>'Academic Year','campus_id'=>'Campus','class_selected'=>'Selected','language_exam'=>'Language Exam','center_id'=>'Exam Center','result_status'=>'Result','record_id'=>'Student Name']
                 : ['academic_year'=>'Academic Year','campus_id'=>'Campus','grade'=>'Grade / Class','center_id'=>'Exam Center','result_status'=>'Result','certificate_type'=>'Certificate Type','certificate_status'=>'Certificate Status'])));
 @endphp
+@if($tab==='reports')
+@php($filterFields=['academic_year'=>'Academic Year','campus_id'=>'Campus','record_id'=>'Student Name'])
+@endif
 @foreach($filterFields as $key=>$label)
 <div class="scholarship-field premium-form-field"><label class="form-label" for="filter-{{ $key }}">{{ $label }}</label><select class="form-select" id="filter-{{ $key }}" name="{{ $key }}" data-placeholder="" data-empty-label="All {{ $label }}"><option value="">All {{ $label }}</option></select></div>
 @endforeach
@@ -68,6 +83,22 @@ $filterFields=$tab==='records'
 </div>
 @elseif($permissions['results-export'])
 <div class="g12-result-report-actions ms-auto">
+<div class="dropdown">
+    <button type="button" class="btn btn-outline-light" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false"><i class="ti ti-settings me-1" aria-hidden="true"></i>Report Settings</button>
+    <div class="dropdown-menu dropdown-menu-end p-3 g12-report-date-menu">
+        <label for="g12ReportDate" class="form-label">Report Date</label>
+        <input type="date" id="g12ReportDate" class="form-control" data-g12-report-date value="{{ now('Asia/Bangkok')->format('Y-m-d') }}">
+        <label for="g12ReportLocation" class="form-label mt-3">Date Location</label>
+        <input type="text" id="g12ReportLocation" class="form-control school-profile-khmer" data-g12-report-location list="g12ReportLocations" value="រាជធានីភ្នំពេញ" maxlength="150" autocomplete="off">
+        <datalist id="g12ReportLocations">
+            <option value="រាជធានីភ្នំពេញ"></option>
+            @foreach(['បន្ទាយមានជ័យ','បាត់ដំបង','កំពង់ចាម','កំពង់ឆ្នាំង','កំពង់ស្ពឺ','កំពង់ធំ','កំពត','កណ្ដាល','កោះកុង','ក្រចេះ','មណ្ឌលគិរី','ព្រះវិហារ','ព្រៃវែង','ពោធិ៍សាត់','រតនគិរី','សៀមរាប','ព្រះសីហនុ','ស្ទឹងត្រែង','ស្វាយរៀង','តាកែវ','ឧត្តរមានជ័យ','កែប','ប៉ៃលិន','ត្បូងឃ្មុំ'] as $province)
+            <option value="ខេត្ត{{ $province }}"></option>
+            @endforeach
+        </datalist>
+        <small class="text-secondary d-block mt-2">The DoEYS report's Khmer lunar and solar dates are filled automatically.</small>
+    </div>
+</div>
 @foreach(['print'=>['Print','ti-printer'],'xlsx'=>['Excel','ti-file-spreadsheet'],'pdf'=>['PDF','ti-file-type-pdf']] as $format=>[$action,$icon])
 <div class="dropdown">
     <button type="button" class="btn btn-outline-light dropdown-toggle" id="g12ReportMenu-{{ $format }}" data-bs-toggle="dropdown" aria-expanded="false"><i class="ti {{ $icon }} me-1" aria-hidden="true"></i>{{ $action }}</button>
@@ -91,12 +122,14 @@ $filterFields=$tab==='records'
 <article class="card g12-summary-card"><div class="card-body g12-summary-columns"><div class="g12-summary-column"><div class="g12-summary-heading g12-summary-heading-total"><span class="g12-summary-icon"><i class="ti ti-users" aria-hidden="true"></i></span><div class="g12-summary-total-content"><div class="text-secondary">Total Students</div><strong class="g12-summary-total" data-g12-summary-total>0</strong><div class="g12-summary-notes"><div class="g12-summary-note-row"><span>Male: <strong data-g12-summary-male>0</strong></span><span>Female: <strong data-g12-summary-female>0</strong></span></div></div></div></div></div><div class="g12-summary-column g12-summary-class-column"><div class="g12-summary-heading"><span class="g12-summary-icon"><i class="ti ti-books" aria-hidden="true"></i></span><div class="g12-summary-notes g12-summary-class-notes"><div class="g12-summary-note-row school-profile-khmer"><span>វិទ្យាសាស្ត្រ (ខ្មែរ): <strong data-g12-summary-science-khmer>0</strong></span><span>វិទ្យាសាស្ត្រ (អង់គ្លេស): <strong data-g12-summary-science-english>0</strong></span></div><div class="g12-summary-note-row school-profile-khmer"><span>វិទ្យាសាស្ត្រសង្គម (ខ្មែរ): <strong data-g12-summary-social-khmer>0</strong></span><span>វិទ្យាសាស្ត្រសង្គម (អង់គ្លេស): <strong data-g12-summary-social-english>0</strong></span></div></div></div></div><div class="g12-summary-column g12-summary-campus-column"><div class="g12-summary-heading"><span class="g12-summary-icon"><i class="ti ti-building" aria-hidden="true"></i></span><div><div class="text-secondary">Student by Campus</div><div class="g12-summary-campuses" data-g12-summary-campuses><div class="g12-summary-empty">Select an Academic Year to display totals.</div></div></div></div></div></div></article>
 </section>
 @endif
-<div class="card"><div class="card-header g12-header"><h3 class="card-title">{{ $tab==='certificates'?'Certificate Tracking':($tab==='reports'?'National Exam Reports':'List of Candidates') }}</h3>
+<div class="card" @if($tab==='reports') id="g12-report-panel-certificate" role="tabpanel" aria-labelledby="g12-report-tab-certificate" data-g12-report-panel="certificate" @endif><div class="card-header g12-header"><h3 class="card-title">{{ $tab==='certificates'?'Certificate Tracking':($tab==='reports'?'Grade A Certificate':'List of Candidates') }}</h3>
 <div class="ms-auto d-flex gap-2 flex-wrap">
 @if($tab==='records'&&$permissions['export'])<button type="button" class="btn btn-outline-light" data-g12-export="print"><i class="ti ti-printer me-1"></i>Print</button><button type="button" class="btn btn-outline-light" data-g12-export="xlsx"><i class="ti ti-file-spreadsheet me-1"></i>Excel</button><button type="button" class="btn btn-outline-light" data-g12-export="pdf"><i class="ti ti-file-type-pdf me-1"></i>PDF</button>@endif
 @if($tab==='records'&&$permissions['create'])<button type="button" class="btn btn-outline-light" data-g12-new><i class="ti ti-plus me-1"></i>Add New</button>@endif
-@if($tab==='reports'&&$permissions['export'])<button class="btn btn-outline-light" data-g12-export="xlsx"><i class="ti ti-file-spreadsheet me-1"></i>Excel</button><button class="btn btn-outline-light" data-g12-export="print"><i class="ti ti-printer me-1"></i>Print</button>@endif
 </div></div>
+@if($tab==='reports')
+@include('g12-national-exams._grade-a-certificate-editor')
+@endif
 <div class="table-responsive @if($tab==='records') g12-record-table-wrap @elseif($tab==='certificates') g12-certificate-table-wrap @endif"><table class="table table-vcenter card-table @if($tab==='records') g12-record-list @elseif($tab==='certificates') g12-certificate-table @endif"><thead><tr>
 @if($tab==='records')
 <th class="text-center">No.</th><th>Photo</th><th>Student</th><th>Grade</th><th>Parents</th><th>G9 National Exams</th><th>G12 National Exams</th><th>Actions</th>
@@ -105,6 +138,17 @@ $filterFields=$tab==='records'
 @endif
 </tr></thead><tbody data-g12-records><tr><td colspan="8" class="text-center py-4">Select an Academic Year to display records.</td></tr></tbody></table></div>
 <div class="card-footer"><select id="g12PerPage" hidden><option value="15">15</option><option value="25">25</option><option value="50">50</option><option value="100">100</option><option value="all">All</option></select><div id="g12Pagination"></div></div></div>
+@endif
+@if($tab==='reports')
+@foreach(['graph'=>'Passed/Failed Graph','statistics'=>'Passed/Failed Statistics'] as $key=>$label)
+<section class="card" id="g12-report-panel-{{ $key }}" role="tabpanel" aria-labelledby="g12-report-tab-{{ $key }}" data-g12-report-panel="{{ $key }}" hidden>
+    <div class="card-header g12-header flex-wrap gap-2"><h3 class="card-title">{{ $label }}</h3>
+        @if($key==='graph' && $permissions['export'])<div class="ms-auto d-flex gap-2"><button type="button" class="btn btn-outline-light" data-g12-graph-export="pdf" disabled><i class="ti ti-file-type-pdf me-1" aria-hidden="true"></i>Export PDF</button><button type="button" class="btn btn-outline-light" data-g12-graph-export="image" disabled><i class="ti ti-photo me-1" aria-hidden="true"></i>Export Image</button></div>@endif
+    </div>
+    <div class="card-body" data-g12-report-summary="{{ $key }}">Select an Academic Year to display the report.</div>
+</section>
+@endforeach
+</div></div>
 @endif
 @elseif($tab==='centers')
 <div class="card"><div class="card-header g12-header flex-wrap"><h3 class="card-title">Exam Center Settings</h3><div class="g12-center-header-actions ms-auto"><div class="input-icon g12-center-search"><span class="input-icon-addon"><i class="ti ti-search" aria-hidden="true"></i></span><input type="search" class="form-control" data-g12-center-search placeholder="Search exam centers" aria-label="Search exam centers"></div>@if($permissions['centers-manage'])<button class="btn btn-outline-light" data-g12-center-new><i class="ti ti-plus me-1"></i>Add Exam Center</button>@endif</div></div><div class="card-body"><div class="table-responsive"><table class="table"><thead><tr><th class="text-center">No.</th><th aria-sort="ascending"><button type="button" class="g12-center-sort is-active" data-g12-center-sort="name" data-sort-label="Exam Center" aria-label="Sort Exam Center descending">Exam Center <i class="ti ti-arrow-up" aria-hidden="true" data-g12-center-sort-icon="name"></i></button></th><th>Status</th><th>Action</th></tr></thead><tbody data-g12-centers><tr><td colspan="4" class="text-center py-4">Loading exam centers&hellip;</td></tr></tbody></table></div></div><div class="card-footer"><select id="g12CentersPerPage" hidden><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option></select><div id="g12CentersPagination"></div></div></div>

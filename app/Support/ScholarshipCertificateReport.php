@@ -57,7 +57,7 @@ class ScholarshipCertificateReport
         foreach(ScholarshipCertificateLayout::fonts() as $key=>$font)$fontdata[$key]=['R'=>$font['file'],'B'=>$font['bold']??$font['file'],'useOTL'=>$font['directory']==='khmer'?0xFF:0];
         $temp=storage_path('app/private/mpdf');if(!is_dir($temp))mkdir($temp,0755,true);
         $pdf=new \Mpdf\Mpdf(['mode'=>'utf-8','format'=>'A4','orientation'=>'P','margin_left'=>0,'margin_right'=>0,'margin_top'=>0,'margin_bottom'=>0,
-            'tempDir'=>$temp,'fontDir'=>[...(new \Mpdf\Config\ConfigVariables())->getDefaults()['fontDir'],public_path('fonts/certificates'),public_path('fonts/khmer')],
+            'tempDir'=>$temp,'fontDir'=>[...(new \Mpdf\Config\ConfigVariables())->getDefaults()['fontDir'],public_path('fonts/certificates'),public_path('fonts/khmer'),public_path('fonts/poppins')],
             'fontdata'=>$fontdata,'default_font'=>'schcertsans']);
         $pdf->SetTitle('WIS Scholarship Certificates');$pdf->SetAuthor('Western International School');$pdf->SetAutoPageBreak(false);
         foreach($pages as $i=>$page){

@@ -8,12 +8,13 @@ function fitResultValues() {
     if (!context) return;
     const updates = [];
     document.querySelectorAll('[data-result-fit]').forEach(text => {
-        const cell = text.closest('td');
+        const cell = text.closest('td, th');
         const style = getComputedStyle(cell);
         const available = cell.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight) - 1;
         if (available <= 0) return;
 
-        const font = `${style.fontStyle} ${style.fontWeight} ${maximumSize}px ${style.fontFamily}`;
+        const maxSize = text.dataset.fitMaxPt ? Number(text.dataset.fitMaxPt) * 96 / 72 : maximumSize;
+        const font = `${style.fontStyle} ${style.fontWeight} ${maxSize}px ${style.fontFamily}`;
         const value = text.textContent;
         const key = `${font}\n${value}`;
         let width = measurements.get(key);
@@ -22,7 +23,7 @@ function fitResultValues() {
             width = context.measureText(value).width;
             measurements.set(key, width);
         }
-        const size = width > 0 ? Math.min(maximumSize, maximumSize * available / width) : maximumSize;
+        const size = width > 0 ? Math.min(maxSize, maxSize * available / width) : maxSize;
         updates.push([text, `${Math.max(1, size).toFixed(2)}px`]);
     });
     // Finish all layout reads before changing any styles.
