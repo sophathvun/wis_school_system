@@ -4,6 +4,18 @@
 .permission-inheritance-badge { font-size: .65rem; font-weight: 500; vertical-align: middle; margin-left: .25rem; }
 .permission-action > span { min-width: 0; overflow-wrap: anywhere; }
 [data-permission-group] .status-toggle { flex-shrink: 0; }
+.permission-tab-header{background:var(--tblr-bg-surface-secondary,#f1f5f9);color:var(--tblr-body-color,#172033);border-radius:inherit}
+.permission-tab-header>strong{min-width:0;overflow-wrap:anywhere}
+[data-bs-theme="dark"] .permission-tab-header{background:#243449;color:#e2e8f0}
+[data-bs-theme="dark"] .permission-tab{border-color:#334155!important}
+[data-bs-theme="dark"] .permission-tab .permission-action{border-color:#334155!important}
+[data-bs-theme="dark"] .permission-tab .text-secondary{color:#aebdd0!important}
+
+/* Module cards flow independently instead of reserving the tallest row's height. */
+.permission-modules-layout{column-count:2;column-gap:1rem}
+.permission-modules-layout>.col-md-6{display:inline-block;width:100%;max-width:100%;margin:0 0 1rem;vertical-align:top;break-inside:avoid;page-break-inside:avoid}
+.permission-modules-layout [data-permission-group]{width:100%}
+@media(max-width:767.98px){.permission-modules-layout{column-count:1}}
 
 .permission-campus-picker {
     position: relative;

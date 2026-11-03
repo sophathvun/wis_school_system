@@ -10,7 +10,7 @@
             $tabId=$permissionPrefix.'-'.$moduleKey.'-tab-'.$tabKey;
         @endphp
         <div class="permission-tab border rounded my-2" data-permission-tab="{{ $tabKey }}">
-            <div class="d-flex align-items-center justify-content-between p-2 bg-light permission-action" data-action-parent="{{ $submenuId }}">
+            <div class="d-flex align-items-center justify-content-between gap-2 p-2 permission-tab-header permission-action" data-action-parent="{{ $submenuId }}">
                 <strong class="small"><i class="ti ti-layout-list me-1" aria-hidden="true"></i>{{ $tabGroup['label'] }} @include('partials.permission-inheritance', ['permissionId' => $tabPermission->id])</strong>
                 <button type="button" class="status-toggle {{ $tabOn?'is-active':'' }}" data-permission-toggle data-permission-level="action" data-permission-code="{{ $tabPermission->code }}" data-permission-id="{{ $tabId }}" data-parent-permission="{{ $submenuId }}" data-status="{{ $tabOn?1:0 }}" aria-label="View {{ $tabGroup['label'] }} tab" aria-pressed="{{ $tabOn?'true':'false' }}"
                     @if($inheritedPermissionIds->contains($tabPermission->id)) data-permission-inherited="true" disabled @endif>

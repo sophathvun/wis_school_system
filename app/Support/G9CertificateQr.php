@@ -12,7 +12,7 @@ class G9CertificateQr
 {
     public static function url(string $token): string
     {
-        return route('g9-certificate.verify', ['token' => $token]);
+        return DocumentVerificationUrl::route('g9-certificate.verify', ['token' => $token]);
     }
 
     public static function image(string $token, ?string $faviconPath = null): string

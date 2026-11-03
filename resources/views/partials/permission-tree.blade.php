@@ -65,7 +65,7 @@
             class="form-control" data-permission-module-search placeholder="Search main modules or actions..."></div>
 </div>
 </div>
-<div class="row g-3">
+<div class="permission-modules-layout">
     @foreach ($permissionHierarchy as $groupKey => $group)
         @php($main = $group['permission'])
         @if ($main)

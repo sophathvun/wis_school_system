@@ -414,19 +414,31 @@ Route::middleware(['auth', 'active.user'])->group(function () {
     Route::get('/students/id-card-qr/print', [StudentIdCardQrController::class, 'printCards'])->name('student-id-card-qr.print');
     Route::get('/students/id-card-qr/{student}/qr.svg', [StudentIdCardQrController::class, 'qr'])->name('student-id-card-qr.qr');
 
-    Route::view('/attendance', 'academic-module-placeholder', [
-        'title' => 'Attendance',
-        'pretitle' => 'Student Attendance',
-        'icon' => 'ti-calendar-check',
-        'description' => 'Use this module for student attendance records.',
-    ])->middleware('permission:attendance.view')->name('attendance.index');
+    Route::prefix('attendance')->name('attendance.')->middleware('permission:attendance.view')->controller(\App\Http\Controllers\AttendanceController::class)->group(function(){
+        Route::get('/daily',[\App\Http\Controllers\DailyAttendanceController::class,'show'])->name('daily.show');
+        Route::post('/daily',[\App\Http\Controllers\DailyAttendanceController::class,'save'])->name('daily.save');
+        Route::get('/','index')->name('index');
+        Route::get('/admin-daily-attendance','index')->defaults('workspace','daily')->name('admin-daily');
+        Route::get('/settings','index')->defaults('workspace','settings')->name('settings');
+        Route::get('/meta','meta')->name('meta');
+        Route::get('/sessions','list')->name('sessions');
+        Route::get('/assignments','assignmentList')->name('assignments');
+        Route::get('/history','history')->name('history');
+        Route::get('/sessions/{assignment}','show')->whereNumber('assignment')->name('show');
+        Route::post('/sessions/{assignment}','save')->whereNumber('assignment')->name('save');
+        Route::post('/sessions/{assignment}/reopen','reopen')->whereNumber('assignment')->name('reopen');
+    });
 
-    Route::view('/schedules', 'academic-module-placeholder', [
-        'title' => 'Schedules',
-        'pretitle' => 'Student and Teacher Schedules',
-        'icon' => 'ti-calendar-time',
-        'description' => 'Use this module to create student and teacher schedules.',
-    ])->middleware('permission:schedules.view')->name('schedules.index');
+    Route::prefix('schedules')->name('schedules.')->middleware('permission:schedules.view')->controller(\App\Http\Controllers\TeachingScheduleController::class)->group(function(){
+        Route::get('/session-setup',[\App\Http\Controllers\SchedulePeriodController::class,'index'])->name('session-setup');
+        Route::get('/periods',[\App\Http\Controllers\SchedulePeriodController::class,'listing'])->name('periods');
+        Route::post('/periods',[\App\Http\Controllers\SchedulePeriodController::class,'save'])->name('periods.save');
+        Route::get('/','index')->name('index');
+        Route::get('/meta','meta')->name('meta');
+        Route::get('/sessions','listing')->name('sessions');
+        Route::post('/sessions','save')->name('save');
+        Route::post('/sessions/{schedule}/publish','publish')->whereNumber('schedule')->name('publish');
+    });
 
     Route::view('/grading-system', 'academic-module-placeholder', [
         'title' => 'Grading System',

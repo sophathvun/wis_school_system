@@ -12,7 +12,7 @@ class K3CertificateQr
 {
     public static function url(string $token): string
     {
-        return route('k3-certificate.verify', ['token' => $token]);
+        return DocumentVerificationUrl::route('k3-certificate.verify', ['token' => $token]);
     }
 
     public static function image(string $token, ?string $faviconPath = null): string

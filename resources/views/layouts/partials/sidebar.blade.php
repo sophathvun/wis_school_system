@@ -434,23 +434,36 @@
                     </li>
                 @endif
                 @if ($canView('attendance.view'))
-                    <li class="nav-item {{ request()->routeIs('attendance.*') ? 'active' : '' }}">
-                        <a class="nav-link" href="{{ route('attendance.index') }}">
+                    <li class="nav-item dropdown {{ request()->routeIs('attendance.*') ? 'active' : '' }}">
+                        <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown" data-bs-auto-close="false" role="button" aria-expanded="{{ request()->routeIs('attendance.*') ? 'true' : 'false' }}">
                             <span class="nav-link-icon d-md-none d-lg-inline-block">
                                 <i class="ti ti-calendar-check icon"></i>
                             </span>
                             <span class="nav-link-title">Attendance</span>
                         </a>
+                        <div class="dropdown-menu {{ request()->routeIs('attendance.*') ? 'show' : '' }}">
+                            <a class="dropdown-item {{ request()->routeIs('attendance.index') ? 'active' : '' }}" href="{{ route('attendance.index') }}"><i class="ti ti-calendar-time me-2"></i>Subject Attendance</a>
+                            @if($canView('attendance.manage'))
+                            <a class="dropdown-item {{ request()->routeIs('attendance.admin-daily') ? 'active' : '' }}" href="{{ route('attendance.admin-daily') }}"><i class="ti ti-calendar-check me-2"></i>Admin-Daily Attendance</a>
+                            <a class="dropdown-item {{ request()->routeIs('attendance.settings') ? 'active' : '' }}" href="{{ route('attendance.settings') }}"><i class="ti ti-settings me-2"></i>Attendance Settings</a>
+                            @endif
+                        </div>
                     </li>
                 @endif
                 @if ($canView('schedules.view'))
-                    <li class="nav-item {{ request()->routeIs('schedules.*') ? 'active' : '' }}">
-                        <a class="nav-link" href="{{ route('schedules.index') }}">
+                    <li class="nav-item dropdown {{ request()->routeIs('schedules.*') ? 'active' : '' }}">
+                        <a class="nav-link dropdown-toggle" href="#navbar-schedules" data-bs-toggle="dropdown" data-bs-auto-close="false" role="button" aria-expanded="{{ request()->routeIs('schedules.*') ? 'true' : 'false' }}">
                             <span class="nav-link-icon d-md-none d-lg-inline-block">
                                 <i class="ti ti-calendar-time icon"></i>
                             </span>
                             <span class="nav-link-title">Schedules</span>
                         </a>
+                        <div class="dropdown-menu {{ request()->routeIs('schedules.*') ? 'show' : '' }}">
+                            <a class="dropdown-item {{ request()->routeIs('schedules.index') ? 'active' : '' }}" href="{{ route('schedules.index') }}"><i class="ti ti-calendar-time me-2"></i>Student and Teacher Schedules</a>
+                            @if($canView('schedules.setup'))
+                                <a class="dropdown-item {{ request()->routeIs('schedules.session-setup') ? 'active' : '' }}" href="{{ route('schedules.session-setup') }}"><i class="ti ti-clock-cog me-2"></i>Session Setup</a>
+                            @endif
+                        </div>
                     </li>
                 @endif
                 @if ($canView('grading-system.view'))

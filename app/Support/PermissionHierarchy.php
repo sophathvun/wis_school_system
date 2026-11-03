@@ -71,12 +71,12 @@ class PermissionHierarchy
             'attendance' => [
                 'label' => 'Attendance', 'permission' => 'attendance.view',
                 'modules' => [],
-                'actions' => ['attendance.manage'],
+                'actions' => ['attendance.take','attendance.manage'],
             ],
             'schedules' => [
                 'label' => 'Schedules', 'permission' => 'schedules.view',
                 'modules' => [],
-                'actions' => ['schedules.manage'],
+                'actions' => ['schedules.manage','schedules.setup'],
             ],
             'grading-system' => [
                 'label' => 'Grading System', 'permission' => 'grading-system.view',

@@ -36,5 +36,6 @@ return [
     ],
 
     'public_qr_base_url' => env('PUBLIC_QR_BASE_URL', env('APP_URL', 'http://localhost')),
+    'document_verification_base_url' => env('DOCUMENT_VERIFICATION_BASE_URL'),
 
 ];

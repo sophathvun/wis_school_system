@@ -1,0 +1,27 @@
+.schedule-header{background:linear-gradient(110deg,#1c2c4c,#304b7e);color:#fff}
+.schedule-header .card-title,.schedule-header .modal-title{color:inherit}
+.schedule-header small{color:#d1def5}
+.schedule-filters{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:.85rem}
+.schedule-editor-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem}
+:is([data-teaching-schedules],[data-schedule-periods]) .premium-form-field{position:relative;min-width:0}
+[data-teaching-schedules] .location-combobox-toggle{width:100%;min-height:52px;padding:1.25rem 1rem .35rem;border-radius:14px}
+[data-teaching-schedules] .location-combobox-selected{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+:is([data-teaching-schedules],[data-schedule-periods]) .date-picker-calendar-button{position:absolute;right:.5rem;top:50%;transform:translateY(-50%);width:30px;min-height:30px;justify-content:center;border:0;padding:0}
+[data-teaching-schedules] .date-picker input{padding-right:2.75rem}
+.scholarship-calendar-footer{display:flex;justify-content:flex-end;padding:.6rem;border-top:1px solid var(--tblr-border-color);background:var(--tblr-bg-surface)}
+.scholarship-time-columns{display:flex;align-items:center;justify-content:center;gap:.75rem;padding:1rem}
+.scholarship-time-columns label{display:grid;gap:.35rem;font-size:.8rem;color:var(--tblr-secondary-color)}
+.scholarship-time-columns select{min-width:90px}
+.scholarship-time-popup .scholarship-calendar-footer{justify-content:space-between}
+.schedule-period-preview{align-self:center;padding:.6rem 1rem;border:1px solid var(--tblr-border-color);border-radius:14px;background:var(--tblr-bg-surface-secondary)}
+.schedule-summary{display:flex;gap:.6rem;flex-wrap:wrap}
+.schedule-table small{display:block;color:var(--tblr-secondary-color);margin-top:.2rem}
+.schedule-table td{white-space:normal;min-width:110px}
+.schedule-table td:last-child{min-width:160px}
+@media(max-width:991.98px){.schedule-filters{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:575.98px){.schedule-editor-fields{grid-template-columns:1fr}.schedule-filters>div:last-child{grid-column:1/-1}}
+.schedule-period-groups{grid-column:1/-1;padding:.8rem 1rem;border:1px solid var(--tblr-border-color);border-radius:14px}
+.schedule-period-groups legend{float:none;width:auto;padding:0 .3rem;font-size:.8rem;font-weight:600}
+.schedule-period-groups .form-check:last-child{margin-bottom:0}
+.schedule-grade-choices{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.6rem}
+.schedule-grade-badges{display:flex;flex-wrap:wrap;gap:.25rem;max-width:260px;margin-top:.3rem}
