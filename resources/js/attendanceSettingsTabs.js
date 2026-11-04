@@ -22,6 +22,7 @@ export function initAttendanceSettingsTabs(){
         });
         const calendar=root.querySelector('[data-attendance-calendar]');
         calendar.hidden=selected==='schedules';
+        calendar.classList.toggle('att-holidays-active',selected==='holidays');
         root.querySelector('[data-att-settings-title]').textContent=tab.textContent.trim();
         calendar.dispatchEvent(new Event('attendance-settings-tab-change'));
         if(mobile.matches&&collapseOnMobile){setExpanded(false);toggle.focus();}

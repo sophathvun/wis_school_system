@@ -45,6 +45,7 @@ class AttendanceController
         abort_unless($this->campuses($request),403);
         if(in_array($request->route('workspace'),['daily','settings'],true))abort_unless($this->campuses($request,true),403);
         if($request->route('workspace')==='settings')return view('attendance.settings');
+        if($request->route('workspace')==='reports')return view('attendance.reports');
         return view('attendance.index');
     }
     public function meta(Request $request)

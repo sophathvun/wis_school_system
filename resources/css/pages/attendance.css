@@ -207,3 +207,44 @@
     .att-settings-layout.is-collapsed .att-settings-tabs{display:none}
     .att-settings-tabs>[role="tab"]{width:100%}
 }
+.att-holiday-list-panel{min-width:0;padding:0;border:0}
+.att-holiday-list-panel td:first-child,.att-holiday-list-panel td:last-child{width:1%;white-space:nowrap}
+.att-holiday-list-panel td .form-control{min-width:180px}
+#calendarHolidayModal .premium-form-field{position:relative;min-width:0}
+#calendarHolidayModal .date-picker-calendar-button{position:absolute;right:.5rem;top:50%;transform:translateY(-50%);width:30px;min-height:30px;padding:0;justify-content:center;border:0}
+#calendarHolidayModal .date-picker .form-control{padding-right:2.75rem}
+/* Compact holiday editor with room for floating labels and the calendar. */
+#calendarHolidayModal .modal-dialog{--tblr-modal-width:420px;max-width:min(420px,calc(100% - 1rem));margin-left:auto;margin-right:auto}
+#calendarHolidayModal .modal-header,#calendarHolidayModal .modal-footer{padding:.7rem 1rem}
+#calendarHolidayModal .modal-body{padding:1rem}
+#calendarHolidayModal .modal-title{font-size:1rem}
+#calendarHolidayModal .premium-form-field>.form-control,#calendarHolidayModal .date-picker>.form-control{height:46px;min-height:46px;padding-top:1.1rem;padding-bottom:.25rem;font-size:.8rem;border-radius:10px}
+#calendarHolidayModal .premium-form-field>.form-label{font-size:.8rem;top:.9rem}
+#calendarHolidayModal .premium-form-field.has-value>.form-label,#calendarHolidayModal .premium-form-field:focus-within>.form-label{font-size:.65rem;top:.35rem}
+#calendarHolidayModal .btn{font-size:.8rem;padding:.45rem .75rem}
+/* Fill the holiday workspace while keeping pagination below the list. */
+[data-attendance-calendar].att-holidays-active{min-height:calc(100dvh - 130px)}
+.att-holidays-active>[data-calendar-form]{display:flex;flex-direction:column}
+.att-holidays-active .att-holiday-list-panel{flex:1;display:flex;flex-direction:column}
+.att-holidays-active .att-holiday-list-panel>.card{flex:1;min-height:320px}
+.att-holidays-active .att-holiday-list-panel .table-responsive{flex:1}
+.att-holidays-active .att-holiday-list-panel .card-footer{margin-top:auto}
+@media(max-width:767.98px){[data-attendance-calendar].att-holidays-active{min-height:calc(100dvh - 190px)}}
+
+.att-report-filters{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:.75rem}
+.att-report-filters .premium-form-field{position:relative;min-width:0}
+.att-report-filters .location-combobox-toggle{width:100%;min-height:52px;padding:1.25rem .85rem .35rem;border-radius:14px}
+.att-report-filters .location-combobox-selected{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.att-report-table{font-size:clamp(.72rem,.8vw,.88rem)}
+.att-report-table th{white-space:nowrap}
+.att-report-photo{width:45px;height:60px;aspect-ratio:3/4;object-fit:cover;border-radius:7px}
+.att-report-photo-placeholder{display:grid;place-items:center;background:var(--tblr-bg-surface-secondary);color:var(--tblr-secondary-color)}
+.att-report-table td:last-child{min-width:140px;white-space:normal;overflow-wrap:anywhere}
+@media(max-width:991.98px){.att-report-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.att-report-filters>.premium-form-field:last-child{grid-column:1/-1}}
+@media(max-width:575.98px){.att-report-filters{grid-template-columns:1fr}}
+.att-report-date-range{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem}
+.att-report-date-range .date-picker-calendar-button{position:absolute;right:.5rem;top:50%;transform:translateY(-50%);width:30px;min-height:30px;padding:0;justify-content:center;border:0}
+.att-report-date-range .date-picker .form-control{padding-right:2.75rem}
+.att-report-student{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem}
+.att-report-student .att-report-photo{width:75px;height:100px}
+@media(max-width:575.98px){.att-report-date-range{grid-template-columns:1fr}}

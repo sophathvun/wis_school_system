@@ -29,8 +29,8 @@
             <fieldset class="att-holiday-list-panel mb-3" id="attHolidayPanel" role="tabpanel" aria-labelledby="attHolidayTab" data-att-settings-panel="holidays" hidden disabled>
                 <div class="card">
                     <div class="card-header att-header"><h3 class="card-title">Public Holiday List</h3><button type="button" class="btn btn-light ms-auto" data-calendar-holiday-open><i class="ti ti-plus me-1"></i>Add Holiday</button></div>
-                    <div class="table-responsive"><table class="table table-vcenter mb-0"><thead><tr><th>Date</th><th>Description</th><th>Action</th></tr></thead><tbody data-calendar-holiday-list></tbody></table></div>
-                    <div class="card-footer text-secondary small">Changes apply after clicking Save Calendar.</div>
+                    <div class="table-responsive"><table class="table table-vcenter mb-0"><thead><tr><th>No.</th><th>Date</th><th>Description</th><th>Action</th></tr></thead><tbody data-calendar-holiday-list></tbody></table></div>
+                    <div class="card-footer"><input type="hidden" id="holiday-per-page" value="15"><div id="holiday-pagination-container"></div><p class="text-secondary small mb-0 mt-2">Changes apply after clicking Save Calendar.</p></div>
                 </div>
                 <textarea name="holidays" id="calendarHolidays" hidden aria-label="Holiday dates"></textarea>
             </fieldset>

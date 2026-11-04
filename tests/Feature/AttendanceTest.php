@@ -386,3 +386,46 @@ it('restricts daily attendance to campus admins and rejects invalid daily status
     $input['marks'][0]['status']='UX';$input['marks'][0]['student_id']=999;
     expect(fn()=>$controller->save(g12Request(User::find(1),$input)))->toThrow(ValidationException::class);
 });
+
+it('reports daily exceptions with enrollment details and dependent options', function () {
+    DB::table('tb_grade')->insert(['id'=>1,'grade'=>'Grade 1','grade_short_name'=>'1']);
+    DB::table('tb_class')->where('id',1)->update(['class_name'=>'A','grade_id'=>1]);
+    DB::table('tb_student_enrollment')->where('id',1)->update(['grade_id'=>1]);
+    DB::table('tb_student')->where('id',1)->update(['photo_path'=>'students/test.webp','full_name_kh'=>"\u{179F}\u{17B7}\u{179F}\u{17D2}\u{179F}"]);
+    $daily=app(\App\Http\Controllers\DailyAttendanceController::class);
+    $admin=User::find(1);
+    $daily->save(g12Request($admin,['academic_year_id'=>1,'campus_id'=>1,'grade_id'=>1,'class_id'=>1,'date'=>'2026-11-02','version'=>0,
+        'marks'=>[['student_id'=>1,'status'=>'EX','missed_sessions'=>1,'remarks'=>'Medical leave']]]));
+    $controller=app(\App\Http\Controllers\AttendanceReportController::class);
+    $filters=['academic_year_id'=>1,'campus_id'=>1,'grade_class'=>'1:1','student_id'=>1];
+    $options=$controller->options(g12Request($admin,$filters))->getData(true);
+    expect(array_column($options['campuses'],'id'))->toBe([1])
+        ->and($options['grades'][0]['label'])->toBe('1A')
+        ->and($options['students'][0]['id'])->toBe(1);
+    $result=$controller->details(g12Request($admin,$filters))->getData(true);
+    expect($result['total'])->toBe(1)->and($result['per_page'])->toBe(15)
+        ->and($result['data'][0]['reason'])->toBe('Medical leave')
+        ->and($result['data'][0]['grade'])->toBe('BCH-1A-III')
+        ->and($result['data'][0]['academic_year'])->toBe('2025-2026')
+        ->and($result['data'][0]['photo_url'])->toContain('students/test.webp');
+    expect($controller->details(g12Request($admin,$filters+['search'=>'unmatched']))->getData(true)['total'])->toBe(0);
+    expect(fn()=>$controller->details(g12Request($admin,array_replace($filters,['campus_id'=>2]))))->toThrow(\Illuminate\Database\Eloquent\ModelNotFoundException::class);
+    expect($controller->details(g12Request($admin,$filters+['date_from'=>'2026-11-03','date_to'=>'2026-11-04']))->getData(true)['total'])->toBe(0);
+    expect($controller->details(g12Request($admin,$filters+['date_from'=>'2026-11-02','date_to'=>'2026-11-02']))->getData(true)['total'])->toBe(1);
+    expect(fn()=>$controller->details(g12Request($admin,$filters+['date_from'=>'2026-11-03','date_to'=>'2026-11-02'])))->toThrow(ValidationException::class);
+    expect($controller->details(g12Request($admin,$filters+['date_to'=>'2026-11-02']))->getData(true)['total'])->toBe(1);
+    expect($controller->details(g12Request($admin,$filters))->getData(true)['student']['student_code'])->toBe('00123');
+    DB::table('attendance_daily_marks')->update(['status'=>'P']);
+    expect($controller->details(g12Request($admin,$filters))->getData(true)['total'])->toBe(0);
+});
+
+it('protects daily attendance reports from unauthorized campus access', function () {
+    $controller=app(\App\Http\Controllers\AttendanceReportController::class);
+    $user=User::find(2);
+    expect(fn()=>$controller->details(g12Request($user,['academic_year_id'=>1])))->toThrow(HttpException::class);
+    $permission=DB::table('access_permissions')->where('code','attendance.manage')->value('id');
+    DB::table('access_user_permission_overrides')->insert(['user_id'=>2,'permission_id'=>$permission,'allowed'=>true]);
+    $user=User::find(2);
+    expect(fn()=>$controller->options(g12Request($user,['academic_year_id'=>1,'campus_id'=>2])))->toThrow(HttpException::class);
+    expect($controller->options(g12Request($user,['academic_year_id'=>1]))->getData(true)['campuses'])->toHaveCount(1);
+});
