@@ -17,7 +17,7 @@ class PermissionHierarchy
             'locations' => 'Locations', 'occupations' => 'Occupations', 'nationalities' => 'Nationalities', 'academic-tracks' => 'Academic Tracks', 'withdrawal-reasons' => 'Withdrawal Reasons',
             'student-document-types' => 'Document Types', 'dashboard-templates' => 'Dashboard Templates', 'branding' => 'Branding', 'database-backups' => 'Database Backups',
             'groups' => 'School Groups', 'terms' => 'Terms', 'campuses' => 'Campuses', 'summer-school' => 'Summer School', 'student-withdrawals' => 'Student Withdrawals',
-            'attendance' => 'Attendance', 'schedules' => 'Schedules', 'grading-system' => 'Grading System', 'reports' => 'Reports',
+            'attendance' => 'Attendance', 'schedules' => 'Schedules', 'grading-system' => 'Grading System', 'reports' => 'Reports', 'g9-national-exams'=>'G9 National Exams',
             'students.search' => 'Search Students', 'students.enrollment' => 'Student Enrollment', 'families' => 'Family Management',
             'students.promotion' => 'Student Promotion', 'students.transfer' => 'Student Transfer', 'students.graduation' => 'Student Graduation',
             'student-reentry' => 'Student Re-entry', 'student-skipping-grade' => 'Stu. Skipping Grade', 'student-id-card-qr' => 'Stu. ID Card (QR)', 'student-documents' => 'Student Documents', 'student-data-transfer' => 'Import / Export Data', 'homeroom' => 'Homeroom Activities',
@@ -89,6 +89,10 @@ class PermissionHierarchy
             'g12-national-exams'=>[
                 'label'=>'G12 National Exams','permission'=>'g12-national-exams.view','modules'=>$nationalModules,
                 'module_permissions'=>array_combine($nationalModules,$nationalModules),'module_actions'=>$nationalActions,'actions'=>[],
+            ],
+            'g9-national-exams'=>[
+                'label'=>'G9 National Exams','permission'=>'g9-national-exams.view','modules'=>[],
+                'actions'=>['g9-national-exams.create','g9-national-exams.edit','g9-national-exams.import','g9-national-exams.export','g9-national-exams.settings','g9-national-exams.settings-manage','g9-national-exams.photos','g9-national-exams.photos-upload','g9-national-exams.photos-replace'],
             ],
             'hrm' => [
                 'label' => 'HRM', 'permission' => 'hrm.view',

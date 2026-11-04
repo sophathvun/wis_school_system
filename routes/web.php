@@ -471,12 +471,37 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         'description' => 'Use this module for teachers to enter student scores and grading records.',
     ])->middleware('permission:grading-system.view')->name('grading-system.index');
 
-    Route::view('/g9-national-exams', 'academic-module-placeholder', [
-        'title' => 'G9 National Exams',
-        'pretitle' => 'National Exams',
-        'icon' => 'ti-certificate',
-        'description' => 'Use this module to manage Grade 9 national exam records.',
-    ])->name('g9-national-exams.index');
+    Route::prefix('g9-national-exams')->name('g9-national-exams.')->group(function () {
+        Route::redirect('/', '/g9-national-exams/candidates')->name('index');
+        Route::get('/bulk-photos',[\App\Http\Controllers\G9BulkPhotoController::class,'index'])->name('bulk-photos');
+        Route::post('/bulk-photos/preview',[\App\Http\Controllers\G9BulkPhotoController::class,'preview'])->name('bulk-photos.preview');
+        Route::post('/bulk-photos/confirm',[\App\Http\Controllers\G9BulkPhotoController::class,'confirm'])->name('bulk-photos.confirm');
+        Route::get('/settings',[\App\Http\Controllers\G9ExamSettingController::class,'index'])->name('settings');
+        Route::get('/settings/dates',[\App\Http\Controllers\G9ExamSettingController::class,'show'])->name('settings.dates');
+        Route::post('/settings/dates',[\App\Http\Controllers\G9ExamSettingController::class,'save'])->name('settings.save');
+        Route::get('/imports-exports',[\App\Http\Controllers\G9ExamImportController::class,'index'])->name('imports-exports');
+        Route::get('/imports-exports/download/{kind}',[\App\Http\Controllers\G9ExamImportController::class,'download'])->where('kind','template|all')->name('imports-exports.download');
+        Route::post('/imports-exports/preview',[\App\Http\Controllers\G9ExamImportController::class,'preview'])->name('imports-exports.preview');
+        Route::post('/imports-exports/confirm',[\App\Http\Controllers\G9ExamImportController::class,'confirm'])->name('imports-exports.confirm');
+        Route::get('/imports-exports/history',[\App\Http\Controllers\G9ExamImportController::class,'history'])->name('imports-exports.history');
+        Route::get('/candidates',[\App\Http\Controllers\G9NationalExamController::class,'index'])->name('candidates');
+        Route::get('/candidates/list',[\App\Http\Controllers\G9NationalExamController::class,'listing'])->name('candidates.list');
+        Route::get('/candidates/options',[\App\Http\Controllers\G9NationalExamController::class,'options'])->name('candidates.options');
+        Route::get('/candidates/reports/{type}/{format}',[\App\Http\Controllers\G9NationalExamController::class,'report'])->where('type','candidates|cover|attendance-1|attendance-2')->where('format','print|excel|pdf')->name('candidates.report');
+        Route::get('/candidates/{candidate}',[\App\Http\Controllers\G9NationalExamController::class,'show'])->whereNumber('candidate')->name('candidates.show');
+        Route::post('/candidates',[\App\Http\Controllers\G9NationalExamController::class,'save'])->name('candidates.store');
+        Route::post('/candidates/{candidate}',[\App\Http\Controllers\G9NationalExamController::class,'save'])->whereNumber('candidate')->name('candidates.update');
+        foreach ([
+            'scoring' => ['Scoring', 'ti-pencil', 'Grade 9 national exam scoring.'],
+            'results' => ['Exam Result', 'ti-chart-bar', 'Grade 9 national exam results.'],
+            'certificates' => ['G9 Certificate Tracking', 'ti-certificate', 'Grade 9 certificate tracking.'],
+        ] as $section => [$title, $icon, $description]) {
+            Route::view('/'.$section, 'academic-module-placeholder', [
+                'title' => $title, 'pretitle' => 'G9 National Exams', 'icon' => $icon, 'description' => $description,
+            ])->name($section);
+        }
+    });
+
     Route::prefix('g12-national-exams')->name('g12-national-exams.')->controller(\App\Http\Controllers\G12NationalExamController::class)->group(function(){
         Route::post('/graph/pdf',[\App\Http\Controllers\G12GraphExportController::class,'pdf'])->name('graph.pdf');
         Route::get('/grade-a-certificate/editor',[\App\Http\Controllers\G12GradeACertificateController::class,'show'])->name('grade-a-certificate.editor');

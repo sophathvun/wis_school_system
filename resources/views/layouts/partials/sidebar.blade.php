@@ -483,13 +483,18 @@
                         </a>
                     </li>
                 @endif
-                <li class="nav-item {{ request()->routeIs('g9-national-exams.*') ? 'active' : '' }}">
-                    <a class="nav-link" href="{{ route('g9-national-exams.index') }}">
+                <li class="nav-item dropdown {{ request()->routeIs('g9-national-exams.*') ? 'active' : '' }}">
+                    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown" data-bs-auto-close="false" role="button" aria-expanded="{{ request()->routeIs('g9-national-exams.*') ? 'true' : 'false' }}">
                         <span class="nav-link-icon d-md-none d-lg-inline-block">
                             <img src="{{ $moeysMenuIcon }}" alt="MoEYS" style="display:block;width:1.25rem;height:1.25rem;object-fit:contain;background:transparent;border:0;border-radius:0;box-shadow:none;">
                         </span>
                         <span class="nav-link-title">G9 National Exams</span>
                     </a>
+                    <div class="dropdown-menu {{ request()->routeIs('g9-national-exams.*') ? 'show' : '' }}">
+                        @foreach(['candidates' => ['List of Candidate', 'ti-users'], 'scoring' => ['Scoring', 'ti-pencil'], 'results' => ['Exam Result', 'ti-chart-bar'], 'certificates' => ['G9 Certificate Tracking', 'ti-certificate'], 'imports-exports' => ['G9 Imports/Export', 'ti-file-import'], 'bulk-photos' => ['G9 Bulk Stu. Photo', 'ti-photo'], 'settings' => ['G9 Setting', 'ti-settings']] as $section => [$label, $icon])
+                            <a class="dropdown-item {{ request()->routeIs('g9-national-exams.'.$section) ? 'active' : '' }}" href="{{ route('g9-national-exams.'.$section) }}"><i class="ti {{ $icon }} me-2"></i>{{ $label }}</a>
+                        @endforeach
+                    </div>
                 </li>
                 @include('layouts.partials.g12-national-exams-menu')
                 <li class="nav-item {{ request()->routeIs('wmi-management.*') ? 'active' : '' }}">

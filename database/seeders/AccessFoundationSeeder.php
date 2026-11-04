@@ -126,6 +126,9 @@ class AccessFoundationSeeder extends Seeder
         }
 
         $permissions = array_merge($permissions, AcademicReportPermissions::catalog());
+        foreach (['view'=>'View G9 national exam candidates','create'=>'Add G9 exam candidates','edit'=>'Edit G9 exam candidates','import'=>'Preview and confirm G9 CSV / MoEYS Excel imports','export'=>'Download G9 CSV template / export all permitted data','settings'=>'View G9 academic-year date settings','settings-manage'=>'Edit G9 shared dates (central users only)','photos'=>'View G9 bulk student photos','photos-upload'=>'Preview and upload matched G9 student photos','photos-replace'=>'Replace existing G9 student photos'] as $action=>$name) {
+            $permissions[]=['code'=>'g9-national-exams.'.$action,'module'=>'g9-national-exams','action'=>$action,'name'=>$name];
+        }
         foreach (\App\Support\AttendancePermissions::catalog() as $action=>$name) {
             $permissions[]=['code'=>'attendance.'.$action,'module'=>'attendance','action'=>$action,'name'=>$name];
         }

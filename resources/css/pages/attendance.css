@@ -283,3 +283,30 @@
 @media(max-width:991.98px){.att-statistics-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.att-statistics-filters>.premium-form-field:last-child{grid-column:auto}}
 @media(max-width:575.98px){.att-statistics-filters{grid-template-columns:1fr}}
 .att-settings-tabs>[role="tab"][hidden],[data-att-daily] .att-leave-button[hidden]{display:none!important}
+/* Shared premium range popup for attendance detail and statistics. */
+.att-range-toolbar{display:flex;align-items:center;justify-content:space-between;gap:.6rem;padding:.85rem;border-bottom:1px solid var(--tblr-border-color)}
+.att-range-presets{display:flex;gap:.3rem;flex-wrap:wrap}
+.att-range-presets button{border:1px solid var(--tblr-border-color);background:var(--tblr-bg-surface);color:var(--tblr-body-color);border-radius:8px;padding:.4rem .55rem;font-size:.7rem;font-weight:600;box-shadow:0 2px 5px #182b4d08}
+.att-range-presets button:hover,.att-range-presets button.is-active{background:#7561d318;color:#6750c7;border-color:#7561d355}
+.att-range-apply{background:linear-gradient(120deg,#7954ef,#623ad5);border:0;color:#fff!important;box-shadow:0 4px 12px #7650dd30;white-space:nowrap}
+.att-range-apply:hover{background:#6036d5}
+.att-range-workspace{display:grid;grid-template-columns:145px minmax(0,1fr);gap:.7rem;padding:.85rem}
+.att-range-summary{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.65rem;padding:1rem .5rem;border:1px solid var(--tblr-border-color);border-radius:12px;background:linear-gradient(145deg,#6f5ad309,#5faee409);text-align:center}
+.att-range-summary>i:first-child{font-size:1.8rem;color:#7960d7}
+.att-range-summary>strong{font-size:.65rem;text-transform:uppercase;letter-spacing:.05em;color:#7960d7}
+.att-range-summary>span{font-size:.8rem;font-weight:600}
+.att-range-summary>i{color:var(--tblr-secondary-color)}
+.att-range-summary .att-range-duration{padding:.35rem .7rem;border-radius:20px;background:#7960d71a;color:#7960d7;font-size:.7rem}
+.att-range-calendar{min-width:0;border:1px solid var(--tblr-border-color);border-radius:12px;background:var(--tblr-bg-surface)}
+.att-range-calendar .date-picker-header{gap:.4rem;padding:.65rem;border-bottom:0}
+.att-range-calendar .date-picker-header select,.att-range-calendar .date-picker-header input{min-width:0;max-width:100px;border:0;border-radius:6px;background:transparent;color:var(--tblr-body-color);font-size:.8rem;font-weight:600;padding:.3rem;flex:1}
+.att-range-calendar .date-picker-header input{max-width:72px}
+.att-range-calendar .att-range-months{display:block;padding:0 .7rem .7rem}
+.att-range-calendar .att-range-month-title{display:none}
+.att-range-calendar .att-range-days{gap:4px}
+.att-range-calendar .att-range-days button{padding:.6rem 0;border-radius:50%;font-weight:500}
+.att-range-calendar .att-range-days .is-endpoint{background:#7960d7;color:#fff;box-shadow:0 2px 7px #7960d735}
+.att-range-calendar .att-range-days .is-in-range{background:#7960d71a;border-radius:7px}
+.att-range-calendar .att-range-days .is-today{box-shadow:inset 0 0 0 1px #7960d7}
+[data-bs-theme="dark"] .att-range-summary>strong,[data-bs-theme="dark"] .att-range-summary .att-range-duration,[data-bs-theme="dark"] .att-range-presets button.is-active{color:#c6b7ff}
+@media(max-width:575.98px){.att-range-toolbar{flex-wrap:wrap}.att-range-presets{flex:1 1 100%}.att-range-apply{margin-left:auto}.att-range-workspace{grid-template-columns:1fr}.att-range-summary{display:grid;grid-template-columns:auto 1fr auto;gap:.4rem;padding:.6rem}.att-range-summary>i:first-child{grid-row:1/3}.att-range-summary>strong{grid-column:2/4}.att-range-summary>i.ti-arrow-down{display:none}.att-range-summary .att-range-duration{grid-column:3;grid-row:2/4}.att-range-calendar .att-range-days button{padding:.5rem 0}}

@@ -1,0 +1,115 @@
+@extends('layouts.app')
+@section('title', 'G9 National Exams — List of Candidate')
+@section('page-header', '')
+@section('content')
+    @vite(['resources/css/pages/g9-national-exams.css', 'resources/js/g9Candidates.js'])
+    <div data-g9-candidates data-base="{{ url('/g9-national-exams') }}" data-create-campuses="{{ json_encode($createCampuses) }}" data-edit-campuses="{{ json_encode($editCampuses) }}">
+        <section class="card mb-3">
+            <div class="card-header g9-header">
+                <h3 class="card-title"><i class="ti ti-filter me-2" aria-hidden="true"></i>Datas Filter</h3>
+                <button type="button" class="btn btn-sm btn-outline-light ms-auto" data-g9-filter-toggle aria-controls="g9CandidateFilters" aria-expanded="true" aria-label="Collapse filters"><i class="ti ti-chevron-up" aria-hidden="true"></i></button>
+            </div>
+            <form class="card-body g9-candidate-filters" id="g9CandidateFilters" data-g9-filters>
+                @foreach(['academic_year' => 'Academic Year', 'exam_center' => 'Exam Center', 'room' => 'Room No.', 'seat' => 'Seat No.', 'student' => 'Student Name'] as $name => $label)
+                    <div class="premium-form-field staff-form-field">
+                        <label class="form-label" for="g9-{{ $name }}">{{ $label }}</label>
+                        <select class="form-select" id="g9-{{ $name }}" name="{{ $name }}" aria-label="{{ $label }}">
+                            <option value="">{{ $name === 'academic_year' ? 'Select academic year' : 'All '.strtolower($label) }}</option>
+                            @if($name === 'academic_year')
+                                @foreach($filterYears as $year)<option value="{{ $year->id }}">{{ $year->academic_year }}</option>@endforeach
+                            @endif
+                        </select>
+                    </div>
+                @endforeach
+                <div class="premium-form-field g9-search">
+                    <label class="form-label" for="g9CandidateSearch">Search</label>
+                    <input type="search" class="form-control" name="search" id="g9CandidateSearch" placeholder=" " autocomplete="off" data-search-normalized="true">
+                    <i class="ti ti-search" aria-hidden="true"></i>
+                </div>
+            </form>
+        </section>
+        <section class="mb-3 g9-candidate-summary" data-g9-summary hidden aria-label="Candidate summary">
+            <div class="g9-summary-grid">
+                <div class="card card-body g9-summary-tile g9-summary-blue"><h3 class="g9-summary-title">បេក្ខជនសរុប</h3><strong class="g9-summary-total" data-g9-total>0</strong><div class="g9-summary-genders"><span data-g9-male></span><span data-g9-female></span></div></div>
+                <div class="g9-language-totals" data-g9-languages></div>
+                <div class="card card-body g9-summary-tile g9-campus-tile g9-summary-purple"><h3 class="g9-summary-title">មកពីសាខា</h3><div class="g9-summary-campuses" data-g9-campuses></div></div>
+            </div>
+        </section>
+        <section class="card g9-candidate-list">
+            <div class="card-header g9-header flex-wrap gap-2"><h3 class="card-title"><i class="ti ti-users me-2" aria-hidden="true"></i>Candidate List</h3>
+                <div class="d-flex align-items-center gap-2 ms-auto flex-wrap">
+                    @if($canExport)
+                        @foreach(['print'=>['Print','ti-printer'],'excel'=>['Excel','ti-file-spreadsheet'],'pdf'=>['PDF','ti-file-type-pdf']] as $format=>[$label,$icon])
+                            <div class="dropdown"><button type="button" class="btn btn-outline-light dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"><i class="ti {{ $icon }} me-1"></i>{{ $label }}</button>
+                                <div class="dropdown-menu dropdown-menu-end g9-report-menu">
+                                    @foreach(\App\Support\G9CandidateReport::TITLES as $report=>$title)<button type="button" class="dropdown-item" data-g9-report="{{ $report }}" data-format="{{ $format }}"><i class="ti {{ $report === 'cover' ? 'ti-book' : 'ti-file-text' }} me-2"></i>{{ $title }}</button>@endforeach
+                                </div>
+                            </div>
+                        @endforeach
+                    @endif
+                    @if(count($createCampuses))<button type="button" class="btn btn-light" data-g9-add><i class="ti ti-user-plus me-1"></i>Add Candidate</button>@endif
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-vcenter mb-0">
+                    <thead><tr><th>ល.រ</th><th>រូបថត</th><th>នាមត្រកូល និងនាមខ្លួន</th><th>ព័ត៌មានអាណាព្យាបាល</th><th>មណ្ឌលប្រឡង</th><th>មកពីសាលា</th><th>Action</th></tr></thead>
+                    <tbody data-g9-rows></tbody>
+                </table>
+            </div>
+            <div class="card-footer"><input type="hidden" id="g9-per-page" value="15"><div id="g9-pagination"></div><div class="text-danger small" role="status" data-g9-error></div></div>
+        </section>
+    </div>
+    <div class="modal fade" id="g9PhotoViewer" tabindex="-1" aria-labelledby="g9PhotoViewerTitle" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered"><div class="modal-content">
+            <div class="modal-header g9-header"><h3 class="modal-title" id="g9PhotoViewerTitle">Student Photo</h3><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button></div>
+            <div class="modal-body">
+                <div class="d-flex align-items-center justify-content-center gap-2 mb-3 flex-wrap">
+                    <button type="button" class="btn btn-sm btn-outline-primary" data-g9-zoom="-0.25" aria-label="Zoom out"><i class="ti ti-zoom-out"></i></button>
+                    <button type="button" class="btn btn-sm btn-outline-primary" data-g9-photo-reset>100%</button>
+                    <button type="button" class="btn btn-sm btn-outline-primary" data-g9-zoom="0.25" aria-label="Zoom in"><i class="ti ti-zoom-in"></i></button>
+                    <button type="button" class="btn btn-sm btn-primary" data-g9-photo-download disabled><i class="ti ti-download me-1"></i>Download JPG</button>
+                </div>
+                <div class="g9-photo-stage"><img data-g9-photo-image alt="Student photo"></div>
+                <p class="form-hint text-center mt-2 mb-0" data-g9-photo-status role="status"></p>
+            </div>
+        </div></div>
+    </div>
+    <div class="modal fade" id="g9CandidateModal" tabindex="-1" aria-labelledby="g9CandidateModalTitle" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <form class="modal-content" data-g9-editor enctype="multipart/form-data" novalidate>
+                <div class="modal-header g9-header"><h3 class="modal-title" id="g9CandidateModalTitle">Add Candidate</h3><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button></div>
+                <div class="modal-body">
+                    <input type="hidden" name="version">
+                    <div class="alert alert-danger" data-g9-editor-error role="alert" hidden></div>
+                    @foreach($fields as $section => $items)
+                        <fieldset class="g9-editor-section"><legend>{{ $section }}</legend><div class="g9-editor-grid">
+                            @foreach($items as $name => $label)
+                                @php($required = in_array($name, ['academic_year_id','campus_id','student_code','name_en']))
+                                <div class="premium-form-field {{ in_array($name,['academic_year_id','campus_id','gender','exam_language']) ? 'staff-form-field' : '' }}">
+                                    <label class="form-label" for="g9Field-{{ $name }}">{{ $label }}{{ $required ? ' *' : '' }}</label>
+                                    @if(in_array($name,['academic_year_id','campus_id','gender','exam_language']))
+                                        <select class="form-select" id="g9Field-{{ $name }}" name="{{ $name }}" @required($required)>
+                                            <option value="">Select {{ strtolower($label) }}</option>
+                                            @if($name === 'academic_year_id')
+                                                @foreach($years as $year)<option value="{{ $year->id }}">{{ $year->academic_year }}</option>@endforeach
+                                            @elseif($name === 'campus_id')
+                                                @foreach($campuses as $campus)<option value="{{ $campus->id }}">{{ $campus->campus_name_en }}</option>@endforeach
+                                            @else
+                                                @foreach($name === 'gender' ? ['Male','Female'] : ['Khmer','English'] as $option)<option>{{ $option }}</option>@endforeach
+                                            @endif
+                                        </select>
+                                    @else
+                                        @php($numeric = str_starts_with($name, 'score_') || in_array($name,['semester_1','semester_2','eoy_average']))
+                                        <input class="form-control" id="g9Field-{{ $name }}" name="{{ $name }}" type="{{ $numeric ? 'number' : (in_array($name,['date_of_birth','exam_date']) ? 'date' : ($name === 'phone_number' ? 'tel' : 'text')) }}" placeholder=" " @required($required) @if($numeric) min="0" max="9999.999" step="0.001" @elseif(!in_array($name,['date_of_birth','exam_date'])) maxlength="{{ $name === 'student_code' ? 80 : 255 }}" @endif aria-label="{{ $label }}">
+                                    @endif
+                                </div>
+                            @endforeach
+                        </div></fieldset>
+                    @endforeach
+                    <fieldset class="g9-editor-section"><legend>Student Photo</legend><label class="form-label" for="g9StudentPhoto">Student Photo</label><input type="file" id="g9StudentPhoto" name="photo" class="form-control" accept="image/jpeg,image/png,image/webp"><p class="form-hint mt-2">JPG, PNG or WebP, up to 5 MB. Optimized to WebP while preserving the photo ratio and organized by academic year.</p></fieldset>
+                </div>
+                <div class="modal-footer"><button type="button" class="btn" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary" data-g9-save>Save Candidate</button></div>
+            </form>
+        </div>
+    </div>
+@endsection
