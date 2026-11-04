@@ -191,8 +191,9 @@
 .att-settings-tabs{display:grid;gap:.5rem;padding:.65rem}
 .att-settings-tabs>[role="tab"]{display:flex;align-items:center;gap:.7rem;min-height:48px;padding:.7rem;border:0;border-radius:11px;color:var(--tblr-body-color);background:transparent;text-align:left;font-size:.82rem;font-weight:600;line-height:1.4}
 .att-settings-tabs>[role="tab"]>i{display:grid;place-items:center;flex:0 0 32px;width:32px;height:32px;border-radius:9px;background:rgba(var(--tblr-primary-rgb),.08);font-size:1.2rem;color:var(--tblr-primary)}
-.att-settings-tabs>[role="tab"]:hover{background:rgba(var(--tblr-primary-rgb),.06)}
+.att-settings-tabs>[role="tab"][aria-selected="false"]:hover{color:var(--tblr-body-color);background:rgba(var(--tblr-primary-rgb),.06)}
 .att-settings-tabs>[aria-selected="true"]{color:#fff;background:linear-gradient(110deg,#3973cf,#7561d3);box-shadow:0 5px 14px rgba(67,87,174,.2)}
+.att-settings-tabs>[role="tab"][aria-selected="true"]:hover{color:#fff;background:linear-gradient(110deg,#3973cf,#7561d3)}
 .att-settings-tabs>[aria-selected="true"]>i{color:#fff;background:#ffffff25}
 .att-settings-tabs>[role="tab"]:focus-visible{outline:2px solid var(--tblr-primary);outline-offset:2px}
 .att-settings-layout.is-collapsed .att-settings-nav-header>strong,.att-settings-layout.is-collapsed .att-settings-tabs span{display:none}
@@ -248,3 +249,37 @@
 .att-report-student{display:flex;align-items:center;flex-wrap:wrap;gap:1.25rem}
 .att-report-student .att-report-photo{width:75px;height:100px}
 @media(max-width:575.98px){.att-report-date-range{grid-template-columns:1fr}}
+.tooltip.att-report-tabs-tooltip{--tblr-tooltip-bg:#172b4d;--tblr-tooltip-color:#fff;--tblr-tooltip-border-radius:10px;--tblr-tooltip-opacity:1;--tblr-tooltip-max-width:260px;--bs-tooltip-bg:#172b4d;--bs-tooltip-color:#fff}
+.att-report-tabs-tooltip .tooltip-inner{padding:.55rem .8rem;font-size:.8125rem;font-weight:500;line-height:1.4;color:#fff;background:#172b4d;border-radius:10px;box-shadow:0 .45rem 1rem #10224426}
+[data-bs-theme="dark"] .tooltip.att-report-tabs-tooltip{--tblr-tooltip-bg:#344969;--bs-tooltip-bg:#344969}
+[data-bs-theme="dark"] .att-report-tabs-tooltip .tooltip-inner{background:#344969}
+/* Premium date range calendar. */
+.att-report-filters[hidden]{display:none!important}
+.att-report-filters>.att-report-date-range{display:block;grid-column:1/-1}
+.att-report-date-range>.date-picker-calendar-button{position:absolute;right:.6rem;top:50%;transform:translateY(-50%);width:32px;min-height:32px;padding:0;justify-content:center;border:0}
+.att-report-date-range>.form-control{padding-right:3rem}
+.att-range-popup{z-index:2100;padding:0;border:1px solid var(--tblr-border-color);border-radius:16px;background:var(--tblr-bg-surface);color:var(--tblr-body-color);box-shadow:0 16px 48px #10224430}
+.att-range-months{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem;padding:0 1rem 1rem}
+.att-range-month-title{display:block;text-align:center;margin-bottom:.6rem;font-size:.85rem}
+.att-range-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px}
+.att-range-days button{border:0;border-radius:8px;background:transparent;color:var(--tblr-body-color);padding:.5rem 0;font-size:.8rem}
+.att-range-days button:hover,.att-range-days button:focus-visible{background:rgba(var(--tblr-primary-rgb),.14);outline:2px solid var(--tblr-primary);outline-offset:-2px}
+.att-range-days .is-in-range{background:rgba(var(--tblr-primary-rgb),.12);border-radius:0}
+.att-range-days .is-endpoint{background:var(--tblr-primary);color:#fff;font-weight:600}
+.att-range-days .is-today{box-shadow:inset 0 0 0 1px var(--tblr-primary)}
+.att-range-footer{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:.35rem;padding:.75rem;border-top:1px solid var(--tblr-border-color)}
+@media(max-width:575.98px){.att-range-months{grid-template-columns:1fr}.att-range-months .att-range-month:last-child{display:none}}
+.att-student-totals{display:grid;grid-template-columns:repeat(4,minmax(80px,1fr));gap:.65rem;margin-left:auto}
+.att-student-total{display:flex;align-items:center;gap:.6rem;padding:.8rem .9rem;border:1px solid currentColor;border-color:color-mix(in srgb,currentColor 12%,transparent);border-radius:13px}
+.att-student-total>i{font-size:1.3rem;opacity:.85}
+.att-student-total-label{font-size:.7rem;font-weight:600;white-space:nowrap}
+.att-student-total-value{font-size:1.45rem;font-weight:700;line-height:1.3;font-variant-numeric:tabular-nums}
+@media(max-width:1199.98px){.att-student-totals{width:100%;margin-left:0}}
+@media(max-width:575.98px){.att-student-totals{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.att-statistics-filters{grid-template-columns:repeat(4,minmax(0,1fr))}
+.att-statistics-count{min-width:36px;padding:.5rem .65rem;font-size:.85rem;font-variant-numeric:tabular-nums}
+.att-view-record{white-space:nowrap;border-radius:9px;font-weight:600}
+#attendanceStatisticsPanel .att-report-table td:last-child{min-width:120px}
+@media(max-width:991.98px){.att-statistics-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.att-statistics-filters>.premium-form-field:last-child{grid-column:auto}}
+@media(max-width:575.98px){.att-statistics-filters{grid-template-columns:1fr}}
+.att-settings-tabs>[role="tab"][hidden],[data-att-daily] .att-leave-button[hidden]{display:none!important}

@@ -1,0 +1,14 @@
+@page{size:A4 landscape;margin:10mm}
+.report-header h1,.statistics-subheaders{font-size:14pt}
+.statistics-subheaders p{margin:5px 0}
+.statistics-grade-header td{background:#e5edf8;font-weight:700;text-align:left}
+.statistics-records{table-layout:fixed;font-size:9pt}
+.statistics-records th,.statistics-records td{padding:6px 4px}
+.statistics-records th:nth-child(1){width:4%}
+.statistics-records th:nth-child(2){width:15%}
+.statistics-records th:nth-child(3){width:17%}
+.statistics-records th:nth-child(4){width:10%}
+.statistics-records th:nth-child(5){width:5%}
+.statistics-records th:nth-child(6),.statistics-records th:nth-child(7){width:6%}
+.statistics-records th:nth-child(n+8){width:9.25%}
+@media screen{body{max-width:277mm;padding:10mm}}

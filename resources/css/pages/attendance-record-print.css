@@ -1,0 +1,23 @@
+@font-face{font-family:AttendanceKhmer;src:url('/fonts/khmer/KhmerOSsiemreap.ttf') format('truetype')}
+@page{size:A4 portrait;margin:12mm}
+body{font-family:Arial,AttendanceKhmer,sans-serif;font-size:10pt;color:#172b4d;margin:0;background:#fff}
+.report-header{text-align:center;margin-bottom:18px}
+.school-logo-row{text-align:left}
+.school-logo{max-width:210px;max-height:75px;object-fit:contain;margin-bottom:8px}
+h1{font-size:18pt;margin:5px 0 8px}
+p{margin:4px 0}
+table{border-collapse:collapse;width:100%}
+.student-information{margin-bottom:12px}
+.student-information td{padding:6px;width:50%}
+.khmer{font-family:AttendanceKhmer,attendancesiemreap,dejavusans,sans-serif}
+.totals{margin-bottom:18px}
+.totals td{padding:10px;text-align:center;border:1px solid #dce3ed}
+.status-p{background:#e7f4ed;color:#246c44}.status-ex{background:#e7effb;color:#245da8}.status-ux{background:#fcebed;color:#ac3444}.status-l{background:#fff1df;color:#99580d}
+.records th{background:#dce9fa;color:#172b4d;padding:9px;border:1px solid #98aac1}
+.records td{padding:8px;border:1px solid #98aac1;overflow-wrap:anywhere}
+.records .number{width:7%}.records .date{width:22%}.records .status{width:24%}
+.center{text-align:center}
+thead{display:table-header-group}tr{page-break-inside:avoid}
+.report-note{font-size:8pt;color:#617087;margin-top:12px}
+@media screen{body{max-width:186mm;margin:24px auto;padding:12mm;box-shadow:0 2px 18px #172b4d22}}
+@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}

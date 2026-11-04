@@ -75,15 +75,16 @@ if(root){
     async function open(session){
         register=await api(`/sessions/${session.id}?date=${encodeURIComponent(form.elements.date.value)}`);selected={...session,date:form.elements.date.value};dirty=false;
         const today=new Date(),todayIso=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
-        const locked=register.session?.status==='submitted',future=selected.date>todayIso;
+        const submitted=register.session?.status==='submitted',locked=submitted||!register.can_take,future=selected.date>todayIso;
         get('[data-att-register]').hidden=false;
         get('[data-att-register-title]').textContent=`${session.subject} · ${session.class_name}`;
         get('[data-att-register-subtitle]').textContent=`${session.campus_name_en} · ${selected.date} · ${session.starts_at.slice(0,5)}–${session.ends_at.slice(0,5)}`;
-        get('[data-att-register-status]').textContent=locked?'Submitted · Locked':future?'Future session · Read only':'Draft';
+        get('[data-att-register-status]').textContent=submitted?'Submitted · Locked':!register.can_take?'Read only':future?'Future session · Read only':'Draft';
         get('[data-att-students]').innerHTML=register.students.map((student,index)=>`<tr data-student-id="${student.student_id}" data-att-name="${escape([student.name,student.name_kh,student.code].join(' ').toLowerCase())}"><td>${index+1}</td><td><strong class="att-name school-profile-khmer">${escape(student.name_kh)}</strong><span class="att-name">${escape(student.name)}</span><small>${escape(student.code)}</small></td><td><select name="status" class="form-select" aria-label="Attendance for ${escape(student.name)}" ${locked||future?'disabled':''}><option value="">Unmarked</option>${Object.entries(statuses).map(([value,label])=>`<option value="${value}" ${student.mark?.status===value?'selected':''}>${label}</option>`).join('')}</select></td><td><input type="number" name="late_minutes" class="form-control" min="0" max="480" value="${student.mark?.late_minutes||0}" aria-label="Late minutes for ${escape(student.name)}" ${locked||future?'disabled':''}></td><td><input type="text" name="note" class="form-control" maxlength="500" value="${escape(student.mark?.note||'')}" placeholder="Optional note" aria-label="Note for ${escape(student.name)}" ${locked||future?'disabled':''}></td></tr>`).join('');
         if(!register.students.length)get('[data-att-students]').innerHTML='<tr><td colspan="5">No eligible enrollments on this date.</td></tr>';
         for(const selector of ['[data-att-draft]','[data-att-submit]','[data-att-all]'])get(selector).disabled=locked||future||!register.students.length;
-        get('[data-att-reopen]').hidden=!(locked&&register.can_reopen);
+        get('[data-att-csv]').hidden=!meta.attendance_permissions?.['history-export'];
+        get('[data-att-reopen]').hidden=!(submitted&&register.can_reopen);
         get('[data-att-save-message]').textContent=locked?'Submitted attendance is protected from changes.':'Changes are not saved automatically.';
         get('[data-att-history]').innerHTML=register.history.length?register.history.map(event=>{let details={};try{details=JSON.parse(event.details);}catch{}return `<div class="border-bottom py-2"><strong>${escape(event.name)}</strong> · ${escape(event.action.replaceAll('_',' '))}<br><small>${escape(event.created_at)}</small>${details.reason?`<div>${escape(details.reason)}</div>`:''}</div>`;}).join(''):'No changes recorded yet.';
         counts();get('[data-att-search]').value='';

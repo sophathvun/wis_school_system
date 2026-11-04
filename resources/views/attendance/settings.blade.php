@@ -2,14 +2,15 @@
 @section('title','Attendance Settings')
 @section('page-header', '')
 @section('content')
+    @php($attendancePermissions = \App\Support\AttendancePermissions::flags(auth()->user()))
     @vite(['resources/css/pages/attendance.css','resources/js/attendanceCalendar.js'])
-    <div class="att-settings-layout" data-att-settings>
+    <div class="att-settings-layout" data-att-settings data-permissions="{{ json_encode($attendancePermissions) }}">
         <aside class="att-settings-nav card" aria-label="Attendance settings sections">
             <div class="att-settings-nav-header"><strong>Settings</strong><button type="button" class="btn btn-sm btn-outline-light" data-att-settings-toggle aria-expanded="true" aria-controls="attSettingsTabs" aria-label="Collapse settings tabs"><i class="ti ti-layout-sidebar-left-collapse" aria-hidden="true"></i></button></div>
             <div class="att-settings-tabs" id="attSettingsTabs" role="tablist" aria-orientation="vertical">
-                <button type="button" id="attWeekdayTab" role="tab" aria-controls="attWeekdayPanel" aria-selected="true" data-att-settings-tab="weekdays" title="School Week/Day"><i class="ti ti-calendar-week" aria-hidden="true"></i><span>School Week/Day</span></button>
-                <button type="button" id="attHolidayTab" role="tab" aria-controls="attHolidayPanel" aria-selected="false" tabindex="-1" data-att-settings-tab="holidays" title="Public Holiday"><i class="ti ti-calendar-off" aria-hidden="true"></i><span>Public Holiday</span></button>
-                <button type="button" id="attScheduleTab" role="tab" aria-controls="attSchedulePanel" aria-selected="false" tabindex="-1" data-att-settings-tab="schedules" title="Schedule-based Subject Attendance"><i class="ti ti-calendar-time" aria-hidden="true"></i><span>Schedule-based Subject Attendance</span></button>
+                <button type="button" id="attWeekdayTab" role="tab" aria-controls="attWeekdayPanel" aria-selected="true" data-att-settings-tab="weekdays" @unless($attendancePermissions['weekdays']) hidden disabled @endunless title="School Week/Day"><i class="ti ti-calendar-week" aria-hidden="true"></i><span>School Week/Day</span></button>
+                <button type="button" id="attHolidayTab" role="tab" aria-controls="attHolidayPanel" aria-selected="false" tabindex="-1" data-att-settings-tab="holidays" @unless($attendancePermissions['holidays']) hidden disabled @endunless title="Public Holiday"><i class="ti ti-calendar-off" aria-hidden="true"></i><span>Public Holiday</span></button>
+                <button type="button" id="attScheduleTab" role="tab" aria-controls="attSchedulePanel" aria-selected="false" tabindex="-1" data-att-settings-tab="schedules" @unless($attendancePermissions['schedule-info']) hidden disabled @endunless title="Schedule-based Subject Attendance"><i class="ti ti-calendar-time" aria-hidden="true"></i><span>Schedule-based Subject Attendance</span></button>
             </div>
         </aside>
         <div class="att-settings-content">
@@ -23,18 +24,18 @@
             </div>
             <fieldset class="att-leave-periods mb-3" id="attWeekdayPanel" role="tabpanel" aria-labelledby="attWeekdayTab" data-att-settings-panel="weekdays"><legend>School Weekdays</legend><div class="d-flex flex-wrap gap-3">
                 @foreach(['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'] as $day=>$label)
-                    <label class="form-check"><input class="form-check-input" type="checkbox" name="weekdays[]" value="{{ $day }}"><span class="form-check-label">{{ $label }}</span></label>
+                    <label class="form-check"><input class="form-check-input" type="checkbox" name="weekdays[]" value="{{ $day }}" @disabled(!$attendancePermissions['calendar-manage'])><span class="form-check-label">{{ $label }}</span></label>
                 @endforeach
             </div></fieldset>
             <fieldset class="att-holiday-list-panel mb-3" id="attHolidayPanel" role="tabpanel" aria-labelledby="attHolidayTab" data-att-settings-panel="holidays" hidden disabled>
                 <div class="card">
-                    <div class="card-header att-header"><h3 class="card-title">Public Holiday List</h3><button type="button" class="btn btn-light ms-auto" data-calendar-holiday-open><i class="ti ti-plus me-1"></i>Add Holiday</button></div>
+                    <div class="card-header att-header"><h3 class="card-title">Public Holiday List</h3><button type="button" class="btn btn-light ms-auto" data-calendar-holiday-open @unless($attendancePermissions['calendar-manage']) hidden @endunless><i class="ti ti-plus me-1"></i>Add Holiday</button></div>
                     <div class="table-responsive"><table class="table table-vcenter mb-0"><thead><tr><th>No.</th><th>Date</th><th>Description</th><th>Action</th></tr></thead><tbody data-calendar-holiday-list></tbody></table></div>
                     <div class="card-footer"><input type="hidden" id="holiday-per-page" value="15"><div id="holiday-pagination-container"></div><p class="text-secondary small mb-0 mt-2">Changes apply after clicking Save Calendar.</p></div>
                 </div>
                 <textarea name="holidays" id="calendarHolidays" hidden aria-label="Holiday dates"></textarea>
             </fieldset>
-            <div class="d-flex justify-content-between align-items-center gap-2"><span data-calendar-message role="status"></span><button class="btn btn-primary" type="submit" data-calendar-save disabled>Save Calendar</button></div>
+            <div class="d-flex justify-content-between align-items-center gap-2"><span data-calendar-message role="status"></span><button class="btn btn-primary" type="submit" data-calendar-save @unless($attendancePermissions['calendar-manage']) hidden @endunless disabled>Save Calendar</button></div>
         </form>
     </section>
     <div class="card" id="attSchedulePanel" role="tabpanel" aria-labelledby="attScheduleTab" data-att-settings-panel="schedules" hidden>

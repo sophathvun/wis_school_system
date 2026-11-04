@@ -3,7 +3,7 @@ export function initAttendanceSettingsTabs(){
     if(!root)return;
     const mobile=matchMedia('(max-width:767.98px)');
     const toggle=root.querySelector('[data-att-settings-toggle]');
-    const tabs=[...root.querySelectorAll('[data-att-settings-tab]')];
+    const tabs=[...root.querySelectorAll('[data-att-settings-tab]:not([disabled])')];
     const setExpanded=expanded=>{
         root.classList.toggle('is-collapsed',!expanded);
         toggle.setAttribute('aria-expanded',String(expanded));
@@ -35,4 +35,6 @@ export function initAttendanceSettingsTabs(){
             if(next===null)return;event.preventDefault();activate(tabs[next],false);tabs[next].focus();
         });
     });
+    if(tabs.length)activate(tabs[0],false);
+    else root.querySelectorAll('[data-att-settings-panel],[data-attendance-calendar]').forEach(panel=>panel.hidden=true);
 }

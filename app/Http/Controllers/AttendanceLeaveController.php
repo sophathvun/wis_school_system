@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\StudentEnrollment;
 use App\Services\AttendanceLeave;
 use App\Support\AttendanceStudyGroup;
+use App\Support\AttendancePermissions;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{DB,Storage};
@@ -12,9 +13,9 @@ use Illuminate\Validation\ValidationException;
 
 class AttendanceLeaveController
 {
-    private function authorize(Request $request,int $campus): void
+    private function authorize(Request $request,int $campus,string $action='daily'): void
     {
-        abort_unless($request->user()->canAccessCampus($campus)&&$request->user()->hasPermission('attendance.view',$campus)&&$request->user()->hasPermission('attendance.manage',$campus),403);
+        abort_unless(AttendancePermissions::allows($request->user(),$action,$campus),403);
     }
 
     public function calendar(Request $request,AttendanceLeave $service)
@@ -22,19 +23,21 @@ class AttendanceLeaveController
         $scope=$request->validate(['academic_year_id'=>['required','integer','exists:tb_academic_year,id'],'campus_id'=>['required']]);
         $all=$scope['campus_id']==='all';
         if($all){
-            $ids=$request->user()->accessibleCampuses()->get()->filter(fn($campus)=>$request->user()->hasPermission('attendance.view',$campus->id)&&$request->user()->hasPermission('attendance.manage',$campus->id))->modelKeys();
+            $ids=AttendancePermissions::writeCampuses($request->user(),'settings');
             abort_unless($ids,403);
         }else{
-            $request->validate(['campus_id'=>['integer']]);$this->authorize($request,(int)$scope['campus_id']);$ids=[(int)$scope['campus_id']];
+            $request->validate(['campus_id'=>['integer']]);$this->authorize($request,(int)$scope['campus_id'],'settings');$ids=[(int)$scope['campus_id']];
         }
         sort($ids);$calendars=[];$versions=[];
         foreach($ids as $id){$calendars[$id]=$service->calendar($scope['academic_year_id'],$id);$versions[$id]=$calendars[$id]['version'];}
         if($request->isMethod('get')){
+            foreach($ids as $id) abort_unless(AttendancePermissions::allows($request->user(),'weekdays',$id)||AttendancePermissions::allows($request->user(),'holidays',$id),403);
             $first=reset($calendars);$signatures=[];
             foreach($calendars as $calendar){$days=$calendar['weekdays'];$holidays=$calendar['holidays'];$descriptions=$calendar['holiday_descriptions'];sort($days);sort($holidays);ksort($descriptions);$signatures[]=json_encode([$days,$holidays,$descriptions]);}
             return response()->json($first+['versions'=>$versions,'campus_count'=>count($ids),'mixed'=>count(array_unique($signatures))>1]);
         }
         $data=$request->validate(['weekdays'=>['required','array','min:1'],'weekdays.*'=>['integer','between:0,6'],'holidays'=>['present','array'],'holidays.*'=>['date_format:Y-m-d'],'holiday_descriptions'=>['sometimes','array'],'holiday_descriptions.*'=>['nullable','string','max:200'],'version'=>['required','integer','min:0'],'versions'=>['sometimes','array'],'versions.*'=>['integer','min:0']]);
+        foreach($ids as $id) $this->authorize($request,$id,'calendar-manage');
         DB::transaction(function()use($request,$scope,$data,$ids,$all){
             DB::table('tb_school_info')->whereIn('id',$ids)->orderBy('id')->lockForUpdate()->get();
             foreach($ids as $id){
@@ -44,7 +47,10 @@ class AttendanceLeaveController
                 abort_if(($row->version??0)!==$expected,409,'A campus calendar changed. Reload before saving. No calendars were updated.');
                 $descriptions=$data['holiday_descriptions']??(json_decode($row?->holiday_descriptions??'{}',true)?:[]);
                 $descriptions=array_map(fn($description)=>trim((string)$description),array_intersect_key($descriptions,array_flip($data['holidays'])));
-                DB::table('attendance_calendars')->updateOrInsert($target,['weekdays'=>json_encode(array_values(array_unique($data['weekdays']))),'holidays'=>json_encode(array_values(array_unique($data['holidays']))),'holiday_descriptions'=>json_encode((object)$descriptions),'version'=>$expected+1,'updated_by'=>$request->user()->id,'created_at'=>$row?->created_at??now(),'updated_at'=>now()]);
+                $weekdays=AttendancePermissions::allows($request->user(),'weekdays',$id)?$data['weekdays']:(json_decode($row?->weekdays??'[1,2,3,4,5]',true));
+                $holidays=AttendancePermissions::allows($request->user(),'holidays',$id)?$data['holidays']:(json_decode($row?->holidays??'[]',true));
+                if(!AttendancePermissions::allows($request->user(),'holidays',$id))$descriptions=json_decode($row?->holiday_descriptions??'{}',true);
+                DB::table('attendance_calendars')->updateOrInsert($target,['weekdays'=>json_encode(array_values(array_unique($weekdays))),'holidays'=>json_encode(array_values(array_unique($holidays))),'holiday_descriptions'=>json_encode((object)$descriptions),'version'=>$expected+1,'updated_by'=>$request->user()->id,'created_at'=>$row?->created_at??now(),'updated_at'=>now()]);
             }
         });
         return response()->json(['message'=>'School weekdays and holidays saved.','campus_count'=>count($ids)]);
@@ -69,7 +75,7 @@ class AttendanceLeaveController
             'reason'=>['required','string','max:500'],'approved_by'=>['required','string','max:150'],'mode'=>['required','in:full,partial'],
             'period_ids'=>['sometimes','array'],'period_ids.*'=>['integer'],'preview'=>['sometimes','boolean'],
             'attachment'=>['nullable','file','mimes:pdf,jpg,jpeg,png,webp','max:5120']]);
-        $this->authorize($request,$data['campus_id']);
+        $this->authorize($request,$data['campus_id'],'leave-create');
         abort_if(CarbonImmutable::parse($data['starts_on'])->diffInDays(CarbonImmutable::parse($data['ends_on']))>90,422,'Choose at most 91 calendar days.');
         $enrollment=StudentEnrollment::with(['session','schoolGroup','grade'])->where('academic_year_id',$data['academic_year_id'])->where('campus_id',$data['campus_id'])->where('class_id',$data['class_id'])->where('student_id',$data['student_id'])
             ->when($data['grade_id']??null,fn($q,$id)=>$q->where('grade_id',$id))->whereNotIn('enrollment_status',['pending','cancelled','promotion_cancelled','withdrawn'])
@@ -106,7 +112,7 @@ class AttendanceLeaveController
             });
         }catch(\Throwable $error){if($path)Storage::disk('local')->delete($path);throw $error;}
         $service->applyDue($data['academic_year_id'],$data['campus_id']);
-        return response()->json(['id'=>$id,'message'=>'Leave recorded. School days are marked EX when due.','dates'=>$dates,'skipped'=>$skipped]);
+        return response()->json(['id'=>$id,'message'=>'Leave recorded. School days are marked E when due.','dates'=>$dates,'skipped'=>$skipped]);
     }
 
     public function shorten(Request $request,int $leave)
@@ -121,7 +127,7 @@ class AttendanceLeaveController
     }
     private function change(Request $request,int $id,array $data,string $action): void
     {
-        $leave=DB::table('attendance_leaves')->find($id);abort_unless($leave,404);$this->authorize($request,$leave->campus_id);
+        $leave=DB::table('attendance_leaves')->find($id);abort_unless($leave,404);$this->authorize($request,$leave->campus_id,$action==='cancelled'?'leave-cancel':'leave-edit');
         DB::transaction(function()use($request,$leave,$data,$action){
             DB::table('tb_school_info')->where('id',$leave->campus_id)->lockForUpdate()->first();
             DB::table('tb_student')->where('id',$leave->student_id)->lockForUpdate()->first();
@@ -140,7 +146,7 @@ class AttendanceLeaveController
     }
     public function attachment(Request $request,int $leave)
     {
-        $row=DB::table('attendance_leaves')->find($leave);abort_unless($row,404);$this->authorize($request,$row->campus_id);
+        $row=DB::table('attendance_leaves')->find($leave);abort_unless($row,404);$this->authorize($request,$row->campus_id,'leave-attachment');
         abort_unless($row->attachment_path&&Storage::disk('local')->exists($row->attachment_path),404);
         return Storage::disk('local')->download($row->attachment_path,'leave-'.$row->id.'.'.pathinfo($row->attachment_path,PATHINFO_EXTENSION),['Cache-Control'=>'no-store','X-Content-Type-Options'=>'nosniff']);
     }

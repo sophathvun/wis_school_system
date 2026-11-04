@@ -9,6 +9,7 @@ initAttendanceSettingsTabs();
 
 const root=document.querySelector('[data-attendance-calendar]');
 if(root){
+    const permissions=JSON.parse(document.querySelector('[data-att-settings]').dataset.permissions||'{}');
     const form=root.querySelector('form'),message=root.querySelector('[data-calendar-message]'),save=root.querySelector('[data-calendar-save]');
     let version=0,loading=0,dirty=false,busy=false,lastScope,versions={},campusCount=0;
     let descriptions={};
@@ -44,7 +45,7 @@ if(root){
             const description=document.createElement('span');description.textContent=descriptions[date]||'—';
             const edit=document.createElement('button');edit.type='button';edit.className='btn btn-sm btn-outline-primary me-2';edit.dataset.editHoliday=date;edit.textContent='Edit';edit.setAttribute('aria-label','Edit holiday '+date);
             const button=document.createElement('button');button.type='button';button.className='btn btn-sm btn-outline-danger';button.dataset.removeHoliday=date;
-            button.textContent='Remove';button.setAttribute('aria-label','Remove holiday '+date);cells[0].textContent=String(start+index+1);cells[1].append(label);cells[2].append(description);cells[3].append(edit,button);list.append(row);
+            button.disabled=!permissions['calendar-manage'];edit.disabled=!permissions['calendar-manage'];button.textContent='Remove';button.setAttribute('aria-label','Remove holiday '+date);cells[0].textContent=String(start+index+1);cells[1].append(label);cells[2].append(description);cells[3].append(edit,button);list.append(row);
         });
         if(!list.children.length){const row=list.insertRow();const hint=row.insertCell();hint.colSpan=4;hint.className='text-secondary text-center py-4';hint.textContent='No holidays added yet.';}
         renderPagination({current_page:holidayPage,last_page:lastPage,total:dates.length,from:dates.length?start+1:0,to:Math.min(start+limit,dates.length)},'holiday-pagination-container','holiday-per-page',page=>renderHolidays(page),['all',15,25,50,75,100]);
@@ -122,7 +123,8 @@ if(root){
     });
     api('/meta').then(async meta=>{
         form.elements.academic_year_id.replaceChildren(...meta.years.map(row=>new Option(row.academic_year,row.id)));
-        form.elements.campus_id.replaceChildren(new Option('All Campuses','all'),...meta.campuses.filter(row=>meta.manage_campuses.includes(row.id)).map(row=>new Option(row.campus_name_en,row.id)));sync();await load();
+        form.elements.campus_id.replaceChildren(new Option('All Campuses','all'),...meta.campuses.filter(row=>(meta.settings_campuses||meta.manage_campuses).includes(row.id)).map(row=>new Option(row.campus_name_en,row.id)));sync();
+        if(meta.attendance_permissions.weekdays||meta.attendance_permissions.holidays)await load();
     }).catch(error=>message.textContent=error.message);
     window.addEventListener('beforeunload',event=>{if(dirty){event.preventDefault();event.returnValue='';}});
 }

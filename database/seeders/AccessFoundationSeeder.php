@@ -126,6 +126,9 @@ class AccessFoundationSeeder extends Seeder
         }
 
         $permissions = array_merge($permissions, AcademicReportPermissions::catalog());
+        foreach (\App\Support\AttendancePermissions::catalog() as $action=>$name) {
+            $permissions[]=['code'=>'attendance.'.$action,'module'=>'attendance','action'=>$action,'name'=>$name];
+        }
         foreach (\App\Support\ScholarshipPermissions::catalog() as $action => $name) {
             $permissions[] = ['code' => 'western-scholarship.'.$action, 'module' => 'western-scholarship', 'action' => $action, 'name' => $name];
         }

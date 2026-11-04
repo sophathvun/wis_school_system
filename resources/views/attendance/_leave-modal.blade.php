@@ -2,7 +2,7 @@
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg"><form class="modal-content" data-leave-form enctype="multipart/form-data">
         <div class="modal-header att-header"><h3 class="modal-title" id="attendanceLeaveTitle">Record Approved Leave</h3><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button></div>
         <div class="modal-body">
-            <p class="text-secondary">School days only, using Attendance Settings. Existing attendance is never replaced. Future leave appears as EX when due.</p>
+            <p class="text-secondary">School days only, using Attendance Settings. Existing attendance is never replaced. Future leave appears as E when due.</p>
             <div class="att-leave-fields">
                 <div class="premium-form-field staff-form-field"><label class="form-label" for="leaveStudent">Student</label><select class="form-select" id="leaveStudent" name="student_id" required></select></div>
                 <div class="premium-form-field att-leave-type"><label class="form-label" for="leaveMode">Leave Type</label><select class="form-select" id="leaveMode" name="mode"><option value="full">Full day — all applicable periods</option><option value="partial">Partial day — selected periods</option></select><i class="ti ti-chevron-down att-leave-type-arrow" aria-hidden="true"></i></div>

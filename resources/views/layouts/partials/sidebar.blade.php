@@ -433,7 +433,7 @@
                         </div>
                     </li>
                 @endif
-                @if ($canView('attendance.view'))
+                @if (\App\Support\AttendancePermissions::allows(auth()->user(),'view'))
                     <li class="nav-item dropdown {{ request()->routeIs('attendance.*') ? 'active' : '' }}">
                         <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown" data-bs-auto-close="false" role="button" aria-expanded="{{ request()->routeIs('attendance.*') ? 'true' : 'false' }}">
                             <span class="nav-link-icon d-md-none d-lg-inline-block">
@@ -442,12 +442,16 @@
                             <span class="nav-link-title">Attendance</span>
                         </a>
                         <div class="dropdown-menu {{ request()->routeIs('attendance.*') ? 'show' : '' }}">
+                            @if(\App\Support\AttendancePermissions::allows(auth()->user(),'subject'))
                             <a class="dropdown-item {{ request()->routeIs('attendance.index') ? 'active' : '' }}" href="{{ route('attendance.index') }}"><i class="ti ti-calendar-time me-2"></i>Subject Attendance</a>
-                            @if($canView('attendance.manage'))
+                            @endif
+                            @if(\App\Support\AttendancePermissions::allows(auth()->user(),'daily'))
                             <a class="dropdown-item {{ request()->routeIs('attendance.admin-daily') ? 'active' : '' }}" href="{{ route('attendance.admin-daily') }}"><i class="ti ti-calendar-check me-2"></i>Admin-Daily Attendance</a>
                             @endif
+                            @if(\App\Support\AttendancePermissions::allows(auth()->user(),'reports'))
                             <a class="dropdown-item {{ request()->routeIs('attendance.reports') ? 'active' : '' }}" href="{{ route('attendance.reports') }}"><i class="ti ti-chart-bar me-2"></i>Attendance Reports</a>
-                            @if($canView('attendance.manage'))
+                            @endif
+                            @if(\App\Support\AttendancePermissions::allows(auth()->user(),'settings'))
                             <a class="dropdown-item {{ request()->routeIs('attendance.settings') ? 'active' : '' }}" href="{{ route('attendance.settings') }}"><i class="ti ti-settings me-2"></i>Attendance Settings</a>
                             @endif
                         </div>

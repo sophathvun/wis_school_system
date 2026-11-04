@@ -4,6 +4,7 @@
 <div class="container-fluid"><div class="page-pretitle">Academics</div><h2 class="page-title"><i class="ti ti-calendar-check me-2"></i>{{ request()->route('workspace') === 'settings' ? 'Attendance Settings' : 'Student Attendance' }}</h2></div>
 @endsection
 @section('content')
+@php($attendancePermissions = \App\Support\AttendancePermissions::flags(auth()->user()))
 @vite(['resources/css/pages/attendance.css','resources/js/attendance.js'])
 <div data-attendance data-base="{{ url('/attendance') }}" data-workspace="{{ request()->route('workspace') ?? '' }}">
     <div class="card mb-3"><div class="card-header att-header"><h3 class="card-title" data-att-filter-title>Attendance Filters</h3></div>
@@ -38,7 +39,7 @@
         </form>
     </div>
     <section class="card mb-3" data-att-daily hidden>
-        <div class="card-header att-header flex-wrap gap-2"><h3 class="card-title">Daily Class Attendance</h3><div class="ms-auto d-flex gap-2 flex-wrap att-daily-actions"><button type="button" class="btn btn-light att-leave-button" data-leave-open><i class="ti ti-calendar-plus me-1"></i>Record Leave</button><button type="button" class="btn btn-outline-light" data-daily-edit hidden><i class="ti ti-edit me-1"></i>Edit</button><button type="button" class="btn btn-success" data-daily-present disabled title="Apply Present to blank attendance only"><i class="ti ti-checks me-1"></i>P — Apply to Blank</button></div></div>
+        <div class="card-header att-header flex-wrap gap-2"><h3 class="card-title">Daily Class Attendance</h3><div class="ms-auto d-flex gap-2 flex-wrap att-daily-actions"><button type="button" class="btn btn-light att-leave-button" data-leave-open @unless($attendancePermissions['leave-create']) hidden @endunless><i class="ti ti-calendar-plus me-1"></i>Record Leave</button><button type="button" class="btn btn-outline-light" data-daily-edit hidden><i class="ti ti-edit me-1"></i>Edit</button><button type="button" class="btn btn-success" data-daily-present @unless($attendancePermissions['create']) hidden @endunless disabled title="Apply Present to blank attendance only"><i class="ti ti-checks me-1"></i>P — Apply to Blank</button></div></div>
         <div class="card-body">
             <p class="text-secondary">Select a campus, grade/class, and date. Missing one, two, or more subject sessions still counts as one attendance day. Add the session count and remarks for context.</p>
             <nav class="att-date-navigation" data-att-date-navigation aria-label="Daily attendance dates">
@@ -53,7 +54,7 @@
             <form data-daily-form><div class="table-responsive"><table class="table table-vcenter att-table att-daily-table"><thead><tr><th>No.</th><th>Photo</th><th>Student</th><th>Family</th><th>Daily Status</th><th>Reason</th><th>Added by</th></tr></thead><tbody data-daily-students><tr><td colspan="7">Select Academic Year, Campus, and Grade/Class.</td></tr></tbody></table></div>
                 <div class="att-save-bar"><span data-daily-message role="status" aria-live="polite">Changes save automatically.</span><button type="submit" class="btn btn-outline-primary" data-daily-save hidden disabled>Retry Save</button></div>
             </form>
-            <div class="form-hint mt-3">P: Present · EX: Excused absence · UX: Unexcused absence · L: Late. EX and UX count as one absence day each; missed sessions are not added to the daily total. Select EX, UX, or L to choose absent periods and enter a reason.</div>
+            <div class="form-hint mt-3">P: Present · E: Excused absence · U: Unexcused absence · L: Late. E and U count as one absence day each; missed sessions are not added to the daily total. Select E, U, or L to choose absent periods and enter a reason.</div>
             <details class="att-history mt-3"><summary>Daily Register History</summary><div data-daily-history class="mt-2"></div></details>
             <details class="att-history mt-3" data-leave-panel><summary>Approved Leave — Selected Campus</summary><div data-leave-list class="mt-2">Select a class to view leave.</div></details>
         </div>
@@ -64,7 +65,7 @@
         <form class="att-history-filters" data-att-history-filters>
             <div><label class="form-label" for="attFrom">From</label><input type="date" class="form-control" id="attFrom" name="from" value="{{ now('Asia/Bangkok')->startOfMonth()->format('Y-m-d') }}" required></div>
             <div><label class="form-label" for="attTo">To</label><input type="date" class="form-control" id="attTo" name="to" value="{{ now('Asia/Bangkok')->format('Y-m-d') }}" required></div>
-            <button class="btn btn-primary" type="submit">View History</button><button class="btn" type="button" data-att-csv>Export CSV</button>
+            <button class="btn btn-primary" type="submit">View History</button><button class="btn" type="button" data-att-csv @unless($attendancePermissions['history-export']) hidden @endunless>Export CSV</button>
         </form><p class="form-hint mt-2">Uses the selected academic year and campus. Draft counts are provisional; these are subject-session marks, not unique daily students.</p>
         <div data-att-history-results></div>
     </div></details>

@@ -10,7 +10,10 @@ class EnsurePermission
 {
     public function handle(Request $request, Closure $next, string $permission): Response
     {
-        abort_unless($request->user()?->hasPermission($permission, $request->attributes->get('campus_id')), 403);
+        $allowed = $permission === 'attendance.view'
+            ? ($request->user() && \App\Support\AttendancePermissions::allows($request->user(), 'view'))
+            : $request->user()?->hasPermission($permission, $request->attributes->get('campus_id'));
+        abort_unless($allowed, 403);
 
         return $next($request);
     }

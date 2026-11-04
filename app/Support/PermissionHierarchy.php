@@ -25,7 +25,7 @@ class PermissionHierarchy
             'staff' => 'Staff Management', 'hrm-settings' => 'HRM Settings', 'hrm-staff-data'=>'Staff Import / Export',
             'hrm-staff-attendance' => 'Staff Attendance', 'hrm-payroll' => 'Payroll', 'hrm-leave-requests' => 'Leave Requests',
             'hrm-performance-reviews' => 'Performance Reviews', 'hrm-staff-reports' => 'Staff Reports',
-        ], $nationalLabels, AcademicReportPermissions::moduleLabels());
+        ], $nationalLabels, AcademicReportPermissions::moduleLabels(), collect(AttendancePermissions::sections())->mapWithKeys(fn($section,$key)=>['attendance.'.$key=>$section[0]])->all());
     }
 
     public static function groups(): array
@@ -70,8 +70,11 @@ class PermissionHierarchy
             ],
             'attendance' => [
                 'label' => 'Attendance', 'permission' => 'attendance.view',
-                'modules' => [],
-                'actions' => ['attendance.take','attendance.manage'],
+                'description' => 'Changes are limited to assigned campuses. Permitted reports can view students in all campuses. Central users require the same action permissions.',
+                'modules' => array_map(fn($key)=>'attendance.'.$key,array_keys(AttendancePermissions::sections())),
+                'module_permissions' => collect(AttendancePermissions::sections())->mapWithKeys(fn($section,$key)=>['attendance.'.$key=>'attendance.'.$key])->all(),
+                'module_actions' => collect(AttendancePermissions::sections())->mapWithKeys(fn($section,$key)=>['attendance.'.$key=>array_map(fn($action)=>'attendance.'.$action,$section[1])])->all(),
+                'actions' => [],
             ],
             'schedules' => [
                 'label' => 'Schedules', 'permission' => 'schedules.view',
@@ -202,6 +205,9 @@ class PermissionHierarchy
         }
         foreach(G12NationalExamPermissions::PARENTS as $action=>$parent){
             if(!$codes->has('g12-national-exams.'.$parent))$codes->forget('g12-national-exams.'.$action);
+        }
+        foreach(AttendancePermissions::PARENTS as $action=>$parent) {
+            if (!$codes->has('attendance.'.$parent)) $codes->forget('attendance.'.$action);
         }
         if(!$codes->has('western-scholarship.answer-key'))$codes->forget('western-scholarship.answer-key-scan');
         if(!$codes->has('western-scholarship.answer-verify'))$codes->forget('western-scholarship.answer-accept-all');

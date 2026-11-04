@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\{Rule,ValidationException};
 use Carbon\CarbonImmutable;
+use App\Support\AttendancePermissions;
 
 class AttendanceController
 {
@@ -21,7 +22,7 @@ class AttendanceController
     private function campuses(Request $request,bool $manage=false): array
     {
         return $request->user()->accessibleCampuses()->get()->filter(fn($campus)=>
-            $request->user()->hasPermission('attendance.view',$campus->id)&&(!$manage||$request->user()->hasPermission('attendance.manage',$campus->id))
+            AttendancePermissions::allows($request->user(), $manage ? 'daily' : 'view', $campus->id)
         )->modelKeys();
     }
     private function assignments(Request $request)
@@ -42,8 +43,8 @@ class AttendanceController
     }
     public function index(Request $request)
     {
-        abort_unless($this->campuses($request),403);
-        if(in_array($request->route('workspace'),['daily','settings'],true))abort_unless($this->campuses($request,true),403);
+        $action = ['daily'=>'daily','settings'=>'settings','reports'=>'reports'][$request->route('workspace')] ?? 'subject';
+        abort_unless(AttendancePermissions::allows($request->user(),$action),403);
         if($request->route('workspace')==='settings')return view('attendance.settings');
         if($request->route('workspace')==='reports')return view('attendance.reports');
         return view('attendance.index');
@@ -58,6 +59,8 @@ class AttendanceController
             return ['id'=>$class->id,'academic_year_id'=>$class->academic_year_id,'class_name'=>$grade!==''&&!str_starts_with($name,$grade)?$grade.$name:$name];
         })->sortBy('class_name',SORT_NATURAL)->values();
         return response()->json([
+            'attendance_permissions'=>AttendancePermissions::flags($request->user()),
+            'settings_campuses'=>AttendancePermissions::writeCampuses($request->user(),'settings'),
             'campuses'=>SchoolInfo::whereIn('id',$ids)->orderBy('campus_name_en')->get(['id','campus_name_en']),
             'manage_campuses'=>$manage,
             'periods'=>DB::table('schedule_periods')->where('active',true)->whereNull('deleted_at')->orderBy('display_order')->orderBy('starts_at')->get()->map(function($period){$period->applicable_groups=json_decode($period->applicable_groups??'[]',true)?:[];return $period;}),
@@ -74,6 +77,7 @@ class AttendanceController
     }
     public function list(Request $request)
     {
+        abort_unless(AttendancePermissions::allows($request->user(),'subject'),403);
         $input=$request->validate(['date'=>['required','date_format:Y-m-d'],'academic_year_id'=>['required','integer'],'campus_id'=>['nullable','integer'],'mode'=>['nullable',Rule::in(['mine','campus'])]]);
         $date=CarbonImmutable::parse($input['date']);
         $query=$this->assignments($request)->where('a.academic_year_id',$input['academic_year_id'])->where('a.active',true)
@@ -116,6 +120,7 @@ class AttendanceController
     }
     public function assignmentList(Request $request)
     {
+        abort_unless(AttendancePermissions::allows($request->user(),'subject'),403);
         $data=$request->validate(['academic_year_id'=>['required','integer'],'campus_id'=>['nullable','integer']]);
         return response()->json(['assignments'=>DB::table('attendance_assignments as a')->whereIn('a.campus_id',$this->campuses($request,true))
             ->where('a.academic_year_id',$data['academic_year_id'])->when($data['campus_id']??null,fn($q,$v)=>$q->where('a.campus_id',$v))
@@ -139,6 +144,8 @@ class AttendanceController
     }
     public function history(Request $request)
     {
+        abort_unless(AttendancePermissions::allows($request->user(),'subject'),403);
+        if ($request->input('format') === 'csv') abort_unless(AttendancePermissions::allows($request->user(),'history-export'),403);
         $input=$request->validate(['academic_year_id'=>['required','integer'],'campus_id'=>['nullable','integer'],'from'=>['required','date_format:Y-m-d'],'to'=>['required','date_format:Y-m-d','after_or_equal:from'],'format'=>['nullable',Rule::in(['csv'])]]);
         if(CarbonImmutable::parse($input['from'])->diffInDays(CarbonImmutable::parse($input['to']))>93)throw ValidationException::withMessages(['to'=>'Choose a date range of at most 93 days.']);
         $query=$this->assignments($request)->where('a.academic_year_id',$input['academic_year_id'])->when($input['campus_id']??null,fn($q,$v)=>$q->where('a.campus_id',$v))
@@ -169,6 +176,7 @@ class AttendanceController
     public function show(Request $request,int $assignment)
     {
         $a=$this->assignment($request,$assignment);$date=$request->validate(['date'=>['required','date_format:Y-m-d']])['date'];
+        abort_unless(AttendancePermissions::allows($request->user(),'subject',(int)$a->campus_id),403);
         $this->assertScheduleDate($a,$date);
         abort_unless(CarbonImmutable::parse($date)->dayOfWeek===$a->weekday,422,'This session is not scheduled on that day.');
         $session=DB::table('attendance_sessions')->where('assignment_id',$assignment)->where('attendance_date',$date)->first();
@@ -176,11 +184,12 @@ class AttendanceController
         $roster=$this->roster($a,$date)->map(fn($enrollment)=>['enrollment_id'=>$enrollment->id,'student_id'=>$enrollment->student_id,'code'=>$enrollment->student?->student_id,
             'name'=>$enrollment->student?->full_name_en,'name_kh'=>$enrollment->student?->full_name_kh,'mark'=>$marks[$enrollment->student_id]??null]);
         $history=$session?DB::table('attendance_events as e')->join('users as u','u.id','=','e.user_id')->where('session_id',$session->id)->orderByDesc('e.id')->limit(20)->get(['e.action','e.details','e.created_at','u.name']):[];
-        return response()->json(['students'=>$roster,'session'=>$session,'history'=>$history,'can_reopen'=>in_array((int)$a->campus_id,$this->campuses($request,true),true)]);
+        return response()->json(['students'=>$roster,'session'=>$session,'history'=>$history,'can_take'=>AttendancePermissions::allows($request->user(),'take',(int)$a->campus_id),'can_reopen'=>AttendancePermissions::allows($request->user(),'reopen',(int)$a->campus_id)]);
     }
     public function save(Request $request,int $assignment)
     {
         $a=$this->assignment($request,$assignment);
+        abort_unless(AttendancePermissions::allows($request->user(),'take',(int)$a->campus_id),403);
         $input=$request->validate(['date'=>['required','date_format:Y-m-d','before_or_equal:today'],'version'=>['required','integer','min:0'],'submit'=>['required','boolean'],
             'marks'=>['required','array','min:1'],'marks.*.student_id'=>['required','integer','distinct'],'marks.*.status'=>['nullable',Rule::in(self::STATUSES)],'marks.*.late_minutes'=>['required','integer','between:0,480'],'marks.*.note'=>['nullable','string','max:500']]);
         abort_unless(CarbonImmutable::parse($input['date'])->dayOfWeek===$a->weekday,422);
@@ -197,6 +206,7 @@ class AttendanceController
             $id=$session?->id??DB::table('attendance_sessions')->insertGetId(['assignment_id'=>$a->id,'attendance_date'=>$input['date'],'created_at'=>now(),'updated_at'=>now()]);
             $before=DB::table('attendance_marks')->where('session_id',$id)->get()->all();
             foreach($input['marks'] as $mark){
+                if(empty($mark['status']) && collect($before)->contains('student_id',$mark['student_id'])) abort_unless(AttendancePermissions::allows($request->user(),'subject-delete',(int)$a->campus_id),403);
                 if(empty($mark['status'])){DB::table('attendance_marks')->where('session_id',$id)->where('student_id',$mark['student_id'])->delete();continue;}
                 DB::table('attendance_marks')->updateOrInsert(['session_id'=>$id,'student_id'=>$mark['student_id']],['enrollment_id'=>$roster[$mark['student_id']]->id,'status'=>$mark['status'],'late_minutes'=>$mark['status']==='late'?$mark['late_minutes']:0,'note'=>$mark['note']??null,'updated_at'=>now(),'created_at'=>now()]);
             }
@@ -208,6 +218,7 @@ class AttendanceController
     public function reopen(Request $request,int $assignment)
     {
         $a=$this->assignment($request,$assignment);abort_unless(in_array((int)$a->campus_id,$this->campuses($request,true),true),403);
+        abort_unless(AttendancePermissions::allows($request->user(),'reopen',(int)$a->campus_id),403);
         $data=$request->validate(['date'=>['required','date_format:Y-m-d'],'reason'=>['required','string','min:5','max:500']]);
         DB::transaction(function()use($data,$assignment,$request){
             $session=DB::table('attendance_sessions')->where('assignment_id',$assignment)->where('attendance_date',$data['date'])->lockForUpdate()->firstOrFail();

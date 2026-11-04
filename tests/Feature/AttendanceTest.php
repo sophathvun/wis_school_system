@@ -415,17 +415,201 @@ it('reports daily exceptions with enrollment details and dependent options', fun
     expect(fn()=>$controller->details(g12Request($admin,$filters+['date_from'=>'2026-11-03','date_to'=>'2026-11-02'])))->toThrow(ValidationException::class);
     expect($controller->details(g12Request($admin,$filters+['date_to'=>'2026-11-02']))->getData(true)['total'])->toBe(1);
     expect($controller->details(g12Request($admin,$filters))->getData(true)['student']['student_code'])->toBe('00123');
+    expect($controller->details(g12Request($admin,$filters))->getData(true)['totals'])->toBe(['P'=>0,'EX'=>1,'UX'=>0,'L'=>0]);
+    expect($controller->details(g12Request($admin,$filters+['date_from'=>'2026-11-03']))->getData(true)['totals']['EX'])->toBe(0);
     DB::table('attendance_daily_marks')->update(['status'=>'P']);
+    expect($controller->details(g12Request($admin,$filters))->getData(true)['totals']['P'])->toBe(1);
     expect($controller->details(g12Request($admin,$filters))->getData(true)['total'])->toBe(0);
 });
 
 it('protects daily attendance reports from unauthorized campus access', function () {
     $controller=app(\App\Http\Controllers\AttendanceReportController::class);
     $user=User::find(2);
-    expect(fn()=>$controller->details(g12Request($user,['academic_year_id'=>1])))->toThrow(HttpException::class);
+    expect(fn()=>$controller->details(g12Request($user,['academic_year_id'=>1])))->toThrow(ValidationException::class);
     $permission=DB::table('access_permissions')->where('code','attendance.manage')->value('id');
     DB::table('access_user_permission_overrides')->insert(['user_id'=>2,'permission_id'=>$permission,'allowed'=>true]);
     $user=User::find(2);
-    expect(fn()=>$controller->options(g12Request($user,['academic_year_id'=>1,'campus_id'=>2])))->toThrow(HttpException::class);
+    expect($controller->options(g12Request($user,['academic_year_id'=>1,'campus_id'=>2]))->getData(true)['campuses'])->toHaveCount(1);
     expect($controller->options(g12Request($user,['academic_year_id'=>1]))->getData(true)['campuses'])->toHaveCount(1);
+});
+
+it('exports the selected students complete absent record with School Logo 1', function () {
+    $admin=User::find(1);
+    app(\App\Http\Controllers\DailyAttendanceController::class)->save(g12Request($admin,[
+        'academic_year_id'=>1,'campus_id'=>1,'class_id'=>1,'date'=>'2026-11-02','version'=>0,
+        'marks'=>[['student_id'=>1,'status'=>'EX','missed_sessions'=>1,'remarks'=>'Medical leave']],
+    ]));
+    $mark=(array)DB::table('attendance_daily_marks')->first();unset($mark['id']);
+    for($day=1;$day<=15;$day++)DB::table('attendance_daily_marks')->insert(array_replace($mark,['attendance_date'=>'2026-10-'.str_pad($day,2,'0',STR_PAD_LEFT)]));
+    $image=imagecreatetruecolor(4,4);ob_start();imagepng($image);$png=ob_get_clean();imagedestroy($image);
+    $logo='data:image/png;base64,'.base64_encode($png);
+    $this->mock(\App\Support\ScholarshipExport::class)->shouldReceive('reportLogo')->with(1)->andReturn($logo);
+    $controller=app(\App\Http\Controllers\AttendanceReportController::class);
+    $filters=['academic_year_id'=>1,'campus_id'=>1,'student_id'=>1,'page'=>2,'per_page'=>15];
+    $print=$controller->export(g12Request($admin,$filters),'print');
+    expect($print->getContent())->toContain('School Logo 1','Student Absent Record','02-Nov-2026','01-Oct-2026','Total Absent')->not->toContain('Total Present');
+    $excel=$controller->export(g12Request($admin,$filters),'xlsx');
+    $path=tempnam(sys_get_temp_dir(),'attendance-export-test-');file_put_contents($path,$excel->getContent());
+    try {
+        $zip=new \ZipArchive();$zip->open($path);
+        $sheet=$zip->getFromName('xl/worksheets/sheet1.xml');
+        expect($sheet)->toContain('01-Oct-2026','02-Nov-2026','Medical leave')
+            ->and($zip->getFromName('xl/media/image1.png'))->not->toBeFalse();
+        $dom=new \DOMDocument();expect($dom->loadXML($sheet))->toBeTrue();$zip->close();
+    } finally {unlink($path);}
+    $pdf=$controller->export(g12Request($admin,$filters),'pdf');
+    expect($pdf->getContent())->toStartWith('%PDF-')->and($pdf->headers->get('Content-Type'))->toBe('application/pdf');
+    $limited=$controller->export(g12Request($admin,$filters+['date_from'=>'2026-11-01']),'print');
+    expect($limited->getContent())->not->toContain('01-Oct-2026');
+    expect($controller->export(g12Request(User::find(2),$filters),'xlsx')->getStatusCode())->toBe(200);
+});
+
+it('summarizes student absences once with late records separate and zero counts included', function () {
+    $admin=User::find(1);
+    app(\App\Http\Controllers\DailyAttendanceController::class)->save(g12Request($admin,[
+        'academic_year_id'=>1,'campus_id'=>1,'class_id'=>1,'date'=>'2026-11-02','version'=>0,
+        'marks'=>[['student_id'=>1,'status'=>'EX','missed_sessions'=>1,'remarks'=>'Leave']],
+    ]));
+    $mark=(array)DB::table('attendance_daily_marks')->first();unset($mark['id']);
+    foreach(['2026-11-01'=>'UX','2026-10-31'=>'L','2026-10-30'=>'P'] as $date=>$status)
+        DB::table('attendance_daily_marks')->insert(array_replace($mark,['attendance_date'=>$date,'status'=>$status]));
+    DB::table('tb_student')->insert(['id'=>2,'student_id'=>'002','full_name_en'=>'No absences']);
+    DB::table('tb_student_enrollment')->insert(['student_id'=>2,'campus_id'=>1,'academic_year_id'=>1,'class_id'=>1,'enrollment_status'=>'active']);
+    $controller=app(\App\Http\Controllers\AttendanceReportController::class);
+    $filters=['academic_year_id'=>1,'campus_id'=>1];
+    $result=$controller->statistics(g12Request($admin,$filters))->getData(true);
+    expect($result['total'])->toBe(2)->and($result['per_page'])->toBe(15)
+        ->and($result['data'][0]['total_absent'])->toBe(2)
+        ->and($result['data'][0]['EX'])->toBe(1)->and($result['data'][0]['UX'])->toBe(1)->and($result['data'][0]['L'])->toBe(1)
+        ->and($result['data'][1]['total_absent'])->toBe(0)->and($result['data'][1]['L'])->toBe(0);
+    expect($controller->statistics(g12Request($admin,$filters+['student_id'=>1]))->getData(true)['total'])->toBe(1);
+    $ranged=$controller->statistics(g12Request($admin,$filters+['student_id'=>1,'date_from'=>'2026-11-02','date_to'=>'2026-11-02']))->getData(true);
+    expect($ranged['data'][0]['total_absent'])->toBe(1)->and($ranged['data'][0]['EX'])->toBe(1)
+        ->and($ranged['data'][0]['UX'])->toBe(0)->and($ranged['data'][0]['L'])->toBe(0);
+    expect($controller->statistics(g12Request($admin,$filters+['date_from'=>'2026-11-03']))->getData(true)['data'][0]['total_absent'])->toBe(0);
+    expect(fn()=>$controller->statistics(g12Request($admin,$filters+['date_from'=>'2026-11-03','date_to'=>'2026-11-02'])))->toThrow(ValidationException::class);
+    expect($controller->statistics(g12Request($admin,$filters+['grade_class'=>'0:999']))->getData(true)['total'])->toBe(0);
+    expect($controller->statistics(g12Request($admin,array_replace($filters,['campus_id'=>2])))->getData(true)['total'])->toBe(0);
+    DB::table('tb_academic_year')->insert(['id'=>2,'academic_year'=>'2026-2027']);
+    expect($controller->statistics(g12Request($admin,['academic_year_id'=>2]))->getData(true)['total'])->toBe(0);
+    expect($controller->statistics(g12Request(User::find(2),$filters))->getData(true)['total'])->toBe(2);
+});
+
+it('exports filtered absence statistics as A4 print Excel and PDF across all pages', function () {
+    DB::table('tb_grade')->insert(['id'=>2,'grade'=>'Grade 2','grade_short_name'=>'2']);
+    DB::table('tb_class')->where('id',1)->update(['class_name'=>'B','grade_id'=>2]);
+    DB::table('tb_student_enrollment')->where('id',1)->update(['grade_id'=>2]);
+    for($id=2;$id<=16;$id++){
+        DB::table('tb_student')->insert(['id'=>$id,'student_id'=>'TEST'.str_pad($id,3,'0',STR_PAD_LEFT),'full_name_en'=>'Report Student '.$id]);
+        DB::table('tb_student_enrollment')->insert(['student_id'=>$id,'campus_id'=>1,'academic_year_id'=>1,'class_id'=>1,'grade_id'=>2,'enrollment_status'=>'active']);
+    }
+    $image=imagecreatetruecolor(4,4);ob_start();imagepng($image);$png=ob_get_clean();imagedestroy($image);
+    $this->mock(\App\Support\ScholarshipExport::class)->shouldReceive('reportLogo')->with(1)->andReturn('data:image/png;base64,'.base64_encode($png));
+    $controller=app(\App\Http\Controllers\AttendanceReportController::class);$admin=User::find(1);
+    $filters=['academic_year_id'=>1,'campus_id'=>1,'grade_class'=>'2:1','date_from'=>'2026-11-10','date_to'=>'2026-11-30','page'=>2,'per_page'=>15];
+    $print=$controller->statisticsExport(g12Request($admin,$filters),'print');
+    expect($print->getContent())->toContain('Student Absence Report - Grade 2B','School Logo 1','10-Nov-2026 to 30-Nov-2026','Academic Year:','Campus:','Report Student 2','Report Student 16','Total Tardy','Total Excused','Total Unexcused','Total Absent');
+    $excel=$controller->statisticsExport(g12Request($admin,$filters),'xlsx');
+    $path=tempnam(sys_get_temp_dir(),'attendance-statistics-test-');file_put_contents($path,$excel->getContent());
+    try {
+        $zip=new \ZipArchive();$zip->open($path);$sheet=$zip->getFromName('xl/worksheets/sheet1.xml');
+        expect($sheet)->toContain('Report Student 2','Report Student 16','orientation="landscape"','Total Tardy','10-Nov-2026 to 30-Nov-2026')
+            ->and($zip->getFromName('xl/media/image1.png'))->not->toBeFalse();
+        $dom=new \DOMDocument();expect($dom->loadXML($sheet))->toBeTrue();
+        expect($zip->getFromName('xl/workbook.xml'))->toContain('8:$8');$zip->close();
+    } finally {unlink($path);}
+    expect($controller->statisticsExport(g12Request($admin,$filters),'pdf')->getContent())->toStartWith('%PDF-');
+    $single=$controller->statisticsExport(g12Request($admin,$filters+['student_id'=>2]),'print')->getContent();
+    expect($single)->toContain('Report Student 2')->not->toContain('Report Student 16');
+    DB::table('tb_grade')->insert(['id'=>1,'grade'=>'Grade 1','grade_short_name'=>'1']);
+    DB::table('tb_class')->insert(['id'=>2,'academic_year_id'=>1,'grade_id'=>1,'class_name'=>'A']);
+    DB::table('tb_student_enrollment')->where('student_id',16)->update(['grade_id'=>1,'class_id'=>2]);
+    $allGrades=$filters;unset($allGrades['grade_class']);
+    $grouped=$controller->statisticsExport(g12Request($admin,$allGrades),'print')->getContent();
+    expect($grouped)->toContain('Grade: All Grades','Grade: 1A','Grade: 2B','statistics-grade-header')
+        ->and(strpos($grouped,'Grade: 1A'))->toBeLessThan(strpos($grouped,'Grade: 2B'));
+    expect($print->getContent())->not->toContain('statistics-grade-header');
+    expect($controller->statisticsExport(g12Request(User::find(2),$filters),'pdf')->getStatusCode())->toBe(200);
+});
+
+function attendanceGrant(int $userId, array $actions, bool $allowed=true): void {
+    foreach($actions as $action)DB::table('access_user_permission_overrides')->updateOrInsert(
+        ['user_id'=>$userId,'permission_id'=>DB::table('access_permissions')->where('code','attendance.'.$action)->value('id')],
+        ['allowed'=>$allowed,'created_at'=>now(),'updated_at'=>now()]);
+}
+
+it('enforces separate daily create edit delete rights and retains deletion audit history', function () {
+    (require database_path('migrations/2026_11_04_000001_add_attendance_permissions.php'))->up();
+    $controller=app(\App\Http\Controllers\DailyAttendanceController::class);$user=User::find(2);
+    $scope=['academic_year_id'=>1,'campus_id'=>1,'class_id'=>1,'date'=>'2026-11-02'];
+    $input=$scope+['version'=>0,'partial'=>true,'marks'=>[['student_id'=>1,'status'=>'P','missed_sessions'=>0,'remarks'=>'']]];
+    expect($controller->show(g12Request($user,$scope))->getData(true)['permissions']['create'])->toBeFalse();
+    expect(fn()=>$controller->save(g12Request($user,$input)))->toThrow(HttpException::class);
+    attendanceGrant(2,['create']);$controller->save(g12Request($user,$input));
+    expect(DB::table('attendance_daily_marks')->value('status'))->toBe('P');
+    $input['version']=1;$input['marks'][0]['status']='EX';
+    expect(fn()=>$controller->save(g12Request($user,$input)))->toThrow(HttpException::class);
+    attendanceGrant(2,['edit']);$controller->save(g12Request($user,$input));
+    expect(DB::table('attendance_daily_marks')->value('status'))->toBe('EX');
+    $delete=$scope+['student_id'=>1,'version'=>2,'reason'=>'Duplicate entry corrected'];
+    expect(fn()=>$controller->delete(g12Request($user,$delete)))->toThrow(HttpException::class);
+    attendanceGrant(2,['delete']);$controller->delete(g12Request($user,$delete));
+    expect(DB::table('attendance_daily_marks')->count())->toBe(0)
+        ->and(DB::table('attendance_daily_events')->count())->toBe(3)
+        ->and(DB::table('attendance_daily_events')->orderByDesc('id')->value('details'))->toContain('Duplicate entry corrected','deleted');
+    foreach(['show','save','delete'] as $action)expect(fn()=>$controller->$action(g12Request($user,array_replace($action==='delete'?$delete:($action==='save'?$input:$scope),['campus_id'=>2]))))->toThrow(HttpException::class);
+});
+
+it('permits campus report readers to see all campuses without granting cross campus changes', function () {
+    (require database_path('migrations/2026_11_04_000001_add_attendance_permissions.php'))->up();
+    DB::table('tb_student')->insert(['id'=>2,'student_id'=>'OTHER002','full_name_en'=>'Other Campus Student']);
+    DB::table('tb_student_enrollment')->insert(['student_id'=>2,'campus_id'=>2,'academic_year_id'=>1,'class_id'=>1,'enrollment_status'=>'active']);
+    $daily=app(\App\Http\Controllers\DailyAttendanceController::class);
+    $scope=['academic_year_id'=>1,'campus_id'=>2,'class_id'=>1,'date'=>'2026-11-02'];
+    $daily->save(g12Request(User::find(1),$scope+['version'=>0,'marks'=>[['student_id'=>2,'status'=>'UX','missed_sessions'=>1,'remarks'=>'Absent']]]));
+    $user=User::find(2);$controller=app(\App\Http\Controllers\AttendanceReportController::class);
+    expect($controller->options(g12Request($user,['academic_year_id'=>1]))->getData(true)['campuses'])->toHaveCount(2);
+    $filters=['academic_year_id'=>1,'campus_id'=>2,'student_id'=>2];
+    expect($controller->details(g12Request($user,$filters))->getData(true)['data'][0]['status'])->toBe('UX')
+        ->and($controller->statistics(g12Request($user,$filters))->getData(true)['data'][0]['total_absent'])->toBe(1)
+        ->and($controller->export(g12Request($user,$filters),'print')->getStatusCode())->toBe(200);
+    attendanceGrant(2,['print'],false);
+    expect(fn()=>$controller->export(g12Request($user,$filters),'print'))->toThrow(HttpException::class);
+    expect(fn()=>$controller->statisticsExport(g12Request($user,$filters),'print'))->toThrow(HttpException::class);
+    attendanceGrant(2,['detail'],false);
+    expect(fn()=>$controller->details(g12Request($user,$filters)))->toThrow(HttpException::class);
+    expect(fn()=>$controller->options(g12Request($user,$filters)))->toThrow(HttpException::class);
+    expect($controller->options(g12Request($user,$filters+['report'=>'statistics']))->getData(true)['students'])->toHaveCount(1);
+    attendanceGrant(2,['create','edit','delete']);
+    expect(fn()=>$daily->save(g12Request($user,$scope+['version'=>1,'marks'=>[['student_id'=>2,'status'=>'P','missed_sessions'=>0]]])))->toThrow(HttpException::class);
+    DB::table('users')->where('id',2)->update(['is_global'=>true]);$central=User::find(2);
+    $daily->save(g12Request($central,$scope+['version'=>1,'marks'=>[['student_id'=>2,'status'=>'P','missed_sessions'=>0]]]));
+    expect(DB::table('attendance_daily_marks')->value('status'))->toBe('P');
+    attendanceGrant(2,['edit'],false);
+    expect(fn()=>$daily->save(g12Request($central,$scope+['version'=>2,'marks'=>[['student_id'=>2,'status'=>'EX','missed_sessions'=>1]]])))->toThrow(HttpException::class);
+});
+
+it('requires parent menu permissions and exposes all attendance controls in the permission tree', function () {
+    (require database_path('migrations/2026_11_04_000001_add_attendance_permissions.php'))->up();
+    $permissions=\App\Models\Permission::all();
+    $tree=\App\Support\PermissionHierarchy::tree($permissions)['attendance'];
+    expect(array_keys($tree['modules']))->toBe(['attendance.subject','attendance.daily','attendance.reports','attendance.settings']);
+    expect($tree['modules']['attendance.daily']['actions']->pluck('code')->all())->toContain('attendance.create','attendance.edit','attendance.delete');
+    attendanceGrant(2,['reports'],false);
+    expect(\App\Support\AttendancePermissions::allows(User::find(2),'statistics'))->toBeFalse();
+    $normalized=\App\Support\PermissionHierarchy::normalizeIds($permissions->whereIn('code',['attendance.view','attendance.statistics'])->pluck('id')->all(),$permissions);
+    expect($normalized)->not->toContain($permissions->firstWhere('code','attendance.statistics')->id);
+});
+
+it('limits calendar changes to permitted campus and settings tabs', function () {
+    (require database_path('migrations/2026_11_04_000001_add_attendance_permissions.php'))->up();
+    attendanceGrant(2,['settings','weekdays','calendar-manage']);
+    $user=User::find(2);$controller=app(\App\Http\Controllers\AttendanceLeaveController::class);$service=app(\App\Services\AttendanceLeave::class);
+    $scope=['academic_year_id'=>1,'campus_id'=>1];
+    $body=$scope+['weekdays'=>[1,2,3,4,5,6],'holidays'=>['2026-11-09'],'holiday_descriptions'=>['2026-11-09'=>'Not permitted'],'version'=>0];
+    $controller->calendar(g12Request($user,$body,'/attendance/calendar','POST'),$service);
+    expect($service->calendar(1,1)['weekdays'])->toBe([1,2,3,4,5,6])->and($service->calendar(1,1)['holidays'])->toBe([]);
+    expect(fn()=>$controller->calendar(g12Request($user,array_replace($body,['campus_id'=>2]),'/attendance/calendar','POST'),$service))->toThrow(HttpException::class);
+    attendanceGrant(2,['calendar-manage'],false);
+    expect(fn()=>$controller->calendar(g12Request($user,array_replace($body,['version'=>1]),'/attendance/calendar','POST'),$service))->toThrow(HttpException::class);
 });

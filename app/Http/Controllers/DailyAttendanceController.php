@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\StudentEnrollment;
 use App\Models\User;
 use App\Support\AttendanceStudyGroup;
+use App\Support\AttendancePermissions;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -23,7 +24,7 @@ class DailyAttendanceController
             $scope['grade_id']=(int)($grades->first()??0);
         }
         $user=$request->user();$campus=(int)$scope['campus_id'];
-        abort_unless($user->canAccessCampus($campus)&&$user->hasPermission('attendance.view',$campus)&&$user->hasPermission('attendance.manage',$campus),403);
+        abort_unless(AttendancePermissions::allows($user,'daily',$campus),403);
         return $scope;
     }
     private function roster(array $scope)
@@ -66,11 +67,13 @@ class DailyAttendanceController
             return $student;
         });
         $history=$register?DB::table('attendance_daily_events as e')->join('users as u','u.id','=','e.user_id')->where('e.register_id',$register->id)->orderByDesc('e.id')->limit(20)->get(['u.name','e.created_at']):[];
-        return response()->json(['register'=>$register,'students'=>$students,'history'=>$history,'today'=>now('Asia/Bangkok')->toDateString()]);
+        $permissions=collect(['create','edit','delete','leave-create','leave-edit','leave-cancel','leave-attachment'])->mapWithKeys(fn($action)=>[$action=>AttendancePermissions::allows($request->user(),$action,(int)$scope['campus_id'])]);
+        return response()->json(['register'=>$register,'students'=>$students,'history'=>$history,'permissions'=>$permissions,'today'=>now('Asia/Bangkok')->toDateString()]);
     }
     public function save(Request $request)
     {
         $scope=$this->scope($request);
+        if ($request->boolean('edit_past')) abort_unless(AttendancePermissions::allows($request->user(),'edit',(int)$scope['campus_id']),403);
         app(\App\Services\AttendanceLeave::class)->applyDue($scope['academic_year_id'],$scope['campus_id'],$scope['date']);
         abort_if($scope['date']>now('Asia/Bangkok')->toDateString(),422,'Daily attendance cannot be saved for a future date.');
         $input=$request->validate(['version'=>['required','integer','min:0'],'partial'=>['sometimes','boolean'],'edit_past'=>['sometimes','boolean'],'only_blank'=>['sometimes','boolean'],'marks'=>['required','array','min:1'],
@@ -93,6 +96,7 @@ class DailyAttendanceController
             foreach($input['marks'] as $mark){
                 $previous=$existing->firstWhere('student_id',$mark['student_id']);
                 if(($input['only_blank']??false)&&$previous)continue;
+                abort_unless(AttendancePermissions::allows($request->user(),$previous?'edit':'create',(int)$scope['campus_id']),403);
                 $snapshots=json_decode($previous?->absent_periods??'[]',true)?:[];
                 if(array_key_exists('absent_period_ids',$mark)){
                     $saved=collect($snapshots)->keyBy('id');$snapshots=[];
@@ -112,5 +116,22 @@ class DailyAttendanceController
             DB::table('attendance_daily_events')->insert(['register_id'=>$id,'user_id'=>$request->user()->id,'details'=>json_encode(['before'=>$existing,'after'=>DB::table('attendance_daily_marks')->where('register_id',$id)->get(),'edit_past'=>$input['edit_past']??false,'only_blank'=>$input['only_blank']??false]),'created_at'=>now(),'updated_at'=>now()]);
         });
         return response()->json(['message'=>'Daily attendance saved. Each student is counted once for this date.','version'=>$input['version']+1]);
+    }
+
+    public function delete(Request $request)
+    {
+        $scope=$this->scope($request);
+        abort_unless(AttendancePermissions::allows($request->user(),'delete',(int)$scope['campus_id']),403);
+        $data=$request->validate(['student_id'=>['required','integer'],'version'=>['required','integer'],'reason'=>['required','string','max:500']]);
+        DB::transaction(function()use($scope,$data,$request){
+            $register=DB::table('attendance_daily_registers')->where($this->registerScope($scope))->lockForUpdate()->first();
+            abort_unless($register,404);abort_if($register->version!==$data['version'],409,'The register changed. Reload before deleting.');
+            $mark=DB::table('attendance_daily_marks')->where('register_id',$register->id)->where('student_id',$data['student_id'])->lockForUpdate()->first();
+            abort_unless($mark,404);abort_if($mark->leave_id??null,422,'Cancel approved leave first; leave-generated attendance cannot be deleted here.');
+            DB::table('attendance_daily_events')->insert(['register_id'=>$register->id,'user_id'=>$request->user()->id,'details'=>json_encode(['action'=>'deleted','before'=>$mark,'reason'=>$data['reason']]),'created_at'=>now(),'updated_at'=>now()]);
+            DB::table('attendance_daily_marks')->where('id',$mark->id)->delete();
+            DB::table('attendance_daily_registers')->where('id',$register->id)->update(['version'=>$register->version+1,'updated_by'=>$request->user()->id,'updated_at'=>now()]);
+        });
+        return response()->json(['message'=>'Attendance deleted. Audit history retained.']);
     }
 }

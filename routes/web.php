@@ -433,12 +433,16 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         Route::get('/leaves/{leave}/attachment',[\App\Http\Controllers\AttendanceLeaveController::class,'attachment'])->whereNumber('leave')->name('leaves.attachment');
         Route::get('/daily',[\App\Http\Controllers\DailyAttendanceController::class,'show'])->name('daily.show');
         Route::post('/daily',[\App\Http\Controllers\DailyAttendanceController::class,'save'])->name('daily.save');
+        Route::delete('/daily',[\App\Http\Controllers\DailyAttendanceController::class,'delete'])->name('daily.delete');
         Route::get('/','index')->name('index');
         Route::get('/admin-daily-attendance','index')->defaults('workspace','daily')->name('admin-daily');
         Route::get('/settings','index')->defaults('workspace','settings')->name('settings');
         Route::get('/reports','index')->defaults('workspace','reports')->name('reports');
         Route::get('/reports/options',[\App\Http\Controllers\AttendanceReportController::class,'options'])->name('reports.options');
         Route::get('/reports/details',[\App\Http\Controllers\AttendanceReportController::class,'details'])->name('reports.details');
+        Route::get('/reports/statistics',[\App\Http\Controllers\AttendanceReportController::class,'statistics'])->name('reports.statistics');
+        Route::get('/reports/statistics/export/{format}',[\App\Http\Controllers\AttendanceReportController::class,'statisticsExport'])->where('format','print|xlsx|pdf')->name('reports.statistics.export');
+        Route::get('/reports/export/{format}',[\App\Http\Controllers\AttendanceReportController::class,'export'])->where('format','print|xlsx|pdf')->name('reports.export');
         Route::get('/reports/years',[\App\Http\Controllers\AttendanceReportController::class,'years'])->name('reports.years');
         Route::get('/meta','meta')->name('meta');
         Route::get('/sessions','list')->name('sessions');
