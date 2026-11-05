@@ -57,15 +57,36 @@ class G9ExamSettingController
         $this->authorize($request);abort_unless($this->canManage($request->user()),403);
         $rules=['academic_year_id'=>['required','integer','exists:tb_academic_year,id'],'version'=>['required','integer','min:0'],'location'=>['required','string','max:150'],'dates'=>['required','array']];
         $rules+=['report_centers'=>['sometimes','array','max:200'],'report_centers.*.exam_center'=>['required','string','max:255','distinct'],
-            'report_centers.*.location'=>['nullable','string','max:150'],'report_centers.*.department'=>['nullable','string','max:255'],'report_centers.*.signer'=>['nullable','string','max:150']];
+            'report_centers.*.location'=>['nullable','string','max:150'],'report_centers.*.department'=>['nullable','string','max:255'],'report_centers.*.signer'=>['nullable','string','max:150'],
+            'report_centers.*.photo_signature'=>['sometimes','nullable','string','max:2800000']];
         foreach(self::SECTIONS as $key=>$section){$rules['dates.'.$key.'.date']=['nullable','date_format:Y-m-d'];$rules['dates.'.$key.'.solar']=['present','nullable','string','max:1000'];$rules['dates.'.$key.'.lunar']=['present','nullable','string','max:1000'];}
         $input=$request->validate($rules);
+        foreach($input['report_centers']??[] as $index=>$center){
+            if(!array_key_exists('photo_signature',$center))continue;
+            $value=$center['photo_signature'];
+            if(!$value){$input['report_centers'][$index]['photo_signature']=null;continue;}
+            $field='report_centers.'.$index.'.photo_signature';
+            $fail=fn()=>throw \Illuminate\Validation\ValidationException::withMessages([$field=>'Choose a valid PNG or JPG signature image, up to 2 MB and 4 megapixels.']);
+            if(!preg_match('~^data:image/(png|jpeg);base64,([A-Za-z0-9+/=]+)$~',$value,$matches))$fail();
+            $bytes=base64_decode($matches[2],true);$size=$bytes?@getimagesizefromstring($bytes):false;
+            if(!$size||strlen($bytes)>2*1024*1024||$size[0]*$size[1]>4000000||!in_array($size[2],[IMAGETYPE_PNG,IMAGETYPE_JPEG],true))$fail();
+            $image=@imagecreatefromstring($bytes);if(!$image)$fail();
+            $scale=min(1,1200/max($size[0],$size[1]));$width=max(1,(int)round($size[0]*$scale));$height=max(1,(int)round($size[1]*$scale));
+            $output=imagecreatetruecolor($width,$height);imagealphablending($output,false);imagesavealpha($output,true);
+            imagefill($output,0,0,imagecolorallocatealpha($output,255,255,255,127));imagecopyresampled($output,$image,0,0,0,0,$width,$height,$size[0],$size[1]);
+            ob_start();imagepng($output,null,9);$png=ob_get_clean();imagedestroy($image);imagedestroy($output);
+            $input['report_centers'][$index]['photo_signature']='data:image/png;base64,'.base64_encode($png);
+        }
         DB::transaction(function()use($input,$request){
             DB::table('tb_academic_year')->where('id',$input['academic_year_id'])->lockForUpdate()->first();
             $row=DB::table('tb_g9_exam_year_setting')->where('academic_year_id',$input['academic_year_id'])->lockForUpdate()->first();
             abort_if(($row?->version??0)!==$input['version'],409,'These shared dates changed in another window. Reload the academic year before saving.');
             $before=json_decode($row?->data??'{}',true);$data=$before;$data['date_location']=$input['location'];
-            if(array_key_exists('report_centers',$input))$data['report_centers']=array_map(fn($center)=>['exam_center'=>$center['exam_center'],'location'=>$center['location']??'','department'=>$center['department']??'','signer'=>($center['signer']??'')?:'ប្រធានមណ្ឌល'],$input['report_centers']);
+            if(array_key_exists('report_centers',$input)){
+                $existing=collect($before['report_centers']??[])->keyBy('exam_center');
+                $data['report_centers']=array_map(fn($center)=>['exam_center'=>$center['exam_center'],'location'=>$center['location']??'','department'=>$center['department']??'','signer'=>($center['signer']??'')?:'ប្រធានមណ្ឌល',
+                    'photo_signature'=>array_key_exists('photo_signature',$center)?$center['photo_signature']:($existing->get($center['exam_center'])['photo_signature']??null)],$input['report_centers']);
+            }
             foreach(self::SECTIONS as $key=>$section){$date=$input['dates'][$key];$data[$key.'_iso']=$date['date']??'';$data[$key]=$date['solar']??'';$data[$section['lunar']]=$date['lunar']??'';}
             DB::table('tb_g9_exam_year_setting')->updateOrInsert(['academic_year_id'=>$input['academic_year_id']],['data'=>json_encode($data,JSON_THROW_ON_ERROR),'version'=>$input['version']+1,'updated_by'=>$request->user()->id,'created_at'=>$row?->created_at??now(),'updated_at'=>now()]);
             DB::table('tb_g9_exam_setting_event')->insert(['academic_year_id'=>$input['academic_year_id'],'user_id'=>$request->user()->id,'action'=>'save-dates','details'=>json_encode(['before'=>$before,'after'=>$data],JSON_THROW_ON_ERROR),'created_at'=>now(),'updated_at'=>now()]);

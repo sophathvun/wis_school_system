@@ -3,24 +3,46 @@
 <style>
 @font-face{font-family:g9body;src:url('data:font/ttf;base64,{{ base64_encode(file_get_contents(public_path('fonts/khmer/KhmerOSsiemreap.ttf'))) }}')}
 @font-face{font-family:g9heading;src:url('data:font/ttf;base64,{{ base64_encode(file_get_contents(public_path('fonts/khmer/KhmerOSmuollight.ttf'))) }}')}
+@font-face{font-family:g9ornament;src:url('data:font/ttf;base64,{{ base64_encode(file_get_contents(public_path('fonts/khmer/Tacteing.ttf'))) }}')}
 {!! file_get_contents(resource_path('css/pages/g9-candidate-print.css')) !!}
+@if($type === 'profile')
+@page{size:A4 portrait;margin:0}
+.profile-sheet{width:210mm;height:297mm;margin:0 auto;page-break-after:always;background:#fff;overflow:hidden}
+.profile-sheet:last-child{page-break-after:auto}
+.profile-half{position:relative;width:210mm;height:148.5mm;overflow:hidden}
+.profile-half:first-child{border-bottom:.15mm dashed #b4b4b4}
+.profile-half>.profile-page{width:297mm;height:210mm;min-height:210mm;padding:8mm 8mm 8mm 30mm;margin:0;box-shadow:none;transform:scale(.7070707071);transform-origin:top left;page-break-after:auto}
+@media screen{.profile-sheet{margin-bottom:16px;box-shadow:0 2px 12px #0002}}
+@endif
 </style></head><body>
 @endunless
+@if($type === 'profile' && !($pdfExport ?? false))
+    @foreach(array_chunk($pages,2) as $sheet)
+        <section class="profile-sheet">
+            @foreach($sheet as $card)<div class="profile-half"><section class="report-page profile-page">@include('g9-national-exams.personal-profile',['profile'=>$card['profile']])</section></div>@endforeach
+        </section>
+    @endforeach
+@else
 @foreach($pages as $page)
     @if(($pdfExport ?? false) && !$loop->first)<pagebreak />@endif
-    <section class="report-page" @if($pdfExport ?? false) style="page-break-after:auto" @endif>
-    @if($type === 'cover')
+    <section class="report-page {{ $type === 'profile' ? 'profile-page' : '' }}" @if($pdfExport ?? false) style="page-break-after:auto;{{ $type === 'profile' ? 'width:259mm' : '' }}" @endif>
+    @if($type === 'profile')
+        @include('g9-national-exams.personal-profile',['profile'=>$page['profile']])
+    @elseif($type === 'cover')
         <div class="report-cover">
-            <div class="cover-motto">ព្រះរាជាណាចក្រកម្ពុជា<br>ជាតិ សាសនា ព្រះមហាក្សត្រ<br>──── ◇ ────</div>
+            <div class="cover-motto">ព្រះរាជាណាចក្រកម្ពុជា<br>ជាតិ សាសនា ព្រះមហាក្សត្រ<br><span class="motto-ornament">5</span></div>
             <div class="cover-department">{{ $page['department'] }}<br>មណ្ឌលប្រឡង៖ {{ $page['center'] }}</div>
             <div class="cover-title">បញ្ជីស្រង់វត្តមានសិស្ស</div>
             <div class="cover-subtitle">ប្រឡងសញ្ញាបត្រមធ្យមសិក្សាបឋមភូមិ</div>
-            <div class="cover-room">បន្ទប់លេខ៖ <span class="cover-number">{{ $page['room'] ?: '—' }}</span></div>
+            <div class="cover-room">បន្ទប់លេខ៖ <span class="cover-number">{{ \App\Support\G9CandidateReport::roomHeading((string)$page['room']) ?: '—' }}</span></div>
             <div class="cover-bottom">សម័យប្រឡង៖ <span class="cover-number">{{ $page['examDate'] }}</span><br>ចំនួន {{ $page['total'] }} នាក់<br>ស្រី {{ $page['female'] }} នាក់</div>
         </div>
     @else
-        <div class="report-motto">ព្រះរាជាណាចក្រកម្ពុជា<br>ជាតិ សាសនា ព្រះមហាក្សត្រ</div><div class="report-ornament">──── ◇ ────</div>
-        <table class="report-header"><tr><td class="heading-left {{ $type === 'candidates' ? 'candidate-heading-left' : '' }}">{{ $type === 'candidates' ? \App\Support\G9CandidateReport::locationHeading($page['location']) : $page['location'] }}<br>មណ្ឌលប្រឡង៖ {{ $page['center'] }}<br>បន្ទប់លេខ៖ {{ $type === 'candidates' ? \App\Support\G9CandidateReport::roomHeading((string)$page['room']) ?: '—' : ($page['room'] ?: '—') }}</td><td class="heading-right {{ $type === 'candidates' ? 'candidate-heading-right' : '' }}">{{ $type === 'candidates' ? 'សម្រាប់បិទផ្សាយ' : ($type === 'attendance-1' ? 'សន្លឹកទី១' : 'សន្លឹកទី២') }}<br>{{ $type === 'candidates' ? '' : 'បញ្ជីស្រង់វត្តមានបេក្ខជនប្រឡង' }}</td></tr></table>
+        <div class="report-motto">ព្រះរាជាណាចក្រកម្ពុជា<br>ជាតិ សាសនា ព្រះមហាក្សត្រ</div><div class="report-ornament motto-ornament {{ in_array($type,['candidates','attendance-1','attendance-2']) ? 'candidate-motto-ornament' : '' }}">5</div>
+        <table class="report-header {{ in_array($type,['attendance-1','attendance-2']) ? 'attendance-one-header' : '' }}"><tr>
+            <td class="heading-left {{ in_array($type,['candidates','attendance-1','attendance-2']) ? 'candidate-heading-left' : '' }}">{{ $type === 'candidates' ? \App\Support\G9CandidateReport::locationHeading($page['location']) : $page['location'] }}<br>មណ្ឌលប្រឡង៖ {{ $page['center'] }}<br>បន្ទប់លេខ៖ {{ in_array($type,['candidates','attendance-1','attendance-2']) ? (\App\Support\G9CandidateReport::roomHeading((string)$page['room']) ?: '—') : ($page['room'] ?: '—') }}</td>
+            <td class="heading-right {{ $type === 'candidates' ? 'candidate-heading-right' : '' }}" @if(in_array($type,['attendance-1','attendance-2'])) style="text-align:center;font-family:g9heading;font-weight:400;width:40%" @endif>{{ $type === 'candidates' ? 'សម្រាប់បិទផ្សាយ' : ($type === 'attendance-1' ? 'សន្លឹកទី១' : 'សន្លឹកទី២') }}<br>{{ $type === 'candidates' ? '' : 'បញ្ជីសម្រាប់ស្រង់វត្តមានបេក្ខជន' }}</td>
+        </tr></table>
         <div class="report-title">បញ្ជីរាយនាមបេក្ខជនប្រឡងសញ្ញាបត្រមធ្យមសិក្សាបឋមភូមិ</div>
         <div class="report-exam-date">សម័យប្រឡង៖ {{ $page['examDate'] }}</div>
         @php($subjects = \App\Support\G9CandidateReport::SUBJECTS[$type] ?? [])
@@ -42,6 +64,7 @@
     @endif
     </section>
 @endforeach
+@endif
 @unless($pdfExport ?? false)
 <script>
 const fitSchools=()=>document.querySelectorAll('[data-fit-school]').forEach(text=>{

@@ -9,7 +9,8 @@ if (root) {
     const sections = new Map();
     const centers = root.querySelector('[data-g9-report-centers]');
     const centerSettings = () => [...centers.querySelectorAll('tr[data-center]')].map(row => ({exam_center: row.dataset.center,
-        ...Object.fromEntries([...row.querySelectorAll('input')].map(input => [input.dataset.centerField, input.value.trim()]))}));
+        ...Object.fromEntries([...row.querySelectorAll('input[data-center-field]')].map(input => [input.dataset.centerField, input.value.trim()])),
+        ...(row.signatureChanged ? {photo_signature: row.signatureValue || null} : {})}));
     let version = 0, dirty = false, busy = false, loading = false, lastYear = year.value;
     [...year.options].forEach(option => option.dataset.en = option.textContent);
     const combo = setupStaffLocationSelect(root, year, {labelId: 'g9SettingYearLabel', optionsId: 'g9SettingYearOptions', locationLabel: 'Academic Year'});
@@ -53,8 +54,40 @@ if (root) {
                 input.value = center[key] || ''; input.maxLength = key === 'department' ? 255 : 150; input.disabled = !data.can_manage;
                 input.setAttribute('aria-label', `${label} - ${center.exam_center}`); row.insertCell().append(input);
             });
+            const cell = row.insertCell(), preview = document.createElement('img'), file = document.createElement('input'), remove = document.createElement('button');
+            const dropzone = document.createElement('button'), icon = document.createElement('i'), uploadTitle = document.createElement('strong'), uploadHint = document.createElement('span');
+            dropzone.type = 'button'; dropzone.className = 'g9-signature-dropzone'; dropzone.disabled = !data.can_manage;
+            dropzone.setAttribute('aria-label', `Upload signature for ${center.exam_center}`);
+            icon.className = 'ti ti-cloud-upload'; icon.setAttribute('aria-hidden','true');
+            uploadTitle.textContent = 'Drop signature here'; uploadHint.textContent = 'or click to browse · PNG / JPG · Max 2 MB';
+            dropzone.append(icon,uploadTitle,uploadHint);
+            preview.style.cssText = 'display:block;max-width:140px;max-height:65px;margin-bottom:8px'; preview.alt = 'Exam center signature'; preview.hidden = !center.photo_signature;
+            if (center.photo_signature) preview.src = center.photo_signature;
+            file.type = 'file'; file.accept = '.png,.jpg,.jpeg'; file.hidden = true; file.disabled = !data.can_manage;
+            file.setAttribute('aria-label', `Photo signature - ${center.exam_center}`);
+            let uploadVersion = 0;
+            const readSignature = selected => {
+                if (!selected || !data.can_manage || busy) return;
+                if (!['image/png','image/jpeg'].includes(selected.type) || selected.size > 2 * 1024 * 1024) {message.textContent = 'Choose a PNG or JPG signature up to 2 MB.'; file.value = ''; return;}
+                const selectedYear = year.value, currentUpload = ++uploadVersion;
+                const reader = new FileReader(); reader.onload = () => {if (!row.isConnected || year.value !== selectedYear || currentUpload !== uploadVersion) return; row.signatureValue = reader.result; row.signatureChanged = true; preview.src = reader.result; preview.hidden = false; uploadTitle.textContent = selected.name; changed();};
+                reader.onerror = () => {message.textContent = 'Signature image could not be read.';}; reader.readAsDataURL(selected);
+            };
+            file.addEventListener('change', () => readSignature(file.files[0]));
+            dropzone.addEventListener('click', () => {if (!busy) file.click();});
+            dropzone.addEventListener('dragover', event => {event.preventDefault(); if (data.can_manage && !busy) {event.dataTransfer.dropEffect = 'copy'; dropzone.classList.add('is-dragging');}});
+            dropzone.addEventListener('dragleave', event => {if (!dropzone.contains(event.relatedTarget)) dropzone.classList.remove('is-dragging');});
+            dropzone.addEventListener('drop', event => {
+                event.preventDefault(); dropzone.classList.remove('is-dragging');
+                if (!data.can_manage || busy) return;
+                if (event.dataTransfer.files.length !== 1) {message.textContent = 'Drop one signature image per exam center.'; return;}
+                readSignature(event.dataTransfer.files[0]);
+            });
+            remove.type = 'button'; remove.className = 'btn btn-sm btn-outline-danger mt-2'; remove.textContent = 'Remove Signature'; remove.disabled = !data.can_manage;
+            remove.addEventListener('click', () => {if (busy) return; uploadVersion++; row.signatureValue = null; row.signatureChanged = true; preview.removeAttribute('src'); preview.hidden = true; file.value = ''; uploadTitle.textContent = 'Drop signature here'; changed();});
+            cell.append(preview,dropzone,file,remove);
         });
-        if (!centers.children.length) {const cell = centers.insertRow().insertCell(); cell.colSpan = 4; cell.className = 'text-center text-secondary'; cell.textContent = 'Import candidates to configure their exam centers.';}
+        if (!centers.children.length) {const cell = centers.insertRow().insertCell(); cell.colSpan = 5; cell.className = 'text-center text-secondary'; cell.textContent = 'Import candidates to configure their exam centers.';}
         sections.forEach(({section, picker}, key) => {
             picker.setValue(data.dates[key].date);
             section.querySelector('[data-setting-solar]').value = data.dates[key].solar;

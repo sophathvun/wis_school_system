@@ -162,15 +162,9 @@ function initCandidates(root, filters, combos, syncFilters) {
         empty('Loading candidates...');
         try {
             if (options) {
-                // Narrow options in sequence; downstream selections never constrain upstream choices.
-                const query = params(); ['exam_center','room','seat','student','search'].forEach(name => query.delete(name));
-                const centers = await api('/candidates/options?' + query); if (current !== requestId) return; fill('exam_center', centers.exam_center);
-                if (filters.elements.exam_center.value) query.set('exam_center', filters.elements.exam_center.value);
-                const rooms = await api('/candidates/options?' + query); if (current !== requestId) return; fill('room', rooms.room);
-                if (filters.elements.room.value) query.set('room', filters.elements.room.value);
-                const seats = await api('/candidates/options?' + query); if (current !== requestId) return; fill('seat', seats.seat);
-                if (filters.elements.seat.value) query.set('seat', filters.elements.seat.value);
-                const students = await api('/candidates/options?' + query); if (current !== requestId) return; fill('student', students.student); syncFilters();
+                const query = params(); query.set('cascade', '1'); query.delete('student'); query.delete('search');
+                const choices = await api('/candidates/options?' + query); if (current !== requestId) return;
+                ['exam_center','room','seat','student'].forEach(name => fill(name, choices[name])); syncFilters();
             }
             const query = params(); query.set('page', page); query.set('per_page', document.getElementById('g9-per-page').value);
             const result = await api('/candidates/list?' + query); if (current !== requestId) return;
@@ -228,6 +222,37 @@ function initCandidates(root, filters, combos, syncFilters) {
         editorCombos.set(select, setupStaffLocationSelect(editor, select, {labelId: select.id + 'Label', optionsId: select.id + 'Options', locationLabel: select.parentElement.querySelector('label').textContent}));
     });
     editor.querySelectorAll('input[type=date]').forEach(input => {const label = input.parentElement.querySelector('label'); const picker = enhanceSubjectTemporal(input, {onChange: syncEditor}); picker.element.querySelector('.date-picker-popup').classList.add('g9-calendar-popup'); label.htmlFor = picker.input.id; dates.set(input.name, picker);});
+    let linkRequest = 0, linkLoading = false;
+    const loadStudentLinks = async (selected = '', readonly = false) => {
+        const current = ++linkRequest, select = editor.elements.sis_student_id, combo = editorCombos.get(select);
+        select.replaceChildren(new Option('Automatic match by exact Student ID', ''));
+        if (readonly) {
+            if (selected) select.add(new Option('Linked Student Info record', String(selected)));
+            select.value = String(selected || ''); select.disabled = true; combo.toggle.disabled = true;
+            [...select.options].forEach(option => option.dataset.en = option.textContent); combo.sync(); return;
+        }
+        const year = editor.elements.academic_year_id.value, campus = editor.elements.campus_id.value;
+        select.disabled = true; combo.toggle.disabled = true; save.disabled = true; linkLoading = true;
+        let failed = false;
+        try {
+            if (year && campus) {
+                const choices = await api('/candidates/student-links?' + new URLSearchParams({academic_year_id: year, campus_id: campus}));
+                if (current !== linkRequest) return;
+                choices.forEach(student => select.add(new Option(student.label, student.id)));
+            }
+            if (selected && ![...select.options].some(option => option.value === String(selected))) select.add(new Option('Previously linked record - select another student or automatic matching', String(selected)));
+            select.value = String(selected || '');
+        } catch (failure) {
+            failed = true;
+            if (current === linkRequest) {editorError.textContent = failure.message; editorError.hidden = false;}
+        } finally {
+            if (current === linkRequest) {
+                linkLoading = failed; select.disabled = failed; combo.toggle.disabled = failed; save.disabled = failed;
+                [...select.options].forEach(option => option.dataset.en = option.textContent); syncEditor();
+            }
+        }
+    };
+    ['academic_year_id','campus_id'].forEach(name => editor.elements[name].addEventListener('change', () => {if (!busy) loadStudentLinks();}));
     async function open(id = null, readonly = false) {
         if (busy) return;
         busy = true;
@@ -246,6 +271,7 @@ function initCandidates(root, filters, combos, syncFilters) {
                 input.value = value ?? '';
             });
             dates.forEach((picker, name) => {picker.setValue(values[name] || ''); picker.input.disabled = readonly;});
+            await loadStudentLinks(values.sis_student_id || '', readonly);
             const allowed = JSON.parse(root.dataset[id ? 'editCampuses' : 'createCampuses']);
             [...editor.elements.campus_id.options].forEach(option => option.disabled = Boolean(option.value) && !allowed.includes(Number(option.value)) && !readonly);
             editorCombos.forEach((combo, select) => combo.toggle.disabled = select.disabled);
@@ -257,7 +283,7 @@ function initCandidates(root, filters, combos, syncFilters) {
     modal.addEventListener('hide.bs.modal', () => {dates.forEach(picker => picker.close()); editorCombos.forEach(combo => combo.close());});
     editor.addEventListener('input', syncEditor); editor.addEventListener('change', syncEditor);
     editor.addEventListener('submit', async event => {
-        event.preventDefault(); if (busy || ![...dates.values()].every(picker => picker.valid())) return;
+        event.preventDefault(); if (busy || linkLoading || ![...dates.values()].every(picker => picker.valid())) return;
         const invalid = [...editor.elements].find(input => input.willValidate && !input.checkValidity());
         if (invalid) {
             if (editorCombos.has(invalid)) {editorCombos.get(invalid).toggle.focus(); editorError.textContent = 'Select ' + invalid.parentElement.querySelector('label').textContent.replace(' *', '') + '.'; editorError.hidden = false;}

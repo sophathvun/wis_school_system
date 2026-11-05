@@ -19,7 +19,8 @@
             <section class="card mb-3">
                 <div class="card-header g9-header"><h3 class="card-title">Exam Center Report Settings</h3></div>
                 <div class="card-body"><p class="text-secondary mb-0">Set the city/province and education department for each exam center. Example: ខេត្តព្រះសីហនុ. Candidate and attendance reports use these headings and the Candidate List Issue Date below. The exam date comes from candidate records. Locations left blank appear blank on reports.</p></div>
-                <div class="table-responsive"><table class="table table-vcenter mb-0"><thead><tr><th>Exam Center</th><th>City / Province</th><th>Education Department</th><th>Signer Title</th></tr></thead><tbody data-g9-report-centers></tbody></table></div>
+                <div class="table-responsive"><table class="table table-vcenter mb-0"><thead><tr><th>Exam Center</th><th>City / Province</th><th>Education Department</th><th>Signer Title</th><th>Signature on Student Photo</th></tr></thead><tbody data-g9-report-centers></tbody></table></div>
+                <div class="card-body form-hint">Upload a transparent PNG signature for each exam center (JPG also accepted, up to 2 MB). It appears across the photo in Student Personal Profile. Profiles use Student Card Issue Date below. Click Save Dates to save signatures.</div>
             </section>
             <div class="g9-date-settings-grid">
                 @foreach($sections as $key=>$section)

@@ -41,8 +41,24 @@
                     @if($canExport)
                         @foreach(['print'=>['Print','ti-printer'],'excel'=>['Excel','ti-file-spreadsheet'],'pdf'=>['PDF','ti-file-type-pdf']] as $format=>[$label,$icon])
                             <div class="dropdown"><button type="button" class="btn btn-outline-light dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"><i class="ti {{ $icon }} me-1"></i>{{ $label }}</button>
-                                <div class="dropdown-menu dropdown-menu-end g9-report-menu">
-                                    @foreach(\App\Support\G9CandidateReport::TITLES as $report=>$title)<button type="button" class="dropdown-item" data-g9-report="{{ $report }}" data-format="{{ $format }}"><i class="ti {{ $report === 'cover' ? 'ti-book' : 'ti-file-text' }} me-2"></i>{{ $title }}</button>@endforeach
+                                <div class="dropdown-menu dropdown-menu-end g9-report-menu" aria-label="{{ $label }} reports">
+                                    <div class="g9-report-menu-heading"><span class="g9-report-format"><i class="ti {{ $icon }}" aria-hidden="true"></i>{{ $label }}</span><span>Choose a report</span></div>
+                                    @foreach(\App\Support\G9CandidateReport::TITLES as $report=>$title)
+                                        @continue($report === 'profile' && $format === 'excel')
+                                        @php([$reportIcon,$description] = match($report) {
+                                            'cover'=>['ti-book-2','Room attendance cover'],
+                                            'attendance-1'=>['ti-clipboard-list','Subject attendance · Page 1'],
+                                            'attendance-2'=>['ti-clipboard-check','Subject attendance · Page 2'],
+                                            'profile'=>['ti-id','Student card · 2 per A4 sheet'],
+                                            default=>['ti-users','Candidates by exam center and room'],
+                                        })
+                                        <button type="button" class="dropdown-item g9-report-option" data-g9-report="{{ $report }}" data-format="{{ $format }}">
+                                            <span class="g9-report-option-icon"><i class="ti {{ $reportIcon }}" aria-hidden="true"></i></span>
+                                            <span class="g9-report-option-text"><span class="g9-report-option-title">{{ $title }}</span><small>{{ $description }}</small></span>
+                                            <i class="ti ti-chevron-right g9-report-option-arrow" aria-hidden="true"></i>
+                                        </button>
+                                    @endforeach
+                                    <div class="g9-report-menu-footer"><i class="ti ti-filter" aria-hidden="true"></i>Uses your selected filters</div>
                                 </div>
                             </div>
                         @endforeach
@@ -106,6 +122,10 @@
                             @endforeach
                         </div></fieldset>
                     @endforeach
+                    <fieldset class="g9-editor-section"><legend>Student Info Address Link</legend>
+                        <div class="premium-form-field staff-form-field"><label class="form-label" for="g9StudentInfoLink">Student Info Record</label><select class="form-select" name="sis_student_id" id="g9StudentInfoLink"><option value="">Automatic match by exact Student ID</option></select></div>
+                        <p class="form-hint mt-2">The card reads the latest Khmer address from Student Info. Select a student here only if their SIS and MoEYS IDs differ. Only students enrolled in this year and campus are listed; ambiguous or unmatched automatic links stay blank.</p>
+                    </fieldset>
                     <fieldset class="g9-editor-section"><legend>Student Photo</legend><label class="form-label" for="g9StudentPhoto">Student Photo</label><input type="file" id="g9StudentPhoto" name="photo" class="form-control" accept="image/jpeg,image/png,image/webp"><p class="form-hint mt-2">JPG, PNG or WebP, up to 5 MB. Optimized to WebP while preserving the photo ratio and organized by academic year.</p></fieldset>
                 </div>
                 <div class="modal-footer"><button type="button" class="btn" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary" data-g9-save>Save Candidate</button></div>

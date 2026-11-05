@@ -36,8 +36,20 @@
 @container(max-width:620px){.g9-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @container(max-width:400px){.g9-summary-grid{grid-template-columns:minmax(0,1fr)}}
 .g9-candidate-list th{white-space:nowrap}
-.g9-report-menu{min-width:255px;padding:.5rem;border-radius:14px;box-shadow:0 12px 35px #0002}
-.g9-report-menu .dropdown-item{padding:.75rem;border-radius:9px;font-size:.85rem}
+.g9-report-menu{width:360px;min-width:0;max-width:calc(100vw - 24px);padding:.6rem;border:1px solid var(--tblr-border-color);border-radius:18px;background:var(--tblr-bg-surface);box-shadow:0 16px 48px rgba(20,35,65,.18);max-height:min(600px,80dvh);overflow-y:auto}
+.g9-report-menu-heading{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.45rem .5rem .85rem;border-bottom:1px solid var(--tblr-border-color);margin-bottom:.4rem;font-size:.72rem;color:var(--tblr-secondary-color)}
+.g9-report-format{display:inline-flex;align-items:center;gap:.4rem;font-size:.8rem;font-weight:600;color:var(--tblr-primary);background:var(--tblr-primary-lt);border-radius:8px;padding:.35rem .6rem}
+.g9-report-menu .g9-report-option{display:flex;align-items:center;gap:.8rem;width:100%;padding:.8rem .6rem;margin:.15rem 0;border-radius:12px;white-space:normal;color:var(--tblr-body-color);transition:background-color .15s,color .15s}
+.g9-report-option-icon{display:flex;align-items:center;justify-content:center;flex:0 0 42px;width:42px;height:44px;border-radius:12px;background:var(--tblr-primary-lt);color:var(--tblr-primary);font-size:1.3rem}
+.g9-report-option-text{display:flex;flex-direction:column;gap:.35rem;min-width:0;flex:1}
+.g9-report-option-title{font-size:.9rem;line-height:1.6;font-weight:500}
+.g9-report-option-text small{font-size:.68rem;line-height:1.4;color:var(--tblr-secondary-color)}
+.g9-report-option-arrow{font-size:.85rem;color:var(--tblr-secondary-color);opacity:.6}
+.g9-report-menu .g9-report-option:hover,.g9-report-menu .g9-report-option:focus-visible{background:var(--tblr-primary-lt);color:var(--tblr-body-color)}
+.g9-report-menu .g9-report-option:focus-visible{outline:2px solid var(--tblr-primary);outline-offset:-2px}
+.g9-report-option:hover .g9-report-option-arrow{opacity:1;color:var(--tblr-primary)}
+.g9-report-menu-footer{display:flex;align-items:center;gap:.4rem;border-top:1px solid var(--tblr-border-color);margin-top:.4rem;padding:.8rem .5rem .25rem;font-size:.68rem;color:var(--tblr-secondary-color)}
+[data-bs-theme="dark"] .g9-report-menu{box-shadow:0 16px 48px rgba(0,0,0,.4)}
 [data-g9-report-centers] td:first-child{min-width:200px}
 [data-g9-report-centers] .form-control{min-width:180px}
 .g9-number-badge{font-size:1rem;font-weight:600;min-width:2.2rem;padding:.45rem .6rem;font-variant-numeric:tabular-nums}
@@ -92,4 +104,11 @@
 [data-g9-settings] .date-picker-calendar-button{position:absolute;right:.5rem;top:50%;transform:translateY(-50%);width:30px;min-height:30px;padding:0;justify-content:center;border:0}
 [data-g9-settings] .date-picker .form-control{padding-right:2.75rem}
 [data-setting-message]{white-space:pre-line}
+.g9-signature-dropzone{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.4rem;width:100%;min-width:220px;min-height:120px;padding:1rem;border:2px dashed var(--tblr-border-color);border-radius:12px;background:var(--tblr-bg-surface-secondary);color:var(--tblr-body-color);text-align:center;cursor:pointer;transition:border-color .15s,background-color .15s}
+.g9-signature-dropzone i{font-size:1.7rem;color:var(--tblr-primary)}
+.g9-signature-dropzone strong{font-size:.85rem;max-width:240px;overflow-wrap:anywhere}
+.g9-signature-dropzone span{font-size:.7rem;color:var(--tblr-secondary-color)}
+.g9-signature-dropzone:hover:not(:disabled),.g9-signature-dropzone.is-dragging{border-color:var(--tblr-primary);background:var(--tblr-primary-lt)}
+.g9-signature-dropzone:focus-visible{outline:3px solid var(--tblr-primary);outline-offset:3px}
+.g9-signature-dropzone:disabled{opacity:.6;cursor:default}
 @media(max-width:767.98px){.g9-date-settings-grid{grid-template-columns:1fr}}

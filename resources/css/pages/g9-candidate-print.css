@@ -5,12 +5,16 @@ body{font-family:g9body,sans-serif;font-size:10pt;color:#000;background:#fff;mar
 .report-page:last-child{page-break-after:auto}
 .report-motto{text-align:center;font-family:g9heading,g9body,sans-serif;font-size:12pt;line-height:1.8}
 .report-ornament{text-align:center;margin:1mm 0 2mm}
+.motto-ornament{font-family:g9ornament;font-size:32pt;font-weight:400;line-height:1}
+.candidate-motto-ornament{margin-top:-1mm}
 .report-header{width:100%;border-collapse:collapse;margin-bottom:2mm}
 .report-header td{border:0;padding:0;vertical-align:top}
 .report-header .heading-left{width:72%;text-align:left}
 .report-header .candidate-heading-left{font-family:g9heading,g9body,sans-serif;font-weight:400;font-size:10pt;line-height:1.8}
 .report-header .heading-right{text-align:right;width:28%;font-size:9pt}
 .report-header .candidate-heading-right{font-family:g9heading,g9body,sans-serif;font-weight:400;font-size:11pt;padding-right:8mm}
+.attendance-one-header .heading-left{width:60%}
+.attendance-one-header .heading-right{width:40%;font-family:g9heading,g9body,sans-serif;font-weight:400;text-align:center;font-size:9pt;line-height:1.8}
 .report-title{text-align:center;font-family:g9heading,g9body,sans-serif;font-size:11pt;margin:1mm 0}
 .report-exam-date{text-align:center;font-family:g9heading,g9body,sans-serif;font-size:11pt;margin-bottom:3mm}
 .report-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:10pt}
@@ -29,12 +33,40 @@ body{font-family:g9body,sans-serif;font-size:10pt;color:#000;background:#fff;mar
 .report-footer .signature{text-align:center}
 .report-signer{font-family:g9heading,g9body,sans-serif;font-size:11pt}
 .report-cover{border:1mm solid #172b4d;height:276mm;padding:7mm;color:#20385d}
-.cover-motto{text-align:right;font-family:g9heading,g9body,sans-serif;font-size:14pt;line-height:1.8}
+.cover-motto{width:60%;margin-left:40%;text-align:center;font-family:g9heading,g9body,sans-serif;font-size:14pt;line-height:1.8}
 .cover-department{margin-top:8mm;font-family:g9heading,g9body,sans-serif;font-size:12pt;line-height:1.9}
 .cover-title{text-align:center;font-family:g9heading,g9body,sans-serif;font-size:27pt;margin-top:25mm}
 .cover-subtitle{text-align:center;font-family:g9heading,g9body,sans-serif;font-size:17pt;margin-top:20mm}
 .cover-room{text-align:center;font-family:g9heading,g9body,sans-serif;font-size:24pt;margin-top:23mm}
 .cover-number{color:#dc2626}
 .cover-bottom{text-align:center;font-size:18pt;margin-top:28mm;line-height:2}
+.profile-page{position:relative;width:259mm;color:#164e79;font-size:13.4143pt;isolation:isolate}
+.profile-background{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:.15;z-index:-1;pointer-events:none}
+.profile-background img{width:227mm;height:140mm;max-width:100%;object-fit:contain}
+.profile-title{text-align:center;font-family:g9heading;font-size:21.4143pt;margin:4mm 0 0}
+.profile-ornament{text-align:center;margin:0 0 5mm}
+.profile-layout,.profile-details,.profile-examination,.profile-bottom{width:100%;border-collapse:collapse}
+.profile-layout td,.profile-details td,.profile-examination td,.profile-bottom td{border:0;vertical-align:top}
+.profile-information{width:78%;padding-right:6mm}
+.profile-details{table-layout:fixed}
+.profile-details td{padding:1.5mm 1mm;color:#151515;font-size:13.4143pt;line-height:1.45}
+.profile-details .profile-label{color:#3c7fad;white-space:nowrap}
+.profile-label{color:#3c7fad}
+.profile-field-gap{display:inline-block;width:7mm}
+.profile-details .profile-name{font-family:g9heading;color:#b91c1c;font-size:17.4143pt}
+.profile-red,.profile-details .profile-red{color:#b91c1c}
+.profile-photo-column{width:22%;text-align:center;padding-top:2mm}
+.profile-photo{width:42mm;height:56mm;object-fit:cover}
+.profile-photo-placeholder{width:42mm;height:56mm;border:.2mm solid #aaa;padding-top:22mm;text-align:center;margin:0 auto}
+.profile-photo-frame{position:relative;width:42mm;margin:0 auto}
+.profile-signature-overlay{position:absolute;left:-12mm;bottom:-5mm;text-align:center}
+.profile-signature-overlay img{width:58mm;height:22mm;object-fit:contain}
+.profile-section-label{margin:3mm 0;color:#3c7fad}
+.profile-address-value{color:#151515;overflow-wrap:anywhere}
+.profile-examination td{width:50%;padding:1.5mm 0;font-size:13.4143pt;line-height:1.6}
+.profile-bottom{margin-top:4mm}
+.profile-bottom td{width:50%;font-size:12.4143pt;line-height:1.8}
+.profile-phone{color:#16a34a;padding-top:10mm}
+.profile-dates{text-align:center;color:#3c7fad}
 @media screen{body{background:#e8ecf2;padding:16px}.report-page{background:#fff;padding:8mm;width:210mm;min-height:297mm;margin-bottom:16px;box-shadow:0 2px 12px #0002}}
 @media print{.report-page{margin:0}}

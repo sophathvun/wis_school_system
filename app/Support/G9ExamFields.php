@@ -39,6 +39,7 @@ class G9ExamFields
             'exam_date'=>['nullable','date_format:Y-m-d'],
             'version'=>['nullable','integer','min:1'],
             'photo'=>['nullable','image','mimes:jpg,jpeg,png,webp','max:5120'],
+            'sis_student_id'=>['nullable','integer','exists:tb_student,id'],
         ]);
     }
 }

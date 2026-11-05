@@ -9,10 +9,10 @@ use ZipArchive;
 
 class G9CandidateReport
 {
-    public const TITLES=['candidates'=>'បញ្ជីបេក្ខជនប្រឡង','cover'=>'គម្របបញ្ជីវត្តមាន','attendance-1'=>'បញ្ជីវត្តមាន ទំព័រ១','attendance-2'=>'បញ្ជីវត្តមាន ទំព័រ២'];
+    public const TITLES=['candidates'=>'បញ្ជីបេក្ខជនប្រឡង','cover'=>'គម្របបញ្ជីវត្តមាន','attendance-1'=>'បញ្ជីវត្តមាន ទំព័រ១','attendance-2'=>'បញ្ជីវត្តមាន ទំព័រ២','profile'=>'សលាកបត្រឯកត្តជន'];
     public const SUBJECTS=[
-        'attendance-1'=>['តែងសេចក្តី','គីមី','ផែនដី','រូប','ភូមិ','សីល-ពល'],
-        'attendance-2'=>['គណិត','សរសេរតាមអាន','ជីវ','ប្រវត្តិ','ភាសា','ផ្សេងៗ'],
+        'attendance-1'=>['តសក្តី','គីមី','ផែនដី','រូប','ភូមិ','សីល-ពល'],
+        'attendance-2'=>['គណិត','សតអាន','ជីវ','ប្រវត្តិ','ភាសា','ផ្សេងៗ'],
     ];
     public static function digits(string|int $value): string {return strtr((string)$value,array_combine(range(0,9),mb_str_split('០១២៣៤៥៦៧៨៩')));}
     public static function locationHeading(string $location): string
@@ -34,6 +34,7 @@ class G9CandidateReport
     }
     public function pages($records,array $settings,string $type): array
     {
+        if($type==='profile')return $this->profilePages($records,$settings);
         $pages=[];$centers=collect($settings['report_centers']??[])->keyBy('exam_center');
         foreach($records->groupBy(fn($r)=>json_encode([$r->data['exam_center']??'',$r->data['room_number']??'',$r->data['exam_date']??''])) as $group){
             $group=$group->sort(function($a,$b){return strnatcasecmp((string)($a->data['seat_number']??''),(string)($b->data['seat_number']??''))?:strcmp($a->name_kh??$a->name_en,$b->name_kh??$b->name_en)?:($a->id<=>$b->id);})->values();
@@ -48,6 +49,11 @@ class G9CandidateReport
             $base=['center'=>$center?:'មិនបានបញ្ជាក់','room'=>$first->data['room_number']??'','examDate'=>self::khmerDate($first->data['exam_date']??null),
                 'location'=>$location,'department'=>$config['department']??'','signer'=>$config['signer']??'ប្រធានមណ្ឌល',
                 'solar'=>$solar,'lunar'=>$settings['k_listdate']??'','type'=>$type];
+            if(in_array($type,['attendance-1','attendance-2'],true)){
+                $space=str_repeat("\u{00A0}",8);
+                $base['lunar']='ថ្ងៃ'.str_repeat("\u{00A0}",18).'ខែ'.str_repeat("\u{00A0}",14).'ឆ្នាំ'.str_repeat("\u{00A0}",22).'ព.ស.២៥';
+                $base['solar']=$location.' ថ្ងៃទី'.$space.'ខែ'.$space.'ឆ្នាំ២០';
+            }
             foreach(($type==='cover'?collect([$group]):$group->chunk(25)) as $chunk){
                 $rows=$chunk->map(function($r){$d=$r->data;return ['seat'=>(string)($d['seat_number']??''),'name'=>$r->name_kh?:$r->name_en,
                     'gender'=>['male'=>'ប្រុស','female'=>'ស្រី','m'=>'ប្រុស','f'=>'ស្រី'][mb_strtolower($d['gender']??'')]??($d['gender']??''),
@@ -60,26 +66,89 @@ class G9CandidateReport
         }
         return $pages;
     }
+    private function photoData(?string $relative): ?string
+    {
+        if(!$relative)return null;
+        $disk=\Illuminate\Support\Facades\Storage::disk('public');
+        $root=realpath($disk->path(''));$path=realpath($disk->path($relative));
+        if(!$root||!$path||!str_starts_with(strtolower($path),strtolower($root.DIRECTORY_SEPARATOR))||!is_file($path))return null;
+        $mime=mime_content_type($path);if(!in_array($mime,['image/png','image/jpeg','image/webp'],true))return null;
+        return 'data:'.$mime.';base64,'.base64_encode(file_get_contents($path));
+    }
+    public function profilePages($records,array $settings): array
+    {
+        $centers=collect($settings['report_centers']??[])->keyBy('exam_center');$pages=[];
+        $background=app(ScholarshipExport::class)->reportLogo(2);
+        $addresses=app(\App\Services\G9StudentAddress::class)->forCandidates($records);
+        foreach($records as $record){
+            $d=$record->data;$config=$centers->get(trim((string)($d['exam_center']??'')),[]);$location=$config['location']??$settings['date_location']??'';
+            $solar=$settings['cardDate']??'';
+            if(!empty($settings['cardDate_iso'])){
+                $parts=explode(' ',self::khmerDate($settings['cardDate_iso']));$solar=$location.' ថ្ងៃទី'.$parts[0].' ខែ'.$parts[1].' ឆ្នាំ'.$parts[2];
+            }elseif($location&&($settings['date_location']??'')&&str_starts_with($solar,$settings['date_location']))$solar=$location.mb_substr($solar,mb_strlen($settings['date_location']));
+            $pages[]=['profile'=>['id'=>$record->student_code,'name'=>$record->name_kh?:$record->name_en,'data'=>$d,
+                'gender'=>['male'=>'ប្រុស','female'=>'ស្រី','m'=>'ប្រុស','f'=>'ស្រី'][mb_strtolower($d['gender']??'')]??($d['gender']??''),
+                'dob'=>self::khmerDate($d['date_of_birth']??null),'examDate'=>self::khmerDate($d['exam_date']??null),
+                'photo'=>$this->photoData($record->photo_path),'signature'=>$config['photo_signature']??null,'background'=>$background,
+                'solar'=>$solar,'lunar'=>$settings['k_cardDate']??'','signer'=>$config['signer']??'ប្រធានមណ្ឌល','address_kh'=>$addresses[$record->id]??'']];
+        }
+        return $pages;
+    }
     public function pdf(array $data): string
     {
+        if($data['type']==='profile'&&empty($data['profileSource']))return $this->twoProfilesPerSheet($data);
         $temp=storage_path('app/private/g9-report-pdf');if(!is_dir($temp))mkdir($temp,0755,true);
-        $pdf=new Mpdf(['mode'=>'utf-8','format'=>'A4','tempDir'=>$temp,'margin_left'=>8,'margin_right'=>8,'margin_top'=>8,'margin_bottom'=>8,
+        $pdf=new Mpdf(['mode'=>'utf-8','format'=>$data['type']==='profile'?'A4-L':'A4','tempDir'=>$temp,'margin_left'=>$data['type']==='profile'?30:8,'margin_right'=>8,'margin_top'=>8,'margin_bottom'=>8,
             'fontDir'=>[...(new ConfigVariables)->getDefaults()['fontDir'],public_path('fonts/khmer')],
-            'fontdata'=>(new FontVariables)->getDefaults()['fontdata']+['g9body'=>['R'=>'KhmerOSsiemreap.ttf','useOTL'=>0xFF],'g9heading'=>['R'=>'KhmerOSmuollight.ttf','useOTL'=>0xFF]],
+            'fontdata'=>(new FontVariables)->getDefaults()['fontdata']+['g9body'=>['R'=>'KhmerOSsiemreap.ttf','useOTL'=>0xFF],'g9heading'=>['R'=>'KhmerOSmuollight.ttf','useOTL'=>0xFF],'g9ornament'=>['R'=>'Tacteing.ttf']],
             'default_font'=>'g9body','default_font_size'=>10,'shrink_tables_to_fit'=>1]);
         $pdf->SetTitle(self::TITLES[$data['type']]);
+        if($data['type']==='profile'&&!empty($data['pages'][0]['profile']['background'])){
+            $pdf->imageVars['g9ProfileBackground']=base64_decode(explode(',',$data['pages'][0]['profile']['background'],2)[1],true);
+            $pdf->SetWatermarkImage('var:g9ProfileBackground',.15,35,'F');
+            $pdf->watermarkImgBehind=true;$pdf->showWatermarkImage=true;
+        }
         $attendance=isset(self::SUBJECTS[$data['type']]);$baseSize=$attendance?8:10;
         $pdf->SetFont('g9body','',$baseSize);
         $available=194*($attendance?.17:.28)-($attendance?1.2:2);
-        foreach($data['pages'] as &$page)foreach($page['rows'] as &$row){
+        foreach($data['pages'] as &$page)foreach($page['rows']??[] as $key=>$row){
             $width=$pdf->GetStringWidth((string)$row['school']);
-            $row['school_font_size']=round(max(5.5,min($baseSize,$baseSize*$available/max(.1,$width))),2);
+            $page['rows'][$key]['school_font_size']=round(max(5.5,min($baseSize,$baseSize*$available/max(.1,$width))),2);
         }unset($page,$row);
         // mPDF reads A4 from its constructor; its CSS parser does not support "A4 portrait".
         $css=preg_replace('/@page\{[^}]*\}/','',file_get_contents(resource_path('css/pages/g9-candidate-print.css')));
         $pdf->WriteHTML($css,\Mpdf\HTMLParserMode::HEADER_CSS);
-        $pdf->WriteHTML(view('g9-national-exams.candidate-report',$data+['pdfExport'=>true])->render());
+        foreach($data['pages'] as $index=>$page){
+            if($index)$pdf->AddPage();
+            $html=view('g9-national-exams.candidate-report',['type'=>$data['type'],'pages'=>[$page],'pdfExport'=>true])->render();
+            $imageIndex=0;
+            $html=preg_replace_callback('~src="data:image/(?:png|jpeg|webp);base64,([A-Za-z0-9+/=]+)"~',function($match)use($pdf,$index,&$imageIndex){
+                $key='g9image'.$index.'_'.$imageIndex++;$pdf->imageVars[$key]=base64_decode($match[1],true);return 'src="var:'.$key.'"';
+            },$html);
+            $pdf->WriteHTML($html);
+            if($data['type']==='profile'&&!empty($page['profile']['signature'])){
+                $bytes=explode(',',$page['profile']['signature'],2)[1]??'';
+                $key='g9signature'.$index;$pdf->imageVars[$key]=base64_decode($bytes,true);
+                $pdf->WriteFixedPosHTML('<img src="var:'.$key.'" style="width:58mm;height:22mm">',222.5,79,65,24,'visible');
+            }
+        }
         return $pdf->Output('',Destination::STRING_RETURN);
+    }
+    private function twoProfilesPerSheet(array $data): string
+    {
+        // Scale complete vector pages together, preserving photo signatures and Khmer shaping.
+        $source=$this->pdf($data+['profileSource'=>true]);
+        $output=new Mpdf(['format'=>'A4','tempDir'=>storage_path('app/private/g9-report-pdf'),
+            'margin_left'=>0,'margin_right'=>0,'margin_top'=>0,'margin_bottom'=>0]);
+        $output->SetTitle(self::TITLES['profile']);
+        $count=$output->setSourceFile(\setasign\Fpdi\PdfParser\StreamReader::createByString($source));
+        for($page=1;$page<=$count;$page++){
+            if($page>1&&$page%2===1)$output->AddPage();
+            $template=$output->importPage($page);
+            $output->useTemplate($template,0,$page%2===1?0:148.5,210,148.5);
+            $output->SetDrawColor(180,180,180);$output->SetLineWidth(.15);$output->SetDash(2,2);$output->Line(5,148.5,205,148.5);$output->SetDash();
+        }
+        return $output->Output('',Destination::STRING_RETURN);
     }
     /** One worksheet per printed page keeps room groupings and A4 print areas identical. */
     public function xlsx(array $data): string
@@ -93,7 +162,7 @@ class G9CandidateReport
             $merged($page['location'],5,20);if($cover)$merged($page['department'],5,25);$merged('មណ្ឌលប្រឡង៖ '.$page['center'],5,25);
             if($cover){
                 $merged('',0,65);$merged('បញ្ជីស្រង់វត្តមានសិស្ស',2,90);$merged('ប្រឡងសញ្ញាបត្រមធ្យមសិក្សាបឋមភូមិ',1,65);
-                $merged('បន្ទប់លេខ៖ '.$page['room'],6,70);$merged('សម័យប្រឡង៖ '.$page['examDate'],7,55);
+                $merged('បន្ទប់លេខ៖ '.self::roomHeading((string)$page['room']),6,70);$merged('សម័យប្រឡង៖ '.$page['examDate'],7,55);
                 $merged('ចំនួនបេក្ខជន៖ '.$page['total'].' នាក់',1,45);$merged('ស្រី៖ '.$page['female'].' នាក់',0,35);
             }else{
                 $merged('បន្ទប់លេខ៖ '.$page['room'],5,20);$merged('បញ្ជីរាយនាមបេក្ខជនប្រឡងសញ្ញាបត្រមធ្យមសិក្សាបឋមភូមិ',1,26);
