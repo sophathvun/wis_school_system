@@ -10,7 +10,7 @@
                 <button type="button" class="btn btn-sm btn-outline-light ms-auto" data-g9-filter-toggle aria-controls="g9CandidateFilters" aria-expanded="true" aria-label="Collapse filters"><i class="ti ti-chevron-up" aria-hidden="true"></i></button>
             </div>
             <form class="card-body g9-candidate-filters" id="g9CandidateFilters" data-g9-filters>
-                @foreach(['academic_year' => 'Academic Year', 'exam_center' => 'Exam Center', 'room' => 'Room No.', 'seat' => 'Seat No.', 'student' => 'Student Name'] as $name => $label)
+                @foreach(['academic_year' => 'Academic Year', 'exam_center' => 'Exam Center', 'campus' => 'Campus', 'room' => 'Room No.', 'seat' => 'Seat No.', 'student' => 'Student Name'] as $name => $label)
                     <div class="premium-form-field staff-form-field">
                         <label class="form-label" for="g9-{{ $name }}">{{ $label }}</label>
                         <select class="form-select" id="g9-{{ $name }}" name="{{ $name }}" aria-label="{{ $label }}">
@@ -21,11 +21,6 @@
                         </select>
                     </div>
                 @endforeach
-                <div class="premium-form-field g9-search">
-                    <label class="form-label" for="g9CandidateSearch">Search</label>
-                    <input type="search" class="form-control" name="search" id="g9CandidateSearch" placeholder=" " autocomplete="off" data-search-normalized="true">
-                    <i class="ti ti-search" aria-hidden="true"></i>
-                </div>
             </form>
         </section>
         <section class="mb-3 g9-candidate-summary" data-g9-summary hidden aria-label="Candidate summary">
@@ -38,18 +33,26 @@
         <section class="card g9-candidate-list">
             <div class="card-header g9-header flex-wrap gap-2"><h3 class="card-title"><i class="ti ti-users me-2" aria-hidden="true"></i>Candidate List</h3>
                 <div class="d-flex align-items-center gap-2 ms-auto flex-wrap">
+                    <div class="g9-header-search">
+                        <label class="visually-hidden" for="g9CandidateSearch">Search candidates</label>
+                        <input type="search" class="form-control" name="search" form="g9CandidateFilters" id="g9CandidateSearch" placeholder="Search candidates…" autocomplete="off" data-search-normalized="true">
+                        <i class="ti ti-search" aria-hidden="true"></i>
+                    </div>
                     @if($canExport)
                         @foreach(['print'=>['Print','ti-printer'],'excel'=>['Excel','ti-file-spreadsheet'],'pdf'=>['PDF','ti-file-type-pdf']] as $format=>[$label,$icon])
                             <div class="dropdown"><button type="button" class="btn btn-outline-light dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"><i class="ti {{ $icon }} me-1"></i>{{ $label }}</button>
                                 <div class="dropdown-menu dropdown-menu-end g9-report-menu" aria-label="{{ $label }} reports">
                                     <div class="g9-report-menu-heading"><span class="g9-report-format"><i class="ti {{ $icon }}" aria-hidden="true"></i>{{ $label }}</span><span>Choose a report</span></div>
                                     @foreach(\App\Support\G9CandidateReport::TITLES as $report=>$title)
-                                        @continue($report === 'profile' && $format === 'excel')
+                                        @continue(in_array($report,\App\Support\G9CandidateReport::PRINT_ONLY_TYPES) && $format === 'excel')
                                         @php([$reportIcon,$description] = match($report) {
                                             'cover'=>['ti-book-2','Room attendance cover'],
                                             'attendance-1'=>['ti-clipboard-list','Subject attendance · Page 1'],
                                             'attendance-2'=>['ti-clipboard-check','Subject attendance · Page 2'],
                                             'profile'=>['ti-id','Student card · 2 per A4 sheet'],
+                                            'profile-cover'=>['ti-book-2','Student card cover by room'],
+                                            'seat-stickers'=>['ti-tags','Seat labels · 18 per A4 sheet'],
+                                            'room-seat-plan'=>['ti-layout-grid','Room seating · 25 seats per page'],
                                             default=>['ti-users','Candidates by exam center and room'],
                                         })
                                         <button type="button" class="dropdown-item g9-report-option" data-g9-report="{{ $report }}" data-format="{{ $format }}">

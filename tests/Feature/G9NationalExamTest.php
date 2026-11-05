@@ -115,6 +115,20 @@ it('does not repeat permission queries for each displayed candidate and rechecks
     expect(fn()=>$this->controller->listing(g12Request(User::find(2))))->toThrow(HttpException::class);
 });
 
+it('filters campus choices after exam center and applies campus to lists summaries and reports',function(){
+    $admin=User::find(1);$reports=app(\App\Support\G9CandidateReport::class);
+    foreach([['A',1,'1'],['A',2,'2'],['B',2,'3']] as $index=>[$center,$campus,$room])$this->controller->save(g12Request($admin,array_replace($this->input,['student_code'=>'CAMPUS'.$index,'exam_center'=>$center,'campus_id'=>$campus,'room_number'=>$room,'school_name'=>'School-'.$campus])));
+    $choices=$this->controller->options(g12Request($admin,['academic_year'=>1,'cascade'=>1,'exam_center'=>'A','campus'=>2]))->getData(true);
+    expect(array_column($choices['campus'],'id'))->toBe([1,2])->and($choices['room'])->toBe(['2'])->and($choices['student'])->toHaveCount(1);
+    $list=$this->controller->listing(g12Request($admin,['academic_year'=>1,'campus'=>1]))->getData(true);
+    expect($list['total'])->toBe(1)->and($list['summary']['total'])->toBe(1)->and($list['data'][0]['student_code'])->toBe('CAMPUS0');
+    $html=$this->controller->report(g12Request($admin,['academic_year'=>1,'campus'=>1]),'candidates','print',$reports)->getContent();
+    expect(str_contains($html,'School-1'))->toBeTrue()->and(str_contains($html,'School-2'))->toBeFalse();
+    DB::table('access_user_permission_overrides')->insert(['user_id'=>2,'permission_id'=>DB::table('access_permissions')->where('code','g9-national-exams.view')->value('id'),'allowed'=>true]);
+    $scoped=$this->controller->options(g12Request(User::find(2),['academic_year'=>1,'cascade'=>1,'exam_center'=>'A']))->getData(true);
+    expect(array_column($scoped['campus'],'id'))->toBe([1]);
+});
+
 it('optimizes G9 photos and preserves existing photos on ordinary edits',function(){
     $admin=User::find(1);$request=g12Request($admin,$this->input);
     $request->files->set('photo',UploadedFile::fake()->image('student.jpg',600,800));
@@ -397,7 +411,7 @@ it('exports the same four report layouts to print PDF and valid Excel workbooks'
     $admin=User::find(1);$report=app(\App\Support\G9CandidateReport::class);
     $this->controller->save(g12Request($admin,$this->input));
     foreach(array_keys(\App\Support\G9CandidateReport::TITLES) as $type){
-        if($type==='profile')continue;
+        if(in_array($type,\App\Support\G9CandidateReport::PRINT_ONLY_TYPES,true))continue;
         $request=g12Request($admin,['academic_year'=>1]);
         $html=$this->controller->report($request,$type,'print',$report)->getContent();
         expect(str_contains($html,'Test Center')&&str_contains($html,'g9body')&&str_contains($html,'២០២៦'))->toBeTrue()
@@ -528,4 +542,48 @@ it('allows an audited manual student link only within the selected campus and ac
     DB::table('tb_student_enrollment')->where('student_id',1)->update(['campus_id'=>2]);
     expect($reports->profilePages(G9ExamCandidate::all(),[])[0]['profile']['address_kh'])->toBe('');
     expect(DB::table('tb_g9_exam_event')->where('candidate_id',$id)->count())->toBe(1);
+});
+
+it('prints student card covers per room with seat ranges and two covers per A4 sheet',function(){
+    $admin=User::find(1);$reports=app(\App\Support\G9CandidateReport::class);
+    foreach([['A','1','7'],['A','1','1'],['A','2','2'],['B','1','3']] as $index=>[$center,$room,$seat])$this->controller->save(g12Request($admin,array_replace($this->input,['student_code'=>'COVER'.$index,'exam_center'=>$center,'room_number'=>$room,'seat_number'=>$seat])));
+    $pages=$reports->pages(G9ExamCandidate::all(),[],'profile-cover');
+    expect($pages)->toHaveCount(3)->and($pages[0])->toMatchArray(['center'=>'A','room'=>'1','seatFrom'=>'1','seatTo'=>'7','total'=>2]);
+    $html=$this->controller->report(g12Request($admin,['academic_year'=>1]),'profile-cover','print',$reports)->getContent();
+    expect(substr_count($html,'<section class="profile-sheet">'))->toBe(2)->and(str_contains($html,'សៀវភៅកម្រងសលាកបត្រឯកត្តជន'))->toBeTrue();
+    $pdf=$reports->pdf(['type'=>'profile-cover','pages'=>$pages]);expect(preg_match_all('~/Type\s*/Page\b~',$pdf))->toBe(2);
+    expect(fn()=>$this->controller->report(g12Request($admin,['academic_year'=>1]),'profile-cover','excel',$reports))->toThrow(HttpException::class);
+    $keys=array_keys(\App\Support\G9CandidateReport::TITLES);
+    expect(array_search('profile-cover',$keys))->toBe(array_search('profile',$keys)-1);
+    if(getenv('G9_REPORT_QA')){
+        $pages[0]['center']='វិ. សាលាវេស្ទើនអន្តរជាតិ សាខាខេត្តព្រះសីហនុ';$pages[1]['center']=$pages[0]['center'];
+        file_put_contents(storage_path('app/private/g9-report-qa/profile-cover.pdf'),$reports->pdf(['type'=>'profile-cover','pages'=>array_slice($pages,0,2)]));
+    }
+});
+
+it('prints seat stickers and room plans in separate room pages with actual assigned seats',function(){
+    $admin=User::find(1);$reports=app(\App\Support\G9CandidateReport::class);
+    foreach(range(1,26) as $seat)$this->controller->save(g12Request($admin,array_replace($this->input,['student_code'=>'SEAT'.$seat,'seat_number'=>(string)$seat,'name_kh'=>'សិស្ស លេខ'.str_pad((string)$seat,2,'0',STR_PAD_LEFT)])));
+    $this->controller->save(g12Request($admin,array_replace($this->input,['student_code'=>'OTHERROOM','room_number'=>'2','seat_number'=>'99'])));
+    foreach(['seat-stickers','room-seat-plan'] as $type){
+        $pages=$reports->pages(G9ExamCandidate::all(),[],$type);
+        expect($pages)->toHaveCount(3)->and($pages[0]['total'])->toBe($type==='seat-stickers'?18:25)
+            ->and($pages[2]['room'])->toBe('2')->and($pages[2]['rows'][0]['seat'])->toBe('99');
+        $html=$this->controller->report(g12Request($admin,['academic_year'=>1]),$type,'print',$reports)->getContent();
+        expect(str_contains($html,\App\Support\G9CandidateReport::TITLES[$type]))->toBeTrue();
+        $pdf=$reports->pdf(['type'=>$type,'pages'=>$pages]);expect(preg_match_all('~/Type\s*/Page\b~',$pdf))->toBe(3);
+        expect(fn()=>$this->controller->report(g12Request($admin,['academic_year'=>1]),$type,'excel',$reports))->toThrow(HttpException::class);
+        if($type==='room-seat-plan'){
+            $firstPage=substr($html,strpos($html,'class="g9-room-seats"'));
+            $names=array_map(fn($seat)=>strpos($firstPage,'សិស្ស លេខ'.str_pad((string)$seat,2,'0',STR_PAD_LEFT)),[1,10,11,20,21]);
+            expect($names)->toBe(collect($names)->sort()->values()->all());
+        }
+        if(getenv('G9_REPORT_QA')){
+            $sample=$pages[0];$sample['center']='វិ. សាលាវេស្ទើនអន្តរជាតិ (ភ្នំពេញថ្មី) (ត្បូង)';
+            foreach($sample['rows'] as &$student)$student['name']='កង សុគន្ធនរិន្ទ';unset($student);
+            file_put_contents(storage_path('app/private/g9-report-qa/'.$type.'.pdf'),$reports->pdf(['type'=>$type,'pages'=>[$sample]]));
+        }
+    }
+    $keys=array_keys(\App\Support\G9CandidateReport::TITLES);
+    expect(array_search('seat-stickers',$keys))->toBe(array_search('profile',$keys)+1)->and(array_search('room-seat-plan',$keys))->toBe(array_search('profile',$keys)+2);
 });

@@ -14,6 +14,20 @@ if (root) {
         combos.set(select, setupStaffLocationSelect(form, select, {
             labelId: select.id + 'Label', optionsId: select.id + 'Options', locationLabel: select.getAttribute('aria-label'),
         }));
+        if (['academic_year','exam_center','campus','room','seat','student'].includes(select.name)) {
+            const combo = select.nextElementSibling, menu = combo.querySelector('.location-combobox-menu'), search = menu.querySelector('input');
+            menu.classList.add('g9-center-menu');
+            const heading = document.createElement('div'); heading.className = 'g9-center-menu-heading';
+            heading.textContent = {academic_year:'Academic Years',exam_center:'Exam Centers',campus:'Campuses',room:'Room Numbers',seat:'Seat Numbers',student:'Students'}[select.name]; menu.prepend(heading);
+            const searchBox = document.createElement('div'), icon = document.createElement('i'); searchBox.className = 'g9-center-search';
+            icon.className = 'ti ti-search'; icon.setAttribute('aria-hidden','true'); search.before(searchBox); searchBox.append(icon,search);
+            const positionMenu = () => {
+                const rect = combo.getBoundingClientRect(), width = Math.min(520, document.documentElement.clientWidth - 24);
+                menu.style.width = `${width}px`;
+                menu.style.left = `${Math.max(12, Math.min(rect.left, document.documentElement.clientWidth - width - 12)) - rect.left}px`;
+            };
+            combos.get(select).toggle.addEventListener('click', positionMenu); window.addEventListener('resize', positionMenu);
+        }
     });
     const sync = () => {
         combos.forEach(combo => combo.sync());
@@ -153,7 +167,7 @@ function initCandidates(root, filters, combos, syncFilters) {
     const load = async (page = 1, options = false) => {
         const current = ++requestId; error.textContent = ''; summaryCard.hidden = true;
         if (!filters.elements.academic_year.value) {
-            ['exam_center','room','seat','student'].forEach(name => fill(name, []));
+            ['exam_center','campus','room','seat','student'].forEach(name => fill(name, []));
             syncFilters();
             empty('Select an academic year to view the candidate list.');
             document.getElementById('g9-pagination').replaceChildren();
@@ -164,7 +178,7 @@ function initCandidates(root, filters, combos, syncFilters) {
             if (options) {
                 const query = params(); query.set('cascade', '1'); query.delete('student'); query.delete('search');
                 const choices = await api('/candidates/options?' + query); if (current !== requestId) return;
-                ['exam_center','room','seat','student'].forEach(name => fill(name, choices[name])); syncFilters();
+                ['exam_center','campus','room','seat','student'].forEach(name => fill(name, choices[name])); syncFilters();
             }
             const query = params(); query.set('page', page); query.set('per_page', document.getElementById('g9-per-page').value);
             const result = await api('/candidates/list?' + query); if (current !== requestId) return;
@@ -296,7 +310,7 @@ function initCandidates(root, filters, combos, syncFilters) {
         finally {busy = false; save.disabled = false;}
     });
     filters.addEventListener('change', event => {
-        const fields = ['academic_year','exam_center','room','seat','student'], index = fields.indexOf(event.target.name);
+        const fields = ['academic_year','exam_center','campus','room','seat','student'], index = fields.indexOf(event.target.name);
         if (index < 0) return;
         fields.slice(index + 1).forEach(name => filters.elements[name].value = ''); clearTimeout(timer); load(1, true);
     });

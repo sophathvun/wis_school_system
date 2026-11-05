@@ -9,7 +9,9 @@ use ZipArchive;
 
 class G9CandidateReport
 {
-    public const TITLES=['candidates'=>'បញ្ជីបេក្ខជនប្រឡង','cover'=>'គម្របបញ្ជីវត្តមាន','attendance-1'=>'បញ្ជីវត្តមាន ទំព័រ១','attendance-2'=>'បញ្ជីវត្តមាន ទំព័រ២','profile'=>'សលាកបត្រឯកត្តជន'];
+    public const TITLES=['candidates'=>'បញ្ជីបេក្ខជនប្រឡង','cover'=>'គម្របបញ្ជីវត្តមាន','attendance-1'=>'បញ្ជីវត្តមាន ទំព័រ១','attendance-2'=>'បញ្ជីវត្តមាន ទំព័រ២','profile-cover'=>'ក្របសលាកបត្រឯកត្តជន','profile'=>'សលាកបត្រឯកត្តជន','seat-stickers'=>'ប្លង់តុ (Sticker)','room-seat-plan'=>'ប្លង់តុតាមបន្ទប់ប្រឡង'];
+    public const PROFILE_TYPES=['profile','profile-cover'];
+    public const PRINT_ONLY_TYPES=['profile','profile-cover','seat-stickers','room-seat-plan'];
     public const SUBJECTS=[
         'attendance-1'=>['តសក្តី','គីមី','ផែនដី','រូប','ភូមិ','សីល-ពល'],
         'attendance-2'=>['គណិត','សតអាន','ជីវ','ប្រវត្តិ','ភាសា','ផ្សេងៗ'],
@@ -36,6 +38,10 @@ class G9CandidateReport
     {
         if($type==='profile')return $this->profilePages($records,$settings);
         $pages=[];$centers=collect($settings['report_centers']??[])->keyBy('exam_center');
+        $background=$type==='profile-cover'?app(ScholarshipExport::class)->reportLogo(2):null;
+        $seatReport=in_array($type,['seat-stickers','room-seat-plan'],true);
+        $logo=$type==='room-seat-plan'?app(ScholarshipExport::class)->reportLogo(1):null;
+        if($seatReport)$records->loadMissing('academicYear');
         foreach($records->groupBy(fn($r)=>json_encode([$r->data['exam_center']??'',$r->data['room_number']??'',$r->data['exam_date']??''])) as $group){
             $group=$group->sort(function($a,$b){return strnatcasecmp((string)($a->data['seat_number']??''),(string)($b->data['seat_number']??''))?:strcmp($a->name_kh??$a->name_en,$b->name_kh??$b->name_en)?:($a->id<=>$b->id);})->values();
             $first=$group->first();$center=trim((string)($first->data['exam_center']??''));$config=$centers->get($center,[]);
@@ -49,18 +55,19 @@ class G9CandidateReport
             $base=['center'=>$center?:'មិនបានបញ្ជាក់','room'=>$first->data['room_number']??'','examDate'=>self::khmerDate($first->data['exam_date']??null),
                 'location'=>$location,'department'=>$config['department']??'','signer'=>$config['signer']??'ប្រធានមណ្ឌល',
                 'solar'=>$solar,'lunar'=>$settings['k_listdate']??'','type'=>$type];
+            if($seatReport)$base+=['academicYear'=>$first->academicYear?->academic_year??'','logo'=>$logo];
             if(in_array($type,['attendance-1','attendance-2'],true)){
                 $space=str_repeat("\u{00A0}",8);
                 $base['lunar']='ថ្ងៃ'.str_repeat("\u{00A0}",18).'ខែ'.str_repeat("\u{00A0}",14).'ឆ្នាំ'.str_repeat("\u{00A0}",22).'ព.ស.២៥';
                 $base['solar']=$location.' ថ្ងៃទី'.$space.'ខែ'.$space.'ឆ្នាំ២០';
             }
-            foreach(($type==='cover'?collect([$group]):$group->chunk(25)) as $chunk){
+            foreach((in_array($type,['cover','profile-cover'],true)?collect([$group]):$group->chunk($type==='seat-stickers'?18:25)) as $chunk){
                 $rows=$chunk->map(function($r){$d=$r->data;return ['seat'=>(string)($d['seat_number']??''),'name'=>$r->name_kh?:$r->name_en,
                     'gender'=>['male'=>'ប្រុស','female'=>'ស្រី','m'=>'ប្រុស','f'=>'ស្រី'][mb_strtolower($d['gender']??'')]??($d['gender']??''),
                     'dob'=>!empty($d['date_of_birth'])?\Carbon\CarbonImmutable::parse($d['date_of_birth'])->format('d-m-Y'):'',
-                    'school'=>$d['school_name']??'','national_id'=>$r->legacy_data['national_id']??'',
+                    'school'=>$d['school_name']??'','national_id'=>$r->legacy_data['national_id']??'','name_en'=>$r->name_en,'grade'=>$d['grade']??'',
                     'language'=>['english'=>'អង់គ្លេស','french'=>'បារាំង'][mb_strtolower($d['foreign_language']??'')]??($d['foreign_language']??'')];})->values()->all();
-                $pages[]=$base+['rows'=>$rows,'total'=>count($rows),'female'=>collect($rows)->where('gender','ស្រី')->count(),
+                $pages[]=$base+['rows'=>$rows,'background'=>$background,'seatFrom'=>$rows[0]['seat']??'','seatTo'=>$rows[count($rows)-1]['seat']??'','total'=>count($rows),'female'=>collect($rows)->where('gender','ស្រី')->count(),
                     'english'=>collect($rows)->where('language','អង់គ្លេស')->count(),'french'=>collect($rows)->where('language','បារាំង')->count()];
             }
         }
@@ -96,15 +103,17 @@ class G9CandidateReport
     }
     public function pdf(array $data): string
     {
-        if($data['type']==='profile'&&empty($data['profileSource']))return $this->twoProfilesPerSheet($data);
+        $isProfile=in_array($data['type'],self::PROFILE_TYPES,true);
+        if($isProfile&&empty($data['profileSource']))return $this->twoProfilesPerSheet($data);
         $temp=storage_path('app/private/g9-report-pdf');if(!is_dir($temp))mkdir($temp,0755,true);
-        $pdf=new Mpdf(['mode'=>'utf-8','format'=>$data['type']==='profile'?'A4-L':'A4','tempDir'=>$temp,'margin_left'=>$data['type']==='profile'?30:8,'margin_right'=>8,'margin_top'=>8,'margin_bottom'=>8,
+        $pdf=new Mpdf(['mode'=>'utf-8','format'=>$isProfile?'A4-L':'A4','tempDir'=>$temp,'margin_left'=>$isProfile?30:8,'margin_right'=>8,'margin_top'=>8,'margin_bottom'=>8,
             'fontDir'=>[...(new ConfigVariables)->getDefaults()['fontDir'],public_path('fonts/khmer')],
             'fontdata'=>(new FontVariables)->getDefaults()['fontdata']+['g9body'=>['R'=>'KhmerOSsiemreap.ttf','useOTL'=>0xFF],'g9heading'=>['R'=>'KhmerOSmuollight.ttf','useOTL'=>0xFF],'g9ornament'=>['R'=>'Tacteing.ttf']],
             'default_font'=>'g9body','default_font_size'=>10,'shrink_tables_to_fit'=>1]);
         $pdf->SetTitle(self::TITLES[$data['type']]);
-        if($data['type']==='profile'&&!empty($data['pages'][0]['profile']['background'])){
-            $pdf->imageVars['g9ProfileBackground']=base64_decode(explode(',',$data['pages'][0]['profile']['background'],2)[1],true);
+        $background=$data['pages'][0]['profile']['background']??$data['pages'][0]['background']??null;
+        if($isProfile&&$background){
+            $pdf->imageVars['g9ProfileBackground']=base64_decode(explode(',',$background,2)[1],true);
             $pdf->SetWatermarkImage('var:g9ProfileBackground',.15,35,'F');
             $pdf->watermarkImgBehind=true;$pdf->showWatermarkImage=true;
         }
@@ -120,6 +129,11 @@ class G9CandidateReport
         $pdf->WriteHTML($css,\Mpdf\HTMLParserMode::HEADER_CSS);
         foreach($data['pages'] as $index=>$page){
             if($index)$pdf->AddPage();
+            if($data['type']==='profile-cover'){
+                $pdf->SetFont('g9heading','',18.3857);
+                $width=$pdf->GetStringWidth('មណ្ឌលប្រឡង: '.$page['center']);
+                $page['center_font_size']=round(max(12.73,min(18.3857,18.3857*257/max(.1,$width))),4);
+            }
             $html=view('g9-national-exams.candidate-report',['type'=>$data['type'],'pages'=>[$page],'pdfExport'=>true])->render();
             $imageIndex=0;
             $html=preg_replace_callback('~src="data:image/(?:png|jpeg|webp);base64,([A-Za-z0-9+/=]+)"~',function($match)use($pdf,$index,&$imageIndex){
@@ -140,7 +154,7 @@ class G9CandidateReport
         $source=$this->pdf($data+['profileSource'=>true]);
         $output=new Mpdf(['format'=>'A4','tempDir'=>storage_path('app/private/g9-report-pdf'),
             'margin_left'=>0,'margin_right'=>0,'margin_top'=>0,'margin_bottom'=>0]);
-        $output->SetTitle(self::TITLES['profile']);
+        $output->SetTitle(self::TITLES[$data['type']]);
         $count=$output->setSourceFile(\setasign\Fpdi\PdfParser\StreamReader::createByString($source));
         for($page=1;$page<=$count;$page++){
             if($page>1&&$page%2===1)$output->AddPage();

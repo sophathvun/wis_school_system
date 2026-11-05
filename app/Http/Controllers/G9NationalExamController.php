@@ -32,10 +32,11 @@ class G9NationalExamController
     }
     private function query(Request $request)
     {
-        $data=$request->validate(['academic_year'=>['nullable','integer'],'exam_center'=>['nullable','string','max:255'],'room'=>['nullable','string','max:255'],'seat'=>['nullable','string','max:255'],'student'=>['nullable','integer'],'search'=>['nullable','string','max:200'],'per_page'=>['nullable',Rule::in(['all','15','25','50','75','100'])]]);
+        $data=$request->validate(['academic_year'=>['nullable','integer'],'exam_center'=>['nullable','string','max:255'],'campus'=>['nullable','integer'],'room'=>['nullable','string','max:255'],'seat'=>['nullable','string','max:255'],'student'=>['nullable','integer'],'search'=>['nullable','string','max:200'],'per_page'=>['nullable',Rule::in(['all','15','25','50','75','100'])]]);
         $ids=$this->campuses($request);abort_unless($ids,403);
         return G9ExamCandidate::whereIn('campus_id',$ids)->when($data['academic_year']??null,fn($q,$v)=>$q->where('academic_year_id',$v))
             ->when($data['exam_center']??null,fn($q,$v)=>$q->where('data->exam_center',$v))
+            ->when($data['campus']??null,fn($q,$v)=>$q->where('campus_id',$v))
             ->when($data['room']??null,fn($q,$v)=>$q->where('data->room_number',$v))
             ->when($data['seat']??null,fn($q,$v)=>$q->where('data->seat_number',$v))
             ->when($data['student']??null,fn($q,$v)=>$q->whereKey($v))
@@ -73,12 +74,13 @@ class G9NationalExamController
     {
         if($request->boolean('cascade')){
             $base=clone $request;$base->replace($request->only('academic_year'));
-            $rows=$this->query($base)->get(['id','student_code','name_kh','name_en','data']);$result=[];
-            foreach(['exam_center'=>'exam_center','room'=>'room_number','seat'=>'seat_number'] as $filter=>$field){
-                $values=$rows->map(fn($r)=>(string)($r->data[$field]??''))->filter(fn($v)=>$v!=='')->unique()->sort(SORT_NATURAL)->values();
-                $result[$filter]=$values;
+            $rows=$this->query($base)->with('campus')->get(['id','campus_id','student_code','name_kh','name_en','data']);$result=[];
+            foreach(['exam_center'=>'exam_center','campus'=>'campus_id','room'=>'room_number','seat'=>'seat_number'] as $filter=>$field){
+                $value=fn($r)=>(string)($filter==='campus'?$r->campus_id:($r->data[$field]??''));
+                $values=$rows->map($value)->filter(fn($v)=>$v!=='')->unique()->sort(SORT_NATURAL)->values();
+                $result[$filter]=$filter==='campus'?$rows->unique('campus_id')->map(fn($r)=>['id'=>$r->campus_id,'label'=>$r->campus?->campus_name_en??''])->sortBy('label',SORT_NATURAL)->values():$values;
                 $selected=(string)$request->input($filter,'');
-                if($selected!==''&&$values->containsStrict($selected))$rows=$rows->filter(fn($r)=>(string)($r->data[$field]??'')===$selected);
+                if($selected!==''&&$values->containsStrict($selected))$rows=$rows->filter(fn($r)=>$value($r)===$selected);
             }
             $result['student']=$rows->map(fn($r)=>['id'=>$r->id,'label'=>implode(' | ',array_filter([$r->student_code,$r->name_kh,$r->name_en]))])->values();
             return response()->json($result);
@@ -91,7 +93,7 @@ class G9NationalExamController
     public function report(Request $request,string $type,string $format,\App\Support\G9CandidateReport $reports)
     {
         abort_unless(isset(\App\Support\G9CandidateReport::TITLES[$type])&&in_array($format,['print','excel','pdf'],true),404);
-        abort_if($type==='profile'&&$format==='excel',404);
+        abort_if(in_array($type,\App\Support\G9CandidateReport::PRINT_ONLY_TYPES,true)&&$format==='excel',404);
         $request->validate(['academic_year'=>['required','integer','exists:tb_academic_year,id']]);
         $ids=$this->campuses($request,'export');abort_unless($ids,403);
         $records=$this->orderByRoom($this->query($request)->whereIn('campus_id',$ids)->orderBy('data->exam_center'))->get();

@@ -1,3 +1,4 @@
+@php($isProfile = in_array($type,\App\Support\G9CandidateReport::PROFILE_TYPES))
 @unless($pdfExport ?? false)
 <!DOCTYPE html><html lang="km"><head><meta charset="utf-8"><title>{{ \App\Support\G9CandidateReport::TITLES[$type] }}</title>
 <style>
@@ -5,7 +6,7 @@
 @font-face{font-family:g9heading;src:url('data:font/ttf;base64,{{ base64_encode(file_get_contents(public_path('fonts/khmer/KhmerOSmuollight.ttf'))) }}')}
 @font-face{font-family:g9ornament;src:url('data:font/ttf;base64,{{ base64_encode(file_get_contents(public_path('fonts/khmer/Tacteing.ttf'))) }}')}
 {!! file_get_contents(resource_path('css/pages/g9-candidate-print.css')) !!}
-@if($type === 'profile')
+@if($isProfile)
 @page{size:A4 portrait;margin:0}
 .profile-sheet{width:210mm;height:297mm;margin:0 auto;page-break-after:always;background:#fff;overflow:hidden}
 .profile-sheet:last-child{page-break-after:auto}
@@ -16,17 +17,31 @@
 @endif
 </style></head><body>
 @endunless
-@if($type === 'profile' && !($pdfExport ?? false))
+@if($isProfile && !($pdfExport ?? false))
     @foreach(array_chunk($pages,2) as $sheet)
         <section class="profile-sheet">
-            @foreach($sheet as $card)<div class="profile-half"><section class="report-page profile-page">@include('g9-national-exams.personal-profile',['profile'=>$card['profile']])</section></div>@endforeach
+            @foreach($sheet as $card)
+                <div class="profile-half"><section class="report-page profile-page">
+                    @if($type === 'profile-cover')
+                        @include('g9-national-exams.personal-profile-cover',['page'=>$card])
+                    @else
+                        @include('g9-national-exams.personal-profile',['profile'=>$card['profile']])
+                    @endif
+                </section></div>
+            @endforeach
         </section>
     @endforeach
 @else
 @foreach($pages as $page)
     @if(($pdfExport ?? false) && !$loop->first)<pagebreak />@endif
-    <section class="report-page {{ $type === 'profile' ? 'profile-page' : '' }}" @if($pdfExport ?? false) style="page-break-after:auto;{{ $type === 'profile' ? 'width:259mm' : '' }}" @endif>
-    @if($type === 'profile')
+    <section class="report-page {{ $isProfile ? 'profile-page' : '' }}" @if($pdfExport ?? false) style="page-break-after:auto;{{ $isProfile ? 'width:259mm' : '' }}" @endif>
+    @if($type === 'seat-stickers')
+        @include('g9-national-exams.seat-stickers',['page'=>$page])
+    @elseif($type === 'room-seat-plan')
+        @include('g9-national-exams.room-seat-plan',['page'=>$page])
+    @elseif($type === 'profile-cover')
+        @include('g9-national-exams.personal-profile-cover',['page'=>$page])
+    @elseif($type === 'profile')
         @include('g9-national-exams.personal-profile',['profile'=>$page['profile']])
     @elseif($type === 'cover')
         <div class="report-cover">
@@ -74,9 +89,18 @@ const fitSchools=()=>document.querySelectorAll('[data-fit-school]').forEach(text
     if(width>available&&available>0)text.style.fontSize=Math.max(5.5,base*available/width)+'pt';
     if(text.getBoundingClientRect().width>available)text.style.whiteSpace='normal';
 });
-window.addEventListener('load',async()=>{await document.fonts.ready;fitSchools();window.print();});
-window.addEventListener('beforeprint',fitSchools);
-window.addEventListener('resize',fitSchools);
+const fitCenters=()=>document.querySelectorAll('[data-fit-center]').forEach(text=>{
+    const available=text.parentElement.clientWidth-2,base=18.3857;
+    text.style.maxWidth='none';text.style.whiteSpace='nowrap';text.style.fontSize=base+'pt';
+    const width=text.offsetWidth;
+    if(width>available&&available>0)text.style.fontSize=Math.max(12.73,base*available/width)+'pt';
+    text.style.maxWidth='100%';
+    if(text.offsetWidth>available)text.style.whiteSpace='normal';
+});
+const fitReportText=()=>{fitSchools();fitCenters();};
+window.addEventListener('load',async()=>{await document.fonts.ready;fitReportText();window.print();});
+window.addEventListener('beforeprint',fitReportText);
+window.addEventListener('resize',fitReportText);
 </script>
 </body></html>
 @endunless

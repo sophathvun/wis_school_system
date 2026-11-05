@@ -68,5 +68,46 @@ body{font-family:g9body,sans-serif;font-size:10pt;color:#000;background:#fff;mar
 .profile-bottom td{width:50%;font-size:12.4143pt;line-height:1.8}
 .profile-phone{color:#16a34a;padding-top:10mm}
 .profile-dates{text-align:center;color:#3c7fad}
+.profile-cover-motto{text-align:center;font-family:g9heading;font-size:17pt;line-height:1.8;color:#20385d;margin-top:3mm}
+.profile-cover-title{text-align:center;font-family:g9heading;font-size:19pt;color:#20385d;margin-top:10mm}
+.profile-cover-exam{text-align:center;font-family:g9heading;font-size:23pt;color:#e02020;margin-top:10mm}
+.profile-cover-session,.profile-cover-center{text-align:center;font-family:g9heading;font-size:18.3857pt;color:#20385d;margin-top:7mm;line-height:1.7}
+.profile-cover-center [data-fit-center]{display:inline-block;max-width:100%;overflow-wrap:anywhere}
+.profile-cover-room{width:90%;margin:10mm auto 0;border-collapse:collapse;color:#20385d;font-size:17pt}
+.profile-cover-room td{width:33.33%;text-align:center;padding:2mm;border:0}
+.profile-cover-room span,.profile-cover-count span{color:#e02020;font-weight:bold;margin-left:3mm}
+.profile-cover-count{text-align:center;font-size:18pt;margin-top:4mm;color:#20385d}
+.g9-seat-red{color:#e02020}
+.g9-sticker-page-header{font-size:9pt;color:#203f65;line-height:1.5;margin-bottom:3mm;border:.3mm solid #b8cbe0;border-radius:10px;background:#f3f7fc;padding:2mm 3mm}
+.g9-sticker-header-layout{width:100%;border-collapse:collapse}
+.g9-sticker-header-layout td{border:0;padding:0;vertical-align:middle}
+.g9-sticker-header-details{text-align:left}
+.g9-sticker-header-details>.g9-sticker-heading{font-size:11pt;line-height:1.7;margin-bottom:1mm}
+.g9-sticker-header-room{text-align:center;border-left:.2mm solid #cfdae7!important;font-family:g9heading;font-size:10pt}
+.g9-sticker-header-room-number{font-family:g9body;font-size:25pt;font-weight:bold;color:#e02020;line-height:1.25}
+.g9-sticker-heading{font-family:g9heading;font-size:7.5pt;line-height:1.5;color:#203f65}
+.g9-sticker-grid{width:100%;border-collapse:separate;border-spacing:1.5mm;table-layout:fixed;color:#203f65}
+.g9-sticker-grid td{height:37mm;border:.8mm solid #244d78;padding:1mm;text-align:center;vertical-align:middle}
+.g9-sticker-grid .g9-empty-sticker{border:0}
+.g9-sticker-session{font-size:7.5pt;line-height:1.4}
+.g9-sticker-name{font-size:12pt;line-height:1.5;padding:3mm 0 1.5mm}
+.g9-sticker-dob{font-size:8pt;line-height:1.5}
+.g9-sticker-numbers{font-size:9pt;line-height:1.5}
+.g9-sticker-numbers span{color:#e02020;font-size:12pt}
+.g9-seat-plan-logo{height:17mm;text-align:left}
+.g9-seat-plan-logo img{max-width:65mm;max-height:16mm}
+.g9-seat-plan-title{text-align:center;font-family:g9heading;font-size:14pt;color:#20385d;margin:3mm 0}
+.g9-seat-plan-meta{text-align:center;font-size:10pt;line-height:1.7;margin-bottom:3mm}
+.g9-seat-plan-caption{text-align:center;font-family:g9heading;font-size:12pt;color:#20385d;margin:2mm 0}
+.g9-seat-plan-frame{border:.4mm solid #20385d;border-radius:5mm;padding:3mm}
+.g9-seat-plan-room{font-size:12pt;color:#20385d}
+.g9-whiteboard{width:70%;margin:3mm auto 12mm;border:.8mm solid #456071;border-radius:2mm;background:#edf5f5;text-align:center;color:#20385d;font-size:10pt;padding:2mm}
+.g9-room-seats{width:100%;border-collapse:separate;border-spacing:2mm;table-layout:fixed}
+.g9-room-seats td{height:30mm;border:.25mm solid #20385d;border-radius:4mm;padding:1mm;text-align:center;vertical-align:middle}
+.g9-room-seats .g9-seat-empty{border-color:#d9e0e9}
+.g9-room-seat-number{font-size:17pt;color:#e02020;font-weight:bold;line-height:1.3}
+.g9-room-seat-name{font-size:8pt;line-height:1.6;color:#111;margin:1mm 0}
+.g9-room-seat-name-english{font-size:6.5pt;line-height:1.4;color:#334155;margin-bottom:1mm;overflow-wrap:anywhere}
+.g9-room-seat-grade{font-size:8pt;line-height:1.4}
 @media screen{body{background:#e8ecf2;padding:16px}.report-page{background:#fff;padding:8mm;width:210mm;min-height:297mm;margin-bottom:16px;box-shadow:0 2px 12px #0002}}
 @media print{.report-page{margin:0}}

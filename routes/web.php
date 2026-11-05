@@ -488,7 +488,7 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         Route::get('/candidates/list',[\App\Http\Controllers\G9NationalExamController::class,'listing'])->name('candidates.list');
         Route::get('/candidates/options',[\App\Http\Controllers\G9NationalExamController::class,'options'])->name('candidates.options');
         Route::get('/candidates/student-links',[\App\Http\Controllers\G9NationalExamController::class,'studentLinks'])->name('candidates.student-links');
-        Route::get('/candidates/reports/{type}/{format}',[\App\Http\Controllers\G9NationalExamController::class,'report'])->where('type','candidates|cover|attendance-1|attendance-2|profile')->where('format','print|excel|pdf')->name('candidates.report');
+        Route::get('/candidates/reports/{type}/{format}',[\App\Http\Controllers\G9NationalExamController::class,'report'])->where('type','candidates|cover|attendance-1|attendance-2|profile-cover|profile|seat-stickers|room-seat-plan')->where('format','print|excel|pdf')->name('candidates.report');
         Route::get('/candidates/{candidate}',[\App\Http\Controllers\G9NationalExamController::class,'show'])->whereNumber('candidate')->name('candidates.show');
         Route::post('/candidates',[\App\Http\Controllers\G9NationalExamController::class,'save'])->name('candidates.store');
         Route::post('/candidates/{candidate}',[\App\Http\Controllers\G9NationalExamController::class,'save'])->whereNumber('candidate')->name('candidates.update');
