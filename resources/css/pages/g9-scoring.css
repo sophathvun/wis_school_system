@@ -1,0 +1,63 @@
+[data-g9-scoring] [hidden]{display:none!important}
+.g9-scoring-list{min-width:0;container-type:inline-size}
+[data-g9-scoring] .premium-pagination-list .page-link,[data-g9-scoring] .premium-pagination-goto input{border-radius:10px}
+.g9-scoring-scroll{isolation:isolate}
+.g9-scoring-table{width:100%;min-width:1050px;table-layout:fixed;font-size:clamp(.6875rem,.85cqi,.875rem)}
+.g9-scoring-table col.g9-scoring-number{width:3%}
+.g9-scoring-table col.g9-scoring-photo{width:3%}
+.g9-scoring-table col.g9-scoring-student{width:12%}
+.g9-scoring-table col.g9-scoring-examination{width:10%}
+.g9-scoring-table col.g9-scoring-summary-column{width:4%}
+.g9-scoring-table col.g9-scoring-subject{width:5%}
+.g9-scoring-table col.g9-scoring-total-column{width:7%}
+.g9-scoring-table col.g9-scoring-save{width:6%}
+.g9-scoring-outcomes{display:flex;flex-direction:column;align-items:center;gap:.3rem;margin-top:.35rem}
+.g9-scoring-outcome{max-width:100%;padding:.3rem .4rem;border:0;border-radius:7px;text-align:center;font-size:clamp(.625rem,.75cqi,.8125rem);font-weight:600;line-height:1.6;white-space:normal;overflow-wrap:anywhere}
+.g9-scoring-outcome.is-failed{background:#fbe5e7;color:#b32636}
+.g9-scoring-outcome.is-passed{background:#e3f3e7;color:#247238}
+.g9-scoring-outcome.is-average{background:#fff1d6;color:#915400}
+.g9-scoring-outcome.is-good{background:#e4efff;color:#205da6}
+.g9-scoring-outcome.is-very-good{background:#eee6fa;color:#7041aa}
+[data-bs-theme="dark"] .g9-scoring-outcome.is-failed{background:#47272d;color:#ffadb1}
+[data-bs-theme="dark"] .g9-scoring-outcome.is-passed{background:#203e30;color:#9ddcb0}
+[data-bs-theme="dark"] .g9-scoring-outcome.is-average{background:#49391f;color:#f5d18c}
+[data-bs-theme="dark"] .g9-scoring-outcome.is-good{background:#233a57;color:#a9ceff}
+[data-bs-theme="dark"] .g9-scoring-outcome.is-very-good{background:#392b50;color:#d0b2f6}
+.g9-scoring-summary{text-align:center;font-size:clamp(.875rem,1.2cqi,1.25rem);font-weight:700;font-variant-numeric:tabular-nums;color:var(--tblr-primary)}
+.g9-scoring-table td.g9-scoring-total{background:var(--tblr-primary-lt)}
+.g9-scoring-total>.g9-scoring-summary{font-size:clamp(.9375rem,1.3cqi,1.375rem)}
+.g9-scoring-total>.g9-scoring-summary.is-below-pass{color:var(--tblr-danger,#d63939)}
+[data-g9-scoring] .card.g9-scoring-list .g9-scoring-scroll>.g9-scoring-table thead th{position:sticky;top:0;z-index:3;vertical-align:middle;white-space:normal;overflow-wrap:anywhere;font-size:clamp(.59375rem,.72cqi,.8125rem);letter-spacing:.015em;line-height:1.5;padding:.65rem clamp(.15rem,.3cqi,.5rem);text-align:center}
+.g9-scoring-table td{background:var(--tblr-bg-surface);vertical-align:middle;padding:clamp(.4rem,.6cqi,.75rem) clamp(.15rem,.3cqi,.5rem);overflow-wrap:anywhere;white-space:normal}
+.g9-scoring-table th:nth-child(3),.g9-scoring-table td:nth-child(3){position:sticky;left:0;z-index:2;box-shadow:3px 0 5px #0000000a}
+.g9-scoring-table th:nth-child(3){z-index:4}
+.g9-scoring-table .g9-student-photo{width:clamp(28px,3cqi,45px);height:auto;aspect-ratio:3/4}
+.g9-scoring-table .g9-number-badge{font-size:clamp(.6875rem,.9cqi,1rem);min-width:0;padding:.3rem clamp(.2rem,.25cqi,.45rem)}
+.g9-scoring-table td:nth-child(1),.g9-scoring-table td:nth-child(2){text-align:center}
+.g9-scoring-table td:nth-child(4) .d-flex{gap:.25rem!important}
+.g9-scoring-table td:nth-child(4) .badge{font-size:inherit;padding:.2rem .3rem}
+.g9-scoring-table td:last-child .btn{font-size:inherit;padding:.25rem .4rem}
+.g9-scoring-score{width:100%;min-width:0;min-height:2.25rem;padding:.35rem clamp(.1rem,.15cqi,.3rem);text-align:center;font-size:clamp(.75rem,1.05cqi,1.125rem);font-weight:700;font-variant-numeric:tabular-nums;border-radius:9px;appearance:textfield;-moz-appearance:textfield}
+.g9-scoring-score::-webkit-inner-spin-button,.g9-scoring-score::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.g9-scoring-score[readonly]{background:var(--tblr-bg-surface-secondary);border-color:transparent;color:var(--tblr-body-color)}
+.g9-scoring-score:disabled{opacity:.75}
+.g9-scoring-score:not([readonly]):not(:disabled){border-color:var(--tblr-primary)}
+.g9-scoring-score.is-invalid{border-color:var(--tblr-danger)!important;background-image:none}
+.g9-scoring-scroll:focus-visible{outline:2px solid var(--tblr-primary);outline-offset:2px}
+[data-scoring-error]{white-space:pre-line}
+.g9-scoring-entry{display:flex;align-items:center;margin:0;min-width:0}
+.g9-scoring-entry>.premium-form-field{position:relative;width:260px;max-width:100%;flex-shrink:0}
+.g9-header .g9-scoring-entry .premium-form-field>.form-label{position:absolute;top:.3rem;left:.75rem;font-size:.65rem;z-index:2;pointer-events:none;color:#d3e1ff!important;background:transparent!important;padding:0;line-height:1.2;transform:none}
+.g9-header .g9-scoring-entry .location-combobox-toggle{width:100%;height:48px;min-height:48px;padding:1.25rem .75rem .25rem;border:1px solid rgba(255,255,255,.38);border-radius:12px;background-color:rgba(255,255,255,.1)!important;color:#fff;font-size:.8rem}
+.g9-header .g9-scoring-entry .location-combobox-toggle:hover{background-color:rgba(255,255,255,.16)!important}
+.g9-header .g9-scoring-entry .location-combobox-toggle:focus-visible{outline:2px solid #b8d1ff;outline-offset:2px}
+.g9-scoring-entry .g9-center-menu{right:auto;padding:.85rem;border-radius:16px;color:var(--tblr-body-color);background:var(--tblr-bg-surface);box-shadow:0 16px 40px rgba(20,35,65,.2)}
+.g9-scoring-entry .g9-center-search>.form-control{height:44px;padding:.65rem .8rem .65rem 2.4rem;border-radius:11px;font-size:.85rem}
+.g9-scoring-entry .g9-center-search>.form-control::placeholder{opacity:1;color:var(--tblr-secondary-color)}
+.g9-scoring-entry .location-combobox-option{padding:.8rem .85rem;border-radius:10px;line-height:1.7;margin:.15rem 0;color:var(--tblr-body-color)}
+.g9-scoring-entry .location-combobox-selected{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.g9-scoring-table td.g9-scoring-active-subject{background:var(--tblr-primary-lt)}
+.g9-scoring-table th.g9-scoring-active-subject{box-shadow:inset 0 -4px 0 #b8d1ff}
+.g9-scoring-subject-label{display:block}
+.g9-scoring-subject-max{display:inline-block;margin-top:.35rem;padding:.15rem .35rem;border:1px solid rgba(255,255,255,.25);border-radius:6px;background:rgba(255,255,255,.13);color:#fff;font-size:.65rem;font-weight:600;line-height:1.3;letter-spacing:0;text-transform:none;white-space:nowrap;font-variant-numeric:tabular-nums}
+@media(max-width:575.98px){.g9-scoring-entry{flex:1 1 200px}.g9-scoring-entry>.premium-form-field{width:100%}}

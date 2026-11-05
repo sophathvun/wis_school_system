@@ -16,7 +16,7 @@ class G9NationalExamPermissions
         return [
             'candidates'=>['List of Candidate',['create','edit','print','excel','pdf',...array_map(fn($type)=>'report-'.$type,self::REPORTS)]],
             'eoy'=>['Assign EOY Average',['eoy-assign','eoy-print','eoy-pdf','eoy-report-cover','eoy-report-card']],
-            'scoring'=>['Scoring',[]], 'results'=>['Exam Result',[]], 'certificates'=>['G9 Certificate Tracking',[]],
+            'scoring'=>['Scoring',['scoring-edit','scoring-print','scoring-pdf']], 'results'=>['Exam Result',[]], 'certificates'=>['G9 Certificate Tracking',[]],
             'imports'=>['G9 Imports/Export',['import','export','import-history']],
             'photos'=>['G9 Bulk Stu. Photo',['photos-upload','photos-replace']],
             'settings'=>['G9 Setting',['settings-manage','eoy-settings-manage']],
@@ -38,6 +38,9 @@ class G9NationalExamPermissions
             'eoy-print'=>'Print annual score cards and covers','eoy-pdf'=>'Download annual score cards and covers as PDF',
             'eoy-report-cover'=>'Report: Annual score card cover','eoy-report-card'=>'Report: Annual score card',
             'scoring'=>'Submenu: Scoring','results'=>'Submenu: Exam Result','certificates'=>'Submenu: G9 Certificate Tracking',
+            'scoring-edit'=>'Edit / autosave national exam subject scores (own campuses; central users: permitted campuses)',
+            'scoring-print'=>'Print G9 score verification tables in permitted campuses',
+            'scoring-pdf'=>'Download G9 score verification tables as PDF in permitted campuses',
             'imports'=>'Submenu: G9 Imports/Export','import'=>'Preview / confirm MoEYS and legacy imports',
             'export'=>'Download sample CSV / export all candidate data in permitted campuses','import-history'=>'View own import history',
             'photos'=>'Submenu: G9 Bulk Stu. Photo','photos-upload'=>'Preview / upload matched photos and ZIP files','photos-replace'=>'Replace existing student photos',

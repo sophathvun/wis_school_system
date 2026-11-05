@@ -22,6 +22,16 @@
 </section>
 @endforeach
 @unless($pdfExport??false)
-<script>Promise.all([document.fonts.ready,...Array.from(document.images).map(image=>image.complete?Promise.resolve():new Promise(resolve=>{image.onload=image.onerror=resolve;}))]).then(()=>window.print());</script>
+<script>
+const fitSingleLines=()=>document.querySelectorAll('[data-eoy-fit]').forEach(text=>{
+    const base=Number(text.dataset.eoyFit);
+    text.style.fontSize=base+'pt';
+    // The source card is scaled to half of A4; measure both widths after scaling.
+    const available=text.parentElement.getBoundingClientRect().width-1,width=text.getBoundingClientRect().width;
+    if(width>available&&available>0)text.style.fontSize=(base*available/width)+'pt';
+});
+window.addEventListener('beforeprint',fitSingleLines);
+Promise.all([document.fonts.ready,...Array.from(document.images).map(image=>image.complete?Promise.resolve():new Promise(resolve=>{image.onload=image.onerror=resolve;}))]).then(()=>{fitSingleLines();window.print();});
+</script>
 </body></html>
 @endunless

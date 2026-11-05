@@ -1,0 +1,23 @@
+@page{size:A4 landscape;margin:7mm 8mm}
+*{box-sizing:border-box}body{margin:0;font-family:g9body,sans-serif;font-size:8pt;line-height:1.35;color:#111;background:#fff}
+.verify-page{width:281mm;margin:0 auto;page-break-after:always}.verify-page:last-child{page-break-after:auto}
+.verify-header{width:100%;border-collapse:collapse;table-layout:fixed}.verify-header td{vertical-align:top;border:0;padding:0}
+.verify-left{width:34%;font-family:g9heading;font-size:8pt;line-height:1.6;padding-top:2mm!important}
+.verify-motto{width:32%;text-align:center;font-family:g9heading;font-size:11pt;line-height:1.5}
+.verify-ornament{font-family:g9ornament;font-size:24pt;line-height:.4;height:3mm;text-align:center;margin-top:-2mm}
+.verify-right{width:34%;font-family:g9heading;font-size:11pt;text-align:center;color:#536575;padding-top:5mm!important}
+.verify-title{font-family:g9heading;font-size:11pt;text-align:center;line-height:1.45;margin:1mm 0;white-space:nowrap}
+.verify-exam-date{font-family:g9heading;font-size:9pt;text-align:center;margin-bottom:2mm;line-height:1.5}
+.verify-scores{width:100%;border-collapse:collapse;table-layout:fixed;font-size:8pt}
+.verify-scores th,.verify-scores td{border:.2mm solid #222;padding:.15mm .35mm;text-align:center;vertical-align:middle}
+.verify-scores th{font-weight:normal;background:#dce6f5;font-size:8pt;line-height:1.4;height:13mm;overflow-wrap:anywhere}
+.verify-scores .verify-max th{height:3.5mm;background:#fff2cc;font-family:DejaVuSans,sans-serif;font-size:7pt;line-height:1}
+.verify-header-word{display:inline-block;white-space:nowrap;overflow-wrap:normal;font-size:7pt}
+.verify-scores tbody td{height:5mm;line-height:1.25}
+.verify-scores .verify-name,.verify-scores .verify-school{text-align:left}
+.verify-scores .verify-name{font-size:8pt}.verify-scores .verify-school{font-size:7pt;line-height:1.2}
+.verify-number{font-family:DejaVuSans,sans-serif;font-size:7.5pt;white-space:nowrap}
+.verify-total{font-weight:bold;color:#20385d}.verify-result{color:#d02030}.verify-failed{color:#d02030}
+.verify-footer{font-size:9pt;line-height:1.8;margin-top:1mm}.verify-footer span{margin-right:3mm}.verify-footer b{color:#d02030;font-family:DejaVuSans,sans-serif;font-size:8pt;font-weight:normal}
+.verify-page-number{text-align:right;font-size:7pt;color:#536575}.verify-pending{font-size:7pt;color:#555;line-height:1.4}
+@media screen{body{padding:16px;background:#e9edf3}.verify-page{padding:7mm 8mm;width:297mm;min-height:210mm;background:#fff;margin:0 auto 16px;box-shadow:0 2px 12px #0002}}

@@ -35,6 +35,145 @@ beforeEach(function(){
     foreach(G9ExamFields::GROUPS['National Examination Scores'] as $key=>$label)$this->input[$key]='42.500';
 });
 
+it('autosaves national subject scores without changing other fields and rejects stale versions',function(){
+    $admin=User::find(1);$scoring=app(\App\Http\Controllers\G9ScoringController::class);
+    $id=$this->controller->save(g12Request($admin,$this->input))->getData(true)['id'];
+    $student=DB::table('tb_student')->get()->toJson();$before=G9ExamCandidate::find($id)->data;
+    $result=$scoring->save(g12Request($admin,['version'=>1,'scores'=>['score_math'=>'0','score_english'=>null,'score_physics'=>'54.125']]),$id)->getData(true);
+    expect($result['version'])->toBe(2)->and($result['scores'])->toHaveCount(11)->toMatchArray(['score_math'=>'0.000','score_english'=>null,'score_physics'=>'54.125']);
+    expect(G9ExamCandidate::find($id)->data)->toBe(array_replace($before,['score_math'=>'0.000','score_english'=>null,'score_physics'=>'54.125']));
+    expect(DB::table('tb_student')->get()->toJson())->toBe($student);
+    $event=DB::table('tb_g9_exam_event')->where('action','save-scores')->first();$audit=json_decode($event->details,true);
+    expect($audit['before'])->toMatchArray(['score_math'=>'42.500','score_english'=>'42.500'])
+        ->and($audit['after'])->toMatchArray(['score_math'=>'0.000','score_english'=>null]);
+    $unchanged=$scoring->save(g12Request($admin,['version'=>2,'scores'=>['score_math'=>'0.0']]),$id)->getData(true);
+    expect($unchanged['version'])->toBe(2)->and(DB::table('tb_g9_exam_event')->where('action','save-scores')->count())->toBe(1);
+    try{$scoring->save(g12Request($admin,['version'=>1,'scores'=>['score_math'=>90]]),$id);test()->fail('Expected a stale version conflict.');}
+    catch(HttpException $failure){expect($failure->getStatusCode())->toBe(409);}
+    expect(G9ExamCandidate::find($id)->data['score_math'])->toBe('0.000');
+});
+
+it('validates national scores and only accepts known subject fields',function(){
+    $admin=User::find(1);$scoring=app(\App\Http\Controllers\G9ScoringController::class);
+    $id=$this->controller->save(g12Request($admin,$this->input))->getData(true)['id'];$before=G9ExamCandidate::find($id)->toJson();
+    foreach([['score_math'=>-1],['score_math'=>'1.2345'],['score_math'=>10000],['score_math'=>'invalid'],['eoy_average'=>100],['score_math'=>1,'father_name'=>'overwrite'],[]] as $scores)
+        expect(fn()=>$scoring->save(g12Request($admin,['version'=>1,'scores'=>$scores]),$id))->toThrow(ValidationException::class);
+    expect(fn()=>$scoring->save(g12Request($admin,['scores'=>['score_math'=>1]]),$id))->toThrow(ValidationException::class);
+    expect(G9ExamCandidate::find($id)->toJson())->toBe($before);
+    $result=$scoring->save(g12Request($admin,['version'=>1,'scores'=>array_fill_keys(array_keys(G9ExamFields::GROUPS['National Examination Scores']),'99.999')]),$id)->getData(true);
+    expect(array_unique(array_values($result['scores'])))->toBe(['99.999'])->and($result['version'])->toBe(2);
+});
+
+it('scopes scoring views and edits by campus with separate permissions and parent denials',function(){
+    $admin=User::find(1);$user=User::find(2);$scoring=app(\App\Http\Controllers\G9ScoringController::class);
+    $local=$this->controller->save(g12Request($admin,$this->input))->getData(true)['id'];
+    $remote=$this->controller->save(g12Request($admin,array_replace($this->input,['student_code'=>'REMOTE','campus_id'=>2])))->getData(true)['id'];
+    expect(fn()=>$scoring->listing(g12Request($user,['academic_year'=>1])))->toThrow(HttpException::class);
+    foreach(['view','scoring'] as $action)DB::table('access_user_permission_overrides')->insert(['user_id'=>2,'permission_id'=>DB::table('access_permissions')->where('code','g9-national-exams.'.$action)->value('id'),'allowed'=>true]);
+    $list=$scoring->listing(g12Request($user,['academic_year'=>1]))->getData(true);
+    expect($list['total'])->toBe(1)->and($list['data'][0]['can_edit'])->toBeFalse();
+    expect(fn()=>$scoring->save(g12Request($user,['version'=>1,'scores'=>['score_math'=>1]]),$local))->toThrow(HttpException::class);
+    DB::table('access_user_permission_overrides')->insert(['user_id'=>2,'permission_id'=>DB::table('access_permissions')->where('code','g9-national-exams.scoring-edit')->value('id'),'allowed'=>true]);
+    expect($scoring->save(g12Request($user,['version'=>1,'scores'=>['score_math'=>0]]),$local)->getData(true)['scores']['score_math'])->toBe('0.000');
+    expect(fn()=>$scoring->save(g12Request($user,['version'=>1,'scores'=>['score_math'=>1]]),$remote))->toThrow(\Illuminate\Database\Eloquent\ModelNotFoundException::class);
+    expect($scoring->listing(g12Request($user,['academic_year'=>1,'campus'=>2]))->getData(true)['total'])->toBe(0);
+    DB::table('users')->where('id',2)->update(['is_global'=>true]);$central=User::find(2);
+    expect($scoring->save(g12Request($central,['version'=>1,'scores'=>['score_math'=>90]]),$remote)->getData(true)['version'])->toBe(2);
+    DB::table('access_user_permission_overrides')->where('user_id',2)->where('permission_id',DB::table('access_permissions')->where('code','g9-national-exams.scoring')->value('id'))->update(['allowed'=>false]);
+    expect(fn()=>$scoring->save(g12Request($central,['version'=>2,'scores'=>['score_math'=>1]]),$remote))->toThrow(HttpException::class);
+});
+
+it('cascades scoring filters and sorts by seat number numerically before room with pagination',function(){
+    $admin=User::find(1);$scoring=app(\App\Http\Controllers\G9ScoringController::class);
+    $first=$this->controller->save(g12Request($admin,array_replace($this->input,['room_number'=>'10','seat_number'=>'2'])))->getData(true)['id'];
+    $second=$this->controller->save(g12Request($admin,array_replace($this->input,['student_code'=>'SECOND','room_number'=>'2','seat_number'=>'10'])))->getData(true)['id'];
+    $third=$this->controller->save(g12Request($admin,array_replace($this->input,['student_code'=>'THIRD','room_number'=>'2','seat_number'=>'2','campus_id'=>2,'grade'=>'9B'])))->getData(true)['id'];
+    DB::table('tb_academic_year')->insert(['id'=>2,'academic_year'=>'2026-2027']);
+    $view=$scoring->index(g12Request($admin))->getData();expect($view['years']->pluck('id')->all())->toBe([1])->and($view['subjects'])->toHaveCount(11);
+    $list=$scoring->listing(g12Request($admin,['academic_year'=>1,'per_page'=>'100']))->getData(true);
+    expect(array_column($list['data'],'id'))->toBe([$third,$first,$second])->and($list['total'])->toBe(3);
+    expect($list['data'][0])->not->toHaveKeys(['father_name','phone_number','data']);
+    expect($list['data'][0]['eoy_average'])->toBe('90.000');
+    expect($list['data'][0]['exam_language'])->toBe('Khmer');
+    $choices=$scoring->options(g12Request($admin,['academic_year'=>1,'exam_center'=>'Test Center','campus'=>2,'room'=>'2','grade'=>'9B']))->getData(true);
+    expect($choices['exam_center'])->toBe(['Test Center'])->and($choices['campus'])->toHaveCount(2)->and($choices['room'])->toBe(['2'])
+        ->and($choices['grade'])->toBe(['9B'])->and(array_column($choices['student'],'id'))->toBe([$third]);
+    expect($scoring->listing(g12Request($admin,['academic_year'=>1,'campus'=>1,'grade'=>'9B']))->getData(true)['total'])->toBe(0);
+    for($i=0;$i<25;$i++)$this->controller->save(g12Request($admin,array_replace($this->input,['student_code'=>'PAGED-'.$i])));
+    $page=$scoring->listing(g12Request($admin,['academic_year'=>1,'page'=>2]))->getData(true);
+    expect($page['total'])->toBe(28)->and($page['per_page'])->toBe(25)->and($page['data'])->toHaveCount(3);
+});
+
+it('calculates verification totals with identical language rules rounding and grading boundaries',function(){
+    $scores=array_fill_keys(array_keys(G9ExamFields::GROUPS['National Examination Scores']),'40');
+    foreach(['English','en','អង់គ្លេស'] as $language){
+        $summary=\App\Support\G9ScoreSummary::calculate($scores+['exam_language'=>$language,'eoy_average'=>'90.5']);
+        expect($summary)->toMatchArray(['total'=>491,'eoy'=>91,'complete'=>true,'english_contribution'=>0,'result'=>'ជាប់','grade'=>'ល្អ']);
+    }
+    foreach(['Khmer','kh','km','ខ្មែរ'] as $language)foreach(['24.999'=>490,'25'=>490,'25.001'=>490.001,'50'=>515] as $english=>$expected){
+        $summary=\App\Support\G9ScoreSummary::calculate(array_replace($scores,['exam_language'=>$language,'eoy_average'=>90,'score_english'=>$english]));
+        expect($summary['total'])->toEqual($expected)->and($summary['complete'])->toBeTrue();
+    }
+    foreach(['259.999'=>'ធ្លាក់','260'=>'មធ្យម','337.999'=>'មធ្យម','338'=>'ល្អបង្គួរ','415.999'=>'ល្អបង្គួរ','416'=>'ល្អ'] as $total=>$grade){
+        $summary=\App\Support\G9ScoreSummary::calculate(array_replace(array_fill_keys(array_keys($scores),'0'),['exam_language'=>'English','eoy_average'=>0,'score_math'=>$total]));
+        expect($summary['grade'])->toBe($grade);
+    }
+    $partial=\App\Support\G9ScoreSummary::calculate(array_replace($scores,['exam_language'=>'English','eoy_average'=>90,'score_math'=>null]));
+    expect($partial)->toMatchArray(['complete'=>false,'result'=>null,'grade'=>null]);
+    $excluded=\App\Support\G9ScoreSummary::calculate(array_replace($scores,['exam_language'=>'English','eoy_average'=>90,'score_english'=>null]));
+    expect($excluded)->toMatchArray(['complete'=>true,'total'=>490]);
+    foreach(['',null,'Other'] as $language)expect(\App\Support\G9ScoreSummary::calculate($scores+['exam_language'=>$language,'eoy_average'=>90]))->toMatchArray(['total'=>null,'complete'=>false,'result'=>null]);
+    expect(\App\Support\G9ScoreSummary::display(0))->toBe('0')->and(\App\Support\G9ScoreSummary::display(null))->toBe('—');
+});
+
+it('prints verification sheets by room with 25 candidates per A4 landscape page and preserves all records',function(){
+    $admin=User::find(1);$scoring=app(\App\Http\Controllers\G9ScoringController::class);$reports=app(\App\Support\G9ScoringReport::class);
+    $data=array_replace($this->input,array_fill_keys(array_keys(G9ExamFields::GROUPS['National Examination Scores']),'40'),[
+        'name_kh'=>'កង សុគន្ធនរិន្ទ','exam_center'=>'វិ. សាលាវេស្ទើនអន្តរជាតិ (ភ្នំពេញថ្មី) (ត្បូង)',
+        'school_name'=>'វិ. សាលាវេស្ទើនអន្តរជាតិ (ភ្នំពេញថ្មី)','eoy_average'=>'90.500','score_english'=>'50']);
+    for($i=26;$i>=1;$i--)$this->controller->save(g12Request($admin,array_replace($data,['student_code'=>'VERIFY-'.$i,'seat_number'=>(string)$i,'score_math'=>$i===1?null:'40'])));
+    $this->controller->save(g12Request($admin,array_replace($data,['student_code'=>'ROOM-2','room_number'=>'2','exam_center'=>'Provincial Center','seat_number'=>'1'])));
+    $this->controller->save(g12Request($admin,array_replace($data,['student_code'=>'REMOTE','campus_id'=>2,'exam_center'=>'Hidden Remote Center'])));
+    $before=G9ExamCandidate::all()->toJson();
+    DB::table('tb_g9_exam_year_setting')->insert(['academic_year_id'=>1,'version'=>1,'data'=>json_encode(['report_centers'=>[['exam_center'=>'Provincial Center','location'=>'ខេត្តព្រះសីហនុ']]]),'updated_by'=>1,'created_at'=>now(),'updated_at'=>now()]);
+    $html=$scoring->report(g12Request($admin,['academic_year'=>1,'campus'=>1,'per_page'=>'25']),'print',$reports)->getContent();
+    expect(substr_count($html,'<section class="verify-page">'))->toBe(3)->and($html)->toContain('តារាងផ្ទៀងផ្ទាត់ពិន្ទុ','ព្រះសីហនុ','516')->not->toContain('Hidden Remote Center','Father','012345678');
+    expect($html)->toContain(\App\Support\G9ScoringReport::HEADING,'<th width="20mm" colspan="2">ភាសាបរទេស</th>')->not->toContain('ឆ្នាំសិក្សា៖','ភាសា បូកបន្ថែម');
+    $records=G9ExamCandidate::where('campus_id',1)->where('data->room_number','01')->get();$pages=$reports->pages($records,[]);
+    expect($pages)->toHaveCount(2)->and($pages[0]['rows'])->toHaveCount(25)->and($pages[1]['rows'])->toHaveCount(1)
+        ->and($pages[0]['rows'][0]['seat'])->toBe('1')->and($pages[0]['rows'][24]['seat'])->toBe('25')
+        ->and($pages[0]['summary'])->toMatchArray(['total'=>26,'female'=>26,'passed'=>25,'failed'=>0,'pending'=>1]);
+    expect($pages[0]['rows'][0]['summary'])->toMatchArray(['complete'=>false,'result'=>null,'grade'=>null]);
+    $pdf=$scoring->report(g12Request($admin,['academic_year'=>1,'campus'=>1]),'pdf',$reports);
+    expect($pdf->headers->get('Content-Type'))->toBe('application/pdf')->and($pdf->getContent())->toStartWith('%PDF-');
+    if(getenv('G9_REPORT_QA')){
+        $folder=storage_path('app/private/g9-report-qa');if(!is_dir($folder))mkdir($folder,0755,true);
+        file_put_contents($folder.'/scoring-verification.pdf',$pdf->getContent());file_put_contents($folder.'/scoring-verification.html',$html);
+    }
+    $reader=new \Mpdf\Mpdf(['tempDir'=>storage_path('app/private/g9-report-pdf')]);
+    expect($reader->setSourceFile(\setasign\Fpdi\PdfParser\StreamReader::createByString($pdf->getContent())))->toBe(3);
+    $size=$reader->getTemplateSize($reader->importPage(1));expect(round($size['width']))->toBe(297.0)->and(round($size['height']))->toBe(210.0);
+    expect(G9ExamCandidate::all()->toJson())->toBe($before);
+    expect(fn()=>$scoring->report(g12Request($admin,['academic_year'=>1,'student'=>999]),'print',$reports))->toThrow(HttpException::class);
+});
+
+it('requires separate scoring print and PDF permissions with campus and parent restrictions',function(){
+    $admin=User::find(1);$user=User::find(2);$scoring=app(\App\Http\Controllers\G9ScoringController::class);$reports=app(\App\Support\G9ScoringReport::class);
+    $this->controller->save(g12Request($admin,$this->input));$this->controller->save(g12Request($admin,array_replace($this->input,['student_code'=>'REMOTE','campus_id'=>2,'exam_center'=>'Remote Private Center'])));
+    foreach(['view','scoring'] as $action)DB::table('access_user_permission_overrides')->insert(['user_id'=>2,'permission_id'=>DB::table('access_permissions')->where('code','g9-national-exams.'.$action)->value('id'),'allowed'=>true]);
+    expect($scoring->index(g12Request($user))->getData()['reportFormats'])->toBe([]);
+    expect(fn()=>$scoring->report(g12Request($user,['academic_year'=>1]),'print',$reports))->toThrow(HttpException::class);
+    DB::table('access_user_permission_overrides')->insert(['user_id'=>2,'permission_id'=>DB::table('access_permissions')->where('code','g9-national-exams.scoring-print')->value('id'),'allowed'=>true]);
+    expect($scoring->index(g12Request($user))->getData()['reportFormats'])->toBe(['print']);
+    $html=$scoring->report(g12Request($user,['academic_year'=>1]),'print',$reports)->getContent();expect($html)->toContain('Test Center')->not->toContain('Remote Private Center');
+    expect(fn()=>$scoring->report(g12Request($user,['academic_year'=>1]),'pdf',$reports))->toThrow(HttpException::class);
+    expect(fn()=>$scoring->report(g12Request($user,['academic_year'=>1,'campus'=>2]),'print',$reports))->toThrow(HttpException::class);
+    DB::table('users')->where('id',2)->update(['is_global'=>true]);$central=User::find(2);
+    expect($scoring->report(g12Request($central,['academic_year'=>1,'campus'=>2]),'print',$reports)->getContent())->toContain('Remote Private Center');
+    DB::table('access_user_permission_overrides')->where('user_id',2)->where('permission_id',DB::table('access_permissions')->where('code','g9-national-exams.scoring')->value('id'))->update(['allowed'=>false]);
+    expect(fn()=>$scoring->report(g12Request($central,['academic_year'=>1]),'print',$reports))->toThrow(HttpException::class);
+});
+
 it('assigns the sum of semester scores rounded to a whole number without replacing candidate details',function(){
     $admin=User::find(1);$eoy=app(\App\Http\Controllers\G9EoyAverageController::class);
     $id=$this->controller->save(g12Request($admin,$this->input))->getData(true)['id'];
@@ -148,7 +287,7 @@ it('retains legacy grants and explicit report denials when migrating the G9 perm
     expect(DB::table('access_role_permissions')->where('role_id',2)->where('permission_id',DB::table('access_permissions')->where('code','g9-national-exams.print')->value('id'))->count())->toBe(1);
 });
 
-it('hides unauthorized G9 submenus and blocks direct placeholder routes',function(){
+it('hides unauthorized G9 submenus and blocks direct routes',function(){
     $user=User::find(2);
     foreach(['view','eoy'] as $action)DB::table('access_user_permission_overrides')->insert(['user_id'=>2,'permission_id'=>DB::table('access_permissions')->where('code','g9-national-exams.'.$action)->value('id'),'allowed'=>true]);
     $request=g12Request($user);\Illuminate\Support\Facades\Auth::setUser($user);
@@ -156,7 +295,8 @@ it('hides unauthorized G9 submenus and blocks direct placeholder routes',functio
     expect($menu)->toContain('G9 National Exams','Assign EOY Average')->not->toContain('List of Candidate','G9 Bulk Stu. Photo','G9 Setting');
     $routes=app('router')->getRoutes();
     $scoring=$routes->getByName('g9-national-exams.scoring')->getAction('uses');
-    expect(fn()=>$scoring($request))->toThrow(HttpException::class);
+    expect($scoring)->toBe(\App\Http\Controllers\G9ScoringController::class.'@index');
+    expect(fn()=>app(\App\Http\Controllers\G9ScoringController::class)->index($request))->toThrow(HttpException::class);
     $landing=$routes->getByName('g9-national-exams.index')->getAction('uses');
     expect($landing($request)->getTargetUrl())->toEndWith('/g9-national-exams/eoy-average');
 });
@@ -192,7 +332,7 @@ it('prints annual score cards and covers using campus names full filters and who
     $this->controller->save(g12Request($admin,array_replace($this->input,['student_code'=>'SECOND','campus_id'=>2,'room_number'=>'2'])));
     foreach([1,2] as $campus)app(\App\Http\Controllers\G9EoySettingController::class)->save(g12Request($admin,['academic_year_id'=>1,'campus_id'=>$campus,'version'=>0,'compiler_name'=>$campus===1?'សុខ សាន្ត':'Remote Compiler','director_name'=>$campus===1?'លឹម សេងមាន':'Remote Director']));
     $before=G9ExamCandidate::all()->toJson();
-    $settings=['resultDate_iso'=>'2026-07-06','date_location'=>'រាជធានីភ្នំពេញ','k_resultDate'=>'ថ្ងៃចន្ទ ខែអាសាឍ ឆ្នាំមមី ព.ស.២៥៧០'];
+    $settings=['resultDate_iso'=>'2026-07-06','date_location'=>'រាជធានីភ្នំពេញ','k_resultDate'=>'ថ្ងៃចន្ទ ៧កើត ខែអាសាឍ ឆ្នាំមមី អដ្ឋស័ក ពុទ្ធសករាជ ២៥៧០'];
     DB::table('tb_g9_exam_year_setting')->insert(['academic_year_id'=>1,'data'=>json_encode($settings),'version'=>1,'updated_by'=>1,'created_at'=>now(),'updated_at'=>now()]);
     $pages=$reports->pages(G9ExamCandidate::all(),$settings,'card');
     expect($pages)->toHaveCount(2)->and($pages[0])->toMatchArray(['semester_1'=>'45.29','semester_2'=>'45.27','sum'=>'90.56','eoy'=>'91','compiler'=>'សុខ សាន្ត','director'=>'លឹម សេងមាន'])

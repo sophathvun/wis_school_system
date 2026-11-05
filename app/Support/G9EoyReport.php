@@ -10,6 +10,8 @@ use Mpdf\Mpdf;
 class G9EoyReport
 {
     public const TITLES=['cover'=>'ក្របសលាកបត្រពិន្ទុប្រចាំឆ្នាំ','card'=>'សលាកបត្រពិន្ទុប្រចាំឆ្នាំ'];
+    public const CARD_INSTRUCTION='ស្រង់ពិន្ទុពីសលាកបត្រពិន្ទុប្រចាំឆ្នាំចូលរង្វង់មូលនៃទំព័រទី២ សម្រាប់ហៅចូលក្នុងតារាងស្រង់ពិន្ទុ';
+    public const CARD_FINAL_NOTE='- លើទំព័រទី២ ជាភារកិច្ចរបស់គណៈមេប្រយោគប្រឡងដែលត្រូវចម្លងពិន្ទុប្រចាំឆ្នាំចូលក្នុងរង្វង់។';
 
     public function pages($records,array $settings,string $type): array
     {
@@ -33,7 +35,7 @@ class G9EoyReport
                 'name'=>$record->name_kh?:$record->name_en,'gender'=>['female'=>'ស្រី','f'=>'ស្រី','male'=>'ប្រុស','m'=>'ប្រុស'][mb_strtolower($d['gender']??'')]??($d['gender']??''),
                 'dob'=>G9CandidateReport::khmerDate($d['date_of_birth']??null),'grade'=>$d['grade']??'','school'=>$d['school_name']??'',
                 'campus'=>$record->campus?->campus_name_en??'','semester_1'=>$first,'semester_2'=>$second,'sum'=>$sum,'eoy'=>Scores::total($first,$second),
-                'compiler'=>$names?->compiler_name??'','director'=>$names?->director_name??'','solar'=>$solar,'lunar'=>$settings['k_resultDate']??''];
+                'compiler'=>$names?->compiler_name??'','director'=>$names?->director_name??'','solar'=>$solar];
         }
         return $pages;
     }
@@ -69,13 +71,19 @@ class G9EoyReport
         $pdf->AddPage();
         foreach($pages as $index=>$page){
             if($index)$pdf->AddPage();
+            if($type==='card'){
+                $pdf->SetFont('g9body','',11.5);
+                foreach(['instruction_font_size'=>self::CARD_INSTRUCTION,'final_note_font_size'=>self::CARD_FINAL_NOTE] as $key=>$text){
+                    $page[$key]=floor(min(11.5,11.5*127.5/max(.1,$pdf->GetStringWidth($text)))*100)/100;
+                }
+            }
             $pdf->SetDrawColor(70,70,70);$pdf->SetLineWidth(.25);
             if($type==='cover')$pdf->SetDash(1,1);
             $pdf->Line(148.5,7,148.5,201);$pdf->SetDash();
             foreach([1,2] as $side){
                 $classes='eoy-pdf-panel eoy-'.($side===1?'front':'back').' eoy-'.$type;
                 $html='<div class="'.$classes.'">'.view('g9-national-exams.eoy-report-panel',['page'=>$page,'type'=>$type,'side'=>$side,'pdfExport'=>true])->render().'</div>';
-                $pdf->WriteFixedPosHTML($html,$side===1?12:155.5,7,129.5,185,'auto');
+                $pdf->WriteFixedPosHTML($html,$side===1?12:155.5,7,129.5,185,$type==='card'?'visible':'auto');
                 $pdf->WriteFixedPosHTML('<div style="font-family:g9body;font-size:9pt;color:'.($side===1?'#111':'#ed1717').'">ទំព័រទី'.($side===1?'១':'២').'</div>',$side===1?125:155.5,195,20,6,'visible');
             }
         }

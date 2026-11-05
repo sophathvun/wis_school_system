@@ -472,6 +472,11 @@ Route::middleware(['auth', 'active.user'])->group(function () {
     ])->middleware('permission:grading-system.view')->name('grading-system.index');
 
     Route::prefix('g9-national-exams')->name('g9-national-exams.')->group(function () {
+        Route::get('/scoring',[\App\Http\Controllers\G9ScoringController::class,'index'])->name('scoring');
+        Route::get('/scoring/options',[\App\Http\Controllers\G9ScoringController::class,'options'])->name('scoring.options');
+        Route::get('/scoring/list',[\App\Http\Controllers\G9ScoringController::class,'listing'])->name('scoring.list');
+        Route::get('/scoring/reports/verify/{format}',[\App\Http\Controllers\G9ScoringController::class,'report'])->where('format','print|pdf')->name('scoring.report');
+        Route::post('/scoring/{candidate}',[\App\Http\Controllers\G9ScoringController::class,'save'])->whereNumber('candidate')->name('scoring.save');
         Route::get('/eoy-average',[\App\Http\Controllers\G9EoyAverageController::class,'index'])->name('eoy-average');
         Route::get('/eoy-average/options',[\App\Http\Controllers\G9EoyAverageController::class,'options'])->name('eoy-average.options');
         Route::get('/eoy-average/list',[\App\Http\Controllers\G9EoyAverageController::class,'listing'])->name('eoy-average.list');
@@ -488,6 +493,8 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         Route::get('/settings/eoy-campus',[\App\Http\Controllers\G9EoySettingController::class,'show'])->name('settings.eoy-campus');
         Route::post('/settings/eoy-campus',[\App\Http\Controllers\G9EoySettingController::class,'save'])->name('settings.eoy-campus.save');
         Route::get('/settings/dates',[\App\Http\Controllers\G9ExamSettingController::class,'show'])->name('settings.dates');
+        Route::get('/settings/center',[\App\Http\Controllers\G9ExamSettingController::class,'showCenter'])->name('settings.center');
+        Route::post('/settings/center',[\App\Http\Controllers\G9ExamSettingController::class,'saveCenter'])->name('settings.center.save');
         Route::post('/settings/dates',[\App\Http\Controllers\G9ExamSettingController::class,'save'])->name('settings.save');
         Route::get('/imports-exports',[\App\Http\Controllers\G9ExamImportController::class,'index'])->name('imports-exports');
         Route::get('/imports-exports/download/{kind}',[\App\Http\Controllers\G9ExamImportController::class,'download'])->where('kind','template|all')->name('imports-exports.download');
@@ -503,7 +510,6 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         Route::post('/candidates',[\App\Http\Controllers\G9NationalExamController::class,'save'])->name('candidates.store');
         Route::post('/candidates/{candidate}',[\App\Http\Controllers\G9NationalExamController::class,'save'])->whereNumber('candidate')->name('candidates.update');
         foreach ([
-            'scoring' => ['Scoring', 'ti-pencil', 'Grade 9 national exam scoring.'],
             'results' => ['Exam Result', 'ti-chart-bar', 'Grade 9 national exam results.'],
             'certificates' => ['G9 Certificate Tracking', 'ti-certificate', 'Grade 9 certificate tracking.'],
         ] as $section => [$title, $icon, $description]) {
