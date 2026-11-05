@@ -36,5 +36,17 @@
             </div>
             <div class="card mt-3"><div class="card-body d-flex justify-content-between align-items-center gap-3"><span data-setting-message role="status"></span>@if($canManage)<button type="submit" class="btn btn-primary" data-setting-save disabled><i class="ti ti-device-floppy me-2"></i>Save Dates</button>@endif</div></div>
         </form>
+        <section class="card mt-3" id="g9EoyCampusSettings" data-eoy-campus-settings data-url="{{ url('/g9-national-exams/settings/eoy-campus') }}">
+            <div class="card-header g9-header"><h3 class="card-title"><i class="ti ti-signature me-2"></i>Annual Score Card · Campus Names</h3></div>
+            <form class="card-body" data-eoy-campus-form>
+                <p class="text-secondary">Set the score compiler and campus director for the academic year selected above. Each student's annual score card uses their own campus settings. The printed date uses Result Issue Date.</p>
+                <div class="g9-editor-grid">
+                    <div class="premium-form-field staff-form-field"><label class="form-label" for="g9EoyCampus">Campus</label><select id="g9EoyCampus" name="campus_id" class="form-select" required>@foreach($eoyCampuses as $campus)<option value="{{ $campus->id }}">{{ $campus->campus_name_en }}</option>@endforeach</select></div>
+                    <div class="premium-form-field"><label class="form-label" for="g9EoyCompiler">អ្នកស្រង់ពិន្ទុ</label><input id="g9EoyCompiler" name="compiler_name" class="form-control school-profile-khmer" maxlength="255" placeholder=" " disabled></div>
+                    <div class="premium-form-field"><label class="form-label" for="g9EoyDirector">ឈ្មោះនាយកសាខា</label><input id="g9EoyDirector" name="director_name" class="form-control school-profile-khmer" maxlength="255" placeholder=" " disabled></div>
+                </div>
+                <div class="d-flex align-items-center justify-content-between gap-3 mt-3 flex-wrap"><span data-eoy-campus-message role="status"></span><button type="submit" class="btn btn-primary" data-eoy-campus-save hidden disabled><i class="ti ti-device-floppy me-2"></i>Save Campus Names</button></div>
+            </form>
+        </section>
     </div>
 @endsection

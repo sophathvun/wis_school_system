@@ -97,7 +97,13 @@ const fitCenters=()=>document.querySelectorAll('[data-fit-center]').forEach(text
     text.style.maxWidth='100%';
     if(text.offsetWidth>available)text.style.whiteSpace='normal';
 });
-const fitReportText=()=>{fitSchools();fitCenters();};
+const fitSeatNames=()=>document.querySelectorAll('[data-fit-seat-name]').forEach(text=>{
+    const available=text.parentElement.clientWidth-2,base=Number(text.dataset.baseSize);
+    text.style.fontSize=base+'pt';
+    const width=text.offsetWidth;
+    if(width>available&&available>0)text.style.fontSize=(base*available/width)+'pt';
+});
+const fitReportText=()=>{fitSchools();fitCenters();fitSeatNames();};
 window.addEventListener('load',async()=>{await document.fonts.ready;fitReportText();window.print();});
 window.addEventListener('beforeprint',fitReportText);
 window.addEventListener('resize',fitReportText);

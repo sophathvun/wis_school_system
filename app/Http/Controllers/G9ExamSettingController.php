@@ -30,7 +30,8 @@ class G9ExamSettingController
     {
         $this->authorize($request);
         return view('g9-national-exams.settings',['years'=>AcademicYear::orderByDesc('academic_year')->get(),'sections'=>self::SECTIONS,'canManage'=>$this->canManage($request->user()),
-            'configuredYear'=>DB::table('tb_g9_exam_year_setting')->orderByDesc('updated_at')->value('academic_year_id')]);
+            'configuredYear'=>DB::table('tb_g9_exam_year_setting')->orderByDesc('updated_at')->value('academic_year_id'),
+            'eoyCampuses'=>\App\Models\SchoolInfo::whereIn('id',app(G9ExamImports::class)->campusIds($request->user(),'settings'))->orderBy('campus_name_en')->get()]);
     }
     public function show(Request $request)
     {

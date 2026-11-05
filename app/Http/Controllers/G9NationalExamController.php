@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\{AcademicYear,G9ExamCandidate,SchoolInfo};
-use App\Support\G9ExamFields;
+use App\Support\{G9ExamFields,G9NationalExamPermissions};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{DB,Storage};
 use Illuminate\Validation\{Rule,ValidationException};
@@ -14,12 +14,7 @@ class G9NationalExamController
     {
         $key='g9.campuses.'.$request->user()->id.'.'.$action;
         if($request->attributes->has($key))return $request->attributes->get($key);
-        $campusKey='g9.accessible-campus-records.'.$request->user()->id;
-        if(!$request->attributes->has($campusKey))$request->attributes->set($campusKey,$request->user()->accessibleCampuses()->get());
-        $campuses=$request->attributes->get($campusKey);
-        $visible=$action==='view'?null:$this->campuses($request);
-        $ids=$campuses->filter(fn($c)=>$action==='view'?$request->user()->hasPermission('g9-national-exams.view',$c->id)
-            :(in_array($c->id,$visible,true)&&$request->user()->hasPermission('g9-national-exams.'.$action,$c->id)))->modelKeys();
+        $ids=$action==='view'?G9NationalExamPermissions::reportCampuses($request->user()):G9NationalExamPermissions::campusIds($request->user(),$action);
         $request->attributes->set($key,$ids);return $ids;
     }
     public function index(Request $request)
@@ -28,7 +23,10 @@ class G9NationalExamController
         return view('g9-national-exams.candidates',['years'=>AcademicYear::orderByDesc('academic_year')->get(),
             'filterYears'=>AcademicYear::whereIn('id',G9ExamCandidate::whereIn('campus_id',$this->campuses($request))->select('academic_year_id'))->orderByDesc('academic_year')->get(),
             'campuses'=>SchoolInfo::whereIn('id',$this->campuses($request))->orderBy('campus_name_en')->get(),
-            'fields'=>G9ExamFields::GROUPS,'canExport'=>(bool)$this->campuses($request,'export'),'createCampuses'=>$this->campuses($request,'create'),'editCampuses'=>$this->campuses($request,'edit')]);
+            'fields'=>G9ExamFields::GROUPS,
+            'reportFormats'=>collect(['print','excel','pdf'])->filter(fn($format)=>G9NationalExamPermissions::allows($request->user(),$format))->values()->all(),
+            'reportTypes'=>collect(G9NationalExamPermissions::REPORTS)->filter(fn($type)=>G9NationalExamPermissions::allows($request->user(),'report-'.$type))->values()->all(),
+            'createCampuses'=>$this->campuses($request,'create'),'editCampuses'=>$this->campuses($request,'edit')]);
     }
     private function query(Request $request)
     {
@@ -95,7 +93,8 @@ class G9NationalExamController
         abort_unless(isset(\App\Support\G9CandidateReport::TITLES[$type])&&in_array($format,['print','excel','pdf'],true),404);
         abort_if(in_array($type,\App\Support\G9CandidateReport::PRINT_ONLY_TYPES,true)&&$format==='excel',404);
         $request->validate(['academic_year'=>['required','integer','exists:tb_academic_year,id']]);
-        $ids=$this->campuses($request,'export');abort_unless($ids,403);
+        abort_unless(G9NationalExamPermissions::allows($request->user(),'report-'.$type),403);
+        $ids=G9NationalExamPermissions::reportCampuses($request->user(),$format);abort_unless($ids,403);
         $records=$this->orderByRoom($this->query($request)->whereIn('campus_id',$ids)->orderBy('data->exam_center'))->get();
         abort_if($records->isEmpty(),422,'No candidates match the selected filters.');
         $setting=DB::table('tb_g9_exam_year_setting')->where('academic_year_id',$request->integer('academic_year'))->first();

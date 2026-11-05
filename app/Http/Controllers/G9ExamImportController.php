@@ -12,9 +12,9 @@ class G9ExamImportController
 {
     public function index(Request $request,G9ExamImports $service)
     {
+        $service->authorize($request->user(),'imports');
         $canImport=(bool)$service->campusIds($request->user(),'import');$canExport=(bool)$service->campusIds($request->user(),'export');
-        abort_unless($canImport||$canExport,403);
-        return view('g9-national-exams.imports',['canImport'=>$canImport,'canExport'=>$canExport,'headers'=>array_keys(G9ExamSpreadsheet::COLUMNS)]);
+        return view('g9-national-exams.imports',['canImport'=>$canImport,'canExport'=>$canExport,'canHistory'=>(bool)$service->campusIds($request->user(),'import-history'),'headers'=>array_keys(G9ExamSpreadsheet::COLUMNS)]);
     }
     public function download(Request $request,G9ExamImports $service,string $kind)
     {
@@ -79,7 +79,7 @@ class G9ExamImportController
     }
     public function history(Request $request,G9ExamImports $service)
     {
-        $service->authorize($request->user(),'import');
+        $service->authorize($request->user(),'import-history');
         return response()->json(DB::table('tb_g9_exam_import')->where('user_id',$request->user()->id)->orderByDesc('id')->limit(30)->get(['id','filename','status','summary','created_at','updated_at']));
     }
 }

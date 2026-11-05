@@ -11,7 +11,7 @@ class G9ExamImports
 {
     public function campusIds(User $user,string $action): array
     {
-        return $user->accessibleCampuses()->get()->filter(fn($c)=>$user->hasPermission('g9-national-exams.view',$c->id)&&$user->hasPermission('g9-national-exams.'.$action,$c->id))->modelKeys();
+        return \App\Support\G9NationalExamPermissions::campusIds($user,$action);
     }
     public function authorize(User $user,string $action): void {abort_unless($this->campusIds($user,$action),403);}
     private function key(string $value): string {return mb_strtolower(trim(preg_replace('/\s+/u',' ',str_replace(["\u{200B}","\u{FEFF}"],'',$value))));}

@@ -1,7 +1,7 @@
 import Swal from 'sweetalert2';
 
 const root = document.querySelector('[data-g9-imports]');
-if (root?.querySelector('[data-g9-import-form]')) {
+if (root) {
     const form = root.querySelector('[data-g9-import-form]'), preview = root.querySelector('[data-g9-preview-panel]');
     const error = root.querySelector('[data-g9-import-error]'), success = root.querySelector('[data-g9-import-success]');
     const confirm = root.querySelector('[data-g9-confirm]'), button = root.querySelector('[data-g9-preview]');
@@ -15,6 +15,7 @@ if (root?.querySelector('[data-g9-import-form]')) {
     const cell = (row, value) => {const element = row.insertCell(); element.textContent = value ?? '-'; return element;};
     const history = async () => {
         const rows = root.querySelector('[data-g9-import-history]');
+        if(!rows)return;
         try {
             const batches = await api('/history'); rows.replaceChildren();
             batches.forEach(batch => {
@@ -22,8 +23,9 @@ if (root?.querySelector('[data-g9-import-form]')) {
                 [batch.filename, batch.created_at, batch.status, summary.new, summary.updates, summary.errors.length, (summary.warnings || []).length].forEach(value => cell(row, value));
             });
             if (!batches.length) {const row = rows.insertRow(); const empty = cell(row, 'No imports yet.'); empty.colSpan = 7; empty.className = 'text-center text-secondary py-4';}
-        } catch (failure) {error.textContent = failure.message;}
+        } catch (failure) {root.querySelector('[data-g9-history-error]').textContent = failure.message;}
     };
+    if(form){
     form.elements.file.addEventListener('change', () => {token = null; preview.hidden = true; confirm.disabled = true; success.textContent = ''; error.textContent = '';});
     form.addEventListener('submit', async event => {
         event.preventDefault(); if (busy) return;
@@ -55,5 +57,6 @@ if (root?.querySelector('[data-g9-import-form]')) {
         } catch (failure) {error.textContent = failure.message; token = null; preview.hidden = true;}
         finally {busy = false; button.disabled = false; form.elements.file.disabled = false;}
     });
+    }
     history();
 }

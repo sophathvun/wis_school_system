@@ -22,6 +22,9 @@ beforeEach(function(){
     (require database_path('migrations/2026_11_04_000004_preserve_g9_legacy_tracking.php'))->up();
     (require database_path('migrations/2026_11_04_000005_add_g9_date_settings_access.php'))->up();
     (require database_path('migrations/2026_11_04_000006_create_g9_photo_batches.php'))->up();
+    (require database_path('migrations/2026_11_05_000001_add_g9_eoy_permissions.php'))->up();
+    (require database_path('migrations/2026_11_05_000002_complete_g9_permission_catalog.php'))->up();
+    (require database_path('migrations/2026_11_05_000003_create_g9_eoy_campus_settings.php'))->up();
     $this->controller=app(G9NationalExamController::class);
     $this->input=['academic_year_id'=>1,'campus_id'=>1,'student_code'=>'000123','name_en'=>'G9 Candidate',
         'name_kh'=>"\u{179F}\u{17B7}\u{179F}\u{17D2}\u{179F}",'gender'=>'Female','nationality'=>'Cambodian','date_of_birth'=>'2011-05-12',
@@ -30,6 +33,211 @@ beforeEach(function(){
         'room_number'=>'01','seat_number'=>'005','school_name'=>'Western International School','grade'=>'9A',
         'phone_number'=>'012345678','exam_language'=>'Khmer','semester_1'=>'89.500','semester_2'=>'90.500','eoy_average'=>'90.000'];
     foreach(G9ExamFields::GROUPS['National Examination Scores'] as $key=>$label)$this->input[$key]='42.500';
+});
+
+it('assigns the sum of semester scores rounded to a whole number without replacing candidate details',function(){
+    $admin=User::find(1);$eoy=app(\App\Http\Controllers\G9EoyAverageController::class);
+    $id=$this->controller->save(g12Request($admin,$this->input))->getData(true)['id'];
+    $before=G9ExamCandidate::find($id)->data;
+    $list=$eoy->listing(g12Request($admin,['academic_year'=>1]))->getData(true);
+    expect($list['data'][0])->toMatchArray(['semester_1'=>'89.50','semester_2'=>'90.50','calculated_eoy'=>'180','saved_eoy'=>'90.000','can_assign'=>true]);
+    expect(G9ExamCandidate::find($id)->data)->toBe($before);
+    $result=$eoy->save(g12Request($admin,['version'=>1,'semester_1'=>'1.005','semester_2'=>'2.004']),$id)->getData(true);
+    expect($result)->toMatchArray(['semester_1'=>'1.01','semester_2'=>'2.00','version'=>2,'eoy_average'=>'3']);
+    $saved=G9ExamCandidate::find($id);
+    expect($saved->data)->toMatchArray(['semester_1'=>'1.01','semester_2'=>'2.00','eoy_average'=>'3','father_name'=>'Father','score_math'=>'42.500']);
+    expect(DB::table('tb_g9_exam_event')->where('action','assign-eoy')->count())->toBe(1);
+    expect(fn()=>$eoy->save(g12Request($admin,['version'=>1,'semester_1'=>10,'semester_2'=>20]),$id))->toThrow(HttpException::class);
+    expect(G9ExamCandidate::find($id)->data['eoy_average'])->toBe('3');
+    expect(\App\Http\Controllers\G9EoyAverageController::total('0','0'))->toBe('0')
+        ->and(\App\Http\Controllers\G9EoyAverageController::total(null,'0'))->toBeNull()
+        ->and(\App\Http\Controllers\G9EoyAverageController::total('9999.999','9999.999'))->toBe('20000')
+        ->and(\App\Http\Controllers\G9EoyAverageController::total('10.244','20.250'))->toBe('30')
+        ->and(\App\Http\Controllers\G9EoyAverageController::total('10.245','20.250'))->toBe('31');
+    expect(fn()=>$eoy->save(g12Request($admin,['version'=>2,'semester_1'=>-1,'semester_2'=>20]),$id))->toThrow(ValidationException::class);
+});
+
+it('autosaves individual semester scores while leaving an incomplete EOY total blank',function(){
+    $admin=User::find(1);$eoy=app(\App\Http\Controllers\G9EoyAverageController::class);
+    $id=$this->controller->save(g12Request($admin,array_replace($this->input,['semester_1'=>null,'semester_2'=>null,'eoy_average'=>null])))->getData(true)['id'];
+    $first=$eoy->save(g12Request($admin,['version'=>1,'semester_1'=>'89.505','semester_2'=>null]),$id)->getData(true);
+    expect($first)->toMatchArray(['version'=>2,'semester_1'=>'89.51','semester_2'=>null,'eoy_average'=>null]);
+    $second=$eoy->save(g12Request($admin,['version'=>2,'semester_1'=>'89.51','semester_2'=>'90.50']),$id)->getData(true);
+    expect($second)->toMatchArray(['version'=>3,'semester_1'=>'89.51','semester_2'=>'90.50','eoy_average'=>'180']);
+    expect(fn()=>$eoy->save(g12Request($admin,['version'=>2,'semester_1'=>'1.00','semester_2'=>'2.00']),$id))->toThrow(HttpException::class);
+    expect(G9ExamCandidate::find($id)->data)->toMatchArray(['semester_1'=>'89.51','semester_2'=>'90.50','eoy_average'=>'180','father_name'=>'Father']);
+    expect(fn()=>$eoy->save(g12Request($admin,['version'=>3,'semester_1'=>'50.00']),$id))->toThrow(ValidationException::class);
+});
+
+it('restricts EOY viewing and assignment separately to permitted campuses and cascades filters',function(){
+    $admin=User::find(1);$user=User::find(2);$eoy=app(\App\Http\Controllers\G9EoyAverageController::class);
+    $id=$this->controller->save(g12Request($admin,$this->input))->getData(true)['id'];
+    $other=$this->controller->save(g12Request($admin,array_replace($this->input,['campus_id'=>2,'student_code'=>'OTHER','grade'=>'9B'])))->getData(true)['id'];
+    expect(fn()=>$eoy->listing(g12Request($user,['academic_year'=>1])))->toThrow(HttpException::class);
+    foreach(['view','eoy'] as $action)DB::table('access_user_permission_overrides')->insert(['user_id'=>2,'permission_id'=>DB::table('access_permissions')->where('code','g9-national-exams.'.$action)->value('id'),'allowed'=>true]);
+    $list=$eoy->listing(g12Request($user,['academic_year'=>1]))->getData(true);
+    expect($list['total'])->toBe(1)->and($list['data'][0]['can_assign'])->toBeFalse();
+    expect(fn()=>$eoy->save(g12Request($user,['version'=>1,'semester_1'=>1,'semester_2'=>2]),$id))->toThrow(HttpException::class);
+    DB::table('access_user_permission_overrides')->insert(['user_id'=>2,'permission_id'=>DB::table('access_permissions')->where('code','g9-national-exams.eoy-assign')->value('id'),'allowed'=>true]);
+    expect($eoy->save(g12Request($user,['version'=>1,'semester_1'=>0,'semester_2'=>0]),$id)->getData(true)['eoy_average'])->toBe('0');
+    expect(fn()=>$eoy->save(g12Request($user,['version'=>1,'semester_1'=>1,'semester_2'=>2]),$other))->toThrow(\Illuminate\Database\Eloquent\ModelNotFoundException::class);
+    $choices=$eoy->options(g12Request($admin,['academic_year'=>1,'campus'=>2,'grade'=>'9B']))->getData(true);
+    expect($choices['campus'])->toHaveCount(2)->and($choices['grade'])->toBe(['9B'])->and(array_column($choices['student'],'id'))->toBe([$other]);
+    expect($eoy->listing(g12Request($admin,['academic_year'=>1,'campus'=>1,'grade'=>'9B']))->getData(true)['total'])->toBe(0);
+});
+
+it('exposes every G9 submenu and implemented action in the permission hierarchy',function(){
+    $permissions=\App\Models\Permission::all();$tree=\App\Support\PermissionHierarchy::tree($permissions)['g9-national-exams'];
+    expect($tree['permission']->code)->toBe('g9-national-exams.view')->and($tree['modules'])->toHaveCount(8);
+    $codes=collect([$tree['permission']->code]);
+    foreach($tree['modules'] as $module){$codes->push($module['permission']->code);$codes=$codes->merge($module['actions']->pluck('code'));}
+    expect($codes->sort()->values()->all())->toBe(collect(array_keys(\App\Support\G9NationalExamPermissions::catalog()))->map(fn($action)=>'g9-national-exams.'.$action)->sort()->values()->all());
+    $ids=$permissions->whereIn('code',['g9-national-exams.view','g9-national-exams.eoy-assign'])->pluck('id')->all();
+    $normalized=\App\Support\PermissionHierarchy::normalizeIds($ids,$permissions);
+    expect($normalized)->not->toContain($permissions->firstWhere('code','g9-national-exams.eoy-assign')->id);
+});
+
+it('enforces cross campus report permissions separately from EOY changes for campus and central users',function(){
+    $admin=User::find(1);$user=User::find(2);$eoy=app(\App\Http\Controllers\G9EoyAverageController::class);$reports=app(\App\Support\G9CandidateReport::class);
+    $local=$this->controller->save(g12Request($admin,$this->input))->getData(true)['id'];
+    $remote=$this->controller->save(g12Request($admin,array_replace($this->input,['student_code'=>'REMOTE','campus_id'=>2,'exam_center'=>'Remote Center'])))->getData(true)['id'];
+    foreach(['view','candidates','print','report-candidates','eoy','eoy-assign'] as $action)DB::table('access_user_permission_overrides')->insert(['user_id'=>2,'permission_id'=>DB::table('access_permissions')->where('code','g9-national-exams.'.$action)->value('id'),'allowed'=>true]);
+    expect($this->controller->listing(g12Request($user,['academic_year'=>1]))->getData(true)['total'])->toBe(2);
+    $html=$this->controller->report(g12Request($user,['academic_year'=>1,'campus'=>2]),'candidates','print',$reports)->getContent();
+    expect($html)->toContain('Remote Center');
+    expect(fn()=>$this->controller->report(g12Request($user,['academic_year'=>1]),'candidates','pdf',$reports))->toThrow(HttpException::class);
+    expect(fn()=>$this->controller->report(g12Request($user,['academic_year'=>1]),'profile','print',$reports))->toThrow(HttpException::class);
+    $eoy->save(g12Request($user,['version'=>1,'semester_1'=>40,'semester_2'=>50]),$local);
+    expect(fn()=>$eoy->save(g12Request($user,['version'=>1,'semester_1'=>40,'semester_2'=>50]),$remote))->toThrow(\Illuminate\Database\Eloquent\ModelNotFoundException::class);
+    expect(G9ExamCandidate::find($remote)->data['semester_1'])->toBe('89.500');
+    DB::table('users')->where('id',2)->update(['is_global'=>true]);$central=User::find(2);
+    expect($eoy->save(g12Request($central,['version'=>1,'semester_1'=>40,'semester_2'=>50]),$remote)->getData(true)['eoy_average'])->toBe('90');
+    DB::table('access_user_permission_overrides')->where('user_id',2)->where('permission_id',DB::table('access_permissions')->where('code','g9-national-exams.eoy-assign')->value('id'))->update(['allowed'=>false]);
+    expect(fn()=>$eoy->save(g12Request($central,['version'=>2,'semester_1'=>1,'semester_2'=>2]),$remote))->toThrow(HttpException::class);
+});
+
+it('supports role and department grants and honors explicit G9 denials and parent switches',function(){
+    $user=User::find(2);$codes=['view','candidates','print','report-candidates','eoy','eoy-assign'];
+    DB::table('access_user_roles')->insert(['user_id'=>2,'role_id'=>2,'campus_id'=>1]);
+    foreach($codes as $action)DB::table('access_role_permissions')->insert(['role_id'=>2,'permission_id'=>DB::table('access_permissions')->where('code','g9-national-exams.'.$action)->value('id')]);
+    g12Request($user);
+    expect(\App\Support\G9NationalExamPermissions::reportCampuses($user,'print'))->toBe([1,2])
+        ->and(\App\Support\G9NationalExamPermissions::campusIds($user,'eoy-assign'))->toBe([1]);
+    DB::table('access_user_permission_overrides')->insert(['user_id'=>2,'permission_id'=>DB::table('access_permissions')->where('code','g9-national-exams.print')->value('id'),'allowed'=>false]);
+    g12Request($user);expect(\App\Support\G9NationalExamPermissions::allows($user,'print'))->toBeFalse();
+    DB::table('access_user_permission_overrides')->insert(['user_id'=>2,'permission_id'=>DB::table('access_permissions')->where('code','g9-national-exams.view')->value('id'),'allowed'=>false]);
+    g12Request($user);expect(\App\Support\G9NationalExamPermissions::allows($user,'candidates'))->toBeFalse();
+    DB::table('access_user_permission_overrides')->where('user_id',2)->delete();DB::table('access_user_roles')->where('user_id',2)->delete();
+    DB::table('access_departments')->insert(['id'=>1,'name'=>'Campus Registrar']);DB::table('users')->where('id',2)->update(['department_id'=>1]);
+    foreach($codes as $action)DB::table('access_department_permissions')->insert(['department_id'=>1,'permission_id'=>DB::table('access_permissions')->where('code','g9-national-exams.'.$action)->value('id')]);
+    $user=User::find(2);g12Request($user);
+    expect(\App\Support\G9NationalExamPermissions::reportCampuses($user,'print'))->toBe([1,2])
+        ->and(\App\Support\G9NationalExamPermissions::campusIds($user,'eoy-assign'))->toBe([1]);
+});
+
+it('retains legacy grants and explicit report denials when migrating the G9 permission list',function(){
+    $before=DB::table('tb_student')->get()->toJson();
+    foreach(['view','export'] as $action)DB::table('access_role_permissions')->insert(['role_id'=>2,'permission_id'=>DB::table('access_permissions')->where('code','g9-national-exams.'.$action)->value('id')]);
+    foreach(['view','export'] as $action)DB::table('access_user_permission_overrides')->insert(['user_id'=>2,'permission_id'=>DB::table('access_permissions')->where('code','g9-national-exams.'.$action)->value('id'),'allowed'=>true]);
+    DB::table('access_user_permission_overrides')->insert(['user_id'=>2,'permission_id'=>DB::table('access_permissions')->where('code','g9-national-exams.pdf')->value('id'),'allowed'=>false]);
+    $migration=require database_path('migrations/2026_11_05_000002_complete_g9_permission_catalog.php');$migration->up();$migration->up();
+    $user=User::find(2);g12Request($user);
+    expect(\App\Support\G9NationalExamPermissions::allows($user,'print'))->toBeTrue()
+        ->and(\App\Support\G9NationalExamPermissions::allows($user,'pdf'))->toBeFalse();
+    expect(DB::table('tb_student')->get()->toJson())->toBe($before);
+    expect(DB::table('access_role_permissions')->where('role_id',2)->where('permission_id',DB::table('access_permissions')->where('code','g9-national-exams.print')->value('id'))->count())->toBe(1);
+});
+
+it('hides unauthorized G9 submenus and blocks direct placeholder routes',function(){
+    $user=User::find(2);
+    foreach(['view','eoy'] as $action)DB::table('access_user_permission_overrides')->insert(['user_id'=>2,'permission_id'=>DB::table('access_permissions')->where('code','g9-national-exams.'.$action)->value('id'),'allowed'=>true]);
+    $request=g12Request($user);\Illuminate\Support\Facades\Auth::setUser($user);
+    $menu=view('layouts.partials.g9-national-exams-menu',['moeysMenuIcon'=>'/test.png'])->render();
+    expect($menu)->toContain('G9 National Exams','Assign EOY Average')->not->toContain('List of Candidate','G9 Bulk Stu. Photo','G9 Setting');
+    $routes=app('router')->getRoutes();
+    $scoring=$routes->getByName('g9-national-exams.scoring')->getAction('uses');
+    expect(fn()=>$scoring($request))->toThrow(HttpException::class);
+    $landing=$routes->getByName('g9-national-exams.index')->getAction('uses');
+    expect($landing($request)->getTargetUrl())->toEndWith('/g9-national-exams/eoy-average');
+});
+
+it('allows active global roles to edit all permitted EOY campuses without expanding inactive roles',function(){
+    $user=User::find(2);
+    DB::table('access_roles')->where('id',2)->update(['is_global'=>true]);DB::table('access_user_roles')->insert(['user_id'=>2,'role_id'=>2,'campus_id'=>null]);
+    foreach(['view','eoy','eoy-assign'] as $action)DB::table('access_role_permissions')->insert(['role_id'=>2,'permission_id'=>DB::table('access_permissions')->where('code','g9-national-exams.'.$action)->value('id')]);
+    g12Request($user);expect(\App\Support\G9NationalExamPermissions::campusIds($user,'eoy-assign'))->toBe([1,2]);
+    DB::table('access_roles')->where('id',2)->update(['status'=>false]);
+    g12Request($user);expect(\App\Support\G9NationalExamPermissions::campusIds($user,'eoy-assign'))->toBe([]);
+});
+
+it('saves annual score card names separately by campus and year with scoped permissions and audit history',function(){
+    $admin=User::find(1);$user=User::find(2);$settings=app(\App\Http\Controllers\G9EoySettingController::class);
+    foreach(['view','settings','eoy-settings-manage'] as $action)DB::table('access_user_permission_overrides')->insert(['user_id'=>2,'permission_id'=>DB::table('access_permissions')->where('code','g9-national-exams.'.$action)->value('id'),'allowed'=>true]);
+    $input=['academic_year_id'=>1,'campus_id'=>1,'version'=>0,'compiler_name'=>'Compiler BCH','director_name'=>'Director BCH'];
+    expect($settings->save(g12Request($user,$input))->getData(true))->toMatchArray(['version'=>1,'compiler_name'=>'Compiler BCH','director_name'=>'Director BCH','can_manage'=>true]);
+    expect(fn()=>$settings->save(g12Request($user,$input)))->toThrow(HttpException::class);
+    expect(fn()=>$settings->save(g12Request($user,array_replace($input,['campus_id'=>2]))))->toThrow(HttpException::class);
+    $settings->save(g12Request($admin,array_replace($input,['campus_id'=>2,'compiler_name'=>'Compiler BKK','director_name'=>'Director BKK'])));
+    DB::table('tb_academic_year')->insert(['id'=>2,'academic_year'=>'2026-2027']);
+    $settings->save(g12Request($user,array_replace($input,['academic_year_id'=>2,'director_name'=>'Next Year Director'])));
+    expect(DB::table('tb_g9_eoy_campus_setting')->count())->toBe(3)->and(DB::table('tb_g9_exam_setting_event')->where('action','eoy-campus-names')->count())->toBe(3);
+    expect($settings->show(g12Request($user,['academic_year_id'=>1,'campus_id'=>1]))->getData(true)['director_name'])->toBe('Director BCH');
+    DB::table('access_user_permission_overrides')->where('user_id',2)->where('permission_id',DB::table('access_permissions')->where('code','g9-national-exams.eoy-settings-manage')->value('id'))->update(['allowed'=>false]);
+    expect(fn()=>$settings->save(g12Request($user,array_replace($input,['version'=>1]))))->toThrow(HttpException::class);
+});
+
+it('prints annual score cards and covers using campus names full filters and whole EOY totals',function(){
+    $admin=User::find(1);$controller=app(\App\Http\Controllers\G9EoyAverageController::class);$reports=app(\App\Support\G9EoyReport::class);
+    $this->controller->save(g12Request($admin,array_replace($this->input,['name_kh'=>'កង សុគន្ធនរិន្ទ','semester_1'=>'45.29','semester_2'=>'45.27','eoy_average'=>'91','exam_center'=>'វិ. សាលាវេស្ទើនអន្តរជាតិ (ភ្នំពេញថ្មី) (ត្បូង)','school_name'=>'វិ. សាលាវេស្ទើនអន្តរជាតិ (ភ្នំពេញថ្មី)','room_number'=>'1','seat_number'=>'10'])));
+    $this->controller->save(g12Request($admin,array_replace($this->input,['student_code'=>'SECOND','campus_id'=>2,'room_number'=>'2'])));
+    foreach([1,2] as $campus)app(\App\Http\Controllers\G9EoySettingController::class)->save(g12Request($admin,['academic_year_id'=>1,'campus_id'=>$campus,'version'=>0,'compiler_name'=>$campus===1?'សុខ សាន្ត':'Remote Compiler','director_name'=>$campus===1?'លឹម សេងមាន':'Remote Director']));
+    $before=G9ExamCandidate::all()->toJson();
+    $settings=['resultDate_iso'=>'2026-07-06','date_location'=>'រាជធានីភ្នំពេញ','k_resultDate'=>'ថ្ងៃចន្ទ ខែអាសាឍ ឆ្នាំមមី ព.ស.២៥៧០'];
+    DB::table('tb_g9_exam_year_setting')->insert(['academic_year_id'=>1,'data'=>json_encode($settings),'version'=>1,'updated_by'=>1,'created_at'=>now(),'updated_at'=>now()]);
+    $pages=$reports->pages(G9ExamCandidate::all(),$settings,'card');
+    expect($pages)->toHaveCount(2)->and($pages[0])->toMatchArray(['semester_1'=>'45.29','semester_2'=>'45.27','sum'=>'90.56','eoy'=>'91','compiler'=>'សុខ សាន្ត','director'=>'លឹម សេងមាន'])
+        ->and($pages[1]['director'])->toBe('Remote Director');
+    foreach(['cover','card'] as $type){
+        $request=g12Request($admin,['academic_year'=>1,'campus'=>1,'grade'=>'9A','per_page'=>'15']);
+        $html=$controller->report($request,$type,'print',$reports)->getContent();
+        expect($html)->toContain(\App\Support\G9EoyReport::TITLES[$type],'ទំព័រទី១','ទំព័រទី២')->not->toContain('Remote Director');
+        $pdf=$controller->report(g12Request($admin,['academic_year'=>1,'campus'=>1]),$type,'pdf',$reports)->getContent();
+        if(getenv('G9_REPORT_QA')){
+            $folder=storage_path('app/private/g9-report-qa');if(!is_dir($folder))mkdir($folder,0755,true);
+            file_put_contents($folder.'/eoy-'.$type.'.pdf',$pdf);file_put_contents($folder.'/eoy-'.$type.'.html',$html);
+        }
+        expect($pdf)->toStartWith('%PDF-')->and(preg_match_all('~/Type\s*/Page\b~',$pdf))->toBe(1);
+    }
+    expect($reports->pages(G9ExamCandidate::all(),$settings,'cover'))->toHaveCount(2);
+    foreach(['cover','card'] as $type){
+        $cards=$reports->pages(G9ExamCandidate::all(),$settings,$type);
+        $two=$reports->pdf($cards,$type);$three=$reports->pdf([$cards[0],$cards[1],$cards[0]],$type);
+        expect(preg_match_all('~/Type\s*/Page\b~',$two))->toBe(1)->and(preg_match_all('~/Type\s*/Page\b~',$three))->toBe(2);
+        $reader=new \Mpdf\Mpdf(['tempDir'=>storage_path('app/private/g9-report-pdf')]);
+        $reader->setSourceFile(\setasign\Fpdi\PdfParser\StreamReader::createByString($two));
+        $size=$reader->getTemplateSize($reader->importPage(1));
+        expect(round($size['width']))->toBe(210.0)->and(round($size['height']))->toBe(297.0);
+        $html=view('g9-national-exams.eoy-report',['pages'=>$cards,'type'=>$type])->render();
+        expect(substr_count($html,'<section class="eoy-print-sheet">'))->toBe(1)->and(substr_count($html,'<div class="eoy-print-half">'))->toBe(2);
+        if(getenv('G9_REPORT_QA')){
+            file_put_contents(storage_path('app/private/g9-report-qa/eoy-'.$type.'.pdf'),$two);
+            file_put_contents(storage_path('app/private/g9-report-qa/eoy-'.$type.'.html'),$html);
+            file_put_contents(storage_path('app/private/g9-report-qa/eoy-'.$type.'-source.pdf'),(new ReflectionMethod($reports,'sourcePdf'))->invoke($reports,$cards,$type));
+        }
+    }
+    expect(G9ExamCandidate::all()->toJson())->toBe($before);
+    expect(fn()=>$controller->report(g12Request($admin,['academic_year'=>1,'student'=>999]),'card','print',$reports))->toThrow(HttpException::class);
+});
+
+it('requires annual score report type and format permissions and keeps campus reports scoped',function(){
+    $admin=User::find(1);$user=User::find(2);$controller=app(\App\Http\Controllers\G9EoyAverageController::class);$reports=app(\App\Support\G9EoyReport::class);
+    $this->controller->save(g12Request($admin,$this->input));$this->controller->save(g12Request($admin,array_replace($this->input,['student_code'=>'OTHER','campus_id'=>2,'exam_center'=>'Remote Private Center'])));
+    foreach(['view','eoy','eoy-print','eoy-report-card'] as $action)DB::table('access_user_permission_overrides')->insert(['user_id'=>2,'permission_id'=>DB::table('access_permissions')->where('code','g9-national-exams.'.$action)->value('id'),'allowed'=>true]);
+    $html=$controller->report(g12Request($user,['academic_year'=>1]),'card','print',$reports)->getContent();
+    expect($html)->toContain('89.50','90.50')->not->toContain('Remote Private Center');
+    expect(fn()=>$controller->report(g12Request($user,['academic_year'=>1]),'cover','print',$reports))->toThrow(HttpException::class);
+    expect(fn()=>$controller->report(g12Request($user,['academic_year'=>1]),'card','pdf',$reports))->toThrow(HttpException::class);
+    expect(fn()=>$controller->report(g12Request($user,['academic_year'=>1,'campus'=>2]),'card','print',$reports))->toThrow(HttpException::class);
 });
 
 it('saves all G9 candidate fields independently of student records with audit history',function(){
@@ -53,10 +261,10 @@ it('filters G9 candidates and restricts viewing and editing to permitted campuse
     $this->controller->save(g12Request($admin,array_replace($this->input,['student_code'=>'OTHER','campus_id'=>2,'exam_center'=>'Other Center'])));
     $user=User::find(2);
     expect(fn()=>$this->controller->listing(g12Request($user)))->toThrow(HttpException::class);
-    $permissions=DB::table('access_permissions')->whereIn('code',['g9-national-exams.view','g9-national-exams.create'])->pluck('id');
+    $permissions=DB::table('access_permissions')->whereIn('code',['g9-national-exams.view','g9-national-exams.candidates','g9-national-exams.create'])->pluck('id');
     foreach($permissions as $permission)DB::table('access_user_permission_overrides')->insert(['user_id'=>2,'permission_id'=>$permission,'allowed'=>true]);
-    expect($this->controller->listing(g12Request($user))->getData(true)['total'])->toBe(1);
-    expect($this->controller->options(g12Request($user,['academic_year'=>1]))->getData(true)['exam_center'])->toBe(['Test Center']);
+    expect($this->controller->listing(g12Request($user))->getData(true)['total'])->toBe(2);
+    expect($this->controller->options(g12Request($user,['academic_year'=>1]))->getData(true)['exam_center'])->toBe(['Other Center','Test Center']);
     expect($this->controller->listing(g12Request($user,['room'=>'01','seat'=>'005','student'=>$id]))->getData(true)['total'])->toBe(1);
     expect($this->controller->listing(g12Request($user,['search'=>'unmatched']))->getData(true)['total'])->toBe(0);
     expect(fn()=>$this->controller->save(g12Request($user,array_replace($this->input,['student_code'=>'NEW','campus_id'=>2]))))->toThrow(HttpException::class);
@@ -69,9 +277,9 @@ it('limits filter years to accessible G9 candidates and exam centers to the sele
     $this->controller->save(g12Request($admin,$this->input));
     $this->controller->save(g12Request($admin,array_replace($this->input,['academic_year_id'=>2,'campus_id'=>2,'exam_center'=>'Next Year Center'])));
     expect($this->controller->index(g12Request($admin))->getData()['filterYears']->pluck('id')->all())->toBe([2,1]);
-    foreach(['view'] as $action)DB::table('access_user_permission_overrides')->insert(['user_id'=>2,'permission_id'=>DB::table('access_permissions')->where('code','g9-national-exams.'.$action)->value('id'),'allowed'=>true]);
+    foreach(['view','candidates'] as $action)DB::table('access_user_permission_overrides')->insert(['user_id'=>2,'permission_id'=>DB::table('access_permissions')->where('code','g9-national-exams.'.$action)->value('id'),'allowed'=>true]);
     $view=$this->controller->index(g12Request($user))->getData();
-    expect($view['filterYears']->pluck('id')->all())->toBe([1])->and($view['years'])->toHaveCount(3);
+    expect($view['filterYears']->pluck('id')->all())->toBe([2,1])->and($view['years'])->toHaveCount(3);
     expect($this->controller->options(g12Request($admin,['academic_year'=>1]))->getData(true)['exam_center'])->toBe(['Test Center'])
         ->and($this->controller->options(g12Request($admin,['academic_year'=>2]))->getData(true)['exam_center'])->toBe(['Next Year Center']);
 });
@@ -106,7 +314,7 @@ it('returns dependent filter choices in one request without narrowing upstream o
 
 it('does not repeat permission queries for each displayed candidate and rechecks on the next request',function(){
     $admin=User::find(1);$user=User::find(2);
-    foreach(['view','edit'] as $action)DB::table('access_user_permission_overrides')->insert(['user_id'=>2,'permission_id'=>DB::table('access_permissions')->where('code','g9-national-exams.'.$action)->value('id'),'allowed'=>true]);
+    foreach(['view','candidates','edit'] as $action)DB::table('access_user_permission_overrides')->insert(['user_id'=>2,'permission_id'=>DB::table('access_permissions')->where('code','g9-national-exams.'.$action)->value('id'),'allowed'=>true]);
     foreach(range(1,20) as $i)$this->controller->save(g12Request($admin,array_replace($this->input,['student_code'=>'PERF'.$i])));
     $count=function($size)use($user){DB::flushQueryLog();DB::enableQueryLog();$response=$this->controller->listing(g12Request($user,['per_page'=>$size]));$queries=count(DB::getQueryLog());DB::disableQueryLog();return [$queries,$response->getData(true)];};
     [$small]=$count('15');[$large,$result]=$count('all');
@@ -124,9 +332,9 @@ it('filters campus choices after exam center and applies campus to lists summari
     expect($list['total'])->toBe(1)->and($list['summary']['total'])->toBe(1)->and($list['data'][0]['student_code'])->toBe('CAMPUS0');
     $html=$this->controller->report(g12Request($admin,['academic_year'=>1,'campus'=>1]),'candidates','print',$reports)->getContent();
     expect(str_contains($html,'School-1'))->toBeTrue()->and(str_contains($html,'School-2'))->toBeFalse();
-    DB::table('access_user_permission_overrides')->insert(['user_id'=>2,'permission_id'=>DB::table('access_permissions')->where('code','g9-national-exams.view')->value('id'),'allowed'=>true]);
+    foreach(['view','candidates'] as $action)DB::table('access_user_permission_overrides')->insert(['user_id'=>2,'permission_id'=>DB::table('access_permissions')->where('code','g9-national-exams.'.$action)->value('id'),'allowed'=>true]);
     $scoped=$this->controller->options(g12Request(User::find(2),['academic_year'=>1,'cascade'=>1,'exam_center'=>'A']))->getData(true);
-    expect(array_column($scoped['campus'],'id'))->toBe([1]);
+    expect(array_column($scoped['campus'],'id'))->toBe([1,2]);
 });
 
 it('optimizes G9 photos and preserves existing photos on ordinary edits',function(){
@@ -286,7 +494,8 @@ it('blocks stale previews and rolls back the entire import if a later candidate 
 it('restricts import export and preview confirmation to authorized users and campuses',function(){
     $admin=User::find(1);$user=User::find(2);$service=app(\App\Services\G9ExamImports::class);$reader=app(\App\Support\G9ExamSpreadsheet::class);$controller=app(\App\Http\Controllers\G9ExamImportController::class);
     expect(fn()=>$controller->download(g12Request($user),$service,'all'))->toThrow(HttpException::class);
-    foreach(['view','import','export','create','edit'] as $action)DB::table('access_user_permission_overrides')->insert(['user_id'=>2,'permission_id'=>DB::table('access_permissions')->where('code','g9-national-exams.'.$action)->value('id'),'allowed'=>true]);
+    foreach(['view','candidates','imports','import','export','create','edit'] as $action)DB::table('access_user_permission_overrides')->insert(['user_id'=>2,'permission_id'=>DB::table('access_permissions')->where('code','g9-national-exams.'.$action)->value('id'),'allowed'=>true]);
+    g12Request($user);
     $input=array_replace($this->input,['academic_year_id'=>'2025-2026','campus_id'=>'BKK','_row'=>2]);
     expect($service->preview($user,[$input])['summary']['errors'])->toHaveCount(1);
     $this->controller->save(g12Request($admin,$this->input));$this->controller->save(g12Request($admin,array_replace($this->input,['student_code'=>'OTHER-CAMPUS','campus_id'=>2])));
@@ -436,14 +645,14 @@ it('exports the same four report layouts to print PDF and valid Excel workbooks'
     }
 });
 
-it('requires an academic year and export permission and keeps report records campus scoped',function(){
+it('requires report permissions and permits campus users to print all campuses',function(){
     $admin=User::find(1);$user=User::find(2);$report=app(\App\Support\G9CandidateReport::class);
     $this->controller->save(g12Request($admin,$this->input));
     $this->controller->save(g12Request($admin,array_replace($this->input,['student_code'=>'PRIVATE','campus_id'=>2,'exam_center'=>'Other Campus Secret'])));
     expect(fn()=>$this->controller->report(g12Request($admin),'candidates','print',$report))->toThrow(ValidationException::class);
-    foreach(['view','export'] as $action)DB::table('access_user_permission_overrides')->insert(['user_id'=>2,'permission_id'=>DB::table('access_permissions')->where('code','g9-national-exams.'.$action)->value('id'),'allowed'=>true]);
+    foreach(['view','candidates','print','report-candidates'] as $action)DB::table('access_user_permission_overrides')->insert(['user_id'=>2,'permission_id'=>DB::table('access_permissions')->where('code','g9-national-exams.'.$action)->value('id'),'allowed'=>true]);
     $html=$this->controller->report(g12Request($user,['academic_year'=>1]),'candidates','print',$report)->getContent();
-    expect($html)->toContain('Test Center')->not->toContain('Other Campus Secret');
+    expect($html)->toContain('Test Center','Other Campus Secret');
     DB::table('access_user_permission_overrides')->where('user_id',2)->delete();
     expect(fn()=>$this->controller->report(g12Request($user,['academic_year'=>1]),'candidates','print',$report))->toThrow(HttpException::class);
 });

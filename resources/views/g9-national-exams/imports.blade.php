@@ -44,9 +44,11 @@
                 <div class="card-body"><div class="g9-import-summary" data-g9-summary></div><div class="mt-3" data-g9-preview-errors></div><p class="form-hint mt-3 mb-0">First 20 valid rows shown. Confirmation imports the entire validated file. All errors must be corrected first.</p></div>
                 <div class="table-responsive"><table class="table table-vcenter mb-0"><thead><tr><th>Row</th><th>Action</th><th>Student ID</th><th>Name Khmer</th><th>Name English</th></tr></thead><tbody data-g9-preview-rows></tbody></table></div>
             </section>
+        @endif
+        @if($canHistory)
             <section class="card">
                 <div class="card-header g9-header"><h3 class="card-title">Your Import History</h3></div>
-                <div class="table-responsive"><table class="table table-vcenter mb-0"><thead><tr><th>File</th><th>Date</th><th>Status</th><th>New</th><th>Updated</th><th>Errors</th><th>Review</th></tr></thead><tbody data-g9-import-history></tbody></table></div>
+                <div class="table-responsive"><table class="table table-vcenter mb-0"><thead><tr><th>File</th><th>Date</th><th>Status</th><th>New</th><th>Updated</th><th>Errors</th><th>Review</th></tr></thead><tbody data-g9-import-history></tbody></table></div><div class="text-danger small p-2" data-g9-history-error role="alert"></div>
             </section>
         @endif
     </div>

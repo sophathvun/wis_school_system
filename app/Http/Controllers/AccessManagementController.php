@@ -20,6 +20,7 @@ class AccessManagementController
     {
         \App\Support\ScholarshipPermissions::registerMissing();
         \App\Support\G12NationalExamPermissions::registerMissing();
+        \App\Support\G9NationalExamPermissions::register();
         $role = Role::with('permissions')->find($request->integer('role_id')) ?? Role::with('permissions')->orderBy('name')->first();
         $departments = \App\Support\DepartmentHierarchy::options();
         $department = Department::with('permissions')->find($request->integer('department_id')) ?? Department::where('status', 1)->orderBy('name')->first();

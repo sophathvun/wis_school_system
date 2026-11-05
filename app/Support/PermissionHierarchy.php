@@ -10,6 +10,7 @@ class PermissionHierarchy
     public static function moduleLabels(): array
     {
         $nationalLabels=[];foreach(G12NationalExamPermissions::submenus() as $key=>$section)$nationalLabels['g12-national-exams.'.$key]=$section[0];
+        foreach(G9NationalExamPermissions::sections() as $key=>$section)$nationalLabels['g9-national-exams.'.$key]=$section[0];
         return array_merge([
             'users' => 'Users', 'departments' => 'Departments', 'positions' => 'Positions', 'roles' => 'Roles', 'notifications' => 'Notifications', 'chat' => 'Chat',
             'academic-years' => 'Academic Years', 'grades' => 'Grades', 'classes' => 'Classes', 'sessions' => 'Sessions',
@@ -91,8 +92,12 @@ class PermissionHierarchy
                 'module_permissions'=>array_combine($nationalModules,$nationalModules),'module_actions'=>$nationalActions,'actions'=>[],
             ],
             'g9-national-exams'=>[
-                'label'=>'G9 National Exams','permission'=>'g9-national-exams.view','modules'=>[],
-                'actions'=>['g9-national-exams.create','g9-national-exams.edit','g9-national-exams.import','g9-national-exams.export','g9-national-exams.settings','g9-national-exams.settings-manage','g9-national-exams.photos','g9-national-exams.photos-upload','g9-national-exams.photos-replace'],
+                'label'=>'G9 National Exams','permission'=>'g9-national-exams.view',
+                'description'=>'Candidate lists and permitted reports cover all campuses. Score and candidate changes are limited to assigned campuses; central users can manage all permitted campuses. Shared settings require central access.',
+                'modules'=>array_map(fn($key)=>'g9-national-exams.'.$key,array_keys(G9NationalExamPermissions::sections())),
+                'module_permissions'=>collect(G9NationalExamPermissions::sections())->mapWithKeys(fn($section,$key)=>['g9-national-exams.'.$key=>'g9-national-exams.'.$key])->all(),
+                'module_actions'=>collect(G9NationalExamPermissions::sections())->mapWithKeys(fn($section,$key)=>['g9-national-exams.'.$key=>array_map(fn($action)=>'g9-national-exams.'.$action,$section[1])])->all(),
+                'actions'=>[],
             ],
             'hrm' => [
                 'label' => 'HRM', 'permission' => 'hrm.view',

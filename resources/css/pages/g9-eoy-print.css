@@ -1,0 +1,38 @@
+@page{size:A4 portrait;margin:0}
+*{box-sizing:border-box}body{margin:0;font-family:g9body,sans-serif;font-size:10.5pt;color:#111;line-height:1.6}
+.eoy-print-sheet{width:210mm;height:297mm;margin:0 auto;page-break-after:always;background:#fff;overflow:hidden}.eoy-print-sheet:last-child{page-break-after:auto}
+.eoy-print-half{width:210mm;height:148.5mm;position:relative;overflow:hidden}.eoy-print-half:first-child{border-bottom:.15mm dashed #b4b4b4}
+.eoy-sheet{width:297mm;height:210mm;padding:7mm;margin:0;transform:scale(.7070707071);transform-origin:top left}
+.eoy-panels{width:100%;border-collapse:collapse;table-layout:fixed}
+.eoy-panel{width:50%;height:193mm;vertical-align:top;padding:0 5mm;position:relative}
+.eoy-front{border-right:.3mm solid #333}.eoy-back{padding-left:7mm}
+.eoy-red{color:#ed1717}.eoy-number{font-family:DejaVuSans,sans-serif;font-size:14pt}
+.eoy-motto{text-align:center;font-family:g9heading;color:#20385d;font-size:14pt;line-height:1.9;padding-top:1mm}
+.eoy-ornament{font-family:g9ornament;font-size:30pt;line-height:.6;text-align:center;color:#20385d;margin-top:-1mm}
+.eoy-cover-exam{text-align:center;font-family:g9heading;font-size:15pt;color:#3976bb;margin-top:13mm;line-height:1.7}
+.eoy-cover-date{text-align:center;font-family:g9heading;font-size:12pt;color:#20385d;margin-top:3mm}
+.eoy-cover-center{text-align:center;font-family:g9heading;font-size:9.5pt;color:#20385d;line-height:1.8;margin-top:1.5mm;overflow-wrap:anywhere}
+.eoy-cover-title{text-align:center;font-family:g9heading;font-size:17pt;color:#ed1717;margin:14mm 0 8mm}
+.eoy-seal{border:.35mm solid #333;height:15mm;padding:1mm 2mm;text-align:left;font-size:10.5pt}
+.eoy-cover-room,.eoy-cover-total{text-align:center;font-size:15pt;margin-top:4mm;line-height:1.8}
+.eoy-cover-room{height:13mm}.eoy-cover-total .eoy-number,.eoy-cover-room .eoy-number{font-size:18pt}
+.eoy-campus{text-align:right;color:#536575;font-family:DejaVuSans,sans-serif;font-size:8pt;line-height:1.2}
+.eoy-card-heading{width:100%;border-collapse:collapse;margin-bottom:3mm}.eoy-card-heading td{border:0;vertical-align:middle;padding:0}
+.eoy-card-title{width:55%;font-family:g9heading;font-size:14pt;white-space:nowrap}.eoy-card-heading .eoy-seal-cell{width:45%;height:15mm;border:.35mm solid #333;padding:1mm 2mm;font-size:10.5pt;text-align:left}
+.eoy-identity{width:100%;border-collapse:collapse}.eoy-identity td{padding:1mm 0;vertical-align:bottom}
+.eoy-nowrap{white-space:nowrap}.eoy-filled{border-bottom:.25mm dotted #222;text-align:center}
+.eoy-name{font-family:g9heading;font-size:11pt}.eoy-center{text-align:center}
+.eoy-detail{line-height:1.9;margin-top:1mm}.eoy-inline-value{display:inline-block;min-width:8mm;text-align:center}
+.eoy-school{font-size:9.5pt}.eoy-scores{width:91%;margin:2mm auto 0;border-collapse:collapse}
+.eoy-scores td{padding:1mm 0}.eoy-scores td:first-child{width:48%}.eoy-scores .eoy-number{font-size:13pt}
+.eoy-director{margin:2mm 0 0 27%;text-align:center;font-size:10pt;line-height:1.7;min-height:34mm}
+.eoy-director strong{font-family:g9heading;font-weight:normal}.eoy-director-name{font-family:g9heading;font-size:12pt;margin-top:12mm}
+.eoy-compiler-line{text-align:center;line-height:1.7;margin-top:2mm;font-size:10pt}.eoy-compiler-name{font-family:g9heading}
+.eoy-notes{font-size:9.5pt;line-height:1.7;margin-top:2mm}.eoy-notes strong{text-decoration:underline}
+.eoy-back-heading{width:70%;margin-left:12%;padding-top:3mm}.eoy-circle{width:48mm;height:48mm;border:.35mm solid #ed1717;border-radius:24mm;text-align:center;margin:18mm auto 0;line-height:48mm;color:#ed1717;font-family:DejaVuSans,sans-serif;font-size:45pt}
+.eoy-page-label{position:absolute;bottom:2mm;font-size:9pt}.eoy-front .eoy-page-label{right:5mm;text-align:right}.eoy-back .eoy-page-label{left:7mm;text-align:left}
+.eoy-pdf-panel.eoy-front{border:0}.eoy-pdf-panel .eoy-seal{width:100%}
+@media screen{body{background:#e9edf3;padding:16px}.eoy-print-sheet{margin:0 auto 16px;box-shadow:0 2px 12px #0002}}
+@media print{body{padding:0}.eoy-print-sheet{margin:0}}
+
+.eoy-seal.eoy-red{border-color:#ed1717}

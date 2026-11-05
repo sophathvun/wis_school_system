@@ -38,12 +38,15 @@
                         <input type="search" class="form-control" name="search" form="g9CandidateFilters" id="g9CandidateSearch" placeholder="Search candidates…" autocomplete="off" data-search-normalized="true">
                         <i class="ti ti-search" aria-hidden="true"></i>
                     </div>
-                    @if($canExport)
+                    @if(count($reportFormats) && count($reportTypes))
                         @foreach(['print'=>['Print','ti-printer'],'excel'=>['Excel','ti-file-spreadsheet'],'pdf'=>['PDF','ti-file-type-pdf']] as $format=>[$label,$icon])
+                            @continue(!in_array($format,$reportFormats,true))
+                            @continue($format==='excel' && !count(array_diff($reportTypes,\App\Support\G9CandidateReport::PRINT_ONLY_TYPES)))
                             <div class="dropdown"><button type="button" class="btn btn-outline-light dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"><i class="ti {{ $icon }} me-1"></i>{{ $label }}</button>
                                 <div class="dropdown-menu dropdown-menu-end g9-report-menu" aria-label="{{ $label }} reports">
                                     <div class="g9-report-menu-heading"><span class="g9-report-format"><i class="ti {{ $icon }}" aria-hidden="true"></i>{{ $label }}</span><span>Choose a report</span></div>
                                     @foreach(\App\Support\G9CandidateReport::TITLES as $report=>$title)
+                                        @continue(!in_array($report,$reportTypes,true))
                                         @continue(in_array($report,\App\Support\G9CandidateReport::PRINT_ONLY_TYPES) && $format === 'excel')
                                         @php([$reportIcon,$description] = match($report) {
                                             'cover'=>['ti-book-2','Room attendance cover'],
@@ -78,21 +81,7 @@
             <div class="card-footer"><input type="hidden" id="g9-per-page" value="15"><div id="g9-pagination"></div><div class="text-danger small" role="status" data-g9-error></div></div>
         </section>
     </div>
-    <div class="modal fade" id="g9PhotoViewer" tabindex="-1" aria-labelledby="g9PhotoViewerTitle" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered"><div class="modal-content">
-            <div class="modal-header g9-header"><h3 class="modal-title" id="g9PhotoViewerTitle">Student Photo</h3><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button></div>
-            <div class="modal-body">
-                <div class="d-flex align-items-center justify-content-center gap-2 mb-3 flex-wrap">
-                    <button type="button" class="btn btn-sm btn-outline-primary" data-g9-zoom="-0.25" aria-label="Zoom out"><i class="ti ti-zoom-out"></i></button>
-                    <button type="button" class="btn btn-sm btn-outline-primary" data-g9-photo-reset>100%</button>
-                    <button type="button" class="btn btn-sm btn-outline-primary" data-g9-zoom="0.25" aria-label="Zoom in"><i class="ti ti-zoom-in"></i></button>
-                    <button type="button" class="btn btn-sm btn-primary" data-g9-photo-download disabled><i class="ti ti-download me-1"></i>Download JPG</button>
-                </div>
-                <div class="g9-photo-stage"><img data-g9-photo-image alt="Student photo"></div>
-                <p class="form-hint text-center mt-2 mb-0" data-g9-photo-status role="status"></p>
-            </div>
-        </div></div>
-    </div>
+    @include('g9-national-exams.photo-viewer')
     <div class="modal fade" id="g9CandidateModal" tabindex="-1" aria-labelledby="g9CandidateModalTitle" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
             <form class="modal-content" data-g9-editor enctype="multipart/form-data" novalidate>
@@ -119,7 +108,7 @@
                                         </select>
                                     @else
                                         @php($numeric = str_starts_with($name, 'score_') || in_array($name,['semester_1','semester_2','eoy_average']))
-                                        <input class="form-control" id="g9Field-{{ $name }}" name="{{ $name }}" type="{{ $numeric ? 'number' : (in_array($name,['date_of_birth','exam_date']) ? 'date' : ($name === 'phone_number' ? 'tel' : 'text')) }}" placeholder=" " @required($required) @if($numeric) min="0" max="9999.999" step="0.001" @elseif(!in_array($name,['date_of_birth','exam_date'])) maxlength="{{ $name === 'student_code' ? 80 : 255 }}" @endif aria-label="{{ $label }}">
+                                        <input class="form-control" id="g9Field-{{ $name }}" name="{{ $name }}" type="{{ $numeric ? 'number' : (in_array($name,['date_of_birth','exam_date']) ? 'date' : ($name === 'phone_number' ? 'tel' : 'text')) }}" placeholder=" " @required($required) @if($numeric) min="0" max="{{ $name === 'eoy_average' ? '20000' : (in_array($name,['semester_1','semester_2']) ? '10000' : '9999.999') }}" step="0.001" @elseif(!in_array($name,['date_of_birth','exam_date'])) maxlength="{{ $name === 'student_code' ? 80 : 255 }}" @endif aria-label="{{ $label }}">
                                     @endif
                                 </div>
                             @endforeach

@@ -472,11 +472,21 @@ Route::middleware(['auth', 'active.user'])->group(function () {
     ])->middleware('permission:grading-system.view')->name('grading-system.index');
 
     Route::prefix('g9-national-exams')->name('g9-national-exams.')->group(function () {
-        Route::redirect('/', '/g9-national-exams/candidates')->name('index');
+        Route::get('/eoy-average',[\App\Http\Controllers\G9EoyAverageController::class,'index'])->name('eoy-average');
+        Route::get('/eoy-average/options',[\App\Http\Controllers\G9EoyAverageController::class,'options'])->name('eoy-average.options');
+        Route::get('/eoy-average/list',[\App\Http\Controllers\G9EoyAverageController::class,'listing'])->name('eoy-average.list');
+        Route::get('/eoy-average/reports/{type}/{format}',[\App\Http\Controllers\G9EoyAverageController::class,'report'])->where('type','cover|card')->where('format','print|pdf')->name('eoy-average.report');
+        Route::post('/eoy-average/{candidate}',[\App\Http\Controllers\G9EoyAverageController::class,'save'])->whereNumber('candidate')->name('eoy-average.save');
+        Route::get('/',function(\Illuminate\Http\Request $request){
+            foreach(\App\Support\G9NationalExamPermissions::PATHS as $section=>$path)if(\App\Support\G9NationalExamPermissions::allows($request->user(),$section))return redirect()->route('g9-national-exams.'.$path);
+            abort(403);
+        })->name('index');
         Route::get('/bulk-photos',[\App\Http\Controllers\G9BulkPhotoController::class,'index'])->name('bulk-photos');
         Route::post('/bulk-photos/preview',[\App\Http\Controllers\G9BulkPhotoController::class,'preview'])->name('bulk-photos.preview');
         Route::post('/bulk-photos/confirm',[\App\Http\Controllers\G9BulkPhotoController::class,'confirm'])->name('bulk-photos.confirm');
         Route::get('/settings',[\App\Http\Controllers\G9ExamSettingController::class,'index'])->name('settings');
+        Route::get('/settings/eoy-campus',[\App\Http\Controllers\G9EoySettingController::class,'show'])->name('settings.eoy-campus');
+        Route::post('/settings/eoy-campus',[\App\Http\Controllers\G9EoySettingController::class,'save'])->name('settings.eoy-campus.save');
         Route::get('/settings/dates',[\App\Http\Controllers\G9ExamSettingController::class,'show'])->name('settings.dates');
         Route::post('/settings/dates',[\App\Http\Controllers\G9ExamSettingController::class,'save'])->name('settings.save');
         Route::get('/imports-exports',[\App\Http\Controllers\G9ExamImportController::class,'index'])->name('imports-exports');
@@ -497,9 +507,10 @@ Route::middleware(['auth', 'active.user'])->group(function () {
             'results' => ['Exam Result', 'ti-chart-bar', 'Grade 9 national exam results.'],
             'certificates' => ['G9 Certificate Tracking', 'ti-certificate', 'Grade 9 certificate tracking.'],
         ] as $section => [$title, $icon, $description]) {
-            Route::view('/'.$section, 'academic-module-placeholder', [
-                'title' => $title, 'pretitle' => 'G9 National Exams', 'icon' => $icon, 'description' => $description,
-            ])->name($section);
+            Route::get('/'.$section,function(\Illuminate\Http\Request $request)use($section,$title,$icon,$description){
+                abort_unless(\App\Support\G9NationalExamPermissions::allows($request->user(),$section),403);
+                return view('academic-module-placeholder',['title'=>$title,'pretitle'=>'G9 National Exams','icon'=>$icon,'description'=>$description]);
+            })->name($section);
         }
     });
 

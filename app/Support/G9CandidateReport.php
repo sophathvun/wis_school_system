@@ -41,7 +41,7 @@ class G9CandidateReport
         $background=$type==='profile-cover'?app(ScholarshipExport::class)->reportLogo(2):null;
         $seatReport=in_array($type,['seat-stickers','room-seat-plan'],true);
         $logo=$type==='room-seat-plan'?app(ScholarshipExport::class)->reportLogo(1):null;
-        if($seatReport)$records->loadMissing('academicYear');
+        if($seatReport)$records->loadMissing(['academicYear','campus']);
         foreach($records->groupBy(fn($r)=>json_encode([$r->data['exam_center']??'',$r->data['room_number']??'',$r->data['exam_date']??''])) as $group){
             $group=$group->sort(function($a,$b){return strnatcasecmp((string)($a->data['seat_number']??''),(string)($b->data['seat_number']??''))?:strcmp($a->name_kh??$a->name_en,$b->name_kh??$b->name_en)?:($a->id<=>$b->id);})->values();
             $first=$group->first();$center=trim((string)($first->data['exam_center']??''));$config=$centers->get($center,[]);
@@ -66,6 +66,7 @@ class G9CandidateReport
                     'gender'=>['male'=>'ប្រុស','female'=>'ស្រី','m'=>'ប្រុស','f'=>'ស្រី'][mb_strtolower($d['gender']??'')]??($d['gender']??''),
                     'dob'=>!empty($d['date_of_birth'])?\Carbon\CarbonImmutable::parse($d['date_of_birth'])->format('d-m-Y'):'',
                     'school'=>$d['school_name']??'','national_id'=>$r->legacy_data['national_id']??'','name_en'=>$r->name_en,'grade'=>$d['grade']??'',
+                    'campus'=>$r->relationLoaded('campus')?($r->campus?->campus_name_en??''):'',
                     'language'=>['english'=>'អង់គ្លេស','french'=>'បារាំង'][mb_strtolower($d['foreign_language']??'')]??($d['foreign_language']??'')];})->values()->all();
                 $pages[]=$base+['rows'=>$rows,'background'=>$background,'seatFrom'=>$rows[0]['seat']??'','seatTo'=>$rows[count($rows)-1]['seat']??'','total'=>count($rows),'female'=>collect($rows)->where('gender','ស្រី')->count(),
                     'english'=>collect($rows)->where('language','អង់គ្លេស')->count(),'french'=>collect($rows)->where('language','បារាំង')->count()];
@@ -133,6 +134,14 @@ class G9CandidateReport
                 $pdf->SetFont('g9heading','',18.3857);
                 $width=$pdf->GetStringWidth('មណ្ឌលប្រឡង: '.$page['center']);
                 $page['center_font_size']=round(max(12.73,min(18.3857,18.3857*257/max(.1,$width))),4);
+            }
+            if($data['type']==='room-seat-plan'){
+                foreach($page['rows'] as &$student){
+                    foreach(['name'=>['seat_name_size',9],'name_en'=>['seat_english_size',8]] as $field=>[$sizeKey,$baseSize]){
+                        $pdf->SetFont('g9body','',$baseSize);$width=$pdf->GetStringWidth((string)$student[$field]);
+                        $student[$sizeKey]=round(min($baseSize,$baseSize*31/max(.1,$width)),2);
+                    }
+                }unset($student);
             }
             $html=view('g9-national-exams.candidate-report',['type'=>$data['type'],'pages'=>[$page],'pdfExport'=>true])->render();
             $imageIndex=0;

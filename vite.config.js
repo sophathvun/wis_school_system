@@ -61,6 +61,7 @@ export default defineConfig({
                 "resources/js/g9Candidates.js",
                 "resources/js/g9Imports.js",
                 "resources/js/g9Settings.js",
+                "resources/js/g9EoyAverage.js",
                 "resources/js/g9BulkPhotos.js",
                 "resources/js/teachingSchedules.js",
                 "resources/js/schedulePeriods.js",

@@ -1,6 +1,7 @@
 import './khmer-calendar.js';
 import {setupStaffLocationSelect} from './helpers/staffBirthplaceSelect.js';
 import {enhanceSubjectTemporal} from './scholarshipTemporalInputs.js';
+import {setupG9EoyCampusSettings} from './helpers/g9EoyCampusSettings.js';
 
 const root = document.querySelector('[data-g9-settings]');
 if (root) {
@@ -14,6 +15,7 @@ if (root) {
     let version = 0, dirty = false, busy = false, loading = false, lastYear = year.value;
     [...year.options].forEach(option => option.dataset.en = option.textContent);
     const combo = setupStaffLocationSelect(root, year, {labelId: 'g9SettingYearLabel', optionsId: 'g9SettingYearOptions', locationLabel: 'Academic Year'});
+    const eoySettings=setupG9EoyCampusSettings(root,year);
     const sync = () => {
         combo.sync();
         root.querySelectorAll('.premium-form-field').forEach(field => {
@@ -104,8 +106,8 @@ if (root) {
     };
     year.addEventListener('change', () => {
         sections.forEach(({picker}) => picker.close());
-        if (busy || dirty && !confirm('Discard unsaved date changes?')) {year.value = lastYear; sync(); return;}
-        load();
+        if (busy || dirty && !confirm('Discard unsaved date changes?') || !eoySettings.canChange()) {year.value = lastYear; sync(); return;}
+        load();eoySettings.load();
     });
     form.addEventListener('input', event => {if (!event.target.closest('.date-picker')) changed();});
     location.addEventListener('input', () => {
