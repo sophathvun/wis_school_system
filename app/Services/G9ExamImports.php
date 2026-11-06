@@ -25,10 +25,18 @@ class G9ExamImports
         }
         return $value; // Validation will report an invalid value rather than guessing.
     }
-    public function preview(User $user,array $rows): array
+    public function preview(User $user,array $rows,?callable $progress=null): array
     {
         $this->authorize($user,'import');$allowed=$this->campusIds($user,'import');
         $campuses=SchoolInfo::where('status',true)->get();$years=AcademicYear::all();$seen=[];$payload=[];$errors=[];$warnings=[];$yearSettings=[];$sourceSettings=[];$preservedSettings=[];$certificates=[];$new=0;$updates=0;
+        $processed=0;$total=count($rows);$lastPercent=-1;
+        $notify=function()use(&$processed,$total,&$lastPercent,$progress){
+            $percent=$total?min(99,(int)floor($processed/$total*100)):0;
+            if($progress&&($percent!==$lastPercent||$processed===$total)){
+                $progress(['type'=>'progress','stage'=>'validating','processed'=>$processed,'total'=>$total,'percent'=>$percent]);$lastPercent=$percent;
+            }
+        };
+        $notify();
         foreach($rows as $source){
             $number=$source['_row'];unset($source['_row']);$rowErrors=[];$legacy=[];$shared=[];
             foreach([...G9ExamSpreadsheet::YEAR_FIELDS,...G9ExamSpreadsheet::TRACKING_FIELDS] as $field){
@@ -92,9 +100,10 @@ class G9ExamImports
             $key=($year?->id??'').':'.($source['student_code']??'');if(isset($seen[$key]))$rowErrors[]='Duplicate student and academic year in this file (row '.$seen[$key].').';$seen[$key]=$number;
             $input=$record?array_replace($record->data,$record->only(['academic_year_id','campus_id','student_code','name_kh','name_en']),$source):$source;
             $validation=Validator::make($input,G9ExamFields::rules());if($validation->fails())$rowErrors=array_merge($rowErrors,$validation->errors()->all());
-            if($rowErrors){$errors[]=['row'=>$number,'student_code'=>$source['student_code']??'','messages'=>array_values(array_unique($rowErrors))];continue;}
+            if($rowErrors){$errors[]=['row'=>$number,'student_code'=>$source['student_code']??'','messages'=>array_values(array_unique($rowErrors))];$processed++;$notify();continue;}
             $input=$validation->validated();$payload[]=['row'=>$number,'id'=>$record?->id,'version'=>$record?->version,'input'=>$input,'legacy'=>$legacy];
             $record?$updates++:$new++;
+            $processed++;$notify();
         }
         foreach($preservedSettings as $setting)$warnings[]=['row'=>$setting['row'],'message'=>'Existing G9 Setting values for '.$setting['year'].' will be kept: '.implode(', ',array_keys($setting['fields'])).'. The imported candidates will use the saved academic-year settings.'];
         foreach($yearSettings as $id=>&$setting){

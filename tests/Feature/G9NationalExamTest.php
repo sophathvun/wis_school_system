@@ -25,6 +25,9 @@ beforeEach(function(){
     (require database_path('migrations/2026_11_05_000001_add_g9_eoy_permissions.php'))->up();
     (require database_path('migrations/2026_11_05_000002_complete_g9_permission_catalog.php'))->up();
     (require database_path('migrations/2026_11_05_000003_create_g9_eoy_campus_settings.php'))->up();
+    (require database_path('migrations/2026_11_06_000001_create_g9_eoy_campus_defaults.php'))->up();
+    (require database_path('migrations/2026_11_06_000002_add_g9_exam_attendance.php'))->up();
+    (require database_path('migrations/2026_11_06_000003_add_g9_absence_reason.php'))->up();
     $this->controller=app(G9NationalExamController::class);
     $this->input=['academic_year_id'=>1,'campus_id'=>1,'student_code'=>'000123','name_en'=>'G9 Candidate',
         'name_kh'=>"\u{179F}\u{17B7}\u{179F}\u{17D2}\u{179F}",'gender'=>'Female','nationality'=>'Cambodian','date_of_birth'=>'2011-05-12',
@@ -33,6 +36,69 @@ beforeEach(function(){
         'room_number'=>'01','seat_number'=>'005','school_name'=>'Western International School','grade'=>'9A',
         'phone_number'=>'012345678','exam_language'=>'Khmer','semester_1'=>'89.500','semester_2'=>'90.500','eoy_average'=>'90.000'];
     foreach(G9ExamFields::GROUPS['National Examination Scores'] as $key=>$label)$this->input[$key]='42.500';
+});
+
+it('marks exam attendance independently and preserves it when editing candidate details',function(){
+    $admin=User::find(1);$id=$this->controller->save(g12Request($admin,$this->input))->getData(true)['id'];
+    $record=G9ExamCandidate::find($id);$data=$record->data;$students=DB::table('tb_student')->get()->toJson();
+    expect($record->attendance_status)->toBeNull();
+    $result=app(\App\Http\Controllers\G9ScoringController::class)->attendance(g12Request($admin,['version'=>1,'attendance_status'=>'absent']),$id)->getData(true);
+    expect($result)->toMatchArray(['id'=>$id,'version'=>2,'attendance_status'=>'absent'])
+        ->and(G9ExamCandidate::find($id)->data)->toBe($data)->and(DB::table('tb_student')->get()->toJson())->toBe($students);
+    $audit=json_decode(DB::table('tb_g9_exam_event')->where('action','set-exam-attendance')->value('details'),true);
+    expect($audit)->toBe(['before'=>null,'after'=>'absent','reason_before'=>null,'reason_after'=>null]);
+    app(\App\Http\Controllers\G9ScoringController::class)->attendance(g12Request($admin,['version'=>2,'attendance_status'=>'absent']),$id);
+    expect(G9ExamCandidate::find($id)->version)->toBe(2)->and(DB::table('tb_g9_exam_event')->where('action','set-exam-attendance')->count())->toBe(1);
+    $this->controller->save(g12Request($admin,array_replace($this->input,['version'=>2,'father_name'=>'Updated Father'])),$id);
+    expect(G9ExamCandidate::find($id)->attendance_status)->toBe('absent');
+    $listed=app(\App\Http\Controllers\G9ScoringController::class)->listing(g12Request($admin,['academic_year'=>1]))->getData(true)['data'][0];
+    expect($listed)->toMatchArray(['attendance_status'=>'absent','can_edit'=>true,'version'=>3]);
+    app(\App\Http\Controllers\G9ScoringController::class)->attendance(g12Request($admin,['version'=>3,'attendance_status'=>null]),$id);
+    expect(G9ExamCandidate::find($id)->attendance_status)->toBeNull();
+});
+
+it('autosaves absence reasons and clears them when absence is removed without touching scores',function(){
+    $admin=User::find(1);$scoring=app(\App\Http\Controllers\G9ScoringController::class);
+    $id=$this->controller->save(g12Request($admin,$this->input))->getData(true)['id'];$before=G9ExamCandidate::find($id)->data;
+    $scoring->attendance(g12Request($admin,['version'=>1,'attendance_status'=>'absent','attendance_reason'=>' Sick leave ']),$id);
+    expect(G9ExamCandidate::find($id)->attendance_reason)->toBe('Sick leave');
+    $result=$scoring->attendance(g12Request($admin,['version'=>2,'attendance_status'=>'absent','attendance_reason'=>'Medical appointment']),$id)->getData(true);
+    expect($result)->toMatchArray(['version'=>3,'attendance_reason'=>'Medical appointment']);
+    $scoring->attendance(g12Request($admin,['version'=>3,'attendance_status'=>'absent','attendance_reason'=>'Medical appointment']),$id);
+    expect(G9ExamCandidate::find($id)->version)->toBe(3);
+    $scoring->attendance(g12Request($admin,['version'=>3,'attendance_status'=>'absent']),$id);
+    expect(G9ExamCandidate::find($id)->attendance_reason)->toBe('Medical appointment');
+    $list=$scoring->listing(g12Request($admin,['academic_year'=>1]))->getData(true)['data'][0];expect($list['attendance_reason'])->toBe('Medical appointment');
+    $audit=json_decode(DB::table('tb_g9_exam_event')->where('action','set-exam-attendance')->latest('id')->value('details'),true);
+    expect($audit)->toMatchArray(['reason_before'=>'Sick leave','reason_after'=>'Medical appointment']);
+    foreach([str_repeat('a',1001),['invalid']] as $reason)expect(fn()=>$scoring->attendance(g12Request($admin,['version'=>3,'attendance_status'=>'absent','attendance_reason'=>$reason]),$id))->toThrow(ValidationException::class);
+    $scoring->attendance(g12Request($admin,['version'=>3,'attendance_status'=>null,'attendance_reason'=>'Ignored']),$id);
+    expect(G9ExamCandidate::find($id)->attendance_status)->toBeNull()->and(G9ExamCandidate::find($id)->attendance_reason)->toBeNull()->and(G9ExamCandidate::find($id)->data)->toBe($before);
+});
+
+it('validates exam attendance and rejects stale candidate versions',function(){
+    $admin=User::find(1);$id=$this->controller->save(g12Request($admin,$this->input))->getData(true)['id'];
+    foreach([['version'=>1],['attendance_status'=>'absent'],['version'=>1,'attendance_status'=>'present'],['version'=>1,'attendance_status'=>'late'],['version'=>1,'attendance_status'=>['absent']]] as $input)
+        expect(fn()=>app(\App\Http\Controllers\G9ScoringController::class)->attendance(g12Request($admin,$input),$id))->toThrow(ValidationException::class);
+    app(\App\Http\Controllers\G9ScoringController::class)->attendance(g12Request($admin,['version'=>1,'attendance_status'=>'absent']),$id);
+    try{app(\App\Http\Controllers\G9ScoringController::class)->attendance(g12Request($admin,['version'=>1,'attendance_status'=>null]),$id);test()->fail('Expected stale attendance conflict.');}
+    catch(HttpException $failure){expect($failure->getStatusCode())->toBe(409);}
+    expect(G9ExamCandidate::find($id)->attendance_status)->toBe('absent')->and(G9ExamCandidate::find($id)->version)->toBe(2);
+});
+
+it('limits exam attendance editing to permitted campuses and hides other campuses in scoring',function(){
+    $admin=User::find(1);$user=User::find(2);
+    $id=$this->controller->save(g12Request($admin,$this->input))->getData(true)['id'];
+    $remote=$this->controller->save(g12Request($admin,array_replace($this->input,['student_code'=>'OTHER','campus_id'=>2])))->getData(true)['id'];
+    foreach(['view','scoring'] as $action)DB::table('access_user_permission_overrides')->insert(['user_id'=>2,'permission_id'=>DB::table('access_permissions')->where('code','g9-national-exams.'.$action)->value('id'),'allowed'=>true]);
+    expect(fn()=>app(\App\Http\Controllers\G9ScoringController::class)->attendance(g12Request($user,['version'=>1,'attendance_status'=>'absent']),$id))->toThrow(HttpException::class);
+    DB::table('access_user_permission_overrides')->insert(['user_id'=>2,'permission_id'=>DB::table('access_permissions')->where('code','g9-national-exams.scoring-edit')->value('id'),'allowed'=>true]);
+    app(\App\Http\Controllers\G9ScoringController::class)->attendance(g12Request($user,['version'=>1,'attendance_status'=>'absent']),$id);
+    expect(fn()=>app(\App\Http\Controllers\G9ScoringController::class)->attendance(g12Request($user,['version'=>1,'attendance_status'=>'absent']),$remote))->toThrow(\Illuminate\Database\Eloquent\ModelNotFoundException::class);
+    app(\App\Http\Controllers\G9ScoringController::class)->attendance(g12Request($admin,['version'=>1,'attendance_status'=>'absent']),$remote);
+    $rows=collect(app(\App\Http\Controllers\G9ScoringController::class)->listing(g12Request($user,['academic_year'=>1]))->getData(true)['data'])->keyBy('id');
+    expect($rows[$id])->toMatchArray(['attendance_status'=>'absent','can_edit'=>true])
+        ->and($rows->has($remote))->toBeFalse();
 });
 
 it('autosaves national subject scores without changing other fields and rejects stale versions',function(){
@@ -157,16 +223,65 @@ it('prints verification sheets by room with 25 candidates per A4 landscape page 
     expect(fn()=>$scoring->report(g12Request($admin,['academic_year'=>1,'student'=>999]),'print',$reports))->toThrow(HttpException::class);
 });
 
+it('prints score collection sheets with one foreign language column absence remarks and center signing dates',function(){
+    $admin=User::find(1);$scoring=app(\App\Http\Controllers\G9ScoringController::class);$reports=app(\App\Support\G9ScoringReport::class);
+    $input=array_replace($this->input,array_fill_keys(array_keys(G9ExamFields::GROUPS['National Examination Scores']),'20'),[
+        'name_kh'=>'កង សុគន្ធនរិន្ទ','exam_center'=>'វិ. សាលាវេស្ទើនអន្តរជាតិ (ភ្នំពេញថ្មី) (ត្បូង)',
+        'school_name'=>'វិ. សាលាវេស្ទើនអន្តរជាតិ (ភ្នំពេញថ្មី)','eoy_average'=>'90','score_english'=>'32','room_number'=>'18']);
+    for($i=26;$i>=1;$i--){
+        $candidate=array_replace($input,['student_code'=>'COLLECT-'.$i,'seat_number'=>(string)$i]);
+        if($i===2)$candidate=array_replace($candidate,array_fill_keys(array_keys(G9ExamFields::GROUPS['National Examination Scores']),'0'));
+        if($i===4)$candidate['score_math']=null;
+        $id=$this->controller->save(g12Request($admin,$candidate))->getData(true)['id'];
+        if($i===3)$scoring->attendance(g12Request($admin,['version'=>1,'attendance_status'=>'absent','attendance_reason'=>str_repeat('Medical leave ',50)]),$id);
+    }
+    $this->controller->save(g12Request($admin,array_replace($input,['student_code'=>'REMOTE-COLLECTION','campus_id'=>2,'exam_center'=>'Hidden Remote Center'])));
+    $settings=['resultDate'=>'Year date','k_resultDate'=>'Year lunar','report_centers'=>[['exam_center'=>$input['exam_center'],'location'=>'ខេត្តព្រះសីហនុ','signer'=>'ប្រធានមណ្ឌល','signer_name'=>'សុខ សាន្ត',
+        'dates'=>['resultDate'=>['date'=>'2026-08-30','solar'=>'Center date','lunar'=>'Center lunar date']]]]];
+    DB::table('tb_g9_exam_year_setting')->insert(['academic_year_id'=>1,'version'=>1,'data'=>json_encode($settings),'updated_by'=>1,'created_at'=>now(),'updated_at'=>now()]);
+    $before=G9ExamCandidate::all()->toJson();
+    $pages=$reports->pages(G9ExamCandidate::where('campus_id',1)->get(),$settings,'scores');
+    expect($pages)->toHaveCount(2)->and($pages[0]['rows'])->toHaveCount(25)->and($pages[1]['rows'])->toHaveCount(1)
+        ->and($pages[0]['rows'][0]['seat'])->toBe('1')->and($pages[0]['rows'][2]['absent'])->toBeTrue()
+        ->and($pages[0]['rows'][0]['summary']['english_contribution'])->toBe(7)
+        ->and($pages[0]['summary'])->toMatchArray(['total'=>26,'female'=>26,'passed'=>23,'failed'=>1,'absent'=>1,'absent_female'=>1,'pending'=>1])
+        ->and($pages[0]['solar'])->toContain('ខេត្តព្រះសីហនុ','៣០','សីហា')->and($pages[0]['lunar'])->toBe('Center lunar date');
+    $html=$scoring->collectionReport(g12Request($admin,['academic_year'=>1,'campus'=>1,'per_page'=>'25']),'print',$reports)->getContent();
+    expect($html)->toContain('តារាងស្រង់ពិន្ទុ','collection-scores','collection-absent','អវត្តមាន','សុខ សាន្ត','Center lunar date','>១<')
+        ->not->toContain('verify-max','>50</th>','>-25</th>','Hidden Remote Center','សម្រាប់ផ្ទៀងផ្ទាត់','Medical leave');
+    expect(substr_count($html,'<section class="verify-page">'))->toBe(2);
+    $dom=new \DOMDocument();@$dom->loadHTML('<?xml encoding="UTF-8">'.$html);$xpath=new \DOMXPath($dom);
+    expect($xpath->query('//span[@class="collection-seat-circle"]')->length)->toBe(23)
+        ->and($xpath->query('//tr[contains(@class,"collection-failed")]')->length)->toBe(2)
+        ->and($xpath->query('//tr[contains(@class,"collection-failed")]//span[@class="collection-seat-circle"]')->length)->toBe(0);
+    $tableRows=$xpath->query('//table[contains(@class,"collection-scores")]/tbody/tr');
+    expect($tableRows->item(0)->getElementsByTagName('span')->item(0)->getAttribute('class'))->toBe('collection-seat-circle')
+        ->and($tableRows->item(1)->getAttribute('class'))->toContain('collection-failed')
+        ->and($tableRows->item(3)->getAttribute('class'))->not->toContain('collection-failed')
+        ->and($tableRows->item(3)->getElementsByTagName('span')->item(0)->getAttribute('class'))->toBe('');
+    $pdf=$scoring->collectionReport(g12Request($admin,['academic_year'=>1,'campus'=>1]),'pdf',$reports);
+    if(getenv('G9_REPORT_QA')){
+        $folder=storage_path('app/private/g9-report-qa');if(!is_dir($folder))mkdir($folder,0755,true);
+        file_put_contents($folder.'/score-collection.pdf',$pdf->getContent());file_put_contents($folder.'/score-collection.html',$html);
+    }
+    expect($pdf->getContent())->toStartWith('%PDF-')->and($pdf->headers->get('Content-Disposition'))->toContain('g9-score-collection.pdf')
+        ->and(preg_match_all('~/Type\s*/Page\b~',$pdf->getContent()))->toBe(2);
+    expect(G9ExamCandidate::all()->toJson())->toBe($before);
+});
+
 it('requires separate scoring print and PDF permissions with campus and parent restrictions',function(){
     $admin=User::find(1);$user=User::find(2);$scoring=app(\App\Http\Controllers\G9ScoringController::class);$reports=app(\App\Support\G9ScoringReport::class);
     $this->controller->save(g12Request($admin,$this->input));$this->controller->save(g12Request($admin,array_replace($this->input,['student_code'=>'REMOTE','campus_id'=>2,'exam_center'=>'Remote Private Center'])));
     foreach(['view','scoring'] as $action)DB::table('access_user_permission_overrides')->insert(['user_id'=>2,'permission_id'=>DB::table('access_permissions')->where('code','g9-national-exams.'.$action)->value('id'),'allowed'=>true]);
     expect($scoring->index(g12Request($user))->getData()['reportFormats'])->toBe([]);
     expect(fn()=>$scoring->report(g12Request($user,['academic_year'=>1]),'print',$reports))->toThrow(HttpException::class);
+    expect(fn()=>$scoring->collectionReport(g12Request($user,['academic_year'=>1]),'print',$reports))->toThrow(HttpException::class);
     DB::table('access_user_permission_overrides')->insert(['user_id'=>2,'permission_id'=>DB::table('access_permissions')->where('code','g9-national-exams.scoring-print')->value('id'),'allowed'=>true]);
     expect($scoring->index(g12Request($user))->getData()['reportFormats'])->toBe(['print']);
     $html=$scoring->report(g12Request($user,['academic_year'=>1]),'print',$reports)->getContent();expect($html)->toContain('Test Center')->not->toContain('Remote Private Center');
+    expect($scoring->collectionReport(g12Request($user,['academic_year'=>1]),'print',$reports)->getContent())->toContain('Test Center')->not->toContain('Remote Private Center');
     expect(fn()=>$scoring->report(g12Request($user,['academic_year'=>1]),'pdf',$reports))->toThrow(HttpException::class);
+    expect(fn()=>$scoring->collectionReport(g12Request($user,['academic_year'=>1]),'pdf',$reports))->toThrow(HttpException::class);
     expect(fn()=>$scoring->report(g12Request($user,['academic_year'=>1,'campus'=>2]),'print',$reports))->toThrow(HttpException::class);
     DB::table('users')->where('id',2)->update(['is_global'=>true]);$central=User::find(2);
     expect($scoring->report(g12Request($central,['academic_year'=>1,'campus'=>2]),'print',$reports)->getContent())->toContain('Remote Private Center');
@@ -207,6 +322,38 @@ it('autosaves individual semester scores while leaving an incomplete EOY total b
     expect(G9ExamCandidate::find($id)->data)->toMatchArray(['semester_1'=>'89.51','semester_2'=>'90.50','eoy_average'=>'180','father_name'=>'Father']);
     expect(fn()=>$eoy->save(g12Request($admin,['version'=>3,'semester_1'=>'50.00']),$id))->toThrow(ValidationException::class);
 });
+
+it('preserves historical imported EOY totals without semester scores across reports and partial edits',function(string $saved,string $display){
+    DB::table('tb_academic_year')->where('id',1)->update(['academic_year'=>'2024-2025']);
+    $admin=User::find(1);$service=app(\App\Services\G9ExamImports::class);$reader=app(\App\Support\G9ExamSpreadsheet::class);
+    $imports=app(\App\Http\Controllers\G9ExamImportController::class);$eoy=app(\App\Http\Controllers\G9EoyAverageController::class);$reports=app(\App\Support\G9EoyReport::class);
+    $input=array_replace($this->input,['academic_year_id'=>'2024-2025','campus_id'=>'BCH','semester_1'=>null,'semester_2'=>null,'eoy_average'=>$saved]);
+    $request=g12Request($admin,[],'/preview','POST');$request->files->set('file',UploadedFile::fake()->createWithContent('historical.csv',g9ImportCsv([$input])));
+    $preview=$imports->preview($request,$service,$reader)->getData(true);
+    expect($preview['summary']['errors'])->toBe([]);
+    $imports->confirm(g12Request($admin,['token'=>$preview['token']],'/confirm','POST'),$service,$this->controller);
+    $record=G9ExamCandidate::first();$before=$record->data;
+    expect($before)->toMatchArray(['semester_1'=>null,'semester_2'=>null,'eoy_average'=>$saved]);
+    $listed=$eoy->listing(g12Request($admin,['academic_year'=>1]))->getData(true)['data'][0];
+    expect($listed)->toMatchArray(['semester_1'=>null,'semester_2'=>null,'saved_eoy'=>$saved,'calculated_eoy'=>null]);
+    $pages=$reports->pages(G9ExamCandidate::all(),[],'card');
+    expect($pages[0])->toMatchArray(['semester_1'=>null,'semester_2'=>null,'sum'=>$display,'eoy'=>$display]);
+    $html=$eoy->report(g12Request($admin,['academic_year'=>1]),'card','print',$reports)->getContent();
+    expect($html)->toContain('<div class="eoy-circle"><span>'.$display.'</span></div>');
+    expect(G9ExamCandidate::first()->data)->toBe($before);
+    if(getenv('G9_REPORT_QA')&&$saved==='90.000'){
+        $folder=storage_path('app/private/g9-report-qa');if(!is_dir($folder))mkdir($folder,0755,true);
+        file_put_contents($folder.'/eoy-historical.pdf',$reports->pdf($pages,'card'));
+    }
+    $partial=$eoy->save(g12Request($admin,['version'=>1,'semester_1'=>'12.345','semester_2'=>null]),$record->id)->getData(true);
+    expect($partial)->toMatchArray(['semester_1'=>'12.35','semester_2'=>null,'eoy_average'=>$saved]);
+    $audit=json_decode(DB::table('tb_g9_exam_event')->where('action','assign-eoy')->value('details'),true);
+    expect($audit)->toMatchArray(['formula'=>null,'eoy_source'=>'saved-total']);
+    $eoy->save(g12Request($admin,['version'=>2,'semester_1'=>null,'semester_2'=>null]),$record->id);
+    expect(G9ExamCandidate::first()->data)->toMatchArray(['semester_1'=>null,'semester_2'=>null,'eoy_average'=>$saved,'father_name'=>'Father']);
+    $complete=$eoy->save(g12Request($admin,['version'=>3,'semester_1'=>'12.35','semester_2'=>'20.25']),$record->id)->getData(true);
+    expect($complete['eoy_average'])->toBe('33');
+})->with([['90.000','90'],['0.000','0'],['90.500','91']]);
 
 it('restricts EOY viewing and assignment separately to permitted campuses and cascades filters',function(){
     $admin=User::find(1);$user=User::find(2);$eoy=app(\App\Http\Controllers\G9EoyAverageController::class);
@@ -324,6 +471,130 @@ it('saves annual score card names separately by campus and year with scoped perm
     expect($settings->show(g12Request($user,['academic_year_id'=>1,'campus_id'=>1]))->getData(true)['director_name'])->toBe('Director BCH');
     DB::table('access_user_permission_overrides')->where('user_id',2)->where('permission_id',DB::table('access_permissions')->where('code','g9-national-exams.eoy-settings-manage')->value('id'))->update(['allowed'=>false]);
     expect(fn()=>$settings->save(g12Request($user,array_replace($input,['version'=>1]))))->toThrow(HttpException::class);
+});
+
+it('reuses campus name defaults across existing and future academic years while preserving year-specific names',function(){
+    $admin=User::find(1);$settings=app(\App\Http\Controllers\G9EoySettingController::class);$reports=app(\App\Support\G9EoyReport::class);
+    $input=['academic_year_id'=>1,'campus_id'=>1,'version'=>0,'compiler_name'=>'Historical Compiler','director_name'=>'Historical Principal'];
+    $settings->save(g12Request($admin,$input));
+    $suggestion=$settings->show(g12Request($admin,['academic_year_id'=>1,'campus_id'=>1,'scope'=>'all']))->getData(true);
+    expect($suggestion)->toMatchArray(['version'=>0,'source'=>'year-suggestion','director_name'=>'Historical Principal'])
+        ->and(DB::table('tb_g9_eoy_campus_default')->count())->toBe(0);
+    DB::table('tb_academic_year')->insert(['id'=>2,'academic_year'=>'2026-2027']);
+    foreach([1,2] as $year)$this->controller->save(g12Request($admin,array_replace($this->input,['academic_year_id'=>$year,'student_code'=>'YEAR-'.$year,'room_number'=>(string)$year])));
+    $before=G9ExamCandidate::all()->toJson();$students=DB::table('tb_student')->get()->toJson();
+    $shared=array_replace($input,['scope'=>'all','compiler_name'=>'Shared Compiler','director_name'=>'Shared Principal']);
+    expect($settings->save(g12Request($admin,$shared))->getData(true))->toMatchArray(['version'=>1,'scope'=>'all','source'=>'all','director_name'=>'Shared Principal']);
+    expect($settings->show(g12Request($admin,['academic_year_id'=>2,'campus_id'=>1]))->getData(true))
+        ->toMatchArray(['version'=>0,'scope'=>'year','source'=>'all','director_name'=>'Shared Principal']);
+    foreach(['card','cover'] as $type){
+        $pages=$reports->pages(G9ExamCandidate::all(),[],$type);
+        expect($pages[0]['director'])->toBe('Historical Principal')->and($pages[1]['director'])->toBe('Shared Principal');
+    }
+    $settings->save(g12Request($admin,array_replace($input,['academic_year_id'=>2,'compiler_name'=>'','director_name'=>'Year Two Principal'])));
+    $settings->save(g12Request($admin,array_replace($shared,['version'=>1,'director_name'=>'Updated Shared Principal'])));
+    DB::table('tb_academic_year')->insert(['id'=>3,'academic_year'=>'2027-2028']);
+    expect($settings->show(g12Request($admin,['academic_year_id'=>3,'campus_id'=>1]))->getData(true))
+        ->toMatchArray(['version'=>0,'source'=>'all','director_name'=>'Updated Shared Principal']);
+    $pages=$reports->pages(G9ExamCandidate::all(),[],'card');
+    expect($pages[0]['director'])->toBe('Historical Principal')->and($pages[1]['director'])->toBe('Year Two Principal')->and($pages[1]['compiler'])->toBe('')
+        ->and(G9ExamCandidate::all()->toJson())->toBe($before)->and(DB::table('tb_student')->get()->toJson())->toBe($students)
+        ->and(DB::table('tb_g9_eoy_campus_setting')->count())->toBe(2)->and(DB::table('tb_g9_eoy_campus_default')->count())->toBe(1);
+    $event=DB::table('tb_g9_exam_setting_event')->where('action','eoy-campus-names-default')->orderByDesc('id')->first();$audit=json_decode($event->details,true);
+    expect($audit['scope'])->toBe('all')->and($audit['before']['director_name'])->toBe('Shared Principal')->and($audit['after']['director_name'])->toBe('Updated Shared Principal');
+});
+
+it('protects all-year campus names with campus permissions scope validation and independent conflict checks',function(){
+    $user=User::find(2);$settings=app(\App\Http\Controllers\G9EoySettingController::class);
+    foreach(['view','settings','eoy-settings-manage'] as $action)DB::table('access_user_permission_overrides')->insert(['user_id'=>2,'permission_id'=>DB::table('access_permissions')->where('code','g9-national-exams.'.$action)->value('id'),'allowed'=>true]);
+    $input=['academic_year_id'=>1,'campus_id'=>1,'scope'=>'all','version'=>0,'compiler_name'=>'Campus Compiler','director_name'=>'Campus Principal'];
+    $settings->save(g12Request($user,$input));
+    expect(fn()=>$settings->save(g12Request($user,$input)))->toThrow(HttpException::class);
+    expect(fn()=>$settings->save(g12Request($user,array_replace($input,['campus_id'=>2]))))->toThrow(HttpException::class);
+    expect(fn()=>$settings->show(g12Request($user,['academic_year_id'=>1,'campus_id'=>2,'scope'=>'all'])))->toThrow(HttpException::class);
+    expect(fn()=>$settings->save(g12Request($user,array_replace($input,['scope'=>'invalid']))))->toThrow(ValidationException::class);
+    expect(DB::table('tb_g9_eoy_campus_default')->count())->toBe(1)->and(DB::table('tb_g9_eoy_campus_setting')->count())->toBe(0);
+    DB::table('access_user_permission_overrides')->where('user_id',2)->where('permission_id',DB::table('access_permissions')->where('code','g9-national-exams.eoy-settings-manage')->value('id'))->update(['allowed'=>false]);
+    expect(fn()=>$settings->save(g12Request($user,array_replace($input,['version'=>1,'director_name'=>'Forbidden']))))->toThrow(HttpException::class);
+    expect($settings->show(g12Request($user,['academic_year_id'=>1,'campus_id'=>1,'scope'=>'all']))->getData(true))
+        ->toMatchArray(['version'=>1,'director_name'=>'Campus Principal','can_manage'=>false]);
+});
+
+it('lists saved campus names for all-year defaults and the selected year within view and edit permissions',function(){
+    $admin=User::find(1);$user=User::find(2);$settings=app(\App\Http\Controllers\G9EoySettingController::class);
+    DB::table('tb_academic_year')->insert(['id'=>2,'academic_year'=>'2026-2027']);
+    $base=['academic_year_id'=>1,'campus_id'=>1,'version'=>0,'compiler_name'=>'Compiler','director_name'=>'All-year Principal','scope'=>'all'];
+    $settings->save(g12Request($admin,$base));
+    $settings->save(g12Request($admin,array_replace($base,['scope'=>'year','director_name'=>'First Year Principal'])));
+    $settings->save(g12Request($admin,array_replace($base,['scope'=>'year','academic_year_id'=>2,'director_name'=>'Second Year Principal'])));
+    $settings->save(g12Request($admin,array_replace($base,['campus_id'=>2,'director_name'=>'Other Campus Principal'])));
+    $before=DB::table('tb_g9_exam_setting_event')->count();
+    $all=$settings->listing(g12Request($admin,['academic_year_id'=>1]))->getData(true);
+    expect($all['rows'])->toHaveCount(3)->and($all['manageable_campus_ids'])->toBe([1,2])->and($all['can_create'])->toBeTrue()
+        ->and(array_column($all['rows'],'scope'))->toBe(['all','year','all'])
+        ->and(array_column($all['rows'],'director_name'))->toBe(['All-year Principal','First Year Principal','Other Campus Principal']);
+    $otherYear=$settings->listing(g12Request($admin,['academic_year_id'=>2]))->getData(true);
+    expect($otherYear['academic_year'])->toBe('2026-2027')->and($otherYear['rows'][1]['director_name'])->toBe('Second Year Principal');
+    foreach(['view','settings'] as $action)DB::table('access_user_permission_overrides')->insert(['user_id'=>2,'permission_id'=>DB::table('access_permissions')->where('code','g9-national-exams.'.$action)->value('id'),'allowed'=>true]);
+    $readonly=$settings->listing(g12Request($user,['academic_year_id'=>1]))->getData(true);
+    expect($readonly['rows'])->toHaveCount(2)->and(array_column($readonly['rows'],'campus_id'))->toBe([1,1])
+        ->and(array_column($readonly['rows'],'can_manage'))->toBe([false,false])->and($readonly['can_create'])->toBeFalse()->and($readonly['manageable_campus_ids'])->toBe([]);
+    DB::table('access_user_permission_overrides')->insert(['user_id'=>2,'permission_id'=>DB::table('access_permissions')->where('code','g9-national-exams.eoy-settings-manage')->value('id'),'allowed'=>true]);
+    $managed=$settings->listing(g12Request($user,['academic_year_id'=>1]))->getData(true);
+    expect($managed['can_create'])->toBeTrue()->and($managed['manageable_campus_ids'])->toBe([1])->and(array_column($managed['rows'],'can_manage'))->toBe([true,true])
+        ->and(DB::table('tb_g9_exam_setting_event')->count())->toBe($before);
+    expect(fn()=>$settings->listing(g12Request($admin,['academic_year_id'=>999])))->toThrow(ValidationException::class);
+    DB::table('access_user_permission_overrides')->where('user_id',2)->where('permission_id',DB::table('access_permissions')->where('code','g9-national-exams.settings')->value('id'))->update(['allowed'=>false]);
+    expect(fn()=>$settings->listing(g12Request($user,['academic_year_id'=>1])))->toThrow(HttpException::class);
+});
+
+it('removes exactly one campus name configuration with an audit record and restores shared fallback',function(){
+    $admin=User::find(1);$settings=app(\App\Http\Controllers\G9EoySettingController::class);
+    DB::table('tb_academic_year')->insert(['id'=>2,'academic_year'=>'2026-2027']);
+    $base=['academic_year_id'=>1,'campus_id'=>1,'version'=>0,'compiler_name'=>'Compiler','director_name'=>'Default Principal','scope'=>'all'];
+    $settings->save(g12Request($admin,$base));
+    $settings->save(g12Request($admin,array_replace($base,['scope'=>'year','director_name'=>'Extra Principal'])));
+    $settings->save(g12Request($admin,array_replace($base,['scope'=>'year','academic_year_id'=>2,'director_name'=>'Next Year Principal'])));
+    $settings->save(g12Request($admin,array_replace($base,['campus_id'=>2,'director_name'=>'Other Campus Principal'])));
+    $this->controller->save(g12Request($admin,$this->input));$records=G9ExamCandidate::all()->toJson();$students=DB::table('tb_student')->get()->toJson();
+    $row=collect($settings->listing(g12Request($admin,['academic_year_id'=>1]))->getData(true)['rows'])->firstWhere('scope','year');
+    $input=['academic_year_id'=>1,'campus_id'=>$row['campus_id'],'scope'=>$row['scope'],'id'=>$row['id'],'version'=>$row['version']];
+    $settings->destroy(g12Request($admin,$input));
+    expect(DB::table('tb_g9_eoy_campus_setting')->where('academic_year_id',1)->count())->toBe(0)
+        ->and(DB::table('tb_g9_eoy_campus_setting')->where('academic_year_id',2)->value('director_name'))->toBe('Next Year Principal')
+        ->and(DB::table('tb_g9_eoy_campus_default')->count())->toBe(2)
+        ->and($settings->show(g12Request($admin,['academic_year_id'=>1,'campus_id'=>1]))->getData(true))->toMatchArray(['source'=>'all','director_name'=>'Default Principal']);
+    $pages=app(\App\Support\G9EoyReport::class)->pages(G9ExamCandidate::all(),[],'card');expect($pages[0]['director'])->toBe('Default Principal');
+    $audit=json_decode(DB::table('tb_g9_exam_setting_event')->where('action','remove-eoy-campus-names')->value('details'),true);
+    expect($audit)->toMatchArray(['campus_id'=>1,'scope'=>'year','after'=>null])->and($audit['before']['director_name'])->toBe('Extra Principal');
+    expect(fn()=>$settings->destroy(g12Request($admin,$input)))->toThrow(HttpException::class);
+    $shared=DB::table('tb_g9_eoy_campus_default')->where('campus_id',1)->first();
+    $settings->destroy(g12Request($admin,array_replace($input,['scope'=>'all','id'=>$shared->id,'version'=>$shared->version])));
+    expect(DB::table('tb_g9_eoy_campus_default')->pluck('campus_id')->all())->toBe([2])
+        ->and(DB::table('tb_g9_eoy_campus_setting')->count())->toBe(1)
+        ->and($settings->show(g12Request($admin,['academic_year_id'=>1,'campus_id'=>1]))->getData(true)['source'])->toBe('none')
+        ->and(G9ExamCandidate::all()->toJson())->toBe($records)->and(DB::table('tb_student')->get()->toJson())->toBe($students);
+});
+
+it('rejects campus name removal without permission or with changed or recreated records',function(){
+    $admin=User::find(1);$user=User::find(2);$settings=app(\App\Http\Controllers\G9EoySettingController::class);
+    $base=['academic_year_id'=>1,'campus_id'=>1,'scope'=>'all','version'=>0,'compiler_name'=>'Compiler','director_name'=>'Principal'];
+    $settings->save(g12Request($admin,$base));$settings->save(g12Request($admin,array_replace($base,['campus_id'=>2])));
+    $row=DB::table('tb_g9_eoy_campus_default')->where('campus_id',1)->first();
+    $input=['academic_year_id'=>1,'campus_id'=>1,'scope'=>'all','id'=>$row->id,'version'=>$row->version];
+    foreach(['view','settings'] as $action)DB::table('access_user_permission_overrides')->insert(['user_id'=>2,'permission_id'=>DB::table('access_permissions')->where('code','g9-national-exams.'.$action)->value('id'),'allowed'=>true]);
+    expect(fn()=>$settings->destroy(g12Request($user,$input)))->toThrow(HttpException::class);
+    DB::table('access_user_permission_overrides')->insert(['user_id'=>2,'permission_id'=>DB::table('access_permissions')->where('code','g9-national-exams.eoy-settings-manage')->value('id'),'allowed'=>true]);
+    expect(fn()=>$settings->destroy(g12Request($user,array_replace($input,['campus_id'=>2]))))->toThrow(HttpException::class);
+    expect(fn()=>$settings->destroy(g12Request($admin,array_diff_key($input,['scope'=>true]))))->toThrow(ValidationException::class);
+    $settings->save(g12Request($admin,array_replace($base,['version'=>1,'director_name'=>'Changed Principal'])));
+    expect(fn()=>$settings->destroy(g12Request($user,$input)))->toThrow(HttpException::class);
+    expect(DB::table('tb_g9_eoy_campus_default')->where('campus_id',1)->value('director_name'))->toBe('Changed Principal');
+    $settings->destroy(g12Request($user,array_replace($input,['version'=>2])));
+    $settings->save(g12Request($admin,$base));
+    expect(fn()=>$settings->destroy(g12Request($user,$input)))->toThrow(HttpException::class);
+    expect(DB::table('tb_g9_eoy_campus_default')->count())->toBe(2)
+        ->and(DB::table('tb_g9_exam_setting_event')->where('action','remove-eoy-campus-names')->count())->toBe(1);
 });
 
 it('prints annual score cards and covers using campus names full filters and whole EOY totals',function(){
@@ -509,6 +780,67 @@ function g9PhotoConfirm(User $user,string $token) {
     return app(\App\Http\Controllers\G9BulkPhotoController::class)->confirm(g12Request($user,['token'=>$token]),app(\App\Services\G9ExamPhoto::class));
 }
 
+it('streams live ZIP photo optimization and matching without attaching photos before confirmation',function(){
+    Storage::fake('local');$admin=User::find(1);$controller=app(\App\Http\Controllers\G9BulkPhotoController::class);
+    foreach(['one','two'] as $name)$this->controller->save(g12Request($admin,array_replace($this->input,['student_code'=>$name,'photo_filename'=>$name.'.jpg'])));
+    $before=G9ExamCandidate::all()->toJson();$path=tempnam(sys_get_temp_dir(),'g9-photo-stream');$image=UploadedFile::fake()->image('source.jpg')->get();
+    try{
+        $zip=new ZipArchive();$zip->open($path,ZipArchive::OVERWRITE);$zip->addFromString('folder/one.jpg',$image);$zip->addFromString('two.jpg',$image);$zip->addFromString('broken.jpg','invalid image');$zip->addFromString('notes.txt','ignore');$zip->close();
+        $request=g12Request($admin,['academic_year_id'=>1],'/photos/preview','POST');$request->headers->set('Accept','application/json, application/x-ndjson');$request->files->set('files',[UploadedFile::fake()->createWithContent('photos.zip',file_get_contents($path))]);
+        $response=$controller->preview($request);$observations=[];
+        expect($response->headers->get('Content-Type'))->toContain('application/x-ndjson')->and($response->headers->get('X-Accel-Buffering'))->toBe('no');
+        $events=g9ImportStreamEvents($response,function($event)use(&$observations){$observations[]=['type'=>$event['type'],'records'=>G9ExamCandidate::whereNotNull('photo_path')->count(),'batches'=>DB::table('tb_g9_photo_batch')->count()];});
+    }finally{unlink($path);}
+    $progress=collect($events)->where('type','progress');
+    expect($progress->where('stage','optimizing')->pluck('processed')->all())->toBe([0,1,2,3])
+        ->and($progress->where('stage','matching')->pluck('processed')->all())->toBe([1,2,3]);
+    expect(array_column($events,'percent'))->toBe([0,0,16,33,50,66,83,99,100]);
+    $result=end($events);expect($result['type'])->toBe('complete')->and($result['summary'])->toMatchArray(['images'=>3,'ready'=>2,'invalid'=>1])
+        ->and($result['rows'][0])->not->toHaveKeys(['staged','old_path','version','key']);
+    expect(array_unique(array_column($observations,'records')))->toBe([0])->and($observations[count($observations)-2]['batches'])->toBe(0)
+        ->and(end($observations)['batches'])->toBe(1)->and(G9ExamCandidate::all()->toJson())->toBe($before)->and(Storage::disk('public')->allFiles())->toBe([]);
+});
+
+it('streams saved photo counts and emits completion only after photo commit',function(){
+    Storage::fake('local');$admin=User::find(1);$controller=app(\App\Http\Controllers\G9BulkPhotoController::class);
+    foreach(['one','two'] as $name)$this->controller->save(g12Request($admin,array_replace($this->input,['student_code'=>$name,'photo_filename'=>$name.'.jpg'])));
+    $preview=g9PhotoPreview($admin,[UploadedFile::fake()->image('one.jpg'),UploadedFile::fake()->image('two.jpg')]);
+    $request=g12Request($admin,['token'=>$preview['token']],'/photos/confirm','POST');$request->headers->set('Accept','application/json, application/x-ndjson');
+    $response=$controller->confirm($request,app(\App\Services\G9ExamPhoto::class));$observations=[];
+    $events=g9ImportStreamEvents($response,function($event)use(&$observations){$observations[]=['type'=>$event['type'],'level'=>DB::transactionLevel(),'status'=>DB::table('tb_g9_photo_batch')->value('status')];});
+    expect(array_column($events,'type'))->toBe(['progress','progress','progress','complete'])->and(array_column($events,'percent'))->toBe([0,50,99,100])
+        ->and(array_column(array_slice($events,0,3),'processed'))->toBe([0,1,2]);
+    expect($observations[2])->toMatchArray(['level'=>1,'status'=>'preview'])->and($observations[3])->toMatchArray(['level'=>0,'status'=>'confirmed'])
+        ->and(G9ExamCandidate::whereNotNull('photo_path')->count())->toBe(2)->and(Storage::disk('local')->allFiles('g9-photo-previews'))->toBe([]);
+    foreach(G9ExamCandidate::all() as $record){expect($record->photo_path)->toStartWith('g9_national_exams/2025-2026/');Storage::disk('public')->assertExists($record->photo_path);}
+    $repeat=g9ImportStreamEvents($controller->confirm($request,app(\App\Services\G9ExamPhoto::class)));
+    expect($repeat)->toHaveCount(1)->and($repeat[0])->toMatchArray(['type'=>'error','status'=>409,'rolled_back'=>true]);
+});
+
+it('streams photo confirmation failures after cleaning up partial file writes and rolling back records',function(){
+    Storage::fake('local');$admin=User::find(1);$controller=app(\App\Http\Controllers\G9BulkPhotoController::class);
+    foreach(['one','two'] as $name)$this->controller->save(g12Request($admin,array_replace($this->input,['student_code'=>$name,'photo_filename'=>$name.'.jpg'])));
+    $preview=g9PhotoPreview($admin,[UploadedFile::fake()->image('one.jpg'),UploadedFile::fake()->image('two.jpg')]);G9ExamCandidate::where('student_code','two')->increment('version');
+    $request=g12Request($admin,['token'=>$preview['token']],'/photos/confirm','POST');$request->headers->set('Accept','application/json, application/x-ndjson');
+    $events=g9ImportStreamEvents($controller->confirm($request,app(\App\Services\G9ExamPhoto::class)));
+    expect(array_column($events,'type'))->toBe(['progress','progress','error'])->and($events[1]['percent'])->toBe(50)
+        ->and($events[2])->toMatchArray(['type'=>'error','status'=>409,'rolled_back'=>true])
+        ->and(G9ExamCandidate::whereNotNull('photo_path')->count())->toBe(0)->and(Storage::disk('public')->allFiles())->toBe([])
+        ->and(DB::table('tb_g9_exam_event')->where('action','bulk-photo')->count())->toBe(0)->and(DB::table('tb_g9_photo_batch')->value('status'))->toBe('preview');
+});
+
+it('streams invalid photo archive errors without creating a preview or bypassing permissions',function(){
+    Storage::fake('local');$admin=User::find(1);$controller=app(\App\Http\Controllers\G9BulkPhotoController::class);
+    $this->controller->save(g12Request($admin,$this->input+['photo_filename'=>'one.jpg']));
+    $request=g12Request($admin,['academic_year_id'=>1],'/photos/preview','POST');$request->headers->set('Accept','application/json, application/x-ndjson');$request->files->set('files',[UploadedFile::fake()->createWithContent('invalid.zip','not a ZIP')]);
+    $events=g9ImportStreamEvents($controller->preview($request));expect(array_column($events,'type'))->toBe(['progress','error'])
+        ->and($events[1]['status'])->toBe(422)->and($events[1]['message'])->toContain('ZIP archive is invalid')
+        ->and(DB::table('tb_g9_photo_batch')->count())->toBe(0)->and(Storage::disk('local')->allFiles('g9-photo-previews'))->toBe([]);
+    $request=g12Request(User::find(2),['academic_year_id'=>1]);$request->headers->set('Accept','application/json, application/x-ndjson');
+    expect(fn()=>$controller->preview($request))->toThrow(HttpException::class);
+    expect(fn()=>$controller->confirm($request,app(\App\Services\G9ExamPhoto::class)))->toThrow(HttpException::class);
+});
+
 it('previews photo filename matches and confirms optimized academic-year photos once',function(){
     Storage::fake('local');$admin=User::find(1);
     $id=$this->controller->save(g12Request($admin,$this->input+['photo_filename'=>'MoEYS_001.jpg']))->getData(true)['id'];
@@ -583,6 +915,80 @@ it('rolls back photo writes when a candidate changes after preview and expires o
     $oldFolder=DB::table('tb_g9_photo_batch')->value('folder');
     g9PhotoPreview($admin,[UploadedFile::fake()->image('one.jpg')]);
     expect(Storage::disk('local')->allFiles($oldFolder))->toBe([])->and(DB::table('tb_g9_photo_batch')->where('folder',$oldFolder)->value('status'))->toBe('expired');
+});
+
+function g9ImportStreamEvents($response,?callable $observe=null): array {
+    $output='';
+    ob_start(function($chunk)use(&$output,$observe){$output.=$chunk;if($observe)foreach(explode("\n",trim($chunk)) as $line)if($line!=='')$observe(json_decode($line,true,512,JSON_THROW_ON_ERROR));return '';});
+    try{($response->getCallback())();}finally{ob_end_clean();}
+    return array_map(fn($line)=>json_decode($line,true,512,JSON_THROW_ON_ERROR),array_values(array_filter(explode("\n",$output))));
+}
+
+it('streams live preview validation progress for valid and invalid rows without changing candidates',function(){
+    $admin=User::find(1);$service=app(\App\Services\G9ExamImports::class);$reader=app(\App\Support\G9ExamSpreadsheet::class);$controller=app(\App\Http\Controllers\G9ExamImportController::class);
+    $base=array_replace($this->input,['academic_year_id'=>'2025-2026','campus_id'=>'BCH','semester_1'=>null,'semester_2'=>null,'eoy_average'=>'91']);
+    $request=g12Request($admin,[],'/preview','POST');$request->headers->set('Accept','application/json, application/x-ndjson');
+    $request->files->set('file',UploadedFile::fake()->createWithContent('progress.csv',g9ImportCsv([$base,array_replace($base,['student_code'=>'BAD','campus_id'=>'Unknown campus'])])));
+    $response=$controller->preview($request,$service,$reader);$observations=[];
+    expect($response->headers->get('Content-Type'))->toContain('application/x-ndjson')->and($response->headers->get('X-Accel-Buffering'))->toBe('no');
+    expect(DB::table('tb_g9_exam_import')->count())->toBe(0);
+    $events=g9ImportStreamEvents($response,function($event)use(&$observations){$observations[]=['type'=>$event['type'],'records'=>G9ExamCandidate::count(),'batches'=>DB::table('tb_g9_exam_import')->count()];});
+    expect(array_column($events,'type'))->toBe(['progress','progress','progress','progress','progress','complete'])
+        ->and(array_column($events,'percent'))->toBe([0,0,50,99,99,100])
+        ->and(array_column(array_slice($events,0,5),'stage'))->toBe(['reading','validating','validating','validating','finalizing']);
+    expect($events[3])->toMatchArray(['processed'=>2,'total'=>2])->and($events[5]['summary'])->toMatchArray(['total'=>2,'new'=>1,'updates'=>0])
+        ->and($events[5]['summary']['errors'])->toHaveCount(1)->and(strlen($events[5]['token']))->toBe(64);
+    expect(array_unique(array_column($observations,'records')))->toBe([0])->and($observations[4]['batches'])->toBe(0)->and($observations[5]['batches'])->toBe(1);
+    $payload=json_decode(DB::table('tb_g9_exam_import')->value('payload'),true);
+    expect($payload[0]['input'])->toMatchArray(['semester_1'=>null,'semester_2'=>null,'eoy_average'=>'91']);
+});
+
+it('streams unreadable preview errors without creating a batch or touching candidate records',function(){
+    $admin=User::find(1);$service=app(\App\Services\G9ExamImports::class);$reader=app(\App\Support\G9ExamSpreadsheet::class);$controller=app(\App\Http\Controllers\G9ExamImportController::class);
+    $this->controller->save(g12Request($admin,$this->input));$before=G9ExamCandidate::all()->toJson();
+    $request=g12Request($admin,[],'/preview','POST');$request->headers->set('Accept','application/json, application/x-ndjson');
+    $request->files->set('file',UploadedFile::fake()->createWithContent('bad.csv',"academic_year,unknown_header\n2025-2026,invalid\n"));
+    $events=g9ImportStreamEvents($controller->preview($request,$service,$reader));
+    expect(array_column($events,'type'))->toBe(['progress','error'])->and($events[1]['status'])->toBe(422)->and($events[1]['message'])->toContain('Unknown column');
+    expect(DB::table('tb_g9_exam_import')->count())->toBe(0)->and(G9ExamCandidate::all()->toJson())->toBe($before);
+    $unauthorized=g12Request(User::find(2),[],'/preview','POST');$unauthorized->headers->set('Accept','application/json, application/x-ndjson');
+    expect(fn()=>$controller->preview($unauthorized,$service,$reader))->toThrow(HttpException::class);
+});
+
+it('streams actual import row progress and reports completion only after committing',function(){
+    $admin=User::find(1);$service=app(\App\Services\G9ExamImports::class);$reader=app(\App\Support\G9ExamSpreadsheet::class);$controller=app(\App\Http\Controllers\G9ExamImportController::class);
+    $base=array_replace($this->input,['academic_year_id'=>'2025-2026','campus_id'=>'BCH']);
+    $request=g12Request($admin,[],'/preview','POST');$request->files->set('file',UploadedFile::fake()->createWithContent('progress.csv',g9ImportCsv([$base,array_replace($base,['student_code'=>'SECOND'])])));
+    $preview=$controller->preview($request,$service,$reader)->getData(true);
+    $request=g12Request($admin,['token'=>$preview['token']],'/confirm','POST');$request->headers->set('Accept','application/json, application/x-ndjson');
+    $response=$controller->confirm($request,$service,$this->controller);$observations=[];
+    expect($response->headers->get('Content-Type'))->toContain('application/x-ndjson')->and($response->headers->get('X-Accel-Buffering'))->toBe('no');
+    expect(G9ExamCandidate::count())->toBe(0);
+    $events=g9ImportStreamEvents($response,function($event)use(&$observations){$observations[]=['type'=>$event['type'],'level'=>DB::transactionLevel(),'records'=>G9ExamCandidate::count(),'status'=>DB::table('tb_g9_exam_import')->value('status')];});
+    expect(array_column($events,'type'))->toBe(['progress','progress','progress','complete'])
+        ->and(array_column($events,'percent'))->toBe([0,50,99,100])
+        ->and(array_column(array_slice($events,0,3),'processed'))->toBe([0,1,2]);
+    expect($events[2]['finalizing'])->toBeTrue()->and($events[3]['summary'])->toMatchArray(['new'=>2,'updates'=>0]);
+    expect($observations[2])->toMatchArray(['level'=>1,'records'=>2,'status'=>'preview'])
+        ->and($observations[3])->toMatchArray(['level'=>0,'records'=>2,'status'=>'confirmed']);
+    $again=$controller->confirm($request,$service,$this->controller);$repeated=g9ImportStreamEvents($again);
+    expect($repeated)->toHaveCount(1)->and($repeated[0])->toMatchArray(['type'=>'error','status'=>409,'rolled_back'=>true])->and(G9ExamCandidate::count())->toBe(2);
+});
+
+it('streams a failed confirmation without completing and rolls back all preceding rows',function(){
+    $admin=User::find(1);$service=app(\App\Services\G9ExamImports::class);$reader=app(\App\Support\G9ExamSpreadsheet::class);$controller=app(\App\Http\Controllers\G9ExamImportController::class);
+    $id=$this->controller->save(g12Request($admin,$this->input))->getData(true)['id'];
+    $base=array_replace($this->input,['academic_year_id'=>'2025-2026','campus_id'=>'BCH']);
+    $request=g12Request($admin,[],'/preview','POST');$request->files->set('file',UploadedFile::fake()->createWithContent('rollback.csv',g9ImportCsv([array_replace($base,['student_code'=>'FIRST-NEW']),$base])));
+    $preview=$controller->preview($request,$service,$reader)->getData(true);
+    $this->controller->save(g12Request($admin,array_replace($this->input,['version'=>1,'father_name'=>'Updated after preview'])),$id);
+    $request=g12Request($admin,['token'=>$preview['token']],'/confirm','POST');$request->headers->set('Accept','application/json, application/x-ndjson');
+    $events=g9ImportStreamEvents($controller->confirm($request,$service,$this->controller));
+    expect(array_column($events,'type'))->toBe(['progress','progress','error'])->and($events[1]['percent'])->toBe(50)
+        ->and($events[2])->toMatchArray(['type'=>'error','status'=>409,'rolled_back'=>true])
+        ->and($events[2]['message'])->toContain('Candidate data changed');
+    expect(G9ExamCandidate::count())->toBe(1)->and(G9ExamCandidate::first()->data['father_name'])->toBe('Updated after preview')
+        ->and(DB::table('tb_g9_exam_import')->value('status'))->toBe('preview')->and(DB::transactionLevel())->toBe(0);
 });
 
 it('previews imports without saving and confirms them once with CSV round trip',function(){
@@ -712,6 +1118,109 @@ it('keeps saved year settings and warns once without blocking candidate imports'
         ->and($merged['payload'][0]['year_setting']['data']['score_verify_by'])->toBe('New signer');
     $second['legacy_cardDate']='Another source date';
     expect($service->preview($admin,[$row,$second])['summary']['errors'])->toHaveCount(1);
+});
+
+it('saves center-specific dates province and signer while preserving other centers years and candidate records',function(){
+    $admin=User::find(1);$settings=app(\App\Http\Controllers\G9ExamSettingController::class);
+    $this->controller->save(g12Request($admin,$this->input));
+    $this->controller->save(g12Request($admin,array_replace($this->input,['student_code'=>'CENTER-B','exam_center'=>'Other Center'])));
+    DB::table('tb_academic_year')->insert(['id'=>2,'academic_year'=>'2026-2027']);
+    $yearSettings=['listDate'=>'Legacy list text','listDate_iso'=>'2026-07-01','k_listdate'=>'Year lunar',
+        'cardDate'=>'Year card date','cardDate_iso'=>'2026-07-02','resultDate_iso'=>'2026-07-03','score_verify_by'=>'Keep original signer'];
+    DB::table('tb_g9_exam_year_setting')->insert(['academic_year_id'=>1,'data'=>json_encode($yearSettings),'version'=>1,'updated_by'=>1,'created_at'=>now(),'updated_at'=>now()]);
+    DB::table('tb_g9_exam_year_setting')->insert(['academic_year_id'=>2,'data'=>json_encode(['cardDate'=>'Next year date']),'version'=>4,'updated_by'=>1,'created_at'=>now(),'updated_at'=>now()]);
+    $before=G9ExamCandidate::all()->toJson();$students=DB::table('tb_student')->get()->toJson();
+    $loaded=$settings->showCenter(g12Request($admin,['academic_year_id'=>1,'exam_center'=>'Test Center']))->getData(true);
+    expect($loaded['date_overrides'])->toBe([])->and($loaded['dates']['cardDate']['date'])->toBe('2026-07-02');
+    $dates=collect($loaded['dates'])->map(fn($date)=>$date+['inherit'=>true])->all();
+    $dates['listDate']=['inherit'=>false,'date'=>'2026-08-01','solar'=>'Center list date','lunar'=>'Center list lunar'];
+    $dates['cardDate']=['inherit'=>false,'date'=>'2026-08-02','solar'=>'Center card date','lunar'=>'Center card lunar'];
+    $dates['resultDate']=['inherit'=>false,'date'=>'2026-08-03','solar'=>'Center result date','lunar'=>'Center result lunar'];
+    $input=['academic_year_id'=>1,'exam_center'=>'Test Center','version'=>1,'location'=>'ខេត្តព្រះសីហនុ','department'=>'Center Department','signer'=>'ប្រធានមណ្ឌល','signer_name'=>'Center Signer','dates'=>$dates];
+    $saved=$settings->saveCenter(g12Request($admin,$input))->getData(true);
+    expect($saved)->toMatchArray(['version'=>2,'location'=>'ខេត្តព្រះសីហនុ','signer_name'=>'Center Signer'])->and($saved['dates']['cardDate']['date'])->toBe('2026-08-02')
+        ->and($saved['date_overrides'])->toBe(['listDate','resultDate','cardDate']);
+    $other=$settings->showCenter(g12Request($admin,['academic_year_id'=>1,'exam_center'=>'Other Center']))->getData(true);
+    expect($other['date_overrides'])->toBe([])->and($other['dates']['cardDate']['date'])->toBe('2026-07-02');
+    $stored=json_decode(DB::table('tb_g9_exam_year_setting')->where('academic_year_id',1)->value('data'),true);
+    foreach($yearSettings as $key=>$value)expect($stored[$key])->toBe($value);
+    expect(json_decode(DB::table('tb_g9_exam_year_setting')->where('academic_year_id',2)->value('data'),true))->toBe(['cardDate'=>'Next year date']);
+    expect(G9ExamCandidate::all()->toJson())->toBe($before)->and(DB::table('tb_student')->get()->toJson())->toBe($students);
+    expect(DB::table('tb_g9_exam_setting_event')->where('action','save-center-settings')->count())->toBe(1);
+    expect(fn()=>$settings->saveCenter(g12Request($admin,$input)))->toThrow(HttpException::class);
+    $year=$settings->show(g12Request($admin,['academic_year_id'=>1]))->getData(true);
+    $settings->save(g12Request($admin,['academic_year_id'=>1,'version'=>2,'location'=>'Phnom Penh','dates'=>$year['dates'],'report_centers'=>[['exam_center'=>'Test Center','location'=>'ខេត្តព្រះសីហនុ','department'=>'Edited','signer'=>'ប្រធានមណ្ឌល']]]));
+    $retained=$settings->showCenter(g12Request($admin,['academic_year_id'=>1,'exam_center'=>'Test Center']))->getData(true);
+    expect($retained['dates']['cardDate']['date'])->toBe('2026-08-02')->and($retained['signer_name'])->toBe('Center Signer');
+});
+
+it('supports blank center dates and restoring inheritance without copying or deleting year defaults',function(){
+    $admin=User::find(1);$settings=app(\App\Http\Controllers\G9ExamSettingController::class);
+    $this->controller->save(g12Request($admin,$this->input));
+    DB::table('tb_g9_exam_year_setting')->insert(['academic_year_id'=>1,'data'=>json_encode(['cardDate'=>'Year card','cardDate_iso'=>'2026-07-02']),'version'=>1,'updated_by'=>1,'created_at'=>now(),'updated_at'=>now()]);
+    $loaded=$settings->showCenter(g12Request($admin,['academic_year_id'=>1,'exam_center'=>'Test Center']))->getData(true);
+    $dates=collect($loaded['dates'])->map(fn($date)=>$date+['inherit'=>true])->all();$dates['cardDate']=['inherit'=>false,'date'=>null,'solar'=>'','lunar'=>''];
+    $input=['academic_year_id'=>1,'exam_center'=>'Test Center','version'=>1,'location'=>'','department'=>'','signer'=>'','signer_name'=>'','dates'=>$dates];
+    $saved=$settings->saveCenter(g12Request($admin,$input))->getData(true);
+    expect($saved['dates']['cardDate'])->toBe(['date'=>'','solar'=>'','lunar'=>'']);
+    $stored=json_decode(DB::table('tb_g9_exam_year_setting')->where('academic_year_id',1)->value('data'),true);
+    expect(\App\Support\G9ExamCenterSettings::resolve($stored,'Test Center')['cardDate_iso'])->toBe('');
+    $input['version']=2;$input['dates']['cardDate']['inherit']=true;
+    $restored=$settings->saveCenter(g12Request($admin,$input))->getData(true);
+    expect($restored['date_overrides'])->toBe([])->and($restored['dates']['cardDate']['date'])->toBe('2026-07-02');
+    expect(json_decode(DB::table('tb_g9_exam_year_setting')->where('academic_year_id',1)->value('data'),true)['cardDate'])->toBe('Year card');
+});
+
+it('enforces permissions and validation on exam-center settings endpoints',function(){
+    $admin=User::find(1);$user=User::find(2);$settings=app(\App\Http\Controllers\G9ExamSettingController::class);
+    $this->controller->save(g12Request($admin,$this->input));
+    expect(fn()=>$settings->showCenter(g12Request($user,['academic_year_id'=>1,'exam_center'=>'Test Center'])))->toThrow(HttpException::class);
+    foreach(['view','settings','settings-manage'] as $action)DB::table('access_user_permission_overrides')->insert(['user_id'=>2,'permission_id'=>DB::table('access_permissions')->where('code','g9-national-exams.'.$action)->value('id'),'allowed'=>true]);
+    $loaded=$settings->showCenter(g12Request($user,['academic_year_id'=>1,'exam_center'=>'Test Center']))->getData(true);expect($loaded['can_manage'])->toBeFalse();
+    $dates=collect($loaded['dates'])->map(fn($date)=>$date+['inherit'=>true])->all();
+    $input=['academic_year_id'=>1,'exam_center'=>'Test Center','version'=>0,'location'=>'Province','department'=>'','signer'=>'','signer_name'=>'','dates'=>$dates];
+    expect(fn()=>$settings->saveCenter(g12Request($user,$input)))->toThrow(HttpException::class);
+    expect(fn()=>$settings->showCenter(g12Request($admin,['academic_year_id'=>1,'exam_center'=>'Not in this year'])))->toThrow(HttpException::class);
+    $invalid=$input;$invalid['dates']['cardDate']=['inherit'=>false,'date'=>'2026-02-30','solar'=>'','lunar'=>''];
+    expect(fn()=>$settings->saveCenter(g12Request($admin,$invalid)))->toThrow(ValidationException::class);
+    $invalid=$input;unset($invalid['dates']['certDate']);expect(fn()=>$settings->saveCenter(g12Request($admin,$invalid)))->toThrow(ValidationException::class);
+    $invalid=$input;$invalid['photo_signature']='data:image/png;base64,'.base64_encode('<script>bad</script>');
+    expect(fn()=>$settings->saveCenter(g12Request($admin,$invalid)))->toThrow(ValidationException::class);
+    DB::table('users')->where('id',2)->update(['is_global'=>true]);$central=User::find(2);
+    expect($settings->saveCenter(g12Request($central,$input))->getData(true)['version'])->toBe(1);
+    DB::table('access_user_permission_overrides')->where('user_id',2)->where('permission_id',DB::table('access_permissions')->where('code','g9-national-exams.settings-manage')->value('id'))->update(['allowed'=>false]);
+    $input['version']=1;expect(fn()=>$settings->saveCenter(g12Request($central,$input)))->toThrow(HttpException::class);
+});
+
+it('uses each center dates in candidate profiles and EOY reports while preserving manual attendance dates',function(){
+    $admin=User::find(1);$settings=app(\App\Http\Controllers\G9ExamSettingController::class);$reports=app(\App\Support\G9CandidateReport::class);
+    $this->controller->save(g12Request($admin,$this->input));$this->controller->save(g12Request($admin,array_replace($this->input,['student_code'=>'OTHER','exam_center'=>'Other Center'])));
+    $data=['date_location'=>'Phnom Penh','listDate_iso'=>'2026-07-01','k_listdate'=>'Year list lunar','cardDate_iso'=>'2026-07-02','k_cardDate'=>'Year card lunar','resultDate_iso'=>'2026-07-03'];
+    DB::table('tb_g9_exam_year_setting')->insert(['academic_year_id'=>1,'version'=>1,'data'=>json_encode($data),'updated_by'=>1,'created_at'=>now(),'updated_at'=>now()]);
+    $loaded=$settings->showCenter(g12Request($admin,['academic_year_id'=>1,'exam_center'=>'Test Center']))->getData(true);
+    $dates=collect($loaded['dates'])->map(fn($date)=>$date+['inherit'=>true])->all();
+    foreach(['listDate'=>'2026-08-01','cardDate'=>'2026-08-02','resultDate'=>'2026-08-03'] as $key=>$iso)$dates[$key]=['inherit'=>false,'date'=>$iso,'solar'=>'Center '.$key,'lunar'=>'Center lunar '.$key];
+    $signature='data:image/png;base64,'.base64_encode(g12PhotoBytes());
+    $input=['academic_year_id'=>1,'exam_center'=>'Test Center','version'=>1,'location'=>'ខេត្តព្រះសីហនុ','department'=>'Center Department','signer'=>'ប្រធានមណ្ឌល','signer_name'=>'សុខ សាន្ត','photo_signature'=>$signature,'dates'=>$dates];
+    $settings->saveCenter(g12Request($admin,$input));
+    $stored=json_decode(DB::table('tb_g9_exam_year_setting')->where('academic_year_id',1)->value('data'),true);$records=G9ExamCandidate::orderBy('id')->get();
+    $pages=$reports->pages($records,$stored,'candidates');expect($pages[0]['solar'])->toContain('០១','សីហា')->and($pages[0]['lunar'])->toBe('Center lunar listDate')->and($pages[0]['signer_name'])->toBe('សុខ សាន្ត')
+        ->and($pages[1]['solar'])->toContain('កក្កដា')->and($pages[1]['lunar'])->toBe('Year list lunar');
+    $branding=Mockery::mock(\App\Support\ScholarshipExport::class);$branding->shouldReceive('reportLogo')->with(2)->andReturn(null);app()->instance(\App\Support\ScholarshipExport::class,$branding);
+    $profiles=$reports->pages($records,$stored,'profile');expect($profiles[0]['profile']['solar'])->toContain('០២','សីហា')->and($profiles[0]['profile']['lunar'])->toBe('Center lunar cardDate')
+        ->and($profiles[0]['profile']['signature'])->toStartWith('data:image/png;base64,')->and($profiles[1]['profile']['solar'])->toContain('កក្កដា')->and($profiles[1]['profile']['signature'])->toBeNull();
+    $eoy=app(\App\Support\G9EoyReport::class)->pages($records,$stored,'card');expect($eoy[0]['solar'])->toContain('០៣','សីហា')->and($eoy[1]['solar'])->toContain('កក្កដា');
+    $attendance=$reports->pages($records,$stored,'attendance-1');expect($attendance[0]['solar'])->toContain('ខេត្តព្រះសីហនុ')->not->toContain('សីហា')->and($attendance[0]['lunar'])->toContain('ព.ស.២៥');
+    $input['version']=2;unset($input['photo_signature']);$settings->saveCenter(g12Request($admin,$input));
+    $retained=$settings->showCenter(g12Request($admin,['academic_year_id'=>1,'exam_center'=>'Test Center']))->getData(true);expect($retained['photo_signature'])->toBe($profiles[0]['profile']['signature']);
+    $input['version']=3;$input['photo_signature']=null;$settings->saveCenter(g12Request($admin,$input));
+    expect($settings->showCenter(g12Request($admin,['academic_year_id'=>1,'exam_center'=>'Test Center']))->getData(true)['photo_signature'])->toBeNull();
+    if(getenv('G9_REPORT_QA')){
+        $folder=storage_path('app/private/g9-report-qa');if(!is_dir($folder))mkdir($folder,0755,true);
+        file_put_contents($folder.'/center-dates-candidates.pdf',$reports->pdf(['type'=>'candidates','pages'=>$pages]));
+        file_put_contents($folder.'/center-dates-profile.pdf',$reports->pdf(['type'=>'profile','pages'=>$profiles]));
+        file_put_contents($folder.'/center-dates-eoy.pdf',app(\App\Support\G9EoyReport::class)->pdf($eoy,'card'));
+    }
 });
 
 it('loads legacy date text and saves academic year dates without losing signers',function(){

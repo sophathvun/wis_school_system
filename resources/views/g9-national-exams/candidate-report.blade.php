@@ -75,7 +75,7 @@
                 @if($subjects)@foreach($subjects as $subject)<td>&nbsp;</td>@endforeach @else<td>&nbsp;</td>@endif
             </tr>@endforeach</tbody>
         </table>
-        <table class="report-footer"><tr><td>បេក្ខជនសរុប៖ {{ $page['total'] }} នាក់ ក្នុងនោះស្រី៖ {{ $page['female'] }} នាក់<br>អង់គ្លេស៖ {{ $page['english'] }} នាក់ &nbsp; បារាំង៖ {{ $page['french'] }} នាក់</td><td class="signature">{{ $page['lunar'] }}<br>{{ $page['solar'] }}<br><span class="report-signer">{{ $page['signer'] }}</span></td></tr></table>
+        <table class="report-footer"><tr><td>បេក្ខជនសរុប៖ {{ $page['total'] }} នាក់ ក្នុងនោះស្រី៖ {{ $page['female'] }} នាក់<br>អង់គ្លេស៖ {{ $page['english'] }} នាក់ &nbsp; បារាំង៖ {{ $page['french'] }} នាក់</td><td class="signature">{{ $page['lunar'] }}<br>{{ $page['solar'] }}<br><span class="report-signer">{{ $page['signer'] }}</span>@if(!empty($page['signer_name']))<br>{{ $page['signer_name'] }}@endif</td></tr></table>
     @endif
     </section>
 @endforeach

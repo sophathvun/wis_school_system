@@ -5,6 +5,7 @@ import {createSeatPicker} from './scholarshipSeatPicker.js';
 import {studentPhotoJpeg} from './helpers/studentPhotoEditor.js';
 import {dateKhmer} from './helpers/staffProfileFields.js';
 import {initG12ResultGraph} from './g12ResultGraph.js';
+import {setupG12PhotoUpload} from './helpers/g12PhotoUpload.js';
 
 const root=document.querySelector('[data-g12-exams]');
 if(root){
@@ -20,9 +21,9 @@ if(root){
         if(!data||typeof data!=='object')throw new Error(fallback);
         if(!result.ok){const error=new Error(result.status===413?fallback:Object.values(data.errors??{}).flat().join('\n')||data.message||fallback);error.fields=data.errors;throw error;}return data;
     };
-    let busy=false,meta,editing,centerEditing,detail,importBatch,importPreview,photoBatch,photoEntries=[],photoYear=null;
+    let busy=false,meta,editing,centerEditing,detail,importBatch,importPreview,photoBatch,photoEntries=[],photoYear=null,photoUpload=null;
     const pickers=new Map();
-    const run=async action=>{if(busy)return;busy=true;root.setAttribute('aria-busy','true');try{await action();}catch(error){await Swal.fire({icon:'error',title:'G12 National Exams',text:error.message});}finally{busy=false;root.setAttribute('aria-busy','false');}};
+    const run=async action=>{if(busy)return;busy=true;root.setAttribute('aria-busy','true');photoUpload?.sync();try{await action();}catch(error){await Swal.fire({icon:'error',title:'G12 National Exams',text:error.message});}finally{busy=false;root.setAttribute('aria-busy','false');photoUpload?.sync();}};
     const saved=message=>Swal.fire({icon:'success',title:'Saved',text:message});
     const modal=id=>Modal.getOrCreateInstance(get(id));
     initG12ResultGraph(root);
@@ -93,7 +94,7 @@ if(root){
             options(photoYearSelect,meta.years.map(year=>({id:year,label:year})),'label');
             photoYearSelect.disabled=!meta.years.length;
             get('[data-g12-photo-year-empty]').hidden=!!meta.years.length;
-            get('[data-g12-photo-preview-button]').disabled=!meta.years.length;
+            photoUpload?.sync();
         }
         syncYearCampuses();
         if(tab==='scoring')prepareScoringTools();
@@ -687,7 +688,8 @@ if(root){
         get('[data-g12-photo-help]').textContent='Click Preview Photo Matches to load these photos before selecting students and uploading.';
         updatePhotoSelection();
     };
-    get('[data-g12-photos-form] input[type=file]')?.addEventListener('change',resetPhotoPreview);
+    const photoUploadForm=get('[data-g12-photos-form]');
+    if(photoUploadForm)photoUpload=setupG12PhotoUpload(photoUploadForm,{isBusy:()=>busy,onChange:resetPhotoPreview});
     get('#photoYear')?.addEventListener('input',resetPhotoPreview);
     get('#photoYear')?.addEventListener('change',resetPhotoPreview);
     get('#photoYear')?.addEventListener('invalid',event=>{
@@ -703,7 +705,7 @@ if(root){
     get('[data-g12-photos-form]')?.addEventListener('submit',e=>{e.preventDefault();run(async()=>{
         resetPhotoPreview();
         if(!meta.years.includes(get('#photoYear').value))throw new Error('Select an academic year from your student exam records.');
-        const files=Array.from(e.target.querySelector('input[type=file]').files);
+        const files=photoUpload.files();
         if(!files.length)throw new Error('Choose photos or a ZIP before previewing.');
         if(files.length>100)throw new Error('Choose up to 100 files per preview, or put the photos in ZIP files no larger than 200 MB each.');
         for(const file of files){
@@ -711,7 +713,8 @@ if(root){
             if(!/\.(zip|jpe?g|png|webp)$/i.test(file.name))throw new Error(`${file.name}: choose JPG, PNG or WebP photos, or a ZIP containing those photos.`);
             if(file.size>limit)throw new Error(zip?`${file.name} is ${(file.size/(1024*1024)).toFixed(1)} MB. The limit is 200 MB per ZIP. Split the archive into smaller ZIPs and import them one at a time. Each ZIP must also be no larger than 500 MB after extraction.`:`${file.name} exceeds the 20 MB limit per photo. Choose a smaller image.`);
         }
-        const revision=photoPreviewVersion,res=await api('/photos/preview',new FormData(e.target));
+        const body=new FormData(e.target);body.delete('files[]');files.forEach(file=>body.append('files[]',file));
+        const revision=photoPreviewVersion,res=await api('/photos/preview',body);
         if(revision!==photoPreviewVersion)return;
         if(!res.id||!Array.isArray(res.entries)||!res.entries.length)throw new Error('No photos were returned for preview. Choose JPG, PNG or WebP photos, or a ZIP containing those photos, and preview again.');
         const students=meta.students.filter(r=>r.academic_year===res.year);let datalist=get('#g12PhotoStudents');if(!datalist){datalist=document.createElement('datalist');datalist.id='g12PhotoStudents';root.append(datalist);}datalist.innerHTML=students.map(r=>`<option value="${escape(studentLabel(r))}"></option>`).join('');

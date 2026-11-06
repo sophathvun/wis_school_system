@@ -32,15 +32,32 @@
             <section class="card mb-3">
                 <div class="card-header g9-header"><h3 class="card-title"><i class="ti ti-upload me-2"></i>Import Candidate Data</h3></div>
                 <form class="card-body" data-g9-import-form>
-                    <label class="form-label" for="g9ImportFile">MoEYS Excel / CSV File</label>
-                    <div class="g9-transfer-actions"><input class="form-control" type="file" name="file" id="g9ImportFile" accept=".csv,.xlsx" required><button type="submit" class="btn btn-primary" data-g9-preview><i class="ti ti-eye me-2"></i>Preview Import</button></div>
-                    <p class="form-hint mt-2">Up to 10 MB and 5,000 candidates. Preview does not change student or candidate records.</p>
-                    <div class="text-danger" data-g9-import-error role="alert"></div>
+                    <div class="form-label" id="g9ImportFileLabel">MoEYS Excel / CSV File</div>
+                    <input type="file" name="file" id="g9ImportFile" accept=".csv,.xlsx" hidden>
+                    <button type="button" class="g9-import-dropzone" data-g9-import-dropzone aria-labelledby="g9ImportFileLabel g9ImportUploadTitle" aria-describedby="g9ImportUploadHint g9ImportLimits g9ImportError">
+                        <span class="document-upload-icon"><i class="ti ti-cloud-upload" aria-hidden="true"></i></span>
+                        <strong id="g9ImportUploadTitle">Drag &amp; drop your file here</strong>
+                        <span>or <span class="document-browse-link">browse files</span></span>
+                        <span class="document-upload-hint" id="g9ImportUploadHint">Copy a file and paste it here with Ctrl+V (⌘V on Mac).</span>
+                        <span class="g9-import-formats"><span>XLSX</span><span>CSV</span><span>Up to 10 MB</span></span>
+                    </button>
+                    <div class="g9-import-file" data-g9-import-file hidden role="status" aria-live="polite">
+                        <span class="document-file-icon"><i class="ti ti-file-spreadsheet" aria-hidden="true"></i></span>
+                        <div class="g9-import-file-details"><div class="document-file-name" data-g9-import-filename></div><div class="document-file-meta" data-g9-import-filemeta></div></div>
+                        <button type="button" class="document-file-remove" data-g9-import-remove aria-label="Remove selected file"><i class="ti ti-x" aria-hidden="true"></i></button>
+                    </div>
+                    @include('g9-national-exams.partials.upload-progress')
+                    <div class="g9-import-upload-footer">
+                        <p class="form-hint mb-0" id="g9ImportLimits">Up to 5,000 candidates. Preview your file before confirming the import.</p>
+                        <button type="submit" class="btn btn-primary" data-g9-preview disabled><i class="ti ti-eye me-2" aria-hidden="true"></i>Preview Import</button>
+                    </div>
+                    <div class="text-danger mt-2" id="g9ImportError" data-g9-import-error role="alert"></div>
                     <div class="text-success" data-g9-import-success role="status"></div>
                 </form>
             </section>
             <section class="card mb-3" data-g9-preview-panel hidden>
-                <div class="card-header g9-header"><h3 class="card-title">Import Preview</h3><button type="button" class="btn btn-light ms-auto" data-g9-confirm disabled>Confirm Import</button></div>
+                <div class="card-header g9-header"><h3 class="card-title">Import Preview</h3><button type="button" class="btn g9-confirm-import ms-auto" data-g9-confirm disabled>Confirm Import</button></div>
+                <div class="card-body pb-0" data-g9-confirm-progress-area hidden>@include('g9-national-exams.partials.upload-progress')</div>
                 <div class="card-body"><div class="g9-import-summary" data-g9-summary></div><div class="mt-3" data-g9-preview-errors></div><p class="form-hint mt-3 mb-0">First 20 valid rows shown. Confirmation imports the entire validated file. All errors must be corrected first.</p></div>
                 <div class="table-responsive"><table class="table table-vcenter mb-0"><thead><tr><th>Row</th><th>Action</th><th>Student ID</th><th>Name Khmer</th><th>Name English</th></tr></thead><tbody data-g9-preview-rows></tbody></table></div>
             </section>

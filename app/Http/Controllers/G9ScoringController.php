@@ -80,11 +80,32 @@ class G9ScoringController
             'id'=>$r->id,'version'=>$r->version,'student_code'=>$r->student_code,'name_kh'=>$r->name_kh,'name_en'=>$r->name_en,
             'photo_url'=>$r->photo_path?asset('storage/'.$r->photo_path):null,'campus'=>$r->campus?->campus_name_en,'grade'=>$r->data['grade']??'',
             'exam_center'=>$r->data['exam_center']??'','room'=>$r->data['room_number']??'','seat'=>$r->data['seat_number']??'',
-            'eoy_average'=>$r->data['eoy_average']??null,'exam_language'=>$r->data['exam_language']??'',
+            'eoy_average'=>$r->data['eoy_average']??null,'exam_language'=>$r->data['exam_language']??'','attendance_status'=>$r->attendance_status,'attendance_reason'=>$r->attendance_reason,
             'scores'=>array_replace(array_fill_keys(array_keys(G9ExamFields::GROUPS['National Examination Scores']),null),array_intersect_key($r->data,G9ExamFields::GROUPS['National Examination Scores'])),
             'can_edit'=>in_array($r->campus_id,$allowed,true),
         ]);
         return response()->json($result)->header('Cache-Control','private, no-store');
+    }
+
+    public function attendance(Request $request,int $candidate)
+    {
+        $allowed=$this->campuses($request,true);abort_unless($allowed,403);
+        $input=$request->validate(['version'=>['required','integer','min:1'],'attendance_status'=>['present','nullable',Rule::in(['absent'])],
+            'attendance_reason'=>['sometimes','nullable','string','max:1000']]);
+        $record=DB::transaction(function()use($request,$candidate,$allowed,$input){
+            $record=G9ExamCandidate::whereIn('campus_id',$allowed)->lockForUpdate()->findOrFail($candidate);
+            abort_if($record->version!==(int)$input['version'],409,'This candidate changed in another window. Refresh the list before marking attendance.');
+            $reason=$input['attendance_status']==='absent'?(array_key_exists('attendance_reason',$input)?trim($input['attendance_reason']??''):($record->attendance_reason??'')):'';
+            $reason=$reason===''?null:$reason;
+            if($record->attendance_status!==$input['attendance_status']||$record->attendance_reason!==$reason){
+                $before=$record->attendance_status;$beforeReason=$record->attendance_reason;
+                $record->update(['attendance_status'=>$input['attendance_status'],'attendance_reason'=>$reason,'version'=>$record->version+1,'updated_by'=>$request->user()->id]);
+                DB::table('tb_g9_exam_event')->insert(['candidate_id'=>$record->id,'user_id'=>$request->user()->id,'action'=>'set-exam-attendance',
+                    'details'=>json_encode(['before'=>$before,'after'=>$record->attendance_status,'reason_before'=>$beforeReason,'reason_after'=>$reason],JSON_THROW_ON_ERROR),'created_at'=>now(),'updated_at'=>now()]);
+            }
+            return $record;
+        });
+        return response()->json(['id'=>$record->id,'version'=>$record->version,'attendance_status'=>$record->attendance_status,'attendance_reason'=>$record->attendance_reason]);
     }
 
     public function save(Request $request,int $candidate)
@@ -113,7 +134,12 @@ class G9ScoringController
         return response()->json($result+['message'=>'Exam scores saved.']);
     }
 
-    public function report(Request $request,string $format,G9ScoringReport $reports)
+    public function collectionReport(Request $request,string $format,G9ScoringReport $reports)
+    {
+        return $this->report($request,$format,$reports,'scores');
+    }
+
+    public function report(Request $request,string $format,G9ScoringReport $reports,string $type='verify')
     {
         abort_unless(in_array($format,['print','pdf'],true),404);
         $ids=Access::campusIds($request->user(),'scoring-'.$format);abort_unless($ids,403);
@@ -122,8 +148,8 @@ class G9ScoringController
         $records=$this->query($request)->whereIn('campus_id',$ids)->orderBy('data->exam_center')->orderByRaw("CAST($room AS $cast)")->orderByRaw("CAST($seat AS $cast)")->orderBy('id')->get();
         abort_if($records->isEmpty(),422,'No candidates match the selected filters.');
         $setting=DB::table('tb_g9_exam_year_setting')->where('academic_year_id',$request->integer('academic_year'))->first();
-        $pages=$reports->pages($records,json_decode($setting?->data??'{}',true));
-        if($format==='print')return response()->view('g9-national-exams.scoring-report',['pages'=>$pages])->header('Cache-Control','private, no-store');
-        return response($reports->pdf($pages))->header('Content-Type','application/pdf')->header('Content-Disposition','attachment; filename="g9-scoring-verification.pdf"')->header('Cache-Control','private, no-store');
+        $pages=$reports->pages($records,json_decode($setting?->data??'{}',true),$type);
+        if($format==='print')return response()->view('g9-national-exams.scoring-report',['pages'=>$pages,'type'=>$type])->header('Cache-Control','private, no-store');
+        return response($reports->pdf($pages,$type))->header('Content-Type','application/pdf')->header('Content-Disposition','attachment; filename="'.($type==='scores'?'g9-score-collection.pdf':'g9-scoring-verification.pdf').'"')->header('Cache-Control','private, no-store');
     }
 }

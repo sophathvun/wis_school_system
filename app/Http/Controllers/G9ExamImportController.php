@@ -37,21 +37,35 @@ class G9ExamImportController
     {
         $service->authorize($request->user(),'import');$request->validate(['file'=>['required','file','max:10240']]);
         $file=$request->file('file');$extension=strtolower($file->getClientOriginalExtension());abort_unless(in_array($extension,['csv','xlsx'],true),422,'Choose a CSV or XLSX file.');
-        $result=$service->preview($request->user(),$reader->read($file->getRealPath(),$extension));
-        $token=bin2hex(random_bytes(32));
-        $id=DB::table('tb_g9_exam_import')->insertGetId(['user_id'=>$request->user()->id,'token_hash'=>hash('sha256',$token),'filename'=>mb_substr(basename($file->getClientOriginalName()),0,255),
-            'payload'=>json_encode($result['payload'],JSON_THROW_ON_ERROR),'summary'=>json_encode($result['summary'],JSON_THROW_ON_ERROR),'expires_at'=>now()->addHour(),'created_at'=>now(),'updated_at'=>now()]);
-        return response()->json(['id'=>$id,'token'=>$token,'summary'=>$result['summary'],'rows'=>collect($result['payload'])->take(20)->map(fn($row)=>['row'=>$row['row'],'action'=>$row['id']?'Update':'Add','student_code'=>$row['input']['student_code'],'name_kh'=>$row['input']['name_kh']??'','name_en'=>$row['input']['name_en']])->values()]);
+        $preview=function(?callable $progress=null)use($request,$service,$reader,$file,$extension){
+            if($progress)$progress(['type'=>'progress','stage'=>'reading','processed'=>0,'total'=>0,'percent'=>0]);
+            $result=$service->preview($request->user(),$reader->read($file->getRealPath(),$extension),$progress);
+            if($progress)$progress(['type'=>'progress','stage'=>'finalizing','processed'=>$result['summary']['total'],'total'=>$result['summary']['total'],'percent'=>99]);
+            $token=bin2hex(random_bytes(32));
+            $id=DB::table('tb_g9_exam_import')->insertGetId(['user_id'=>$request->user()->id,'token_hash'=>hash('sha256',$token),'filename'=>mb_substr(basename($file->getClientOriginalName()),0,255),
+                'payload'=>json_encode($result['payload'],JSON_THROW_ON_ERROR),'summary'=>json_encode($result['summary'],JSON_THROW_ON_ERROR),'expires_at'=>now()->addHour(),'created_at'=>now(),'updated_at'=>now()]);
+            return ['id'=>$id,'token'=>$token,'summary'=>$result['summary'],'rows'=>collect($result['payload'])->take(20)->map(fn($row)=>['row'=>$row['row'],'action'=>$row['id']?'Update':'Add','student_code'=>$row['input']['student_code'],'name_kh'=>$row['input']['name_kh']??'','name_en'=>$row['input']['name_en']])->values()];
+        };
+        if(str_contains($request->header('Accept',''),'application/x-ndjson'))return $this->streamProgress($preview);
+        return response()->json($preview());
     }
     public function confirm(Request $request,G9ExamImports $service,G9NationalExamController $candidates)
     {
         $service->authorize($request->user(),'import');$data=$request->validate(['token'=>['required','string','size:64']]);
-        $summary=DB::transaction(function()use($request,$data,$service,$candidates){
+        $import=function(?callable $progress=null)use($request,$data,$service,$candidates){return DB::transaction(function()use($request,$data,$service,$candidates,$progress){
             $batch=DB::table('tb_g9_exam_import')->where('token_hash',hash('sha256',$data['token']))->where('user_id',$request->user()->id)->lockForUpdate()->first();
             abort_unless($batch,404);abort_if($batch->status!=='preview'||now()->greaterThan($batch->expires_at),409,'This preview was already imported or expired. Upload the file again.');
             $summary=json_decode($batch->summary,true);abort_if(count($summary['errors'])>0,422,'Fix all preview errors before importing.');
             $allowed=$service->campusIds($request->user(),'import');
             $payload=json_decode($batch->payload,true);
+            $processed=0;$total=count($payload);$lastPercent=-1;
+            $notify=function()use(&$processed,$total,&$lastPercent,$progress){
+                $percent=$total?min(99,(int)floor($processed/$total*100)):0;
+                if($progress&&($percent!==$lastPercent||$processed===$total)){
+                    $progress(['type'=>'progress','processed'=>$processed,'total'=>$total,'percent'=>$percent,'finalizing'=>$processed===$total]);$lastPercent=$percent;
+                }
+            };
+            $notify();
             DB::table('tb_academic_year')->whereIn('id',collect($payload)->pluck('input.academic_year_id')->unique())->orderBy('id')->lockForUpdate()->get();
             foreach($payload as $row){
                 $input=$row['input'];abort_unless(in_array((int)$input['campus_id'],$allowed,true),403);
@@ -72,10 +86,30 @@ class G9ExamImportController
                     abort_if(($setting?->version??0)!==$row['year_setting']['version'],409,'Academic year settings changed after preview. Preview again.');
                     DB::table('tb_g9_exam_year_setting')->updateOrInsert(['academic_year_id'=>$input['academic_year_id']],['data'=>json_encode($row['year_setting']['data'],JSON_THROW_ON_ERROR),'version'=>($setting?->version??0)+1,'updated_by'=>$request->user()->id,'created_at'=>$setting?->created_at??now(),'updated_at'=>now()]);
                 }
+                $processed++;$notify();
             }
             DB::table('tb_g9_exam_import')->where('id',$batch->id)->update(['status'=>'confirmed','payload'=>'[]','updated_at'=>now()]);return $summary;
-        });
+        });};
+        if(str_contains($request->header('Accept',''),'application/x-ndjson')){
+            return $this->streamProgress(function($emit)use($import){return ['message'=>'Import completed.','summary'=>$import($emit)];},true);
+        }
+        $summary=$import();
         return response()->json(['message'=>'Import completed.','summary'=>$summary]);
+    }
+    private function streamProgress(callable $operation,bool $rollback=false)
+    {
+        return response()->stream(function()use($operation,$rollback){
+            $emit=function(array $message){echo json_encode($message,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE)."\n";if(ob_get_level()>0)ob_flush();flush();};
+            try{$result=$operation($emit);}
+            catch(\Throwable $error){
+                if($error instanceof \Illuminate\Validation\ValidationException){$status=422;$message=implode(' ',array_merge(...array_values($error->errors())));}
+                elseif($error instanceof \Symfony\Component\HttpKernel\Exception\HttpExceptionInterface){$status=$error->getStatusCode();$message=$error->getMessage()?:'This import is unavailable. Preview the file again.';}
+                else{report($error);$status=500;$message='The request could not be completed. Please preview the file again.';}
+                $emit(['type'=>'error','status'=>$status,'message'=>$message]+($rollback?['rolled_back'=>true]:[]));return;
+            }
+            // Completion follows preview persistence or the successful import commit.
+            $emit(['type'=>'complete','percent'=>100]+$result);
+        },200,['Content-Type'=>'application/x-ndjson; charset=UTF-8','Cache-Control'=>'private, no-store','X-Accel-Buffering'=>'no']);
     }
     public function history(Request $request,G9ExamImports $service)
     {

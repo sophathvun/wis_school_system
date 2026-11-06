@@ -5,12 +5,15 @@
 .g9-scoring-table{width:100%;min-width:1050px;table-layout:fixed;font-size:clamp(.6875rem,.85cqi,.875rem)}
 .g9-scoring-table col.g9-scoring-number{width:3%}
 .g9-scoring-table col.g9-scoring-photo{width:3%}
-.g9-scoring-table col.g9-scoring-student{width:12%}
-.g9-scoring-table col.g9-scoring-examination{width:10%}
+.g9-scoring-table col.g9-scoring-student{width:10%}
+.g9-scoring-table col.g9-scoring-examination{width:9%}
 .g9-scoring-table col.g9-scoring-summary-column{width:4%}
 .g9-scoring-table col.g9-scoring-subject{width:5%}
 .g9-scoring-table col.g9-scoring-total-column{width:7%}
-.g9-scoring-table col.g9-scoring-save{width:6%}
+.g9-scoring-table col.g9-scoring-attendance-column{width:6%}
+.g9-scoring-table col.g9-scoring-save{width:3%}
+.g9-scoring-table .g9-exam-attendance{min-width:0;max-width:100%}
+.g9-scoring-table .g9-exam-attendance{font-size:clamp(.625rem,.75cqi,.8125rem)}
 .g9-scoring-outcomes{display:flex;flex-direction:column;align-items:center;gap:.3rem;margin-top:.35rem}
 .g9-scoring-outcome{max-width:100%;padding:.3rem .4rem;border:0;border-radius:7px;text-align:center;font-size:clamp(.625rem,.75cqi,.8125rem);font-weight:600;line-height:1.6;white-space:normal;overflow-wrap:anywhere}
 .g9-scoring-outcome.is-failed{background:#fbe5e7;color:#b32636}
@@ -43,6 +46,7 @@
 .g9-scoring-score:disabled{opacity:.75}
 .g9-scoring-score:not([readonly]):not(:disabled){border-color:var(--tblr-primary)}
 .g9-scoring-score.is-invalid{border-color:var(--tblr-danger)!important;background-image:none}
+[data-g9-scoring] .g9-scoring-score.is-below-half{color:var(--tblr-danger,#d63939)!important;-webkit-text-fill-color:var(--tblr-danger,#d63939)}
 .g9-scoring-scroll:focus-visible{outline:2px solid var(--tblr-primary);outline-offset:2px}
 [data-scoring-error]{white-space:pre-line}
 .g9-scoring-entry{display:flex;align-items:center;margin:0;min-width:0}
@@ -59,5 +63,7 @@
 .g9-scoring-table td.g9-scoring-active-subject{background:var(--tblr-primary-lt)}
 .g9-scoring-table th.g9-scoring-active-subject{box-shadow:inset 0 -4px 0 #b8d1ff}
 .g9-scoring-subject-label{display:block}
-.g9-scoring-subject-max{display:inline-block;margin-top:.35rem;padding:.15rem .35rem;border:1px solid rgba(255,255,255,.25);border-radius:6px;background:rgba(255,255,255,.13);color:#fff;font-size:.65rem;font-weight:600;line-height:1.3;letter-spacing:0;text-transform:none;white-space:nowrap;font-variant-numeric:tabular-nums}
+/* Reserve a shared badge row even when Khmer subject names wrap differently. */
+[data-g9-scoring] .card.g9-scoring-list .g9-scoring-scroll>.g9-scoring-table thead th.g9-scoring-max-header{vertical-align:bottom;padding-bottom:2.35rem}
+.g9-scoring-subject-max{position:absolute;bottom:.6rem;left:50%;transform:translateX(-50%);display:inline-block;margin:0;padding:.15rem .25rem;border:1px solid rgba(255,255,255,.25);border-radius:6px;background:rgba(255,255,255,.13);color:#fff;font-size:clamp(.5625rem,.65cqi,.65rem);font-weight:600;line-height:1.3;letter-spacing:0;text-transform:none;white-space:nowrap;font-variant-numeric:tabular-nums}
 @media(max-width:575.98px){.g9-scoring-entry{flex:1 1 200px}.g9-scoring-entry>.premium-form-field{width:100%}}

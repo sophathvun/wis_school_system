@@ -119,10 +119,12 @@ if (root) {
         const rowMessage=(message,color='secondary')=>{rowStatus.textContent=message;rowStatus.className=`small text-${color} mt-2`;};
         const changed=()=>inputs.some((input,i)=>input.value!==baseline[i]);
         const refresh = () => {
-            const calculated=total(inputs[0].value,inputs[1].value);value.textContent=calculated??'—';
+            const calculated=total(inputs[0].value,inputs[1].value);
+            const stored=saved!==null&&saved!==undefined&&saved!==''&&Number.isFinite(Number(saved))?String(Math.round(Number(saved))):null;
+            value.textContent=calculated??stored??'—';
             changed()?dirtyRows.add(record.id):dirtyRows.delete(record.id);
             const assigned=normalized&&saved!==null&&saved!==''&&calculated!==null&&Number(saved)===Number(calculated)&&!changed();
-            note.textContent=calculated===null?'Both scores required':assigned?'Assigned':'Calculated · not saved';
+            note.textContent=calculated===null?(stored!==null?'Saved EOY · semester scores incomplete':'Both scores required'):assigned?'Assigned':'Calculated · not saved';
             inputs.forEach(input=>{input.readOnly=!editing||rowSaving;input.disabled=!record.can_assign;});
             retry.hidden=!failed;retry.disabled=rowSaving;
         };

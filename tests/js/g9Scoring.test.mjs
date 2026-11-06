@@ -4,7 +4,7 @@ import vm from 'node:vm';
 import {test} from 'node:test';
 
 class Element {
-    constructor(){this.children=[];this.events={};this.dataset={};this.value='';this.textContent='';this.isConnected=true;this.style={};this.classList={add(){},remove(){},toggle(){}};}
+    constructor(){this.children=[];this.events={};this.dataset={};this.value='';this.textContent='';this.isConnected=true;this.style={};this.classes=new Set();this.classList={add:key=>this.classes.add(key),remove:key=>this.classes.delete(key),toggle:(key,on)=>on?this.classes.add(key):this.classes.delete(key)};}
     append(...items){this.children.push(...items);}
     prepend(...items){this.children.unshift(...items);}
     before(){}
@@ -27,28 +27,34 @@ class Select extends Element {
     replaceChildren(...items){this.options=items;this.value=items[0]?.value??'';}
 }
 const fields=['khmer_essay','chemistry','earth_science','physics','geography','values','math','khmer_dictation','biology','history','english'].map(name=>'score_'+name);
-function page({canEdit=true,mobile=false,saveStatus=200,failOptions=false,records=null,reportPicker=false,reportError=false}={}){
+function page({canEdit=true,mobile=false,saveStatus=200,failOptions=false,records=null,reportPicker=false,reportError=false,realAttendance=false}={}){
     const form=new Element(),root=new Element(),rows=new Element(),error=new Element(),status=new Element(),edit=new Element(),label=new Element(),icon=new Element(),toggle=new Element(),mode=new Element();
     const names=['academic_year','exam_center','campus','room','grade','student'];form.elements=Object.fromEntries(names.map(name=>[name,new Select(name)]));form.querySelectorAll=()=>Object.values(form.elements);
     form.elements.academic_year.options.push(new Option('2025-2026','1'));edit.querySelector=selector=>selector==='i'?icon:label;toggle.querySelector=()=>new Element();
     const perPage=new Element(),pagination=new Element();perPage.value='25';
     const entry=new Element(),subject=new Select('subject');subject.options.push(...fields.map(field=>new Option(field,field)));
-    root.dataset={base:'/g9-national-exams/scoring',subjects:JSON.stringify(Object.fromEntries(fields.map(field=>[field,'Exam Score '+field])))};
+    root.dataset={base:'/g9-national-exams/scoring',subjects:JSON.stringify(Object.fromEntries(fields.map(field=>[field,'Exam Score '+field]))),subjectMaxima:JSON.stringify(Object.fromEntries(fields.map((field,index)=>[field,[60,25,25,35,32,35,100,40,35,33,50][index]])))};
     root.querySelector=selector=>({'form':form,'[data-scoring-rows]':rows,'[data-scoring-error]':error,'[data-scoring-status]':status,'[data-scoring-edit]':edit,'[data-scoring-mode]':mode,'[data-scoring-filter-toggle]':toggle,'[data-scoring-entry]':entry,'[data-scoring-entry-subject]':subject}[selector]);
     const printButton=new Element(),pdfButton=new Element();printButton.dataset.scoringReport='print';pdfButton.dataset.scoringReport='pdf';
-    root.querySelectorAll=selector=>selector==='[data-scoring-report]'&&reportPicker?[printButton,pdfButton]:[];
+    const collectionPrint=new Element(),collectionPdf=new Element();collectionPrint.dataset={scoringReport:'print',scoringReportType:'scores'};collectionPdf.dataset={scoringReport:'pdf',scoringReportType:'scores'};
+    root.querySelectorAll=selector=>selector==='[data-scoring-report]'&&reportPicker?[printButton,pdfButton,collectionPrint,collectionPdf]:[];
     const calls=[],alerts=[],warnings=[],opened=[],downloads=[],timers=new Map(),scores=Object.fromEntries(fields.map(field=>[field,null]));let timerId=0;
     const context={console,Option,URLSearchParams,matchMedia:()=>({matches:mobile,addEventListener(){}}),confirm:()=>true,
         window:{addEventListener(){},open:(...args)=>opened.push(args)},URL:{createObjectURL:()=> 'blob:verify-pdf',revokeObjectURL(){}},setTimeout:fn=>{timers.set(++timerId,fn);return timerId;},clearTimeout:id=>timers.delete(id),
         document:{body:{append:link=>downloads.push(link)},querySelector:selector=>selector==='[data-g9-scoring]'?root:{content:'csrf'},createElement:()=>new Element(),createTextNode:text=>text,getElementById:id=>id==='g9-scoring-per-page'?perPage:pagination},
         FormData:class{constructor(form){this.entries=Object.values(form.elements).map(select=>[select.name,select.value]);}[Symbol.iterator](){return this.entries[Symbol.iterator]();}},
-        setupG9PhotoViewer:()=>()=>{},showSuccess:(...message)=>alerts.push(message),showWarning:(...message)=>warnings.push(message),renderPagination(){},
+        setupG9PhotoViewer:()=>()=>{},showSuccess:(...message)=>alerts.push(message),showError:(...message)=>warnings.push(message),showWarning:(...message)=>warnings.push(message),renderPagination(){},
+        createG9CandidateAttendance:()=>({hasUnsaved:()=>false,discard(){},render(cell,record){const badge=new Element();badge.textContent=record.attendance_status||'Not marked';cell.append(badge);return {refresh(){}};}}),
         setupStaffLocationSelect:(form,select)=>{const menu=new Element(),combo=new Element();menu.querySelector=()=>new Element();combo.querySelector=()=>menu;select.nextElementSibling=combo;return {toggle:new Element(),sync(){},close(){}};},
         fetch:async(url,options)=>{
             calls.push({url,...options});
             if(url.includes('/reports/'))return {ok:!reportError,blob:async()=>({}),json:async()=>({message:'Report export failed.'})};
             if(options.method==='POST'){
                 const input=JSON.parse(options.body);Object.assign(scores,input.scores);
+                if(url.endsWith('/attendance')){
+                    if(context.pauseAttendance)await new Promise(resolve=>context.releaseAttendance=resolve);
+                    return {ok:true,json:async()=>({version:input.version+1,attendance_status:input.attendance_status,attendance_reason:input.attendance_reason})};
+                }
                 return {ok:saveStatus===200,status:saveStatus,json:async()=>saveStatus===200?{version:2,scores}:{message:saveStatus===409?'This candidate changed. Reload.':'Save unavailable.'}};
             }
             if(url.includes('/options?'))return {ok:!failOptions,status:failOptions?500:200,json:async()=>failOptions?{message:'Options unavailable.'}:{exam_center:['Center'],campus:[{id:1,label:'BCH'}],room:['1'],grade:['9A'],student:[{id:1,label:'001 | Candidate'}]}};
@@ -56,9 +62,10 @@ function page({canEdit=true,mobile=false,saveStatus=200,failOptions=false,record
         },
     };
     vm.createContext(context);
+    if(realAttendance)vm.runInContext(fs.readFileSync('resources/js/helpers/g9CandidateAttendance.js','utf8').replace(/^import .*;\r?\n/gm,'').replace('export function','function'),context);
     const source=fs.readFileSync('resources/js/g9Scoring.js','utf8').replace(/^import .*;\r?\n/gm,'').replace(/    load\(\);\s*}\s*$/,'    globalThis.initialLoad=load();\n}');
     vm.runInContext(source,context);
-    return {context,form,rows,error,status,edit,label,icon,mode,calls,alerts,warnings,subject,timers,perPage,printButton,pdfButton,opened,downloads,flush:async()=>{for(const fn of [...timers.values()])await fn();}};
+    return {context,form,rows,error,status,edit,label,icon,mode,calls,alerts,warnings,subject,timers,perPage,printButton,pdfButton,collectionPrint,collectionPdf,opened,downloads,flush:async()=>{for(const fn of [...timers.values()])await fn();}};
 }
 async function chooseSubject(state,field=fields[0]){state.subject.value=field;await state.subject.emit('change');}
 async function chooseYear(state){await state.context.initialLoad;state.form.elements.academic_year.value='1';await state.form.emit('change',{target:state.form.elements.academic_year});await new Promise(resolve=>setImmediate(resolve));await chooseSubject(state);}
@@ -67,12 +74,79 @@ const inputs=state=>state.rows.children[0].children.slice(5,16).map(cell=>cell.c
 test('academic year loads cascading options and all eleven subjects locked by default',async()=>{
     const state=page();await chooseYear(state);
     assert.match(state.calls[0].url,/\/options\?academic_year=1/);assert.match(state.calls[1].url,/\/list\?academic_year=1/);
-    assert.equal(state.rows.children[0].children.length,18);assert.equal(inputs(state).length,11);
+    assert.equal(state.rows.children[0].children.length,19);assert.equal(inputs(state).length,11);
     assert.ok(inputs(state).every(input=>input.readOnly));assert.equal(state.edit.hidden,false);assert.equal(state.label.textContent,'Edit');
     assert.equal(state.edit.dataset.actionNormalized,'true');
 });
 test('filters expand on desktop and collapse on mobile',async()=>{
     for(const mobile of [false,true]){const state=page({mobile});await state.context.initialLoad;assert.equal(state.form.hidden,mobile);}
+});
+
+test('the score collection Print and PDF items use their own report path and selected filters',async()=>{
+    const state=page({reportPicker:true});await chooseYear(state);state.form.elements.room.value='18';
+    await state.collectionPrint.emit('click');assert.match(state.opened[0][0],/\/reports\/scores\/print\?/);assert.match(state.opened[0][0],/room=18/);
+    await state.collectionPdf.emit('click');assert.match(state.calls.at(-1).url,/\/reports\/scores\/pdf\?/);assert.equal(state.downloads[0].download,'g9-score-collection.pdf');
+    await state.printButton.emit('click');assert.match(state.opened[1][0],/\/reports\/verify\/print\?/);
+});
+
+test('each subject is red strictly below half of its maximum including zero and fractional boundaries',async()=>{
+    const maxima=[60,25,25,35,32,35,100,40,35,33,50];
+    for(const offset of [-.001,0,.001]){
+        const scores=Object.fromEntries(fields.map((field,index)=>[field,String(maxima[index]/2+offset)]));
+        const state=page({records:[{id:1,can_edit:false,scores}]});await chooseYear(state);
+        assert.deepEqual(inputs(state).map(input=>input.classes.has('is-below-half')),Array(11).fill(offset<0));
+    }
+    const scores=Object.fromEntries(fields.map(field=>[field,'0']));scores.score_math=null;
+    const state=page({records:[{id:1,can_edit:true,scores}]});await chooseYear(state);
+    assert.equal(inputs(state)[0].classes.has('is-below-half'),true);assert.equal(inputs(state)[6].classes.has('is-below-half'),false);
+});
+
+test('subject score color updates during editing and clears at half, when blank or invalid',async()=>{
+    const state=page();await chooseYear(state);await chooseSubject(state,'score_math');await state.edit.emit('click');
+    const input=inputs(state)[6];
+    for(const [value,expected] of [['49.999',true],['50',false],['0',true],['',false]]){
+        input.value=value;await input.emit('input');assert.equal(input.classes.has('is-below-half'),expected);
+    }
+    input.value='-1';input.valid=false;await input.emit('input');assert.equal(input.classes.has('is-below-half'),false);
+});
+
+test('Attendance follows Total Score, autosaves and shares its version with later score changes',async()=>{
+    const state=page({realAttendance:true});await chooseYear(state);
+    const cells=state.rows.children[0].children,attendance=cells[17].children[0].children[0];
+    assert.equal(cells.length,19);assert.equal(attendance.checked,false);assert.equal(attendance.disabled,false);
+    attendance.checked=true;await attendance.emit('change');await new Promise(resolve=>setImmediate(resolve));
+    const saved=state.calls.find(call=>call.url.endsWith('/attendance'));assert.match(saved.url,/\/scoring\/1\/attendance$/);
+    assert.deepEqual(JSON.parse(saved.body),{version:1,attendance_status:'absent',attendance_reason:''});
+    await state.edit.emit('click');assert.equal(attendance.disabled,true);
+    const input=inputs(state)[0];input.value='25';await input.emit('input');await state.edit.emit('click');
+    assert.equal(attendance.disabled,false);
+    const scoreSave=state.calls.filter(call=>call.method==='POST'&&!call.url.endsWith('/attendance')).at(-1);
+    assert.equal(JSON.parse(scoreSave.body).version,2);
+});
+
+test('pending attendance blocks score editing and filter changes; read-only users see a badge',async()=>{
+    const state=page({realAttendance:true});await chooseYear(state);state.context.pauseAttendance=true;
+    const attendance=state.rows.children[0].children[17].children[0].children[0];attendance.checked=true;await attendance.emit('change');
+    assert.equal(state.edit.disabled,true);await state.edit.emit('click');assert.equal(state.label.textContent,'Edit');
+    state.form.elements.academic_year.value='';await state.form.emit('change',{target:state.form.elements.academic_year});
+    assert.equal(state.form.elements.academic_year.value,'1');
+    state.context.releaseAttendance();await new Promise(resolve=>setImmediate(resolve));assert.equal(state.edit.disabled,false);
+    const readonly=page({realAttendance:true,canEdit:false});await chooseYear(readonly);
+    assert.equal(readonly.rows.children[0].children[17].children[0].textContent,'—');
+});
+
+test('reason drafts block score editing until autosave finishes with the next record version',async()=>{
+    const state=page({realAttendance:true,records:[{id:1,can_edit:true,attendance_status:'absent',attendance_reason:'Original'}]});await chooseYear(state);
+    const wrapper=state.rows.children[0].children[17].children[0],reason=wrapper.children[2];
+    assert.equal(reason.hidden,false);assert.equal(reason.value,'Original');reason.value='Medical leave';await reason.emit('input');
+    assert.equal(state.edit.disabled,true);await state.edit.emit('click');assert.equal(state.label.textContent,'Edit');
+    state.context.confirm=()=>false;state.form.elements.academic_year.value='';await state.form.emit('change',{target:state.form.elements.academic_year});
+    assert.equal(state.form.elements.academic_year.value,'1');assert.equal(reason.value,'Medical leave');
+    await reason.emit('blur');await new Promise(resolve=>setImmediate(resolve));
+    assert.equal(state.edit.disabled,false);assert.equal(reason.value,'Medical leave');
+    const saved=JSON.parse(state.calls.find(call=>call.url.endsWith('/attendance')).body);assert.equal(saved.attendance_reason,'Medical leave');
+    await state.edit.emit('click');inputs(state)[0].value='20';await inputs(state)[0].emit('input');await state.edit.emit('click');
+    assert.equal(JSON.parse(state.calls.filter(call=>call.method==='POST'&&!call.url.endsWith('/attendance')).at(-1).body).version,2);
 });
 test('Edit unlocks only the selected subject and autosave sends changed scores including zero',async()=>{
     const state=page();await chooseYear(state);await chooseSubject(state,'score_math');await state.edit.emit('click');
@@ -92,7 +166,7 @@ test('invalid scores prevent locking and preserve unsaved changes',async()=>{
 });
 test('save conflicts keep scores unsaved and require reloading rather than overwriting',async()=>{
     const state=page({saveStatus:409});await chooseYear(state);await state.edit.emit('click');const input=inputs(state)[0];input.value='25';await input.emit('input');await state.flush();
-    const statusCell=state.rows.children[0].children[17];assert.match(statusCell.children[0].textContent,/not saved/);assert.equal(statusCell.children[2].textContent,'Reload');
+    const statusCell=state.rows.children[0].children[18];assert.match(statusCell.children[0].textContent,/not saved/);assert.equal(statusCell.children[2].textContent,'Reload');
     assert.equal(input.value,'25');assert.equal(input.readOnly,true);await state.edit.emit('click');assert.equal(state.label.textContent,'Lock');assert.equal(state.calls.length,3);
 });
 test('incomplete numeric input is kept dirty even when the browser exposes an empty value',async()=>{
@@ -161,7 +235,7 @@ test('English-exam totals exclude English even when blank or filled and support 
         for(const english of [null,'99.999']){
             const scores=Object.fromEntries(fields.map(field=>[field,'40']));scores.score_english=english;
             const state=page({records:[{id:1,can_edit:true,eoy_average:'90',exam_language:language,scores}]});await chooseYear(state);
-            const cells=state.rows.children[0].children;assert.equal(cells[16].children[0].textContent,'490');assert.equal(cells[16].children[1].textContent,'');assert.equal(cells[17].children[1].textContent,'10 / 10 recorded');
+            const cells=state.rows.children[0].children;assert.equal(cells[16].children[0].textContent,'490');assert.equal(cells[16].children[1].textContent,'');assert.equal(cells[18].children[1].textContent,'10 / 10 recorded');
         }
     }
 });
@@ -226,7 +300,7 @@ test('result and grade badges stack inside Total Score with distinct grades and 
     for(const [score,style] of [['259','is-failed'],['260','is-average'],['338','is-good'],['416','is-very-good']]){
         const scores=Object.fromEntries(fields.map(field=>[field,'0']));scores.score_math=score;
         const state=page({records:[{id:1,can_edit:true,eoy_average:'0',exam_language:'English',scores}]});await chooseYear(state);
-        const cells=state.rows.children[0].children,outcomes=cells[16].children[2];assert.equal(cells.length,18);assert.equal(outcomes.hidden,false);
+        const cells=state.rows.children[0].children,outcomes=cells[16].children[2];assert.equal(cells.length,19);assert.equal(outcomes.hidden,false);
         assert.match(outcomes.children[0].className,/badge/);assert.match(outcomes.children[1].className,new RegExp(style));gradeClasses.add(outcomes.children[1].className);
         assert.equal(outcomes.children[0]['aria-label'].startsWith('Result: '),true);assert.equal(outcomes.children[1]['aria-label'].startsWith('Letter Grade: '),true);
         if(score==='259')assert.match(outcomes.children[0].className,/is-failed/);

@@ -31,6 +31,12 @@ class G9EoyAverageController
         $cents=(int)round((float)self::semester($first)*100)+(int)round((float)self::semester($second)*100);
         return (string) intdiv($cents+50,100);
     }
+    public static function effectiveTotal(mixed $first,mixed $second,mixed $saved): ?string
+    {
+        $calculated=self::total($first,$second);
+        if($calculated!==null)return $calculated;
+        return $saved!==null&&$saved!==''&&is_numeric($saved)?(string)round((float)$saved):null;
+    }
     public function index(Request $request)
     {
         $ids=$this->campuses($request);abort_unless($ids,403);
@@ -79,9 +85,11 @@ class G9EoyAverageController
             abort_if($record->version!==(int)$input['version'],409,'This candidate changed. Reload the list before assigning scores.');
             $data=$record->data;$before=array_intersect_key($data,array_flip(['semester_1','semester_2','eoy_average']));
             $data['semester_1']=self::semester($input['semester_1']);$data['semester_2']=self::semester($input['semester_2']);
-            $data['eoy_average']=self::total($input['semester_1'],$input['semester_2']);
+            // Historical candidates may have only an imported annual total.
+            $calculated=self::total($input['semester_1'],$input['semester_2']);
+            $data['eoy_average']=$calculated??($data['eoy_average']??null);
             $record->update(['data'=>$data,'version'=>$record->version+1,'updated_by'=>$request->user()->id]);
-            DB::table('tb_g9_exam_event')->insert(['candidate_id'=>$record->id,'user_id'=>$request->user()->id,'action'=>'assign-eoy','details'=>json_encode(['before'=>$before,'after'=>array_intersect_key($data,array_flip(['semester_1','semester_2','eoy_average'])),'formula'=>'SEM1 + SEM2'],JSON_THROW_ON_ERROR),'created_at'=>now(),'updated_at'=>now()]);
+            DB::table('tb_g9_exam_event')->insert(['candidate_id'=>$record->id,'user_id'=>$request->user()->id,'action'=>'assign-eoy','details'=>json_encode(['before'=>$before,'after'=>array_intersect_key($data,array_flip(['semester_1','semester_2','eoy_average'])),'formula'=>$calculated!==null?'SEM1 + SEM2':null,'eoy_source'=>$calculated!==null?'semester-sum':'saved-total'],JSON_THROW_ON_ERROR),'created_at'=>now(),'updated_at'=>now()]);
             return ['semester_1'=>$data['semester_1'],'semester_2'=>$data['semester_2'],'eoy_average'=>$data['eoy_average'],'version'=>$record->version];
         });
         return response()->json($total+['message'=>'Semester scores and EOY total saved.']);

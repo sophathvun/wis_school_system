@@ -2,10 +2,12 @@ import {setupStaffLocationSelect} from './helpers/staffBirthplaceSelect.js';
 import {renderPagination} from './helpers/pagination.js';
 import {setupG9PhotoViewer} from './helpers/g9PhotoViewer.js';
 import {showSuccess,showWarning} from './helpers/sweet-alert2.js';
+import {createG9CandidateAttendance} from './helpers/g9CandidateAttendance.js';
 
 const root=document.querySelector('[data-g9-scoring]');
 if(root){
     const subjects=Object.entries(JSON.parse(root.dataset.subjects)),order=['academic_year','exam_center','campus','room','grade','student'];
+    const subjectMaxima=JSON.parse(root.dataset.subjectMaxima||'{}');
     const form=root.querySelector('form'),rows=root.querySelector('[data-scoring-rows]'),error=root.querySelector('[data-scoring-error]'),status=root.querySelector('[data-scoring-status]');
     const edit=root.querySelector('[data-scoring-edit]'),label=edit.querySelector('[data-scoring-edit-label]'),mode=root.querySelector('[data-scoring-mode]');
     const toggle=root.querySelector('[data-scoring-filter-toggle]'),mobile=matchMedia('(max-width:767.98px)'),viewPhoto=setupG9PhotoViewer();
@@ -14,9 +16,15 @@ if(root){
     const combos=new Map(),editors=new Set(),dirty=new Set();
     let editing=false,loading=false,finishing=false,saving=0,sequence=0,pageNumber=1,acceptedSize=perPage.value,accepted=Object.fromEntries(new FormData(form));
     let selectedSubject=subjectSelect.value;
+    let attendanceSaving=0;
+    const attendance=createG9CandidateAttendance(root.dataset.base,{
+        canEditNow:()=>!editing&&!loading&&!finishing&&!saving&&!attendanceSaving&&!dirty.size,
+        onBusyChange:busy=>{attendanceSaving+=busy?1:-1;editors.forEach(editor=>editor.refresh());syncEdit();},
+        onDirtyChange:()=>syncEdit(),
+    });
     edit.dataset.actionNormalized='true';
     const syncEdit=()=>{
-        edit.hidden=![...editors].some(editor=>editor.allowed);edit.disabled=loading||finishing||saving>0;
+        edit.hidden=![...editors].some(editor=>editor.allowed);edit.disabled=loading||finishing||saving>0||attendanceSaving>0||attendance.hasUnsaved();
         label.textContent=editing?'Lock':'Edit';edit.querySelector('i').className=finishing?'ti ti-loader-2':editing?'ti ti-lock':'ti ti-pencil';
         edit.setAttribute('aria-pressed',String(editing));edit.setAttribute('aria-label',editing?'Lock scores':'Edit scores');
         mode.textContent=editing?'Editing '+subjects.find(([field])=>field===selectedSubject)?.[1].replace('Exam Score ','')+' · Autosave enabled':'Scores locked';
@@ -44,14 +52,14 @@ if(root){
     const highlightSubject=()=>root.querySelectorAll('[data-scoring-subject]').forEach(heading=>heading.classList.toggle('g9-scoring-active-subject',heading.dataset.scoringSubject===selectedSubject));
     subjectSelect.addEventListener('change',async()=>{
         const next=subjectSelect.value;
-        if(saving||finishing||loading){subjectSelect.value=selectedSubject;sync();return;}
+        if(saving||finishing||loading||attendanceSaving||attendance.hasUnsaved()){subjectSelect.value=selectedSubject;sync();return;}
         finishing=true;syncEdit();
         try{
             const results=await Promise.allSettled([...editors].map(editor=>editor.save()));
             if(results.some(result=>result.status==='rejected'||result.value===false)||dirty.size){subjectSelect.value=selectedSubject;error.textContent='Save or correct the current scores before changing subjects.';sync();return;}
             selectedSubject=next;if(error.textContent==='Save or correct the current scores before changing subjects.')error.textContent='';highlightSubject();editors.forEach(editor=>editor.refresh());
             if(!selectedSubject)editing=false;
-        }finally{finishing=false;syncEdit();}
+        }finally{finishing=false;editors.forEach(editor=>editor.refresh());syncEdit();}
     });
     const fill=(name,values)=>{
         const select=form.elements[name],value=select.value;
@@ -62,23 +70,23 @@ if(root){
     const params=()=>new URLSearchParams([...new FormData(form)].filter(([,value])=>value!==''));
     root.querySelectorAll('[data-scoring-report]').forEach(button=>button.addEventListener('click',async()=>{
         if(!form.elements.academic_year.value){showWarning('Select an academic year','Choose an academic year before creating a report.');return;}
-        if(loading||saving||finishing||dirty.size){showWarning('Scores are not ready','Wait for autosave or correct unsaved rows before creating a report.');return;}
-        const format=button.dataset.scoringReport,url=root.dataset.base+'/reports/verify/'+format+'?'+params();
+        if(loading||saving||finishing||attendanceSaving||attendance.hasUnsaved()||dirty.size){showWarning('Scores are not ready','Wait for autosave or correct unsaved rows before creating a report.');return;}
+        const format=button.dataset.scoringReport,type=button.dataset.scoringReportType||'verify',url=root.dataset.base+'/reports/'+type+'/'+format+'?'+params();
         if(format==='print'){window.open(url,'_blank','noopener');return;}
         button.disabled=true;error.textContent='';
         try{
             const response=await fetch(url,{credentials:'same-origin',headers:{Accept:'application/json'}});
             if(!response.ok){const result=await response.json();throw new Error(Object.values(result.errors||{}).flat().join('\n')||result.message||'Report export failed.');}
-            const href=URL.createObjectURL(await response.blob()),link=document.createElement('a');link.href=href;link.download='g9-scoring-verification.pdf';document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(href),1000);
+            const href=URL.createObjectURL(await response.blob()),link=document.createElement('a');link.href=href;link.download=type==='scores'?'g9-score-collection.pdf':'g9-scoring-verification.pdf';document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(href),1000);
         }catch(failure){error.textContent=failure.message;}
         finally{button.disabled=false;}
     }));
-    const canLeave=()=>!saving&&!finishing&&(!dirty.size||confirm('Discard unsaved exam score changes?'));
+    const canLeave=()=>!saving&&!finishing&&!attendanceSaving&&(!(dirty.size||attendance.hasUnsaved())||confirm('Discard unsaved score or absence reason changes?'));
     const line=(cell,text,classes='')=>{const element=document.createElement('div');element.textContent=text??'—';element.className=classes;cell.append(element);return element;};
-    const empty=text=>{rows.replaceChildren();const cell=rows.insertRow().insertCell();cell.colSpan=subjects.length+7;cell.className='text-center text-secondary py-5';cell.textContent=text;};
+    const empty=text=>{rows.replaceChildren();const cell=rows.insertRow().insertCell();cell.colSpan=subjects.length+8;cell.className='text-center text-secondary py-5';cell.textContent=text;};
     const canonical=value=>value===''||value===null||value===undefined?'':String(Number(value));
     const render=(record,index)=>{
-        const row=rows.insertRow(),cells=Array.from({length:subjects.length+7},()=>row.insertCell());
+        const row=rows.insertRow(),cells=Array.from({length:subjects.length+8},()=>row.insertCell());
         line(cells[0],String(index),'badge bg-blue-lt g9-number-badge');
         if(record.photo_url){
             const button=document.createElement('button'),image=document.createElement('img');button.type='button';button.className='g9-photo-trigger';button.setAttribute('aria-label','View photo of '+record.name_en);
@@ -112,10 +120,14 @@ if(root){
         const changed=()=>inputs.some((input,i)=>input.validity?.badInput||canonical(input.value)!==baseline[i]);
         const cancel=()=>{clearTimeout(timer);timer=null;};
         const message=(text,color='secondary')=>{rowStatus.textContent=text;rowStatus.className='small text-'+color;};
+        const attendanceEditor=attendance.render(cells[subjects.length+6],record);
         const refresh=()=>{
             changed()?dirty.add(record.id):dirty.delete(record.id);
+            attendanceEditor?.refresh();
             inputs.forEach((input,i)=>{
                 const selected=subjects[i][0]===selectedSubject;
+                const maximum=Number(subjectMaxima[subjects[i][0]]),score=Number(input.value);
+                input.classList.toggle('is-below-half',input.value!==''&&input.checkValidity()&&Number.isFinite(score)&&score>=0&&maximum>0&&score<maximum/2);
                 input.readOnly=!editing||!selected||rowSaving||conflicted;input.disabled=!record.can_edit;input.tabIndex=!input.readOnly&&!input.disabled?0:-1;
                 cells[5+i].classList.toggle('g9-scoring-active-subject',selected);
             });
@@ -175,7 +187,7 @@ if(root){
         editors.add({allowed:record.can_edit,save,refresh,cancel,inputFor:field=>inputs[subjects.findIndex(([key])=>key===field)]});refresh();
     };
     const load=async(page=1,options=false)=>{
-        const current=++sequence;error.textContent='';status.textContent='';editors.forEach(editor=>editor.cancel());editors.clear();dirty.clear();editing=false;loading=true;syncEdit();
+        const current=++sequence;error.textContent='';status.textContent='';editors.forEach(editor=>editor.cancel());editors.clear();dirty.clear();attendance.discard();editing=false;loading=true;syncEdit();
         try{
             if(!form.elements.academic_year.value){order.slice(1).forEach(name=>fill(name,[]));sync();empty('Select an academic year to view candidate scores.');pagination.replaceChildren();accepted=Object.fromEntries(new FormData(form));return;}
             empty('Loading candidate scores…');
@@ -186,11 +198,11 @@ if(root){
             pageNumber=result.current_page;acceptedSize=perPage.value;rows.replaceChildren();result.data.forEach((record,i)=>render(record,result.from+i));if(!result.data.length)empty('No candidates match the selected filters.');
             renderPagination(result,'g9-scoring-pagination','g9-scoring-per-page',next=>{if(!canLeave()){perPage.value=acceptedSize;return;}load(next);},[25,50,75,100]);
         }catch(failure){if(current===sequence){empty('Unable to load candidate scores.');error.textContent=failure.message;pagination.replaceChildren();}}
-        finally{if(current===sequence){loading=false;syncEdit();}}
+        finally{if(current===sequence){loading=false;editors.forEach(editor=>editor.refresh());syncEdit();}}
     };
     edit.addEventListener('pointerdown',event=>event.preventDefault());
     edit.addEventListener('click',async()=>{
-        if(loading||finishing||saving)return;
+        if(loading||finishing||saving||attendanceSaving||attendance.hasUnsaved())return;
         if(!editing){
             if(!selectedSubject){showWarning('Select a subject','Choose the subject you want to enter scores for.');combos.get(subjectSelect).toggle.focus();return;}
             editing=true;editors.forEach(editor=>editor.refresh());syncEdit();showSuccess('Editing enabled','Tab moves down the selected subject. Changes save automatically. Click Lock when finished.');return;
@@ -200,7 +212,7 @@ if(root){
             const results=await Promise.allSettled([...editors].map(editor=>editor.save()));
             if(results.some(result=>result.status==='rejected'||result.value===false)||dirty.size){error.textContent='Some scores are not saved. Check the highlighted rows before locking.';return;}
             editing=false;error.textContent='';editors.forEach(editor=>{editor.cancel();editor.refresh();});showSuccess('Scores locked');
-        }finally{finishing=false;syncEdit();}
+        }finally{finishing=false;editors.forEach(editor=>editor.refresh());syncEdit();}
     });
     form.addEventListener('change',event=>{
         const index=order.indexOf(event.target.name);if(index<0)return;

@@ -45,16 +45,17 @@ class G9CandidateReport
         foreach($records->groupBy(fn($r)=>json_encode([$r->data['exam_center']??'',$r->data['room_number']??'',$r->data['exam_date']??''])) as $group){
             $group=$group->sort(function($a,$b){return strnatcasecmp((string)($a->data['seat_number']??''),(string)($b->data['seat_number']??''))?:strcmp($a->name_kh??$a->name_en,$b->name_kh??$b->name_en)?:($a->id<=>$b->id);})->values();
             $first=$group->first();$center=trim((string)($first->data['exam_center']??''));$config=$centers->get($center,[]);
+            $effective=G9ExamCenterSettings::resolve($settings,$center);
             $location=$config['location']??$settings['date_location']??'';
-            $solar=$settings['listDate']??'';
-            if(!empty($settings['listDate_iso'])){
-                $parts=explode(' ',self::khmerDate($settings['listDate_iso']));
+            $solar=$effective['listDate']??'';
+            if(!empty($effective['listDate_iso'])){
+                $parts=explode(' ',self::khmerDate($effective['listDate_iso']));
                 $solar=$location.' ថ្ងៃទី'.$parts[0].' ខែ'.$parts[1].' ឆ្នាំ'.$parts[2];
             }
             elseif($location&&($settings['date_location']??'')&&str_starts_with($solar,$settings['date_location']))$solar=$location.mb_substr($solar,mb_strlen($settings['date_location']));
             $base=['center'=>$center?:'មិនបានបញ្ជាក់','room'=>$first->data['room_number']??'','examDate'=>self::khmerDate($first->data['exam_date']??null),
                 'location'=>$location,'department'=>$config['department']??'','signer'=>$config['signer']??'ប្រធានមណ្ឌល',
-                'solar'=>$solar,'lunar'=>$settings['k_listdate']??'','type'=>$type];
+                'solar'=>$solar,'lunar'=>$effective['k_listdate']??'','signer_name'=>$config['signer_name']??'','type'=>$type];
             if($seatReport)$base+=['academicYear'=>$first->academicYear?->academic_year??'','logo'=>$logo];
             if(in_array($type,['attendance-1','attendance-2'],true)){
                 $space=str_repeat("\u{00A0}",8);
@@ -90,15 +91,16 @@ class G9CandidateReport
         $addresses=app(\App\Services\G9StudentAddress::class)->forCandidates($records);
         foreach($records as $record){
             $d=$record->data;$config=$centers->get(trim((string)($d['exam_center']??'')),[]);$location=$config['location']??$settings['date_location']??'';
-            $solar=$settings['cardDate']??'';
-            if(!empty($settings['cardDate_iso'])){
-                $parts=explode(' ',self::khmerDate($settings['cardDate_iso']));$solar=$location.' ថ្ងៃទី'.$parts[0].' ខែ'.$parts[1].' ឆ្នាំ'.$parts[2];
+            $effective=G9ExamCenterSettings::resolve($settings,(string)($d['exam_center']??''));
+            $solar=$effective['cardDate']??'';
+            if(!empty($effective['cardDate_iso'])){
+                $parts=explode(' ',self::khmerDate($effective['cardDate_iso']));$solar=$location.' ថ្ងៃទី'.$parts[0].' ខែ'.$parts[1].' ឆ្នាំ'.$parts[2];
             }elseif($location&&($settings['date_location']??'')&&str_starts_with($solar,$settings['date_location']))$solar=$location.mb_substr($solar,mb_strlen($settings['date_location']));
             $pages[]=['profile'=>['id'=>$record->student_code,'name'=>$record->name_kh?:$record->name_en,'data'=>$d,
                 'gender'=>['male'=>'ប្រុស','female'=>'ស្រី','m'=>'ប្រុស','f'=>'ស្រី'][mb_strtolower($d['gender']??'')]??($d['gender']??''),
                 'dob'=>self::khmerDate($d['date_of_birth']??null),'examDate'=>self::khmerDate($d['exam_date']??null),
                 'photo'=>$this->photoData($record->photo_path),'signature'=>$config['photo_signature']??null,'background'=>$background,
-                'solar'=>$solar,'lunar'=>$settings['k_cardDate']??'','signer'=>$config['signer']??'ប្រធានមណ្ឌល','address_kh'=>$addresses[$record->id]??'']];
+                'solar'=>$solar,'lunar'=>$effective['k_cardDate']??'','signer'=>$config['signer']??'ប្រធានមណ្ឌល','address_kh'=>$addresses[$record->id]??'']];
         }
         return $pages;
     }
@@ -200,7 +202,7 @@ class G9CandidateReport
                 foreach(array_pad($page['rows'],25,[]) as $row)$add(array_merge([$row['seat']??'',$row['name']??'',$row['gender']??'',$row['dob']??'',$row['school']??'',$row['language']??''],array_fill(0,$subjects?count($subjects):1,'')),4,19);
                 $merged('បេក្ខជនសរុប៖ '.$page['total'].' នាក់   ស្រី៖ '.$page['female'].' នាក់',5,22);
                 $merged('អង់គ្លេស៖ '.$page['english'].' នាក់   បារាំង៖ '.$page['french'].' នាក់',5,22);
-                $merged($page['lunar'],0,22);$merged($page['solar'],0,22);$merged($page['signer'],1,26);
+                $merged($page['lunar'],0,22);$merged($page['solar'],0,22);$merged($page['signer'].(!empty($page['signer_name'])?' '.$page['signer_name']:''),1,26);
             }
             $xmlRows='';foreach($rows as $ri=>$row){
                 $rn=$ri+1;$xmlRows.='<row r="'.$rn.'" ht="'.$row['height'].'" customHeight="1">';

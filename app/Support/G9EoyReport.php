@@ -18,23 +18,26 @@ class G9EoyReport
         $records->loadMissing(['academicYear','campus']);$pages=[];
         $centers=collect($settings['report_centers']??[])->keyBy('exam_center');
         $campusSettings=DB::table('tb_g9_eoy_campus_setting')->whereIn('academic_year_id',$records->pluck('academic_year_id')->unique())->whereIn('campus_id',$records->pluck('campus_id')->unique())->get()->keyBy(fn($row)=>$row->academic_year_id.':'.$row->campus_id);
+        $campusDefaults=DB::table('tb_g9_eoy_campus_default')->whereIn('campus_id',$records->pluck('campus_id')->unique())->get()->keyBy('campus_id');
         $groups=$type==='cover'?$records->groupBy(fn($r)=>json_encode([$r->data['exam_center']??'',$r->data['room_number']??'',$r->data['exam_date']??''])):$records->map(fn($record)=>collect([$record]));
         foreach($groups as $group){
             $record=$group->first();$d=$record->data;$config=$centers->get(trim($d['exam_center']??''),[]);
-            $location=$config['location']??$settings['date_location']??'';$solar=$settings['resultDate']??'';
-            if(!empty($settings['resultDate_iso'])){
-                $parts=explode(' ',G9CandidateReport::khmerDate($settings['resultDate_iso']));
+            $effective=G9ExamCenterSettings::resolve($settings,(string)($d['exam_center']??''));
+            $location=$config['location']??$settings['date_location']??'';$solar=$effective['resultDate']??'';
+            if(!empty($effective['resultDate_iso'])){
+                $parts=explode(' ',G9CandidateReport::khmerDate($effective['resultDate_iso']));
                 $solar=$location.' ថ្ងៃទី'.$parts[0].' ខែ'.$parts[1].' ឆ្នាំ'.$parts[2];
             }elseif($location&&($settings['date_location']??'')&&str_starts_with($solar,$settings['date_location']))$solar=$location.mb_substr($solar,mb_strlen($settings['date_location']));
-            $names=$campusSettings->get($record->academic_year_id.':'.$record->campus_id);
+            $names=$campusSettings->get($record->academic_year_id.':'.$record->campus_id)??$campusDefaults->get($record->campus_id);
             $first=Scores::semester($d['semester_1']??null);$second=Scores::semester($d['semester_2']??null);
             $sum=$first!==null&&$second!==null?number_format(((int)round((float)$first*100)+(int)round((float)$second*100))/100,2,'.',''):null;
+            $eoy=Scores::effectiveTotal($first,$second,$d['eoy_average']??null);
             $pages[]=['type'=>$type,'center'=>$d['exam_center']??'','room'=>$d['room_number']??'','seat'=>$d['seat_number']??'',
                 'exam_date'=>G9CandidateReport::khmerDate($d['exam_date']??null),'academic_year'=>$record->academicYear?->academic_year??'',
                 'total'=>$group->count(),'female'=>$group->filter(fn($r)=>in_array(mb_strtolower($r->data['gender']??''),['female','f','ស្រី'],true))->count(),
                 'name'=>$record->name_kh?:$record->name_en,'gender'=>['female'=>'ស្រី','f'=>'ស្រី','male'=>'ប្រុស','m'=>'ប្រុស'][mb_strtolower($d['gender']??'')]??($d['gender']??''),
                 'dob'=>G9CandidateReport::khmerDate($d['date_of_birth']??null),'grade'=>$d['grade']??'','school'=>$d['school_name']??'',
-                'campus'=>$record->campus?->campus_name_en??'','semester_1'=>$first,'semester_2'=>$second,'sum'=>$sum,'eoy'=>Scores::total($first,$second),
+                'campus'=>$record->campus?->campus_name_en??'','semester_1'=>$first,'semester_2'=>$second,'sum'=>$sum??$eoy,'eoy'=>$eoy,
                 'compiler'=>$names?->compiler_name??'','director'=>$names?->director_name??'','solar'=>$solar];
         }
         return $pages;

@@ -29,7 +29,7 @@ class Select extends Element {
     replaceChildren(...options){this.options=options;this.value=options[0]?.value??'';}
     get selectedOptions(){return [this.options.find(option=>option.value===this.value)??this.options[0]];}
 }
-function page({legacyHeader=false,failOptions=false,reportPicker=false}={}){
+function page({legacyHeader=false,failOptions=false,reportPicker=false,record={},saveResult={}}={}){
     const root=new Element(),form=new Element(),rows=new Element(),error=new Element(),status=new Element(),toggle=new Element(),header=new Element(),label=new Element(),icon=new Element();
     const template=fs.readFileSync('resources/views/g9-national-exams/eoy-average.blade.php','utf8');
     if(/<button[^>]*data-eoy-edit\b[^>]*data-action-normalized="true"/.test(template))header.dataset.actionNormalized='true';
@@ -43,20 +43,21 @@ function page({legacyHeader=false,failOptions=false,reportPicker=false}={}){
     root.querySelectorAll=()=>reportPicker?[printButton,pdfButton]:[];
     root.dataset.base='/g9-national-exams/eoy-average';
     const pagination=new Element(),perPage=new Element();perPage.value='15';
-    const urls=[],rendered=[],alerts=[],warnings=[],opened=[],downloads=[];
+    const urls=[],rendered=[],alerts=[],warnings=[],opened=[],downloads=[],saves=[];
     const context={console,URLSearchParams,URL:{createObjectURL:()=> 'blob:eoy-pdf',revokeObjectURL(){}},Option,matchMedia:()=>({matches:false,addEventListener(){}}),window:{addEventListener(){},open:(...args)=>opened.push(args)},setTimeout,clearTimeout,confirm:()=>true,
-        document:{body:{append:link=>downloads.push(link)},querySelector:selector=>selector==='[data-g9-eoy]'?root:null,createElement:()=>new Element(),createTextNode:text=>text,getElementById:id=>id==='g9-eoy-per-page'?perPage:pagination},
+        document:{body:{append:link=>downloads.push(link)},querySelector:selector=>selector==='[data-g9-eoy]'?root:selector==='meta[name="csrf-token"]'?{content:'test-token'}:null,createElement:()=>new Element(),createTextNode:text=>text,getElementById:id=>id==='g9-eoy-per-page'?perPage:pagination},
         FormData:class {constructor(form){this.entries=Object.values(form.elements).map(select=>[select.name,select.value]);}[Symbol.iterator](){return this.entries[Symbol.iterator]();}},
         setupG9PhotoViewer:()=>()=>{},showSuccess:(...message)=>alerts.push(message),showWarning:(...message)=>warnings.push(message),renderPagination:result=>rendered.push(result),
         setupStaffLocationSelect:(form,select)=>{
             const menu=new Element(),search=new Element(),combo=new Element();menu.querySelector=()=>search;combo.querySelector=()=>menu;select.nextElementSibling=combo;
             return {toggle:new Element(),sync(){},close(){}};
         },
-        fetch:async url=>{
+        fetch:async (url,options)=>{
             urls.push(url);
+            if(options?.method==='POST'){saves.push(JSON.parse(options.body));return {ok:true,json:async()=>saveResult};}
             if(url.includes('/reports/'))return {ok:true,blob:async()=>({})};
             if(url.includes('/options?'))return {ok:!failOptions,json:async()=>failOptions?{message:'Options unavailable'}:{campus:[{id:1,label:'BCH'}],grade:['9A'],student:[{id:1,label:'001 | Candidate'}]}};
-            return {ok:true,json:async()=>({data:[{id:1,version:1,student_code:'001',name_en:'Candidate',can_assign:true,semester_1:'10.00',semester_2:'20.00',saved_eoy:'30',scores_normalized:true}],from:1,total:1})};
+            return {ok:true,json:async()=>({data:[{id:1,version:1,student_code:'001',name_en:'Candidate',can_assign:true,semester_1:'10.00',semester_2:'20.00',saved_eoy:'30',scores_normalized:true,...record}],from:1,total:1})};
         }
     };
     vm.createContext(context);
@@ -64,7 +65,7 @@ function page({legacyHeader=false,failOptions=false,reportPicker=false}={}){
     vm.runInContext(source,context);
     const normalize=fs.readFileSync('resources/js/app.js','utf8').split('    const normalizeActions = () =>')[1].split('    const normalizeSearches')[0];
     const normalizeActions=()=>vm.runInNewContext('const normalizeActions = () =>'+normalize+'\nnormalizeActions();',{document:{querySelectorAll:()=>[header]}});
-    return {context,form,rows,error,header,label,icon,urls,rendered,alerts,normalizeActions,printButton,pdfButton,warnings,opened,downloads};
+    return {context,form,rows,error,header,label,icon,urls,rendered,alerts,normalizeActions,printButton,pdfButton,warnings,opened,downloads,saves};
 }
 async function chooseYear(state){
     await state.context.initialLoad;
@@ -72,6 +73,27 @@ async function chooseYear(state){
     state.form.emit('change',{target:state.form.elements.academic_year});
     await new Promise(resolve=>setImmediate(resolve));
 }
+for(const [saved,expected] of [['90.000','90'],[0,'0'],['90.500','91'],[null,'—']])test(`historical EOY ${saved} displays without inventing semester scores`,async()=>{
+    const state=page({record:{semester_1:null,semester_2:null,saved_eoy:saved}});await chooseYear(state);
+    const cells=state.rows.children[0].children;
+    assert.equal(cells[4].children[0].value,'');assert.equal(cells[5].children[0].value,'');
+    assert.equal(cells[6].children[0].textContent,expected);
+    assert.equal(cells[6].children[1].textContent,saved===null?'Both scores required':'Saved EOY · semester scores incomplete');
+    state.header.emit('click');state.header.emit('click');await new Promise(resolve=>setImmediate(resolve));
+    assert.equal(state.saves.length,0);
+});
+test('partial semester autosave keeps the saved historical EOY visible',async()=>{
+    const state=page({record:{semester_1:null,semester_2:null,saved_eoy:'90.000'},saveResult:{version:2,semester_1:'12.35',semester_2:null,eoy_average:'90.000'}});await chooseYear(state);
+    const cells=state.rows.children[0].children;state.header.emit('click');
+    cells[4].children[0].value='12.345';cells[4].children[0].emit('blur');await new Promise(resolve=>setImmediate(resolve));
+    assert.deepEqual(state.saves,[{version:1,semester_1:'12.35',semester_2:null}]);
+    assert.equal(cells[4].children[0].value,'12.35');assert.equal(cells[5].children[0].value,'');
+    assert.equal(cells[6].children[0].textContent,'90');assert.equal(state.alerts.at(-1)[0],'Scores saved');
+    cells[5].children[0].value='20.25';cells[5].children[0].emit('input');
+    assert.equal(cells[6].children[0].textContent,'33');
+    cells[5].children[0].value='';cells[5].children[0].emit('input');
+    assert.equal(cells[6].children[0].textContent,'90');
+});
 for(const legacyHeader of [false,true])test(`selecting an academic year loads options and candidates (${legacyHeader?'previous':'current'} header markup)`,async()=>{
     const state=page({legacyHeader});await chooseYear(state);
     assert.equal(state.urls.length,2);

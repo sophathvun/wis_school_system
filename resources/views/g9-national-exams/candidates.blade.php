@@ -69,7 +69,7 @@
                             </div>
                         @endforeach
                     @endif
-                    @if(count($createCampuses))<button type="button" class="btn btn-light" data-g9-add><i class="ti ti-user-plus me-1"></i>Add Candidate</button>@endif
+                    @if(count($createCampuses))<button type="button" class="btn g9-add-candidate" data-g9-add><i class="ti ti-user-plus me-1" aria-hidden="true"></i>Add Candidate</button>@endif
                 </div>
             </div>
             <div class="table-responsive">

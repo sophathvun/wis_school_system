@@ -1,0 +1,17 @@
+.collection-header .verify-left{font-size:8pt}
+.collection-scores th{background:#deedf6;height:11mm;font-size:7.5pt}
+.collection-scores tbody td{height:4.6mm}
+.collection-seat{font-size:8pt;white-space:nowrap}
+.collection-seat-circle{display:inline-block;min-width:7mm;padding:0 .4mm;border:.3mm solid #d02030;border-radius:50%;line-height:1.25}
+.collection-failed td{position:relative}
+.collection-failed td::after{content:"";position:absolute;left:-.1mm;right:-.1mm;top:50%;border-top:.3mm solid #d02030;pointer-events:none;z-index:1}
+.collection-scores .collection-remarks{font-size:6.8pt;line-height:1.3;overflow-wrap:anywhere;word-wrap:break-word;color:#b82730}
+.collection-absent-label{color:#d02030}
+.collection-footer{border-collapse:collapse;table-layout:fixed;margin-top:1.5mm;font-size:7pt;line-height:1.7}
+.collection-footer td{border:0;vertical-align:top;padding:.3mm .6mm}
+.collection-footer .collection-signature{text-align:center;font-size:7.5pt;line-height:1.5}
+.collection-signer-title{font-family:g9heading;font-size:10pt;margin-top:1.5mm}
+.collection-signer-name{font-size:9pt;padding-top:2mm}
+.collection-subject-signatures{white-space:nowrap;font-size:6.5pt;line-height:1.9}
+.verify-page:has(.collection-scores){position:relative}
+.collection-page-number{position:absolute;right:8mm;bottom:2mm}

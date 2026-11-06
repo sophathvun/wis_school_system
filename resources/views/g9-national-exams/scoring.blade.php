@@ -3,7 +3,7 @@
 @section('page-header','')
 @section('content')
 @vite(['resources/css/pages/g9-national-exams.css','resources/css/pages/g9-scoring.css','resources/js/g9Scoring.js'])
-<div data-g9-scoring data-base="{{ url('/g9-national-exams/scoring') }}" data-subjects="{{ json_encode($subjects) }}">
+<div data-g9-scoring data-base="{{ url('/g9-national-exams/scoring') }}" data-subjects="{{ json_encode($subjects) }}" data-subject-maxima="{{ json_encode(collect(\App\Support\G9ScoringReport::SUBJECTS)->map(fn($subject) => (float)$subject[1])) }}">
     <section class="card mb-3">
         <div class="card-header g9-header"><h3 class="card-title"><i class="ti ti-filter me-2" aria-hidden="true"></i>Data Filters</h3><button type="button" class="btn btn-sm btn-outline-light ms-auto" data-scoring-filter-toggle aria-expanded="true" aria-controls="g9ScoringFilters" aria-label="Collapse filters"><i class="ti ti-chevron-up" aria-hidden="true"></i></button></div>
         <form id="g9ScoringFilters" class="card-body g9-candidate-filters">
@@ -29,6 +29,11 @@
                             <span class="g9-report-option-text"><span class="g9-report-option-title">តារាងផ្ទៀងផ្ទាត់ពិន្ទុ</span><small>Score verification by exam center and room · A4 landscape</small></span>
                             <i class="ti ti-chevron-right g9-report-option-arrow" aria-hidden="true"></i>
                         </button>
+                        <button type="button" class="dropdown-item g9-report-option" data-scoring-report="{{ $format }}" data-scoring-report-type="scores">
+                            <span class="g9-report-option-icon"><i class="ti ti-table" aria-hidden="true"></i></span>
+                            <span class="g9-report-option-text"><span class="g9-report-option-title">តារាងស្រង់ពិន្ទុ</span><small>Score collection sheet with absence remarks · A4 landscape</small></span>
+                            <i class="ti ti-chevron-right g9-report-option-arrow" aria-hidden="true"></i>
+                        </button>
                         <div class="g9-report-menu-footer"><i class="ti ti-filter" aria-hidden="true"></i>Selected filters · All matching candidates</div>
                     </div>
                 </div>
@@ -45,15 +50,16 @@
         </div>
         <div class="card-body py-2">
             <span class="text-secondary small">Select a subject and click Edit. Tab moves down to the next student; Shift+Tab moves up. Scores save automatically. Blank means not recorded; enter 0 for a zero score.</span>
+            <div class="text-secondary small">Tick Absent only for absent candidates. Untick to clear. Changes save automatically while scores are locked.</div>
             <div class="text-danger small mt-1" data-scoring-error role="alert"></div><div class="text-success small" data-scoring-status role="status"></div>
         </div>
         <div class="table-responsive g9-scoring-scroll" tabindex="0" role="region" aria-label="Candidate exam scores; scroll horizontally to view all subjects">
             <table class="table table-vcenter mb-0 g9-scoring-table">
                 <colgroup><col class="g9-scoring-number"><col class="g9-scoring-photo"><col class="g9-scoring-student"><col class="g9-scoring-examination"><col class="g9-scoring-summary-column">
                     @foreach($subjects as $field=>$label)<col class="g9-scoring-subject">@endforeach
-                    <col class="g9-scoring-total-column"><col class="g9-scoring-save">
+                    <col class="g9-scoring-total-column"><col class="g9-scoring-attendance-column"><col class="g9-scoring-save">
                 </colgroup>
-                <thead><tr><th scope="col">No.</th><th scope="col">Photo</th><th scope="col">Student</th><th scope="col">Examination</th><th scope="col">ពិន្ទុប្រចាំឆ្នាំ</th>
+                <thead><tr><th scope="col">No.</th><th scope="col">Photo</th><th scope="col">Student</th><th scope="col">Examination</th><th scope="col" class="g9-scoring-max-header"><span class="g9-scoring-subject-label">ពិន្ទុប្រចាំឆ្នាំ</span><span class="g9-scoring-subject-max" aria-label="Maximum annual score 100">Max: 100</span></th>
                 @php($subjectHeaders=[
                     'score_khmer_essay'=>'តែងសេចក្តី','score_chemistry'=>'គីមីវិទ្យា',
                     'score_earth_science'=>'ផែនដី-បរិស្ថាន','score_physics'=>'រូបវិទ្យា',
@@ -62,12 +68,12 @@
                     'score_biology'=>'ជីវវិទ្យា','score_history'=>'ប្រវត្តិវិទ្យា','score_english'=>'ភាសាបរទេស',
                 ])
                 @foreach($subjects as $field=>$label)
-                    <th scope="col" data-scoring-subject="{{ $field }}">
+                    <th scope="col" class="g9-scoring-max-header" data-scoring-subject="{{ $field }}">
                         <span class="g9-scoring-subject-label">{{ $subjectHeaders[$field] }}</span>
                         <span class="g9-scoring-subject-max" aria-label="Maximum score {{ \App\Support\G9ScoringReport::SUBJECTS[$field][1] }}">Max: {{ \App\Support\G9ScoringReport::SUBJECTS[$field][1] }}</span>
                     </th>
                 @endforeach
-                <th scope="col">Total Score</th><th scope="col">Save Status</th>
+                <th scope="col">Total Score</th><th scope="col">Attendance</th><th scope="col">Save Status</th>
             </tr></thead><tbody data-scoring-rows></tbody></table>
         </div>
         <div class="card-footer"><input type="hidden" id="g9-scoring-per-page" value="25"><div id="g9-scoring-pagination"></div></div>

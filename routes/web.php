@@ -476,7 +476,9 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         Route::get('/scoring/options',[\App\Http\Controllers\G9ScoringController::class,'options'])->name('scoring.options');
         Route::get('/scoring/list',[\App\Http\Controllers\G9ScoringController::class,'listing'])->name('scoring.list');
         Route::get('/scoring/reports/verify/{format}',[\App\Http\Controllers\G9ScoringController::class,'report'])->where('format','print|pdf')->name('scoring.report');
+        Route::get('/scoring/reports/scores/{format}',[\App\Http\Controllers\G9ScoringController::class,'collectionReport'])->where('format','print|pdf')->name('scoring.report-scores');
         Route::post('/scoring/{candidate}',[\App\Http\Controllers\G9ScoringController::class,'save'])->whereNumber('candidate')->name('scoring.save');
+        Route::post('/scoring/{candidate}/attendance',[\App\Http\Controllers\G9ScoringController::class,'attendance'])->whereNumber('candidate')->name('scoring.attendance');
         Route::get('/eoy-average',[\App\Http\Controllers\G9EoyAverageController::class,'index'])->name('eoy-average');
         Route::get('/eoy-average/options',[\App\Http\Controllers\G9EoyAverageController::class,'options'])->name('eoy-average.options');
         Route::get('/eoy-average/list',[\App\Http\Controllers\G9EoyAverageController::class,'listing'])->name('eoy-average.list');
@@ -491,7 +493,9 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         Route::post('/bulk-photos/confirm',[\App\Http\Controllers\G9BulkPhotoController::class,'confirm'])->name('bulk-photos.confirm');
         Route::get('/settings',[\App\Http\Controllers\G9ExamSettingController::class,'index'])->name('settings');
         Route::get('/settings/eoy-campus',[\App\Http\Controllers\G9EoySettingController::class,'show'])->name('settings.eoy-campus');
+        Route::get('/settings/eoy-campus/list',[\App\Http\Controllers\G9EoySettingController::class,'listing'])->name('settings.eoy-campus.list');
         Route::post('/settings/eoy-campus',[\App\Http\Controllers\G9EoySettingController::class,'save'])->name('settings.eoy-campus.save');
+        Route::delete('/settings/eoy-campus',[\App\Http\Controllers\G9EoySettingController::class,'destroy'])->name('settings.eoy-campus.destroy');
         Route::get('/settings/dates',[\App\Http\Controllers\G9ExamSettingController::class,'show'])->name('settings.dates');
         Route::get('/settings/center',[\App\Http\Controllers\G9ExamSettingController::class,'showCenter'])->name('settings.center');
         Route::post('/settings/center',[\App\Http\Controllers\G9ExamSettingController::class,'saveCenter'])->name('settings.center.save');

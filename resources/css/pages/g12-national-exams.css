@@ -166,6 +166,16 @@
 .g12-excel-dropzone .document-browse-link{color:#6b5bd6;font-weight:700}
 .g12-excel-dropzone .document-upload-hint{font-size:.78rem;color:var(--tblr-secondary)}
 .g12-excel-dropzone.is-invalid{border-color:var(--tblr-danger)}
+.g12-photo-upload-area{margin-top:1.5rem}.g12-photo-dropzone{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.4rem;width:100%;min-height:210px}
+.g12-photo-dropzone strong{color:var(--tblr-body-color,#182433);font-size:1rem}.g12-photo-dropzone .document-upload-icon{margin-bottom:.3rem}
+.g12-photo-upload-formats{display:flex;flex-wrap:wrap;justify-content:center;gap:.4rem;margin-top:.45rem;font-size:.7rem}
+.g12-photo-upload-formats>span{padding:.2rem .55rem;border:1px solid var(--tblr-border-color,#e5e0fb);border-radius:6px;color:var(--tblr-secondary-color,#667085);background:var(--tblr-bg-surface,#fff)}
+.g12-photo-dropzone:disabled{cursor:progress;opacity:.65}.g12-photo-file-selection{margin-top:.9rem}.g12-photo-file-summary{display:flex;align-items:center;justify-content:space-between;gap:.75rem;color:var(--tblr-secondary-color,#667085);font-size:.8rem}
+.g12-photo-file-list{max-height:280px;overflow:auto;overscroll-behavior:contain;padding:2px;list-style:none}.g12-photo-file-details{flex:1;min-width:0}
+.g12-photo-file-list .document-file-remove{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;width:34px;height:34px;border-radius:10px;font-size:1.1rem}
+.g12-photo-file-list .document-file-remove:hover:not(:disabled){color:var(--tblr-danger);background:var(--tblr-danger-lt,#fff0f0)}.g12-photo-file-list .document-file-remove:focus-visible{outline:2px solid #6b5bd6;outline-offset:2px}
+[data-g12-photo-file-selection][hidden],[data-g12-photo-upload-error][hidden]{display:none!important}
+@media(max-width:575.98px){.g12-photo-dropzone{min-height:190px;padding:1.25rem .85rem}[data-g12-photos-form]>[data-g12-photo-preview-button]{width:100%}}
 .g12-excel-file-list{display:grid;gap:.6rem;margin-top:.9rem;text-align:left}
 .g12-excel-file{display:flex;align-items:center;gap:.75rem;width:100%;max-width:100%;box-sizing:border-box;padding:.7rem .85rem;border:1px solid #e5e0fb;border-radius:14px;background:var(--tblr-bg-surface,#fff)}
 .g12-excel-file .document-file-icon{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;width:2.35rem;height:2.35rem;border-radius:10px;color:#6b5bd6;background:#f0edff;font-size:1.25rem}

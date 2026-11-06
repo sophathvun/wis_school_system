@@ -180,7 +180,23 @@ $filterFields=$tab==='records'
 @if($permissions['photos-upload'])<form data-g12-photos-form>
 <div class="g12-fields mb-3"><div class="scholarship-field"><label class="form-label" for="photoYear">Academic Year</label><select class="form-select" id="photoYear" name="academic_year" data-placeholder="" required disabled aria-describedby="g12PhotoYearError"><option value=""></option></select><div class="invalid-feedback d-block" id="g12PhotoYearError" hidden>Select an academic year before previewing photos.</div></div></div>
 <p class="text-secondary" data-g12-photo-year-empty hidden>No student exam records are available for your campuses. Import student exam records first to make their academic years available here.</p>
-<label class="g12-dropzone" data-g12-drop><i class="ti ti-cloud-upload"></i><strong>Drop student photos or ZIP here</strong><span>JPG, PNG, WebP · 20 MB per image · ZIP up to 200 MB / 500 MB expanded · up to 5,000 photos</span><input class="form-control" type="file" name="files[]" accept=".jpg,.jpeg,.png,.webp,.zip" multiple required></label><button class="btn btn-primary mt-3" data-g12-photo-preview-button disabled><i class="ti ti-eye me-1"></i>Preview Photo Matches</button></form>@endif
+<div class="g12-photo-upload-area">
+    <input type="file" name="files[]" accept=".jpg,.jpeg,.png,.webp,.zip" multiple hidden>
+    <button type="button" class="g12-excel-dropzone g12-photo-dropzone" data-g12-photo-drop aria-labelledby="g12PhotoUploadTitle" aria-describedby="g12PhotoUploadHint g12PhotoUploadLimits g12PhotoUploadError">
+        <span class="document-upload-icon"><i class="ti ti-photo-up" aria-hidden="true"></i></span>
+        <strong id="g12PhotoUploadTitle">Drag &amp; drop photos or ZIP files here</strong>
+        <span>or <span class="document-browse-link">browse files</span></span>
+        <span class="document-upload-hint" id="g12PhotoUploadHint">Copy files and paste with Ctrl+V (⌘V on Mac). Drop or paste again to add more.</span>
+        <span class="g12-photo-upload-formats"><span>JPG / PNG / WebP</span><span>ZIP</span><span>Multiple files</span></span>
+    </button>
+    <div class="g12-photo-file-selection" data-g12-photo-file-selection hidden>
+        <div class="g12-photo-file-summary"><span data-g12-photo-file-summary role="status" aria-live="polite"></span><button type="button" class="btn btn-sm btn-outline-secondary" data-g12-photo-files-clear>Clear All</button></div>
+        <ul class="g12-excel-file-list g12-photo-file-list" data-g12-photo-files aria-label="Selected photos and ZIP files"></ul>
+    </div>
+    <p class="form-hint mt-3 mb-0" id="g12PhotoUploadLimits">Up to 20 MB per image, 200 MB per ZIP / 500 MB expanded, and 5,000 photos per batch. Select up to 100 files at a time; use ZIP files for larger collections.</p>
+    <div class="text-danger small mt-2" id="g12PhotoUploadError" data-g12-photo-upload-error role="alert" hidden></div>
+</div>
+<button class="btn btn-primary mt-3" data-g12-photo-preview-button disabled><i class="ti ti-eye me-1"></i>Preview Photo Matches</button></form>@endif
 <p class="form-hint mt-3" data-g12-photo-help role="status">Choose your photos or ZIP, then click Preview Photo Matches to see the photos and select students before uploading.</p>
 <div data-g12-photo-preview class="d-none" hidden><div class="d-flex gap-3 align-items-center mt-4 mb-3"><button type="button" class="btn btn-primary" data-g12-photo-confirm disabled>Upload Selected Photos</button><span data-g12-photo-progress role="status"></span></div><progress class="w-100" data-g12-photo-bar value="0" max="1"></progress><div class="g12-preview-table"><table class="table"><thead><tr><th><label class="d-flex align-items-center gap-2 mb-0"><input type="checkbox" class="form-check-input" data-g12-photo-select-all aria-label="Select all photo rows">Select</label></th><th>Photo Filename</th><th>Match</th><th>Student</th><th>Replace</th><th>Progress</th></tr></thead><tbody data-g12-photo-rows></tbody></table></div></div>
 </div></div>
