@@ -513,15 +513,20 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         Route::get('/candidates/{candidate}',[\App\Http\Controllers\G9NationalExamController::class,'show'])->whereNumber('candidate')->name('candidates.show');
         Route::post('/candidates',[\App\Http\Controllers\G9NationalExamController::class,'save'])->name('candidates.store');
         Route::post('/candidates/{candidate}',[\App\Http\Controllers\G9NationalExamController::class,'save'])->whereNumber('candidate')->name('candidates.update');
-        foreach ([
-            'results' => ['Exam Result', 'ti-chart-bar', 'Grade 9 national exam results.'],
-            'certificates' => ['G9 Certificate Tracking', 'ti-certificate', 'Grade 9 certificate tracking.'],
-        ] as $section => [$title, $icon, $description]) {
-            Route::get('/'.$section,function(\Illuminate\Http\Request $request)use($section,$title,$icon,$description){
-                abort_unless(\App\Support\G9NationalExamPermissions::allows($request->user(),$section),403);
-                return view('academic-module-placeholder',['title'=>$title,'pretitle'=>'G9 National Exams','icon'=>$icon,'description'=>$description]);
-            })->name($section);
-        }
+        Route::get('/results',[\App\Http\Controllers\G9ExamResultController::class,'index'])->name('results');
+        Route::get('/results/options',[\App\Http\Controllers\G9ExamResultController::class,'options'])->name('results.options');
+        Route::get('/results/data',[\App\Http\Controllers\G9ExamResultController::class,'data'])->name('results.data');
+        Route::get('/results/reports/{type}/{format}',[\App\Http\Controllers\G9ExamResultController::class,'report'])->where('type','list|room|subject|doeys|branch|wis')->where('format','print|excel|pdf')->name('results.report');
+        Route::get('/certificates',[\App\Http\Controllers\G9CertificateTrackingController::class,'index'])->name('certificates');
+        Route::get('/certificates/options',[\App\Http\Controllers\G9CertificateTrackingController::class,'options'])->name('certificates.options');
+        Route::get('/certificates/data',[\App\Http\Controllers\G9CertificateTrackingController::class,'data'])->name('certificates.data');
+        Route::get('/certificates/numbers/settings',[\App\Http\Controllers\G9CertificateNumberController::class,'settings'])->name('certificates.numbers.settings');
+        Route::post('/certificates/numbers/settings',[\App\Http\Controllers\G9CertificateNumberController::class,'save'])->name('certificates.numbers.settings.save');
+        Route::post('/certificates/numbers/preview',[\App\Http\Controllers\G9CertificateNumberController::class,'preview'])->name('certificates.numbers.preview');
+        Route::post('/certificates/numbers/generate',[\App\Http\Controllers\G9CertificateNumberController::class,'generate'])->name('certificates.numbers.generate');
+        Route::get('/certificates/files/{file}',[\App\Http\Controllers\G9CertificateTrackingController::class,'file'])->whereNumber('file')->name('certificates.file');
+        Route::get('/certificates/{candidate}',[\App\Http\Controllers\G9CertificateTrackingController::class,'show'])->whereNumber('candidate')->name('certificates.show');
+        Route::post('/certificates/{candidate}',[\App\Http\Controllers\G9CertificateTrackingController::class,'save'])->whereNumber('candidate')->name('certificates.save');
     });
 
     Route::prefix('g12-national-exams')->name('g12-national-exams.')->controller(\App\Http\Controllers\G12NationalExamController::class)->group(function(){

@@ -679,6 +679,10 @@ if(root){
         photoConfirm.disabled=!photoBatch||!count||photoYear!==get('#photoYear').value;
         photoConfirm.textContent=count?`Upload Selected Photos (${count})`:'Upload Selected Photos';
         all.disabled=!pending.length;all.checked=!!pending.length&&count===pending.length;all.indeterminate=count>0&&count<pending.length;
+        const replaceAll=get('[data-g12-photo-replace-all]'),replaceable=pending.map(row=>row.querySelector('[data-photo-replace]')).filter(input=>!input.disabled),replacements=replaceable.filter(input=>input.checked).length;
+        replaceAll.disabled=!permissions['photos-replace']||!replaceable.length;
+        replaceAll.checked=!!replaceable.length&&replacements===replaceable.length;
+        replaceAll.indeterminate=replacements>0&&replacements<replaceable.length;
     };
     const resetPhotoPreview=()=>{
         if(!photoPanel)return;
@@ -702,6 +706,11 @@ if(root){
     });
     photoRows?.addEventListener('change',updatePhotoSelection);
     get('[data-g12-photo-select-all]')?.addEventListener('change',event=>{for(const row of pendingPhotoRows())row.querySelector('[data-photo-selected]').checked=event.target.checked;updatePhotoSelection();});
+    get('[data-g12-photo-replace-all]')?.addEventListener('change',event=>{
+        if(busy||!permissions['photos-replace']){updatePhotoSelection();return;}
+        for(const row of pendingPhotoRows()){const input=row.querySelector('[data-photo-replace]');if(!input.disabled)input.checked=event.target.checked;}
+        updatePhotoSelection();
+    });
     get('[data-g12-photos-form]')?.addEventListener('submit',e=>{e.preventDefault();run(async()=>{
         resetPhotoPreview();
         if(!meta.years.includes(get('#photoYear').value))throw new Error('Select an academic year from your student exam records.');

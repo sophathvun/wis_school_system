@@ -1,0 +1,51 @@
+@page{size:A4 portrait;margin:7mm 8mm 8mm}
+*{box-sizing:border-box}
+body{margin:0;background:#fff;color:#111;font-family:g9body,sans-serif;font-size:8pt;line-height:1.5}
+.result-sheet{width:194mm;margin:0 auto;page-break-after:always}
+.result-sheet:last-child{page-break-after:auto}
+.result-motto{text-align:center;font-family:g9heading;font-size:13pt;line-height:1.9}
+.result-ornament{text-align:center;font-family:g9ornament;font-size:20pt;line-height:1;height:7mm}
+.result-heading-left{font-family:g9heading;font-size:8pt;margin-bottom:1mm}
+.result-title-row{border-collapse:collapse;margin-bottom:2mm}
+.result-title-row td{text-align:center;padding:0;vertical-align:middle}
+.result-title{font-family:g9heading;font-size:11pt;line-height:1.8}
+.result-subtitle{font-family:g9heading;font-size:8pt}
+.result-exam-date{font-family:g9heading;font-size:8pt}
+.result-room{text-align:left!important;font-family:g9heading;font-size:8pt}
+.result-table{width:100%;border-collapse:collapse;table-layout:fixed;margin:0 0 3mm;font-size:7.5pt}
+.result-table th,.result-table td{border:.2mm solid #333;text-align:center;vertical-align:middle;padding:.5mm .35mm;height:6mm;line-height:1.45;overflow-wrap:break-word}
+.result-table th{font-weight:normal;background:#dfeaf4}
+.result-table thead{display:table-header-group}
+.result-table tr{page-break-inside:avoid}
+.result-table .left{text-align:left;padding-left:1mm}
+.result-table .small{font-size:6.5pt}
+.result-table .school{font-size:8pt}
+.result-table .result-section{text-align:left;font-family:g9heading;background:#e0edf6;padding:1mm;font-size:8pt}
+.result-table .blue{background:#dfeaf4}
+.result-table .pale-green{background:#e2efd9}
+.result-table .pale-yellow{background:#fff2cc}
+.result-table .pale-orange{background:#fbe5d6}
+.result-table .yellow{background:#fff8ba}
+.result-table .purple{background:#e2dced}
+.result-table .orange{background:#f8d8bd}
+.result-table .red{background:#f5d7d9}
+.result-total td{font-weight:bold;background:#eaf2f8}
+.result-total .yellow{background:#fff000}
+.result-total .purple{background:#b9afcf}
+.result-total .orange{background:#f3b385}
+.result-total .red{background:#ed2330;color:white}
+.result-students{font-size:9pt;margin-bottom:1mm}
+.result-students th{background:white;font-size:8pt;height:9mm}
+.result-students td{height:6.5mm;padding:.4mm .35mm;white-space:nowrap}
+.result-students .result{color:#db293b}
+.result-crossed td{text-decoration:line-through;text-decoration-color:#e33343}
+.result-seat-circle{display:inline-block;min-width:9mm;border:.4mm solid #e33343;border-radius:50%;line-height:1.4}
+.result-footer{border-collapse:collapse;font-size:8pt;line-height:1.7;margin-top:1mm;page-break-inside:avoid}
+.result-footer td{padding:0;text-align:center;vertical-align:top}
+.result-left-signature{padding-top:15mm!important}
+.result-signer{font-family:g9heading;font-size:10pt;margin-top:1mm}
+.result-signer-name{font-family:g9heading;font-size:10pt;margin-top:11mm;min-height:4mm}
+.result-note{font-size:7pt;line-height:1.6}
+.result-page-number{text-align:right;font-size:7pt;margin-top:2mm}
+@media screen{body{background:#e9edf1;padding:12mm}.result-sheet{background:white;width:210mm;min-height:297mm;padding:7mm 8mm 8mm;margin:0 auto 8mm;box-shadow:0 2px 12px #0002}}
+@media print{.result-sheet{margin:0;width:194mm}}
