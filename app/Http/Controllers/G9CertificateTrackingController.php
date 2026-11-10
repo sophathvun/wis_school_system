@@ -69,7 +69,7 @@ class G9CertificateTrackingController
                 'not_issued'=>!$r['eligible'],'review'=>$r['tracking']['needs_review'],default=>$r['eligible']&&$r['tracking']['status']===$request->input('status'),
             })->values();
         $eligible=$records->where('eligible',true);
-        $summary=['total'=>$records->count(),'passed'=>$eligible->count(),'failed'=>$records->where('outcome','failed')->count(),
+        $summary=['total'=>$records->count(),'passed'=>$eligible->count(),'failed'=>$records->where('outcome','failed')->count(),'absent'=>$records->where('outcome','absent')->count(),
             'printed_signed'=>$eligible->whereIn('tracking.status',['printed_signed','received'])->count(),
             'received'=>$eligible->where('tracking.status','received')->count(),'awaiting'=>$eligible->where('tracking.status','awaiting')->count(),'not_issued'=>$records->where('eligible',false)->count()];
         $size=(int)($request->input('per_page')?:25);$page=max(1,min($request->integer('page',1),(int)ceil(max(1,$records->count())/$size)));

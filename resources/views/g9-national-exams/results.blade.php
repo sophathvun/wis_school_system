@@ -105,6 +105,14 @@
                 <article class="card"><div class="card-header g9-header flex-wrap gap-2"><h3 class="card-title">Result Comparison</h3><select class="form-select form-select-sm ms-auto g9-result-group" data-results-group aria-label="Compare results by"><option value="campuses">By campus</option><option value="centers">By exam center</option></select></div><div class="card-body"><p class="text-secondary small">Share of candidates in each outcome. Hover or focus a segment for details.</p><div class="g9-result-bars" data-results-bars></div></div></article>
             </div>
             <div class="card mt-3"><div class="card-body g9-result-grade-summary"><strong>Letter Grade Distribution</strong><div data-results-grades></div></div></div>
+            <article class="card mt-3">
+                <div class="card-header g9-header"><h3 class="card-title"><i class="ti ti-books me-2" aria-hidden="true"></i>Passed / Failed by Subject</h3></div>
+                <div class="card-body"><p class="text-secondary small">Pass mark: 50% of each subject’s maximum score. Includes present candidates with an entered score; foreign language applies to Khmer examinations.</p><div class="g9-center-grade-grid" data-results-subjects aria-live="polite"></div></div>
+            </article>
+            <article class="card mt-3">
+                <div class="card-header g9-header"><h3 class="card-title"><i class="ti ti-chart-bar me-2" aria-hidden="true"></i>Letter Grade by Exam Center</h3></div>
+                <div class="card-body"><p class="text-secondary small">Count and percentage of candidates who attended each exam center. Absent students are excluded; pending results remain in the attendance total.</p><div class="g9-center-grade-grid" data-results-center-grades aria-live="polite"></div></div>
+            </article>
         </section>
         @endif
         @if($tabs['statistics'])

@@ -10,6 +10,7 @@
 @foreach (array_intersect($userPermissionState['direct_ids'] ?? [], $userPermissionState['inherited_ids'] ?? []) as $directPermissionId)
     <input type="hidden" name="permissions[]" value="{{ $directPermissionId }}">
 @endforeach
+@if(($permissionPrefix??'')==='department')<div class="permission-department-toolbar">@endif
 @include('partials.full-access-toggle', [
     'fullAccess' => $fullAccess ?? false,
     'fullAccessLocked' => $fullAccessLocked ?? false,
@@ -65,6 +66,7 @@
             class="form-control" data-permission-module-search placeholder="Search main modules or actions..."></div>
 </div>
 </div>
+@if(($permissionPrefix??'')==='department')</div>@endif
 <div class="permission-modules-layout">
     @foreach ($permissionHierarchy as $groupKey => $group)
         @php($main = $group['permission'])
@@ -74,7 +76,7 @@
             <div class="col-md-6">
                 <div class="border rounded p-3" data-permission-group
                     data-permission-group-label="{{ strtolower($group['label'] . ' ' . ($group['description'] ?? '')) }}">
-                    <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2">
+                    <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2 permission-main-box-header">
                         <span class="fw-bold fs-5 permission-main-menu"><i
                                 class="ti {{ $mainMenuIcons[$groupKey] ?? 'ti-menu-2' }} me-2"></i>{{ strtoupper($group['label']) }} @include('partials.permission-inheritance', ['permissionId' => $main->id])</span>
                         <button type="button" class="status-toggle {{ $mainOn ? 'is-active' : '' }}"

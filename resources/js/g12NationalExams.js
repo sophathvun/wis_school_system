@@ -104,6 +104,7 @@ if(root){
     const studentClass=r=>{const campus=String(r.campus??'').trim(),grade=String(r.grade??'').trim();if(!campus)return grade;if(!grade)return campus;return grade.toLowerCase().startsWith(`${campus.toLowerCase()}-`)?grade:`${campus}-${grade}`;};
     const assignmentGrade=r=>[String(r.academic_year??'').trim(),studentClass(r)].filter(Boolean).join('-');
     const studentDob=value=>dateKhmer(value).replace(/^០/u,'');
+    const examDate=value=>dateKhmer(value)||value||'—';
     const addedDate=value=>{if(!value)return '—';const date=new Date(value);return Number.isNaN(date.getTime())?String(value):date.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}).replace(/ /g,'-');};
     const examLanguageKhmer=value=>({english:'អង់គ្លេស',khmer:'ខ្មែរ',french:'បារាំង'}[String(value??'').trim().toLowerCase()]||String(value??'').trim());
     const resultFromLetterGrade=value=>{const grade=String(value??'').trim().toUpperCase();return ['A','B','C','D','E'].includes(grade)?'passed':grade==='F'?'failed':'pending';};
@@ -117,7 +118,7 @@ if(root){
         <td class="g12-student-cell" data-label="Student"><strong class="school-profile-khmer">${escape(r.name_kh||'—')}</strong><div class="g12-student-name-en">${escape(r.name_en||'—')}</div><div class="g12-student-dob"><span>DOB:</span><span class="school-profile-khmer">${escape(studentDob(r.dob)||'—')}</span></div></td>
         <td class="g12-grade-cell" data-label="Grade"><strong>${escape(r.academic_year||'—')}</strong><div>${escape(studentClass(r)||'—')}</div></td>
         <td class="g12-parents-cell" data-label="Parents"><div class="g12-parent-grid"><div class="g12-parent-entry"><div class="g12-parent-name school-profile-khmer"><span>ម្តាយ៖</span> ${escape(r.mother_name||'—')}</div><small><i class="ti ti-briefcase" aria-hidden="true"></i>${escape(r.mother_occupation||'—')}</small></div><div class="g12-parent-entry"><div class="g12-parent-name school-profile-khmer"><span>ឪពុក៖</span> ${escape(r.father_name||'—')}</div><small><i class="ti ti-briefcase" aria-hidden="true"></i>${escape(r.father_occupation||'—')}</small></div></div></td>
-        <td class="g12-g9-cell" data-label="G9 National Exams"><div class="g12-g9-center" aria-label="G9 exam center" title="${escape(r.g9_exam_center||'—')}">${escape(r.g9_exam_center||'—')}</div><div class="g12-g9-date" aria-label="G9 exam date">${escape(r.g9_exam_date||'—')}</div><div class="g12-g9-seat school-profile-khmer" aria-label="G9 room and seat"><span>បន្ទប់លេខៈ ${escape(r.g9_exam_room||'—')}</span><span>តុលេខៈ ${escape(r.g9_exam_seat||'—')}</span></div></td>
+        <td class="g12-g9-cell" data-label="G9 National Exams"><div class="g12-g9-center" aria-label="G9 exam center" title="${escape(r.g9_exam_center||'—')}">${escape(r.g9_exam_center||'—')}</div><div class="g12-g9-date school-profile-khmer" aria-label="G9 exam date">${escape(examDate(r.g9_exam_date))}</div><div class="g12-g9-seat school-profile-khmer" aria-label="G9 room and seat"><span>បន្ទប់លេខៈ ${escape(r.g9_exam_room||'—')}</span><span>តុលេខៈ ${escape(r.g9_exam_seat||'—')}</span></div></td>
         <td class="g12-g12-cell school-profile-khmer" data-label="G12 National Exams"><div class="g12-g12-overview"><div class="g12-g12-detail g12-g12-language">ប្រឡងភាសា៖ <span>${escape(examLanguageKhmer(r.language_exam)||'—')}</span></div><div class="g12-g12-detail g12-g12-class">ថ្នាក់៖ <span>${escape(r.class_selected||'—')}</span></div></div><div class="g12-g12-center" title="${escape(r.center||'—')}">មណ្ឌល៖ <span>${escape(r.center||'—')}</span></div><div class="g12-g12-date">សម័យប្រឡង៖ <span>${escape(r.g12_exam_date||'—')}</span></div><div class="g12-g12-seat" aria-label="G12 room and seat"><span>លេខបន្ទប់៖ ${escape(r.room||'—')}</span><span>លេខតុ៖ ${escape(r.seat||'—')}</span></div></td>
         <td class="g12-action-cell" data-label="Actions"><div class="d-flex gap-2"><button class="btn btn-sm btn-outline-primary" data-g12-view="${r.id}"><i class="ti ti-eye me-1"></i>View</button>${r.can_edit?`<button class="btn btn-sm btn-outline-primary" data-g12-edit="${r.id}" aria-label="Edit student"><i class="ti ti-edit me-1"></i><span class="g12-action-label">Edit</span></button>`:''}</div></td>
     </tr>`).join('')||'<tr><td colspan="8" class="text-center py-4">No student exam records match these filters.</td></tr>';
@@ -522,7 +523,7 @@ if(root){
             <h3 class="g12-view-section-title school-profile-khmer">ព័ត៌មានប្រឡងថ្នាក់ជាតិទី៩</h3>
             <div class="g12-view-grid">
                 ${detailItem('មណ្ឌលប្រឡង',detail.g9_exam_center)}
-                ${detailItem('សម័យប្រឡង',detail.g9_exam_date)}
+                ${detailItem('សម័យប្រឡង',examDate(detail.g9_exam_date),'school-profile-khmer')}
                 ${detailItem('លេខបន្ទប់',detail.g9_exam_room)}
                 ${detailItem('លេខតុ',detail.g9_exam_seat)}
             </div>

@@ -104,6 +104,31 @@ class G9ExamResultController
         else{
             $response['campuses']=$records->groupBy('campus_id')->map(fn($group)=>['label'=>$group->first()['campus']]+$this->counts($group))->sortBy('label',SORT_NATURAL)->values();
             $response['centers']=$records->groupBy('exam_center')->map(fn($group,$label)=>['label'=>$label?:'Not assigned']+$this->counts($group))->sortBy('label',SORT_NATURAL)->values();
+            if($view==='graph')$response['center_grades']=$records->groupBy('exam_center')->map(function($group,$label){
+                $attended=$group->where('outcome','!=','absent');
+                return ['label'=>$label?:'Not assigned','attended'=>$attended->count(),'absent'=>$group->where('outcome','absent')->count(),
+                    'grades'=>collect(['ល្អ','ល្អបង្គួរ','មធ្យម','ធ្លាក់'])->map(function($grade)use($attended){
+                        $total=$attended->where('letter_grade',$grade)->count();
+                        return ['label'=>$grade,'total'=>$total,'percentage'=>$this->percentage($total,$attended->count())];
+                    })->all()];
+            })->sortBy('label',SORT_NATURAL)->values();
+            if($view==='graph')$response['subject_results']=collect(\App\Support\G9ScoringReport::SUBJECTS)->map(function($subject,$field)use($records){
+                [$label,$maximum]=$subject;
+                $eligible=$records->filter(fn($r)=>$r['outcome']!=='absent'&&$r['language']!==null
+                    &&!($field==='score_english'&&$r['language']==='english')
+                    &&isset($r['scores'][$field])&&$r['scores'][$field]!==''&&is_numeric($r['scores'][$field])
+                    &&is_finite((float)$r['scores'][$field])&&(float)$r['scores'][$field]>=0);
+                $passed=$eligible->filter(fn($r)=>(float)$r['scores'][$field]>=(float)$maximum/2)->count();
+                $failed=$eligible->count()-$passed;
+                $languages=collect(['english'=>'English Exam','khmer'=>'Khmer Exam'])->map(function($name,$language)use($eligible,$field,$maximum){
+                    $group=$eligible->where('language',$language);$total=$group->count();
+                    $passed=$group->filter(fn($r)=>(float)$r['scores'][$field]>=(float)$maximum/2)->count();
+                    return ['key'=>$language,'label'=>$name,'applicable'=>!($field==='score_english'&&$language==='english'),
+                        'total'=>$total,'passed'=>$passed,'failed'=>$total-$passed,'passed_percentage'=>$this->percentage($passed,$total),'failed_percentage'=>$this->percentage($total-$passed,$total)];
+                })->values()->all();
+                return ['field'=>$field,'label'=>$label,'total'=>$eligible->count(),'passed'=>$passed,'failed'=>$failed,
+                    'passed_percentage'=>$this->percentage($passed,$eligible->count()),'failed_percentage'=>$this->percentage($failed,$eligible->count()),'languages'=>$languages];
+            })->values();
         }
         return response()->json($response)->header('Cache-Control','private, no-store');
     }

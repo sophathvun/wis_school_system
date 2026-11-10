@@ -1,0 +1,14 @@
+@import "../components/skipping-documents-upload.css";
+
+.csv-import-form [hidden], [data-import-modal] [hidden] { display: none !important; }
+.csv-import-form .premium-document-dropzone { min-height: 210px; padding: 1.25rem; }
+.csv-import-form .premium-document-dropzone[aria-disabled="true"] { opacity: .65; cursor: wait; }
+.csv-import-progress { padding: 1.1rem; border: 1px solid color-mix(in srgb, var(--tblr-primary) 24%, transparent); border-radius: 16px; background: linear-gradient(135deg, color-mix(in srgb, var(--tblr-primary) 7%, transparent), var(--tblr-bg-surface)); }
+.csv-import-percent { color: var(--tblr-primary); font-weight: 800; font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+.csv-import-progress .progress { height: 10px; border-radius: 20px; background: color-mix(in srgb, var(--tblr-primary) 12%, transparent); overflow: hidden; }
+.csv-import-progress .progress-bar { background: linear-gradient(90deg, var(--tblr-primary), color-mix(in srgb, var(--tblr-primary) 65%, #a99cff)); border-radius: inherit; transition: width .3s ease; }
+.csv-import-progress.is-waiting .progress-bar { width: 100% !important; opacity: .5; background-size: 30px 30px; background-image: linear-gradient(45deg, transparent 25%, #ffffff30 25%, #ffffff30 50%, transparent 50%, transparent 75%, #ffffff30 75%); animation: csv-import-wait 1.2s linear infinite; }
+.csv-import-counts { display: flex; flex-wrap: wrap; gap: .75rem 1.25rem; font-size: .8rem; }
+.csv-import-counts strong { margin-left: .35rem; font-variant-numeric: tabular-nums; }
+@keyframes csv-import-wait { to { background-position: 30px 0; } }
+@media (prefers-reduced-motion: reduce) { .csv-import-progress .progress-bar { transition: none; animation: none !important; } }

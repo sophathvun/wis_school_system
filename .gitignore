@@ -25,3 +25,7 @@ _ide_helper.php
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Private registrar review files generated from student and family imports.
+/outputs/student-import-review-*/
+/outputs/family-import-review-*/

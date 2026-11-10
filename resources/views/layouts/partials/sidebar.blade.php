@@ -160,6 +160,7 @@
                                             <i class="ti ti-database-export me-2"></i> Database Backups
                                         </a>
                                     @endif
+                                    <a class="dropdown-item" href="{{ route('help.index',['category'=>'administrator']) }}"><i class="ti ti-book me-2" aria-hidden="true"></i>Help &amp; guides</a>
                                 </div>
                             </div>
                         </div>
@@ -428,6 +429,7 @@
                                             <i class="ti ti-file-import me-2"></i> Import / Export Data
                                         </a>
                                     @endif
+                                    <a class="dropdown-item" href="{{ route('help.index',['category'=>'students']) }}"><i class="ti ti-book me-2" aria-hidden="true"></i>Help &amp; guides</a>
                                 </div>
                             </div>
                         </div>
@@ -454,6 +456,7 @@
                             @if(\App\Support\AttendancePermissions::allows(auth()->user(),'settings'))
                             <a class="dropdown-item {{ request()->routeIs('attendance.settings') ? 'active' : '' }}" href="{{ route('attendance.settings') }}"><i class="ti ti-settings me-2"></i>Attendance Settings</a>
                             @endif
+                            <a class="dropdown-item" href="{{ route('help.index',['category'=>'attendance']) }}"><i class="ti ti-book me-2" aria-hidden="true"></i>Help &amp; guides</a>
                         </div>
                     </li>
                 @endif
@@ -484,6 +487,9 @@
                     </li>
                 @endif
                 @include('layouts.partials.g9-national-exams-menu')
+                <li class="nav-item {{ request()->routeIs('help.*')?'active':'' }}">
+                    <a class="nav-link" href="{{ route('help.index') }}"><span class="nav-link-icon"><i class="ti ti-lifebuoy" aria-hidden="true"></i></span><span class="nav-link-title">Help Center</span></a>
+                </li>
                 @include('layouts.partials.g12-national-exams-menu')
                 <li class="nav-item {{ request()->routeIs('wmi-management.*') ? 'active' : '' }}">
                     <a class="nav-link" href="{{ route('wmi-management.index') }}">

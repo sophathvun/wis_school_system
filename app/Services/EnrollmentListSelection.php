@@ -29,8 +29,10 @@ class EnrollmentListSelection
         if ($request->filled('student_id')) $query->where('tb_student_enrollment.student_id', $request->integer('student_id'));
         $preferred = DB::table('tb_student_enrollment as preferred_enrollment')
             ->join('tb_academic_year as preferred_year', 'preferred_year.id', '=', 'preferred_enrollment.academic_year_id')
-            ->whereColumn('preferred_enrollment.student_id', 'tb_student_enrollment.student_id')
             ->select('preferred_enrollment.id');
+        $ordering=[];$bindings=[];
+        if(trim((string)$request->query('search',''))!=='')$preferred->whereIntegerInRaw('preferred_enrollment.student_id',$this->matchingStudentIds($request));
+        if($request->filled('student_id'))$preferred->where('preferred_enrollment.student_id',$request->integer('student_id'));
 
         if ($yearId) {
             $query->where('tb_student_enrollment.academic_year_id', $yearId);
@@ -39,16 +41,23 @@ class EnrollmentListSelection
             $query->where('tb_student_enrollment.academic_year_id', $activeYearId ?? 0);
             $preferred->where('preferred_enrollment.academic_year_id', $activeYearId ?? 0);
         } elseif ($activeYearId) {
-            $preferred->orderByRaw('CASE WHEN preferred_enrollment.academic_year_id = ? THEN 0 ELSE 1 END', [$activeYearId]);
+            $ordering[]='CASE WHEN preferred_enrollment.academic_year_id = ? THEN 0 ELSE 1 END';$bindings[]=$activeYearId;
         }
 
         // Choose a single placement before pagination and other list filters.
         // Prefer the current active placement when transfers left multiple rows.
-        $preferred->orderByDesc('preferred_year.academic_year')
-            ->orderByRaw("CASE WHEN preferred_enrollment.enrollment_status = 'active' THEN 0 ELSE 1 END")
-            ->orderByDesc('preferred_enrollment.id')->limit(1);
-
-        return $query->where('tb_student_enrollment.id', '=', $preferred);
+        $ordering[]='preferred_year.academic_year DESC';
+        $ordering[]="CASE WHEN preferred_enrollment.enrollment_status = 'active' THEN 0 ELSE 1 END";
+        $ordering[]='preferred_enrollment.id DESC';
+        $key='enrollment_list_preferred_ids.'.md5(json_encode([$yearId,$activeYearId,$searching,$includeLatest,$request->query('search'),$request->integer('student_id')]));
+        if(!$request->attributes->has($key)){
+            // Rank each student's placements once, rather than sorting their history
+            // again for every enrollment and each dependent filter query.
+            $preferred->selectRaw('ROW_NUMBER() OVER (PARTITION BY preferred_enrollment.student_id ORDER BY '.implode(', ',$ordering).') AS placement_position',$bindings);
+            $ids=DB::query()->fromSub($preferred,'preferred_placements')->where('placement_position',1)->pluck('id')->all();
+            $request->attributes->set($key,$ids);
+        }
+        return $query->whereIntegerInRaw('tb_student_enrollment.id',$request->attributes->get($key));
     }
 
     private function requestActiveYearId(Request $request): ?int

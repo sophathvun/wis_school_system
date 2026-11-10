@@ -26,7 +26,7 @@ class GraduationController
         $campusIds = $listMode
             ? ($academicYearId
                 ? StudentGraduation::query()
-                    ->where('status', 'completed')
+                    ->whereIn('status', ['pending_result', 'completed', 'cancelled'])
                     ->where('academic_year_id', $academicYearId)
                     ->select('campus_id')->distinct()->pluck('campus_id')
                 : collect())
@@ -36,7 +36,7 @@ class GraduationController
                     $query->selectRaw('1')
                         ->from('tb_student_graduation')
                         ->whereColumn('tb_student_graduation.enrollment_id', 'tb_student_enrollment.id')
-                        ->where('tb_student_graduation.status', 'completed');
+                        ->whereIn('tb_student_graduation.status', ['pending_result', 'completed']);
                 })
                 ->when($academicYearId, fn ($q) => $q->where('academic_year_id', $academicYearId))
                 ->whereHas('grade', fn ($q) => $q->where('grade', 'Grade 12'))
@@ -45,7 +45,7 @@ class GraduationController
         $classIds = $listMode
             ? ($academicYearId && $campusId
                 ? StudentGraduation::query()
-                    ->where('status', 'completed')
+                    ->whereIn('status', ['pending_result', 'completed', 'cancelled'])
                     ->whereNotNull('class_id')
                     ->where('campus_id', $campusId)
                     ->where('academic_year_id', $academicYearId)
@@ -57,7 +57,7 @@ class GraduationController
                     $query->selectRaw('1')
                         ->from('tb_student_graduation')
                         ->whereColumn('tb_student_graduation.enrollment_id', 'tb_student_enrollment.id')
-                        ->where('tb_student_graduation.status', 'completed');
+                        ->whereIn('tb_student_graduation.status', ['pending_result', 'completed']);
                 })
                 ->whereNotNull('class_id')
                 ->when($campusId, fn ($q) => $q->where('campus_id', $campusId))
@@ -68,7 +68,7 @@ class GraduationController
         $academicYears = $listMode
             ? AcademicYear::query()
                 ->where('period_type', 'regular')
-                ->whereIn('id', StudentGraduation::query()->where('status', 'completed')->select('academic_year_id')->distinct())
+                ->whereIn('id', StudentGraduation::query()->whereIn('status', ['pending_result', 'completed', 'cancelled'])->select('academic_year_id')->distinct())
                 ->orderByDesc('academic_year')
                 ->get(['id', 'academic_year'])
             : AcademicYear::query()
@@ -80,7 +80,7 @@ class GraduationController
                         $query->selectRaw('1')
                             ->from('tb_student_graduation')
                             ->whereColumn('tb_student_graduation.enrollment_id', 'tb_student_enrollment.id')
-                            ->where('tb_student_graduation.status', 'completed');
+                            ->whereIn('tb_student_graduation.status', ['pending_result', 'completed']);
                     })
                     ->select('academic_year_id')
                     ->distinct())
@@ -102,7 +102,7 @@ class GraduationController
                     $query->selectRaw('1')
                         ->from('tb_student_graduation')
                         ->whereColumn('tb_student_graduation.enrollment_id', 'tb_student_enrollment.id')
-                        ->where('tb_student_graduation.status', 'completed');
+                        ->whereIn('tb_student_graduation.status', ['pending_result', 'completed']);
                 })
                 ->where('tb_grade.grade', 'Grade 12')
                 ->orderBy('tb_school_info.campus_name_en')
@@ -117,7 +117,7 @@ class GraduationController
                 ? DB::table('tb_student_graduation')
                     ->join('tb_class', 'tb_class.id', '=', 'tb_student_graduation.class_id')
                     ->leftJoin('tb_grade', 'tb_grade.id', '=', 'tb_student_graduation.grade_id')
-                    ->where('tb_student_graduation.status', 'completed')
+                    ->whereIn('tb_student_graduation.status', ['pending_result', 'completed', 'cancelled'])
                     ->whereNotNull('tb_student_graduation.class_id')
                     ->where('tb_student_graduation.academic_year_id', $academicYearId)
                     ->where('tb_student_graduation.campus_id', $campusId)
@@ -129,7 +129,7 @@ class GraduationController
                         $query->selectRaw('1')
                             ->from('tb_student_graduation')
                             ->whereColumn('tb_student_graduation.enrollment_id', 'tb_student_enrollment.id')
-                            ->where('tb_student_graduation.status', 'completed');
+                            ->whereIn('tb_student_graduation.status', ['pending_result', 'completed']);
                     })
                     ->whereNotNull('tb_student_enrollment.class_id')
                     ->when($academicYearId, fn ($q) => $q->where('tb_student_enrollment.academic_year_id', $academicYearId))
@@ -206,7 +206,7 @@ class GraduationController
                 'enrollment:id,academic_track_id',
                 'enrollment.academicTrack:id,name_en,name_kh,code',
             ])
-            ->where('tb_student_graduation.status', 'completed')
+            ->whereIn('tb_student_graduation.status', ['pending_result', 'completed', 'cancelled'])
             ->when($request->academic_year_id, fn ($q, $value) => $q->where('tb_student_graduation.academic_year_id', $value))
             ->when($request->campus_id, fn ($q, $value) => $q->where('tb_student_graduation.campus_id', $value))
             ->when($request->class_id, fn ($q, $value) => $q->where('tb_student_graduation.class_id', $value))
@@ -247,12 +247,11 @@ class GraduationController
             'enrollment_ids' => ['nullable', 'array', 'min:1', 'required_without:enrollment_id'],
             'enrollment_ids.*' => ['integer', 'exists:tb_student_enrollment,id'],
             'graduation_date' => ['required', 'date'],
-            'certificate_number' => ['required', 'digits:4'],
             'is_alumni' => ['required', 'boolean'],
             'notes' => ['nullable', 'string', 'max:500'],
         ]);
 
-        $count = DB::transaction(function () use ($data) {
+        $count = DB::transaction(function () use ($data, $request) {
             $ids = collect($data['enrollment_ids'] ?? [$data['enrollment_id'] ?? null])
                 ->filter()
                 ->unique()
@@ -262,9 +261,10 @@ class GraduationController
                 throw ValidationException::withMessages(['enrollment_ids' => 'Please select at least one Grade 12 student.']);
             }
 
+            AcademicYear::whereIn('id', StudentEnrollment::whereIn('id',$ids)->select('academic_year_id'))->orderBy('id')->lockForUpdate()->get();
             $alreadyGraduatedCount = StudentGraduation::query()
                 ->whereIn('enrollment_id', $ids)
-                ->where('status', 'completed')
+                ->whereIn('status', ['pending_result', 'completed'])
                 ->count();
 
             if ($alreadyGraduatedCount > 0) {
@@ -282,6 +282,7 @@ class GraduationController
                 ->join('tb_class', 'tb_class.id', '=', 'tb_student_enrollment.class_id')
                 ->join('tb_student', 'tb_student.id', '=', 'tb_student_enrollment.student_id')
                 ->whereIn('tb_student_enrollment.id', $ids)
+                ->where('tb_student_enrollment.status',1)->where('tb_student.status',1)
                 ->where('tb_grade.grade', 'Grade 12')
                 ->whereIn('tb_student_enrollment.enrollment_status', self::GRADUATABLE_ENROLLMENT_STATUSES)
                 ->orderBy('tb_school_info.campus_name_en')
@@ -295,14 +296,13 @@ class GraduationController
             }
 
             $created = 0;
-            $sequences = [];
+            $wis = app(\App\Services\G12WisGraduation::class);
 
             foreach ($enrollments as $enrollment) {
-                $sequences[$enrollment->academic_year_id] ??= $this->nextCertificateSequence($enrollment->academic_year_id);
-                $certificateNumber = $this->makeCertificateNumber($data['certificate_number'], $sequences[$enrollment->academic_year_id]++);
+                $this->authorizeAction($request,'execute',$enrollment->campus_id);
+                $certificateNumber = $wis->numberForGraduation($enrollment->student_id, $enrollment->academic_year_id);
 
-                $enrollment->update(['enrollment_status' => 'graduated', 'ended_on' => $data['graduation_date'], 'exit_reason' => 'Graduated']);
-                StudentGraduation::updateOrCreate(['enrollment_id' => $enrollment->id], [
+                $graduation = StudentGraduation::updateOrCreate(['enrollment_id' => $enrollment->id], [
                     'student_id' => $enrollment->student_id,
                     'academic_year_id' => $enrollment->academic_year_id,
                     'campus_id' => $enrollment->campus_id,
@@ -312,7 +312,7 @@ class GraduationController
                     'graduation_date' => $data['graduation_date'],
                     'certificate_number' => $certificateNumber,
                     'is_alumni' => $data['is_alumni'],
-                    'status' => 'completed',
+                    'status' => 'pending_result',
                     'cancellation_type' => null,
                     'cancellation_reason' => null,
                     'cancelled_at' => null,
@@ -320,19 +320,21 @@ class GraduationController
                     'notes' => $data['notes'] ?? null,
                     'changed_by' => auth()->id(),
                 ]);
+                $wis->event('graduation_pending', $enrollment->student_id, $enrollment->academic_year_id, $wis->certificate($enrollment->student_id, $enrollment->academic_year_id), $graduation,
+                    ['previous_enrollment'=>$enrollment->only(['enrollment_status','ended_on','exit_reason'])]);
                 StudentEnrollmentHistory::create([
                     'enrollment_id' => $enrollment->id,
                     'student_id' => $enrollment->student_id,
-                    'action_type' => 'graduated',
+                    'action_type' => 'graduation_pending',
                     'campus_id' => $enrollment->campus_id,
                     'academic_year_id' => $enrollment->academic_year_id,
                     'grade_id' => $enrollment->grade_id,
                     'class_id' => $enrollment->class_id,
                     'session_id' => $enrollment->session_id,
-                    'enrollment_status' => 'graduated',
+                    'enrollment_status' => $enrollment->enrollment_status,
                     'student_type' => $enrollment->student_type,
                     'effective_on' => $data['graduation_date'],
-                    'reason' => 'Graduated',
+                    'reason' => 'Graduation pending WIS exam result',
                     'notes' => $data['notes'] ?? null,
                     'changed_by' => auth()->id(),
                 ]);
@@ -352,7 +354,6 @@ class GraduationController
             'campus_id' => ['nullable', 'exists:tb_school_info,id'],
             'class_id' => ['nullable', 'exists:tb_class,id'],
             'graduation_date' => ['required', 'date'],
-            'certificate_number' => ['required', 'digits:4'],
             'is_alumni' => ['required', 'boolean'],
             'notes' => ['nullable', 'string', 'max:500'],
         ]);
@@ -363,7 +364,8 @@ class GraduationController
             throw ValidationException::withMessages(['campus_id' => 'Please select a campus.']);
         }
 
-        $count = DB::transaction(function () use ($data) {
+        $count = DB::transaction(function () use ($data, $request) {
+            AcademicYear::whereKey($data['academic_year_id'])->lockForUpdate()->firstOrFail();
             $query = StudentEnrollment::query()
                 ->select('tb_student_enrollment.*')
                 ->join('tb_school_info', 'tb_school_info.id', '=', 'tb_student_enrollment.campus_id')
@@ -371,12 +373,13 @@ class GraduationController
                 ->join('tb_class', 'tb_class.id', '=', 'tb_student_enrollment.class_id')
                 ->join('tb_student', 'tb_student.id', '=', 'tb_student_enrollment.student_id')
                 ->where('tb_student_enrollment.academic_year_id', $data['academic_year_id'])
+                ->where('tb_student_enrollment.status',1)->where('tb_student.status',1)
                 ->whereIn('tb_student_enrollment.enrollment_status', self::GRADUATABLE_ENROLLMENT_STATUSES)
                 ->whereNotExists(function ($query) {
                     $query->selectRaw('1')
                         ->from('tb_student_graduation')
                         ->whereColumn('tb_student_graduation.enrollment_id', 'tb_student_enrollment.id')
-                        ->where('tb_student_graduation.status', 'completed');
+                        ->whereIn('tb_student_graduation.status', ['pending_result', 'completed']);
                 })
                 ->where('tb_grade.grade', 'Grade 12')
                 ->orderBy('tb_school_info.campus_name_en')
@@ -385,29 +388,36 @@ class GraduationController
                 ->orderByRaw("COALESCE(NULLIF(tb_student.full_name_en, ''), tb_student.full_name_kh, tb_student.student_id)");
             if (in_array($data['scope'], ['class', 'campus'], true)) $query->where('tb_student_enrollment.campus_id', $data['campus_id']);
             if ($data['scope'] === 'class') $query->where('tb_student_enrollment.class_id', $data['class_id']);
+            if (!$request->user()?->isSuperAdmin()) {
+                $allowed=$request->user()?->accessibleCampuses()->pluck('tb_school_info.id')->filter(fn($campus)=>$request->user()->hasPermission('students.graduation.execute',$campus)||$request->user()->hasPermission('students.graduation.manage',$campus)) ?? collect();
+                $query->whereIn('tb_student_enrollment.campus_id',$allowed);
+            }
             $enrollments = $query->get();
             if ($enrollments->isEmpty()) throw ValidationException::withMessages(['scope' => 'No eligible Grade 12 students were found for this selection. Students already graduated are excluded.']);
 
             $created = 0;
-            $nextCertificateSequence = $this->nextCertificateSequence($data['academic_year_id']);
+            $wis = app(\App\Services\G12WisGraduation::class);
 
             foreach ($enrollments as $enrollment) {
-                $enrollment->update(['enrollment_status' => 'graduated', 'ended_on' => $data['graduation_date'], 'exit_reason' => 'Graduated']);
-                StudentGraduation::updateOrCreate(['enrollment_id' => $enrollment->id], [
+                $this->authorizeAction($request,'execute',$enrollment->campus_id);
+                $certificateNumber = $wis->numberForGraduation($enrollment->student_id, $enrollment->academic_year_id);
+                $graduation = StudentGraduation::updateOrCreate(['enrollment_id' => $enrollment->id], [
                     'student_id' => $enrollment->student_id,
                     'academic_year_id' => $enrollment->academic_year_id, 'campus_id' => $enrollment->campus_id,
                     'grade_id' => $enrollment->grade_id, 'class_id' => $enrollment->class_id, 'session_id' => $enrollment->session_id,
-                    'graduation_date' => $data['graduation_date'], 'certificate_number' => $this->makeCertificateNumber($data['certificate_number'], $nextCertificateSequence++),
-                    'is_alumni' => $data['is_alumni'], 'status' => 'completed',
+                    'graduation_date' => $data['graduation_date'], 'certificate_number' => $certificateNumber,
+                    'is_alumni' => $data['is_alumni'], 'status' => 'pending_result',
                     'cancellation_type' => null, 'cancellation_reason' => null, 'cancelled_at' => null, 'cancelled_by' => null,
                     'notes' => $data['notes'] ?? null, 'changed_by' => auth()->id(),
                 ]);
+                $wis->event('graduation_pending', $enrollment->student_id, $enrollment->academic_year_id, $wis->certificate($enrollment->student_id, $enrollment->academic_year_id), $graduation,
+                    ['previous_enrollment'=>$enrollment->only(['enrollment_status','ended_on','exit_reason'])]);
                 StudentEnrollmentHistory::create([
-                    'enrollment_id' => $enrollment->id, 'student_id' => $enrollment->student_id, 'action_type' => 'graduated',
+                    'enrollment_id' => $enrollment->id, 'student_id' => $enrollment->student_id, 'action_type' => 'graduation_pending',
                     'campus_id' => $enrollment->campus_id, 'academic_year_id' => $enrollment->academic_year_id,
                     'grade_id' => $enrollment->grade_id, 'class_id' => $enrollment->class_id, 'session_id' => $enrollment->session_id,
-                    'enrollment_status' => 'graduated', 'student_type' => $enrollment->student_type,
-                    'effective_on' => $data['graduation_date'], 'reason' => 'Graduated', 'notes' => $data['notes'] ?? null,
+                    'enrollment_status' => $enrollment->enrollment_status, 'student_type' => $enrollment->student_type,
+                    'effective_on' => $data['graduation_date'], 'reason' => 'Graduation pending WIS exam result', 'notes' => $data['notes'] ?? null,
                     'changed_by' => auth()->id(),
                 ]);
                 $created++;
@@ -419,7 +429,8 @@ class GraduationController
 
     public function cancel(Request $request, StudentGraduation $graduation)
     {
-        if (($graduation->status ?? 'completed') !== 'completed') {
+        $this->authorizeAction($request,'cancel',$graduation->campus_id);
+        if (!in_array($graduation->status ?? 'completed', ['pending_result','completed'], true)) {
             return response()->json(['message' => 'This graduation has already been cancelled.'], 422);
         }
 
@@ -429,6 +440,9 @@ class GraduationController
         ]);
 
         DB::transaction(function () use ($graduation, $data) {
+            AcademicYear::whereKey($graduation->academic_year_id)->lockForUpdate()->firstOrFail();
+            $graduation = StudentGraduation::whereKey($graduation->id)->lockForUpdate()->firstOrFail();
+            if (!in_array($graduation->status, ['pending_result','completed'], true)) throw ValidationException::withMessages(['status'=>'This graduation is already cancelled.']);
             $graduation->load(['enrollment', 'academicYear']);
             $restoredStatus = $this->restoredEnrollmentStatus($graduation->academicYear);
             $reasonType = match ($data['cancellation_type']) {
@@ -444,13 +458,18 @@ class GraduationController
                 'cancelled_at' => now(),
                 'cancelled_by' => auth()->id(),
             ]);
+            app(\App\Services\G12WisGraduation::class)->void($graduation, $data['cancellation_reason']);
 
             if ($graduation->enrollment) {
-                $graduation->enrollment->update([
+                $pendingEvent=DB::table('tb_g12_wis_certificate_event')->where('graduation_id',$graduation->id)->where('action','graduation_pending')->latest('id')->value('details');
+                $previous=$pendingEvent ? (json_decode($pendingEvent,true)['previous_enrollment']??null) : null;
+                $restore=$previous ?: [
                     'enrollment_status' => $restoredStatus,
                     'ended_on' => null,
                     'exit_reason' => null,
-                ]);
+                ];
+                $graduation->enrollment->update($restore);
+                $restoredStatus=$restore['enrollment_status'];
 
                 StudentEnrollmentHistory::create([
                     'enrollment_id' => $graduation->enrollment->id,
@@ -471,7 +490,22 @@ class GraduationController
             }
         });
 
-        return response()->json(['status' => 'success', 'message' => 'Graduation cancelled successfully.']);
+        return response()->json(['status' => 'success', 'message' => 'Graduation cancelled. The linked WIS certificate is voided and its number is retained.']);
+    }
+
+    public function confirmPass(Request $request, StudentGraduation $graduation)
+    {
+        $this->authorizeAction($request,'execute',$graduation->campus_id);
+        app(\App\Services\G12WisGraduation::class)->confirmPass($graduation);
+        return response()->json(['message'=>'Exam pass confirmed. Graduation is completed and the WIS certificate is valid.']);
+    }
+
+    private function authorizeAction(Request $request, string $action, ?int $campus): void
+    {
+        $user=$request->user();
+        if ($user?->isSuperAdmin()) return;
+        abort_unless($user && $campus && $user->accessibleCampuses()->where('tb_school_info.id',$campus)->exists()
+            && ($user->hasPermission('students.graduation.'.$action,$campus)||$user->hasPermission('students.graduation.manage',$campus)),403);
     }
 
     private function restoredEnrollmentStatus(?AcademicYear $academicYear): string
@@ -483,29 +517,4 @@ class GraduationController
         };
     }
 
-    private function nextCertificateSequence(int $academicYearId): int
-    {
-        AcademicYear::query()->whereKey($academicYearId)->lockForUpdate()->first();
-
-        $next = ((int) StudentGraduation::query()
-            ->where('academic_year_id', $academicYearId)
-            ->whereNotNull('certificate_number')
-            ->lockForUpdate()
-            ->max(DB::raw('CAST(RIGHT(certificate_number, 3) AS UNSIGNED)'))) + 1;
-
-        if ($next > 999) {
-            throw ValidationException::withMessages(['certificate_number' => 'The certificate running number for this academic year has reached 999.']);
-        }
-
-        return $next;
-    }
-
-    private function makeCertificateNumber(string $prefix, int $sequence): string
-    {
-        if ($sequence > 999) {
-            throw ValidationException::withMessages(['certificate_number' => 'The certificate running number for this academic year has reached 999.']);
-        }
-
-        return $prefix . str_pad((string) $sequence, 3, '0', STR_PAD_LEFT);
-    }
 }

@@ -42,6 +42,38 @@ it('reuses scoring formulas and grade boundaries while separating pending and ab
     expect($data['summary']['grades'])->toBe([['label'=>'ធ្លាក់','total'=>1],['label'=>'មធ្យម','total'=>4],['label'=>'ល្អបង្គួរ','total'=>2],['label'=>'ល្អ','total'=>1]]);
 });
 
+it('returns letter grade counts and attendance percentages per filtered exam center',function(){
+    g9ResultCandidate('1',416);g9ResultCandidate('2',338);g9ResultCandidate('3',300);g9ResultCandidate('4',200);
+    g9ResultCandidate('5',300,[],['attendance_status'=>'absent']);g9ResultCandidate('6',300,['score_math'=>null]);
+    g9ResultCandidate('7',416,['exam_center'=>'Center B'],['campus_id'=>2]);
+    $data=$this->results->data(g12Request(User::find(1),['academic_year'=>1,'view'=>'graph']))->getData(true);
+    expect($data['center_grades'])->toHaveCount(2)
+        ->and($data['center_grades'][0])->toMatchArray(['label'=>'Center A','attended'=>5,'absent'=>1])
+        ->and(array_column($data['center_grades'][0]['grades'],'total'))->toBe([1,1,1,1])
+        ->and(array_column($data['center_grades'][0]['grades'],'percentage'))->toBe([20,20,20,20]);
+    $filtered=$this->results->data(g12Request(User::find(1),['academic_year'=>1,'view'=>'graph','campus'=>2]))->getData(true);
+    expect($filtered['center_grades'])->toHaveCount(1)->and($filtered['center_grades'][0]['label'])->toBe('Center B')
+        ->and($filtered['center_grades'][0]['grades'][0]['percentage'])->toBe(100);
+});
+
+it('graphs subject pass marks using present entered scores and exam language eligibility',function(){
+    g9ResultCandidate('1',300,['exam_language'=>'Khmer','score_chemistry'=>12.5]);
+    g9ResultCandidate('2',300,['exam_language'=>'Khmer','score_chemistry'=>12.49]);
+    g9ResultCandidate('3',300,['score_chemistry'=>null]);
+    g9ResultCandidate('4',300,['score_chemistry'=>25],['attendance_status'=>'absent']);
+    g9ResultCandidate('5',300,['exam_language'=>'English','score_english'=>50]);
+    $data=$this->results->data(g12Request(User::find(1),['academic_year'=>1,'view'=>'graph']))->getData(true);
+    $subjects=collect($data['subject_results'])->keyBy('field');
+    expect($subjects)->toHaveCount(11)
+        ->and($subjects['score_chemistry'])->toMatchArray(['total'=>3,'passed'=>1,'failed'=>2,'passed_percentage'=>33.33,'failed_percentage'=>66.67])
+        ->and($subjects['score_english'])->toMatchArray(['total'=>2,'passed'=>0,'failed'=>2]);
+    expect($subjects['score_chemistry']['languages'][0])->toMatchArray(['total'=>1,'passed'=>0,'failed'=>1,'failed_percentage'=>100])
+        ->and($subjects['score_chemistry']['languages'][1])->toMatchArray(['total'=>2,'passed'=>1,'failed'=>1,'passed_percentage'=>50])
+        ->and($subjects['score_english']['languages'][0]['applicable'])->toBeFalse();
+    $filtered=$this->results->data(g12Request(User::find(1),['academic_year'=>1,'view'=>'graph','search'=>'Student 3']))->getData(true);
+    expect(collect($filtered['subject_results'])->firstWhere('field','score_chemistry'))->toMatchArray(['total'=>0,'passed'=>0,'failed'=>0,'passed_percentage'=>null]);
+});
+
 it('counts passed English and Khmer candidates and females across all tabs and selected filters',function(){
     g9ResultCandidate('1',300,['exam_language'=>'English']);
     g9ResultCandidate('2',300,['exam_language'=>' EN ','gender'=>'Male']);

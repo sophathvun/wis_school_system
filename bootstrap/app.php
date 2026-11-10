@@ -34,6 +34,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 || $request->is('hrm/staff-management/address-options')
                 || ($request->is('login/passkey', 'login/passkey/*', 'profile/passkeys', 'profile/passkeys/*') && $request->expectsJson())
                 || ($request->is('photo-editor', 'photo-editor/*', 'photos/size', 'hrm/staff-management/photo/*', 'settings/users/photo/*', 'profile/photo/*') && $request->expectsJson())
+                || ($request->is('student-graduations/*', 'reports/g12-certificate-wis/settings') && $request->expectsJson())
                 || ($request->is('g12-national-exams', 'g12-national-exams/*', 'families/*', 'status/*', 'summer-school/*', 'student-enrollments/*', 'student-documents*', 'students/skipping-grade', 'students/skipping-grade/*', 'students/western-scholarship', 'students/western-scholarship/*', 'student-enrollment-workflows/*', 'communication/chat', 'communication/chat/*', 'push/*') && $request->expectsJson()),
         );
 

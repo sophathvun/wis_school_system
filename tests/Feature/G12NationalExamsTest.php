@@ -126,6 +126,42 @@ it('returns the student birth date and parent details required by the exam recor
         'language_exam'=>'English','class_selected'=>'វិទ្យាសាស្ត្រ','g12_exam_date'=>'2026-11-03',
     ]);
 });
+it('displays legacy Excel G9 exam dates without changing the stored exam record',function(){
+    $record=app(G12NationalExams::class)->save(User::find(1),g12ExamData(['g9_exam_date'=>'43682']));
+    $controller=app(G12NationalExamController::class);
+    $list=$controller->list(g12Request(User::find(1),['tab'=>'records']))->getData(true);
+    $detail=$controller->show(g12Request(User::find(1)),$record)->getData(true);
+    expect($list['data'][0]['g9_exam_date'])->toBe('2019-08-05')
+        ->and($detail['g9_exam_date'])->toBe('2019-08-05')
+        ->and($record->fresh()->data['g9_exam_date'])->toBe('43682');
+    foreach(['','2023-11-06','០៤ សីហា ២០១៩','Unknown'] as $value){
+        expect(\App\Support\G12NationalExamFields::examDate($value))->toBe($value);
+    }
+    expect(\App\Support\G12NationalExamFields::examDate('43682.5'))->toBe('2019-08-05');
+});
+it('converts numeric exam dates from both Excel calendar systems during import',function(bool $date1904){
+    $path=tempnam(sys_get_temp_dir(),'g12-exam-dates-');
+    try{
+        $zip=new ZipArchive();$zip->open($path,ZipArchive::OVERWRITE);
+        $zip->addFromString('xl/workbook.xml','<workbook xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><workbookPr date1904="'.($date1904?'1':'0').'"/><sheets><sheet name="Students" r:id="rId1"/><sheet name="Centers" r:id="rId2"/></sheets></workbook>');
+        $zip->addFromString('xl/_rels/workbook.xml.rels','<Relationships><Relationship Id="rId1" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Target="worksheets/sheet2.xml"/></Relationships>');
+        $headers=['student_id','academic_year','student_name_en','campus','g9_exam_date','g12_exam_date'];
+        $values=['SAMPLE-001','2025-2026','TEST STUDENT','BCH','43682','45000'];
+        $sheet='<worksheet><sheetData>';
+        foreach([$headers,$values] as $index=>$row){
+            $sheet.='<row r="'.($index+1).'">';
+            foreach($row as $column=>$value)$sheet.='<c r="'.chr(65+$column).($index+1).'" t="inlineStr"><is><t>'.$value.'</t></is></c>';
+            $sheet.='</row>';
+        }
+        $zip->addFromString('xl/worksheets/sheet1.xml',$sheet.'</sheetData></worksheet>');
+        $zip->addFromString('xl/worksheets/sheet2.xml','<worksheet><sheetData><row r="1"><c r="A1" t="inlineStr"><is><t>exam_center</t></is></c></row></sheetData></worksheet>');
+        $zip->close();
+        $record=app(G12NationalExamWorkbook::class)->read($path)['records'][0];
+        expect($record['g9_exam_date'])->toBe($date1904?'2023-08-06':'2019-08-05')
+            ->and($record['g12_exam_date'])->toBe($date1904?'2027-03-16':'2023-03-15')
+            ->and($record['student_id'])->toBe('SAMPLE-001');
+    }finally{unlink($path);}
+})->with([false,true]);
 it('renders the filtered A4 candidate print report with Branding School Logo 1',function(){
     Storage::fake('public');
     \Illuminate\Support\Facades\Schema::create('tb_branding_setting',function(\Illuminate\Database\Schema\Blueprint $table){

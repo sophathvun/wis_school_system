@@ -49,6 +49,11 @@
         <div class="premium-profile-divider"></div>
 
         <div class="premium-profile-actions premium-profile-actions-secondary">
+            <a href="{{ route('help.index') }}" class="dropdown-item premium-profile-action">
+                <span class="premium-profile-action-icon"><i class="ti ti-book"></i></span>
+                <span class="premium-profile-action-label">Help Center</span>
+                <i class="ti ti-chevron-right premium-profile-action-end" aria-hidden="true"></i>
+            </a>
             <a href="{{ route('feedback') }}" class="dropdown-item premium-profile-action">
                 <span class="premium-profile-action-icon"><i class="ti ti-help-circle"></i></span>
                 <span class="premium-profile-action-label">Feedback &amp; Help</span>

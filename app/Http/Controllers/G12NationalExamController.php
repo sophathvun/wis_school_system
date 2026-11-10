@@ -195,7 +195,7 @@ class G12NationalExamController {
             'room'=>$r->data['g12_exam_room']??'','seat'=>$r->data['g12_exam_seat']??'','photo_url'=>$r->photo_path?route('g12-national-exams.photo',$r):null,
             'dob'=>$r->data['dob']??'','mother_name'=>$r->data['mother_name']??'','mother_occupation'=>$r->data['mother_occupation']??'',
             'father_name'=>$r->data['father_name']??'','father_occupation'=>$r->data['father_occupation']??'',
-            'g9_exam_center'=>$r->data['g9_exam_center']??'','g9_exam_date'=>$r->data['g9_exam_date']??'',
+            'g9_exam_center'=>$r->data['g9_exam_center']??'','g9_exam_date'=>Fields::examDate($r->data['g9_exam_date']??''),
             'g9_exam_room'=>$r->data['g9_exam_room']??'','g9_exam_seat'=>$r->data['g9_exam_seat']??'',
             'language_exam'=>$r->data['language_exam']??'','class_selected'=>$r->data['class_sellected']??$r->data['class_selected']??'','g12_exam_date'=>$r->data['g12_exam_date']??'','score_rank'=>$r->data['g12_score_rank']??'',
             'subject_scores'=>$subjectScores,

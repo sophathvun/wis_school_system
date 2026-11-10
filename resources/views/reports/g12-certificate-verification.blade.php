@@ -10,8 +10,8 @@
 <body>
 <main class="certificate-verification">
     <header><p>Western International School</p><h1>Certificate Verification</h1></header>
-    <section aria-label="Verified certificate">
-        <p class="verification-status">Verified G12 Certificate</p>
+    <section aria-label="G12 certificate status">
+        <p class="verification-status {{ $certificate->status === 'voided' ? 'is-voided' : (in_array($certificate->status,['pending_result','printed_pending']) ? 'is-pending' : '') }}">{{ match ($certificate->status) { 'voided'=>'VOIDED — This certificate is not valid', 'pending_result','printed_pending'=>'Pending Exam Result — Not valid for release', default=>'Verified G12 Certificate' } }}</p>
         <h2>High School Diploma</h2>
         <dl>
             <div><dt>Certificate Number</dt><dd>{{ $certificate->certificate_number }}</dd></div>

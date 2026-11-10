@@ -7,17 +7,29 @@ use App\Models\Family;
 use App\Models\FamilyMember;
 use App\Models\Student;
 use App\Models\StudentEnrollment;
+use App\Services\EnrollmentCsvValues;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class StudentDataTransferController
 {
+    private ?EnrollmentCsvValues $enrollmentCsv = null;
     private const STUDENT_COLUMNS = ['student_id', 'student_no', 'family_number', 'full_name_en', 'full_name_kh', 'gender', 'gender_kh', 'date_of_birth', 'nationality_country_id', 'home_phone', 'email', 'birth_country_id', 'birth_province_id', 'birth_district_id', 'birth_commune_id', 'birth_village_id', 'address_country_id', 'address_province_id', 'address_district_id', 'address_commune_id', 'address_village_id', 'address_house_no_en', 'address_house_no_kh', 'address_street_en', 'address_street_kh', 'current_address_en', 'current_address_kh', 'previous_school', 'experienced_english', 'test_result', 'tested_by', 'remarks', 'photo_path', 'status'];
-    private const ENROLLMENT_COLUMNS = ['student_id', 'academic_year_id', 'campus_id', 'grade_id', 'class_id', 'session_id', 'group_id', 'student_type', 'enrollment_status', 'enrolled_on', 'ended_on', 'exit_reason', 'notes', 'status'];
+    private const ENROLLMENT_COLUMNS = ['student_id', 'academic_year_id', 'campus_id', 'grade_id', 'class_id', 'academic_track_id', 'session_id', 'group_id', 'student_type', 'enrollment_status', 'enrolled_on', 'ended_on', 'exit_reason', 'notes', 'status'];
     private const FAMILY_COLUMNS = ['family_number', 'student_id', 'relationship_type', 'full_name_en', 'full_name_kh', 'phone', 'email', 'occupation_id', 'nationality_country_id', 'workplace', 'is_primary_contact', 'has_pickup_authorization', 'has_portal_access', 'status'];
 
     public function index() { return view('student-data-transfer'); }
+
+    public function progress(Request $request, string $token)
+    {
+        abort_unless(Str::isUuid($token), 404);
+        $progress = Cache::get('student-csv-progress:'.$token);
+        abort_if($progress && (string) $progress['user_id'] !== (string) $request->query('user'), 404);
+        return response()->json($progress ? array_diff_key($progress, ['user_id'=>true]) : ['phase'=>'preparing'], 200, ['Cache-Control'=>'private, no-store']);
+    }
 
     public function template(string $type)
     {
@@ -26,13 +38,27 @@ class StudentDataTransferController
         return $this->csvResponse($type.'-template.csv', [$columns, $this->exampleRow($type, $columns)]);
     }
 
+    public function failedRows(Request $request, string $type)
+    {
+        abort_unless($type === 'enrollments', 404);
+        $report = $request->session()->get('enrollment_failed_rows');
+        abort_unless($report, 404, 'No rejected enrollment rows are available in this session.');
+        abort_unless($request->user() && (string) $report['user_id'] === (string) $request->user()->getAuthIdentifier(), 403);
+        abort_unless(Storage::disk('local')->exists($report['path']), 404, 'The rejected-row file is no longer available.');
+
+        return Storage::disk('local')->download($report['path'], $report['filename'], [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Cache-Control' => 'private, no-store',
+        ]);
+    }
+
     public function export(string $type)
     {
         abort_unless(in_array($type, ['students', 'enrollments', 'families'], true), 404);
         $columns = $this->templateColumns($type);
         $rows = match ($type) {
             'students' => Student::with(['nationalityCountry', 'birthCountry', 'birthProvince', 'birthDistrict', 'birthCommune', 'birthVillage', 'addressCountry', 'addressProvince', 'addressDistrict', 'addressCommune', 'addressVillage'])->orderBy('id')->get()->map(fn ($item) => $this->friendlyRow($item, $columns, 'students')),
-            'enrollments' => StudentEnrollment::with(['student', 'academicYear', 'campus', 'grade', 'schoolClass', 'session', 'schoolGroup'])->orderBy('student_id')->orderBy('academic_year_id')->get()->map(function ($item) {
+            'enrollments' => StudentEnrollment::with(['student', 'academicYear', 'campus', 'grade', 'schoolClass', 'academicTrack', 'session', 'schoolGroup'])->orderBy('student_id')->orderBy('academic_year_id')->get()->map(function ($item) {
                 $row = $this->friendlyRow($item, $this->templateColumns('enrollments'), 'enrollments');
                 $row['student_id'] = $item->student?->student_id;
                 return $row;
@@ -55,21 +81,38 @@ class StudentDataTransferController
     public function import(Request $request, string $type)
     {
         abort_unless($this->columns($type), 404);
-        $request->validate(['file' => ['required', 'file', 'mimes:csv,txt', 'max:10240']]);
+        $request->validate(['file' => ['required', 'file', 'mimes:csv,txt', 'max:10240'], 'progress_token'=>['nullable','uuid']]);
         [$headers, $rows] = $this->readCsv($request->file('file')->getRealPath());
         $required = match ($type) { 'students' => ['student_id'], 'enrollments' => ['student_id', 'academic_year_id', 'campus_id', 'grade_id', 'class_id'], 'families' => ['family_number', 'relationship_type', 'full_name_en'] };
         $missing = array_diff($required, $headers);
-        if ($missing) return back()->withErrors(['file' => 'Missing required columns: '.implode(', ', $missing)]);
+        if ($missing) {
+            $message = 'Missing required columns: '.implode(', ', $missing);
+            return $request->expectsJson() ? response()->json(['message'=>$message], 422) : back()->withErrors(['file'=>$message]);
+        }
+        $total = count(array_filter($rows, fn ($values) => collect(array_slice($values, 0, count($headers)))->contains(fn ($value) => filled($value))));
+        $processed = 0;
+        $progressKey = $request->filled('progress_token') ? 'student-csv-progress:'.$request->input('progress_token') : null;
+        $publishProgress = function (string $phase, int $imported, int $rejected) use ($progressKey, $request, $total, &$processed) {
+            if ($progressKey) Cache::put($progressKey, ['user_id'=>$request->user()?->getAuthIdentifier(), 'phase'=>$phase,
+                'total'=>$total, 'processed'=>$processed, 'imported'=>$imported, 'failed'=>$rejected,
+                'percent'=>$total ? (int) floor($processed * 100 / $total) : ($phase==='complete' ? 100 : 0)], now()->addHour());
+        };
+        if ($progressKey && !Cache::add($progressKey, ['user_id'=>$request->user()?->getAuthIdentifier(), 'phase'=>'preparing'], now()->addHour())) {
+            return response()->json(['message'=>'This import has already started. Reload the page to check its result before starting another import.'], 409);
+        }
+        $publishProgress('processing', 0, 0);
         $count = 0;
         $failed = [];
         foreach ($rows as $index => $values) {
             $line = $index + 2;
             $data = array_combine($headers, array_slice(array_pad($values, count($headers), null), 0, count($headers)));
             if (!collect($data)->contains(fn ($value) => filled($value))) continue;
+            $processed++;
 
             $missingValues = collect($required)->filter(fn ($field) => !filled($data[$field] ?? null))->values()->all();
             if ($missingValues) {
                 $failed[] = $this->failedImportRow($type, $data, $line, $missingValues, 'Required value is missing.');
+                if ($processed % 25 === 0 || $processed === $total) $publishProgress('processing', $count, count($failed));
                 continue;
             }
 
@@ -79,9 +122,38 @@ class StudentDataTransferController
             } catch (\Throwable $exception) {
                 $failed[] = $this->failedImportRow($type, $data, $line, [], $exception->getMessage());
             }
+            if ($processed % 25 === 0 || $processed === $total) $publishProgress('processing', $count, count($failed));
         }
 
-        return back()
+        if ($type === 'enrollments') {
+            $request->session()->forget('enrollment_failed_rows');
+            if ($failed) {
+                try {
+                    $csv = fopen('php://temp', 'w+');
+                    fwrite($csv, "\xEF\xBB\xBF");
+                    $exportHeaders = array_values(array_diff($headers, ['import_csv_row', 'import_missing_fields', 'import_error']));
+                    fputcsv($csv, [...$exportHeaders, 'import_csv_row', 'import_missing_fields', 'import_error']);
+                    foreach ($failed as $failure) {
+                        fputcsv($csv, [...array_map(fn ($column) => $failure['submitted'][$column] ?? '', $exportHeaders),
+                            $failure['line'], implode(', ', $failure['fields']), $failure['reason']]);
+                    }
+                    rewind($csv);
+                    $contents = stream_get_contents($csv);
+                    fclose($csv);
+                    $path = 'student-data-transfer/failed-rows/'.Str::uuid().'.csv';
+                    if (!Storage::disk('local')->put($path, $contents)) throw new \RuntimeException('Unable to save rejected-row CSV.');
+                    $request->session()->put('enrollment_failed_rows', [
+                        'path' => $path, 'user_id' => $request->user()?->getAuthIdentifier(), 'count' => count($failed),
+                        'filename' => 'enrollments-failed-rows-'.now()->format('Ymd-His').'.csv',
+                    ]);
+                } catch (\Throwable $exception) {
+                    report($exception);
+                    $request->session()->flash('failed_rows_download_error', 'The rejected-row CSV could not be saved. Please use the Import Result table to review these rows.');
+                }
+            }
+        }
+
+        $result = back()
             ->with('success', "{$count} {$type} row(s) imported successfully.")
             ->with('import_report', [
                 'type' => $type,
@@ -89,6 +161,8 @@ class StudentDataTransferController
                 'imported' => $count,
                 'failed' => $failed,
             ]);
+        $publishProgress('complete', $count, count($failed));
+        return $request->expectsJson() ? response()->json(['redirect'=>route('student-data-transfer.index'), 'total'=>$count+count($failed), 'imported'=>$count, 'failed'=>count($failed)]) : $result;
     }
 
     private function failedImportRow(string $type, array $data, int $line, array $fields, string $reason): array
@@ -102,6 +176,7 @@ class StudentDataTransferController
             'identifier' => trim((string) $identifier) ?: '-',
             'fields' => $fields,
             'reason' => Str::limit($reason, 500),
+            ...($type === 'enrollments' ? ['submitted' => $data] : []),
             'data' => collect($data)->filter(fn ($value) => filled($value))->only([
                 'student_id', 'family_number', 'relationship_type', 'academic_year_id',
                 'campus_id', 'grade_id', 'class_id', 'session_id', 'full_name_en', 'full_name_kh',
@@ -127,17 +202,10 @@ class StudentDataTransferController
             return;
         }
         if ($type === 'enrollments') {
-            $student = Student::where('student_id', trim($data['student_id']))->firstOrFail();
-            $values = collect($data)->only(self::ENROLLMENT_COLUMNS)->except('student_id')->map(fn ($value, $key) => in_array($key, ['status']) ? $this->boolean($value) : ($value === '' ? null : $value))->all();
-            $values['academic_year_id'] = $this->lookupId($values['academic_year_id'] ?? null, 'tb_academic_year', ['academic_year', 'academic_year_code']);
-            $values['campus_id'] = $this->lookupId($values['campus_id'] ?? null, 'tb_school_info', ['campus_name_en', 'campus_name_kh', 'school_name_en', 'school_name_kh']);
-            $values['grade_id'] = $this->lookupId($values['grade_id'] ?? null, 'tb_grade', ['grade', 'grade_short_name']);
-            $values['class_id'] = $this->lookupId($values['class_id'] ?? null, 'tb_class', ['class_name']);
-            $values['group_id'] = $this->lookupId($values['group_id'] ?? null, 'tb_group', ['group_name']);
-            $values['session_id'] = $this->lookupId($values['session_id'] ?? null, 'tb_session', ['session_name', 'session_short_name']);
+            $student = Student::where('student_id', trim($data['student_id']))->first();
+            if (!$student) throw new \RuntimeException("Student ID '{$data['student_id']}' was not found. Import or correct the Student Information record first.");
+            $values = ($this->enrollmentCsv ??= new EnrollmentCsvValues())->resolve($data);
             $values['student_id'] = $student->id;
-            $values['enrollment_status'] = $values['enrollment_status'] ?: 'active';
-            $values['status'] = array_key_exists('status', $data) && filled($data['status']) ? $this->boolean($data['status']) : 1;
             StudentEnrollment::updateOrCreate(['student_id' => $student->id, 'academic_year_id' => $values['academic_year_id']], $values);
             return;
         }
@@ -180,7 +248,7 @@ class StudentDataTransferController
     {
         return match ($type) {
             'students' => array_values(array_diff(self::STUDENT_COLUMNS, ['student_no', 'status'])),
-            'enrollments' => array_values(array_diff(self::ENROLLMENT_COLUMNS, ['status', 'enrollment_status'])),
+            'enrollments' => self::ENROLLMENT_COLUMNS,
             'families' => array_values(array_diff(self::FAMILY_COLUMNS, ['status'])),
             default => [],
         };
@@ -205,8 +273,8 @@ class StudentDataTransferController
             ],
             'enrollments' => [
                 'student_id' => 'STU-0001', 'academic_year_id' => '2025-2026', 'campus_id' => 'BCH', 'grade_id' => 'Grade 1',
-                'class_id' => '1A', 'session_id' => 'Morning', 'group_id' => 'Morning', 'student_type' => 'new',
-                'enrollment_status' => 'active', 'enrolled_on' => '2025-08-01', 'ended_on' => '2026-06-30',
+                'class_id' => '1A', 'academic_track_id' => '', 'session_id' => 'Morning', 'group_id' => '', 'student_type' => 'new',
+                'enrollment_status' => 'completed', 'enrolled_on' => '2025-08-01', 'ended_on' => '2026-06-30',
                 'exit_reason' => 'Completed academic year', 'notes' => 'Example enrollment history record', 'status' => '1',
             ],
             'families' => [
@@ -246,6 +314,7 @@ class StudentDataTransferController
                     'campus_id' => $model->campus?->campus_name_en ?: $model->campus?->campus_name_kh,
                     'grade_id' => $model->grade?->grade,
                     'class_id' => $model->schoolClass?->class_name,
+                    'academic_track_id' => $model->academicTrack?->code ?: $model->academicTrack?->name_en ?: $model->academicTrack?->name_kh,
                     'session_id' => $model->session?->session_short_name ?: $model->session?->session_name,
                     'group_id' => $model->schoolGroup?->group_name,
                     default => $model->{$column},
@@ -286,7 +355,7 @@ class StudentDataTransferController
     private function readCsv(string $path): array
     {
         $handle = fopen($path, 'rb');
-        $headers = array_map(fn ($header) => Str::of((string) $header)->trim()->lower()->replace(' ', '_')->toString(), fgetcsv($handle) ?: []);
+        $headers = array_map(fn ($header) => Str::of(preg_replace('/^\xEF\xBB\xBF/', '', (string) $header))->trim()->lower()->replace(' ', '_')->toString(), fgetcsv($handle) ?: []);
         $rows = [];
         while (($row = fgetcsv($handle)) !== false) $rows[] = $row;
         fclose($handle);

@@ -42,9 +42,9 @@ document.addEventListener('DOMContentLoaded', () => {
         ? `<img class="graduation-student-photo" src="/storage/${esc(student.photo_path)}" alt="${esc(studentName(student) || 'Student photo')}">`
         : '<span class="graduation-student-photo-placeholder"><i class="ti ti-user"></i></span>';
     const graduationStatusBadge = (item = {}) =>
-        `<span class="badge bg-${item.is_alumni ? 'success' : 'secondary'}-lt">${item.is_alumni ? 'Alumni' : 'Graduated'}</span>`;
-    const graduationActionButtons = (item = {}) =>
-        `<button class="btn btn-outline-danger btn-sm graduation-cancel-btn" type="button" data-graduation-cancel="${item.id}"><i class="ti ti-ban me-1"></i>Cancel Graduation</button>`;
+        `<span class="badge bg-${item.status === 'cancelled' ? 'danger' : (item.status === 'pending_result' ? 'warning' : 'success')}-lt" title="${esc(item.cancellation_reason || '')}">${item.status === 'cancelled' ? 'Cancelled' : (item.status === 'pending_result' ? 'Pending Exam Result' : 'Completed')}</span>`;
+    const graduationActionButtons = (item = {}, showStatus = true) =>
+        `${showStatus ? graduationStatusBadge(item) : ''}${item.status === 'cancelled' ? '' : `<div class="d-flex flex-wrap gap-1 mt-2">${item.status === 'pending_result' ? `<button class="btn btn-outline-success btn-sm" type="button" data-graduation-pass="${item.id}">Confirm Pass</button>` : ''}<button class="btn btn-outline-danger btn-sm graduation-cancel-btn" type="button" data-graduation-cancel="${item.id}"><i class="ti ti-ban me-1"></i>Cancel Graduation</button></div>`}`;
     const graduationMobileCard = (item = {}, rowNumber = 1) => {
         const student = item.student || {};
         return `
@@ -65,10 +65,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div><span>Grade</span>${gradeTrackCell(item)}</div>
                     <div><span>Group</span><strong>${esc(item.session?.session_short_name || '-')}</strong></div>
                     <div><span>Graduation Date</span><strong>${esc(formatDate(item.graduation_date))}</strong></div>
-                    <div><span>Certificate</span><strong>${esc(item.certificate_number || '-')}</strong></div>
+                    <div><span>Certificate</span><strong>${esc(item.certificate_number || 'Not assigned')}</strong></div>
                     <div><span>Graduated By</span><strong>${esc(item.changed_by?.name || 'System')}</strong></div>
                 </div>
-                <div class="graduation-mobile-actions">${graduationActionButtons(item)}</div>
+                <div class="graduation-mobile-actions">${graduationActionButtons(item, false)}</div>
             </div>
         `;
     };
@@ -297,7 +297,7 @@ document.addEventListener('DOMContentLoaded', () => {
         field('graduationTable').innerHTML = rows.length ? rows.map((item, index) => {
             const student = item.student || {};
             const rowNumber = Number(result.from || 1) + index;
-            return `<tr><td>${rowNumber}</td><td>${studentPhoto(student)}</td><td>${esc(student.student_id || student.student_no || '-')}</td><td><div class="graduation-student-name-kh school-profile-khmer">${esc(studentNameKh(student) || '-')}</div><div class="graduation-student-name-en">${esc(studentName(student) || '-')}</div></td><td>${esc(item.academic_year?.academic_year || '-')}</td><td>${gradeTrackCell(item)}</td><td>${esc(item.session?.session_short_name || '-')}</td><td>${esc(item.campus?.campus_name_en || '-')}</td><td>${esc(formatDate(item.graduation_date))}</td><td>${esc(item.certificate_number || '-')}</td><td><span class="badge bg-${item.is_alumni ? 'success' : 'secondary'}-lt">${item.is_alumni ? 'Yes' : 'No'}</span></td><td>${esc(item.changed_by?.name || 'System')}</td><td>${graduationActionButtons(item)}</td></tr>`;
+            return `<tr><td>${rowNumber}</td><td>${studentPhoto(student)}</td><td>${esc(student.student_id || student.student_no || '-')}</td><td><div class="graduation-student-name-kh school-profile-khmer">${esc(studentNameKh(student) || '-')}</div><div class="graduation-student-name-en">${esc(studentName(student) || '-')}</div></td><td>${esc(item.academic_year?.academic_year || '-')}</td><td>${gradeTrackCell(item)}</td><td>${esc(item.session?.session_short_name || '-')}</td><td>${esc(item.campus?.campus_name_en || '-')}</td><td>${esc(formatDate(item.graduation_date))}</td><td>${esc(item.certificate_number || 'Not assigned')}</td><td><span class="badge bg-${item.status === 'completed' && item.is_alumni ? 'success' : 'secondary'}-lt">${item.status === 'completed' && item.is_alumni ? 'Yes' : 'No'}</span></td><td>${esc(item.changed_by?.name || 'System')}</td><td>${graduationActionButtons(item)}</td></tr>`;
         }).join('') : '<tr><td colspan="13" class="text-center">No graduated students found.</td></tr>';
         renderPagination(result, pageSize);
         updateSortIcons();
@@ -363,9 +363,6 @@ document.addEventListener('DOMContentLoaded', () => {
         render(1);
     }));
     field('graduation-scope').onchange = applyScope;
-    field('certificate-number').oninput = () => {
-        field('certificate-number').value = field('certificate-number').value.replace(/\D/g, '').slice(0, 4);
-    };
     field('student-year').onchange = refreshStudentEnrollmentOptions;
     field('batch-campus').onchange = () => refreshClasses(field('batch-campus').value, field('batch-year').value, 'batch-class', false);
     field('batch-year').onchange = async () => {
@@ -386,7 +383,6 @@ document.addEventListener('DOMContentLoaded', () => {
         await refreshEnrollmentOptions();
         applyScope();
         field('graduation-date').value = new Date().toISOString().slice(0, 10);
-        field('certificate-number').value = '';
         field('graduation-current').textContent = '';
         refreshEnrollmentMultiValue();
         field('graduationError').classList.add('d-none');
@@ -394,6 +390,20 @@ document.addEventListener('DOMContentLoaded', () => {
         Object.keys(searchable).forEach(refreshSearchableValue);
     };
     document.addEventListener('click', async event => {
+        const pass = event.target.closest('[data-graduation-pass]');
+        if (pass) {
+            const decision = window.Swal ? await window.Swal.fire({icon:'question',title:'Confirm WIS Exam Pass?',text:'This completes graduation and makes the linked WIS certificate valid for release.',showCancelButton:true,confirmButtonText:'Confirm Pass'}) : {isConfirmed:window.confirm('Confirm this student passed the WIS exam?')};
+            if (!decision.isConfirmed) return;
+            pass.disabled = true;
+            try {
+                const response = await fetch(`/student-graduations/${pass.dataset.graduationPass}/confirm-pass`, {method:'POST',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':csrf,Accept:'application/json'}});
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.message || 'Unable to confirm result.');
+                await loadListOptions(); await render(currentPage);
+                if (window.Swal) await window.Swal.fire({icon:'success',title:'Pass Confirmed',text:result.message});
+            } catch (error) { pass.disabled = false; if(window.Swal) await window.Swal.fire({icon:'error',title:'Unable to Confirm',text:error.message}); }
+            return;
+        }
         const button = event.target.closest('[data-graduation-cancel]');
         if (!button) return;
         const graduationId = button.dataset.graduationCancel;
@@ -402,7 +412,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (window.Swal) {
             const result = await window.Swal.fire({
                 icon: 'warning',
-                title: 'Cancel graduation?',
+                title: 'Cancel graduation and void certificate?',
                 html: `
                     <div class="text-start">
                         <label class="form-label">Reason Type</label>
@@ -466,16 +476,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     field('graduationForm').onsubmit = async event => {
         event.preventDefault();
-        const certificatePrefix = field('certificate-number').value.trim();
-        if (!/^\d{4}$/.test(certificatePrefix)) {
-            field('graduationError').textContent = 'Please enter exactly 4 digits for the certificate prefix.';
-            field('graduationError').classList.remove('d-none');
-            return;
-        }
         const scope = field('graduation-scope').value;
         const payload = {
             graduation_date: field('graduation-date').value,
-            certificate_number: certificatePrefix,
             is_alumni: field('is-alumni').checked ? 1 : 0,
             notes: field('graduation-notes').value
         };

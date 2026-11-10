@@ -154,7 +154,7 @@ class ReportsController
             return view('reports.g9-certificate-print', $payload);
         }
         if ($type === 'g12-certificate-wis') {
-            abort_unless($payload['certificateReady'], 422, 'Save the Given Date and assign certificate numbers before printing.');
+            abort_unless($payload['certificateReady'], 422, 'No printable certificates are ready in this selection. Save the Given Date and assign numbers first. Voided certificates cannot be printed.');
             return view('reports.g12-certificate-print', $payload);
         }
         $academicYear = $request->filled('academic_year_id') ? AcademicYear::find($request->integer('academic_year_id')) : null;
@@ -288,7 +288,7 @@ class ReportsController
             return $this->makeDomPdfPath(G9CertificatePdfLayout::prepareHtml($html), $type);
         }
         if ($type === 'g12-certificate-wis') {
-            abort_unless($payload['certificateReady'], 422, 'Save the Given Date and assign certificate numbers before exporting.');
+            abort_unless($payload['certificateReady'], 422, 'No exportable certificates are ready in this selection. Save the Given Date and assign numbers first. Voided certificates cannot be exported.');
             $html = view('reports.g12-certificate-print', $payload + ['pdfMode' => true])->render();
             return $this->makeDomPdfPath(G12CertificatePdfLayout::prepareHtml($html), $type);
         }

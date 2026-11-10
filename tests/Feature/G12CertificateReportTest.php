@@ -11,6 +11,14 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use App\Support\G12CertificatePermissions;
 
+function wisGraduationRequest(array $values): Request
+{
+    $request=Request::create('/student-graduations/graduate','POST',$values);
+    $request->setLaravelSession(app('session')->driver());app()->instance('request',$request);
+    $user=Mockery::mock(User::class)->makePartial();$user->shouldReceive('isSuperAdmin')->andReturnTrue();
+    $request->setUserResolver(fn()=>$user);return $request;
+}
+
 function g12CertificatePermissionUser(array $codes = [], string $source = 'user'): User
 {
     Schema::table('tb_school_info', function (Blueprint $t) { $t->integer('status')->default(1); $t->softDeletes(); });
@@ -42,19 +50,30 @@ function g12CertificatePermissionUser(array $codes = [], string $source = 'user'
 }
 
 beforeEach(function () {
-    Schema::create('tb_academic_year', function (Blueprint $t) { $t->id(); $t->string('academic_year')->default('2025-2026'); $t->string('period_type')->default('regular'); $t->softDeletes(); });
+    Schema::create('tb_academic_year', function (Blueprint $t) { $t->id(); $t->string('academic_year')->default('2025-2026'); $t->string('period_type')->default('regular'); $t->string('lifecycle_status')->default('started'); $t->softDeletes(); });
     Schema::create('tb_school_info', function (Blueprint $t) { $t->id(); $t->string('campus_name_en'); });
-    Schema::create('tb_grade', function (Blueprint $t) { $t->id(); $t->string('grade'); $t->string('grade_short_name'); $t->softDeletes(); });
+    Schema::create('tb_grade', function (Blueprint $t) { $t->id(); $t->string('grade'); $t->string('grade_short_name'); $t->integer('grade_order')->default(12); $t->softDeletes(); });
     Schema::create('tb_class', function (Blueprint $t) { $t->id(); $t->string('class_name'); $t->softDeletes(); });
     Schema::create('tb_student', function (Blueprint $t) { $t->id(); $t->string('student_id'); $t->string('full_name_en'); $t->string('full_name_kh')->default(''); $t->integer('status')->default(1); });
     Schema::create('tb_student_enrollment', function (Blueprint $t) {
         $t->id(); foreach (['student_id','academic_year_id','campus_id','grade_id','class_id'] as $column) $t->integer($column);
         $t->integer('status')->default(1); $t->string('enrollment_status')->default('active');
+        $t->integer('session_id')->nullable(); $t->string('student_type')->nullable(); $t->date('ended_on')->nullable(); $t->string('exit_reason')->nullable(); $t->timestamps();
+    });
+    Schema::create('tb_student_graduation', function (Blueprint $t) {
+        $t->id(); foreach(['student_id','enrollment_id','academic_year_id','campus_id','grade_id','class_id','session_id','changed_by','cancelled_by'] as $column)$t->integer($column)->nullable();
+        $t->unique('enrollment_id');$t->date('graduation_date')->nullable();$t->string('certificate_number')->nullable();$t->boolean('is_alumni')->default(false);
+        $t->string('status')->default('completed');$t->string('cancellation_type')->nullable();$t->string('cancellation_reason')->nullable();$t->timestamp('cancelled_at')->nullable();$t->string('notes')->nullable();$t->timestamps();
+    });
+    Schema::create('tb_student_enrollment_history',function(Blueprint $t){
+        $t->id();foreach(['enrollment_id','student_id','campus_id','academic_year_id','grade_id','class_id','session_id','changed_by'] as $column)$t->integer($column)->nullable();
+        foreach(['action_type','enrollment_status','student_type','reason','notes'] as $column)$t->string($column)->nullable();$t->date('effective_on')->nullable();$t->timestamps();
     });
     (require database_path('migrations/2026_10_06_000010_create_g12_certificates.php'))->up();
     (require database_path('migrations/2026_10_06_000011_add_g12_certificate_typography.php'))->up();
     (require database_path('migrations/2026_10_06_000012_create_g12_certificate_template.php'))->up();
     (require database_path('migrations/2026_10_06_000014_add_g12_certificate_qr_tokens.php'))->up();
+    (require database_path('migrations/2026_11_10_160000_add_g12_wis_certificate_lifecycle.php'))->up();
     DB::table('tb_academic_year')->insert([['id'=>1],['id'=>2]]);
     DB::table('tb_school_info')->insert([['id'=>1,'campus_name_en'=>'BKK'],['id'=>2,'campus_name_en'=>'BCH']]);
     DB::table('tb_grade')->insert([['id'=>1,'grade'=>'12','grade_short_name'=>'12'],['id'=>2,'grade'=>'8','grade_short_name'=>'8']]);
@@ -80,6 +99,128 @@ it('assigns G12 only by campus then class then English name across the whole yea
     expect(G12Certificate::orderBy('sequence')->pluck('student_id')->all())->toBe([3,2,4,1]);
     expect(G12Certificate::orderBy('sequence')->pluck('certificate_number')->all())->toBe(['26G12001','26G12002','26G12003','26G12004']);
     expect(DB::table('tb_student_enrollment')->where('enrollment_status','active')->count())->toBe(7);
+});
+
+it('graduates without a number prefix and links the number assigned later only in the WIS report',function(){
+    DB::table('tb_grade')->where('id',1)->update(['grade'=>'Grade 12']);
+    $controller=new \App\Http\Controllers\GraduationController();
+    $request=wisGraduationRequest(['enrollment_ids'=>[3],'graduation_date'=>'2026-07-01','is_alumni'=>1]);
+    $controller->graduate($request);
+    $graduation=\App\Models\StudentGraduation::firstOrFail();
+    expect($graduation->status)->toBe('pending_result')->and($graduation->certificate_number)->toBeNull()->and(G12Certificate::count())->toBe(0);
+    expect(DB::table('tb_student_enrollment')->where('id',3)->value('enrollment_status'))->toBe('active');
+    expect($this->service->save($this->request,$this->data))->toBe(4);
+    $certificate=G12Certificate::where('student_id',3)->firstOrFail();
+    expect($graduation->fresh()->certificate_number)->toBe($certificate->certificate_number)->and($certificate->status)->toBe('pending_result');
+    expect($this->service->rows($this->request,1)->pluck('student_id'))->toContain(3);
+    expect($this->service->save($this->request,$this->data))->toBe(0)->and(G12Certificate::count())->toBe(4);
+});
+
+it('keeps the same preassigned WIS number through printing pass release cancellation and public void verification',function(){
+    $this->withoutVite();
+    DB::table('tb_grade')->where('id',1)->update(['grade'=>'Grade 12']);
+    $this->service->save($this->request,$this->data);
+    $certificate=G12Certificate::where('student_id',3)->firstOrFail();$number=$certificate->certificate_number;$token=$certificate->qr_token;
+    $controller=new \App\Http\Controllers\GraduationController();
+    $request=wisGraduationRequest(['enrollment_ids'=>[3],'graduation_date'=>'2026-07-01','is_alumni'=>1]);
+    $controller->graduate($request);$graduation=\App\Models\StudentGraduation::firstOrFail();
+    expect($graduation->certificate_number)->toBe($number);
+    $wis=app(\App\Services\G12WisGraduation::class);
+    $wis->track($certificate,1,'mark_printed');
+    expect($certificate->fresh()->status)->toBe('printed_pending');
+    expect(fn()=>$wis->track($certificate->fresh(),1,'release'))->toThrow(ValidationException::class);
+    $this->get(route('g12-certificate.verify',$token))->assertOk()->assertSee('Pending Exam Result')->assertDontSee('Verified G12 Certificate');
+    $controller->confirmPass($request,$graduation);
+    expect(DB::table('tb_student_enrollment')->where('id',3)->value('enrollment_status'))->toBe('graduated');
+    $this->get(route('g12-certificate.verify',$token))->assertOk()->assertSee('Verified G12 Certificate');
+    expect($graduation->fresh()->status)->toBe('completed')->and($certificate->fresh()->status)->toBe('valid');
+    $wis->track($certificate->fresh(),1,'release');
+    expect($certificate->fresh()->released_at)->not->toBeNull();
+    $controller->cancel(wisGraduationRequest(['cancellation_type'=>'failed','cancellation_reason'=>'WIS result corrected: failed']),$graduation->fresh());
+    $certificate=$certificate->fresh();
+    expect(DB::table('tb_student_enrollment')->where('id',3)->value('enrollment_status'))->toBe('active');
+    expect($certificate->status)->toBe('voided')->and($certificate->certificate_number)->toBe($number)->and($certificate->qr_token)->toBe($token)->and($certificate->printed_at)->not->toBeNull()->and($certificate->released_at)->not->toBeNull();
+    expect(fn()=>$wis->track($certificate,1,'mark_printed'))->toThrow(ValidationException::class);
+    expect(fn()=>$wis->track($certificate,1,'release'))->toThrow(ValidationException::class);
+    expect(fn()=>$wis->numberForGraduation(3,1))->toThrow(ValidationException::class);
+    $this->get(route('g12-certificate.verify',$token))->assertOk()->assertSee('VOIDED')->assertDontSee('Verified G12 Certificate');
+    $payload=$this->service->payload($this->request,['academic_year_id'=>1,'certificate_student_id'=>3],false);
+    expect($payload['certificates'])->toBeEmpty()->and($payload['certificateReady'])->toBeFalse();
+    $preview=$this->service->payload($this->request,['academic_year_id'=>1,'certificate_student_id'=>3],true);
+    expect($preview['certificates']->first()->certificate_status)->toBe('voided');
+    expect($this->service->save($this->request,$this->data))->toBe(0)->and(G12Certificate::where('student_id',3)->value('certificate_number'))->toBe($number);
+    expect(DB::table('tb_g12_wis_certificate_event')->where('student_id',3)->pluck('action')->all())->toContain('number_assigned','graduation_pending','printed','result_passed','released','graduation_cancelled');
+});
+
+it('does not assign a WIS number to a student whose graduation was cancelled before numbering',function(){
+    DB::table('tb_grade')->where('id',1)->update(['grade'=>'Grade 12']);
+    $controller=new \App\Http\Controllers\GraduationController();
+    $controller->graduate(wisGraduationRequest(['enrollment_ids'=>[3],'graduation_date'=>'2026-07-01','is_alumni'=>0]));
+    $graduation=\App\Models\StudentGraduation::firstOrFail();
+    $controller->cancel(wisGraduationRequest(['cancellation_type'=>'failed','cancellation_reason'=>'Failed WIS exam']),$graduation);
+    expect($this->service->save($this->request,$this->data))->toBe(3)->and(G12Certificate::where('student_id',3)->exists())->toBeFalse();
+    expect($graduation->fresh()->status)->toBe('cancelled');
+});
+
+it('allows batch graduation without certificate prefixes and marks all selected eligible students pending',function(){
+    DB::table('tb_grade')->where('id',1)->update(['grade'=>'Grade 12']);
+    $controller=new \App\Http\Controllers\GraduationController();
+    $response=$controller->graduateBatch(wisGraduationRequest(['scope'=>'all_campuses','academic_year_id'=>1,'graduation_date'=>'2026-07-01','is_alumni'=>0]));
+    expect($response->getData(true)['count'])->toBe(4)->and(\App\Models\StudentGraduation::where('status','pending_result')->count())->toBe(4)->and(G12Certificate::count())->toBe(0);
+    expect(fn()=>$controller->graduateBatch(wisGraduationRequest(['scope'=>'all_campuses','academic_year_id'=>1,'graduation_date'=>'2026-07-01','is_alumni'=>0])))->toThrow(ValidationException::class);
+});
+
+it('locks printed certificate numbers against prefix edits and does not reuse a voided sequence',function(){
+    $this->service->save($this->request,$this->data);$certificate=G12Certificate::where('student_id',3)->firstOrFail();
+    app(\App\Services\G12WisGraduation::class)->track($certificate,1,'mark_printed');
+    expect(fn()=>$this->service->save($this->request,array_replace($this->data,['action'=>'update_prefix','number_prefix'=>'CHANGED'])))->toThrow(ValidationException::class);
+    expect($certificate->fresh()->certificate_number)->toBe('26G12001');
+    $certificate->update(['status'=>'voided']);
+    DB::table('tb_student')->insert(['id'=>9,'student_id'=>'NEW','full_name_en'=>'NEW STUDENT']);
+    DB::table('tb_student_enrollment')->insert(['id'=>9,'student_id'=>9,'academic_year_id'=>1,'campus_id'=>2,'grade_id'=>1,'class_id'=>1]);
+    expect($this->service->save($this->request,$this->data))->toBe(1)->and(G12Certificate::where('student_id',9)->value('sequence'))->toBe(5)->and($certificate->fresh()->certificate_number)->toBe('26G12001');
+});
+
+it('authorizes printing and collection by report permission and campus and blocks pending or voided collection',function(){
+    $this->service->save($this->request,$this->data);
+    $user=g12CertificatePermissionUser([G12CertificatePermissions::ASSIGN_NUMBERS]);
+    Schema::table('users',fn(Blueprint $table)=>$table->timestamp('last_seen_at')->nullable());
+    $this->actingAs($user);
+    $own=G12Certificate::where('student_id',3)->firstOrFail();$other=G12Certificate::where('student_id',1)->firstOrFail();
+    $url=route('reports.g12-certificates.save');
+    $this->post($url,['academic_year_id'=>1,'action'=>'mark_printed','certificate_id'=>$own->id])->assertRedirect();
+    expect($own->fresh()->status)->toBe('printed_pending');
+    $this->postJson($url,['academic_year_id'=>1,'action'=>'release','certificate_id'=>$own->id])->assertUnprocessable();
+    $graduation=\App\Models\StudentGraduation::create(['student_id'=>3,'enrollment_id'=>3,'academic_year_id'=>1,'campus_id'=>2,'status'=>'pending_result','graduation_date'=>'2026-07-01']);
+    $this->postJson(route('student-graduations.confirm-pass',$graduation),[])->assertForbidden();
+    $this->postJson(route('student-graduations.cancel',$graduation),['cancellation_type'=>'failed','cancellation_reason'=>'Not authorized'])->assertForbidden();
+    expect($graduation->fresh()->status)->toBe('pending_result');
+    $this->postJson($url,['academic_year_id'=>1,'action'=>'mark_printed','certificate_id'=>$other->id])->assertForbidden();
+    $this->postJson($url,['academic_year_id'=>2,'action'=>'mark_printed','certificate_id'=>$own->id])->assertNotFound();
+    $own->update(['status'=>'voided']);
+    $this->postJson($url,['academic_year_id'=>1,'action'=>'mark_printed','certificate_id'=>$own->id])->assertUnprocessable();
+    $this->postJson($url,['academic_year_id'=>1,'action'=>'release','certificate_id'=>$own->id])->assertUnprocessable();
+});
+
+it('keeps a passed graduation valid when its number is assigned after pass confirmation',function(){
+    DB::table('tb_grade')->where('id',1)->update(['grade'=>'Grade 12']);
+    $controller=new \App\Http\Controllers\GraduationController();$request=wisGraduationRequest(['enrollment_ids'=>[3],'graduation_date'=>'2026-07-01','is_alumni'=>1]);
+    $controller->graduate($request);$graduation=\App\Models\StudentGraduation::firstOrFail();$controller->confirmPass($request,$graduation);
+    $this->service->save($this->request,$this->data);$certificate=G12Certificate::where('student_id',3)->firstOrFail();
+    expect($certificate->status)->toBe('valid')->and($graduation->fresh()->certificate_number)->toBe($certificate->certificate_number);
+    expect(fn()=>app(\App\Services\G12WisGraduation::class)->track($certificate,1,'release'))->toThrow(ValidationException::class);
+});
+
+it('renders WIS certificate tracking actions and keeps voided copies visibly invalid in preview',function(){
+    $this->service->save($this->request,$this->data);
+    $certificate=G12Certificate::where('student_id',3)->firstOrFail();
+    $payload=$this->service->payload($this->request,['academic_year_id'=>1],true);
+    $html=view('reports._g12-certificate-preview',$payload)->render();
+    expect($html)->toContain('Pending Exam Result','Mark Printed')->not->toContain('Record Student Collection');
+    $certificate->update(['status'=>'voided','printed_at'=>now(),'void_reason'=>'Failed WIS exam']);
+    $void=$this->service->payload($this->request,['academic_year_id'=>1,'certificate_student_id'=>3],true);
+    $voidHtml=view('reports._g12-certificate-preview',$void)->render();
+    expect($voidHtml)->toContain('VOID — NOT VALID','Voided','Failed WIS exam')->not->toContain('value="mark_printed"','value="release"');
 });
 
 it('stores distinct QR tokens and keeps them after reassigning numbers or editing the prefix', function () {
@@ -136,7 +277,7 @@ it('verifies an issued G12 certificate publicly without a login and reflects pre
     $this->service->save($this->request, $this->data);
     $certificate = G12Certificate::where('student_id', 3)->firstOrFail();
     $url = route('g12-certificate.verify', $certificate->qr_token);
-    $this->get($url)->assertOk()->assertSee('Verified G12 Certificate')->assertSee('ALICE')
+    $this->get($url)->assertOk()->assertSee('Pending Exam Result')->assertSee('ALICE')
         ->assertSee('26G12001')->assertSee('2025-2026')->assertSee('15 Aug 2026')
         ->assertHeader('X-Robots-Tag', 'noindex, nofollow')->assertDontSee('ID-3');
     $this->service->save($this->request, array_replace($this->data, ['action'=>'update_prefix', 'number_prefix'=>'FIX-G12']));

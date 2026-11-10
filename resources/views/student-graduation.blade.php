@@ -7,9 +7,9 @@
 
     <div class="card">
         <div class="card-header d-flex align-items-center graduation-card-header">
-            <h3 class="card-title mb-0">GRADUATED STUDENT</h3>
+            <h3 class="card-title mb-0">GRADUATION RECORDS</h3>
             <div class="graduation-summary-widget" aria-live="polite">
-                <div class="graduation-summary-title">Total Graduated Students</div>
+                <div class="graduation-summary-title">Total Graduation Records</div>
                 <div class="graduation-summary-total" id="graduation-total">0</div>
                 <div class="graduation-summary-gender">
                     <span>Male: <strong id="graduation-male">0</strong></span>
@@ -72,7 +72,7 @@
                                     data-graduation-sort-icon="alumni"></span></button></th>
                         <th><button type="button" class="graduation-table-sort" data-graduation-sort="graduated_by">Graduated By <span
                                     data-graduation-sort-icon="graduated_by"></span></button></th>
-                        <th>Actions</th>
+                        <th>Status / Actions</th>
                     </tr>
                 </thead>
                 <tbody id="graduationTable">
@@ -140,15 +140,14 @@
                                 <input type="date" id="graduation-date" class="form-control" required>
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label">Certificate Prefix *</label>
-                                <input id="certificate-number" class="form-control" inputmode="numeric" maxlength="4"
-                                    pattern="\d{4}" placeholder="Ex: 2026" required>
-                                <div class="form-hint">Final number: 4 digits + auto 3 digits, e.g. 2026001.</div>
+                                <label class="form-label">WIS Certificate Number</label>
+                                <div class="form-control bg-light text-secondary">Assigned in G12 Certificate WIS</div>
+                                <div class="form-hint">Graduation starts as Pending Exam Result. Confirm Pass after results, or cancel to void the certificate.</div>
                             </div>
                             <div class="col-md-4 d-flex align-items-end">
                                 <label class="form-check mb-2">
                                     <input type="checkbox" id="is-alumni" class="form-check-input">
-                                    <span class="form-check-label">Mark as Alumni</span>
+                                    <span class="form-check-label">Mark as Alumni after pass confirmation</span>
                                 </label>
                             </div>
                             <div class="col-12">

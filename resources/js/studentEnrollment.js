@@ -3439,6 +3439,12 @@ const refreshEnrollmentFilterOptions = (changed = "") => {
         if (enrollmentFilterStatus) enrollmentFilterStatus.value = "";
     }
 
+    // Dependent options come from the server. Do not rebuild them from an empty
+    // historical row array or erase the user's selected campus while loading.
+    if (!enrollmentFilterRows.length) {
+        isRefreshingEnrollmentFilters = false;
+        return;
+    }
     const academicYearId = enrollmentFilterAcademicYear?.value || "";
     const academicYearOptions = firstNonEmptyArray(
         enrollmentListOptions?.allAcademicYears,
@@ -3728,10 +3734,11 @@ const loadEnrollmentListOptions = async () => {
     if (!canEnrollment("filter")) return {};
     if (enrollmentListOptionsCache) {
         populateEnrollmentListFilters(enrollmentListOptionsCache);
+        applyEnrollmentFetchFilterOptions(enrollmentListOptionsCache);
         return enrollmentListOptionsCache;
     }
     if (!enrollmentListOptionsPromise) {
-        enrollmentListOptionsPromise = fetch("/student-enrollments/list-options", {
+        enrollmentListOptionsPromise = fetch(`/student-enrollments/list-options?${currentEnrollmentFilterParams().toString()}`, {
             headers: { Accept: "application/json" },
         })
             .then((response) => {
@@ -3742,6 +3749,7 @@ const loadEnrollmentListOptions = async () => {
             .then((options) => {
                 enrollmentListOptionsCache = options;
                 populateEnrollmentListFilters(enrollmentListOptionsCache);
+                applyEnrollmentFetchFilterOptions(enrollmentListOptionsCache);
                 return enrollmentListOptionsCache;
             })
             .finally(() => {

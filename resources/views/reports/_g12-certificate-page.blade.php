@@ -4,6 +4,9 @@
     $definitions = \App\Support\G12CertificateTypography::fields();
 @endphp
 <section class="g12-certificate-page {{ ($showFrame ?? false) ? 'g12-with-frame' : '' }}" data-g12-values="{{ json_encode($values) }}">
+    @if(($certificate->certificate_status ?? '') === 'voided')
+        <div style="position:absolute;inset:0;z-index:20;display:grid;place-items:center;color:#c00;font-size:60px;font-weight:bold;pointer-events:none;transform:rotate(-25deg)">VOID — NOT VALID</div>
+    @endif
     @if($showFrame ?? false)<img class="g12-certificate-frame" src="{{ asset('images/report-templates/g12-certificate/frame.jpg') }}?v={{ substr(sha1_file(public_path('images/report-templates/g12-certificate/frame.jpg')), 0, 12) }}" alt="G12 certificate frame reference">@endif
     @foreach($layout['fields'] as $fontKey=>$field)
         @if($fontKey==='photo')

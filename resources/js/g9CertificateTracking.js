@@ -81,12 +81,12 @@ if(root){
         const t=r.tracking,done=receipt?t.status==='received':['printed_signed','received'].includes(t.status);
         const status=receipt?(done?'Received by Student':'Not Yet Received'):(done?'Printed & Signed':'Awaiting Printing');
         let details=receipt?`<div>Received Date: <strong>${escape(receivedDate(t.received_date))}</strong></div><div>Received By: <strong>${escape(t.recipient||'—')}</strong></div>`:`<div>Printed & Signed: <strong>${escape(date(t.printed_signed_date))}</strong></div><div>Certificate No.: <strong>${escape(t.number||'—')}</strong></div>`;
-        if(!receipt&&t.certificate_date)details+=`<div>Certificate Date: <strong class="school-profile-khmer">${escape(certificateDate(t.certificate_date))}</strong></div>`;
+        if(!receipt&&t.certificate_date)details+=`<div>Certificate Date: <strong class="school-profile-khmer g9-certificate-date-value">${escape(certificateDate(t.certificate_date))}</strong></div>`;
         if(t.legacy)details+=`<div>${badge(t.needs_review?'Imported · Needs Review':'Imported History','orange')}</div>`;
         return `<td class="g12-certificate-cell" data-label="${label}"><div class="g12-certificate-group"><div class="g12-certificate-group-header">${badge(status,done?'green':'orange')}</div>${documentCard(r.documents[receipt?'receipt':'provisional'],receipt?'Student-Signed Copy':'Printed & Signed Copy',r.can_view_documents,receipt?r.legacy_receipt_name:r.legacy_source_name)}<div class="g9-certificate-details">${details}</div></div></td>`;
     };
     const render=data=>{
-        summary.hidden=false;for(const key of ['total','passed','failed','printed_signed','received','awaiting'])get(`[data-certificate-count="${key}"]`).textContent=data.summary[key].toLocaleString();
+        summary.hidden=false;for(const key of ['total','passed','failed','absent','printed_signed','received','awaiting'])get(`[data-certificate-count="${key}"]`).textContent=data.summary[key].toLocaleString();
         const result=data.records;currentPage=result.current_page;
         rows.innerHTML=result.data.map((r,index)=>`<tr>
             <td class="text-center" data-label="No.">${result.from+index}</td>

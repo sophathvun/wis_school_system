@@ -12,7 +12,7 @@ class ScholarshipCertificates
     public function authorize(User $user,string $action): void
     {abort_unless(ScholarshipPermissions::allows($user,$action),403);}
     public function exam(AcademicYear $year): ?ScholarshipExam
-    {return ScholarshipExam::where('academic_year_id',$year->id)->whereNull('historical_imported_at')->first();}
+    {return ScholarshipExam::where('academic_year_id',$year->id)->first();}
     public function settings(AcademicYear $year): array
     {
         $row=ScholarshipCertificateSetting::where('academic_year_id',$year->id)->first();
@@ -37,6 +37,16 @@ class ScholarshipCertificates
     }
     private function event(User $user,AcademicYear $year,string $action,array $details): void
     {if($exam=$this->exam($year))ScholarshipEvent::create(['exam_id'=>$exam->id,'user_id'=>$user->id,'action'=>$action,'details'=>$details]);}
+    public static function historicalFingerprint(array $snapshot): string
+    {
+        // MySQL JSON normalizes object key order. Hash canonical keys on every database driver.
+        $canonical=function(array $value)use(&$canonical): array {
+            if(!array_is_list($value))ksort($value);
+            foreach($value as &$item)if(is_array($item))$item=$canonical($item);
+            return $value;
+        };
+        return hash('sha256',json_encode($canonical($snapshot),JSON_THROW_ON_ERROR));
+    }
     public function requirePublished(AcademicYear $year): ScholarshipExam
     {
         $exam=$this->exam($year);
@@ -47,6 +57,11 @@ class ScholarshipCertificates
     public function eligible(AcademicYear $year): Collection
     {
         $exam=$this->exam($year);if(!$exam?->published_at)return collect();
+        if($exam->isHistorical())return $exam->candidates()->get()->map(function($candidate){
+            $row=$candidate->snapshot['historical_certificate']??null;
+            if(!$row||(int)($row['student_id']??0)!==$candidate->student_id||(int)($row['campus_id']??0)!==$candidate->campus_id)return null;
+            $row['fingerprint']=self::historicalFingerprint($row);return $row;
+        })->filter()->values();
         $awards=$exam->awards()->whereNotNull('candidate_id')->get();
         $candidates=ScholarshipCandidate::whereIn('id',$awards->pluck('candidate_id'))->get(['id','student_id','campus_id','grade_number','snapshot']);
         $byId=$candidates->keyBy('id');$slots=[];$rows=collect();
@@ -91,6 +106,7 @@ class ScholarshipCertificates
     public function plan(AcademicYear $year): array
     {
         $exam=$this->requirePublished($year);$eligible=$this->eligible($year);
+        if($exam->isHistorical())throw ValidationException::withMessages(['certificates'=>'Historical certificate numbers are preserved from the original register. Automatic numbering is unavailable for this year.']);
         $existing=ScholarshipCertificate::where('academic_year_id',$year->id)->orderBy('sequence')->get();$sequence=(int)$existing->max('sequence');
         preg_match('/(\d{4})\D+(\d{4})/',$year->academic_year,$years);
         if(!isset($years[2]))throw ValidationException::withMessages(['certificates'=>'The academic year must contain its start and end years, for example 2025-2026.']);
@@ -128,9 +144,9 @@ class ScholarshipCertificates
     }
     public function values(array $snapshot,array $settings,string $number=''): array
     {
-        $values=$snapshot;$values['certificate_number']=$number?:'PREVIEW';$values['issue_date']=\Carbon\Carbon::parse($settings['issue_date'])->format('F j, Y');
-        $values['location']=$settings['location'];$values['scholarship_year']=$settings['scholarship_year'];
-        foreach([0,1] as $i)foreach(['name','position'] as $key)$values['signer_'.($i+1).'_'.$key]=$settings['signers'][$i][$key]??'';
+        $values=$snapshot;$values['certificate_number']=$number?:'PREVIEW';$values['issue_date']=\Carbon\Carbon::parse($snapshot['historical_issue_date']??$settings['issue_date'])->format('F j, Y');
+        $values['location']=$snapshot['historical_location']??$settings['location'];$values['scholarship_year']=$snapshot['historical_scholarship_year']??$settings['scholarship_year'];
+        foreach([0,1] as $i)foreach(['name','position'] as $key)$values['signer_'.($i+1).'_'.$key]=$snapshot['historical_signers'][$i][$key]??$settings['signers'][$i][$key]??'';
         return Arr::only($values,ScholarshipCertificateLayout::TOKENS);
     }
 }

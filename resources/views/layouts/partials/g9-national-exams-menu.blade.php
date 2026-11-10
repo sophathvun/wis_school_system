@@ -12,6 +12,7 @@
                 <a class="dropdown-item {{ request()->routeIs('g9-national-exams.'.$g9Route.'*')?'active':'' }}" href="{{ route('g9-national-exams.'.$g9Route) }}"><i class="ti {{ \App\Support\G9NationalExamPermissions::ICONS[$section] }} me-2"></i>{{ $group[0] }}</a>
             @endif
         @endforeach
+        <a class="dropdown-item" href="{{ route('help.index',['category'=>'g9']) }}"><i class="ti ti-book me-2" aria-hidden="true"></i>Help &amp; guides</a>
     </div>
 </li>
 @endif

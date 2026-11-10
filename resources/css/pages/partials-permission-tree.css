@@ -4,6 +4,9 @@
 .permission-inheritance-badge { font-size: .65rem; font-weight: 500; vertical-align: middle; margin-left: .25rem; }
 .permission-action > span { min-width: 0; overflow-wrap: anywhere; }
 [data-permission-group] .status-toggle { flex-shrink: 0; }
+.permission-main-box-header{background:#123b72;color:#fff;margin:-1rem -1rem .75rem!important;padding:.9rem 1rem!important;border-radius:var(--tblr-border-radius) var(--tblr-border-radius) 0 0;border-bottom-color:#123b72!important;gap:.75rem}
+.permission-main-box-header .permission-main-menu{color:#fff!important}
+.permission-main-box-header .permission-inheritance-badge{background:#ffffff24;color:#fff}
 .permission-tab-header{background:var(--tblr-bg-surface-secondary,#f1f5f9);color:var(--tblr-body-color,#172033);border-radius:inherit}
 .permission-tab-header>strong{min-width:0;overflow-wrap:anywhere}
 [data-bs-theme="dark"] .permission-tab-header{background:#243449;color:#e2e8f0}

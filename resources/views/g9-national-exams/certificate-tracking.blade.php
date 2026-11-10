@@ -22,7 +22,7 @@
         @foreach(['total'=>['Candidates','ti-users','blue'],'printed_signed'=>['Printed & Signed','ti-certificate','green'],'received'=>['Received by Student','ti-signature','green'],'awaiting'=>['Awaiting Printing','ti-clock','orange']] as $key=>[$label,$icon,$color])
         <article class="card g9-result-metric g9-result-metric-{{ $color }}"><div class="g9-result-metric-top"><span>{{ $label }}</span><i class="ti {{ $icon }}" aria-hidden="true"></i></div><strong data-certificate-count="{{ $key }}">0</strong>
             @if($key==='total')
-            <div class="d-flex flex-wrap gap-2 small fw-semibold mt-2" aria-label="Candidate examination results"><span class="text-success">Pass: <span data-certificate-count="passed">0</span></span><span class="text-secondary" aria-hidden="true">|</span><span class="text-danger">Failed: <span data-certificate-count="failed">0</span></span></div>
+            <div class="d-flex flex-wrap gap-2 small fw-semibold mt-2" aria-label="Candidate examination results"><span class="text-success">Pass: <span data-certificate-count="passed">0</span></span><span class="text-secondary" aria-hidden="true">|</span><span class="text-danger">Failed: <span data-certificate-count="failed">0</span></span><span class="text-secondary" aria-hidden="true">|</span><span class="text-warning">Absent: <span data-certificate-count="absent">0</span></span></div>
             @endif
         </article>
         @endforeach

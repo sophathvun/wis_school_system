@@ -30,14 +30,15 @@ if(root){
         button.disabled=true;
         try{
             const query=params();query.delete('view');
-            const response=await fetch(`${root.dataset.base}/reports/${button.dataset.resultsExport}/${format}?${query}`,{credentials:'same-origin',headers:{Accept:'application/json'}});
+            const reportUrl=`${root.dataset.base}/reports/${button.dataset.resultsExport}/${format}?${query}`;
+            const response=await fetch(reportUrl,{credentials:'same-origin',headers:{Accept:'application/json'}});
             if([401,419].includes(response.status)||response.redirected)throw new Error('Your session expired. Refresh the page and sign in again.');
             if(!response.ok){const data=await response.json();throw new Error(Object.values(data.errors??{}).flat().join('\n')||data.message||'Unable to export the report.');}
             const expected=format==='print'?'text/html':format==='pdf'?'application/pdf':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
             if(!response.headers.get('Content-Type')?.includes(expected))throw new Error('The server returned an unexpected report. Refresh the page and try again.');
+            if(popup){popup.location.replace(reportUrl);return;}
             const href=URL.createObjectURL(await response.blob());
-            if(popup)popup.location.replace(href);
-            else{const link=document.createElement('a');link.href=href;link.download=`g9-result-${button.dataset.resultsExport}.${format==='pdf'?'pdf':'xlsx'}`;document.body.append(link);link.click();link.remove();}
+            const link=document.createElement('a');link.href=href;link.download=`g9-result-${button.dataset.resultsExport}.${format==='pdf'?'pdf':'xlsx'}`;document.body.append(link);link.click();link.remove();
             setTimeout(()=>URL.revokeObjectURL(href),60000);
         }catch(failure){popup?.close();error.textContent=failure.message;error.hidden=false;}
         finally{button.disabled=false;}
@@ -79,7 +80,7 @@ if(root){
     get('[data-results-nav-toggle]').addEventListener('click',()=>expandNav(root.classList.contains('is-collapsed')));
     const empty=text=>{rows.replaceChildren();const cell=rows.insertRow().insertCell();cell.colSpan=9;cell.className='text-center text-secondary py-5';cell.textContent=text;};
     const clearReports=()=>{
-        root.querySelectorAll('[data-results-bars],[data-results-legend],[data-results-grades],[data-results-statistics],[data-results-stat-total]').forEach(element=>element.replaceChildren());
+        root.querySelectorAll('[data-results-bars],[data-results-legend],[data-results-grades],[data-results-center-grades],[data-results-subjects],[data-results-statistics],[data-results-stat-total]').forEach(element=>element.replaceChildren());
         const donut=get('[data-results-donut]');if(donut){donut.style.background='var(--tblr-border-color)';donut.setAttribute('aria-label','No exam result data');get('[data-results-rate]').textContent='—';}
     };
     const request=async(path,signal)=>{
@@ -136,12 +137,53 @@ if(root){
         }
         if(!container.children.length)line(container,'No candidates match the selected filters.','text-secondary py-4 text-center');
     };
+    const renderCenterGrades=()=>{
+        const container=get('[data-results-center-grades]');if(!container)return;container.replaceChildren();
+        const colors=['#269c65','#527ed2','#c58a21','#d94c65'];
+        for(const center of report.center_grades??[]){
+            const card=document.createElement('section');card.className='g9-center-grade-card';
+            const title=document.createElement('h4');title.textContent=center.label;card.append(title);
+            line(card,`${format(center.attended)} attended · ${format(center.absent)} absent`,'text-secondary small mb-3');
+            for(const [index,grade] of center.grades.entries()){
+                const row=line(card,'','g9-center-grade-row'),label=line(row,'','g9-center-grade-label');
+                line(label,grade.label);line(label,`${format(grade.total)} (${rate(grade.percentage)})`,'fw-semibold');
+                const track=line(row,'','g9-center-grade-track'),bar=line(track,'','g9-center-grade-fill');
+                bar.style.width=`${grade.percentage??0}%`;bar.style.backgroundColor=colors[index];
+                track.setAttribute('role','img');track.setAttribute('aria-label',`${center.label} · ${grade.label}: ${format(grade.total)} (${rate(grade.percentage)})`);
+            }
+            container.append(card);
+        }
+        if(!container.children.length)line(container,'No candidates match the selected filters.','text-secondary py-4 text-center');
+    };
+    const renderSubjectGraphs=()=>{
+        const container=get('[data-results-subjects]');if(!container)return;container.replaceChildren();
+        for(const subject of report.subject_results??[]){
+            const card=document.createElement('section');card.className='g9-center-grade-card';
+            const heading=document.createElement('h4');heading.textContent=subject.label;card.append(heading);
+            const comparison=line(card,'','g9-subject-language-grid');
+            for(const language of subject.languages){
+            const section=line(comparison,'','g9-subject-language');
+            line(section,language.label,'g9-subject-language-heading');
+            if(!language.applicable){line(section,'Not applicable','text-secondary small');continue;}
+            line(section,`${format(language.total)} scored candidates`,'text-secondary small mb-3');
+            for(const [key,title,color] of [['passed','Passed','#269c65'],['failed','Failed','#d94c65']]){
+                const row=line(section,'','g9-center-grade-row'),label=line(row,'','g9-center-grade-label');
+                line(label,title);line(label,`${format(language[key])} (${rate(language[key+'_percentage'])})`,'fw-semibold');
+                const track=line(row,'','g9-center-grade-track'),bar=line(track,'','g9-center-grade-fill');
+                bar.style.width=`${language[key+'_percentage']??0}%`;bar.style.backgroundColor=color;
+                track.setAttribute('role','img');track.setAttribute('aria-label',`${subject.label} · ${language.label} · ${title}: ${format(language[key])} (${rate(language[key+'_percentage'])})`);
+            }
+            if(!language.total)line(section,'No eligible scores.','text-secondary small mt-2');
+            }
+            container.append(card);
+        }
+    };
     const renderGraph=()=>{
         const data=report.summary,donut=get('[data-results-donut]'),legend=get('[data-results-legend]');legend.replaceChildren();let start=0;const stops=[];
         for(const [key,label,color] of outcomes){const end=start+(data.total?data[key]/data.total*100:0);stops.push(`${color} ${start}% ${end}%`);start=end;const row=line(legend,'');const dot=document.createElement('span');dot.className='g9-result-dot';dot.style.backgroundColor=color;row.append(dot);line(row,label);line(row,format(data[key]),'fw-semibold');}
         donut.style.background=data.total?`conic-gradient(${stops.join(',')})`:'var(--tblr-border-color)';get('[data-results-rate]').textContent=rate(data.pass_rate);
         donut.setAttribute('aria-label',`Results for ${data.total} candidates. ${outcomes.map(([key,label])=>`${label}: ${data[key]}`).join('. ')}. Pass rate among completed results: ${rate(data.pass_rate)}.`);
-        const grades=get('[data-results-grades]');grades.replaceChildren();data.grades.forEach((grade,index)=>line(grades,`${grade.label}: ${grade.total}`,'g9-result-outcome g9-result-'+['failed','pending','absent','passed'][index]));renderBars();
+        const grades=get('[data-results-grades]');grades.replaceChildren();data.grades.forEach((grade,index)=>line(grades,`${grade.label}: ${grade.total}`,'g9-result-outcome g9-result-'+['failed','pending','absent','passed'][index]));renderBars();renderCenterGrades();renderSubjectGraphs();
     };
     const renderStatistics=()=>{
         const target=get('[data-results-statistics]'),total=get('[data-results-stat-total]'),grouping=get('[data-results-stat-group]').value;target.replaceChildren();total.replaceChildren();get('[data-results-stat-heading]').textContent=grouping==='campuses'?'Campus':'Exam Center';

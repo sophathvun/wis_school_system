@@ -90,7 +90,7 @@
 
     <div class="card card-tabs access-management-tabs-card">
         <div class="card-header">
-            <ul class="nav nav-tabs nav-tabs-lifted card-header-tabs" data-bs-toggle="tabs">
+            <ul class="nav nav-tabs card-header-tabs" data-bs-toggle="tabs">
                 <li class="nav-item"><a href="#users-list-tab" class="nav-link active" data-bs-toggle="tab"><i
                             class="ti ti-users me-2"></i>Users</a></li>
                 <li class="nav-item"><a href="#permission-list-tab" class="nav-link" data-bs-toggle="tab"><i
@@ -287,31 +287,24 @@
 
             <div class="tab-pane" id="role-permissions-tab">
                 <form method="GET">
-                    <div class="card-body border-bottom"><label class="form-label">Select Role</label><select
-                            class="form-select" name="role_id" data-access-auto-submit>
+                    <div class="card-body border-bottom access-role-selectors"><div><label class="form-label">Select Role</label><select
+                            class="form-select" name="role_id" data-access-auto-submit data-premium-role-picker="Select Role">
                             @foreach ($roles as $item)
                                 <option value="{{ $item->id }}" @selected($role?->id === $item->id)>{{ $item->name }}
                                 </option>
                             @endforeach
-                        </select>
+                        </select></div>
+                        <div><label class="form-label">Role Department</label><select name="department_id" form="accessRolePermissionsForm" class="form-select" data-premium-role-picker="Role Department">
+                            <option value="">No Department</option>
+                            @foreach($departments as $item)<option value="{{ $item->id }}" @selected($role?->department_id===$item->id)>{{ $item->hierarchy_name }}</option>@endforeach
+                        </select></div>
                     </div>
                 </form>
-                <form method="POST" action="{{ route('access-management.roles.save') }}" data-permission-form>
+                <form method="POST" id="accessRolePermissionsForm" action="{{ route('access-management.roles.save') }}" data-permission-form>
                     @csrf<input type="hidden" name="role_id" value="{{ $role?->id }}">
                     <div class="card-body">
-                        <div class="row g-3 mb-3">
-                            <div class="col-md-6"><label class="form-label">Role Department</label><select
-                                    name="department_id" class="form-select">
-                                    <option value="">No Department</option>
-                                    @foreach ($departments as $item)
-                                        <option value="{{ $item->id }}" @selected($role?->department_id === $item->id)>
-                                            {{ $item->hierarchy_name }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div class="col-md-6 d-flex align-items-end text-secondary small">Turn on a main menu first.
-                                Then turn on its submenu before enabling actions.</div>
-                        </div>@include('partials.permission-tree', [
+                        <div class="text-secondary small mb-3">Turn on a main menu first. Then turn on its submenu before enabling actions.</div>
+                        @include('partials.permission-tree', [
                             'assignedPermissions' => $role?->permissions ?? collect(),
                             'permissionPrefix' => 'role',
                             'fullAccess' => $roleFullAccess,
@@ -331,14 +324,16 @@
                                 <span data-department-picker-label>{{ $department?->hierarchy_name }}</span><i class="ti ti-chevron-down"></i>
                             </button>
                             <div class="permission-campus-picker-menu d-none" data-department-picker-menu>
+                                <div class="permission-department-menu-heading"><i class="ti ti-building-community" aria-hidden="true"></i><span>Choose a department</span></div>
                                 <div class="input-icon"><span class="input-icon-addon"><i class="ti ti-search"></i></span>
                                     <input type="search" class="form-control" placeholder="Search departments" data-department-picker-search>
                                 </div>
                                 <div class="permission-campus-picker-results" data-department-picker-results>
                                     @foreach ($departments as $item)
-                                        <button type="button" class="permission-department-option" data-department-id="{{ $item->id }}">{{ $item->hierarchy_name }}</button>
+                                        <button type="button" class="permission-department-option{{ $department?->id===$item->id?' is-selected':'' }}" data-department-id="{{ $item->id }}" aria-pressed="{{ $department?->id===$item->id?'true':'false' }}">{{ $item->hierarchy_name }}</button>
                                     @endforeach
                                 </div>
+                                <div class="permission-department-empty d-none" data-department-picker-empty>No departments match your search.</div>
                             </div>
                             <input type="hidden" name="department_id" value="{{ $department?->id }}" data-department-picker-value>
                         </div>

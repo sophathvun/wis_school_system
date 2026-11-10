@@ -11,8 +11,22 @@ class G12CertificateController
     {
         $data = $request->validate([
             'academic_year_id' => ['required', 'integer', \Illuminate\Validation\Rule::exists('tb_academic_year', 'id')->where('period_type', 'regular')->whereNull('deleted_at')],
-            'action' => ['required', 'in:save_date,assign,update_prefix,save_style,reset_style'],
+            'action' => ['required', 'in:save_date,assign,update_prefix,save_style,reset_style,mark_printed,release'],
         ]);
+        if (in_array($data['action'], ['mark_printed','release'], true)) {
+            abort_unless(app(G12CertificateReport::class)->canPerformAction($request,'assign'),403);
+            $validated=$request->validate(['certificate_id'=>['required','integer']]);
+            \Illuminate\Support\Facades\DB::transaction(function () use ($request,$data,$validated) {
+                \App\Models\AcademicYear::whereKey($data['academic_year_id'])->lockForUpdate()->firstOrFail();
+                $year=\App\Models\G12CertificateYear::where('academic_year_id',$data['academic_year_id'])->lockForUpdate()->firstOrFail();
+                $certificate=\App\Models\G12Certificate::where('certificate_year_id',$year->id)->whereKey($validated['certificate_id'])->lockForUpdate()->firstOrFail();
+                $campus=\App\Models\StudentEnrollment::whereKey($certificate->enrollment_id)->value('campus_id');
+                abort_unless($request->user()->isSuperAdmin() || $request->user()->accessibleCampuses()->where('tb_school_info.id',$campus)->exists(),403);
+                app(\App\Services\G12WisGraduation::class)->track($certificate,$data['academic_year_id'],$data['action']);
+            });
+            return redirect()->route('reports.index',['type'=>'g12-certificate-wis','academic_year_id'=>$data['academic_year_id']]+$request->only(['campus_id','grade_class','certificate_student_id','certificate_show_qr']))
+                ->with('success',$data['action']==='release'?'Certificate release recorded.':'Certificate printing recorded.');
+        }
         if ($data['action'] === 'save_style') {
             $data += $request->validate(\App\Support\G12CertificateTypography::rules());
         } elseif ($data['action'] !== 'reset_style') {

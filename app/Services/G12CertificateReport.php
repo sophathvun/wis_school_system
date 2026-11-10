@@ -32,7 +32,21 @@ class G12CertificateReport
             ->where('e.academic_year_id', $academicYearId)
             ->where('ay.period_type', 'regular')->whereNull('ay.deleted_at')
             ->where('e.status', 1)->where('s.status', 1)
-            ->whereIn('e.enrollment_status', ['active', 'completed'])
+            ->where(function ($eligible) {
+                $eligible->whereIn('e.enrollment_status', ['active','completed','graduated'])->orWhereExists(function ($voided) {
+                    $voided->selectRaw('1')->from('tb_g12_certificate as vc')->join('tb_g12_certificate_year as vy','vy.id','=','vc.certificate_year_id')
+                        ->whereColumn('vc.student_id','e.student_id')->whereColumn('vy.academic_year_id','e.academic_year_id')->where('vc.status','voided');
+                });
+            })
+            ->where(function ($query) {
+                $query->whereNotExists(function ($cancelled) {
+                    $cancelled->selectRaw('1')->from('tb_student_graduation as cancelled')
+                        ->whereColumn('cancelled.student_id','e.student_id')->whereColumn('cancelled.academic_year_id','e.academic_year_id')->where('cancelled.status','cancelled');
+                })->orWhereExists(function ($issued) {
+                    $issued->selectRaw('1')->from('tb_g12_certificate as issued')->join('tb_g12_certificate_year as iy','iy.id','=','issued.certificate_year_id')
+                        ->whereColumn('issued.student_id','e.student_id')->whereColumn('iy.academic_year_id','e.academic_year_id');
+                });
+            })
             ->whereNull('g.deleted_at')->whereNull('c.deleted_at')
             ->whereRaw("UPPER(TRIM(REPLACE(COALESCE(NULLIF(TRIM(g.grade_short_name), ''), g.grade), '-', ''))) IN (?, ?)", ['12', 'G12'])
             ->select('e.id as enrollment_id', 'e.student_id', 'e.campus_id', 'e.grade_id', 'e.class_id',
@@ -78,7 +92,9 @@ class G12CertificateReport
         $students = $campusStudents->filter(fn ($row) => empty($filters['grade_class']) || $row->grade_id.':'.$row->class_id === $filters['grade_class'])->values();
         $options = $students;
         if (!empty($filters['certificate_student_id'])) $students = $students->where('student_id', (int) $filters['certificate_student_id'])->values();
-        $issued = $settings ? $settings->certificates()->get(['student_id', 'certificate_number', 'qr_token'])->keyBy('student_id') : collect();
+        $issued = $settings ? $settings->certificates()->get()->keyBy('student_id') : collect();
+        $passedStudents = $year ? \App\Models\StudentGraduation::where('academic_year_id',$year)->where('status','completed')->pluck('student_id')->flip() : collect();
+        if (!$preview) $students = $students->reject(fn ($student) => $issued->get($student->student_id)?->status === 'voided')->values();
         $numbers = $issued->pluck('certificate_number', 'student_id');
         $showQr = filter_var($filters['certificate_show_qr'] ?? false, FILTER_VALIDATE_BOOLEAN);
         $filters['certificate_show_qr'] = $showQr ? '1' : '0';
@@ -86,6 +102,12 @@ class G12CertificateReport
         foreach ($students as $index => $student) {
             $certificate = $issued->get($student->student_id);
             $student->certificate_number = $certificate?->certificate_number;
+            $student->certificate_id = $certificate?->id;
+            $student->certificate_status = $certificate?->status ?? 'not_assigned';
+            $student->certificate_printed_at = $certificate?->printed_at;
+            $student->certificate_released_at = $certificate?->released_at;
+            $student->certificate_void_reason = $certificate?->void_reason;
+            $student->certificate_can_release = $certificate?->status === 'valid' && $passedStudents->has($student->student_id);
             $student->certificate_verification_url = $certificate?->qr_token ? G12CertificateQr::url($certificate->qr_token) : null;
             $verificationAddress = $student->certificate_verification_url ? parse_url($student->certificate_verification_url) : [];
             $student->certificate_verification_site = $student->certificate_verification_url
@@ -120,7 +142,7 @@ class G12CertificateReport
 
         $canSaveGivenDate = $year && $this->canPerformAction($request, 'save_date');
         $canAssignNumbers = $year && $this->canPerformAction($request, 'assign');
-        $canEditPrefix = $year && $this->canPerformAction($request, 'update_prefix');
+        $canEditPrefix = $year && $this->canPerformAction($request, 'update_prefix') && !$issued->contains(fn ($certificate) => $certificate->status !== 'pending_result' || $certificate->printed_at || $certificate->released_at);
         return [
             'isReportStub' => false, 'filters' => $filters, 'enrollments' => collect(),
             'certificates' => $students, 'certificateSettings' => $settings,
@@ -135,7 +157,8 @@ class G12CertificateReport
             'canManageCertificates' => $canSaveGivenDate || $canAssignNumbers || $canEditPrefix,
             'certificateNumbersAssigned' => $numbers->isNotEmpty(),
             'certificateShowQr' => $showQr,
-            'certificateReady' => $settings && $students->isNotEmpty() && $students->every(fn ($row) => filled($row->certificate_number)),
+            'certificateReady' => $settings && $students->contains(fn ($row) => $row->certificate_status !== 'voided') && $students->where('certificate_status','!=','voided')->every(fn ($row) => filled($row->certificate_number)),
+            'canTrackG12Certificates' => $canAssignNumbers,
             'hasDataFilter' => (bool) $year, 'hasMorePreviewRows' => false,
         ];
     }
@@ -160,7 +183,11 @@ class G12CertificateReport
                     throw ValidationException::withMessages(['number_prefix' => 'Save the Given Date before editing the certificate prefix.']);
                 }
                 if ($settings->number_prefix === $data['number_prefix']) return 0;
+                if ($settings->certificates()->where(function ($query) {
+                    $query->where('status','!=','pending_result')->orWhereNotNull('printed_at')->orWhereNotNull('released_at');
+                })->exists()) throw ValidationException::withMessages(['number_prefix'=>'Printed, valid, released, or voided certificate numbers are permanent. Their prefix cannot be changed.']);
                 $certificates = $settings->certificates()->orderBy('sequence')->get();
+                $oldNumbers = $certificates->pluck('certificate_number','id');
                 // Stage distinct, invalid-as-public numbers to avoid unique-key collisions
                 // when a numeric prefix overlaps the suffix of an existing number.
                 foreach ($certificates as $certificate) {
@@ -168,6 +195,8 @@ class G12CertificateReport
                 }
                 foreach ($certificates as $certificate) {
                     $certificate->update(['certificate_number' => $data['number_prefix'].str_pad((string) $certificate->sequence, 3, '0', STR_PAD_LEFT)]);
+                    \App\Models\StudentGraduation::where('student_id',$certificate->student_id)->where('academic_year_id',$year)->where('certificate_number',$oldNumbers[$certificate->id])->update(['certificate_number'=>$certificate->certificate_number]);
+                    app(G12WisGraduation::class)->event('unprinted_prefix_corrected',$certificate->student_id,$year,$certificate,null,['previous_number'=>$oldNumbers[$certificate->id]]);
                 }
                 $settings->update(['number_prefix' => $data['number_prefix']]);
                 return $certificates->count();
@@ -200,12 +229,17 @@ class G12CertificateReport
             $count = 0;
             foreach ($rows as $row) {
                 if ($assigned->contains($row->student_id)) continue;
+                if (\App\Models\StudentGraduation::where('student_id',$row->student_id)->where('academic_year_id',$year)->whereNotNull('certificate_number')->where('certificate_number','!=','')->exists()) {
+                    throw ValidationException::withMessages(['academic_year_id'=>'An existing graduation certificate number needs reconciliation before assigning WIS numbers. Existing numbers will not be changed.']);
+                }
                 $sequence++;
-                G12Certificate::create([
+                $certificate = G12Certificate::create([
                     'certificate_year_id' => $settings->id, 'student_id' => $row->student_id,
                     'enrollment_id' => $row->enrollment_id, 'sequence' => $sequence,
                     'certificate_number' => $settings->number_prefix.str_pad((string) $sequence, 3, '0', STR_PAD_LEFT),
+                    'status' => \App\Models\StudentGraduation::where('student_id',$row->student_id)->where('academic_year_id',$year)->where('status','completed')->exists() ? 'valid' : 'pending_result',
                 ]);
+                app(G12WisGraduation::class)->assigned($certificate, $year);
                 $count++;
             }
             return $count;

@@ -39,7 +39,7 @@ class G12NationalExamWorkbook {
                     if(!array_filter($values,fn($v)=>$v!==''))continue;
                     if($headers===null){$headers=array_map(fn($v)=>mb_strtolower(trim($v)),$values);if(count($headers)!==count(array_unique($headers)))$this->fail('Duplicate column headers are not supported.');continue;}
                     $record=['_row'=>$number];foreach($headers as $column=>$header)$record[$header]=$values[$column]??'';
-                    foreach(['dob','received_soft_cert_date','received_hard_cert_date'] as $field)if(isset($record[$field])&&is_numeric($record[$field])&&(float)$record[$field]>1){
+                    foreach(['dob','g9_exam_date','g12_exam_date','received_soft_cert_date','received_hard_cert_date'] as $field)if(isset($record[$field])&&is_numeric($record[$field])&&(float)$record[$field]>1){
                         $record[$field]=\Carbon\CarbonImmutable::parse($date1904?'1904-01-01':'1899-12-30')->addDays((int)$record[$field])->format('Y-m-d');
                     }
                     if(isset($record['image_hard_certreceived_name'])&&!isset($record['inage_hard_certreceived_name']))$record['inage_hard_certreceived_name']=$record['image_hard_certreceived_name'];

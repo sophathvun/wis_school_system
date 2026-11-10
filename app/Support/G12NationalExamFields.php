@@ -9,6 +9,14 @@ class G12NationalExamFields {
     ];
     public const DOCUMENT_FIELDS=['soft_certificate'=>'image_soft_cert_name','soft_certificate_received'=>'image_soft_certreceived_name','hard_certificate'=>'image_hard_cert_name','hard_certificate_received'=>'inage_hard_certreceived_name'];
     public static function labels(): array {return array_merge(...array_values(self::GROUPS));}
+    public static function examDate(mixed $value): string {
+        $value=trim((string)($value??''));
+        // Legacy workbooks stored exam dates as Excel serials in the record JSON.
+        if(preg_match('/^\d{5}(?:\.\d+)?$/',$value)&&(float)$value>=10000&&(float)$value<=99999){
+            return \Carbon\CarbonImmutable::parse('1899-12-30')->addDays((int)$value)->format('Y-m-d');
+        }
+        return $value;
+    }
     public static function filenameKey(string $value): string {return mb_strtolower(pathinfo(str_replace('\\','/',$value),PATHINFO_FILENAME));}
     public static function clean(string $value): string {return trim(preg_replace('/[\x{200B}-\x{200D}\x{FEFF}]/u','',$value));}
     public static function centerKey(string $value): string {return mb_strtolower(preg_replace('/\s+/u',' ',self::clean($value)));}

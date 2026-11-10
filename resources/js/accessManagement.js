@@ -14,6 +14,27 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
+    document.querySelectorAll('[data-premium-role-picker]').forEach((select,index)=>{
+        const picker=document.createElement('div');picker.className='access-role-picker';select.before(picker);picker.append(select);select.hidden=true;
+        const toggle=document.createElement('button');toggle.type='button';toggle.className='access-role-picker-toggle';toggle.setAttribute('aria-expanded','false');
+        const label=document.createElement('span'),chevron=document.createElement('i');chevron.className='ti ti-chevron-down';chevron.setAttribute('aria-hidden','true');toggle.append(label,chevron);picker.append(toggle);
+        const floatingLabel=document.createElement('span');floatingLabel.className='access-role-picker-floating-label';floatingLabel.textContent=select.dataset.premiumRolePicker;toggle.prepend(floatingLabel);
+        toggle.setAttribute('aria-label',select.dataset.premiumRolePicker);
+        select.closest('.access-role-selectors>div')?.querySelector('.form-label')?.classList.add('visually-hidden');
+        const menu=document.createElement('div');menu.className='access-role-picker-menu';menu.hidden=true;menu.id='accessRolePickerMenu'+index;toggle.setAttribute('aria-controls',menu.id);picker.append(menu);
+        const heading=document.createElement('div');heading.className='access-role-picker-heading';heading.textContent=select.dataset.premiumRolePicker;menu.append(heading);
+        const search=document.createElement('input');search.type='search';search.className='form-control';search.placeholder='Search '+(index===0?'roles':'departments');search.setAttribute('aria-label',search.placeholder);menu.append(search);
+        const list=document.createElement('div');list.className='access-role-picker-options';menu.append(list);
+        const empty=document.createElement('div');empty.className='text-secondary small p-3 text-center';empty.textContent='No matching items.';empty.hidden=true;menu.append(empty);
+        const close=()=>{menu.hidden=true;toggle.setAttribute('aria-expanded','false');};
+        const sync=()=>{label.textContent=select.selectedOptions[0]?.textContent.trim()||'';picker.classList.toggle('has-value',Boolean(label.textContent));list.querySelectorAll('button').forEach(button=>{const active=button.dataset.value===select.value;button.classList.toggle('is-selected',active);button.setAttribute('aria-pressed',String(active));});};
+        for(const option of select.options){const button=document.createElement('button');button.type='button';button.textContent=option.textContent.trim();button.dataset.value=option.value;button.disabled=option.disabled;list.append(button);button.addEventListener('click',()=>{select.value=option.value;sync();close();toggle.focus();select.dispatchEvent(new Event('change',{bubbles:true}));});}
+        toggle.addEventListener('click',()=>{const open=menu.hidden;document.querySelectorAll('.access-role-picker-menu').forEach(other=>{if(other!==menu){other.hidden=true;other.parentElement.querySelector('button').setAttribute('aria-expanded','false');}});menu.hidden=!open;toggle.setAttribute('aria-expanded',String(open));if(open)search.focus();});
+        search.addEventListener('input',()=>{let visible=0;for(const button of list.children){button.hidden=!button.textContent.toLowerCase().includes(search.value.trim().toLowerCase());if(!button.hidden)visible++;}empty.hidden=visible>0;});
+        picker.addEventListener('keydown',event=>{if(event.key==='Escape'){close();toggle.focus();}if(event.key==='ArrowDown'||event.key==='ArrowUp'){event.preventDefault();const choices=[search,...list.querySelectorAll('button:not([hidden]):not(:disabled)')];const current=choices.indexOf(document.activeElement);choices[(current+(event.key==='ArrowDown'?1:-1)+choices.length)%choices.length]?.focus();}});
+        document.addEventListener('click',event=>{if(!picker.contains(event.target))close();});select.addEventListener('change',sync);sync();
+    });
+
     const nav = document.querySelector(".card-tabs .nav-tabs");
     const content = document.querySelector(".card-tabs .tab-content");
     const departmentLink = nav?.querySelector(
@@ -240,7 +261,13 @@ document.addEventListener("DOMContentLoaded", () => {
     document.querySelectorAll("[data-department-picker]").forEach((picker) => {
         const toggle = picker.querySelector("[data-department-picker-toggle]"), menu = picker.querySelector("[data-department-picker-menu]"), search = picker.querySelector("[data-department-picker-search]"), value = picker.querySelector("[data-department-picker-value]"), label = picker.querySelector("[data-department-picker-label]");
         toggle?.addEventListener("click", () => { const open = menu.classList.toggle("d-none"); toggle.setAttribute("aria-expanded", String(!open)); if (!open) search?.focus(); });
-        search?.addEventListener("input", () => { const term = search.value.toLowerCase().trim(); picker.querySelectorAll("[data-department-id]").forEach((option) => option.classList.toggle("d-none", Boolean(term) && !option.textContent.toLowerCase().includes(term))); });
+        search?.addEventListener("input", () => {
+            const term = search.value.toLowerCase().trim();let visible=0;
+            picker.querySelectorAll("[data-department-id]").forEach((option) => {const match=!term||option.textContent.toLowerCase().includes(term);option.classList.toggle("d-none",!match);if(match)visible++;});
+            picker.querySelector('[data-department-picker-empty]')?.classList.toggle('d-none',visible>0);
+        });
+        picker.addEventListener('keydown',event=>{if(event.key==='Escape'){menu.classList.add('d-none');toggle.setAttribute('aria-expanded','false');toggle.focus();}});
+        document.addEventListener('click',event=>{if(!picker.contains(event.target)){menu.classList.add('d-none');toggle.setAttribute('aria-expanded','false');}});
         picker.querySelectorAll("[data-department-id]").forEach((option) => option.addEventListener("click", () => {
             value.value = option.dataset.departmentId;
             label.textContent = option.textContent.trim();

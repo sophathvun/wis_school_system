@@ -17,7 +17,7 @@
                 @if($permissions['certificate-print'])
                     <button type="button" class="btn btn-sm btn-outline-light" data-cert-output="print" aria-haspopup="dialog"><i class="ti ti-printer me-1" aria-hidden="true"></i>A4 Print Preview</button>
                 @endif
-                @if($permissions['certificate-assign'])<button type="button" class="btn btn-sm btn-outline-light" data-cert-plan @disabled(!$exam?->published_at)><i class="ti ti-list-numbers me-1" aria-hidden="true"></i>Assign Cert. No.</button>@endif
+                @if($permissions['certificate-assign']&&!$exam?->isHistorical())<button type="button" class="btn btn-sm btn-outline-light" data-cert-plan @disabled(!$exam?->published_at)><i class="ti ti-list-numbers me-1" aria-hidden="true"></i>Assign Cert. No.</button>@endif
                 @if($permissions['certificate-settings'])<button type="button" class="btn btn-sm btn-outline-light" data-cert-open-settings aria-haspopup="dialog" aria-controls="certSettings"><i class="ti ti-settings me-1" aria-hidden="true"></i>Settings</button>@endif
                 @if($permissions['certificate-template'])<button type="button" class="btn btn-sm btn-outline-light" data-cert-toggle="certEditor" aria-expanded="false"><i class="ti ti-edit me-1" aria-hidden="true"></i>Customize Templates</button>@endif
             </div></div>

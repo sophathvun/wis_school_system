@@ -19,6 +19,16 @@
     --app-sidebar-separator: rgba(148, 163, 184, 0.16);
 }
 
+/* Keep the current submenu destination distinct from hover, without shifting its content. */
+.navbar-vertical.app-sidebar #sidebar-menu .dropdown-menu .dropdown-item.active {
+    box-shadow: inset 4px 0 0 rgb(var(--tblr-primary-rgb));
+}
+
+/* A shared left guide identifies every submenu belonging to an expanded main menu. */
+.navbar-vertical.app-sidebar #sidebar-menu .nav-item.dropdown > .dropdown-menu {
+    border-left: 2px solid rgb(var(--tblr-primary-rgb)) !important;
+}
+
 html[data-bs-sidebar-theme="theme"] {
     --app-sidebar-bg-start: color-mix(in srgb, rgb(var(--tblr-primary-rgb)) 68%, #1e293b);
     --app-sidebar-bg-middle: color-mix(in srgb, rgb(var(--tblr-primary-rgb)) 48%, #111827);

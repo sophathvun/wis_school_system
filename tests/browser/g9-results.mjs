@@ -11,9 +11,10 @@ const bundle=await build({root,configFile:false,logLevel:'silent',build:{write:f
 const files=new Map();for(const output of Array.isArray(bundle)?bundle:[bundle])for(const f of output.output)files.set('/'+f.fileName,f.type==='chunk'?f.code:f.source);
 const server=createServer(async(req,res)=>{try{
     const url=new URL(req.url,'http://localhost');
+    if(['/qa/full-list','/qa/full-room'].includes(url.pathname)){res.setHeader('Content-Type','text/html');res.end(await readFile(join(root,`storage/app/testing/g9-result-reports/${url.pathname.split('/').pop()}.html`)));return;}
     if(files.has(url.pathname)){res.setHeader('Content-Type',url.pathname.endsWith('.css')?'text/css':'text/javascript');res.end(files.get(url.pathname));return;}
     if(url.pathname==='/system.css'){res.setHeader('Content-Type','text/css');res.end((await readFile(join(root,'resources/css/app.css'),'utf8')).replace(/^@import.*$/gm,''));return;}
-    if(url.pathname.startsWith('/node_modules/')||url.pathname.startsWith('/resources/')||url.pathname.startsWith('/fonts/')){res.setHeader('Content-Type',url.pathname.endsWith('.css')?'text/css':'font/woff2');res.end(await readFile(join(root,url.pathname.startsWith('/fonts/')?'public'+url.pathname:url.pathname)));return;}
+    if(url.pathname.startsWith('/node_modules/')||url.pathname.startsWith('/resources/')||url.pathname.startsWith('/public/fonts/')||url.pathname.startsWith('/fonts/')){res.setHeader('Content-Type',url.pathname.endsWith('.css')?'text/css':'font/woff2');res.end(await readFile(join(root,url.pathname.startsWith('/fonts/')?'public'+url.pathname:url.pathname)));return;}
     const fixture=JSON.parse(execFileSync(php,[join(root,'tests/browser/g9-results-fixture.php'),db,url.pathname.replace('/g9-national-exams/results','')||'/'],{cwd:root,input:JSON.stringify(Object.fromEntries(url.searchParams)),encoding:'utf8',maxBuffer:15*1024*1024}));
     res.statusCode=fixture.status;res.setHeader('Content-Type',fixture.type);let content=Buffer.from(fixture.content,'base64');
     if(!url.pathname.includes('/reports/'))content=content.toString().replaceAll('http://localhost','');
@@ -33,6 +34,7 @@ try{
     const click=selector=>evaluate(`document.querySelector(${JSON.stringify(selector)}).click()`);
     const choose=async(name,value)=>{await click('#g9Result-'+name+'-toggle');await until(`document.querySelector('#g9Result-${name}Options [data-index="${value}"]')!==null`);await click(`#g9Result-${name}Options [data-index="${value}"]`);await until('document.querySelector("[data-g9-results]").getAttribute("aria-busy")==="false"');};
     const idle=()=>until('document.querySelector("[data-g9-results]")?.getAttribute("aria-busy")==="false"');
+    if(!process.argv.includes('--reports-only')){
     await command('Emulation.setDeviceMetricsOverride',{width:1500,height:1100,deviceScaleFactor:1,mobile:false});
     await command('Page.navigate',{url:origin+'/g9-national-exams/results'});await idle();
     assert.equal(await evaluate('Array.from(document.querySelectorAll("[data-results-export-toggle]")).every(b=>b.disabled)'),true);
@@ -52,6 +54,7 @@ try{
     await evaluate(`window.originalOpen=window.open;window.printHref=null;window.open=()=>({opener:null,document:{title:'',body:{textContent:''}},location:{replace:url=>window.printHref=url},close(){window.printClosed=true;}});`);
     await click('[data-results-export="list"][data-format="print"]');
     await until('window.printHref!==null');
+    assert.equal(await evaluate(`new URL(window.printHref,location.href).pathname`),'/g9-national-exams/results/reports/list/print');
     assert.equal(await evaluate(`(async()=>{const html=await(await fetch(window.printHref)).text();return html.includes('បញ្ជីលទ្ធផលប្រឡង')&&html.includes('document.fonts.ready')})()`),true);
     await evaluate('window.open=window.originalOpen');
     // The app frame clips horizontal overflow. Focusing an unpositioned wide
@@ -81,6 +84,15 @@ try{
     await click('[data-results-tab=graph]');await idle();assert.equal(await evaluate('document.querySelectorAll("[data-results-bars] .g9-result-bar-track").length'),2);
     assert.equal(await evaluate('document.querySelectorAll("[data-results-legend]>div").length'),4);
     assert.ok(await evaluate('document.querySelector("[data-results-donut]").style.background.includes("conic-gradient")'));
+    assert.equal(await evaluate('document.querySelectorAll("[data-results-center-grades] .g9-center-grade-card").length'),2);
+    assert.equal(await evaluate('document.querySelectorAll("[data-results-center-grades] .g9-center-grade-track").length'),8);
+    assert.ok(await evaluate('document.querySelector("[data-results-center-grades]").textContent.includes("%")'));
+    assert.equal(await evaluate('document.querySelectorAll("[data-results-subjects] .g9-center-grade-card").length'),11);
+    assert.equal(await evaluate(`(async()=>{await document.fonts.load('16px "G9 Results Siemreap"','ខ្មែរ');return document.fonts.check('16px "G9 Results Siemreap"','ខ្មែរ')})()`),true);
+    assert.ok(await evaluate(`getComputedStyle(document.querySelector('[data-results-subjects] h4')).fontFamily.includes('G9 Results Siemreap')`));
+    assert.equal(await evaluate('document.querySelectorAll("[data-results-subjects] .g9-center-grade-track").length'),42);
+    assert.equal(await evaluate('document.querySelectorAll("[data-results-subjects] .g9-subject-language").length'),22);
+    assert.ok(await evaluate('document.querySelector("[data-results-subjects]").textContent.includes("Passed")&&document.querySelector("[data-results-subjects]").textContent.includes("%")'));
     await mkdir(join(root,'storage/app/testing'),{recursive:true});
     for(const width of [1500,390]){
         await command('Emulation.setDeviceMetricsOverride',{width,height:1100,deviceScaleFactor:1,mobile:width<500});await delay(200);
@@ -106,14 +118,20 @@ try{
     await choose('academic_year',0);assert.equal(await evaluate('document.querySelector("[data-results-summary]").hidden'),true);assert.equal(await evaluate('document.querySelectorAll("[data-results-stat-total] tr").length'),0);
     assert.equal(await evaluate('Array.from(document.querySelectorAll("[data-results-export-toggle]")).every(b=>b.disabled)'),true);
     assert.deepEqual(await evaluate('window.errors'),[]);
+    }
     await command('Page.enable');
     await command('Page.addScriptToEvaluateOnNewDocument',{source:'window.errors=[];addEventListener("error",e=>window.errors.push(e.message));addEventListener("unhandledrejection",e=>window.errors.push(String(e.reason)));window.print=()=>window.printRequested=true;'});
     await command('Emulation.setDeviceMetricsOverride',{width:1100,height:1400,deviceScaleFactor:1,mobile:false});
-    for(const type of ['list','room','subject']){
-        await command('Page.navigate',{url:origin+`/g9-national-exams/results/reports/${type}/print?academic_year=1`});
+    for(const type of ['list','room','subject','doeys','branch','wis','full-list','full-room']){
+        await command('Page.navigate',{url:type.startsWith('full-')?origin+'/qa/'+type:origin+`/g9-national-exams/results/reports/${type}/print?academic_year=1`});
         await until('window.printRequested===true');
+        if(type==='room'){
+            await command('Page.reload',{ignoreCache:true});
+            await until('window.printRequested===true && document.querySelector(".result-room-heading")!==null');
+            assert.equal(await evaluate('location.protocol'),'http:');
+        }
         const sheets=await evaluate('document.querySelectorAll(".result-sheet").length');
-        const pdf=Buffer.from((await command('Page.printToPDF',{preferCSSPageSize:true,printBackground:true,displayHeaderFooter:false})).data,'base64');
+        const pdf=Buffer.from((await command('Page.printToPDF',{preferCSSPageSize:true,printBackground:type!=='subject',displayHeaderFooter:false})).data,'base64');
         assert.equal((pdf.toString('latin1').match(/\/Type\s*\/Page\b/g)||[]).length,sheets,`${type} browser print added an overflow page`);
         await writeFile(join(root,`storage/app/testing/g9-result-reports/browser-${type}.pdf`),pdf);
     }

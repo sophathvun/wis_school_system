@@ -11,6 +11,8 @@ header p { margin: 0 0 6px; font-size: 14px; }
 h1 { margin: 0; font-size: 24px; }
 section { padding: 24px; }
 .verification-status { display: inline-block; margin: 0; padding: 5px 12px; border-radius: 20px; color: #176337; background: #e6f6eb; font-size: 14px; font-weight: bold; }
+.verification-status.is-voided { color: #a51d2d; background: #fde8eb; }
+.verification-status.is-pending { color: #805307; background: #fff3d6; }
 h2 { margin: 20px 0; font-size: 21px; }
 dl { margin: 0; }
 dl > div { display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 12px; padding: 14px 0; border-top: 1px solid #e5eaf2; }

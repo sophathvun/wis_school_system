@@ -9,7 +9,8 @@ class G9ResultWorkbook
 {
     private array $styles=[];
     private const COLORS=['blue'=>'DFEAF4','pale-green'=>'E2EFD9','pale-yellow'=>'FFF2CC','pale-orange'=>'FBE5D6',
-        'yellow'=>'FFF8BA','purple'=>'E2DCED','orange'=>'F8D8BD','red'=>'F5D7D9','total'=>'EAF2F8'];
+        'yellow'=>'FFF8BA','purple'=>'E2DCED','orange'=>'F8D8BD','red'=>'F5D7D9','total'=>'EAF2F8','weak-header'=>'ED2330',
+        'doeys-absence'=>'EFD1D1','doeys-good'=>'FFF000','doeys-fair'=>'DEDCE8','doeys-average'=>'FBE5D6'];
 
     public function generate(array $pages,string $type): string
     {
@@ -24,13 +25,21 @@ class G9ResultWorkbook
             };
             if($page['header']){
                 $merged('ព្រះរាជាណាចក្រកម្ពុជា','title',27);$merged('ជាតិ សាសនា ព្រះមហាក្សត្រ','title',27);
-                $merged($type==='list'?$page['location']:$page['department'],'plain left');
+                $merged(in_array($type,['doeys','branch','wis'],true)?'មន្ទីរអប់រំ យុវជន និងកីឡា '.$page['location']:($type==='subject'?'មន្ទីរអប់រំ យុវជន និងកីឡា រាជធានីភ្នំពេញ':($type==='list'?$page['location']:$page['department'])),'plain left');
+                if($type==='wis')$merged('សាលាវេស្ទើនអន្តរជាតិ','plain left');
+                if(in_array($type,['doeys','branch'],true))$merged('មណ្ឌលប្រឡង៖ '.$page['center'],'plain left');
+                if($type==='subject'){
+                    $merged('ប្រឡងសញ្ញាបត្រមធ្យមសិក្សាបឋមភូមិ','plain left');
+                    $merged('សម័យប្រឡង៖ '.$page['exam_date'],'plain left');
+                }
                 if($type==='list'){$merged('មណ្ឌលប្រឡង៖ '.$page['center'],'plain left');$merged('បន្ទប់លេខ៖ '.G9CandidateReport::roomHeading((string)$page['room']),'plain left');}
-                $merged(G9ResultReport::TITLES[$type],'title',28);$merged('ប្រឡងសញ្ញាបត្រមធ្យមសិក្សាបឋមភូមិ','title',25);
-                $merged('សម័យប្រឡង៖ '.$page['exam_date'].'  ឆ្នាំសិក្សា៖ '.$page['year'],'plain',23);
+                $merged(in_array($type,['doeys','branch'],true)?G9ResultReport::DOEYS_TITLE:G9ResultReport::TITLES[$type],'title',28);
+                if(!in_array($type,['subject','doeys','branch','wis'],true))$merged('ប្រឡងសញ្ញាបត្រមធ្យមសិក្សាបឋមភូមិ','title',25);
+                if(in_array($type,['doeys','branch','wis'],true))$merged('សម័យប្រឡង៖ '.$page['exam_date'],'plain',23);
+                elseif($type!=='subject')$merged('សម័យប្រឡង៖ '.$page['exam_date'].'  ឆ្នាំសិក្សា៖ '.$page['year'],'plain',23);
             }
             foreach($page['tables'] as $table){
-                if(!empty($table['caption']))$merged($table['caption'],'section',27);
+                if($type!=='subject'&&!empty($table['caption']))$merged($table['caption'],'section',27);
                 $occupied=[];$start=count($sheetRows)+1;
                 foreach($table['headers'] as $hi=>$header){
                     $cells=[];$column=1;$row=$start+$hi;
@@ -45,12 +54,16 @@ class G9ResultWorkbook
                     }
                     $add($cells,$type==='list'?30:24);
                 }
+                if($type==='subject'&&!empty($table['caption']))$merged($table['caption'],'section',27);
                 foreach($table['rows'] as $row){
+                    if(!empty($row['grand_total']))$merged('','plain',9);
                     if(isset($row['section'])){$merged($row['section'],'section',25);continue;}
                     $cells=[];
                     foreach($row['cells'] as $cell){
                         $style=$cell['style'];
+                        if(in_array($type,['doeys','branch'],true))$style.=' doeys';
                         if($type==='list')$style.=' fit';
+                        if($type==='wis')$style.=' fit';
                         if(!empty($row['total']))$style.=' total';
                         if(in_array($row['outcome']??'',['failed','absent'],true))$style.=' strike';
                         $cells[]=['value'=>$cell['value'],'style'=>$style];
@@ -61,11 +74,18 @@ class G9ResultWorkbook
                 $merged('','plain',8);
             }
             foreach($page['notes'] as $note)$merged($note,'plain left',24);
+            if(!empty($page['academic_office'])){
+                $merged('ការិយាល័យសិក្សា','title',26);
+                $merged($page['office_date']?:'................................','plain',26);
+            }
             foreach($page['footer'] as $line)$merged($line,'plain',22);
             if($page['signature']){
+                if(in_array($type,['doeys','branch'],true))$merged('សម្គាល់៖ ភាគរយបេក្ខជនប្រឡងជាប់ត្រូវធៀបជាមួយបេក្ខជនមកប្រឡង។','plain left',25);
                 if($page['lunar'])$merged($page['lunar']);
                 if($page['solar'])$merged($page['solar']);
-                $merged($page['signer'],'title',26);$merged('','plain',30);$merged($page['signer_name'],'title',26);
+                if(in_array($type,['doeys','branch'],true))foreach($page['doeys_signature_titles'] as $title)$merged($title,'title',26);
+                else $merged($page['signer'],'title',26);
+                $merged('','plain',30);$merged($page['signer_name'],'title',26);
             }
             $merged('ទំព័រ '.G9CandidateReport::digits($page['page']).' / '.G9CandidateReport::digits($page['pages']),'plain',18);
             $xmlRows='';
@@ -81,7 +101,7 @@ class G9ResultWorkbook
             $widths=$page['tables'][0]['widths'];$sum=array_sum($widths);$cols='';
             foreach($widths as $ci=>$width)$cols.='<col min="'.($ci+1).'" max="'.($ci+1).'" width="'.round($width/$sum*145,2).'" customWidth="1"/>';
             $mergeXml='';foreach($merges as $merge)$mergeXml.='<mergeCell ref="'.$merge.'"/>';
-            $entries['xl/worksheets/sheet'.$number.'.xml']='<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="'.$ns.'spreadsheetml/2006/main"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><dimension ref="A1:'.$last.count($sheetRows).'"/><sheetViews><sheetView workbookViewId="0" showGridLines="0"/></sheetViews><cols>'.$cols.'</cols><sheetData>'.$xmlRows.'</sheetData><mergeCells count="'.count($merges).'">'.$mergeXml.'</mergeCells><printOptions horizontalCentered="1"/><pageMargins left="0.315" right="0.315" top="0.276" bottom="0.315" header="0" footer="0"/><pageSetup paperSize="9" orientation="portrait" fitToWidth="1" fitToHeight="1"/></worksheet>';
+            $entries['xl/worksheets/sheet'.$number.'.xml']='<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="'.$ns.'spreadsheetml/2006/main"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><dimension ref="A1:'.$last.count($sheetRows).'"/><sheetViews><sheetView workbookViewId="0" showGridLines="0"/></sheetViews><cols>'.$cols.'</cols><sheetData>'.$xmlRows.'</sheetData><mergeCells count="'.count($merges).'">'.$mergeXml.'</mergeCells><printOptions horizontalCentered="1"/><pageMargins left="0.315" right="0.315" top="0.276" bottom="0.315" header="0" footer="0"/><pageSetup paperSize="9" orientation="'.(in_array($type,['doeys','branch'],true)?'landscape':'portrait').'" fitToWidth="1" fitToHeight="1"/></worksheet>';
             $sheets.='<sheet name="'.$sheetName.'" sheetId="'.$number.'" r:id="rId'.$number.'"/>';
             $rels.='<Relationship Id="rId'.$number.'" Type="'.$ns.'officeDocument/2006/relationships/worksheet" Target="worksheets/sheet'.$number.'.xml"/>';
             $overrides.='<Override PartName="/xl/worksheets/sheet'.$number.'.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>';
@@ -120,6 +140,7 @@ class G9ResultWorkbook
             $parts=explode(' ',$key);$has=fn($part)=>in_array($part,$parts,true);
             $font=$has('title')?1:($has('strike')?4:($has('result')?3:($has('total')||$has('section')?2:0)));
             $fill=0;foreach(array_keys(self::COLORS) as $i=>$color)if($has($color)){$fill=$i+2;break;}
+            if($has('doeys')&&$has('total'))$fill=0;
             $plain=$has('plain')||$has('title');
             $xfs.='<xf numFmtId="'.($has('percent')?10:0).'" fontId="'.$font.'" fillId="'.$fill.'" borderId="'.($plain?0:1).'" xfId="0" applyAlignment="1" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"><alignment horizontal="'.($has('left')||$has('section')?'left':'center').'" vertical="center" wrapText="'.($has('fit')?'0':'1').'"'.($has('fit')?' shrinkToFit="1"':'').'/></xf>';
         }

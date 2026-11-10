@@ -16,6 +16,7 @@
             @foreach($g12Sections as $section=>$group)
             <a class="dropdown-item {{ $g12Active&&$g12Current===$section?'active':'' }}" href="{{ route('g12-national-exams.'.$section) }}" @if($g12Active&&$g12Current===$section) aria-current="page" @endif><i class="ti {{ \App\Support\G12NationalExamPermissions::ICONS[$section] }} me-2"></i>{{ $group[0] }}</a>
             @endforeach
+            <a class="dropdown-item" href="{{ route('help.index',['category'=>'g12']) }}"><i class="ti ti-book me-2" aria-hidden="true"></i>Help &amp; guides</a>
         </div></div>
     </div>
 </li>

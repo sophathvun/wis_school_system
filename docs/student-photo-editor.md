@@ -107,6 +107,14 @@ Git does not deploy `storage/app/private/student-photo-ai`. Do not transfer the
 Windows virtual environment to Linux; create it on Linux using the setup script.
 Python environments contain platform-specific binaries and absolute paths.
 
+The model, `venv`, and `numba-cache` in this directory are application runtime
+files, not student records or uploaded photos. Preserve them during student-data
+cleanup. Only the `tmp` subdirectory contains temporary portrait-processing files.
+Removing the runtime disables background removal even when cropping and photo
+uploads still work. For accidental removal on the same machine, restore verified
+runtime files from its backup, then run `student-photos:check --verify` before
+testing the editor. Keep the original recovery backup intact.
+
 PHP GD with WebP support and Python 3.12 or newer are required. Python 3.12 is
 supported on Ubuntu 24.04; the Windows development runtime uses Python 3.13.
 From the project root:

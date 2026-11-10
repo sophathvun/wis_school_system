@@ -12,6 +12,7 @@ beforeEach(function () {
     Schema::create('tb_academic_year', function (Blueprint $t) {
         $t->id(); $t->string('academic_year'); $t->string('period_type')->default('regular');
         $t->string('lifecycle_status')->default('ended'); $t->softDeletes();
+        $t->unsignedBigInteger('parent_academic_year_id')->nullable();$t->date('start_date')->nullable();$t->date('end_date')->nullable();
     });
     Schema::create('tb_student', function (Blueprint $t) {
         $t->id(); foreach (['student_id','student_no','full_name_en','full_name_kh','family_number','gender'] as $c) $t->string($c)->nullable();
@@ -81,6 +82,13 @@ it('deduplicates before pagination and exposes former students in the student pi
     expect($a->json('data.0.student_id'))->not->toBe($b->json('data.0.student_id'));
     $options=$this->getJson('/student-enrollments/filter-options')->assertOk();
     expect(collect($options->json('students'))->pluck('student_record_id')->all())->toContain(2);
+});
+it('returns scoped list options without downloading or caching the full enrollment history',function(){
+    $response=$this->getJson('/student-enrollments/list-options?academic_year_id=4&campus_id=1')->assertOk();
+    expect($response->json())->not->toHaveKey('enrollmentFilterRows');
+    expect(collect($response->json('allAcademicYears'))->pluck('id')->all())->toContain(1,4,5);
+    expect(collect($response->json('students'))->pluck('student_record_id')->all())->toBe([1,3]);
+    $this->getJson('/student-enrollments/list-options?search=ID2')->assertOk();
 });
 
 it('does not open a planning year when no academic year is active', function () {

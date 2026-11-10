@@ -4,9 +4,9 @@
 @endforeach
 {!! file_get_contents(resource_path('css/pages/g9-result-print.css')) !!}
 </style></head><body>
-@foreach($pages as $page)<section class="result-sheet result-{{ $type }}">@include('g9-national-exams.result-report-page')</section>@endforeach
+@foreach($pages as $page)<section class="result-sheet result-{{ $type }}{{ $type==='branch'?' result-doeys':'' }}">@include('g9-national-exams.result-report-page')</section>@endforeach
 <script>document.fonts.ready.then(()=>{
-    document.querySelectorAll('.result-students td').forEach(cell=>{
+    document.querySelectorAll('.result-students td,.result-wis .result-table tbody td').forEach(cell=>{
         let size=parseFloat(getComputedStyle(cell).fontSize)*.75;
         while(cell.scrollWidth>cell.clientWidth+1&&size>5.5){size-=.25;cell.style.fontSize=size+'pt';}
     });

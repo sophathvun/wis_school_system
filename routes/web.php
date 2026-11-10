@@ -46,6 +46,11 @@ use App\Http\Controllers\StaffManagementController;
 use App\Http\Controllers\HrmSettingsController;
 use App\Http\Controllers\StudentIdCardQrController;
 
+// Signed progress URLs expose counts only and avoid session writes while the import request is running.
+Route::get('/student-import-progress/{token}', [StudentDataTransferController::class, 'progress'])
+    ->middleware('signed')->withoutMiddleware('web')
+    ->name('student-data-transfer.progress');
+
 Route::get('/app-icon.svg', function () {
     $branding = \App\Models\BrandingSetting::current();
     $iconPath = $branding->shortcut_icon_path ?: $branding->login_logo_path ?: $branding->favicon_path ?: $branding->sidebar_logo_path;
@@ -178,6 +183,8 @@ Route::middleware(['auth', 'active.user'])->prefix('students/placement-tests')->
     });
 
 Route::middleware(['auth', 'active.user'])->group(function () {
+    Route::get('/help', [\App\Http\Controllers\HelpCenterController::class,'index'])->name('help.index');
+    Route::get('/help/{slug}', [\App\Http\Controllers\HelpCenterController::class,'show'])->where('slug','[a-z0-9-]+')->name('help.show');
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [AuthController::class, 'profile'])->name('profile');
@@ -811,6 +818,7 @@ Route::get('/student-graduations/fetch', [GraduationController::class, 'fetch'])
 Route::post('/student-graduations/graduate', [GraduationController::class, 'graduate'])->name('student-graduations.graduate');
 Route::post('/student-graduations/graduate-batch', [GraduationController::class, 'graduateBatch'])->name('student-graduations.graduate-batch');
 Route::post('/student-graduations/{graduation}/cancel', [GraduationController::class, 'cancel'])->name('student-graduations.cancel');
+Route::post('/student-graduations/{graduation}/confirm-pass', [GraduationController::class, 'confirmPass'])->middleware('auth')->name('student-graduations.confirm-pass');
 
 Route::get('/students/update', function () {
     return view('dashboard');
@@ -848,6 +856,7 @@ Route::get('/students/data-transfer', [StudentDataTransferController::class, 'in
 Route::get('/students/data-transfer/{type}/template', [StudentDataTransferController::class, 'template'])->name('student-data-transfer.template');
 Route::get('/students/data-transfer/{type}/export', [StudentDataTransferController::class, 'export'])->name('student-data-transfer.export');
 Route::post('/students/data-transfer/{type}/import', [StudentDataTransferController::class, 'import'])->name('student-data-transfer.import');
+Route::get('/students/data-transfer/{type}/failed-rows', [StudentDataTransferController::class, 'failedRows'])->middleware(['auth', 'permission:student-data-transfer.import'])->name('student-data-transfer.failed-rows');
 
 // Academic Year Routes
 Route::get('/academic-years', [AcademicYearController::class, 'index'])->name('academic-years.index');

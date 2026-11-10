@@ -525,8 +525,8 @@ class DashboardController
 
     private function studentsByTrackChart($enrollmentScope): array
     {
+        // Like the grade chart, include historical enrollments in the selected year/campus.
         $counts = (clone $enrollmentScope)
-            ->where('tb_student_enrollment.enrollment_status', 'active')
             ->whereNotNull('tb_student_enrollment.academic_track_id')
             ->join('tb_student', 'tb_student.id', '=', 'tb_student_enrollment.student_id')
             ->join('tb_academic_track', 'tb_academic_track.id', '=', 'tb_student_enrollment.academic_track_id')

@@ -53,6 +53,7 @@ try{
     assert.equal(await evaluate('document.querySelector("[data-certificate-count=total]").textContent'),'32');
     assert.equal(await evaluate('document.querySelector("[data-certificate-count=passed]").textContent'),'29');
     assert.equal(await evaluate('document.querySelector("[data-certificate-count=failed]").textContent'),'1');
+    assert.equal(await evaluate('document.querySelector("[data-certificate-count=absent]").textContent'),'1');
     assert.equal(await evaluate('document.querySelector(".g12-certificate-table").innerText.includes("Diploma")'),false);
     assert.ok(await evaluate(`document.querySelector('[data-certificate-manage="2"]').closest('tr').textContent.includes('០១ ធ្នូ ២០២៦')`));
     assert.ok(await evaluate(`document.querySelector('[data-certificate-manage="3"]').closest('tr').textContent.includes('03-Oct-2026')`));

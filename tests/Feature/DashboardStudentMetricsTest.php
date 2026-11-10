@@ -54,3 +54,52 @@ it('returns zero male and female counts for an empty dashboard scope', function 
         ->and((int) $counts->active_male)->toBe(0)
         ->and((int) $counts->active_female)->toBe(0);
 });
+
+it('counts only confirmed graduates while pending results and cancellations stay outside graduation totals',function(){
+    Schema::create('tb_student_graduation',function(Blueprint $t){$t->id();$t->integer('student_id');$t->integer('academic_year_id');$t->integer('campus_id');$t->string('status');});
+    DB::table('tb_student_graduation')->insert([
+        ['student_id'=>1,'academic_year_id'=>10,'campus_id'=>1,'status'=>'pending_result'],
+        ['student_id'=>2,'academic_year_id'=>10,'campus_id'=>1,'status'=>'completed'],
+        ['student_id'=>3,'academic_year_id'=>10,'campus_id'=>1,'status'=>'cancelled'],
+        ['student_id'=>4,'academic_year_id'=>11,'campus_id'=>1,'status'=>'completed'],
+        ['student_id'=>5,'academic_year_id'=>10,'campus_id'=>2,'status'=>'completed'],
+    ]);
+    $count=(new ReflectionMethod(DashboardController::class,'graduatedStudentsCount'))->invoke(new DashboardController(),10,null,[1]);
+    expect($count)->toBe(1);
+});
+
+it('includes completed and withdrawn student tracks within the selected year and campus without double counting', function () {
+    DB::connection()->getPdo()->sqliteCreateFunction('FIELD', function ($value, ...$options) {
+        $index = array_search($value, $options, true);
+        return $index === false ? 0 : $index + 1;
+    });
+    Schema::table('tb_student_enrollment', fn (Blueprint $table) => $table->integer('academic_track_id')->nullable());
+    Schema::create('tb_academic_track', function (Blueprint $table) {
+        $table->id(); $table->string('name_en'); $table->string('stream_type');
+        $table->string('language'); $table->boolean('status')->default(true); $table->softDeletes();
+    });
+    DB::table('tb_academic_track')->insert([
+        ['id'=>1, 'name_en'=>'Science - Khmer', 'stream_type'=>'science', 'language'=>'khmer'],
+        ['id'=>2, 'name_en'=>'Science - English', 'stream_type'=>'science', 'language'=>'english'],
+    ]);
+    foreach ([1=>'Male', 2=>'Female', 3=>'Female', 4=>'Female', 5=>'Male', 6=>'Female'] as $id=>$gender) {
+        DB::table('tb_student')->insert(['id'=>$id, 'gender'=>$gender]);
+    }
+    $base=['campus_id'=>1, 'academic_year_id'=>10, 'enrollment_status'=>'completed', 'academic_track_id'=>1];
+    foreach ([
+        ['student_id'=>1],
+        ['student_id'=>1],
+        ['student_id'=>2, 'enrollment_status'=>'active', 'academic_track_id'=>2],
+        ['student_id'=>3, 'enrollment_status'=>'withdrawn'],
+        ['student_id'=>4, 'campus_id'=>2, 'academic_track_id'=>2],
+        ['student_id'=>5, 'academic_year_id'=>11],
+        ['student_id'=>6, 'academic_track_id'=>null],
+    ] as $row) DB::table('tb_student_enrollment')->insert(array_replace($base, $row));
+    $scope=StudentEnrollment::where('academic_year_id', 10)->whereIn('campus_id', [1]);
+    $rows=(new ReflectionMethod(DashboardController::class, 'studentsByTrackChart'))->invoke(new DashboardController(), $scope);
+    $chart=collect($rows)->keyBy('label');
+    expect($chart['Science - Khmer'])->toMatchArray(['value'=>2, 'secondary_value'=>1])
+        ->and($chart['Science - English'])->toMatchArray(['value'=>1, 'secondary_value'=>1])
+        ->and($chart['Total'])->toMatchArray(['value'=>3, 'secondary_value'=>2])
+        ->and($scope->count())->toBe(5);
+});
