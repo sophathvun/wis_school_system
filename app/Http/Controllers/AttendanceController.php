@@ -158,7 +158,7 @@ class AttendanceController
         $rows=$query->get();
         if(($input['format']??'')==='csv')return response()->streamDownload(function()use($rows){
             $stream=fopen('php://output','w');fwrite($stream,"\xEF\xBB\xBF");
-            fputcsv($stream,['Date','Campus','Class','Subject','Teacher','Register Status','Present','Absent','Late','Excused','Sick'],',','"','');
+            fputcsv($stream,['Date','Campus','Class','Subject','Teacher','Register Status','Present','Absent','Tardy','Excused','Sick'],',','"','');
             foreach($rows as $row){$values=[$row->attendance_date,$row->campus_name_en,$row->class_name,$row->subject,$row->teacher_name,$row->status,$row->present,$row->absent,$row->late,$row->excused,$row->sick];
                 fputcsv($stream,array_map(fn($v)=>preg_match('/^[=+\-@\t\r]/',(string)$v)?"'".$v:$v,$values),',','"','');}
             fclose($stream);

@@ -16,7 +16,7 @@ If a session is missing, check the date, teacher assignment, schedule publicatio
 
 ## Mark the students
 
-Choose an offered status for each student: Present, Absent, Late, Excused, or Sick. Add late minutes and a note where appropriate.
+Choose an offered status for each student: Present, Absent, Tardy, Excused, or Sick. Add late minutes and a note where appropriate.
 
 **Mark Unmarked Present** applies Present to unmarked students. Unmarked students are not automatically counted as present, so review this action before submitting.
 

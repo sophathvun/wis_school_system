@@ -1,6 +1,27 @@
 document.addEventListener('DOMContentLoaded', () => {
     const csrf = document.querySelector('meta[name="csrf-token"]')?.content || document.getElementById('graduationModal')?.dataset.csrf || '';
     const field = id => document.getElementById(id);
+    const listCard = field('graduationListCard');
+    const fullscreenButton = field('graduationFullscreen');
+    const sizeList = () => {
+        if (!listCard.classList.contains('is-fullscreen')) {
+            listCard.style.setProperty('--graduation-list-top', `${Math.max(0, listCard.getBoundingClientRect().top)}px`);
+        }
+    };
+    const setFullscreen = expanded => {
+        listCard.classList.toggle('is-fullscreen', expanded);
+        document.body.classList.toggle('graduation-list-expanded', expanded);
+        fullscreenButton.setAttribute('aria-pressed', String(expanded));
+        fullscreenButton.setAttribute('aria-label', expanded ? 'Exit graduation list full screen' : 'Expand graduation list to full screen');
+        fullscreenButton.innerHTML = `<i class="ti ti-${expanded ? 'minimize' : 'maximize'}"></i><span>${expanded ? 'Exit full screen' : 'Full screen'}</span>`;
+        if (!expanded) { sizeList(); fullscreenButton.focus(); }
+    };
+    fullscreenButton.addEventListener('click', () => setFullscreen(!listCard.classList.contains('is-fullscreen')));
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && !document.querySelector('.modal.show') && listCard.classList.contains('is-fullscreen')) setFullscreen(false);
+    });
+    window.addEventListener('resize', sizeList);
+    requestAnimationFrame(sizeList);
     const modal = bootstrap.Modal.getOrCreateInstance(field('graduationModal'));
     let options = {};
     let currentPage = 1;
@@ -297,8 +318,8 @@ document.addEventListener('DOMContentLoaded', () => {
         field('graduationTable').innerHTML = rows.length ? rows.map((item, index) => {
             const student = item.student || {};
             const rowNumber = Number(result.from || 1) + index;
-            return `<tr><td>${rowNumber}</td><td>${studentPhoto(student)}</td><td>${esc(student.student_id || student.student_no || '-')}</td><td><div class="graduation-student-name-kh school-profile-khmer">${esc(studentNameKh(student) || '-')}</div><div class="graduation-student-name-en">${esc(studentName(student) || '-')}</div></td><td>${esc(item.academic_year?.academic_year || '-')}</td><td>${gradeTrackCell(item)}</td><td>${esc(item.session?.session_short_name || '-')}</td><td>${esc(item.campus?.campus_name_en || '-')}</td><td>${esc(formatDate(item.graduation_date))}</td><td>${esc(item.certificate_number || 'Not assigned')}</td><td><span class="badge bg-${item.status === 'completed' && item.is_alumni ? 'success' : 'secondary'}-lt">${item.status === 'completed' && item.is_alumni ? 'Yes' : 'No'}</span></td><td>${esc(item.changed_by?.name || 'System')}</td><td>${graduationActionButtons(item)}</td></tr>`;
-        }).join('') : '<tr><td colspan="13" class="text-center">No graduated students found.</td></tr>';
+            return `<tr><td>${rowNumber}</td><td><div class="graduation-table-student">${studentPhoto(student)}<div class="min-w-0"><div class="graduation-student-code">${esc(student.student_id || student.student_no || "-")}</div><div class="graduation-student-name-kh school-profile-khmer">${esc(studentNameKh(student) || "-")}</div><div class="graduation-student-name-en">${esc(studentName(student) || "-")}</div></div></div></td><td><div>${esc(item.academic_year?.academic_year || "-")}</div><div class="graduation-cell-meta">${esc(item.campus?.campus_name_en || "-")}</div></td><td>${gradeTrackCell(item)}</td><td>${esc(item.session?.session_short_name || "-")}</td><td><div>${esc(formatDate(item.graduation_date))}</div><div class="graduation-cell-meta">${esc(item.changed_by?.name || "System")}</div></td><td>${esc(item.certificate_number || "Not assigned")}</td><td>${graduationActionButtons(item)}<div class="graduation-cell-meta mt-2">Alumni: ${item.status === "completed" && item.is_alumni ? "Yes" : "No"}</div></td></tr>`;
+        }).join('') : '<tr><td colspan="8" class="text-center">No graduated students found.</td></tr>';
         renderPagination(result, pageSize);
         updateSortIcons();
     };
@@ -388,6 +409,34 @@ document.addEventListener('DOMContentLoaded', () => {
         field('graduationError').classList.add('d-none');
         modal.show();
         Object.keys(searchable).forEach(refreshSearchableValue);
+    };
+    field('graduationBulkPass').onclick = async () => {
+        const button=field('graduationBulkPass');
+        if(!field('graduation-year').value){
+            if(window.Swal) await window.Swal.fire({icon:'info',title:'Select an academic year',text:'Choose the academic year before confirming a group of graduates.'});
+            return;
+        }
+        button.disabled=true;
+        let confirmed=0, skipped=0;
+        try {
+            const filters=new URLSearchParams({academic_year_id:field('graduation-year').value,campus_id:field('graduation-campus').value,class_id:field('graduation-class').value,search:field('graduation-search').value});
+            const preview=await fetch(`/student-graduations/confirm-pass-preview?${filters}`,{headers:{Accept:'application/json'}});
+            const plan=await preview.json();if(!preview.ok) throw new Error(plan.message||'Unable to preview graduates.');
+            if(!plan.count){if(window.Swal) await window.Swal.fire({icon:'info',title:'No pending graduates',text:'No pending students match these filters and your permissions.'});return;}
+            const scope=['graduation-year','graduation-campus','graduation-class'].map(id=>{const select=field(id);return select.value?select.options[select.selectedIndex].textContent:'';}).filter(Boolean).join(' / ');
+            const decision=window.Swal?await window.Swal.fire({icon:'question',title:`Confirm ${plan.count} students passed?`,html:`<p>${esc(scope)}</p><p>This includes all matching pages. Only continue if every included student passed the WIS exam. Their graduations and enrollments will be completed, and linked WIS certificates will become valid.</p>${field('graduation-search').value?`<p>Search: <strong>${esc(field('graduation-search').value)}</strong></p>`:''}`,showCancelButton:true,confirmButtonText:`Confirm Pass for ${plan.count} Students`,cancelButtonText:'Go back'}):{isConfirmed:window.confirm(`Confirm all ${plan.count} matching students passed the WIS exam?`)};
+            if(!decision.isConfirmed) return;
+            if(window.Swal) window.Swal.fire({title:'Confirming graduates',html:'<div class="progress"><div id="graduationBulkProgress" class="progress-bar bg-success" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" style="width:0%"></div></div><div id="graduationBulkProgressText" class="mt-3" aria-live="polite">0 students processed</div>',allowOutsideClick:false,allowEscapeKey:false,showConfirmButton:false});
+            for(let offset=0;offset<plan.ids.length;offset+=25){
+                const response=await fetch('/student-graduations/confirm-pass-batch',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':csrf,Accept:'application/json'},body:JSON.stringify({ids:plan.ids.slice(offset,offset+25)})});
+                const result=await response.json();if(!response.ok) throw new Error(result.message||'Unable to confirm this group.');
+                confirmed+=result.confirmed;skipped+=result.skipped;
+                const processed=Math.min(offset+25,plan.count),percentage=Math.round(processed/plan.count*100);
+                const bar=field('graduationBulkProgress');if(bar){bar.style.width=`${percentage}%`;bar.setAttribute('aria-valuenow',String(percentage));field('graduationBulkProgressText').textContent=`${processed} of ${plan.count} processed (${percentage}%)`;}
+            }
+            if(window.Swal) await window.Swal.fire({icon:'success',title:'Pass Confirmed',text:`${confirmed} students confirmed.${skipped?` ${skipped} records already changed and were skipped.`:''}`});
+        } catch(error){if(window.Swal) await window.Swal.fire({icon:'error',title:'Bulk confirmation stopped',text:`${confirmed} students confirmed so far. ${error.message} Refresh and review the remaining pending records before retrying.`});}
+        finally {button.disabled=false;await loadListOptions();await render(currentPage);}
     };
     document.addEventListener('click', async event => {
         const pass = event.target.closest('[data-graduation-pass]');
@@ -526,7 +575,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     loadListOptions().then(() => render()).catch(() => {
-        field('graduationTable').innerHTML = '<tr><td colspan="13" class="text-center text-danger">Unable to load graduation records.</td></tr>';
+        field('graduationTable').innerHTML = '<tr><td colspan="8" class="text-center text-danger">Unable to load graduation records.</td></tr>';
     });
 });
 

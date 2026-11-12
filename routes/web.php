@@ -819,6 +819,8 @@ Route::post('/student-graduations/graduate', [GraduationController::class, 'grad
 Route::post('/student-graduations/graduate-batch', [GraduationController::class, 'graduateBatch'])->name('student-graduations.graduate-batch');
 Route::post('/student-graduations/{graduation}/cancel', [GraduationController::class, 'cancel'])->name('student-graduations.cancel');
 Route::post('/student-graduations/{graduation}/confirm-pass', [GraduationController::class, 'confirmPass'])->middleware('auth')->name('student-graduations.confirm-pass');
+Route::get('/student-graduations/confirm-pass-preview', [GraduationController::class, 'confirmPassPreview'])->middleware('auth')->name('student-graduations.confirm-pass-preview');
+Route::post('/student-graduations/confirm-pass-batch', [GraduationController::class, 'confirmPassBatch'])->middleware('auth')->name('student-graduations.confirm-pass-batch');
 
 Route::get('/students/update', function () {
     return view('dashboard');
@@ -868,6 +870,7 @@ Route::post('/academic-years/save', [AcademicYearController::class, 'save'])->na
 Route::post('/academic-years/{academicYear}/create-next', [AcademicYearController::class, 'createNext'])->name('academic-years.create-next');
 Route::post('/academic-years/{id}/restore', [AcademicYearController::class, 'restore'])->name('academic-years.restore');
 Route::post('/academic-years/{academicYear}/set-current', [AcademicYearController::class, 'setCurrent'])->name('academic-years.set-current');
+Route::post('/academic-years/{academicYear}/finish-summer', [AcademicYearController::class, 'finishSummer'])->name('academic-years.finish-summer');
 Route::delete('/academic-years/delete/{id}', [AcademicYearController::class, 'delete'])->name('academic-years.delete');
 
 // Settings placeholder routes

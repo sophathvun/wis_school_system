@@ -13,7 +13,7 @@ Keep the same scope when comparing two reports. A class view, a single student, 
 
 ## Interpret daily attendance
 
-Daily attendance represents attendance days. E and U are excused and unexcused absence respectively; missed periods provide context and do not multiply one day into several absence days. Late is a separate status.
+Daily attendance represents attendance days. E and U are excused and unexcused absence respectively; missed periods provide context and do not multiply one day into several absence days. Tardy (T) is a separate status.
 
 School weekdays and public holidays come from Attendance Settings for the selected year and campus. Review that calendar if expected working days or date coverage looks wrong.
 

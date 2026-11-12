@@ -10,12 +10,14 @@
     $requestedYear=$s['target_academic_year']??$s['academic_year'];
     $existingPromotion=$record->student_snapshot['existing_promotion']??null;
     $sequential=$record->usesSequentialFlow();
-    $canFinalize=$sequential?($canReview && $currentStep?->is_final):$permissions['approve'];
-    $canReject=$sequential?$canReview:$permissions['reject'];
+    $historical=!empty($s['historical_import']);
+    $canFinalize=!$historical && ($sequential?($canReview && $currentStep?->is_final):$permissions['approve']);
+    $canReject=!$historical && ($sequential?$canReview:$permissions['reject']);
     $canManageDocuments=$record->status==='draft' && \App\Support\StudentSkippingGradePermissions::canEdit(auth()->user(),$record);
-    $canSubmit=$record->status==='draft' && $permissions['submit'];
+    $canSubmit=!$historical && $record->status==='draft' && $permissions['submit'];
 @endphp
 <div class="skipping-page {{ $sequential?'skipping-workflow-fields':'' }}" data-skipping-page data-success="{{ session('success') }}">
+    @if($historical)<div class="alert alert-info">Historical request imported from the old system. Its original decision and approval number are preserved. Printing uses the system form; missing historical dates and signatures remain blank. Existing enrollment records are unchanged.</div>@endif
     @if($sequential)@include('student-skipping-grade._approval-workflow')@endif
     <div class="card mb-3"><div class="card-header skipping-header skipping-record-header">
         <h3 class="card-title">{{ $s['name_en'] }} · {{ $s['student_id'] }}</h3>

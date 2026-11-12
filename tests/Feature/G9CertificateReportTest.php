@@ -55,6 +55,7 @@ beforeEach(function () {
     (require database_path('migrations/2026_10_06_000006_add_g9_certificate_typography.php'))->up();
     (require database_path('migrations/2026_10_06_000007_create_g9_certificate_template.php'))->up();
     (require database_path('migrations/2026_10_06_000009_add_g9_certificate_qr_tokens.php'))->up();
+    Schema::table('tb_g9_certificate',fn(Blueprint $t)=>$t->json('historical_import')->nullable());
     DB::table('tb_academic_year')->insert([['id'=>1],['id'=>2]]);
     DB::table('tb_school_info')->insert([['id'=>1,'campus_name_en'=>'BKK'],['id'=>2,'campus_name_en'=>'BCH']]);
     DB::table('tb_grade')->insert([['id'=>1,'grade'=>'9','grade_short_name'=>'9'],['id'=>2,'grade'=>'8','grade_short_name'=>'8']]);
@@ -861,4 +862,21 @@ it('accepts existing G9 documents only on the verification hostname',function(){
     $this->get('https://registrar.western.edu.kh'.$path)->assertRedirect('https://verify.western.edu.kh'.$path);
     $this->get('https://verify.western.edu.kh/certificates/g9/'.str_repeat('z',40))->assertNotFound();
     expect(G9Certificate::where('student_id',3)->value('qr_token'))->toBe($token);
+});
+
+it('preserves historical issued numbers and dates and includes the withdrawn certificate holder',function(){
+    $this->service->save($this->request,$this->data);
+    $settings=\App\Models\G9CertificateYear::where('academic_year_id',1)->firstOrFail();
+    $certificate=new \App\Models\G9Certificate();
+    $certificate->forceFill(['certificate_year_id'=>$settings->id,'student_id'=>7,'enrollment_id'=>7,'sequence'=>700,'certificate_number'=>'LEGACY-007','historical_import'=>['issue_date'=>'2026-07-18','source_row'=>2]])->save();
+    $payload=$this->service->payload($this->request,['academic_year_id'=>1],true);
+    $row=$payload['certificates']->firstWhere('student_id',7);
+    expect($row)->not->toBeNull()->and($row->certificate_number)->toBe('LEGACY-007');
+    $settings->update(['given_date'=>'2026-09-01']);
+    $tokens=\App\Support\G9CertificateLayout::tokens($row,$settings->fresh());
+    expect($tokens['given_date'])->toBe('18 July 2026');
+    expect(fn()=>$certificate->update(['certificate_number'=>'CHANGED']))->toThrow(ValidationException::class);
+    expect(fn()=>$this->service->save($this->request,array_replace($this->data,['action'=>'update_prefix','number_prefix'=>'CHANGED'])))->toThrow(ValidationException::class);
+    expect($certificate->fresh()->certificate_number)->toBe('LEGACY-007')
+        ->and(DB::table('tb_student_enrollment')->where('id',7)->value('enrollment_status'))->toBe('withdrawn');
 });

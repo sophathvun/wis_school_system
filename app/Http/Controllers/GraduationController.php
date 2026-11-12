@@ -500,6 +500,42 @@ class GraduationController
         return response()->json(['message'=>'Exam pass confirmed. Graduation is completed and the WIS certificate is valid.']);
     }
 
+    public function confirmPassPreview(Request $request)
+    {
+        abort_unless($request->user(),401);
+        $data=$request->validate(['academic_year_id'=>'required|integer|exists:tb_academic_year,id','campus_id'=>'nullable|integer','class_id'=>'nullable|integer','search'=>'nullable|string|max:150']);
+        if (!empty($data['campus_id'])) $this->authorizeAction($request,'execute',(int)$data['campus_id']);
+        $query=StudentGraduation::where('status','pending_result')->where('academic_year_id',$data['academic_year_id'])
+            ->when($data['campus_id']??null,fn($q,$v)=>$q->where('campus_id',$v))
+            ->when($data['class_id']??null,fn($q,$v)=>$q->where('class_id',$v))
+            ->when($data['search']??null,fn($q,$v)=>$q->whereHas('student',fn($s)=>$s->where('student_no','like',"%{$v}%")->orWhere('student_id','like',"%{$v}%")->orWhere('full_name_en','like',"%{$v}%")->orWhere('full_name_kh','like',"%{$v}%")));
+        if (!$request->user()?->isSuperAdmin()) $query->whereIn('campus_id',$request->user()->accessibleCampuses()->pluck('tb_school_info.id'));
+        $records=$query->orderBy('id')->get(['id','campus_id']);
+        $allowed=[];
+        foreach($records as $record){
+            try { $this->authorizeAction($request,'execute',$record->campus_id);$allowed[]=$record->id; }
+            catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) { if($e->getStatusCode()!==403) throw $e; }
+        }
+        return response()->json(['ids'=>$allowed,'count'=>count($allowed)]);
+    }
+
+    public function confirmPassBatch(Request $request)
+    {
+        $data=$request->validate(['ids'=>'required|array|min:1|max:25','ids.*'=>'required|integer|distinct|exists:tb_student_graduation,id']);
+        $records=StudentGraduation::whereIn('id',$data['ids'])->orderBy('academic_year_id')->orderBy('id')->get();
+        foreach($records as $record) $this->authorizeAction($request,'execute',$record->campus_id);
+        $counts=DB::transaction(function()use($records){
+            $confirmed=0;$skipped=0;
+            foreach($records as $record){
+                $record->refresh();
+                if($record->status!=='pending_result'){ $skipped++;continue; }
+                app(\App\Services\G12WisGraduation::class)->confirmPass($record);$confirmed++;
+            }
+            return ['confirmed'=>$confirmed,'skipped'=>$skipped];
+        });
+        return response()->json($counts);
+    }
+
     private function authorizeAction(Request $request, string $action, ?int $campus): void
     {
         $user=$request->user();

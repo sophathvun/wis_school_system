@@ -10,6 +10,38 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
 require_once __DIR__.'/../Fixtures/G12NationalExam.php';
 beforeEach(fn()=>createG12NationalSchema());
 
+it('summarizes certificate tracking candidates across pages using the current filters',function(){
+    $user=User::find(1);$service=app(G12NationalExams::class);
+    foreach(['A','F',''] as $index=>$grade)$service->save($user,g12ExamData(['student_id'=>'CERT-'.$index,'g12_letter_grade'=>$grade]));
+    $controller=app(G12NationalExamController::class);
+    $list=$controller->list(g12Request($user,['tab'=>'certificates','academic_year'=>'2025-2026','per_page'=>'15']))->getData(true);
+    expect($list['summary'])->toMatchArray(['total'=>3,'passed'=>1,'failed'=>1,'passed_percentage'=>33.3,'failed_percentage'=>33.3]);
+    $filtered=$controller->list(g12Request($user,['tab'=>'certificates','academic_year'=>'2025-2026','result_status'=>'passed']))->getData(true);
+    expect($filtered['summary'])->toMatchArray(['total'=>1,'passed'=>1,'failed'=>0,'passed_percentage'=>100,'failed_percentage'=>0]);
+    $empty=$controller->list(g12Request($user,['tab'=>'certificates','academic_year'=>'2024-2025']))->getData(true);
+    expect($empty['summary'])->toMatchArray(['total'=>0,'passed'=>0,'failed'=>0,'passed_percentage'=>0,'failed_percentage'=>0]);
+});
+
+it('summarizes each certificate type without classifying failures or review records as uncollected',function(){
+    $user=User::find(1);$service=app(G12NationalExams::class);
+    foreach(['collected','awaiting','available','review','not_applicable'] as $index=>$status){
+        $record=$service->save($user,g12ExamData(['student_id'=>'TRACK-'.$index,'g12_letter_grade'=>'A']));
+        $record->certificates()->where('type','soft')->update(['status'=>$status]);
+        if($index===0)$record->certificates()->where('type','hard')->update(['status'=>'collected']);
+    }
+    $service->save($user,g12ExamData(['student_id'=>'TRACK-FAILED','g12_letter_grade'=>'F']));
+    $service->save($user,g12ExamData(['student_id'=>'TRACK-PENDING','g12_letter_grade'=>'']));
+    $controller=app(G12NationalExamController::class);
+    $summary=$controller->list(g12Request($user,['tab'=>'certificates','academic_year'=>'2025-2026']))->getData(true)['summary'];
+    expect($summary)->toMatchArray(['total'=>7,'passed'=>5,'failed'=>1,'pending'=>1])
+        ->and($summary['soft'])->toMatchArray(['total'=>4,'collected'=>1,'not_yet'=>2,'awaiting'=>1,'available'=>1,'review'=>1,'not_applicable'=>1,'collected_percentage'=>25,'not_yet_percentage'=>50,'review_percentage'=>25])
+        ->and($summary['hard'])->toMatchArray(['total'=>5,'collected'=>1,'not_yet'=>4,'collected_percentage'=>20,'not_yet_percentage'=>80]);
+    $filtered=$controller->list(g12Request($user,['tab'=>'certificates','academic_year'=>'2025-2026','certificate_type'=>'hard','certificate_status'=>'collected']))->getData(true)['summary'];
+    expect($filtered['total'])->toBe(1)->and($filtered['hard'])->toMatchArray(['total'=>1,'collected'=>1,'not_yet'=>0,'collected_percentage'=>100]);
+    $empty=$controller->list(g12Request($user,['tab'=>'certificates','academic_year'=>'2024-2025']))->getData(true)['summary'];
+    expect($empty['soft'])->toMatchArray(['total'=>0,'collected_percentage'=>0,'not_yet_percentage'=>0,'review_percentage'=>0]);
+});
+
 it('prepares the five G12 result reports with Khmer gender totals and three-decimal ranks',function(){
     $user=User::find(1);$exams=app(G12NationalExams::class);
     $a=$exams->save($user,g12ExamData(['student_id'=>'A001','student_name_en'=>'GRADE A STUDENT','student_name_kh'=>'សិស្ស និទ្ទេសអេ','gender'=>'ប','language_exam'=>'English','class_sellected'=>'Science','g12_score_rank'=>'98.1','g12_letter_grade'=>'A']));

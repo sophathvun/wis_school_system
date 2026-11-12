@@ -139,7 +139,7 @@ if(root){
         return `<td class="g12-certificate-cell" data-label="${label}"><div class="g12-certificate-group"><div class="g12-certificate-group-header">${badge(certificate?.status??'awaiting')}${manage}</div>${certificateDocument(source,'MoEYS Copy')}${certificateDocument(receipt,'Signed Receipt')}</div></td>`;
     };
     const trackingRows=res=>res.data.map((r,i)=>`<tr>
-        <td class="text-center" data-label="No.">${res.from+i}</td>
+        <td class="text-center" data-label="No."><span class="badge g12-tracking-number-badge">${res.from+i}</span></td>
         <td data-label="Photo">${r.photo_url?`<button type="button" class="g12-photo-trigger" data-g12-photo-view="${escape(r.photo_url)}" data-g12-photo-title="${escape(r.name_en||r.student_code||'Student Photo')}" aria-label="View photo of ${escape(r.name_en||r.student_code||'student')}"><img src="${escape(r.photo_url)}" class="g12-photo" loading="lazy" alt="Photo of ${escape(r.name_en||r.student_code||'student')}"></button>`:'&mdash;'}</td>
         <td data-label="Student"><strong class="school-profile-khmer">${escape(r.name_kh||'—')}</strong><div class="g12-student-name-en">${escape(r.name_en||'—')}</div><div class="text-secondary">${escape(r.student_code)}</div></td>
         <td class="g12-tracking-grade" data-label="Grade"><strong>${escape(r.academic_year)}</strong><div>${escape(r.campus)} / ${escape(r.grade)}</div></td>
@@ -216,12 +216,31 @@ if(root){
         }
     };
     const resetScoringSummary=()=>renderScoringSummary(null);
+    const renderCertificateSummary=summary=>{
+        const panel=get('[data-g12-certificate-summary]');if(!panel)return;
+        for(const name of ['total','passed','failed'])panel.querySelector(`[data-g12-certificate-${name}]`).textContent=Number(summary?.[name]??0).toLocaleString();
+        for(const name of ['passed','failed'])panel.querySelector(`[data-g12-certificate-${name}-percentage]`).textContent=`${Number(summary?.[`${name}_percentage`]??0).toLocaleString(undefined,{maximumFractionDigits:1})}%`;
+        const percentage=value=>`${Math.min(100,Math.max(0,Number(value??0)))}%`;
+        panel.querySelector('[data-g12-certificate-pending]').textContent=Number(summary?.pending??0).toLocaleString();
+        panel.querySelector('[data-g12-candidate-pending]').hidden=!summary?.pending;
+        for(const name of ['passed','failed'])panel.querySelector(`[data-g12-candidate-${name}-bar]`).style.width=percentage(summary?.[`${name}_percentage`]);
+        for(const card of panel.querySelectorAll('[data-g12-collection-card]')){
+            const stats=summary?.[card.dataset.g12CollectionCard]??{};
+            for(const name of ['total','collected','not_yet','awaiting','available','review','not_applicable'])card.querySelector(`[data-collection-${name.replaceAll('_','-')}]`).textContent=Number(stats[name]??0).toLocaleString();
+            for(const name of ['collected','not_yet','review']){
+                card.querySelector(`[data-collection-${name.replaceAll('_','-')}-percentage]`).textContent=`${Number(stats[`${name}_percentage`]??0).toLocaleString(undefined,{maximumFractionDigits:1})}%`;
+                card.querySelector(`[data-collection-${name.replaceAll('_','-')}-bar]`).style.width=percentage(stats[`${name}_percentage`]);
+            }
+            card.querySelector('[data-collection-review-note]').hidden=!stats.review;
+            card.querySelector('[data-collection-not-applicable-note]').hidden=!stats.not_applicable;
+        }
+    };
     const disposeAssignmentPickers=rows=>rows.querySelectorAll('[data-g12-assignment-center]').forEach(select=>{pickers.get(select)?.destroy?.();pickers.delete(select);});
     const load=async(page=1,perPage=get('#g12PerPage')?.value??15)=>{
         const rows=get('[data-g12-records]');if(!rows)return;
-        if(!filterForm?.elements.academic_year?.value){if(tab==='assign-centers')disposeAssignmentPickers(rows);rows.innerHTML=`<tr><td colspan="${tab==='records'||tab==='certificates'?8:tab==='assign-centers'?9:tab==='scoring'?10:9}" class="text-center py-4">Select an Academic Year to display records.</td></tr>`;get('#g12Pagination').innerHTML='';resetRecordSummary();resetAssignmentSummary();resetScoringSummary();return;}
+        if(!filterForm?.elements.academic_year?.value){if(tab==='assign-centers')disposeAssignmentPickers(rows);rows.innerHTML=`<tr><td colspan="${tab==='records'||tab==='certificates'?8:tab==='assign-centers'?9:tab==='scoring'?10:9}" class="text-center py-4">Select an Academic Year to display records.</td></tr>`;get('#g12Pagination').innerHTML='';resetRecordSummary();resetAssignmentSummary();resetScoringSummary();renderCertificateSummary(null);return;}
         const query=filters();query.set('tab',tab);query.set('page',page);query.set('per_page',perPage);
-        const res=await api('/list?'+query);if(tab==='assign-centers')disposeAssignmentPickers(rows);rows.innerHTML=tab==='records'?recordRows(res):(tab==='assign-centers'?assignmentRows(res):(tab==='scoring'?scoringRows(res):(tab==='results'?resultRows(res):trackingRows(res))));if(tab==='records')renderRecordSummary(res.summary);if(tab==='assign-centers'){renderAssignmentSummary(res.summary);refreshPickers(rows);}if(tab==='scoring'||tab==='results')renderScoringSummary(res.summary);
+        const res=await api('/list?'+query);if(tab==='assign-centers')disposeAssignmentPickers(rows);rows.innerHTML=tab==='records'?recordRows(res):(tab==='assign-centers'?assignmentRows(res):(tab==='scoring'?scoringRows(res):(tab==='results'?resultRows(res):trackingRows(res))));if(tab==='records')renderRecordSummary(res.summary);if(tab==='assign-centers'){renderAssignmentSummary(res.summary);refreshPickers(rows);}if(tab==='scoring'||tab==='results')renderScoringSummary(res.summary);if(tab==='certificates')renderCertificateSummary(res.summary);
         renderPagination(res,'g12Pagination','g12PerPage',(p,size)=>run(()=>load(p,size)),['all',15,25,50,100]);
     };
     const refreshScoringSummary=async()=>{

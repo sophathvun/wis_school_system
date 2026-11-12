@@ -88,6 +88,7 @@ class StudentSkippingGradePermissions
 
     public static function canEdit(?User $user, StudentSkippingGrade $record): bool
     {
+        if(!empty($record->student_snapshot['historical_import']))return false;
         if ($record->usesSequentialFlow() && $record->status !== 'draft') return false;
         return in_array($record->status,['draft','pending'],true) && (
             self::allows($user,'central-update')

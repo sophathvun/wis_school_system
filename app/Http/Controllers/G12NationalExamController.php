@@ -62,6 +62,7 @@ class G12NationalExamController {
             'assign-centers'=>$this->assignmentSummary(clone $q),
             'scoring'=>$this->scoringSummary(clone $q),
             'results'=>$this->scoringSummary(clone $q),
+            'certificates'=>$this->certificateCandidateSummary(clone $q),
             default=>null,
         };
         $size=$request->input('per_page','15');$perPage=$size==='all'?max(1,$q->clone()->count()):(int)$size;
@@ -79,6 +80,26 @@ class G12NationalExamController {
             ]];
         });
         $payload=$result->toArray();if($summary!==null)$payload['summary']=$summary;return response()->json($payload);
+    }
+    private function certificateCandidateSummary($query): array {
+        $counts=(clone $query)->reorder()->toBase()->selectRaw("COUNT(*) as total, SUM(CASE WHEN result_status = 'passed' THEN 1 ELSE 0 END) as passed, SUM(CASE WHEN result_status = 'failed' THEN 1 ELSE 0 END) as failed")->first();
+        $total=(int)$counts->total;$passed=(int)$counts->passed;$failed=(int)$counts->failed;
+        $summary=['total'=>$total,'passed'=>$passed,'failed'=>$failed,'pending'=>max(0,$total-$passed-$failed),'passed_percentage'=>$total?round($passed/$total*100,1):0,'failed_percentage'=>$total?round($failed/$total*100,1):0];
+        $eligible=$query->reorder()->withoutEagerLoads()->where('result_status','passed')->with(['certificates'=>fn($q)=>$q->select('record_id','type','status')])->get(['tb_g12_exam_record.id']);
+        foreach(['soft','hard'] as $type){
+            $stats=['total'=>0,'collected'=>0,'not_yet'=>0,'awaiting'=>0,'available'=>0,'review'=>0,'not_applicable'=>0];
+            foreach($eligible as $record){
+                $status=$record->certificates->firstWhere('type',$type)?->status??'awaiting';
+                if($status==='not_applicable'){$stats['not_applicable']++;continue;}
+                $stats['total']++;
+                if($status==='collected')$stats['collected']++;
+                elseif(in_array($status,['awaiting','available'],true)){$stats['not_yet']++;$stats[$status]++;}
+                else $stats['review']++;
+            }
+            foreach(['collected','not_yet','review'] as $status)$stats[$status.'_percentage']=$stats['total']?round($stats[$status]/$stats['total']*100,1):0;
+            $summary[$type]=$stats;
+        }
+        return $summary;
     }
     private function assignmentSummary($query): array {
         $records=$query->reorder()->get(['id','center_id','data']);

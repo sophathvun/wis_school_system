@@ -31,6 +31,12 @@ If the student fails, use **Cancel Graduation**, select **Failed**, and enter th
 
 These are WIS school certificates, separate from G12 National Exam certificates. Existing issued certificate numbers are preserved. Prefix correction is available only while all certificates in the year are unprinted and pending; printing, validation, release, or voiding locks their numbers.
 
+## Confirm passes for a group
+
+Select the academic year in the graduation list, then narrow the campus, grade, or search filters as needed. Choose **Confirm Pass (Filtered)** to review the number of pending students across all matching pages. Confirm only when every included student passed the WIS exam.
+
+The progress bar shows completion as students are processed in groups of 25. Completed and cancelled records are excluded from the preview. Existing certificate numbers are preserved. If processing stops, review the message and remaining pending records before retrying; students already confirmed are skipped.
+
 ## Correct a problem
 
 Inspect the existing graduation and enrollment history before attempting another operation. Use the available correction controls where permitted; do not create duplicate graduations or change a Student ID to bypass eligibility.

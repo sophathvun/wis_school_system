@@ -129,12 +129,12 @@
 [data-attendance] .att-daily-table [data-status-choice][data-att-status="P"]{--att-status-bg:#dcfce7;--att-status-text:#166534;--att-status-border:#86efac}
 [data-attendance] .att-daily-table [data-status-choice][data-att-status="EX"]{--att-status-bg:#dbeafe;--att-status-text:#1e40af;--att-status-border:#93c5fd}
 [data-attendance] .att-daily-table [data-status-choice][data-att-status="UX"]{--att-status-bg:#fee2e2;--att-status-text:#991b1b;--att-status-border:#fca5a5}
-[data-attendance] .att-daily-table [data-status-choice][data-att-status="L"]{--att-status-bg:#ffedd5;--att-status-text:#9a3412;--att-status-border:#fdba74}
+[data-attendance] .att-daily-table [data-status-choice][data-att-status="T"]{--att-status-bg:#ffedd5;--att-status-text:#9a3412;--att-status-border:#fdba74}
 [data-attendance] .att-daily-table [data-status-choice][data-att-status][aria-pressed="true"]{background-color:var(--att-status-bg)!important;color:var(--att-status-text);border-color:var(--att-status-border);font-weight:600}
 [data-bs-theme="dark"] [data-attendance] .att-daily-table [data-status-choice][data-att-status="P"]{--att-status-bg:#163e2e;--att-status-text:#bbf7d0;--att-status-border:#28784c}
 [data-bs-theme="dark"] [data-attendance] .att-daily-table [data-status-choice][data-att-status="EX"]{--att-status-bg:#19365d;--att-status-text:#bfdbfe;--att-status-border:#3464a4}
 [data-bs-theme="dark"] [data-attendance] .att-daily-table [data-status-choice][data-att-status="UX"]{--att-status-bg:#521f2a;--att-status-text:#fecaca;--att-status-border:#a14455}
-[data-bs-theme="dark"] [data-attendance] .att-daily-table [data-status-choice][data-att-status="L"]{--att-status-bg:#4c301a;--att-status-text:#fed7aa;--att-status-border:#a66b32}
+[data-bs-theme="dark"] [data-attendance] .att-daily-table [data-status-choice][data-att-status="T"]{--att-status-bg:#4c301a;--att-status-text:#fed7aa;--att-status-border:#a66b32}
 .att-status-buttons{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
 .att-status-button{flex:1 0 23px;min-width:23px;min-height:32px;padding:.25rem .15rem;border:1px solid var(--tblr-border-color);border-radius:7px;font-size:.75rem;line-height:1.2;text-align:center;cursor:pointer;transition:background .15s,box-shadow .15s}
 [data-attendance] .att-status-button[aria-pressed="false"]{background-color:var(--tblr-bg-surface)!important;border-color:var(--tblr-border-color);color:var(--att-status-text)}

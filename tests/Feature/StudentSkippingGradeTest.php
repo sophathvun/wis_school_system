@@ -3084,6 +3084,22 @@ it('rejects a pending request without moving grade and allows a replacement draf
     expect(($this->draft)()->status)->toBe('draft');
 });
 
+it('prints a historical approval with its original number and blank missing dates and signatures',function(){
+    (require database_path('migrations/2026_11_11_000001_allow_unknown_historical_skipping_target_class.php'))->up();
+    $record=($this->draft)();$snapshot=$record->student_snapshot;$snapshot['historical_import']=['source_file'=>'skipping_grade.xlsx','legacy_id'=>'OLD-1'];
+    $record->update(['status'=>'approved','reference_number'=>'OLD-2025-007','student_snapshot'=>$snapshot,'target_class_id'=>null,'approval_date'=>null,'review_date'=>null,'approval_snapshot'=>['historical'=>true,'school_decision'=>'internal','obligations'=>[]]]);
+    ($this->configure)(); // Current signature must not be inserted into a historical approval.
+    $this->actingAs($this->central)->get('/students/skipping-grade/'.$record->id.'/print/approval')->assertOk()->assertSee('OLD-2025-007')->assertDontSee('alt="VP digital signature"',false)->assertDontSee('alt="Approval stamp"',false);
+    expect($record->fresh()->target_class_id)->toBeNull()->and(StudentEnrollment::find(1)->grade_id)->toBe(1);
+    expect(fn()=>(require database_path('migrations/2026_11_11_000001_allow_unknown_historical_skipping_target_class.php'))->down())->toThrow(RuntimeException::class,'Preserve historical requests');
+});
+it('protects historical processing requests from editing or replaying the approval workflow',function(){
+    $record=($this->pending)();$snapshot=$record->student_snapshot;$snapshot['historical_import']=['legacy_id'=>'OLD-2'];$record->update(['student_snapshot'=>$snapshot]);
+    expect(StudentSkippingGradePermissions::canEdit($this->central,$record))->toBeFalse();
+    expect(fn()=>$this->service->approve($this->central,$record,$this->approval))->toThrow(ValidationException::class,'historical request');
+    expect(fn()=>$this->service->reject($this->central,$record,'New decision'))->toThrow(ValidationException::class,'historical request');
+    expect($record->fresh()->status)->toBe('pending')->and(StudentEnrollment::find(1)->grade_id)->toBe(1);
+});
 it('prints the approved option and blocks printing for rejected requests', function ($status) {
     $record=($this->pending)();
     $url='/students/skipping-grade/'.$record->id.'/print/approval';

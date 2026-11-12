@@ -77,7 +77,7 @@ class DailyAttendanceController
         app(\App\Services\AttendanceLeave::class)->applyDue($scope['academic_year_id'],$scope['campus_id'],$scope['date']);
         abort_if($scope['date']>now('Asia/Bangkok')->toDateString(),422,'Daily attendance cannot be saved for a future date.');
         $input=$request->validate(['version'=>['required','integer','min:0'],'partial'=>['sometimes','boolean'],'edit_past'=>['sometimes','boolean'],'only_blank'=>['sometimes','boolean'],'marks'=>['required','array','min:1'],
-            'marks.*.student_id'=>['required','integer','distinct'],'marks.*.status'=>['required',Rule::in(['P','EX','UX','L'])],
+            'marks.*.student_id'=>['required','integer','distinct'],'marks.*.status'=>['required',Rule::in(['P','EX','UX','T'])],
             'marks.*.missed_sessions'=>['required','integer','between:0,99'],'marks.*.remarks'=>['nullable','string','max:500'],
             'marks.*.absent_period_ids'=>['sometimes','array','max:99'],'marks.*.absent_period_ids.*'=>['integer']]);
         abort_if($scope['date']<now('Asia/Bangkok')->toDateString()&&!($input['edit_past']??false),422,'Past attendance is read only. Click Edit before making corrections.');

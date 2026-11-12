@@ -21,7 +21,7 @@
         <tr><td>{{ $student['name_en'] }}</td><td><strong>Campus:</strong> {{ $student['campus'] }}</td></tr>
     </table>
     <table class="totals"><tr>
-        @foreach(['absent' => 'Total Absent', 'EX' => 'Total E', 'UX' => 'Total U', 'L' => 'Total L'] as $status => $label)
+        @foreach(['absent' => 'Total Absent', 'EX' => 'Total E', 'UX' => 'Total U', 'T' => 'Total T'] as $status => $label)
             <td class="status-{{ $status === 'absent' ? 'p' : strtolower($status) }}">{{ $label }}: <strong>{{ $status === 'absent' ? $totals['EX'] + $totals['UX'] : $totals[$status] }}</strong></td>
         @endforeach
     </tr></table>

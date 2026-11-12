@@ -96,8 +96,8 @@ class AttendanceReportController
             ->when($input['date_from'] ?? null, fn ($q, $date) => $q->where('attendance_date', '>=', $date))
             ->when($input['date_to'] ?? null, fn ($q, $date) => $q->where('attendance_date', '<=', $date));
         $counts = (clone $query)->select('status')->selectRaw('COUNT(*) as total')->groupBy('status')->pluck('total', 'status');
-        $totals = collect(['P', 'EX', 'UX', 'L'])->mapWithKeys(fn ($status) => [$status => (int) ($counts[$status] ?? 0)])->all();
-        $query->whereIn('status', ['EX', 'UX', 'L'])
+        $totals = collect(['P', 'EX', 'UX', 'T'])->mapWithKeys(fn ($status) => [$status => (int) ($counts[$status] ?? 0)])->all();
+        $query->whereIn('status', ['EX', 'UX', 'T'])
             ->when($input['search'] ?? null, fn ($q, $term) => $q->where(fn ($q) => $q->where('remarks', 'like', '%'.$term.'%')->orWhere('status', 'like', '%'.$term.'%')))
             ->orderByDesc('attendance_date')->orderBy('id');
         $size = ($input['per_page'] ?? '15') === 'all' ? max(1, (clone $query)->count()) : (int) ($input['per_page'] ?? 15);
@@ -143,7 +143,7 @@ class AttendanceReportController
             ->whereIn('student_id', $result->getCollection()->pluck('student_id'))
             ->when($input['date_from'] ?? null, fn ($q, $date) => $q->where('attendance_date', '>=', $date))
             ->when($input['date_to'] ?? null, fn ($q, $date) => $q->where('attendance_date', '<=', $date))
-            ->whereIn('status', ['EX', 'UX', 'L'])->select('student_id', 'status')->selectRaw('COUNT(*) as total')
+            ->whereIn('status', ['EX', 'UX', 'T'])->select('student_id', 'status')->selectRaw('COUNT(*) as total')
             ->groupBy('student_id', 'status')->get()->groupBy('student_id');
         $result->setCollection($result->getCollection()->map(function ($enrollment) use ($counts) {
             $totals = ($counts->get($enrollment->student_id) ?? collect())->pluck('total', 'status');
@@ -156,7 +156,7 @@ class AttendanceReportController
                 'class' => $this->gradeClass($enrollment),
                 'photo_url' => $enrollment->student?->photo_path ? asset('storage/'.ltrim($enrollment->student->photo_path, '/')) : null,
                 'grade' => implode('-', array_filter([$enrollment->campus?->campus_name_en, $this->gradeClass($enrollment), AttendanceStudyGroup::code($enrollment)])),
-                'total_absent' => $ex + $ux, 'EX' => $ex, 'UX' => $ux, 'L' => (int) ($totals['L'] ?? 0),
+                'total_absent' => $ex + $ux, 'EX' => $ex, 'UX' => $ux, 'T' => (int) ($totals['T'] ?? 0),
                 'academic_year_id' => $enrollment->academic_year_id, 'campus_id' => $enrollment->campus_id,
                 'grade_class' => ($enrollment->grade_id ?? 0).':'.$enrollment->class_id,
             ];

@@ -547,29 +547,24 @@ const enrollmentListStudentName = (student = {}, enrollmentId = null) => {
     return `<div class="school-profile-khmer text-secondary" style="font-size:1rem;font-weight:400;">${escapeHtml(khmer || "-")}</div><div class="enrollment-student-name-en">${escapeHtml(english || "-")}${toggle}</div>`;
 };
 const enrollmentListGradeClass = (item = {}) => {
-    const grade = item.grade?.grade || "";
-    const className = item.school_class?.class_name || "";
-    const shortGrade = String(grade)
-        .replace(/^grade\s*/i, "")
-        .trim();
-    const shortClass = String(className)
-        .replace(/^grade\s*/i, "")
-        .trim();
-    const normalizedClass =
-        shortClass &&
-        shortGrade &&
-        shortClass.toLowerCase().startsWith(shortGrade.toLowerCase())
-            ? shortClass
-            : `${shortGrade}${shortClass}`;
-    return normalizedClass ? escapeHtml(normalizedClass) : "-";
+    const label = plainGradeClassLabel(item.grade, item.school_class);
+    return label ? escapeHtml(label) : "-";
 };
 const plainGradeClassLabel = (grade = {}, schoolClass = {}) => {
-    const shortGrade = String(grade.grade || "")
+    let shortGrade = String(grade?.grade || grade?.grade_short_name || "")
         .replace(/^grade\s*/i, "")
         .trim();
-    const shortClass = String(schoolClass.class_name || "")
+    const shortClass = String(schoolClass?.class_name || "")
         .replace(/^grade\s*/i, "")
         .trim();
+    if (/^(Nursery|N)$/i.test(shortGrade)) shortGrade = "N";
+    const kindergarten = shortGrade.match(/^(?:Kindergarten\s*|K\s*)([1-3])$/i);
+    if (kindergarten) shortGrade = `K${kindergarten[1]}`;
+    if (/^(N|K[1-3])$/.test(shortGrade)) {
+        const prefix = shortGrade === "N" ? "(?:Nursery|N)" : `(?:Kindergarten\\s*${shortGrade[1]}|${shortGrade})`;
+        const classLetter = shortClass.replace(new RegExp(`^${prefix}[\\s-]*`, "i"), "");
+        return classLetter ? `${shortGrade}-${classLetter.toUpperCase()}` : shortGrade;
+    }
     if (!shortGrade && !shortClass) return "";
     return shortClass &&
         shortGrade &&
@@ -779,11 +774,9 @@ const renderSiblingCards = (siblings = []) =>
                       : `<div class="student-sibling-photo d-flex align-items-center justify-content-center"><i class="ti ti-user"></i></div>`;
                   const academicYear =
                       enrollment.academic_year?.academic_year || "-";
-                  const grade = enrollment.grade?.grade || "";
-                  const className = enrollment.school_class?.class_name || "";
                   const enrollmentLabel = [
                       academicYear,
-                      [grade, className].filter(Boolean).join(" "),
+                      plainGradeClassLabel(enrollment.grade, enrollment.school_class),
                   ]
                       .filter(Boolean)
                       .map(escapeHtml)
@@ -817,13 +810,7 @@ const renderStudentEnrollmentRows = (enrollments = []) =>
         ? enrollments
               .map((enrollment) => {
                   const status = enrollment.enrollment_status || "inactive";
-                  const gradeClass =
-                      [
-                          enrollment.grade?.grade,
-                          enrollment.school_class?.class_name,
-                      ]
-                          .filter(Boolean)
-                          .join(" ") || "-";
+                  const gradeClass = plainGradeClassLabel(enrollment.grade, enrollment.school_class) || "-";
                   return `<tr><td class="fw-semibold">${escapeHtml(enrollment.academic_year?.academic_year || "-")}</td><td>${escapeHtml(enrollment.campus?.campus_name_en || "-")}</td><td>${escapeHtml(gradeClass)}</td><td>${escapeHtml(enrollment.session?.session_short_name || "-")}</td><td>${escapeHtml(enrollment.academic_track?.name_en || enrollment.academic_track?.name_kh || "-")}</td><td><span class="badge bg-${siblingStatusClass(status)}-lt">${escapeHtml(siblingStatusLabel(status))}</span></td></tr>`;
               })
               .join("")

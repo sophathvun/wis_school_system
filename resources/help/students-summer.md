@@ -12,6 +12,10 @@ Open **Students → Summer School**. Viewing, filtering, registration, editing, 
 
 Keep the correct year or summer period selected. A summer registration is different from a regular academic-year enrollment.
 
+## Finish a Summer School period
+
+In **Settings → Academic Years**, find the summer period and choose **Mark Finished**. Staff with Academic Year management permission can finish the last summer independently, including a two-month period, without creating or starting another summer. Confirm the action to mark active and pending enrollments Completed. Withdrawn and graduated enrollments keep their existing statuses; the regular academic year is unaffected. Finished summer records remain available for history.
+
 ## Update information
 
 Find the student by ID or name and verify the campus before editing. Shared family information should be reviewed against existing contacts rather than duplicated for each registration.

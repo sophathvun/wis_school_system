@@ -315,6 +315,27 @@ const viewAcademicYear = (id) => {
     bsViewModal?.show();
 };
 
+const finishSummerSchool = async (id) => {
+    const year = allAcademicYears.find((item) => item.id === id);
+    if (!year || year.period_type !== "summer") return;
+    const result = await showConfirm("Finish Summer School",
+        `Mark ${year.academic_year} as Finished? Its active and pending enrollments will become Completed. Withdrawn and graduated records keep their current status.`,
+        "Mark Finished", "Cancel");
+    if (!result.isConfirmed) return;
+    try {
+        const response = await fetch(`/academic-years/${id}/finish-summer`, {
+            method: "POST",
+            headers: { Accept: "application/json", "X-CSRF-TOKEN": csrfToken },
+        });
+        const data = await response.json();
+        if (!response.ok || data.status !== "success") throw new Error(data.message || "Unable to finish Summer School.");
+        showSuccess("Summer School Finished", data.message);
+        await fetchAcademicYears();
+    } catch (error) {
+        showError("Error", error.message || "Unable to finish Summer School.");
+    }
+};
+
 const setCurrentAcademicYear = async (id) => {
     const year = allAcademicYears.find((item) => item.id === id);
     const result = await showConfirm(
@@ -522,6 +543,9 @@ const fetchAcademicYears = async (page = 1, perPage = null) => {
         allAcademicYears.forEach((year, index) => {
             const isDeleted = Boolean(year.deleted_at);
             const hasLinkedData = Number(year.linked_data_count ?? 0) > 0;
+            const canFinishSummer = !isDeleted && year.period_type === "summer" && ["draft", "pending", "started"].includes(year.lifecycle_status)
+                && (window.userPermissions || []).some((code) => ["*", "academic-years.manage", "settings.manage"].includes(code));
+            const finishButton = canFinishSummer ? `<button type="button" onclick="academicYears.finishSummerSchool(${year.id})" class="btn btn-outline-danger btn-sm"><i class="ti ti-calendar-check me-1"></i>Mark Finished</button>` : "";
             const deleteButton = hasLinkedData
                 ? `<span title="Cannot delete an academic year with linked data"><button type="button" class="btn btn-danger btn-sm" disabled><i class="ti ti-trash icon"></i>Delete</button></span>`
                 : `<button onclick="academicYears.deleteAcademicYear(${year.id})" class="btn btn-danger btn-sm"><i class="ti ti-trash icon"></i>Delete</button>`;
@@ -539,6 +563,7 @@ const fetchAcademicYears = async (page = 1, perPage = null) => {
                     ${isDeleted ? "<span class='text-secondary'>—</span>" : year.lifecycle_status !== "started" ? `<button onclick="academicYears.setCurrentAcademicYear(${year.id})" class="btn btn-success btn-sm"><i class="ti ti-check icon"></i>Set Started</button>` : "<span class='badge bg-green-lt'>Started</span>"}
                 </td>
                 <td class="text-center">
+                    ${finishButton}
                     ${isDeleted ? `<button onclick="academicYears.restoreAcademicYear(${year.id})" class="btn btn-success btn-sm"><i class="ti ti-refresh icon"></i>Restore</button>` : `${year.period_type === "regular" ? `<button onclick="academicYears.createNextAcademicYear(${year.id})" class="btn btn-outline-primary btn-sm" title="Create the next academic year"><i class="ti ti-calendar-plus icon"></i>Next Year</button>` : ""}
                     <button onclick="academicYears.openEditModal(${year.id})" class="btn btn-primary btn-sm"><i class="ti ti-pencil icon"></i>Edit</button>
                     ${deleteButton}`}
@@ -560,7 +585,7 @@ const fetchAcademicYears = async (page = 1, perPage = null) => {
                         <span>End ${escapeHtml(formatMobileDate(year.end_date))}</span>
                     </div>
                 </div>
-                <div class="academic-year-mobile-actions">${isDeleted ? `<button onclick="academicYears.restoreAcademicYear(${year.id})" class="btn btn-success"><i class="ti ti-refresh me-1"></i>Restore</button>` : `${year.period_type === "regular" ? `<button onclick="academicYears.createNextAcademicYear(${year.id})" class="btn btn-outline-primary"><i class="ti ti-calendar-plus me-1"></i>Next Year</button>` : ""}<button onclick="academicYears.openEditModal(${year.id})" class="btn btn-primary"><i class="ti ti-pencil me-1"></i>Edit</button>${hasLinkedData ? `<button class="btn btn-outline-danger" disabled><i class="ti ti-trash me-1"></i>Delete</button>` : `<button onclick="academicYears.deleteAcademicYear(${year.id})" class="btn btn-outline-danger"><i class="ti ti-trash me-1"></i>Delete</button>`}`}</div>
+                <div class="academic-year-mobile-actions">${finishButton}${isDeleted ? `<button onclick="academicYears.restoreAcademicYear(${year.id})" class="btn btn-success"><i class="ti ti-refresh me-1"></i>Restore</button>` : `${year.period_type === "regular" ? `<button onclick="academicYears.createNextAcademicYear(${year.id})" class="btn btn-outline-primary"><i class="ti ti-calendar-plus me-1"></i>Next Year</button>` : ""}<button onclick="academicYears.openEditModal(${year.id})" class="btn btn-primary"><i class="ti ti-pencil me-1"></i>Edit</button>${hasLinkedData ? `<button class="btn btn-outline-danger" disabled><i class="ti ti-trash me-1"></i>Delete</button>` : `<button onclick="academicYears.deleteAcademicYear(${year.id})" class="btn btn-outline-danger"><i class="ti ti-trash me-1"></i>Delete</button>`}`}</div>
             </article>`;
         });
         if (academicYearsTable) {
@@ -621,6 +646,7 @@ window.academicYears = {
     createNextAcademicYear,
     restoreAcademicYear,
     setCurrentAcademicYear,
+    finishSummerSchool,
     fetchAcademicYears,
 };
 window.openCreateModal = openCreateModal;

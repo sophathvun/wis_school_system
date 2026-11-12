@@ -1,4 +1,6 @@
-@if($record->usesSequentialFlow())
+@if(!empty($record->student_snapshot['historical_import']))
+    <small class="text-secondary">Historical · {{ $record->status==='pending'?'Processing':ucfirst($record->status) }}</small>
+@elseif($record->usesSequentialFlow())
     @php
         $progressRequester=$record->student_snapshot['requester']??($record->creator?app(\App\Services\SkippingGradeWorkflow::class)->snapshot($record->creator,'Requester','campus',$record->campus_id):null);
         $requesterName=$progressRequester['name']??'Unavailable';

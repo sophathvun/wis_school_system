@@ -14,7 +14,7 @@ export function initDailyAttendance(root,meta){
     const leave=initAttendanceLeave(root,meta,()=>({scope,students,busy,dirty}),load);
     const queueSave=()=>{clearTimeout(autosaveTimer);autosaveTimer=setTimeout(saveChanges,700);};
     const changed=()=>{if(locked)return;blankOnly=false;dirty=true;revision++;counts();get('[data-daily-message]').textContent='Changes will save automatically…';queueSave();};
-    const statuses={P:'Present',EX:'Excused Absent',UX:'Unexcused Absent',L:'Late'};
+    const statuses={P:'Present',EX:'Excused Absent',UX:'Unexcused Absent',T:'Tardy'};
     const studentFilter=get('[data-daily-student-filter]');
     const filterStudents=()=>{
         const term=get('[data-daily-search]').value.trim().toLowerCase();
@@ -38,7 +38,7 @@ export function initDailyAttendance(root,meta){
         get('[data-daily-students]').querySelectorAll('[data-daily-student]').forEach(row=>{
             const status=row.querySelector('[data-daily-status]');
             status.dataset.attStatus=status.value;
-            const exception=['EX','UX','L'].includes(status.value);
+            const exception=['EX','UX','T'].includes(status.value);
             row.querySelectorAll('[data-daily-exception]').forEach(field=>field.hidden=!exception);
             row.querySelectorAll('[data-status-choice]').forEach(button=>{
                 button.setAttribute('aria-pressed',String(button.dataset.statusChoice===status.value));
@@ -62,7 +62,7 @@ export function initDailyAttendance(root,meta){
             row.querySelector('[data-daily-period-summary]').textContent=selected?`${selected} periods selected`:'Select session';
             row.querySelector('[data-daily-missed-note]').textContent=`Missed periods: ${missed.value||0}`;
         });
-        const result={P:0,EX:0,UX:0,L:0,unmarked:0};
+        const result={P:0,EX:0,UX:0,T:0,unmarked:0};
         get('[data-daily-students]').querySelectorAll('[data-daily-status]').forEach(input=>result[input.value||'unmarked']++);
         get('[data-daily-counts]').innerHTML=Object.entries(result).map(([key,value])=>`<span class="badge ${key==='P'?'bg-green-lt':key==='UX'?'bg-red-lt':'bg-blue-lt'}">${key==='unmarked'?'Unmarked':`${{EX:'E',UX:'U'}[key]||key} · ${statuses[key]}`}: ${value}</span>`).join('');
     }

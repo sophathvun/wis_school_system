@@ -32,7 +32,9 @@ class G9CertificateReport
             ->where('e.academic_year_id', $academicYearId)
             ->where('ay.period_type', 'regular')->whereNull('ay.deleted_at')
             ->where('e.status', 1)->where('s.status', 1)
-            ->whereIn('e.enrollment_status', ['active', 'completed'])
+            ->where(function($eligibility){
+                $eligibility->whereIn('e.enrollment_status',['active','completed'])->orWhereExists(function($historical){ $historical->selectRaw('1')->from('tb_g9_certificate as hc')->whereColumn('hc.enrollment_id','e.id')->whereNotNull('hc.historical_import'); });
+            })
             ->whereNull('g.deleted_at')->whereNull('c.deleted_at')
             ->whereRaw("UPPER(TRIM(REPLACE(COALESCE(NULLIF(TRIM(g.grade_short_name), ''), g.grade), '-', ''))) IN (?, ?)", ['9', 'G9'])
             ->select('e.id as enrollment_id', 'e.student_id', 'e.campus_id', 'e.grade_id', 'e.class_id',
@@ -78,7 +80,7 @@ class G9CertificateReport
         $students = $campusStudents->filter(fn ($row) => empty($filters['grade_class']) || $row->grade_id.':'.$row->class_id === $filters['grade_class'])->values();
         $options = $students;
         if (!empty($filters['certificate_student_id'])) $students = $students->where('student_id', (int) $filters['certificate_student_id'])->values();
-        $issued = $settings ? $settings->certificates()->get(['student_id', 'certificate_number', 'qr_token'])->keyBy('student_id') : collect();
+        $issued = $settings ? $settings->certificates()->get(['student_id', 'certificate_number', 'qr_token', 'historical_import'])->keyBy('student_id') : collect();
         $numbers = $issued->pluck('certificate_number', 'student_id');
         $showQr = filter_var($filters['certificate_show_qr'] ?? false, FILTER_VALIDATE_BOOLEAN);
         $filters['certificate_show_qr'] = $showQr ? '1' : '0';
@@ -86,6 +88,7 @@ class G9CertificateReport
         foreach ($students as $index => $student) {
             $certificate = $issued->get($student->student_id);
             $student->certificate_number = $certificate?->certificate_number;
+            $student->certificate_issue_date = $certificate?->historical_import['issue_date'] ?? null;
             $student->certificate_verification_url = $certificate?->qr_token ? G9CertificateQr::url($certificate->qr_token) : null;
             $verificationAddress = $student->certificate_verification_url ? parse_url($student->certificate_verification_url) : [];
             $student->certificate_verification_site = $student->certificate_verification_url
@@ -120,7 +123,7 @@ class G9CertificateReport
 
         $canSaveGivenDate = $year && $this->canPerformAction($request, 'save_date');
         $canAssignNumbers = $year && $this->canPerformAction($request, 'assign');
-        $canEditPrefix = $year && $this->canPerformAction($request, 'update_prefix');
+        $canEditPrefix = $year && $this->canPerformAction($request, 'update_prefix') && !$issued->contains(fn($certificate)=>$certificate->historical_import !== null);
         return [
             'isReportStub' => false, 'filters' => $filters, 'enrollments' => collect(),
             'certificates' => $students, 'certificateSettings' => $settings,
@@ -160,6 +163,7 @@ class G9CertificateReport
                     throw ValidationException::withMessages(['number_prefix' => 'Save the Given Date before editing the certificate prefix.']);
                 }
                 if ($settings->number_prefix === $data['number_prefix']) return 0;
+                if ($settings->certificates()->whereNotNull('historical_import')->exists()) throw ValidationException::withMessages(['number_prefix'=>'Imported issued certificate numbers are permanent. Their prefix cannot be changed.']);
                 $certificates = $settings->certificates()->orderBy('sequence')->get();
                 // Stage distinct, invalid-as-public numbers to avoid unique-key collisions
                 // when a numeric prefix overlaps the suffix of an existing number.

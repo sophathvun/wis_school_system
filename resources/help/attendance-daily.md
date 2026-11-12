@@ -19,11 +19,11 @@ Daily attendance cannot be saved for a future date. Use the approved-leave workf
 | P | Present |
 | E | Excused absence |
 | U | Unexcused absence |
-| L | Late |
+| T | Tardy |
 
 E and U each count as one absence day. Missing one, two, or more subject periods still represents one daily attendance day. The selected absent periods or session count provide context rather than multiplying the daily total.
 
-Select E, U, or L to choose absent periods and enter a reason using the available controls.
+Select E, U, or T to choose absent periods and enter a reason using the available controls.
 
 ## Apply Present to blank records
 

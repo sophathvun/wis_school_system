@@ -8,6 +8,13 @@ use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 require_once __DIR__.'/../Fixtures/G12NationalExam.php';
+it('converts legacy late marks to tardy without changing their historical details',function(){
+    $old=['register_id'=>1,'academic_year_id'=>1,'student_id'=>1,'enrollment_id'=>1,'attendance_date'=>'2026-11-01','status'=>'L','missed_sessions'=>1,'remarks'=>'Late 40 mins','created_at'=>'2026-11-01 08:40:00','updated_at'=>'2026-11-01 08:40:00'];
+    $id=DB::table('attendance_daily_marks')->insertGetId($old);
+    $before=(array)DB::table('attendance_daily_marks')->where('id',$id)->first();
+    $migration=require database_path('migrations/2026_11_12_000002_use_t_for_daily_tardy_attendance.php');$migration->up();$migration->up();
+    expect((array)DB::table('attendance_daily_marks')->where('id',$id)->first())->toBe(array_replace($before,['status'=>'T']));
+});
 beforeEach(function(){
     $this->travelTo(\Carbon\CarbonImmutable::parse('2026-11-02 12:00:00','Asia/Bangkok'));
     createG12NationalSchema();
@@ -274,7 +281,7 @@ it('displays family contacts and preserves the original attendance author and da
     $input=$scope+['version'=>0,'marks'=>[['student_id'=>1,'status'=>'P','missed_sessions'=>0]]];
     $controller->save(g12Request(User::find(1),$input));
     DB::table('attendance_daily_marks')->update(['created_at'=>'2026-11-02 08:00:00']);
-    $input['version']=1;$input['marks'][0]['status']='L';
+    $input['version']=1;$input['marks'][0]['status']='T';
     $controller->save(g12Request(User::find(1),$input));
     $student=$controller->show(g12Request(User::find(1),$scope))->getData(true)['students'][0];
     expect($student['photo_url'])->toEndWith('/storage/students/photo.webp')
@@ -366,14 +373,14 @@ it('applies present only to blank students while preserving every recorded statu
         DB::table('tb_student_enrollment')->insert(['student_id'=>$id,'campus_id'=>1,'academic_year_id'=>1,'class_id'=>1,'enrollment_status'=>'active']);
     }
     $controller=app(\App\Http\Controllers\DailyAttendanceController::class);$admin=User::find(1);
-    $statuses=['P','EX','UX','L'];
+    $statuses=['P','EX','UX','T'];
     $input=['academic_year_id'=>1,'campus_id'=>1,'class_id'=>1,'date'=>'2026-11-02','version'=>0,'partial'=>true,
         'marks'=>array_map(fn($index)=>['student_id'=>$index+1,'status'=>$statuses[$index],'missed_sessions'=>0,'remarks'=>'Original note'],range(0,3))];
     $controller->save(g12Request($admin,$input));
     $input['version']=1;$input['only_blank']=true;
     $input['marks']=array_map(fn($id)=>['student_id'=>$id,'status'=>'P','missed_sessions'=>0],range(1,5));
     $controller->save(g12Request($admin,$input));
-    expect(DB::table('attendance_daily_marks')->orderBy('student_id')->pluck('status')->all())->toBe(['P','EX','UX','L','P']);
+    expect(DB::table('attendance_daily_marks')->orderBy('student_id')->pluck('status')->all())->toBe(['P','EX','UX','T','P']);
     expect(DB::table('attendance_daily_marks')->where('student_id',2)->value('remarks'))->toBe('Original note');
 });
 
@@ -415,7 +422,7 @@ it('reports daily exceptions with enrollment details and dependent options', fun
     expect(fn()=>$controller->details(g12Request($admin,$filters+['date_from'=>'2026-11-03','date_to'=>'2026-11-02'])))->toThrow(ValidationException::class);
     expect($controller->details(g12Request($admin,$filters+['date_to'=>'2026-11-02']))->getData(true)['total'])->toBe(1);
     expect($controller->details(g12Request($admin,$filters))->getData(true)['student']['student_code'])->toBe('00123');
-    expect($controller->details(g12Request($admin,$filters))->getData(true)['totals'])->toBe(['P'=>0,'EX'=>1,'UX'=>0,'L'=>0]);
+    expect($controller->details(g12Request($admin,$filters))->getData(true)['totals'])->toBe(['P'=>0,'EX'=>1,'UX'=>0,'T'=>0]);
     expect($controller->details(g12Request($admin,$filters+['date_from'=>'2026-11-03']))->getData(true)['totals']['EX'])->toBe(0);
     DB::table('attendance_daily_marks')->update(['status'=>'P']);
     expect($controller->details(g12Request($admin,$filters))->getData(true)['totals']['P'])->toBe(1);
@@ -471,7 +478,7 @@ it('summarizes student absences once with late records separate and zero counts 
         'marks'=>[['student_id'=>1,'status'=>'EX','missed_sessions'=>1,'remarks'=>'Leave']],
     ]));
     $mark=(array)DB::table('attendance_daily_marks')->first();unset($mark['id']);
-    foreach(['2026-11-01'=>'UX','2026-10-31'=>'L','2026-10-30'=>'P'] as $date=>$status)
+    foreach(['2026-11-01'=>'UX','2026-10-31'=>'T','2026-10-30'=>'P'] as $date=>$status)
         DB::table('attendance_daily_marks')->insert(array_replace($mark,['attendance_date'=>$date,'status'=>$status]));
     DB::table('tb_student')->insert(['id'=>2,'student_id'=>'002','full_name_en'=>'No absences']);
     DB::table('tb_student_enrollment')->insert(['student_id'=>2,'campus_id'=>1,'academic_year_id'=>1,'class_id'=>1,'enrollment_status'=>'active']);
@@ -480,12 +487,12 @@ it('summarizes student absences once with late records separate and zero counts 
     $result=$controller->statistics(g12Request($admin,$filters))->getData(true);
     expect($result['total'])->toBe(2)->and($result['per_page'])->toBe(15)
         ->and($result['data'][0]['total_absent'])->toBe(2)
-        ->and($result['data'][0]['EX'])->toBe(1)->and($result['data'][0]['UX'])->toBe(1)->and($result['data'][0]['L'])->toBe(1)
-        ->and($result['data'][1]['total_absent'])->toBe(0)->and($result['data'][1]['L'])->toBe(0);
+        ->and($result['data'][0]['EX'])->toBe(1)->and($result['data'][0]['UX'])->toBe(1)->and($result['data'][0]['T'])->toBe(1)
+        ->and($result['data'][1]['total_absent'])->toBe(0)->and($result['data'][1]['T'])->toBe(0);
     expect($controller->statistics(g12Request($admin,$filters+['student_id'=>1]))->getData(true)['total'])->toBe(1);
     $ranged=$controller->statistics(g12Request($admin,$filters+['student_id'=>1,'date_from'=>'2026-11-02','date_to'=>'2026-11-02']))->getData(true);
     expect($ranged['data'][0]['total_absent'])->toBe(1)->and($ranged['data'][0]['EX'])->toBe(1)
-        ->and($ranged['data'][0]['UX'])->toBe(0)->and($ranged['data'][0]['L'])->toBe(0);
+        ->and($ranged['data'][0]['UX'])->toBe(0)->and($ranged['data'][0]['T'])->toBe(0);
     expect($controller->statistics(g12Request($admin,$filters+['date_from'=>'2026-11-03']))->getData(true)['data'][0]['total_absent'])->toBe(0);
     expect(fn()=>$controller->statistics(g12Request($admin,$filters+['date_from'=>'2026-11-03','date_to'=>'2026-11-02'])))->toThrow(ValidationException::class);
     expect($controller->statistics(g12Request($admin,$filters+['grade_class'=>'0:999']))->getData(true)['total'])->toBe(0);

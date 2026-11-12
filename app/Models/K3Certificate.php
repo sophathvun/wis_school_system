@@ -7,7 +7,9 @@ use Illuminate\Support\Str;
 
 class K3Certificate extends Model
 {
+    use \App\Models\Concerns\PreservesIssuedWisCertificate;
     protected $table = 'tb_k3_certificate';
+    protected $casts = ['historical_import'=>'array'];
     protected $fillable = ['certificate_year_id', 'student_id', 'enrollment_id', 'sequence', 'certificate_number'];
 
     protected static function booted(): void

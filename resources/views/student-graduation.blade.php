@@ -5,7 +5,7 @@
 @section('content')
 
 
-    <div class="card">
+    <div class="card graduation-list-card" id="graduationListCard">
         <div class="card-header d-flex align-items-center graduation-card-header">
             <h3 class="card-title mb-0">GRADUATION RECORDS</h3>
             <div class="graduation-summary-widget" aria-live="polite">
@@ -17,6 +17,8 @@
                     <span>Female: <strong id="graduation-female">0</strong></span>
                 </div>
             </div>
+            <button type="button" class="btn btn-outline-primary graduation-fullscreen-toggle" id="graduationFullscreen" aria-pressed="false" aria-label="Expand graduation list to full screen"><i class="ti ti-maximize"></i><span>Full screen</span></button>
+            <button type="button" class="btn btn-success" id="graduationBulkPass"><i class="ti ti-checks me-1"></i>Confirm Pass (Filtered)</button>
             <button class="btn btn-primary ms-auto" id="newGraduation">
                 <i class="ti ti-school icon"></i> Graduate Grade 12 Student
             </button>
@@ -51,33 +53,18 @@
                 <thead>
                     <tr>
                         <th>No.</th>
-                        <th>PHOTO</th>
-                        <th><button type="button" class="graduation-table-sort" data-graduation-sort="student_id">Student ID <span
-                                    data-graduation-sort-icon="student_id"></span></button></th>
-                        <th><button type="button" class="graduation-table-sort" data-graduation-sort="student_name">Student Name <span
-                                    data-graduation-sort-icon="student_name"></span></button></th>
-                        <th><button type="button" class="graduation-table-sort" data-graduation-sort="academic_year">Academic Year
-                                <span data-graduation-sort-icon="academic_year"></span></button></th>
-                        <th><button type="button" class="graduation-table-sort" data-graduation-sort="class">Grade <span
-                                    data-graduation-sort-icon="class"></span></button></th>
-                        <th><button type="button" class="graduation-table-sort" data-graduation-sort="group">Group <span
-                                    data-graduation-sort-icon="group"></span></button></th>
-                        <th><button type="button" class="graduation-table-sort" data-graduation-sort="campus">Campus <span
-                                    data-graduation-sort-icon="campus"></span></button></th>
-                        <th><button type="button" class="graduation-table-sort" data-graduation-sort="graduation_date">Graduation Date
-                                <span data-graduation-sort-icon="graduation_date"></span></button></th>
-                        <th><button type="button" class="graduation-table-sort" data-graduation-sort="certificate">Certificate <span
-                                    data-graduation-sort-icon="certificate"></span></button></th>
-                        <th><button type="button" class="graduation-table-sort" data-graduation-sort="alumni">Alumni <span
-                                    data-graduation-sort-icon="alumni"></span></button></th>
-                        <th><button type="button" class="graduation-table-sort" data-graduation-sort="graduated_by">Graduated By <span
-                                    data-graduation-sort-icon="graduated_by"></span></button></th>
-                        <th>Status / Actions</th>
+                        <th class="graduation-col-student"><button type="button" class="graduation-table-sort" data-graduation-sort="student_name">Student <span data-graduation-sort-icon="student_name"></span></button><button type="button" class="graduation-table-sort graduation-secondary-sort" data-graduation-sort="student_id">Student ID <span data-graduation-sort-icon="student_id"></span></button></th>
+                        <th><button type="button" class="graduation-table-sort" data-graduation-sort="academic_year">Academic Year <span data-graduation-sort-icon="academic_year"></span></button><button type="button" class="graduation-table-sort graduation-secondary-sort" data-graduation-sort="campus">Campus <span data-graduation-sort-icon="campus"></span></button></th>
+                        <th><button type="button" class="graduation-table-sort" data-graduation-sort="class">Grade <span data-graduation-sort-icon="class"></span></button></th>
+                        <th><button type="button" class="graduation-table-sort" data-graduation-sort="group">Group <span data-graduation-sort-icon="group"></span></button></th>
+                        <th><button type="button" class="graduation-table-sort" data-graduation-sort="graduation_date">Graduation Date <span data-graduation-sort-icon="graduation_date"></span></button><button type="button" class="graduation-table-sort graduation-secondary-sort" data-graduation-sort="graduated_by">Graduated By <span data-graduation-sort-icon="graduated_by"></span></button></th>
+                        <th><button type="button" class="graduation-table-sort" data-graduation-sort="certificate">Certificate <span data-graduation-sort-icon="certificate"></span></button></th>
+                        <th class="graduation-col-actions">Status / Actions<button type="button" class="graduation-table-sort graduation-secondary-sort" data-graduation-sort="alumni">Alumni <span data-graduation-sort-icon="alumni"></span></button></th>
                     </tr>
                 </thead>
                 <tbody id="graduationTable">
                     <tr>
-                        <td colspan="13" class="text-center">Loading...</td>
+                        <td colspan="8" class="text-center">Loading...</td>
                     </tr>
                 </tbody>
             </table>

@@ -66,7 +66,7 @@ class G9CertificateLayout
 
     public static function tokens(object $certificate, $settings): array
     {
-        $date = $settings?->given_date;
+        $date = !empty($certificate->certificate_issue_date) ? \Carbon\Carbon::parse($certificate->certificate_issue_date) : $settings?->given_date;
         return [
             'student_name'=>mb_strtoupper(trim($certificate->full_name_en??'')),
             'class'=>ltrim($certificate->class_name,'-'), 'campus'=>$certificate->campus_name_en,

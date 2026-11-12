@@ -125,7 +125,7 @@ async function initAttendanceDetails(root) {
             text(identity, student.student_code, 'text-secondary small'); text(identity, student.name_kh, 'fw-semibold'); text(identity, student.name_en); profileBody.append(identity);
             const grade = document.createElement('div'); text(grade, student.academic_year, 'text-secondary small'); text(grade, student.grade); profileBody.append(grade);
             const totals = document.createElement('div'); totals.className = 'att-student-totals'; totals.setAttribute('aria-label', 'Attendance totals for selected date range');
-            [['absent', 'Absent', 'green', 'user-minus'], ['EX', 'E', 'blue', 'shield-check'], ['UX', 'U', 'red', 'x'], ['L', 'L', 'orange', 'clock']].forEach(([status, label, color, icon]) => {
+            [['absent', 'Absent', 'green', 'user-minus'], ['EX', 'E', 'blue', 'shield-check'], ['UX', 'U', 'red', 'x'], ['T', 'T', 'orange', 'clock']].forEach(([status, label, color, icon]) => {
                 const card = document.createElement('div'); card.className = `att-student-total bg-${color}-lt`;
                 const symbol = document.createElement('i'); symbol.className = `ti ti-${icon}`; symbol.setAttribute('aria-hidden', 'true'); card.append(symbol);
                 const count = status === 'absent' ? Number(result.totals.EX ?? 0) + Number(result.totals.UX ?? 0) : result.totals[status] ?? 0;
@@ -137,7 +137,7 @@ async function initAttendanceDetails(root) {
                 const cells = Array.from({length: 4}, () => row.insertCell());
                 text(cells[0], String(result.from + index));
                 text(cells[1], new Intl.DateTimeFormat('en-GB', {day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC'}).format(new Date(record.date + 'T00:00:00Z')).replace(/ /g, '-'));
-                const badge = document.createElement('span'); badge.className = `badge bg-${{P: 'green', EX: 'blue', UX: 'red', L: 'orange'}[record.status]}-lt`; badge.textContent = {EX: 'E', UX: 'U'}[record.status] || record.status; badge.title = {P: 'Present', EX: 'Excused absence', UX: 'Unexcused absence', L: 'Late'}[record.status]; cells[2].append(badge);
+                const badge = document.createElement('span'); badge.className = `badge bg-${{P: 'green', EX: 'blue', UX: 'red', T: 'orange'}[record.status]}-lt`; badge.textContent = {EX: 'E', UX: 'U'}[record.status] || record.status; badge.title = {P: 'Present', EX: 'Excused absence', UX: 'Unexcused absence', T: 'Tardy'}[record.status]; cells[2].append(badge);
                 text(cells[3], record.reason);
             });
             if (!result.data.length) empty('No absent or late records found for the selected date range.');

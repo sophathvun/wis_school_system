@@ -33,7 +33,8 @@ class G12CertificateReport
             ->where('ay.period_type', 'regular')->whereNull('ay.deleted_at')
             ->where('e.status', 1)->where('s.status', 1)
             ->where(function ($eligible) {
-                $eligible->whereIn('e.enrollment_status', ['active','completed','graduated'])->orWhereExists(function ($voided) {
+                $eligible->orWhereExists(function($historical){ $historical->selectRaw('1')->from('tb_g12_certificate as hc')->whereColumn('hc.enrollment_id','e.id')->whereNotNull('hc.historical_import'); });
+                $eligible->orWhereIn('e.enrollment_status', ['active','completed','graduated'])->orWhereExists(function ($voided) {
                     $voided->selectRaw('1')->from('tb_g12_certificate as vc')->join('tb_g12_certificate_year as vy','vy.id','=','vc.certificate_year_id')
                         ->whereColumn('vc.student_id','e.student_id')->whereColumn('vy.academic_year_id','e.academic_year_id')->where('vc.status','voided');
                 });
@@ -102,6 +103,7 @@ class G12CertificateReport
         foreach ($students as $index => $student) {
             $certificate = $issued->get($student->student_id);
             $student->certificate_number = $certificate?->certificate_number;
+            $student->certificate_issue_date = $certificate?->historical_import['issue_date'] ?? null;
             $student->certificate_id = $certificate?->id;
             $student->certificate_status = $certificate?->status ?? 'not_assigned';
             $student->certificate_printed_at = $certificate?->printed_at;
@@ -183,6 +185,7 @@ class G12CertificateReport
                     throw ValidationException::withMessages(['number_prefix' => 'Save the Given Date before editing the certificate prefix.']);
                 }
                 if ($settings->number_prefix === $data['number_prefix']) return 0;
+                if ($settings->certificates()->whereNotNull('historical_import')->exists()) throw ValidationException::withMessages(['number_prefix'=>'Imported issued certificate numbers are permanent. Their prefix cannot be changed.']);
                 if ($settings->certificates()->where(function ($query) {
                     $query->where('status','!=','pending_result')->orWhereNotNull('printed_at')->orWhereNotNull('released_at');
                 })->exists()) throw ValidationException::withMessages(['number_prefix'=>'Printed, valid, released, or voided certificate numbers are permanent. Their prefix cannot be changed.']);

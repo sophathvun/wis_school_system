@@ -54,7 +54,7 @@
             <form data-daily-form><div class="table-responsive"><table class="table table-vcenter att-table att-daily-table"><thead><tr><th>No.</th><th>Photo</th><th>Student</th><th>Family</th><th>Daily Status</th><th>Reason</th><th>Added by</th></tr></thead><tbody data-daily-students><tr><td colspan="7">Select Academic Year, Campus, and Grade/Class.</td></tr></tbody></table></div>
                 <div class="att-save-bar"><span data-daily-message role="status" aria-live="polite">Changes save automatically.</span><button type="submit" class="btn btn-outline-primary" data-daily-save hidden disabled>Retry Save</button></div>
             </form>
-            <div class="form-hint mt-3">P: Present · E: Excused absence · U: Unexcused absence · L: Late. E and U count as one absence day each; missed sessions are not added to the daily total. Select E, U, or L to choose absent periods and enter a reason.</div>
+            <div class="form-hint mt-3">P: Present · E: Excused absence · U: Unexcused absence · T: Tardy. E and U count as one absence day each; missed sessions are not added to the daily total. Select E, U, or T to choose absent periods and enter a reason.</div>
             <details class="att-history mt-3"><summary>Daily Register History</summary><div data-daily-history class="mt-2"></div></details>
             <details class="att-history mt-3" data-leave-panel><summary>Approved Leave — Selected Campus</summary><div data-leave-list class="mt-2">Select a class to view leave.</div></details>
         </div>
@@ -73,9 +73,9 @@
         <div class="card-header att-header flex-wrap gap-2"><div><h3 class="card-title" data-att-register-title>Class Register</h3><small data-att-register-subtitle></small></div><button type="button" class="btn btn-outline-light ms-auto" data-att-close aria-label="Close register"><i class="ti ti-x"></i></button></div>
         <div class="card-body">
             <div class="att-register-toolbar"><div class="input-icon"><span class="input-icon-addon"><i class="ti ti-search"></i></span><input type="search" class="form-control" data-att-search placeholder="Find student by name or ID" aria-label="Search register"></div><button type="button" class="btn btn-outline-success" data-att-all>Mark Unmarked Present</button><span class="badge bg-blue-lt" data-att-register-status></span></div>
-            <p class="form-hint">Choose a status for every student. Unmarked students are never counted as present. Late minutes and notes are optional.</p>
+            <p class="form-hint">Choose a status for every student. Unmarked students are never counted as present. Tardy minutes and notes are optional.</p>
             <div class="att-counts" data-att-counts></div>
-            <form data-att-mark-form><div class="table-responsive"><table class="table table-vcenter att-table"><thead><tr><th>No.</th><th>Student</th><th>Attendance</th><th>Late (min)</th><th>Note</th></tr></thead><tbody data-att-students></tbody></table></div>
+            <form data-att-mark-form><div class="table-responsive"><table class="table table-vcenter att-table"><thead><tr><th>No.</th><th>Student</th><th>Attendance</th><th>Tardy (min)</th><th>Note</th></tr></thead><tbody data-att-students></tbody></table></div>
                 <div class="att-save-bar"><span class="text-secondary" data-att-save-message>Changes are not saved automatically.</span><button class="btn" type="button" data-att-draft>Save Draft</button><button class="btn btn-primary" type="submit" data-att-submit>Submit Attendance</button><button class="btn btn-outline-warning" type="button" data-att-reopen hidden>Reopen for Correction</button></div>
             </form>
             <details class="att-history mt-3"><summary>Attendance History</summary><div data-att-history class="mt-2"></div></details>

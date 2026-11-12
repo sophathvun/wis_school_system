@@ -16,9 +16,11 @@ class G9CertificateVerificationController
             ->join('tb_school_info as campus', 'campus.id', '=', 'enrollment.campus_id')
             ->join('tb_class as class', 'class.id', '=', 'enrollment.class_id')
             ->where('certificate.qr_token', $token)
-            ->first(['certificate.certificate_number', 'student.full_name_en', 'student.full_name_kh',
+            ->first(['certificate.certificate_number', 'certificate.historical_import', 'student.full_name_en', 'student.full_name_kh',
                 'academic_year.academic_year', 'year.given_date', 'campus.campus_name_en', 'class.class_name']);
         abort_unless($certificate, 404);
+        $historical = json_decode($certificate->historical_import ?? 'null',true);
+        $certificate->given_date = $historical['issue_date'] ?? $certificate->given_date;
 
         return response()->view('reports.g9-certificate-verification', compact('certificate'))
             ->header('Cache-Control', 'no-store, private')

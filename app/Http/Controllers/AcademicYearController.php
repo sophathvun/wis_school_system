@@ -578,6 +578,22 @@ class AcademicYearController
         ]);
     }
 
+    public function finishSummer(Request $request, AcademicYear $academicYear)
+    {
+        $user=$request->user();
+        abort_unless($user&&($user->hasPermission('academic-years.manage',$user->active_campus_id)||$user->hasPermission('settings.manage',$user->active_campus_id)),403);
+        abort_unless($academicYear->isSummer(),422,'This action is for Summer School periods.');
+        $academicYear=DB::transaction(function()use($academicYear){
+            $year=AcademicYear::lockForUpdate()->findOrFail($academicYear->id);
+            abort_unless($year->isSummer(),422,'This action is for Summer School periods.');
+            if(!in_array($year->lifecycle_status,['draft','pending','started','finished'],true))throw ValidationException::withMessages(['lifecycle_status'=>'An archived Summer School period cannot be finished.']);
+            $year->update(['lifecycle_status'=>'finished','status'=>0]);
+            $this->syncEnrollmentStatuses($year);
+            return $year->fresh();
+        });
+        return response()->json(['status'=>'success','message'=>'Summer School marked Finished. Its active and pending enrollments are now Completed.','data'=>$academicYear]);
+    }
+
     public function createNext(AcademicYear $academicYear)
     {
         abort_unless($academicYear->period_type === 'regular', 422, 'Only regular academic years can have a next academic year.');

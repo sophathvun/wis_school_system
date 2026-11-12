@@ -74,6 +74,7 @@ beforeEach(function () {
     (require database_path('migrations/2026_10_06_000012_create_g12_certificate_template.php'))->up();
     (require database_path('migrations/2026_10_06_000014_add_g12_certificate_qr_tokens.php'))->up();
     (require database_path('migrations/2026_11_10_160000_add_g12_wis_certificate_lifecycle.php'))->up();
+    Schema::table('tb_g12_certificate',fn(Blueprint $t)=>$t->json('historical_import')->nullable());
     DB::table('tb_academic_year')->insert([['id'=>1],['id'=>2]]);
     DB::table('tb_school_info')->insert([['id'=>1,'campus_name_en'=>'BKK'],['id'=>2,'campus_name_en'=>'BCH']]);
     DB::table('tb_grade')->insert([['id'=>1,'grade'=>'12','grade_short_name'=>'12'],['id'=>2,'grade'=>'8','grade_short_name'=>'8']]);
@@ -168,6 +169,55 @@ it('allows batch graduation without certificate prefixes and marks all selected 
     $response=$controller->graduateBatch(wisGraduationRequest(['scope'=>'all_campuses','academic_year_id'=>1,'graduation_date'=>'2026-07-01','is_alumni'=>0]));
     expect($response->getData(true)['count'])->toBe(4)->and(\App\Models\StudentGraduation::where('status','pending_result')->count())->toBe(4)->and(G12Certificate::count())->toBe(0);
     expect(fn()=>$controller->graduateBatch(wisGraduationRequest(['scope'=>'all_campuses','academic_year_id'=>1,'graduation_date'=>'2026-07-01','is_alumni'=>0])))->toThrow(ValidationException::class);
+});
+
+it('bulk confirms pending graduates across pages and preserves certificate numbers on retry',function(){
+    DB::table('tb_grade')->where('id',1)->update(['grade'=>'Grade 12']);
+    $this->service->save($this->request,$this->data);
+    $numbers=G12Certificate::pluck('certificate_number','id')->all();
+    $controller=new \App\Http\Controllers\GraduationController();
+    $controller->graduateBatch(wisGraduationRequest(['scope'=>'all_campuses','academic_year_id'=>1,'graduation_date'=>'2026-07-01','is_alumni'=>0]));
+    $plan=$controller->confirmPassPreview(wisGraduationRequest(['academic_year_id'=>1]))->getData(true);
+    expect($plan['count'])->toBe(4);
+    $response=$controller->confirmPassBatch(wisGraduationRequest(['ids'=>$plan['ids']]))->getData(true);
+    expect($response)->toBe(['confirmed'=>4,'skipped'=>0])
+        ->and(\App\Models\StudentGraduation::where('status','completed')->count())->toBe(4)
+        ->and(DB::table('tb_student_enrollment')->where('enrollment_status','graduated')->count())->toBe(4)
+        ->and(G12Certificate::pluck('certificate_number','id')->all())->toBe($numbers)
+        ->and(G12Certificate::where('status','valid')->count())->toBe(4);
+    $history=DB::table('tb_student_enrollment_history')->count();
+    expect($controller->confirmPassBatch(wisGraduationRequest(['ids'=>$plan['ids']]))->getData(true))->toBe(['confirmed'=>0,'skipped'=>4])
+        ->and(DB::table('tb_student_enrollment_history')->count())->toBe($history)
+        ->and($controller->confirmPassPreview(wisGraduationRequest(['academic_year_id'=>1]))->getData(true)['count'])->toBe(0);
+});
+
+it('limits bulk pass previews to the selected year campus class and pending status',function(){
+    foreach([['student_id'=>1,'campus_id'=>1,'class_id'=>1,'academic_year_id'=>1,'status'=>'pending_result'],['student_id'=>2,'campus_id'=>2,'class_id'=>1,'academic_year_id'=>1,'status'=>'pending_result'],['student_id'=>3,'campus_id'=>2,'class_id'=>2,'academic_year_id'=>1,'status'=>'pending_result'],['student_id'=>4,'campus_id'=>2,'class_id'=>1,'academic_year_id'=>2,'status'=>'pending_result'],['student_id'=>5,'campus_id'=>2,'class_id'=>1,'academic_year_id'=>1,'status'=>'cancelled'],['student_id'=>6,'campus_id'=>2,'class_id'=>1,'academic_year_id'=>1,'status'=>'completed']] as $row) \App\Models\StudentGraduation::create($row);
+    $controller=new \App\Http\Controllers\GraduationController();
+    $plan=$controller->confirmPassPreview(wisGraduationRequest(['academic_year_id'=>1,'campus_id'=>2,'class_id'=>1]))->getData(true);
+    expect($plan)->toBe(['ids'=>[2],'count'=>1]);
+    expect(fn()=>$controller->confirmPassPreview(wisGraduationRequest([])))->toThrow(ValidationException::class);
+});
+
+it('rolls back the entire bulk pass group if a certificate is voided',function(){
+    DB::table('tb_grade')->where('id',1)->update(['grade'=>'Grade 12']);
+    $this->service->save($this->request,$this->data);
+    $controller=new \App\Http\Controllers\GraduationController();
+    $controller->graduateBatch(wisGraduationRequest(['scope'=>'all_campuses','academic_year_id'=>1,'graduation_date'=>'2026-07-01','is_alumni'=>0]));
+    G12Certificate::where('student_id',3)->update(['status'=>'voided']);
+    $ids=\App\Models\StudentGraduation::pluck('id')->all();$history=DB::table('tb_student_enrollment_history')->count();
+    expect(fn()=>$controller->confirmPassBatch(wisGraduationRequest(['ids'=>$ids])))->toThrow(ValidationException::class);
+    expect(\App\Models\StudentGraduation::where('status','pending_result')->count())->toBe(4)
+        ->and(DB::table('tb_student_enrollment')->where('enrollment_status','graduated')->count())->toBe(0)
+        ->and(DB::table('tb_student_enrollment_history')->count())->toBe($history);
+});
+
+it('rejects bulk pass without graduation execution permission',function(){
+    $user=g12CertificatePermissionUser([]);
+    $graduation=\App\Models\StudentGraduation::create(['student_id'=>3,'enrollment_id'=>3,'academic_year_id'=>1,'campus_id'=>2,'status'=>'pending_result','graduation_date'=>'2026-07-01']);
+    $request=wisGraduationRequest(['ids'=>[$graduation->id]]);$request->setUserResolver(fn()=>$user);
+    expect(fn()=>(new \App\Http\Controllers\GraduationController())->confirmPassBatch($request))->toThrow(\Symfony\Component\HttpKernel\Exception\HttpException::class);
+    expect($graduation->fresh()->status)->toBe('pending_result');
 });
 
 it('locks printed certificate numbers against prefix edits and does not reuse a voided sequence',function(){
@@ -441,6 +491,7 @@ it('curves the title upward with editable text and embedded fonts on every PDF p
 
 it('keeps G12 numbers dates templates and QR tokens independent from G9', function () {
     (require database_path('migrations/2026_10_06_000005_create_g9_certificates.php'))->up();
+    Schema::table('tb_g9_certificate',fn(Blueprint $t)=>$t->json('historical_import')->nullable());
     (require database_path('migrations/2026_10_06_000006_add_g9_certificate_typography.php'))->up();
     (require database_path('migrations/2026_10_06_000007_create_g9_certificate_template.php'))->up();
     (require database_path('migrations/2026_10_06_000009_add_g9_certificate_qr_tokens.php'))->up();
@@ -1041,4 +1092,22 @@ it('fits edited multiline content with the same font size on every line in a sin
     $pdf->render();
     expect($pdf->getCanvas()->get_page_count())->toBe(1)->and($sizes)->toHaveCount(2)
         ->and($sizes[0])->toBeLessThan(24)->and(abs($sizes[0]-$sizes[1]))->toBeLessThan(.01);
+});
+
+
+it('preserves historical issued numbers and dates and includes the withdrawn certificate holder',function(){
+    $this->service->save($this->request,$this->data);
+    $settings=\App\Models\G12CertificateYear::where('academic_year_id',1)->firstOrFail();
+    $certificate=new \App\Models\G12Certificate();
+    $certificate->forceFill(['certificate_year_id'=>$settings->id,'student_id'=>7,'enrollment_id'=>7,'sequence'=>700,'certificate_number'=>'LEGACY-007','historical_import'=>['issue_date'=>'2026-07-18','source_row'=>2],'status'=>'valid'])->save();
+    $payload=$this->service->payload($this->request,['academic_year_id'=>1],true);
+    $row=$payload['certificates']->firstWhere('student_id',7);
+    expect($row)->not->toBeNull()->and($row->certificate_number)->toBe('LEGACY-007');
+    $settings->update(['given_date'=>'2026-09-01']);
+    $tokens=\App\Support\G12CertificateLayout::tokens($row,$settings->fresh());
+    expect($tokens['given_date'])->toBe('18 July 2026');
+    expect(fn()=>$certificate->update(['certificate_number'=>'CHANGED']))->toThrow(ValidationException::class);
+    expect(fn()=>$this->service->save($this->request,array_replace($this->data,['action'=>'update_prefix','number_prefix'=>'CHANGED'])))->toThrow(ValidationException::class);
+    expect($certificate->fresh()->certificate_number)->toBe('LEGACY-007')
+        ->and(DB::table('tb_student_enrollment')->where('id',7)->value('enrollment_status'))->toBe('withdrawn');
 });

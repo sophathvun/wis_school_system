@@ -38,6 +38,32 @@ $filterFields=$tab==='records'
 @endforeach
 <div class="scholarship-field premium-form-field g12-filter-search-field"><label class="form-label" for="g12Search">Search</label><input class="form-control" type="search" id="g12Search" name="search" placeholder="Student ID or name" aria-label="Search by student ID or name" autocomplete="off" data-search-normalized="true"><i class="ti ti-search g12-filter-search-icon" aria-hidden="true"></i></div>
 </form></div>
+@if($tab==='certificates')
+<div class="g12-tracking-summary-grid mb-3" data-g12-certificate-summary aria-live="polite">
+<section class="card g12-tracking-summary-card g12-tracking-candidates" aria-label="Candidate totals">
+    <div class="card-body">
+        <div class="g12-tracking-summary-heading"><span class="g12-tracking-summary-icon"><i class="ti ti-users" aria-hidden="true"></i></span><h3>Total Candidates</h3></div>
+        <div class="g12-tracking-summary-total"><span>Total</span><strong data-g12-certificate-total>0</strong></div>
+        <div class="g12-tracking-summary-results"><span class="text-success">Passed: <strong data-g12-certificate-passed>0</strong> (<span data-g12-certificate-passed-percentage>0%</span>)</span><span class="g12-tracking-summary-divider" aria-hidden="true">|</span><span class="text-danger">Failed: <strong data-g12-certificate-failed>0</strong> (<span data-g12-certificate-failed-percentage>0%</span>)</span></div>
+        <div class="g12-tracking-summary-progress" aria-hidden="true"><span class="bg-success" data-g12-candidate-passed-bar></span><span class="bg-danger" data-g12-candidate-failed-bar></span></div>
+        <div class="g12-tracking-summary-notes" data-g12-candidate-pending hidden>Awaiting results: <strong data-g12-certificate-pending>0</strong></div>
+    </div>
+</section>
+@foreach(['soft'=>['Provisional Certificates','ti-certificate'],'hard'=>['Diplomas','ti-school']] as $type=>[$title,$icon])
+<section class="card g12-tracking-summary-card g12-tracking-{{ $type }}" data-g12-collection-card="{{ $type }}" aria-label="{{ $title }} collection totals">
+    <div class="card-body">
+        <div class="g12-tracking-summary-heading"><span class="g12-tracking-summary-icon"><i class="ti {{ $icon }}" aria-hidden="true"></i></span><h3>{{ $title }}</h3></div>
+        <div class="g12-tracking-summary-total"><span>Total <small>Eligible candidates</small></span><strong data-collection-total>0</strong></div>
+        <div class="g12-tracking-summary-results"><span class="text-success">Collected: <strong data-collection-collected>0</strong> (<span data-collection-collected-percentage>0%</span>)</span><span class="g12-tracking-summary-divider" aria-hidden="true">|</span><span class="g12-tracking-not-collected">Not Yet Collected: <strong data-collection-not-yet>0</strong> (<span data-collection-not-yet-percentage>0%</span>)</span></div>
+        <div class="g12-tracking-summary-progress" aria-hidden="true"><span class="bg-success" data-collection-collected-bar></span><span class="g12-tracking-pending-bar" data-collection-not-yet-bar></span><span class="bg-danger" data-collection-review-bar></span></div>
+        <div class="g12-tracking-summary-notes"><span>Awaiting certificate: <strong data-collection-awaiting>0</strong></span><span>Available at school: <strong data-collection-available>0</strong></span></div>
+        <div class="g12-tracking-summary-exceptions text-danger" data-collection-review-note hidden>Needs review: <strong data-collection-review>0</strong> (<span data-collection-review-percentage>0%</span>)</div>
+        <div class="g12-tracking-summary-exceptions text-secondary" data-collection-not-applicable-note hidden>Not applicable: <strong data-collection-not-applicable>0</strong></div>
+    </div>
+</section>
+@endforeach
+</div>
+@endif
 @if($tab==='assign-centers')
 <section class="card g12-assignment-summary-card mb-3" data-g12-assignment-summary aria-label="Exam center assignment totals"><div class="card-body g12-assignment-summary-grid">
 <article class="g12-assignment-summary-item"><div class="g12-assignment-summary-title">Total</div><strong class="g12-assignment-summary-total" data-g12-assignment-summary-total>0</strong><div class="g12-assignment-summary-notes"><span>Male: <strong data-g12-assignment-summary-male>0</strong></span><span>Female: <strong data-g12-assignment-summary-female>0</strong></span></div></article>

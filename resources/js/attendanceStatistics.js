@@ -69,7 +69,7 @@ export async function initAttendanceStatistics(root) {
                 } else {const blank = document.createElement('span'); blank.className = 'att-report-photo att-report-photo-placeholder'; blank.textContent = '-'; cells[1].append(blank);}
                 line(cells[2], record.student_code, 'text-secondary small'); line(cells[2], record.name_kh, 'fw-semibold'); line(cells[2], record.name_en);
                 line(cells[3], record.grade);
-                [['total_absent', 'purple'], ['EX', 'blue'], ['UX', 'red'], ['L', 'orange']].forEach(([key, color], i) => {
+                [['total_absent', 'purple'], ['EX', 'blue'], ['UX', 'red'], ['T', 'orange']].forEach(([key, color], i) => {
                     const count = document.createElement('span'); count.className = `badge bg-${color}-lt att-statistics-count`; count.textContent = String(record[key]); cells[4 + i].append(count);
                 });
                 const action = document.createElement('button'); action.type = 'button'; action.className = 'btn btn-sm btn-outline-primary att-view-record';

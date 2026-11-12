@@ -41,7 +41,7 @@ class AttendanceRecordExport
             ['cells' => [$cell('Student ID: '.$student['student_code'], 4), null, $cell('Grade: '.$student['class'], 4)], 'height' => 24],
             ['cells' => [$cell('Student Name: '.$student['name_kh'], 4), null, $cell('Group: '.($student['group'] ?: '-'), 4)], 'height' => 28],
             ['cells' => [$cell($student['name_en'], 4), null, $cell('Campus: '.$student['campus'], 4)], 'height' => 24],
-            ['cells' => array_map(fn ($status) => $cell('Total '.($status === 'absent' ? 'Absent' : (['EX'=>'E','UX'=>'U'][$status] ?? $status)).': '.($status === 'absent' ? $data['totals']['EX'] + $data['totals']['UX'] : $data['totals'][$status]), 2), ['absent', 'EX', 'UX', 'L']), 'height' => 28],
+            ['cells' => array_map(fn ($status) => $cell('Total '.($status === 'absent' ? 'Absent' : (['EX'=>'E','UX'=>'U'][$status] ?? $status)).': '.($status === 'absent' ? $data['totals']['EX'] + $data['totals']['UX'] : $data['totals'][$status]), 2), ['absent', 'EX', 'UX', 'T']), 'height' => 28],
             ['cells' => array_map(fn ($label) => $cell($label, 2), ['No.', 'Date', 'Attendance Status', 'Reason']), 'height' => 28],
         ];
         foreach ($data['data'] as $index => $record) $rows[] = ['cells' => [
@@ -77,7 +77,7 @@ class AttendanceRecordExport
             $rows[] = ['cells' => [
             $cell($index + 1, 3), $cell($student['name_kh'], 4), $cell($student['name_en'], 4),
             $cell($student['student_code'], 3), $cell($student['gender'] ?: '-', 4), $cell($student['class'] ?: '-', 3), $cell($student['group'] ?: '-', 3),
-            $cell($student['L'], 3), $cell($student['EX'], 3), $cell($student['UX'], 3), $cell($student['total_absent'], 3),
+            $cell($student['T'], 3), $cell($student['EX'], 3), $cell($student['UX'], 3), $cell($student['total_absent'], 3),
         ], 'height' => 30];
         }
         if (!$data['data']) $rows[] = ['cells' => [$cell('No students found for the selected filters.')], 'height' => 24];

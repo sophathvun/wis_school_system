@@ -324,6 +324,7 @@ class StudentSkippingGradeService
 
     private function requireStatus(StudentSkippingGrade $record, string $status): void
     {
+        if(!empty($record->student_snapshot['historical_import']))$this->invalid('status','This is a historical request. Use a reviewed historical correction instead of submitting or deciding it again.');
         if ($record->status !== $status) $this->invalid('status','This request is '.$record->status.'. Refresh the form before continuing.');
     }
 
