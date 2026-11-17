@@ -1,8 +1,5 @@
 @extends('layouts.app')
 @section('title','Bulk Upload Student Photos')
-@section('page-header')
-<div class="container-fluid d-flex flex-wrap align-items-center gap-3"><div><div class="page-pretitle">Students</div><h2 class="page-title">Bulk Upload Student Photos</h2></div><a class="btn btn-outline-primary ms-auto" href="{{ route('studentEnrollment.index') }}">Back to Enrollment</a></div>
-@endsection
 @section('content')
 @vite(['resources/css/pages/student-photo-import.css','resources/js/studentPhotoImport.js'])
 <div class="photo-import" data-photo-import data-base="{{ route('student-photo-import.index',[],false) }}">
