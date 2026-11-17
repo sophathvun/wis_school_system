@@ -1,4 +1,4 @@
-<aside class="navbar navbar-vertical navbar-expand-lg app-sidebar" id="appSidebar" data-bs-theme="dark">
+<aside class="navbar navbar-vertical navbar-expand-lg app-sidebar" id="appSidebar" data-bs-theme="dark" data-user-id="{{ auth()->id() }}">
     @php
     $sidebarPermissionCodes = $permissionCodes ?? [];
     $canView = fn(string $permission) => in_array('*', $sidebarPermissionCodes, true) || in_array($permission, $sidebarPermissionCodes, true);

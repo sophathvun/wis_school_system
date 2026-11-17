@@ -37,7 +37,8 @@ class StudentPhotoController
 
     public function userBackground(Request $request, StudentPhotoBackground $background)
     {
-        abort_unless($request->user()?->isSuperAdmin(), 403);
+        abort_unless(\App\Support\UserManagementPermissions::allows($request->user(), 'create')
+            || \App\Support\UserManagementPermissions::allows($request->user(), 'update'), 403);
         return $this->process($request, $background);
     }
 

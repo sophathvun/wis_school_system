@@ -18,9 +18,24 @@ use Illuminate\Validation\Rule;
 
 class UserManagementController
 {
+    private function authorizeAction(Request $request, string $action): void
+    {
+        abort_unless(\App\Support\UserManagementPermissions::allows($request->user(), $action), 403);
+    }
+
+    private function protectSuperAdmin(Request $request, User $user): void
+    {
+        abort_if($user->isSuperAdmin() && !$request->user()->isSuperAdmin(), 403);
+    }
+
     public function index(Request $request)
     {
-        abort_unless($request->user()->isSuperAdmin(), 403);
+        $this->authorizeAction($request, 'view');
+        if ($request->boolean('create')) $this->authorizeAction($request, 'create');
+        if ($request->integer('edit')) {
+            $this->authorizeAction($request, 'update');
+            $this->protectSuperAdmin($request, User::findOrFail($request->integer('edit')));
+        }
         $search = trim((string) $request->query('search'));
         $perPage = min(max($request->integer('per_page', 10), 10), 100);
         $sortBy = $request->query('sortBy', 'name');
@@ -58,16 +73,22 @@ class UserManagementController
                 ->orderBy('name_en')->get(),
             'departments' => \App\Support\DepartmentHierarchy::options(),
             'positions' => Position::with('department')->where('status', 1)->orderBy('name')->get(),
-            'roles' => Role::where('status', 1)->orderBy('name')->get(),
+            'roles' => Role::where('status', 1)->when(!$request->user()->isSuperAdmin(), fn ($q) => $q->where('code', '<>', 'super-admin'))->orderBy('name')->get(),
             'campuses' => SchoolInfo::where('status', 1)->orderBy('campus_name_en')->get(),
             'permissions' => Permission::orderBy('module')->orderBy('action')->get()->groupBy('module'),
             'staffDetails' => $staffDetails,
+            'canCreateUser' => \App\Support\UserManagementPermissions::allows($request->user(), 'create'),
+            'canUpdateUser' => \App\Support\UserManagementPermissions::allows($request->user(), 'update'),
+            'canDeleteUser' => \App\Support\UserManagementPermissions::allows($request->user(), 'delete'),
+            'canPrintUsers' => \App\Support\UserManagementPermissions::allows($request->user(), 'print'),
+            'canExportUsers' => \App\Support\UserManagementPermissions::allows($request->user(), 'export'),
+            'isSuperAdmin' => $request->user()->isSuperAdmin(),
         ]);
     }
 
     public function print(Request $request)
     {
-        abort_unless($request->user()->isSuperAdmin(), 403);
+        $this->authorizeAction($request, 'print');
 
         return view('user-management-pdf', [
             'users' => $this->userReportRows(),
@@ -78,7 +99,7 @@ class UserManagementController
 
     public function exportExcel(Request $request)
     {
-        abort_unless($request->user()->isSuperAdmin(), 403);
+        $this->authorizeAction($request, 'export');
         $filename = 'user-list-' . now('Asia/Phnom_Penh')->format('Ymd-His') . '.xlsx';
         $path = $this->userExcelPath($this->userReportRows());
 
@@ -91,8 +112,11 @@ class UserManagementController
 
     public function save(Request $request)
     {
-        abort_unless($request->user()->isSuperAdmin(), 403);
         $userId = $request->integer('user_id');
+        $this->authorizeAction($request, $userId ? 'update' : 'create');
+        if ($userId) $this->protectSuperAdmin($request, User::findOrFail($userId));
+        $assignedRole = Role::find($request->integer('role_id'));
+        abort_if($assignedRole && strcasecmp($assignedRole->code, 'super-admin') === 0 && !$request->user()->isSuperAdmin(), 403);
         if (!$userId && ($staffId=filter_var($request->input('staff_profile_id'),FILTER_VALIDATE_INT)) && ($staff=Staff::find($staffId))) {
             $defaults=['staff_id'=>$staff->staff_code,'name'=>$staff->name_en,'gender'=>$staff->gender,
                 'date_of_birth'=>$staff->date_of_birth?->format('Y-m-d'),'phone'=>$staff->phone,
@@ -186,7 +210,8 @@ class UserManagementController
 
     public function delete(Request $request, User $user)
     {
-        abort_unless($request->user()->isSuperAdmin(), 403);
+        $this->authorizeAction($request, 'delete');
+        $this->protectSuperAdmin($request, $user);
         $superAdminCount = User::whereHas('roles', fn ($query) => $query->where('access_roles.code', 'super-admin')->where('access_roles.status', 1))->count();
         if ($user->isSuperAdmin() && $superAdminCount <= 1) {
             return back()->withErrors(['user' => 'The final Super Administrator account cannot be deleted.']);

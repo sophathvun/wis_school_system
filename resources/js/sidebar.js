@@ -1,3 +1,5 @@
+import { preserveSidebarScroll } from "./helpers/sidebar-scroll.js";
+
 const SIDEBAR_COLLAPSED_STORAGE_KEY = "schoolSidebarCollapsed";
 const desktopSidebarMedia = window.matchMedia("(min-width: 992px)");
 
@@ -744,6 +746,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
     renderSidebarFavorites();
     prepareFavoriteToggles();
+    preserveSidebarScroll(sidebar, sidebarMenu, {
+        enabled: () => desktopSidebarMedia.matches,
+    });
 });
 
 

@@ -15,12 +15,18 @@
                     <div class="input-icon user-header-search"><span class="input-icon-addon"><i
                                 class="ti ti-search icon"></i></span><input type="text" name="search"
                             value="{{ request('search') }}" class="form-control" placeholder="Search users"></div>
+                    @if ($canPrintUsers)
                     <a class="btn btn-outline-primary" href="{{ route('users.print') }}" target="_blank"
                         rel="noopener"><i class="ti ti-printer icon"></i> Print</a>
+                    @endif
+                    @if ($canExportUsers)
                     <a class="btn btn-outline-success" href="{{ route('users.excel') }}"><i
                             class="ti ti-file-spreadsheet icon"></i> Excel</a>
+                    @endif
+                    @if ($canCreateUser)
                     <a id="btnNewUser" class="btn btn-primary" href="{{ route('users.index', ['create' => 1]) }}"><i
                             class="ti ti-plus icon"></i> New User</a>
+                    @endif
                 </form>
             </div>
         </div>
@@ -345,10 +351,13 @@
                         <div><span>Login</span><strong>{{ $user->login_identifier === 'both' ? 'Username / Email' : ucfirst($user->login_identifier) }}</strong></div>
                     </div>
                     <div class="user-management-mobile-actions">
+                        @if ($canUpdateUser && ($isSuperAdmin || !$user->roles->contains('code', 'super-admin')))
                         <a class="btn btn-outline-primary btn-sm" href="{{ route('users.index', ['edit' => $user->id]) }}"
                             aria-label="Edit user">
                             <i class="ti ti-edit"></i><span class="visually-hidden">Edit</span>
                         </a>
+                        @endif
+                        @if ($canDeleteUser && ($isSuperAdmin || !$user->roles->contains('code', 'super-admin')))
                         <form method="POST" action="{{ route('users.delete', $user) }}" onsubmit="return confirm('Delete this user?')">
                             @csrf
                             @method('DELETE')
@@ -356,6 +365,7 @@
                                 <i class="ti ti-trash"></i><span class="visually-hidden">Delete</span>
                             </button>
                         </form>
+                        @endif
                     </div>
                 </article>
             @empty
@@ -422,13 +432,18 @@
                                     aria-pressed="{{ $user->status ? 'true' : 'false' }}"><span
                                         class="status-toggle-label">{{ $user->status ? 'ON' : 'OFF' }}</span><span
                                         class="status-toggle-knob"></span></button></td>
-                            <td class="text-center"><a class="btn btn-sm btn-outline-primary" data-edit="{{ $user->id }}"
+                            <td class="text-center">
+                                @if ($canUpdateUser && ($isSuperAdmin || !$user->roles->contains('code', 'super-admin')))
+                                <a class="btn btn-sm btn-outline-primary" data-edit="{{ $user->id }}"
                                     href="{{ route('users.index', ['edit' => $user->id]) }}"><i
                                         class="ti ti-edit"></i></a>
+                                @endif
+                                @if ($canDeleteUser && ($isSuperAdmin || !$user->roles->contains('code', 'super-admin')))
                                 <form class="d-inline" method="POST" action="{{ route('users.delete', $user) }}"
                                     onsubmit="return confirm('Delete this user?')">@csrf @method('DELETE')<button
                                         class="btn btn-sm btn-outline-danger" data-delete="{{ $user->id }}"><i
                                             class="ti ti-trash"></i></button></form>
+                                @endif
                             </td>
                     </tr>@empty<tr>
                             <td colspan="9" class="text-center text-secondary py-4">No users found.</td>
