@@ -66,7 +66,7 @@ class DashboardController
             'template' => $template,
             'widgets' => $widgets,
             'metrics' => Cache::remember(
-                'dashboard.metrics.' . $user->id . '.' . ($user->updated_at?->timestamp ?? 0) . '.' . md5(json_encode($dashboardFilters) . '|' . implode(',', $campusIds)),
+                'dashboard.metrics.v2.' . $user->id . '.' . ($user->updated_at?->timestamp ?? 0) . '.' . md5(json_encode($dashboardFilters) . '|' . implode(',', $campusIds) . '|' . $academicYears->firstWhere('id', $selectedAcademicYearId)?->lifecycle_status),
                 now()->addSeconds(30),
                 fn () => $this->metrics($user, $selectedAcademicYearId, $selectedCampusId, $campusIds, $dashboardFilters)
             ),
@@ -256,6 +256,8 @@ class DashboardController
         $studentsByTrackChart = $this->studentsByTrackChart($enrollmentScope);
         $graduatedStudentGenderCounts = $this->graduatedStudentsGenderCounts($academicYearId, $campusId, $campusIds);
         $totalStudentGenderCounts = $this->enrolledStudentsGenderCounts($enrollmentScope);
+        $completedYear = in_array(AcademicYear::find($academicYearId)?->lifecycle_status, ['finished', 'archived'], true);
+        $attendanceMetric = $this->activeOrCompletedStudentsMetric($enrollmentScope, $completedYear);
         $newStudentGenderCounts = (clone $enrollmentScope)
             ->where('tb_student_enrollment.student_type', 'new')
             ->join('tb_student', 'tb_student.id', '=', 'tb_student_enrollment.student_id')
@@ -298,10 +300,7 @@ class DashboardController
                 'url' => route('searchStudent.index', $studentFilters),
             ],
             'active_students' => [
-                'value' => number_format((int) ($summary->active_students ?? 0)),
-                'subtitle' => 'Active in selected scope',
-                'male' => (int) ($totalStudentGenderCounts->active_male ?? 0),
-                'female' => (int) ($totalStudentGenderCounts->active_female ?? 0),
+                ...$attendanceMetric,
                 'url' => route('searchStudent.index', $studentFilters),
             ],
             'new_enrollments' => [
@@ -599,6 +598,22 @@ class DashboardController
             ->when(!$campusId, fn ($query) => $query->whereIn('campus_id', $campusIds))
             ->distinct('student_id')
             ->count('student_id');
+    }
+
+    private function activeOrCompletedStudentsMetric($enrollmentScope, bool $completedYear): array
+    {
+        // Use the selected year's enrollment outcome, never the student's current status.
+        $scope = (clone $enrollmentScope)->whereIn('tb_student_enrollment.enrollment_status',
+            $completedYear ? ['completed', 'finished', 'graduated'] : ['active']);
+        $counts = $this->enrolledStudentsGenderCounts($scope);
+
+        return [
+            'label' => $completedYear ? 'Completed the Year' : 'Active Students',
+            'value' => number_format((clone $scope)->distinct()->count('tb_student_enrollment.student_id')),
+            'subtitle' => $completedYear ? 'Completed the selected academic year, including graduates' : 'Active in selected scope',
+            'male' => (int) ($counts->male ?? 0),
+            'female' => (int) ($counts->female ?? 0),
+        ];
     }
 
     private function enrolledStudentsGenderCounts($enrollmentScope): object

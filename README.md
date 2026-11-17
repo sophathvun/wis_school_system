@@ -37,6 +37,34 @@ If port 8002 is already in use, check the existing site before starting another
 server. For the separate Laragon Nginx URL, select PHP 8.4.25 or newer in Laragon
 and restart its services; that URL is http://school_system.test:8080/.
 
+## Run the application checks
+
+Frontend checks:
+
+```bash
+npm test
+npm run build
+```
+
+Run PHP tests with `composer test`. The runner starts each test file in a separate
+process to keep the large suite within its memory limit and isolate temporary
+upload files. To select file names, use `php scripts/test-suite.php --filter='*Attendance*'`.
+
+On Windows, an explicit PHP executable can also be used:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-suite.ps1 -PhpPath "C:\laragon\bin\php\php-8.4.25-Win32-vs17-x64\php.exe"
+```
+
+Adjust the PHP executable to your installation. Results are written under
+`storage/logs/test-suite-<timestamp>/results.json`. Use `-Filter '*Attendance*'`
+to select file names. The runner requires an uncached local configuration and
+forces an in-memory SQLite database; it does not run against migrated school data.
+
+Before moving the application, also run `composer check-platform-reqs --no-dev`,
+`composer audit --locked`, and `php scripts/check-encoding.php`. Follow the
+production preparation notes in [Deployment readiness](docs/deployment-readiness.md).
+
 ## New server document optimization setup
 
 After installing PHP and Composer dependencies on a new Ubuntu server, run:

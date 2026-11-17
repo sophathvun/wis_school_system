@@ -600,7 +600,8 @@ it('requires parent menu permissions and exposes all attendance controls in the 
     (require database_path('migrations/2026_11_04_000001_add_attendance_permissions.php'))->up();
     $permissions=\App\Models\Permission::all();
     $tree=\App\Support\PermissionHierarchy::tree($permissions)['attendance'];
-    expect(array_keys($tree['modules']))->toBe(['attendance.subject','attendance.daily','attendance.reports','attendance.settings']);
+    expect(array_keys($tree['modules']))->toBe(['attendance.subject','attendance.daily','attendance.reports','attendance.settings','attendance.transfer']);
+    expect($tree['modules']['attendance.transfer']['actions']->pluck('code')->all())->toContain('attendance.import','attendance.export');
     expect($tree['modules']['attendance.daily']['actions']->pluck('code')->all())->toContain('attendance.create','attendance.edit','attendance.delete');
     attendanceGrant(2,['reports'],false);
     expect(\App\Support\AttendancePermissions::allows(User::find(2),'statistics'))->toBeFalse();

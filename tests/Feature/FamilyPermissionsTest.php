@@ -106,6 +106,17 @@ beforeEach(function () {
     $this->actingAs(User::find(1));
 });
 
+it('loads a bounded family picker only for users allowed to link students', function () {
+    ($this->grant)([]);
+    $this->getJson('/families/options')->assertForbidden();
+    ($this->grant)(['link']);
+    for ($i=1;$i<=60;$i++) DB::table('tb_family')->insert(['family_number'=>'REMOTE-'.str_pad($i,3,'0',STR_PAD_LEFT),'family_name'=>'Remote family']);
+    $this->getJson('/families/options')->assertOk()->assertJsonCount(50,'data')->assertJsonPath('has_more',true);
+    $this->getJson('/families/options?q=REMOTE-060')->assertOk()->assertJsonCount(1,'data')->assertJsonPath('data.0.family_number','REMOTE-060')->assertJsonPath('has_more',false);
+    $this->getJson('/families/options?q=F1&exclude=1')->assertOk()->assertJsonCount(0,'data');
+    $this->getJson('/families/options?q='.str_repeat('a',101))->assertUnprocessable();
+});
+
 it('allows reading and searching all families but only edits a family with a current campus child', function () {
     ($this->grant)(['search','update']);
     $response=$this->getJson('/families/fetch?sort=family_number')->assertOk()->assertJsonPath('total',4);

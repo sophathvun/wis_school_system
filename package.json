@@ -4,7 +4,8 @@
     "type":  "module",
     "scripts":  {
                     "build":  "php scripts/check-encoding.php \u0026\u0026 vite build --configLoader native",
-                    "dev":  "vite"
+                    "dev":  "vite",
+                    "test":  "node --test tests/js/*.test.mjs"
                 },
     "devDependencies":  {
                             "@tailwindcss/vite":  "^4.0.0",

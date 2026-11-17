@@ -9,7 +9,7 @@ class HelpCenterController
 {
     public function index(Request $request,HelpCenter $help)
     {
-        $input=$request->validate(['q'=>'nullable|string|max:200','category'=>'nullable|in:getting-started,g9,g12,attendance,administrator,students']);
+        $input=$request->validate(['q'=>'nullable|string|max:200','category'=>['nullable',\Illuminate\Validation\Rule::in(array_keys(HelpCenter::CATEGORIES))]]);
         $query=trim($input['q']??'');$category=$input['category']??'';
         $available=$help->articles($request->user());
         $articles=$help->search($available,$query,$category);

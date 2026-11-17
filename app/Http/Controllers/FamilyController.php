@@ -28,7 +28,6 @@ class FamilyController
             'occupations' => Occupation::where('status', 1)
                 ->orderBy('occupation_name_en')
                 ->get(['id', 'occupation_name_en', 'occupation_name_kh']),
-            'families' => Family::orderBy('family_number')->get(['id', 'family_number']),
         ]);
     }
 
@@ -39,6 +38,20 @@ class FamilyController
         $families = $this->familyQuery($request)->paginate(SettingsQuery::perPage($request));
         $families->getCollection()->each(fn ($family) => $this->decorate($family));
         return response()->json($families);
+    }
+
+    public function familyOptions(Request $request)
+    {
+        $this->authorize('view');
+        abort_unless(FamilyPermissions::current()->any('link'), 403);
+        $input = $request->validate(['q'=>['nullable','string','max:100'], 'exclude'=>['nullable','integer']]);
+        $term = trim($input['q'] ?? '');
+        $families = Family::query()
+            ->when($term !== '', fn ($query) => $query->where('family_number', 'like', '%'.$term.'%'))
+            ->when($input['exclude'] ?? null, fn ($query, $id) => $query->whereKeyNot($id))
+            ->orderBy('family_number')->limit(51)->get(['id', 'family_number']);
+
+        return response()->json(['data'=>$families->take(50)->values(), 'has_more'=>$families->count() > 50]);
     }
 
     private function familyQuery(Request $request)

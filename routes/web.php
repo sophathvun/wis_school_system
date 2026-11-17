@@ -432,6 +432,16 @@ Route::middleware(['auth', 'active.user'])->group(function () {
     Route::get('/students/id-card-qr/{student}/qr.svg', [StudentIdCardQrController::class, 'qr'])->name('student-id-card-qr.qr');
 
     Route::prefix('attendance')->name('attendance.')->middleware('permission:attendance.view')->controller(\App\Http\Controllers\AttendanceController::class)->group(function(){
+        Route::controller(\App\Http\Controllers\AttendanceTransferController::class)->prefix('import-export')->name('transfer.')->group(function(){
+            Route::get('/','index')->name('index');
+            Route::get('/template','template')->name('template');
+            Route::post('/preview','preview')->name('preview');
+            Route::get('/history','history')->name('history');
+            Route::get('/export','export')->name('export');
+            Route::get('/{batch}','inspect')->whereUuid('batch')->name('inspect');
+            Route::post('/{batch}/confirm','confirm')->whereUuid('batch')->name('confirm');
+            Route::get('/{batch}/review','review')->whereUuid('batch')->name('review');
+        });
         Route::match(['GET','POST'],'/calendar',[\App\Http\Controllers\AttendanceLeaveController::class,'calendar'])->name('calendar');
         Route::get('/leaves',[\App\Http\Controllers\AttendanceLeaveController::class,'listing'])->name('leaves');
         Route::post('/leaves',[\App\Http\Controllers\AttendanceLeaveController::class,'create'])->name('leaves.create');
@@ -767,6 +777,7 @@ Route::post('/student-enrollment-workflows/class-transfer', [EnrollmentWorkflowC
 
 Route::get('/families', [FamilyController::class, 'index'])->name('families.index');
 Route::get('/families/fetch', [FamilyController::class, 'fetchData'])->name('families.fetch');
+Route::get('/families/options', [FamilyController::class, 'familyOptions'])->name('families.options');
 Route::get('/families/link-options', [FamilyController::class, 'linkOptions'])->name('families.link-options');
 Route::get('/families/history', [FamilyController::class, 'allHistory'])->name('families.all-history');
 Route::get('/families/print', [FamilyController::class, 'report'])->name('families.print');

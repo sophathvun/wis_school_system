@@ -506,13 +506,13 @@ it('clears blank linked staff fields on account updates without changing HRM inf
 });
 
 it('shows the shared settings menu only under HRM with the existing department and position permissions',function() {
-    $html=view('layouts.partials.sidebar',['permissionCodes'=>['hrm.view','hrm-settings.view','departments.view','positions.view'],'branding'=>null])->render();
+    $html=view('layouts.partials.sidebar',['permissionCodes'=>['hrm.view','hrm-settings.view','departments.view','positions.view'],'branding'=>null,'headerUnreadNotifications'=>0])->render();
     $dom=new \DOMDocument(); $dom->loadHTML($html,LIBXML_NOERROR|LIBXML_NOWARNING); $xpath=new \DOMXPath($dom);
     $hrm=$xpath->query('//li[contains(@class,"dropdown")][a/span[@class="nav-link-title" and text()="HRM"]]')->item(0);
     expect($hrm)->not->toBeNull()->and($xpath->query('.//a[contains(@href,"/hrm/settings")]', $hrm))->toHaveCount(1)
         ->and($xpath->query('.//a[contains(@href,"/settings/departments") or contains(@href,"/settings/positions")]', $hrm))->toHaveCount(0)
         ->and($xpath->query('//a[contains(@href,"/hrm/staff-management")]'))->toHaveCount(0);
-    $html=view('layouts.partials.sidebar',['permissionCodes'=>['*'],'branding'=>null])->render();
+    $html=view('layouts.partials.sidebar',['permissionCodes'=>['*'],'branding'=>null,'headerUnreadNotifications'=>0])->render();
     $dom->loadHTML($html,LIBXML_NOERROR|LIBXML_NOWARNING); $xpath=new \DOMXPath($dom);
     $admin=$xpath->query('//li[contains(@class,"dropdown")][a/span[@class="nav-link-title" and text()="Administrator"]]')->item(0);
     expect($xpath->query('.//a[contains(@href,"/hrm/settings") or contains(@href,"/settings/departments") or contains(@href,"/settings/positions")]', $admin))->toHaveCount(0);

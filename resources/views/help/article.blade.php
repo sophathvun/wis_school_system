@@ -9,7 +9,7 @@
         <main class="help-document">
             <header class="help-document-header"><div class="help-eyebrow">STEP-BY-STEP GUIDE · {{ $article['minutes'] }} MIN READ</div><h1>{{ $article['title'] }}</h1><p>{{ $article['summary'] }}</p>
                 <div class="help-document-actions">
-                    @if($article['route'])<a class="btn btn-primary" href="{{ route($article['route_prefix'].$article['route']) }}">Open page <i class="ti ti-arrow-up-right ms-2" aria-hidden="true"></i></a>@endif
+                    @if($article['route'])<a class="btn btn-primary" href="{{ route($article['route_prefix'].$article['route'], $article['route_params'] ?? []) }}">Open page <i class="ti ti-arrow-up-right ms-2" aria-hidden="true"></i></a>@endif
                     <button class="btn btn-outline-secondary" type="button" data-help-print hidden><i class="ti ti-printer me-2" aria-hidden="true"></i>Print guide</button>
                     <a class="btn btn-ghost-secondary" href="{{ route('help.index') }}"><i class="ti ti-search me-2" aria-hidden="true"></i>Search help</a>
                 </div>

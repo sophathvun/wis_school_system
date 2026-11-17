@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 
 beforeEach(function () {
+    config(['passkeys.rp_id'=>'localhost','passkeys.origin'=>'http://localhost']);
     Schema::dropIfExists('webauthn_credentials');
     Schema::dropIfExists('users');
 

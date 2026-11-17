@@ -93,10 +93,10 @@ test('removing queued files changes the submission and keeps saved document capa
 
 test('unsupported, oversized and excess files are reported without losing accepted files', () => {
     const { zone, status, uploadNames } = setup();
-    zone.fire('drop', { dataTransfer: { files: [pdf('unsafe.exe'), new File([new Uint8Array(5 * 1024 * 1024 + 1)], 'large.pdf'), ...Array.from({ length: 11 }, (_, i) => pdf(`evidence-${i}.pdf`))] } });
+    zone.fire('drop', { dataTransfer: { files: [pdf('unsafe.exe'), new File([new Uint8Array(25 * 1024 * 1024 + 1)], 'large.pdf'), ...Array.from({ length: 11 }, (_, i) => pdf(`evidence-${i}.pdf`))] } });
     assert.equal(uploadNames().length, 10);
     assert.match(status.textContent, /Please choose PDF/);
-    assert.match(status.textContent, /5 MB or smaller/);
+    assert.match(status.textContent, /25 MB or smaller/);
     assert.match(status.textContent, /10 files/);
 });
 

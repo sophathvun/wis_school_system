@@ -107,7 +107,7 @@ function navbar({ registration = true, permission = 'granted', navbarChat = true
         document: {
             addEventListener: (type, handler) => handler(),
             getElementById: id => id === 'chat-unread-badge' ? (navbarChat ? chat : null) : id === 'school-chat-unread-badge' ? launcher : id === 'installAppShortcut' ? install : null,
-            querySelectorAll: () => [],
+            querySelectorAll: selector => selector.includes('data-navbar-notification-badge') ? [notification, mobile] : [],
             querySelector: selector => ({
                 '[data-navbar-notification-badge]': notification,
                 '[data-navbar-mobile-notification-badge]': mobile,

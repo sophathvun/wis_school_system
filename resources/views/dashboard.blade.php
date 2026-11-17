@@ -539,7 +539,7 @@
                                         <div class="d-flex align-items-center justify-content-between gap-3" @if ($widget->code === 'new_enrollments') style="display: block !important; position: relative;" @endif>
                                             <div @if ($widget->code === 'new_enrollments') style="width: 100%;" @endif>
                                                 <div class="d-flex align-items-center gap-2 {{ $widget->code === 'new_enrollments' ? 'flex-nowrap justify-content-between w-100' : 'flex-wrap' }}">
-                                                    <div class="premium-dashboard-label">{{ $widget->name }}</div>
+                                                    <div class="premium-dashboard-label">{{ $metric['label'] ?? $widget->name }}</div>
                                                     @if (!empty($metric['badge']))
                                                         <span class="badge bg-blue-lt">{{ $metric['badge'] }}</span>
                                                     @endif

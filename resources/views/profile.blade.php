@@ -42,6 +42,7 @@
                 <h2>My Profile</h2>
                 <div class="text-secondary">Manage your account and sign-in credentials.</div>
             </div>
+            <div class="col-auto"><a class="btn btn-outline-primary" href="{{ route('help.index',['category'=>'profile']) }}"><i class="ti ti-book me-2" aria-hidden="true"></i>Help &amp; guides</a></div>
         </div>
     </div>
     @if (session('success'))

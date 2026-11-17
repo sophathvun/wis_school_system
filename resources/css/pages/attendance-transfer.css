@@ -1,0 +1,15 @@
+@import '../components/skipping-documents-upload.css';
+
+.attendance-transfer .att-transfer-header { background: #293a5b; color: #fff; }
+.attendance-transfer .att-transfer-header .card-title { color: inherit; }
+.att-transfer-icon { display: grid; place-items: center; width: 3.5rem; height: 3.5rem; flex-shrink: 0; border-radius: 1rem; color: var(--tblr-primary); background: rgba(var(--tblr-primary-rgb), .1); font-size: 1.75rem; }
+.att-transfer-counts { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: .75rem; }
+.att-transfer-counts > div { border: 1px solid var(--tblr-border-color); border-radius: .75rem; padding: .65rem .85rem; background: var(--tblr-bg-surface-secondary); }
+.att-transfer-counts strong { display: block; font-size: 1.4rem; }
+.attendance-transfer .progress { height: .7rem; border-radius: 1rem; }
+.attendance-transfer .progress-bar { transition: width .2s ease; }
+.attendance-transfer [data-progress-detail] { font-variant-numeric: tabular-nums; }
+.attendance-transfer .premium-document-dropzone.is-dragover { border-color: var(--tblr-primary); background: rgba(var(--tblr-primary-rgb), .08); }
+.attendance-transfer .premium-document-dropzone[aria-disabled="true"] { opacity: .6; cursor: wait; }
+.attendance-transfer [hidden] { display: none !important; }
+.attendance-transfer [data-preview-rows] td:last-child { min-width: 14rem; white-space: normal; }

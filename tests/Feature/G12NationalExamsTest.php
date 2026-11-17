@@ -435,7 +435,7 @@ it('shows only granted sidebar submenus and marks the current section active',fu
     $user=g12ExamUser(['view','records']);$request=g12Request($user,[], '/g12-national-exams/student-records');
     $route=app('router')->getRoutes()->match($request);$request->setRouteResolver(fn()=>$route);auth()->setUser($user);
     $html=view('layouts.partials.g12-national-exams-menu',['moeysMenuIcon'=>'/icon.png'])->render();
-    expect(substr_count($html,'class="dropdown-item'))->toBe(1)->and($html)->toContain('Student Exam Records','aria-current="page"')->not->toContain('Certificate Tracking','Excel Imports / History');
+    expect(substr_count($html,'class="dropdown-item'))->toBe(2)->and($html)->toContain('Student Exam Records','aria-current="page"','Help &amp; guides')->not->toContain('Certificate Tracking','Excel Imports / History');
     DB::table('access_user_permission_overrides')->where('user_id',2)->where('permission_id',App\Models\Permission::where('code','g12-national-exams.view')->value('id'))->update(['allowed'=>false]);
     auth()->setUser($user->fresh());
     expect(trim(view('layouts.partials.g12-national-exams-menu',['moeysMenuIcon'=>'/icon.png'])->render()))->toBe('');

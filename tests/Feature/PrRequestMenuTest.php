@@ -54,10 +54,11 @@ it('includes an independent PR Request toggle in the permission hierarchy and fu
 
 it('shows the external PR Request link above Students only when its menu permission is allowed', function () {
     $url = 'https://purchase-request.westernuniversity.digital/';
-    $render = fn (array $codes) => view('layouts.partials.sidebar', ['permissionCodes' => $codes])->render();
+    $render = fn (array $codes) => view('layouts.partials.pr-request-menu', ['canView' => fn ($code) => in_array($code,$codes,true)])->render();
     expect($render(['students.view']))->not->toContain($url);
     $html = $render(['pr-request.view', 'students.view']);
-    expect($html)->toContain('href="'.$url.'"', '>PR Request</span>')
-        ->and(strpos($html, '>PR Request</span>'))->toBeLessThan(strpos($html, '>Students</span>'));
+    expect($html)->toContain('href="'.$url.'"', '>PR Request</span>');
+    $sidebar=file_get_contents(resource_path('views/layouts/partials/sidebar.blade.php'));
+    expect(strpos($sidebar, "@include('layouts.partials.pr-request-menu')"))->toBeLessThan(strpos($sidebar, '>Students</span>'));
     expect($render(['pr-request.view']))->toContain($url);
 });

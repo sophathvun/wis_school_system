@@ -294,30 +294,49 @@ const setChangeFamilySelected = () => {
         .closest(".premium-floating-field")
         ?.classList.toggle("has-value", Boolean(option?.value));
 };
-const renderChangeFamilyResults = () => {
+let changeFamilyRequest;
+let changeFamilySearchTimer;
+const renderChangeFamilyResults = async () => {
     const ui = changeFamilyUi();
     if (!ui.select || !ui.results) return;
-    const term = (ui.search?.value || "").trim().toLowerCase();
-    const options = Array.from(ui.select.options)
-        .slice(1)
-        .filter(
-            (option) =>
-                !option.hidden &&
-                (!term || option.textContent.toLowerCase().includes(term)),
-        );
+    changeFamilyRequest?.abort();
+    const controller = new AbortController();
+    changeFamilyRequest = controller;
+    const query = new URLSearchParams({ q: (ui.search?.value || "").trim(), exclude: ui.select.dataset.exclude || "" });
+    ui.results.innerHTML = '<div class="text-secondary px-2 py-2" role="status">Loading families...</div>';
+    let result;
+    try {
+        const response = await fetch(`/families/options?${query}`, { headers: { Accept: 'application/json' }, signal: controller.signal });
+        result = await response.json();
+        if (!response.ok) throw new Error(result.message || 'Unable to load families.');
+        if (controller.signal.aborted) return;
+    } catch (error) {
+        if (error.name === 'AbortError') return;
+        ui.results.replaceChildren();
+        const message = document.createElement('div');
+        message.className = 'text-danger px-2 py-2';
+        message.textContent = error.message;
+        ui.results.append(message);
+        return;
+    }
+    const options = result.data || [];
     ui.results.innerHTML = options.length
         ? options
               .map(
                   (option) =>
-                      `<button type="button" class="location-combobox-option" data-change-family-value="${escapeHtml(option.value)}">${escapeHtml(option.textContent)}</button>`,
+                      `<button type="button" class="location-combobox-option" data-change-family-value="${escapeHtml(option.id)}">${escapeHtml(option.family_number)}</button>`,
               )
               .join("")
         : `<div class="text-secondary px-2 py-2">No families found</div>`;
+    if (result.has_more) ui.results.insertAdjacentHTML('beforeend', '<div class="text-secondary px-2 py-2 small">Showing first 50 families. Type a family number to narrow the list.</div>');
     ui.results
         .querySelectorAll("[data-change-family-value]")
         .forEach((button) => {
             button.addEventListener("mousedown", (event) => {
                 event.preventDefault();
+                const family = options.find(option => String(option.id) === button.dataset.changeFamilyValue);
+                if (!family) return;
+                upsertChangeFamilyOption(family);
                 ui.select.value = button.dataset.changeFamilyValue;
                 ui.select.dispatchEvent(new Event("change", { bubbles: true }));
                 ui.menu?.classList.add("d-none");
@@ -348,7 +367,11 @@ const setupChangeFamilyCombobox = () => {
             ui.search?.focus();
         }
     });
-    ui.search?.addEventListener("input", renderChangeFamilyResults);
+    ui.search?.addEventListener("input", () => {
+        changeFamilyRequest?.abort();
+        clearTimeout(changeFamilySearchTimer);
+        changeFamilySearchTimer = setTimeout(renderChangeFamilyResults, 250);
+    });
     ui.select.addEventListener("change", setChangeFamilySelected);
     document.addEventListener("click", (event) => {
         if (!event.target.closest("#changeStudentFamilyModal .location-combobox")) {
@@ -505,6 +528,10 @@ const bindFamilyListActions = (root) => {
                 button.dataset.studentLabel || "Selected student";
             const familySelect = field("change_family_id");
             if (familySelect) {
+                changeFamilyRequest?.abort();
+                clearTimeout(changeFamilySearchTimer);
+                familySelect.dataset.exclude = button.dataset.currentFamily || "";
+                familySelect.replaceChildren(new Option("", ""));
                 familySelect.value = "";
                 Array.from(familySelect.options).forEach((option) => {
                     option.hidden =
@@ -515,7 +542,6 @@ const bindFamilyListActions = (root) => {
             }
             const changeSearch = field("change-family-search");
             if (changeSearch) changeSearch.value = "";
-            renderChangeFamilyResults();
             document
                 .querySelector("[data-change-family-alert]")
                 ?.classList.add("d-none");

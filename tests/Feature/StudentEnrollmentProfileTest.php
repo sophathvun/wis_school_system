@@ -5,6 +5,10 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 beforeEach(function () {
+    $user=Mockery::mock(\App\Models\User::class)->makePartial();
+    $user->id=1;
+    $user->shouldReceive('isSuperAdmin')->andReturnTrue();
+    $this->actingAs($user);
     $this->withoutMiddleware([
         \Illuminate\Auth\Middleware\Authenticate::class,
         \App\Http\Middleware\TrackUserPresence::class,
@@ -157,6 +161,7 @@ it('repairs missing imported values once and leaves existing values untouched', 
 });
 
 it('requires authentication to load a profile', function () {
+    auth()->logout();
     $this->withMiddleware([\Illuminate\Auth\Middleware\Authenticate::class, \App\Http\Middleware\TrackUserPresence::class]);
-    $this->getJson(route('student-enrollments.profile',1))->assertRedirect(route('login'));
+    $this->getJson(route('student-enrollments.profile',1))->assertUnauthorized();
 });

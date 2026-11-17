@@ -276,21 +276,13 @@
                                             <i class="ti ti-file-description me-2"></i> Document Types
                                         </a>
                                     @endif
+                                    <a class="dropdown-item" href="{{ route('help.index',['category'=>'settings']) }}"><i class="ti ti-book me-2" aria-hidden="true"></i>Help &amp; guides</a>
                                 </div>
                             </div>
                         </div>
                     </li>
                 @endif
-                @if ($canView('pr-request.view'))
-                    <li class="nav-item">
-                        <a class="nav-link" href="https://purchase-request.westernuniversity.digital/" target="_blank" rel="noopener noreferrer" data-sidebar-label="PR Request">
-                            <span class="nav-link-icon d-md-none d-lg-inline-block">
-                                <i class="ti ti-shopping-cart icon"></i>
-                            </span>
-                            <span class="nav-link-title">PR Request</span>
-                        </a>
-                    </li>
-                @endif
+                @include('layouts.partials.pr-request-menu')
                 @if ($canView('students.view'))
                     <li
                         class="nav-item dropdown {{ request()->routeIs('searchStudent.*') ||
@@ -456,6 +448,9 @@
                             @if(\App\Support\AttendancePermissions::allows(auth()->user(),'settings'))
                             <a class="dropdown-item {{ request()->routeIs('attendance.settings') ? 'active' : '' }}" href="{{ route('attendance.settings') }}"><i class="ti ti-settings me-2"></i>Attendance Settings</a>
                             @endif
+                            @if(\App\Support\AttendancePermissions::allows(auth()->user(),'transfer'))
+                            <a class="dropdown-item {{ request()->routeIs('attendance.transfer.*') ? 'active' : '' }}" href="{{ route('attendance.transfer.index') }}"><i class="ti ti-file-import me-2"></i>Import / Export</a>
+                            @endif
                             <a class="dropdown-item" href="{{ route('help.index',['category'=>'attendance']) }}"><i class="ti ti-book me-2" aria-hidden="true"></i>Help &amp; guides</a>
                         </div>
                     </li>
@@ -605,6 +600,13 @@
                         </div>
                     </li>
                 @endif
+                <li class="nav-item">
+                    <a class="nav-link" href="https://wis-registrar.my.canva.site/documents-sharing-link" target="_blank" rel="noopener noreferrer">
+                        <span class="nav-link-icon d-md-none d-lg-inline-block"><i class="ti ti-files icon" aria-hidden="true"></i></span>
+                        <span class="nav-link-title">Registrar DOC</span>
+                        <i class="ti ti-external-link ms-auto" aria-hidden="true"></i>
+                    </a>
+                </li>
                 @if (auth()->user()?->canUsePhotoEditor())
                     <li class="nav-item {{ request()->routeIs('photo-editor.*') ? 'active' : '' }}">
                         <a class="nav-link" href="{{ route('photo-editor.index') }}">

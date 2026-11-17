@@ -32,7 +32,7 @@ function historyCommit($test,string $path,bool $replace=false): array
     $plan=$test->transfer->preview($test->user,$test->exam->fresh(),$path,$replace);expect($plan['errors'])->toBeEmpty();
     return $test->transfer->commit($test->user,$test->exam,$path,$replace,hash('sha256',json_encode($plan,JSON_THROW_ON_ERROR)));
 }
-function historyRequest($test,array $data=[],array $files=[]): Request
+function historicalTransferRequest($test,array $data=[],array $files=[]): Request
 {
     $request=Request::create('/students/western-scholarship/transfer','POST',$data,[], $files);$request->headers->set('Accept','application/json');$request->setUserResolver(fn()=>$test->user);$request->setLaravelSession(app('session')->driver());return $request;
 }
@@ -186,17 +186,17 @@ it('exports historical results in a reimportable CSV layout',function(){
 
 it('binds preview tokens to the user and requires acknowledgement before a single successful import',function(){
     Storage::fake('local');$path=historyCsv($this,[[]]);$file=new UploadedFile($path,'history.csv','text/csv',null,true);$controller=app(ScholarshipTransferController::class);
-    $preview=$controller->preview(historyRequest($this,['exam_id'=>$this->exam->id],['file'=>$file]))->getData(true);
+    $preview=$controller->preview(historicalTransferRequest($this,['exam_id'=>$this->exam->id],['file'=>$file]))->getData(true);
     expect($preview['token'])->toHaveLength(64)->and($this->exam->candidates()->count())->toBe(0);
-    expect(fn()=>$controller->import(historyRequest($this,['token'=>$preview['token']])))->toThrow(ValidationException::class);
-    $response=$controller->import(historyRequest($this,['token'=>$preview['token'],'acknowledge'=>1]))->getData(true);
+    expect(fn()=>$controller->import(historicalTransferRequest($this,['token'=>$preview['token']])))->toThrow(ValidationException::class);
+    $response=$controller->import(historicalTransferRequest($this,['token'=>$preview['token'],'acknowledge'=>1]))->getData(true);
     expect($response['message'])->toContain('1 record(s) imported')->and($this->exam->candidates()->count())->toBe(1)->and(Storage::disk('local')->files('scholarship-imports'))->toBeEmpty();
-    expect(fn()=>$controller->import(historyRequest($this,['token'=>$preview['token'],'acknowledge'=>1])))->toThrow(ValidationException::class);
+    expect(fn()=>$controller->import(historicalTransferRequest($this,['token'=>$preview['token'],'acknowledge'=>1])))->toThrow(ValidationException::class);
 });
 
 it('renders the transfer tab and historical results without normal award editing controls',function(){
     historyCommit($this,historyCsv($this,[['total_score'=>130,'exam_rank'=>2,'award_category'=>'total_2','award_percent'=>75]]));
-    auth()->setUser($this->user);$request=historyRequest($this,['tab'=>'data-transfer','exam_id'=>$this->exam->id]);$data=app(ScholarshipController::class)->index($request)->getData();
+    auth()->setUser($this->user);$request=historicalTransferRequest($this,['tab'=>'data-transfer','exam_id'=>$this->exam->id]);$data=app(ScholarshipController::class)->index($request)->getData();
     expect(view('western-scholarship._data-transfer',$data)->render())->toContain('Sample CSV','Export CSV','Validate & Preview','Replace matching records');
     expect($data['examPermissions']['awards'])->toBeFalse()->and($data['examPermissions']['seat-plan'])->toBeFalse();
     $html=view('western-scholarship._result',$data)->render();expect($html)->toContain('Historical results','75.00%')->not->toContain('Publish &amp; Lock Results','Reopen Results');
@@ -209,7 +209,7 @@ it('blocks unauthorized imports exports and direct sample downloads',function($d
     if($denied==='western-scholarship.export-data')expect(fn()=>iterator_to_array($this->transfer->export($user,$this->exam)))->toThrow(\Symfony\Component\HttpKernel\Exception\HttpException::class);
     else expect(fn()=>$this->transfer->preview($user,$this->exam,$path))->toThrow(\Symfony\Component\HttpKernel\Exception\HttpException::class);
     if($denied==='western-scholarship.tab-data-transfer'){
-        $this->user=$user;expect(fn()=>app(ScholarshipTransferController::class)->sample(historyRequest($this)))->toThrow(\Symfony\Component\HttpKernel\Exception\HttpException::class);
+        $this->user=$user;expect(fn()=>app(ScholarshipTransferController::class)->sample(historicalTransferRequest($this)))->toThrow(\Symfony\Component\HttpKernel\Exception\HttpException::class);
     }
 })->with(['western-scholarship.import-history','western-scholarship.tab-data-transfer','western-scholarship.export-data']);
 
@@ -228,29 +228,29 @@ it('rejects unknown columns mismatched file rows and unknown subject names',func
 
 it('rejects expired previews and previews from another user',function(){
     Storage::fake('local');$path=historyCsv($this,[[]]);$controller=app(ScholarshipTransferController::class);
-    $data=$controller->preview(historyRequest($this,['exam_id'=>$this->exam->id],['file'=>new UploadedFile($path,'history.csv','text/csv',null,true)]))->getData(true);
+    $data=$controller->preview(historicalTransferRequest($this,['exam_id'=>$this->exam->id],['file'=>new UploadedFile($path,'history.csv','text/csv',null,true)]))->getData(true);
     $preview=session('scholarship_import_preview');session()->put('scholarship_import_preview',array_replace($preview,['user_id'=>2]));
-    expect(fn()=>$controller->import(historyRequest($this,['token'=>$data['token'],'acknowledge'=>1])))->toThrow(ValidationException::class);
+    expect(fn()=>$controller->import(historicalTransferRequest($this,['token'=>$data['token'],'acknowledge'=>1])))->toThrow(ValidationException::class);
     session()->put('scholarship_import_preview',array_replace($preview,['expires'=>now()->subMinute()->timestamp]));
-    expect(fn()=>$controller->import(historyRequest($this,['token'=>$data['token'],'acknowledge'=>1])))->toThrow(ValidationException::class);
+    expect(fn()=>$controller->import(historicalTransferRequest($this,['token'=>$data['token'],'acknowledge'=>1])))->toThrow(ValidationException::class);
     expect($this->exam->candidates()->count())->toBe(0);
 });
 
 it('downloads a UTF8 sample with exactly eight data records and protects exported text from formulas',function(){
     $controller=app(ScholarshipTransferController::class);
-    $response=$controller->sample(historyRequest($this,['exam_id'=>$this->exam->id]));
+    $response=$controller->sample(historicalTransferRequest($this,['exam_id'=>$this->exam->id]));
     ob_start();$response->sendContent();$csv=ob_get_clean();
     expect($csv)->toStartWith("\xEF\xBB\xBF")->and($response->headers->get('Content-Disposition'))->toContain('sample-8-records.csv')
         ->and(substr_count($csv,"\r\n"))->toBe(9)->and(str_replace("\r\n",'', $csv))->not->toContain("\n");
     $lines=explode("\n",trim($csv));expect($lines)->toHaveCount(9);
     expect(str_getcsv(substr($lines[0],3),',','"',''))->toContain('score:Khmer','score:English');
     historyCommit($this,historyCsv($this,[['award_category'=>'=DANGEROUS()','award_percent'=>25]]));
-    $response=$controller->export(historyRequest($this),$this->exam->fresh());ob_start();$response->sendContent();$csv=ob_get_clean();
+    $response=$controller->export(historicalTransferRequest($this),$this->exam->fresh());ob_start();$response->sendContent();$csv=ob_get_clean();
     expect($csv)->toContain("'=DANGEROUS()")->and($response->headers->get('Cache-Control'))->toContain('no-store');
 });
 
 it('downloads an Excel sample with the same headers and eight records as the CSV sample',function(){
-    $controller=app(ScholarshipTransferController::class);$response=$controller->sample(historyRequest($this,['exam_id'=>$this->exam->id,'format'=>'xlsx']));
+    $controller=app(ScholarshipTransferController::class);$response=$controller->sample(historicalTransferRequest($this,['exam_id'=>$this->exam->id,'format'=>'xlsx']));
     expect($response->headers->get('Content-Type'))->toBe('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
         ->and($response->headers->get('Content-Disposition'))->toBe('attachment; filename="scholarship-sample-8-records.xlsx"')
         ->and($response->getContent())->toStartWith('PK');
@@ -262,7 +262,7 @@ it('downloads an Excel sample with the same headers and eight records as the CSV
 });
 
 it('rejects unsupported sample download formats',function(){
-    expect(fn()=>app(ScholarshipTransferController::class)->sample(historyRequest($this,['format'=>'exe'])))->toThrow(ValidationException::class);
+    expect(fn()=>app(ScholarshipTransferController::class)->sample(historicalTransferRequest($this,['format'=>'exe'])))->toThrow(ValidationException::class);
 });
 
 it('does not expose another campus through CSV export',function(){
@@ -374,7 +374,7 @@ it('shows center examples and a portable order in both updated sample downloads'
         ->and($rows->pluck('exam_center_location')->unique()->values()->all())->toBe(['Phnom Penh','Battambang']);
     foreach($rows as $row)expect(json_decode($row['subject_order'],true))->toHaveKeys(['band','grade']);
     $controller=app(ScholarshipTransferController::class);$path=historyCsv($this,[['exam_center'=>'Center','exam_center_location'=>'Battambang','subject_order'=>'{"band":["English","Khmer"],"grade":null}']]);
-    $response=$controller->preview(historyRequest($this,['exam_id'=>$this->exam->id],['file'=>new UploadedFile($path,'settings.csv','text/csv',null,true)]))->getData(true);
+    $response=$controller->preview(historicalTransferRequest($this,['exam_id'=>$this->exam->id],['file'=>new UploadedFile($path,'settings.csv','text/csv',null,true)]))->getData(true);
     expect($response['settings_changes'])->toHaveCount(2)->and($response['token'])->toHaveLength(64);
     $stored=session('scholarship_import_preview');Storage::disk('local')->delete($stored['path']);
 });

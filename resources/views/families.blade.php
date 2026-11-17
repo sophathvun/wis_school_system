@@ -111,9 +111,6 @@
                             <label class="form-label">New Family</label>
                             <select id="change_family_id" name="family_id" class="form-select d-none" required>
                                 <option value=""></option>
-                                @foreach ($families as $family)
-                                    <option value="{{ $family->id }}">{{ $family->family_number }}</option>
-                                @endforeach
                             </select>
                             <div id="change-family-combobox" class="location-combobox family-modal-combobox">
                                 <button type="button" id="change-family-toggle" class="location-combobox-toggle">

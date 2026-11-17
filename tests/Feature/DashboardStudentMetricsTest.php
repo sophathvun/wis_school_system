@@ -45,6 +45,42 @@ it('counts distinct active male and female students within the dashboard year an
         ->and($scope->count())->toBe(7);
 });
 
+it('shows historical completion outcomes despite later withdrawal and excludes other years and campuses', function () {
+    DB::table('tb_student')->insert([
+        ['id'=>1,'gender'=>'male'], ['id'=>2,'gender'=>'female'],
+        ['id'=>3,'gender'=>'female'], ['id'=>4,'gender'=>'male'],
+        ['id'=>5,'gender'=>'male'], ['id'=>6,'gender'=>null],
+    ]);
+    $base = ['campus_id'=>1,'academic_year_id'=>10,'enrollment_status'=>'completed'];
+    foreach ([
+        ['student_id'=>1], ['student_id'=>1],
+        ['student_id'=>1,'academic_year_id'=>11,'enrollment_status'=>'withdrawn'],
+        ['student_id'=>2,'enrollment_status'=>'graduated'],
+        ['student_id'=>3,'enrollment_status'=>'withdrawn'],
+        ['student_id'=>4,'campus_id'=>2],
+        ['student_id'=>5,'enrollment_status'=>'transferred'],
+        ['student_id'=>6,'enrollment_status'=>'finished'],
+    ] as $row) DB::table('tb_student_enrollment')->insert(array_replace($base,$row));
+    $scope = StudentEnrollment::where('academic_year_id',10)->whereIn('campus_id',[1]);
+    $method = new ReflectionMethod(DashboardController::class,'activeOrCompletedStudentsMetric');
+    $metric = $method->invoke(new DashboardController(),$scope,true);
+    expect($metric)->toMatchArray(['label'=>'Completed the Year','value'=>'3','male'=>1,'female'=>1])
+        ->and($scope->count())->toBe(6);
+    $empty = $method->invoke(new DashboardController(),StudentEnrollment::whereIn('campus_id',[]),true);
+    expect($empty)->toMatchArray(['value'=>'0','male'=>0,'female'=>0]);
+});
+
+it('keeps the active year card limited to active enrollments', function () {
+    DB::table('tb_student')->insert([['id'=>1,'gender'=>'female'],['id'=>2,'gender'=>'male']]);
+    foreach (['active','completed','withdrawn'] as $status) {
+        DB::table('tb_student_enrollment')->insert(['student_id'=>$status==='active'?1:2,'campus_id'=>1,'academic_year_id'=>10,'enrollment_status'=>$status]);
+    }
+    $metric = (new ReflectionMethod(DashboardController::class,'activeOrCompletedStudentsMetric'))->invoke(
+        new DashboardController(),StudentEnrollment::where('academic_year_id',10),false
+    );
+    expect($metric)->toMatchArray(['label'=>'Active Students','value'=>'1','male'=>0,'female'=>1]);
+});
+
 it('returns zero male and female counts for an empty dashboard scope', function () {
     $counts = (new ReflectionMethod(DashboardController::class, 'enrolledStudentsGenderCounts'))->invoke(
         new DashboardController(), StudentEnrollment::whereIn('campus_id', [])

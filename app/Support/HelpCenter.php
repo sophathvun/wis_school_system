@@ -9,16 +9,40 @@ class HelpCenter
 {
     public const CATEGORIES = [
         'getting-started' => ['label'=>'Getting started','icon'=>'ti-compass','description'=>'Find your way around and understand access.'],
+        'profile' => ['label'=>'My Profile','icon'=>'ti-user-circle','description'=>'Personal details, passwords, passkeys, QR name cards, and appearance preferences.'],
+        'academic-reports' => ['label'=>'Academic Reports','icon'=>'ti-report-analytics','description'=>'Student lists, statistics, attendance sheets, MoEYS books, WIS certificates, labels, and photos.'],
         'g9' => ['label'=>'G9 National Exams','icon'=>'ti-school','description'=>'Candidates, scores, results, reports, and certificates.'],
         'g12' => ['label'=>'G12 National Exams','icon'=>'ti-certificate','description'=>'Exam records, assignments, grading, imports, reports, and collection.'],
         'attendance' => ['label'=>'Attendance','icon'=>'ti-calendar-check','description'=>'Subject sessions, daily records, approved leave, calendars, and reports.'],
         'administrator' => ['label'=>'Administrator','icon'=>'ti-shield-lock','description'=>'Users, roles, permissions, dashboards, branding, and database backups.'],
         'students' => ['label'=>'Students','icon'=>'ti-users','description'=>'Student records, enrollment, academic changes, family, documents, and admissions.'],
+        'settings' => ['label'=>'Settings','icon'=>'ti-settings','description'=>'Academic periods, grades, classes, sessions, school details, and reference lists.'],
     ];
 
     public function catalog(): array
     {
         return [
+            'attendance-transfer'=>['title'=>'Import and export historical attendance','summary'=>'Preview daily attendance CSV files, import valid rows, and download records needing review.','category'=>'attendance','action'=>'transfer','route'=>'transfer.index','keywords'=>'historical attendance CSV import export E U T Student ID duplicates review progress history'],
+            'reports-workflow'=>['title'=>'Find the right Academic Report','summary'=>'Choose among all 15 report tabs and prepare filters, previews, and exports.','category'=>'academic-reports','action'=>null,'route'=>'reports.index','keywords'=>'Reports Academic Reports overview print Excel PDF tabs'],
+            ...$this->academicReportCatalog(),
+            'profile-overview'=>['title'=>'Find your way around My Profile','summary'=>'Open your personal workspace, review account details, and understand its sections.','category'=>'profile','action'=>null,'route'=>'profile','keywords'=>'My Profile personal account staff information status avatar'],
+            'profile-edit'=>['title'=>'Update your profile photo and sign-in details','summary'=>'Edit personal information, change your password, and choose your login method.','category'=>'profile','action'=>null,'route'=>'profile','keywords'=>'Edit Profile name gender date of birth phone email username password photo upload crop'],
+            'profile-passkeys'=>['title'=>'Set up face or passkey login','summary'=>'Register a device, review saved passkeys, and remove a passkey you no longer need.','category'=>'profile','action'=>null,'route'=>'profile','keywords'=>'Face or Passkey Login Windows Hello Face ID device PIN security key current password'],
+            'profile-name-card'=>['title'=>'Share and manage your QR name card','summary'=>'Preview your public contact card, control visibility, and regenerate its QR link.','category'=>'profile','action'=>null,'route'=>'profile','keywords'=>'My Name Card QR public contact vCard print share orientation background regenerate'],
+            'profile-preferences'=>['title'=>'Personalize your appearance preferences','summary'=>'Choose color mode, theme colors, sidebar appearance, fonts, and other display options.','category'=>'profile','action'=>null,'route'=>'profile','keywords'=>'Preferences Theme Settings dark light color scheme sidebar font theme base radius reset My Dashboard'],
+            'settings-workflow'=>['title'=>'Find the right Settings page','summary'=>'Understand the Settings menu and prepare shared school configuration in order.','category'=>'settings','action'=>'settings.view','route'=>null,'keywords'=>'overview setup configuration main menu submenus settings'],
+            'settings-academic-years'=>['title'=>'Manage academic years and Summer periods','summary'=>'Create regular and Summer periods, set their lifecycle, and finish a Summer period.','category'=>'settings','action'=>'academic-years.view','route'=>'academic-years.index','keywords'=>'academic year AY Code started finished archived Summer 2026 dates'],
+            'settings-grades'=>['title'=>'Configure grades and short names','summary'=>'Maintain grade names, abbreviations, display order, and availability.','category'=>'settings','action'=>'grades.view','route'=>'grades.index','keywords'=>'Nursery N K1 K2 K3 Grade 9 Grade 12 short name grade order'],
+            'settings-classes'=>['title'=>'Maintain classes for student placement','summary'=>'Maintain class names, display order, and availability for student placement.','category'=>'settings','action'=>'classes.view','route'=>'classes.index','keywords'=>'class A B C N-A K1-A 12A enrollment placement'],
+            'settings-sessions'=>['title'=>'Configure study sessions','summary'=>'Maintain session names and short names used in student enrollment.','category'=>'settings','action'=>'sessions.view','route'=>'sessions.index','keywords'=>'Morning Afternoon Full-Day M A III study group'],
+            'settings-education-levels'=>['title'=>'Maintain education levels','summary'=>'Organize education-level names, abbreviations, and display order.','category'=>'settings','action'=>'education-levels.view','route'=>'education-levels.index','keywords'=>'kindergarten primary secondary education level order'],
+            'settings-programs'=>['title'=>'Configure education programs','summary'=>'Create programs for the correct education level and optional academic year.','category'=>'settings','action'=>'programs.view','route'=>'programs.index','keywords'=>'program name code education level academic year'],
+            'settings-school-information'=>['title'=>'Maintain school and campus information','summary'=>'Update school names, campus labels, addresses, contact details, and logos.','category'=>'settings','action'=>'school-info.view','route'=>'schoolInfo.index','keywords'=>'School Information campus English Khmer logo phone address Google Map'],
+            'settings-locations'=>['title'=>'Maintain countries and address locations','summary'=>'Build the country, province, district, commune, and village hierarchy.','category'=>'settings','action'=>'locations.view','route'=>'locations.index','keywords'=>'country province city district commune village nationality phone code address birthplace'],
+            'settings-occupations'=>['title'=>'Maintain occupation choices','summary'=>'Keep English and Khmer occupation names consistent for family records.','category'=>'settings','action'=>'occupations.view','route'=>'occupations.index','keywords'=>'occupation job employment parent family'],
+            'settings-academic-tracks'=>['title'=>'Configure academic tracks','summary'=>'Maintain science streams, examination languages, codes, and grade scope.','category'=>'settings','action'=>'academic-tracks.view','route'=>'academic-tracks.index','keywords'=>'Grade 12 Science Social Science Khmer English academic track code'],
+            'settings-withdrawal-reasons'=>['title'=>'Maintain student withdrawal reasons','summary'=>'Create reason labels, stable keys, and the display order used by withdrawal forms.','category'=>'settings','action'=>'withdrawal-reasons.view','route'=>'withdrawal-reasons.index','keywords'=>'withdraw student reason key active inactive order'],
+            'settings-document-types'=>['title'=>'Configure student document types','summary'=>'Define document categories, stable keys, labels, and availability for uploads.','category'=>'settings','action'=>'student-document-types.view','route'=>'student-document-types.index','keywords'=>'Document Types student documents upload birth certificate transcript type key'],
             'getting-started'=>['title'=>'Get started with the school system','summary'=>'Navigation, filters, permissions, and finding help.','category'=>'getting-started','action'=>null,'route'=>null,'keywords'=>'help navigation access campus year Khmer ជំនួយ'],
             'g9-workflow'=>['title'=>'G9 examination workflow','summary'=>'Follow the process from candidate preparation to certificate receipt.','category'=>'g9','action'=>'view','route'=>'index','keywords'=>'overview checklist process ថ្នាក់ទី៩'],
             'g9-candidates'=>['title'=>'Find and prepare G9 candidates','summary'=>'Check candidate details, exam center, room, seat, and attendance.','category'=>'g9','action'=>'candidates','route'=>'candidates','keywords'=>'student seat room បេក្ខជន'],
@@ -87,13 +111,55 @@ class HelpCenter
         $articles=[];
         foreach($this->catalog() as $slug=>$article){
             $permissions=match($article['category']){'g12'=>G12NationalExamPermissions::class,'attendance'=>AttendancePermissions::class,default=>G9NationalExamPermissions::class};
-            if($article['category']==='administrator'){
+            if($article['category']==='academic-reports'){
+                if($article['action'] ? !AcademicReportPermissions::canView($user,$article['action']) : !AcademicReportPermissions::visibleTypes($user))continue;
+            }elseif($article['category']==='administrator'){
                 if(!$this->administratorAllows($user,$article['action']))continue;
             }elseif($article['category']==='students'){
                 if(!$this->studentsAllows($user,$article['action']))continue;
+            }elseif($article['category']==='settings'){
+                if(!$this->settingsAllows($user,$article['action']))continue;
             }elseif($article['action']&&!$permissions::allows($user,$article['action']))continue;
             $body=file_get_contents(resource_path('help/'.$slug.'.md'));
-            $articles[$slug]=$article+['slug'=>$slug,'body'=>$body,'route_prefix'=>match($article['category']){'g12'=>'g12-national-exams.','attendance'=>'attendance.','administrator','students'=>'',default=>'g9-national-exams.'},'minutes'=>max(1,(int)ceil(str_word_count($body)/180))];
+            $articles[$slug]=$article+['slug'=>$slug,'body'=>$body,'route_prefix'=>match($article['category']){'g12'=>'g12-national-exams.','attendance'=>'attendance.','administrator','students','settings','profile','academic-reports'=>'',default=>'g9-national-exams.'},'minutes'=>max(1,(int)ceil(str_word_count($body)/180))];
+        }
+        return $articles;
+    }
+
+    private function settingsAllows(User $user,string $action): bool
+    {
+        if($user->isSuperAdmin())return true;
+        return $user->hasPermission('settings.view',$user->active_campus_id)
+            && ($action==='settings.view'||$user->hasPermission($action,$user->active_campus_id));
+    }
+
+    private function academicReportCatalog(): array
+    {
+        $summaries = [
+            'student-list'=>'Prepare class rosters and choose class scope and print format.',
+            'student-contact-list'=>'Review parent and guardian contacts for the selected students.',
+            'score-list'=>'Prepare quarterly score sheets with the required score columns.',
+            'attendance-list'=>'Prepare monthly class attendance sheets for printing and export.',
+            'student-statistics'=>'Compare student totals and new students by campus and grade.',
+            'student-statistics-detail'=>'Review monthly class, session, gender, and withdrawal statistics.',
+            'withdrawn-students'=>'Filter withdrawal records by academic year, campus, and approval status.',
+            'student-id-books-moeys'=>'Prepare MoEYS student ID books, covers, and saved list codes.',
+            'moeys-sikkhakarik-book'=>'Prepare primary or secondary transcript covers and content.',
+            'k3-certificate-wis'=>'Assign and preserve K3 WIS certificate numbers and prepare certificate content.',
+            'g9-certificate-wis'=>'Assign and preserve G9 WIS certificate numbers and prepare certificate content.',
+            'g12-certificate-wis'=>'Manage G12 WIS numbers, graduation confirmation, and certificate validity.',
+            'moeys-id-number-book'=>'Select student information columns and sort a customized list.',
+            'student-profile-label'=>'Prepare student file labels using the selected enrollment records.',
+            'student-photo'=>'Print student photos in 3 x 4 or 4 x 6 layouts.',
+        ];
+        $articles=[];
+        foreach(AcademicReportPermissions::REPORTS as $type=>$report){
+            $articles['reports-'.$type]=[
+                'title'=>'Use '.$report['label'], 'summary'=>$summaries[$type],
+                'category'=>'academic-reports','action'=>$type,'route'=>'reports.index',
+                'route_params'=>['type'=>$type],
+                'keywords'=>'Reports Academic Reports '.$report['label'].' '.$type.' print preview export',
+            ];
         }
         return $articles;
     }

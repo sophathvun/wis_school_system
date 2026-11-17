@@ -8,6 +8,7 @@ class AttendancePermissions
 {
     public const PARENTS = [
         'subject'=>'view', 'daily'=>'view', 'reports'=>'view', 'settings'=>'view',
+        'transfer'=>'view', 'import'=>'transfer', 'export'=>'transfer',
         'take'=>'subject', 'subject-delete'=>'subject', 'reopen'=>'subject', 'history-export'=>'subject',
         'create'=>'daily', 'edit'=>'daily', 'delete'=>'daily', 'leave-create'=>'daily', 'leave-edit'=>'daily', 'leave-cancel'=>'daily', 'leave-attachment'=>'daily',
         'detail'=>'reports', 'statistics'=>'reports', 'print'=>'reports', 'excel'=>'reports', 'pdf'=>'reports',
@@ -17,6 +18,7 @@ class AttendancePermissions
     public static function catalog(): array
     {
         return [
+            'transfer'=>'Submenu: Attendance Import / Export', 'import'=>'Import historical daily attendance', 'export'=>'Export daily attendance CSV',
             'view'=>'Attendance: Main menu', 'subject'=>'Submenu: Subject Attendance', 'take'=>'Add / edit assigned subject attendance',
             'subject-delete'=>'Clear existing subject attendance marks',
             'reopen'=>'Reopen submitted subject attendance', 'history-export'=>'Export subject attendance history',
@@ -36,7 +38,8 @@ class AttendancePermissions
         return ['subject'=>['Subject Attendance',['take','subject-delete','reopen','history-export']],
             'daily'=>['Admin-Daily Attendance',['create','edit','delete','leave-create','leave-edit','leave-cancel','leave-attachment']],
             'reports'=>['Attendance Reports',['detail','statistics','print','excel','pdf']],
-            'settings'=>['Attendance Settings',['weekdays','holidays','schedule-info','calendar-manage']]];
+            'settings'=>['Attendance Settings',['weekdays','holidays','schedule-info','calendar-manage']],
+            'transfer'=>['Import / Export',['import','export']]];
     }
 
     private static function granted(User $user, string $action, int $campus): bool
@@ -68,7 +71,10 @@ class AttendancePermissions
 
     private static function check(User $user, string $action, ?int $campus): bool
     {
-        if ($user->isSuperAdmin()) return $campus === null || $user->canAccessCampus($campus);
+        // The sidebar checks many attendance actions. Resolve its administrator status once per request.
+        $key='_attendance_super_admin_'.$user->id;
+        if (!request()->attributes->has($key)) request()->attributes->set($key,$user->isSuperAdmin());
+        if (request()->attributes->get($key)) return $campus === null || $user->canAccessCampus($campus);
         if ($campus === null) return $user->accessibleCampuses()->get()->contains(fn ($c) => self::allows($user, $action, $c->id));
         if (!$user->canAccessCampus($campus) || !self::granted($user, $action, $campus)) return false;
         return !isset(self::PARENTS[$action]) || self::allows($user, self::PARENTS[$action], $campus);

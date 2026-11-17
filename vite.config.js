@@ -57,6 +57,7 @@ export default defineConfig({
                 "resources/js/g12ResultReport.js",
                 "resources/js/g12GradeACertificate.js",
                 "resources/js/attendance.js",
+                "resources/js/attendanceTransfer.js",
                 "resources/js/attendanceCalendar.js",
                 "resources/js/attendanceReports.js",
                 "resources/js/g9Candidates.js",
