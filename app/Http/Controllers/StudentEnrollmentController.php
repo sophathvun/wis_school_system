@@ -225,7 +225,9 @@ class StudentEnrollmentController
             default => $query->orderByDesc('tb_student_enrollment.id'),
         };
 
-        $page = $query->paginate($request->query('perPage', 10));
+        $perPage = (int) $request->query('perPage', 10);
+        if (!in_array($perPage, [10, 25, 50, 100], true)) $perPage = 10;
+        $page = $query->paginate($perPage);
         $access = StudentEnrollmentPermissions::current();
         $access->loadStudents($page->getCollection()->pluck('student_id')->all());
         $page->getCollection()->each(function ($record) use ($access) {

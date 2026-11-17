@@ -63,6 +63,7 @@
                         <option selected>10</option>
                         <option>25</option>
                         <option>50</option>
+                        <option>100</option>
                     </select>
                     <div class="d-flex align-items-center gap-2 flex-wrap enrollment-list-filter-group">
                         <select id="enrollments-filter-academic-year"

@@ -145,6 +145,16 @@ it('returns students, profiles and history from other campuses to a permitted ca
     $this->getJson('/student-enrollments/fetch')->assertOk()->assertJsonPath('total',2)
         ->assertJsonPath('data.1.campus_id',2)->assertJsonPath('data.1.can_edit',false)->assertJsonPath('data.1.can_delete',false);
     $this->getJson('/student-enrollments/fetch?campus_id=2')->assertOk()->assertJsonPath('total',1)->assertJsonPath('data.0.student_id',2);
+    // Page-size choices must return the requested number, including 100 rows.
+    for ($i=3;$i<=112;$i++) {
+        DB::table('tb_student')->insert(['id'=>$i,'student_id'=>'STU'.$i,'full_name_en'=>'Student '.$i]);
+        DB::table('tb_student_enrollment')->insert(['student_id'=>$i,'academic_year_id'=>1,'campus_id'=>1]);
+    }
+    foreach ([10,25,50,100] as $size) {
+        $this->getJson('/student-enrollments/fetch?perPage='.$size)->assertOk()
+            ->assertJsonPath('per_page',$size)->assertJsonCount($size,'data')->assertJsonPath('total',112);
+    }
+    $this->getJson('/student-enrollments/fetch?perPage=100&page=2')->assertOk()->assertJsonCount(12,'data');
     // Supply bound models explicitly; this fixture disables route middleware.
     $controller = app(\App\Http\Controllers\StudentEnrollmentController::class);
     expect($controller->profile(\App\Models\Student::find(2))->getData(true)['student']['student_id'])->toBe('TWO')
