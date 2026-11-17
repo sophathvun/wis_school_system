@@ -9,6 +9,7 @@ Artisan::command('attendance:apply-leave',function(){
     $this->info('Due approved leave applied without replacing recorded attendance.');
 })->purpose('Apply approved leave to due daily attendance registers');
 Schedule::command('attendance:apply-leave')->dailyAt('00:05')->timezone('Asia/Bangkok')->withoutOverlapping();
+Schedule::command('student-photos:prune-imports')->dailyAt('02:20')->timezone('Asia/Bangkok')->withoutOverlapping();
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());

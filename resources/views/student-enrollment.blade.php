@@ -7,9 +7,12 @@
                 <div class="page-pretitle">Students</div>
                 <h2 class="page-title">Student Enrollment</h2>
             </div>
-            <div class="col-auto enrollment-new-action {{ ($enrollmentPermissions['create'] ?? false) ? '' : 'd-none' }}">
-                <button class="btn btn-primary" id="newEnrollment"><i class="ti ti-plus icon"></i> New Enrollment</button>
-            </div>
+            <div class="col-auto {{ (($enrollmentPermissions['create'] ?? false) || ($enrollmentPermissions['bulk-photos'] ?? false)) ? '' : 'd-none' }}"><div class="btn-list">
+                @if ($enrollmentPermissions['bulk-photos'] ?? false)
+                <a class="btn btn-outline-primary" href="{{ route('student-photo-import.index') }}"><i class="ti ti-photo-up icon"></i> Bulk Upload Photos</a>
+                @endif
+                <button class="btn btn-primary {{ ($enrollmentPermissions['create'] ?? false) ? '' : 'd-none' }}" id="newEnrollment"><i class="ti ti-plus icon"></i> New Enrollment</button>
+            </div></div>
         </div>
     </div>
 @endsection

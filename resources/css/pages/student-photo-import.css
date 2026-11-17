@@ -1,0 +1,18 @@
+.photo-import .card { border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgb(15 23 42 / 4%); }
+.photo-import .card-header { background: var(--tblr-bg-surface-secondary); }
+.photo-import-icon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 58px; height: 58px; border-radius: 16px; background: color-mix(in srgb, var(--tblr-primary) 12%, transparent); color: var(--tblr-primary); font-size: 28px; }
+.photo-import-drop { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; min-height: 200px; padding: 24px; border: 2px dashed color-mix(in srgb, var(--tblr-primary) 45%, var(--tblr-border-color)); border-radius: 16px; background: color-mix(in srgb, var(--tblr-primary) 4%, var(--tblr-bg-surface)); color: var(--tblr-body-color); transition: background .15s, border-color .15s; }
+.photo-import-drop strong { font-size: 1.15rem; }
+.photo-import-drop:hover, .photo-import-drop:focus-visible, .photo-import-drop.is-dragging { border-color: var(--tblr-primary); background: color-mix(in srgb, var(--tblr-primary) 10%, var(--tblr-bg-surface)); outline: none; }
+.photo-import-example { padding: 16px; border-radius: 12px; background: var(--tblr-bg-surface-secondary); color: var(--tblr-primary); font-weight: 700; overflow-wrap: anywhere; }
+.photo-import-files { color: var(--tblr-secondary); overflow-wrap: anywhere; }
+.photo-import-stats { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; }
+.photo-import-stat { padding: 14px; border: 1px solid var(--tblr-border-color); border-radius: 12px; background: var(--tblr-bg-surface-secondary); }
+.photo-import-stat strong { display: block; font-size: 1.7rem; margin-top: 4px; }
+.photo-import table img { width: 54px; height: 72px; object-fit: contain; border-radius: 8px; background: var(--tblr-bg-surface-secondary); }
+.photo-import .photo-import-file-cell { max-width: 300px; overflow-wrap: anywhere; white-space: normal; }
+.photo-import .progress { border-radius: 20px; }
+.photo-import .progress-bar { background: var(--tblr-primary); transition: width .15s; }
+.photo-import [hidden] { display: none !important; }
+.photo-import button:disabled { cursor: not-allowed; }
+@media(max-width:575.98px) { .photo-import-stats { grid-template-columns: repeat(2,minmax(0,1fr)); } .photo-import-drop { padding: 18px; } }

@@ -174,6 +174,25 @@ it('allows creation attachments temporarily without granting ongoing cross campu
     expect($access->canUploadDocuments(2))->toBeFalse();
 });
 
+it('registers the bulk photo permission for all permission trees without assigning it or overwriting custom names', function () {
+    ($this->grant)(['view']);
+    $before = DB::table('access_role_permissions')->get()->toArray();
+    StudentEnrollmentPermissions::registerMissing();
+    $permission = \App\Models\Permission::where('code', 'students.enrollment.bulk-photos')->sole();
+    expect($permission->name)->toBe('Bulk Upload Student Photos (Own Campus; Central: All Campuses)');
+    $tree = PermissionHierarchy::tree(\App\Models\Permission::all());
+    foreach (['role', 'department', 'user'] as $prefix) {
+        $html = view('partials.permission-tree', ['permissionHierarchy'=>$tree,
+            'permissionPrefix'=>$prefix, 'assignedPermissions'=>collect()])->render();
+        expect($html)->toContain('data-permission-code="students.enrollment.bulk-photos"', 'Bulk Upload Student Photos');
+    }
+    $permission->update(['name'=>'Custom bulk photo permission']);
+    StudentEnrollmentPermissions::registerMissing();
+    expect($permission->fresh()->name)->toBe('Custom bulk photo permission')
+        ->and(DB::table('access_role_permissions')->get()->toArray())->toEqual($before)
+        ->and((new StudentEnrollmentPermissions(User::find(1)))->allows('bulk-photos'))->toBeFalse();
+});
+
 it('adds the action catalog to the permission tree and preserves existing read assignments', function () {
     ($this->grant)(['manage']);
     $migration = require database_path('migrations/2026_10_20_000001_add_student_enrollment_action_permissions.php');

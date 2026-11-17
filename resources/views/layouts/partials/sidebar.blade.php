@@ -286,7 +286,7 @@
                 @if ($canView('students.view'))
                     <li
                         class="nav-item dropdown {{ request()->routeIs('searchStudent.*') ||
-                        request()->routeIs('studentEnrollment.*') ||
+                        request()->routeIs('studentEnrollment.*', 'student-photo-import.*') ||
                         request()->routeIs('summer-school.*') ||
                         request()->routeIs('families.*') ||
                         request()->routeIs('studentPromotion.*') ||
@@ -312,7 +312,7 @@
                         </a>
                         <div
                             class="dropdown-menu {{ request()->routeIs('searchStudent.*') ||
-                            request()->routeIs('studentEnrollment.*') ||
+                            request()->routeIs('studentEnrollment.*', 'student-photo-import.*') ||
                             request()->routeIs('summer-school.*') ||
                             request()->routeIs('families.*') ||
                             request()->routeIs('studentPromotion.*') ||
@@ -337,7 +337,7 @@
                                         </a>
                                     @endif
                                     @if ($canView('students.enrollment.view'))
-                                        <a class="dropdown-item {{ request()->routeIs('studentEnrollment.*') ? 'active' : '' }}"
+                                        <a class="dropdown-item {{ request()->routeIs('studentEnrollment.*', 'student-photo-import.*') ? 'active' : '' }}"
                                             href="{{ route('studentEnrollment.index') }}">
                                             <i class="ti ti-user-plus me-2"></i> Student Enrollment
                                         </a>

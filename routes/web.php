@@ -731,6 +731,17 @@ Route::middleware('auth')->group(function () {
 });
 
 Route::get('/students/enrollment', [StudentEnrollmentController::class, 'index'])->name('studentEnrollment.index');
+Route::middleware(['auth','active.user'])->prefix('students/photo-imports')->name('student-photo-import.')
+    ->controller(\App\Http\Controllers\StudentPhotoImportController::class)->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::post('/', 'create')->middleware('throttle:20,1')->name('create');
+        Route::get('/{batch}', 'inspect')->whereUuid('batch')->name('inspect');
+        Route::post('/{batch}/upload', 'upload')->whereUuid('batch')->middleware('throttle:600,1')->name('upload');
+        Route::post('/{batch}/confirm', 'confirm')->whereUuid('batch')->name('confirm');
+        Route::post('/{batch}/process', 'process')->whereUuid('batch')->name('process');
+        Route::get('/{batch}/review', 'review')->whereUuid('batch')->name('review');
+        Route::get('/{batch}/images/{row}/{kind}', 'image')->whereUuid('batch')->whereNumber('row')->where('kind','source|current')->name('image');
+    });
 Route::get('/summer-school', [SummerSchoolController::class, 'index'])->name('summer-school.index');
 Route::get('/summer-school/options', [SummerSchoolController::class, 'options'])->name('summer-school.options');
 Route::get('/summer-school/student-options', [SummerSchoolController::class, 'studentOptions'])->name('summer-school.student-options');

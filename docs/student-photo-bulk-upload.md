@@ -1,0 +1,17 @@
+# Bulk student photo deployment
+
+Deploy the application code and rebuilt Vite assets together. Run `php artisan migrate --force` to create `student_photo_batches`, `student_photo_rows`, and the `students.enrollment.bulk-photos` permission. The migration does not grant this permission to existing roles or change any student photos.
+
+Super Administrators can use **Students → Student Enrollment → Bulk Upload Photos** immediately. Other staff need **Students → View**, **Student Enrollment → View**, and **Bulk Upload Student Photos**. The bulk permission authorizes this workflow separately from the normal single-student update action. Campus ownership uses the existing Student Enrollment ownership rules; Central/global access can cover all campuses. Every request checks the permission, and every saved row rechecks student campus ownership and the expected previous photo path.
+
+Required extensions are PHP GD with WebP and PHP ZipArchive (for ZIP files). No Python model or background-removal installation is needed. Photos use `StudentPhotoProcessor::webp`, the existing portrait encoder, capped at 40 KB. Filenames use the ID after the final underscore; matching is exact and preserves leading zeros. Names do not determine identity.
+
+The application allows 500 entries per batch, 10 MB/24 megapixels per image, 50 MB per ZIP upload and 250 MB expanded ZIP content. Configure the web server body-size limit and PHP `upload_max_filesize` and `post_max_size` to accommodate a 50 MB file plus multipart overhead if full-size ZIP uploads are required. Individual photos are uploaded one request at a time, avoiding PHP's multi-file request count limit. ZIP entries are read individually by index with a size bound, without extracting user paths; traversal names are rejected.
+
+The staging and import steps are separate. Upload creates only private preview rows/files. Confirmation records the selected ready rows; processing saves one row per request, making the operation resumable after connection interruptions. Batches belong to the uploader; preview endpoints check ownership. A processing batch can resume for 24 hours from creation. After expiry, remaining rows must be uploaded in a new batch. Current and previous saved public photos are never removed by preview cleanup.
+
+Ensure the web-service user can write `storage/app/private/student-photo-imports`, `storage/app/public/student_photos`, and Laravel cache/log directories. Run the Laravel scheduler normally (`php artisan schedule:run` every minute). The `student-photos:prune-imports` command removes expired staged sources daily at 02:20 Asia/Bangkok. It can also run manually. It keeps batch/row history, before/after photo paths, and saved student photos. Old public photo versions are deliberately retained for recovery; any later cleanup needs its own reference audit.
+
+The local migration has been applied during implementation. Live deployment, runtime permissions, upload limits, and scheduler setup must be verified on the live server separately. No live-server deployment is performed by this feature's implementation.
+
+Validation: `php scripts/test-suite.php --filter=StudentPhotoImportTest.php` runs isolated SQLite/storage tests for matching, WebP output, overwrite controls, concurrent changes, permission ownership/revocation, duplicate IDs, ZIP safety, selection, expiry and pruning. No actual student photos are changed by those tests.

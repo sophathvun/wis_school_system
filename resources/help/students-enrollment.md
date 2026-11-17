@@ -2,6 +2,20 @@
 
 Open **Students → Student Enrollment**. Viewing, filtering, creating, editing, deleting, viewing history, and profile printing have separate permissions. Existing-record edits may be limited to the student's campus.
 
+## Bulk upload student photos
+
+Open **Student Enrollment → Bulk Upload Photos**. This requires the separate **Bulk Upload Student Photos** permission, together with Students and Student Enrollment view access. Campus users can update students belonging to their campus; Central Office can work across campuses.
+
+Name each file **Student Name_Student ID.jpg**, for example **SOK DARA_2613230.jpg**. The ID after the last underscore must match exactly, including leading zeros. Name spelling does not determine the match. JPG, PNG and WebP files are supported, individually or inside a ZIP.
+
+Choose up to 500 photos per batch. Each photo must be at most 10 MB and 24 megapixels. ZIP files can be up to 50 MB, with at most 250 MB of uncompressed contents; the server's upload limits may be lower. Individual files upload one at a time so PHP's multi-file count limit does not prevent a large batch.
+
+The default mode fills missing photos. Turn on **Replace existing student photos** only when intended. Review current and uploaded images side by side, uncheck photos you do not want to import, and confirm the selected ready matches. Duplicate IDs, unreadable images, missing IDs and students outside your campus permissions are left for review. Download their review CSV and correct the files for another batch.
+
+The progress bar shows upload and import progress separately. The importer uses the same portrait WebP converter as normal Student Enrollment uploads, up to 40 KB per saved photo. It updates the shared Student Information photo only, not National Exam photos or certificates. If another user changes a photo after preview, that row needs a new review instead of being overwritten.
+
+You can resume confirmed work from **Your recent batches** for 24 hours. Private preview files expire after 24 hours and are pruned daily when the Laravel scheduler is running. The import history retains outcomes and previous/saved image paths. Previous public photos are retained for recovery. Administrators must grant the new permission explicitly; it is not automatically granted to existing roles.
+
 ## Check for an existing student
 
 Search by Student ID and name before registering. Confirm whether this is a new student identity or a new enrollment for an existing student.

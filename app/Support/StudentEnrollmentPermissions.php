@@ -37,7 +37,21 @@ class StudentEnrollmentPermissions
             'history' => 'View Enrollment History and Academic Years (All Campuses)',
             'print' => 'Print Student Profile Report',
             'export' => 'Save Student Profile Report as PDF',
+            'bulk-photos' => 'Bulk Upload Student Photos (Own Campus; Central: All Campuses)',
         ];
+    }
+
+    public static function registerMissing(): void
+    {
+        $existing = \App\Models\Permission::where('module', 'students.enrollment')->pluck('code')->all();
+        $rows = [];
+        foreach (self::catalog() as $action => $name) {
+            $code = 'students.enrollment.'.$action;
+            if (in_array($code, $existing, true)) continue;
+            $rows[] = ['code'=>$code, 'module'=>'students.enrollment', 'action'=>$action,
+                'name'=>$name, 'created_at'=>now(), 'updated_at'=>now()];
+        }
+        if ($rows) \Illuminate\Support\Facades\DB::table('access_permissions')->insertOrIgnore($rows);
     }
 
     public function allows(string $action, ?int $permissionCampus = null): bool

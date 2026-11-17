@@ -123,7 +123,7 @@
                                 </button>
                             </div>
                             @if ($moduleKey === 'students.enrollment')
-                                <p class="small text-secondary mt-2 mb-1">Campus staff: edit/delete only their campus students. Central/global staff: all campuses, with permission. Student documents use the Student Documents permissions below. Enrollment changes use Transfer Student.</p>
+                                <p class="small text-secondary mt-2 mb-1">Campus staff: edit/delete only their campus students. Central/global staff: all campuses, with permission. Bulk Upload Student Photos has its own permission below; enable it to show the Bulk Upload Photos button in Student Enrollment. Student documents use the Student Documents permissions below. Enrollment changes use Transfer Student.</p>
                             @endif
                             @if ($moduleKey === 'summer-school')
                                 <p class="small text-secondary mt-2 mb-1">Campus staff can filter and register students at all campuses. Edit, delete and Continue at Western require permission for their campus students. Central/global staff can act across campuses with permission.</p>
