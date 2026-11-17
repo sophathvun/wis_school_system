@@ -25,6 +25,7 @@
     @php($submenuIcons['g12-national-exams.'.$section]=$icon)
 @endforeach
 @php($submenuIcons['western-scholarship']='ti-award')
+@php($submenuIcons['student-photo-import']='ti-photo-up')
 @php($submenuIcons['hrm-staff-data']='ti-file-import')
 @php($submenuIcons=array_merge($submenuIcons,['staff'=>'ti-id-badge-2','hrm-settings'=>'ti-settings','hrm-staff-attendance'=>'ti-user-check','hrm-payroll'=>'ti-cash-banknote','hrm-leave-requests'=>'ti-calendar-minus','hrm-performance-reviews'=>'ti-chart-bar','hrm-staff-reports'=>'ti-report-analytics']))
 @php($mainMenuIcons['hrm']='ti-users-group')
@@ -112,7 +113,7 @@
                                     data-permission-id="{{ $submenuId }}"
                                     @if($inheritedPermissionIds->contains($module['permission']->id)) data-permission-inherited="true" disabled @endif
                                     data-permission-code="{{ $module['permission']->code }}"
-                                    @if($moduleKey==='hrm-staff-data') data-requires-permissions="hrm-settings.view,staff.view" @elseif(in_array($moduleKey,['departments','positions'],true)) data-requires-permission="hrm-settings.view" @endif
+                                    @if($moduleKey==='student-photo-import') data-requires-permission="students.enrollment.view" @elseif($moduleKey==='hrm-staff-data') data-requires-permissions="hrm-settings.view,staff.view" @elseif(in_array($moduleKey,['departments','positions'],true)) data-requires-permission="hrm-settings.view" @endif
                                     data-permission-code="{{ $module['permission']->code }}"
                                     @if(in_array($moduleKey,['departments','positions'],true)) data-requires-permission="hrm-settings.view" @endif
                                     data-parent-permission="{{ $mainId }}"
@@ -123,7 +124,10 @@
                                 </button>
                             </div>
                             @if ($moduleKey === 'students.enrollment')
-                                <p class="small text-secondary mt-2 mb-1">Campus staff: edit/delete only their campus students. Central/global staff: all campuses, with permission. Bulk Upload Student Photos has its own permission below; enable it to show the Bulk Upload Photos button in Student Enrollment. Student documents use the Student Documents permissions below. Enrollment changes use Transfer Student.</p>
+                                <p class="small text-secondary mt-2 mb-1">Campus staff: edit/delete only their campus students. Central/global staff: all campuses, with permission. Bulk Upload Student Photos has its own submenu permission below Import / Export Data. Student documents use the Student Documents permissions below. Enrollment changes use Transfer Student.</p>
+                            @endif
+                            @if ($moduleKey === 'student-photo-import')
+                                <p class="small text-secondary mt-2 mb-1">Upload, preview and confirm student photos, including replacing existing photos. Requires Student Enrollment view access. Campus staff: their campus students; Central/global staff: all campuses, with permission.</p>
                             @endif
                             @if ($moduleKey === 'summer-school')
                                 <p class="small text-secondary mt-2 mb-1">Campus staff can filter and register students at all campuses. Edit, delete and Continue at Western require permission for their campus students. Central/global staff can act across campuses with permission.</p>

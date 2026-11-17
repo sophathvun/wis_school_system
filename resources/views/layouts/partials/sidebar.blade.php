@@ -337,7 +337,7 @@
                                         </a>
                                     @endif
                                     @if ($canView('students.enrollment.view'))
-                                        <a class="dropdown-item {{ request()->routeIs('studentEnrollment.*', 'student-photo-import.*') ? 'active' : '' }}"
+                                        <a class="dropdown-item {{ request()->routeIs('studentEnrollment.*') ? 'active' : '' }}"
                                             href="{{ route('studentEnrollment.index') }}">
                                             <i class="ti ti-user-plus me-2"></i> Student Enrollment
                                         </a>
@@ -419,6 +419,11 @@
                                         <a class="dropdown-item {{ request()->routeIs('student-data-transfer.*') ? 'active' : '' }}"
                                             href="{{ route('student-data-transfer.index') }}">
                                             <i class="ti ti-file-import me-2"></i> Import / Export Data
+                                        </a>
+                                    @endif
+                                    @if ($canView('students.enrollment.view') && $canView('students.enrollment.bulk-photos'))
+                                        <a class="dropdown-item {{ request()->routeIs('student-photo-import.*') ? 'active' : '' }}" href="{{ route('student-photo-import.index') }}">
+                                            <i class="ti ti-photo-up me-2"></i> Bulk Upload Stu. Photos
                                         </a>
                                     @endif
                                     <a class="dropdown-item" href="{{ route('help.index',['category'=>'students']) }}"><i class="ti ti-book me-2" aria-hidden="true"></i>Help &amp; guides</a>

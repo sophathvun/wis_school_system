@@ -19,7 +19,7 @@ class PermissionHierarchy
             'student-document-types' => 'Document Types', 'dashboard-templates' => 'Dashboard Templates', 'branding' => 'Branding', 'database-backups' => 'Database Backups',
             'groups' => 'School Groups', 'terms' => 'Terms', 'campuses' => 'Campuses', 'summer-school' => 'Summer School', 'student-withdrawals' => 'Student Withdrawals',
             'attendance' => 'Attendance', 'schedules' => 'Schedules', 'grading-system' => 'Grading System', 'reports' => 'Reports', 'g9-national-exams'=>'G9 National Exams',
-            'students.search' => 'Search Students', 'students.enrollment' => 'Student Enrollment', 'families' => 'Family Management',
+            'students.search' => 'Search Students', 'students.enrollment' => 'Student Enrollment', 'student-photo-import' => 'Bulk Upload Stu. Photos', 'families' => 'Family Management',
             'students.promotion' => 'Student Promotion', 'students.transfer' => 'Student Transfer', 'students.graduation' => 'Student Graduation',
             'student-reentry' => 'Student Re-entry', 'student-skipping-grade' => 'Stu. Skipping Grade', 'student-id-card-qr' => 'Stu. ID Card (QR)', 'student-documents' => 'Student Documents', 'student-data-transfer' => 'Import / Export Data', 'homeroom' => 'Homeroom Activities',
             'western-scholarship' => 'WIS Scholarship', 'placement-tests'=>'Student Placement Test', 'g12-national-exams'=>'G12 National Exams', 'photo-editor' => 'Photo Editor',
@@ -61,7 +61,8 @@ class PermissionHierarchy
             ],
             'students' => [
                 'label' => 'Students', 'permission' => 'students.view',
-                'modules' => ['students.search', 'students.enrollment', 'placement-tests', 'summer-school', 'families', 'students.promotion', 'students.transfer', 'students.graduation', 'student-withdrawals', 'student-reentry', 'student-skipping-grade', 'western-scholarship', 'student-id-card-qr', 'student-documents', 'homeroom', 'student-data-transfer'],
+                'modules' => ['students.search', 'students.enrollment', 'placement-tests', 'summer-school', 'families', 'students.promotion', 'students.transfer', 'students.graduation', 'student-withdrawals', 'student-reentry', 'student-skipping-grade', 'western-scholarship', 'student-id-card-qr', 'student-documents', 'homeroom', 'student-data-transfer', 'student-photo-import'],
+                'module_permissions' => ['student-photo-import'=>'students.enrollment.bulk-photos'],
                 'actions' => ['students.manage'],
             ],
             'dashboard' => [
@@ -123,7 +124,7 @@ class PermissionHierarchy
             foreach ($group['modules'] as $module) {
                 $viewCode = $group['module_permissions'][$module]??"{$module}.view";
                 $items = isset($group['module_actions'][$module])?$permissions->whereIn('code',$group['module_actions'][$module])->values():$permissions->filter(fn (Permission $permission) => str_starts_with($permission->code, "{$module}.") && $permission->code !== $viewCode
-                    && !($module === 'students.enrollment' && in_array($permission->action, ['manage', 'status'], true))
+                    && !($module === 'students.enrollment' && in_array($permission->action, ['manage', 'status', 'bulk-photos'], true))
                     && !(in_array($module, ['summer-school','families'], true) && $permission->action === 'manage')
                     && !($module==='western-scholarship' && $permission->action==='export'))->values();
                 if ($byCode->has($viewCode)) {
@@ -171,7 +172,7 @@ class PermissionHierarchy
                 }
                 $permissions
                     ->filter(fn (Permission $permission) => str_starts_with($permission->code, "{$module}.") && $permission->code !== $viewCode
-                        && !($module === 'students.enrollment' && in_array($permission->action, ['manage', 'status'], true))
+                        && !($module === 'students.enrollment' && in_array($permission->action, ['manage', 'status', 'bulk-photos'], true))
                         && !(in_array($module, ['summer-school','families'], true) && $permission->action === 'manage')
                         && !($module==='western-scholarship' && $permission->action==='export'))
                     ->each(fn (Permission $permission) => $ids->push($permission->id));

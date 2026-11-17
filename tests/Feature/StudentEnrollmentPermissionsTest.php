@@ -181,6 +181,9 @@ it('registers the bulk photo permission for all permission trees without assigni
     $permission = \App\Models\Permission::where('code', 'students.enrollment.bulk-photos')->sole();
     expect($permission->name)->toBe('Bulk Upload Student Photos (Own Campus; Central: All Campuses)');
     $tree = PermissionHierarchy::tree(\App\Models\Permission::all());
+    expect($tree['students']['modules']['student-photo-import']['permission']->code)->toBe('students.enrollment.bulk-photos');
+    $keys=PermissionHierarchy::groups()['students']['modules'];
+    expect(array_search('student-photo-import',$keys,true))->toBeGreaterThan(array_search('student-data-transfer',$keys,true));
     foreach (['role', 'department', 'user'] as $prefix) {
         $html = view('partials.permission-tree', ['permissionHierarchy'=>$tree,
             'permissionPrefix'=>$prefix, 'assignedPermissions'=>collect()])->render();
@@ -200,7 +203,8 @@ it('adds the action catalog to the permission tree and preserves existing read a
     $tree = PermissionHierarchy::tree(\App\Models\Permission::all());
     $actions = $tree['students']['modules']['students.enrollment']['actions']->pluck('action')->all();
     expect($actions)->not->toContain('manage', 'status');
-    foreach (array_diff(array_keys(StudentEnrollmentPermissions::catalog()), ['view']) as $action) expect($actions)->toContain($action);
+    foreach (array_diff(array_keys(StudentEnrollmentPermissions::catalog()), ['view', 'bulk-photos']) as $action) expect($actions)->toContain($action);
+    expect($actions)->not->toContain('bulk-photos');
     $access = new StudentEnrollmentPermissions(User::find(1));
     expect($access->allows('filter'))->toBeTrue()->and($access->allows('history'))->toBeTrue()
         ->and($access->allows('update'))->toBeTrue()->and($access->allows('delete'))->toBeFalse();

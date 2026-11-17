@@ -4,7 +4,7 @@ Open **Students → Student Enrollment**. Viewing, filtering, creating, editing,
 
 ## Bulk upload student photos
 
-Open **Student Enrollment → Bulk Upload Photos**. This requires the separate **Bulk Upload Student Photos** permission, together with Students and Student Enrollment view access. Campus users can update students belonging to their campus; Central Office can work across campuses.
+Open **Students → Bulk Upload Student Photos**, directly below **Import / Export Data**. The shortcut in Student Enrollment also opens this page. On the permission page, enable **Students → Bulk Upload Student Photos**, together with Students and Student Enrollment view access. Campus users can update students belonging to their campus; Central Office can work across campuses.
 
 Name each file **Student Name_Student ID.jpg**, for example **SOK DARA_2613230.jpg**. The ID after the last underscore must match exactly, including leading zeros. Name spelling does not determine the match. JPG, PNG and WebP files are supported, individually or inside a ZIP.
 
