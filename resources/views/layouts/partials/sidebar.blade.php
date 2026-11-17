@@ -482,9 +482,6 @@
                     </li>
                 @endif
                 @include('layouts.partials.g9-national-exams-menu')
-                <li class="nav-item {{ request()->routeIs('help.*')?'active':'' }}">
-                    <a class="nav-link" href="{{ route('help.index') }}"><span class="nav-link-icon"><i class="ti ti-lifebuoy" aria-hidden="true"></i></span><span class="nav-link-title">Help Center</span></a>
-                </li>
                 @include('layouts.partials.g12-national-exams-menu')
                 <li class="nav-item {{ request()->routeIs('wmi-management.*') ? 'active' : '' }}">
                     <a class="nav-link" href="{{ route('wmi-management.index') }}">
@@ -642,6 +639,9 @@
                         </div>
                     </li>
                 @endif
+                <li class="nav-item {{ request()->routeIs('help.*') ? 'active' : '' }}">
+                    <a class="nav-link" href="{{ route('help.index') }}"><span class="nav-link-icon"><i class="ti ti-lifebuoy" aria-hidden="true"></i></span><span class="nav-link-title">Help Center</span></a>
+                </li>
             </ul>
             @auth
                 <div class="sidebar-user-card d-none d-lg-block">
