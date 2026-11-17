@@ -10,7 +10,7 @@ Name each file **Student Name_Student ID.jpg**, for example **SOK DARA_2613230.j
 
 Choose up to 500 photos per batch. Each photo must be at most 10 MB and 24 megapixels. ZIP files can be up to 50 MB, with at most 250 MB of uncompressed contents; the server's upload limits may be lower. Individual files upload one at a time so PHP's multi-file count limit does not prevent a large batch.
 
-The default mode fills missing photos. Turn on **Replace existing student photos** only when intended. Review current and uploaded images side by side, uncheck photos you do not want to import, and confirm the selected ready matches. Duplicate IDs, unreadable images, missing IDs and students outside your campus permissions are left for review. Download their review CSV and correct the files for another batch.
+The default mode is **Replace existing student photos**. Turn it off to fill missing photos only. Review current and uploaded images side by side, uncheck photos you do not want to import, and confirm the selected ready matches. Duplicate IDs, unreadable images, missing IDs and students outside your campus permissions are left for review. Download their review CSV and correct the files for another batch.
 
 The progress bar shows upload and import progress separately. The importer uses the same portrait WebP converter as normal Student Enrollment uploads, up to 40 KB per saved photo. It updates the shared Student Information photo only, not National Exam photos or certificates. If another user changes a photo after preview, that row needs a new review instead of being overwritten.
 

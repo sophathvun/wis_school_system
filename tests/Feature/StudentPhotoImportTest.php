@@ -55,7 +55,7 @@ it('previews exact student IDs without mutation and saves bounded WebP once afte
     expect(Storage::disk('public')->allFiles())->toHaveCount(1);
 });
 
-it('skips existing photos by default and preserves originals when explicitly replacing',function(){
+it('skips existing photos in fill-missing mode and preserves originals when replacing',function(){
     Storage::disk('public')->put('student_photos/original.webp','original');
     DB::table('tb_student')->where('id',1)->update(['photo_path'=>'student_photos/original.webp']);
     $skip=($this->batch)();($this->upload)($skip,'SOK DARA_00123.jpg')->assertOk();
