@@ -10,14 +10,18 @@ use Illuminate\Http\Request;
 
 class RoleManagementController
 {
-    private function authorizeAdmin(Request $request): void
+    private function authorizeAction(Request $request, string $action): void
     {
-        abort_unless($request->user()->isSuperAdmin(), 403);
+        abort_unless(\App\Support\RolePermissions::allows($request->user(), $action), 403);
     }
 
     public function index(Request $request)
     {
-        $this->authorizeAdmin($request);
+        $this->authorizeAction($request, 'view');
+        if ($request->integer('edit')) {
+            $this->authorizeAction($request, 'update');
+            $this->protectSuperAdmin($request, Role::findOrFail($request->integer('edit')));
+        }
 
         $search = trim((string) $request->query('search'));
         $perPage = min(max($request->integer('per_page', 10), 10), 100);
@@ -50,12 +54,18 @@ class RoleManagementController
             'departments' => \App\Support\DepartmentHierarchy::options(),
             'sortBy' => $sortBy,
             'sortDir' => $sortDir,
+            'canCreateRole' => \App\Support\RolePermissions::allows($request->user(), 'create'),
+            'canUpdateRole' => \App\Support\RolePermissions::allows($request->user(), 'update'),
+            'canDeleteRole' => \App\Support\RolePermissions::allows($request->user(), 'delete'),
+            'canPrintRoles' => \App\Support\RolePermissions::allows($request->user(), 'print'),
+            'canExportRoles' => \App\Support\RolePermissions::allows($request->user(), 'export'),
+            'isSuperAdmin' => $request->user()->isSuperAdmin(),
         ]);
     }
 
     public function print(Request $request)
     {
-        $this->authorizeAdmin($request);
+        $this->authorizeAction($request, 'print');
 
         return view('roles-pdf', [
             'roles' => $this->roleReportRows(),
@@ -66,7 +76,7 @@ class RoleManagementController
 
     public function exportExcel(Request $request)
     {
-        $this->authorizeAdmin($request);
+        $this->authorizeAction($request, 'export');
 
         $filename = 'role-list-' . now('Asia/Phnom_Penh')->format('Ymd-His') . '.xlsx';
         $path = $this->roleExcelPath($this->roleReportRows());
@@ -80,9 +90,10 @@ class RoleManagementController
 
     public function save(Request $request)
     {
-        $this->authorizeAdmin($request);
-
         $id = $request->integer('role_id');
+        $this->authorizeAction($request, $id ? 'update' : 'create');
+        if ($id) $this->protectSuperAdmin($request, Role::findOrFail($id));
+        abort_if(!$request->user()->isSuperAdmin() && strcasecmp((string) $request->input('code'), 'super-admin') === 0, 403);
         if (!$id && !$request->has('status')) {
             $request->merge(['status' => '1']);
         }
@@ -107,7 +118,7 @@ class RoleManagementController
 
     public function delete(Request $request, Role $role)
     {
-        $this->authorizeAdmin($request);
+        $this->authorizeAction($request, 'delete');
 
         if ($role->code === 'super-admin') {
             return back()->withErrors(['role' => 'The Super Administrator role cannot be deleted.']);
@@ -120,6 +131,11 @@ class RoleManagementController
         $role->delete();
 
         return back()->with('success', 'Role deleted successfully.');
+    }
+
+    private function protectSuperAdmin(Request $request, Role $role): void
+    {
+        abort_if($role->code === 'super-admin' && !$request->user()->isSuperAdmin(), 403);
     }
 
     private function roleReportRows()

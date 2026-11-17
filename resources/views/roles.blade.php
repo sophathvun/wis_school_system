@@ -8,15 +8,21 @@
             </div>
             <div class="col-auto">
                 <div class="btn-list">
+                    @if ($canPrintRoles)
                     <a class="btn btn-outline-primary" href="{{ route('roles.print') }}" target="_blank" rel="noopener">
                         <i class="ti ti-printer icon"></i> Print
                     </a>
+                    @endif
+                    @if ($canExportRoles)
                     <a class="btn btn-outline-success" href="{{ route('roles.excel') }}">
                         <i class="ti ti-file-spreadsheet icon"></i> Excel
                     </a>
+                    @endif
+                    @if ($canCreateRole)
                     <button class="btn btn-primary" id="btnNewRole">
                         <i class="ti ti-plus icon"></i> New Role
                     </button>
+                    @endif
                 </div>
             </div>
         </div>
@@ -118,9 +124,13 @@
                                 <td><span
                                         class="badge bg-{{ $role->status ? 'success' : 'secondary' }}">{{ $role->status ? 'Active' : 'Inactive' }}</span>
                                 </td>
-                                <td class="text-center"><a class="btn btn-sm btn-outline-primary"
+                                <td class="text-center">
+                                    @if ($canUpdateRole && ($isSuperAdmin || $role->code !== 'super-admin'))
+                                    <a class="btn btn-sm btn-outline-primary"
                                         href="{{ route('roles.index', ['edit' => $role->id]) }}"><i
                                             class="ti ti-edit"></i></a>
+                                    @endif
+                                    @if ($canDeleteRole)
                                     <span data-bs-toggle="tooltip" title="{{ $deleteTooltip }}">
                                         <button type="button" class="btn btn-sm btn-outline-danger"
                                             @disabled($cannotDelete) data-role-delete-trigger><i
@@ -128,6 +138,7 @@
                                         <form class="d-none" method="POST" action="{{ route('roles.delete', $role) }}"
                                             onsubmit="return confirm('Delete this role?')">@csrf @method('DELETE')</form>
                                     </span>
+                                    @endif
                                 </td>
                         </tr>@empty<tr>
                                 <td colspan="7" class="text-center text-secondary py-4">No roles found.</td>

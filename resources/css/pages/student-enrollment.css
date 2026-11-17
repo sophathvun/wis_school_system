@@ -2184,3 +2184,91 @@
 #enrollmentModal #date_of_birth_picker {
     position: relative;
 }
+
+/* Enrollment list filters: persistent labels and searchable, theme-aware items. */
+.enrollment-list-filter-group .enrollment-premium-filter .location-combobox-toggle {
+    position: relative;
+    height: 54px;
+    min-height: 54px;
+    padding: 22px 12px 8px;
+    border: 1px solid var(--tblr-border-color, #dbe3ef);
+    border-radius: 12px;
+    box-shadow: 0 3px 10px rgb(15 23 42 / 4%);
+    color: var(--tblr-body-color);
+    transition: border-color .15s, box-shadow .15s;
+}
+
+.enrollment-premium-filter .enrollment-filter-label {
+    position: absolute;
+    top: 7px;
+    left: 12px;
+    font-size: .65rem;
+    font-weight: 700;
+    letter-spacing: .025em;
+    color: var(--tblr-primary);
+    line-height: 1.2;
+}
+
+.enrollment-list-filter-group .enrollment-premium-filter .location-combobox-toggle:hover,
+.enrollment-list-filter-group .enrollment-premium-filter .location-combobox-toggle:focus-visible,
+.enrollment-list-filter-group .enrollment-premium-filter .location-combobox-toggle[aria-expanded="true"] {
+    border-color: var(--tblr-primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--tblr-primary) 12%, transparent);
+    outline: none;
+}
+
+.enrollment-list-filter-group .enrollment-premium-filter .location-combobox-menu {
+    padding: 10px;
+    border-radius: 14px;
+    border: 1px solid var(--tblr-border-color);
+    background: var(--tblr-bg-surface, #fff);
+    box-shadow: 0 16px 44px rgb(15 23 42 / 18%);
+}
+
+.enrollment-premium-filter .location-combobox-search {
+    border-radius: 9px;
+    min-height: 38px;
+    margin-bottom: 8px;
+    background: var(--tblr-bg-surface-secondary, #f6f8fb);
+}
+
+.enrollment-premium-filter .location-combobox-results {
+    max-height: min(300px, 45vh);
+    overflow-y: auto;
+    scrollbar-width: thin;
+}
+
+.enrollment-premium-filter .location-combobox-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100%;
+    min-height: 40px;
+    margin-bottom: 3px;
+    padding: 9px 11px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--tblr-body-color);
+    text-align: left;
+    line-height: 1.5;
+}
+
+.enrollment-premium-filter .location-combobox-option:hover,
+.enrollment-premium-filter .location-combobox-option:focus-visible,
+.enrollment-premium-filter .location-combobox-option[aria-pressed="true"] {
+    background: color-mix(in srgb, var(--tblr-primary) 10%, var(--tblr-bg-surface, #fff));
+    color: var(--tblr-primary);
+    outline: none;
+}
+
+.enrollment-premium-filter .location-combobox-option[aria-pressed="true"] {
+    font-weight: 600;
+}
+
+.enrollment-premium-filter .location-combobox-option[aria-pressed="true"]::after {
+    content: "\2713";
+    flex-shrink: 0;
+    font-weight: 700;
+}

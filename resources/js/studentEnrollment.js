@@ -1835,6 +1835,14 @@ const setupSearchableEnrollmentSelect = (id, label) => {
     const results = field(`${id}-results`);
     const selected = field(`${id}-selected`);
     const isListFilter = id.startsWith("enrollments-filter-");
+    if (isListFilter) {
+        field(`${id}-combobox`).classList.add("enrollment-premium-filter");
+        toggle.insertAdjacentHTML("afterbegin", `<span class="enrollment-filter-label">${escapeHtml(label)}</span>`);
+        toggle.setAttribute("aria-label", label);
+        toggle.setAttribute("aria-expanded", "false");
+        toggle.setAttribute("aria-controls", `${id}-menu`);
+        searchInput.setAttribute("aria-label", `Search ${label}`);
+    }
     const isFamilyPicker = id === "existing_family_number";
     let familySearchRequestId = 0;
     let familySearchTimer;
@@ -1912,14 +1920,23 @@ const setupSearchableEnrollmentSelect = (id, label) => {
                       )
                       .join("")
                 : `<div class="text-secondary px-2 py-2">No options found</div>`);
+        if (isListFilter) {
+            results.querySelectorAll("[data-searchable-select-value]").forEach((option) => {
+                option.setAttribute("aria-pressed", String(option.dataset.searchableSelectValue === select.value));
+            });
+        }
     };
     toggle.addEventListener("click", () => {
         document
             .querySelectorAll(".enrollment-search-menu")
             .forEach((other) => {
-                if (other !== menu) other.classList.add("d-none");
+                if (other !== menu) {
+                    other.classList.add("d-none");
+                    other.closest(".enrollment-premium-filter")?.querySelector(".location-combobox-toggle")?.setAttribute("aria-expanded", "false");
+                }
             });
         menu.classList.toggle("d-none");
+        if (isListFilter) toggle.setAttribute("aria-expanded", String(!menu.classList.contains("d-none")));
         if (!menu.classList.contains("d-none")) {
             searchInput.value = "";
             render();
@@ -1951,7 +1968,21 @@ const setupSearchableEnrollmentSelect = (id, label) => {
         select.dispatchEvent(new Event("change", { bubbles: true }));
         sync();
         menu.classList.add("d-none");
+        if (isListFilter) {
+            toggle.setAttribute("aria-expanded", "false");
+            toggle.focus();
+        }
     });
+    if (isListFilter) {
+        field(`${id}-combobox`).addEventListener("keydown", (event) => {
+            if (event.key === "Escape") {
+                menu.classList.add("d-none");
+                toggle.setAttribute("aria-expanded", "false");
+                toggle.focus();
+                event.stopPropagation();
+            }
+        });
+    }
     select.addEventListener("change", () => {
         sync();
         if (!menu.classList.contains("d-none")) render();
@@ -1965,7 +1996,10 @@ document.addEventListener("click", (event) => {
     if (!event.target.closest(".enrollment-search-combobox"))
         document
             .querySelectorAll(".enrollment-search-menu")
-            .forEach((menu) => menu.classList.add("d-none"));
+            .forEach((menu) => {
+                menu.classList.add("d-none");
+                menu.closest(".enrollment-premium-filter")?.querySelector(".location-combobox-toggle")?.setAttribute("aria-expanded", "false");
+            });
 });
 const refreshSearchableEnrollmentLabels = () => {
     const wasRefreshing = isRefreshingEnrollmentFilters;
