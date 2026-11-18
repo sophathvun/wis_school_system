@@ -28,6 +28,21 @@ class EnrollmentCsvValues
         if (isset($values['student_type'])) $values['student_type']=Str::lower(trim($values['student_type']));
         $values['enrollment_status']=Str::lower(trim((string) ($values['enrollment_status'] ?? ''))) ?: 'active';
         $values['status']=isset($values['status']) ? (int) in_array(Str::lower(trim((string) $values['status'])), ['1','true','yes','active'], true) : 1;
+        $summerFields=['enrollment_origin','external_student_id','previous_school','continue_at_western','summer_remarks'];
+        $hasSummerData=collect($summerFields)->contains(fn($field)=>filled($data[$field]??null));
+        if($hasSummerData){
+            if(($year->period_type??'regular')!=='summer')throw new \RuntimeException('Summer-specific fields require a Summer academic year.');
+            $origin=Str::lower(trim((string)($data['enrollment_origin']??'')));
+            if(!in_array($origin,['internal','external'],true))throw new \RuntimeException('Summer enrollment_origin must be internal (Western) or external (other school).');
+            foreach($summerFields as $field)$values[$field]=trim((string)($data[$field]??''))?:null;
+            $values['enrollment_origin']=$origin;
+            $continuation=Str::lower((string)($values['continue_at_western']??''));
+            if($continuation!==''&&!in_array($continuation,['yes','no','pending'],true))throw new \RuntimeException('continue_at_western must be yes, no or pending.');
+            if($origin==='external'&&!$values['external_student_id'])throw new \RuntimeException('External Summer students require external_student_id.');
+            foreach(['external_student_id'=>60,'previous_school'=>180,'summer_remarks'=>5000] as $field=>$limit)if(mb_strlen($values[$field]??'')>$limit)throw new \RuntimeException("{$field} exceeds {$limit} characters.");
+            if($origin==='internal'&&($values['external_student_id']||$continuation!==''))throw new \RuntimeException('External Student ID and continuation apply only to external Summer students.');
+            $values['continue_at_western']=$origin==='external'?($continuation?:'pending'):null;
+        }
         return $values;
     }
 

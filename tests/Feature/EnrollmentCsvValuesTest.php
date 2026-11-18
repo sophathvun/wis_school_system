@@ -32,6 +32,8 @@ beforeEach(function () {
     Schema::create('tb_student',function(Blueprint $t){$t->id();$t->string('student_id');});
     Schema::create('tb_academic_track',function(Blueprint $t){$t->id();$t->integer('grade_id')->nullable();foreach(['code','name_en','name_kh'] as $c)$t->string($c)->nullable();$t->softDeletes();});
     Schema::create('tb_student_enrollment',function(Blueprint $t){$t->id();foreach(['student_id','academic_year_id','campus_id','grade_id','class_id','session_id','group_id'] as $c)$t->integer($c)->nullable();foreach(['student_type','enrollment_status','exit_reason','notes'] as $c)$t->string($c)->nullable();$t->date('enrolled_on')->nullable();$t->date('ended_on')->nullable();$t->boolean('status')->default(true);$t->timestamps();$t->unique(['student_id','academic_year_id']);});
+    Schema::table('tb_academic_year',fn(Blueprint $t)=>$t->string('period_type')->default('regular'));
+    Schema::table('tb_student_enrollment',function(Blueprint $t){foreach(['enrollment_origin','external_student_id','previous_school','continue_at_western','summer_remarks'] as $c)$t->string($c)->nullable();});
     DB::table('tb_academic_year')->insert([['id'=>1,'academic_year'=>'2019-2020'],['id'=>2,'academic_year'=>'2020-2021']]);
     DB::table('tb_school_info')->insert(['id'=>1,'campus_name_en'=>'BCH']);
     DB::table('tb_grade')->insert([['id'=>1,'grade'=>'Grade 10','grade_short_name'=>'10'],['id'=>2,'grade'=>'K1','grade_short_name'=>'K1'],['id'=>3,'grade'=>'Nursery','grade_short_name'=>'Nursery']]);
@@ -176,4 +178,30 @@ it('reports an incompatible placement without changing an existing enrollment',f
     expect((array)DB::table('tb_student_enrollment')->first())->toBe((array)$before);
     expect(fn()=>$method->invoke($controller,'enrollments',array_replace($this->row,['student_id'=>'MISSING']),4))->toThrow(RuntimeException::class,'Student Information');
     expect(DB::table('tb_student_enrollment')->count())->toBe(1);
+});
+
+
+it('imports completed Summer history with external identity and continuation without duplicating profiles or enrollments',function(){
+    DB::table('tb_academic_year')->insert(['id'=>3,'academic_year'=>'Summer 2026','period_type'=>'summer']);
+    $row=array_replace($this->row,['academic_year_id'=>'Summer 2026','enrolled_on'=>'2026-07-01','ended_on'=>'2026-08-21','enrollment_status'=>'completed','enrollment_origin'=>'external','external_student_id'=>'LEGACY-00123','previous_school'=>'Other School','continue_at_western'=>'pending','summer_remarks'=>'Historical record']);
+    $csv=fopen('php://temp','w+');fputcsv($csv,array_keys($row));fputcsv($csv,array_values($row));rewind($csv);$contents=stream_get_contents($csv);fclose($csv);
+    for($i=0;$i<2;$i++){
+        $request=Request::create('/students/data-transfer/enrollments/import','POST',[],[],['file'=>UploadedFile::fake()->createWithContent('summer.csv',$contents)]);
+        $request->setLaravelSession(app('session')->driver());app()->instance('request',$request);
+        (new StudentDataTransferController)->import($request,'enrollments');
+        expect(session('import_report.imported'))->toBe(1)->and(session('import_report.failed'))->toBe([]);
+    }
+    $this->assertDatabaseHas('tb_student_enrollment',['student_id'=>1,'academic_year_id'=>3,'enrollment_origin'=>'external','external_student_id'=>'LEGACY-00123','previous_school'=>'Other School','continue_at_western'=>'pending','summer_remarks'=>'Historical record','enrollment_status'=>'completed']);
+    expect(DB::table('tb_student_enrollment')->count())->toBe(1)->and(DB::table('tb_student')->count())->toBe(1);
+});
+
+it('separates Western origin from new student type and validates Summer-only fields',function(){
+    DB::table('tb_academic_year')->insert(['id'=>3,'academic_year'=>'Summer 2026','period_type'=>'summer']);
+    $row=array_replace($this->row,['academic_year_id'=>'Summer 2026','student_type'=>'New','enrollment_origin'=>'internal']);
+    $resolved=(new EnrollmentCsvValues)->resolve($row);
+    expect($resolved['enrollment_origin'])->toBe('internal')->and($resolved['student_type'])->toBe('new')->and($resolved['external_student_id'])->toBeNull();
+    expect(fn()=>(new EnrollmentCsvValues)->resolve(array_replace($row,['academic_year_id'=>'2019-2020'])))->toThrow(RuntimeException::class,'Summer academic year');
+    expect(fn()=>(new EnrollmentCsvValues)->resolve(array_replace($row,['enrollment_origin'=>'external'])))->toThrow(RuntimeException::class,'external_student_id');
+    expect(fn()=>(new EnrollmentCsvValues)->resolve(array_replace($row,['enrollment_origin'=>'external','external_student_id'=>'X','continue_at_western'=>'unknown'])))->toThrow(RuntimeException::class,'yes, no or pending');
+    expect(fn()=>(new EnrollmentCsvValues)->resolve(array_replace($row,['external_student_id'=>'X'])))->toThrow(RuntimeException::class,'only to external');
 });

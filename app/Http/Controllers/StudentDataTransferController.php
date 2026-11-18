@@ -18,7 +18,7 @@ class StudentDataTransferController
 {
     private ?EnrollmentCsvValues $enrollmentCsv = null;
     private const STUDENT_COLUMNS = ['student_id', 'student_no', 'family_number', 'full_name_en', 'full_name_kh', 'gender', 'gender_kh', 'date_of_birth', 'nationality_country_id', 'home_phone', 'email', 'birth_country_id', 'birth_province_id', 'birth_district_id', 'birth_commune_id', 'birth_village_id', 'address_country_id', 'address_province_id', 'address_district_id', 'address_commune_id', 'address_village_id', 'address_house_no_en', 'address_house_no_kh', 'address_street_en', 'address_street_kh', 'current_address_en', 'current_address_kh', 'previous_school', 'experienced_english', 'test_result', 'tested_by', 'remarks', 'photo_path', 'status'];
-    private const ENROLLMENT_COLUMNS = ['student_id', 'academic_year_id', 'campus_id', 'grade_id', 'class_id', 'academic_track_id', 'session_id', 'group_id', 'student_type', 'enrollment_status', 'enrolled_on', 'ended_on', 'exit_reason', 'notes', 'status'];
+    private const ENROLLMENT_COLUMNS = ['student_id', 'academic_year_id', 'campus_id', 'grade_id', 'class_id', 'academic_track_id', 'session_id', 'group_id', 'student_type', 'enrollment_status', 'enrolled_on', 'ended_on', 'exit_reason', 'notes', 'status', 'enrollment_origin', 'external_student_id', 'previous_school', 'continue_at_western', 'summer_remarks'];
     private const FAMILY_COLUMNS = ['family_number', 'student_id', 'relationship_type', 'full_name_en', 'full_name_kh', 'phone', 'email', 'occupation_id', 'nationality_country_id', 'workplace', 'is_primary_contact', 'has_pickup_authorization', 'has_portal_access', 'status'];
 
     public function index() { return view('student-data-transfer'); }

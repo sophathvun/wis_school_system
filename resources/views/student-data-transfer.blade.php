@@ -19,6 +19,9 @@
     <div class="alert alert-info"><i class="ti ti-info-circle me-2"></i>Use separate CSV files for Student Information,
         Enrollment History, and Family Members. Enrollment rows are linked by Student ID and Academic Year, allowing one
         student to have multiple academic-year records.</div>
+    <div class="alert alert-info">Summer School history can use Enrollment History CSV with a configured Summer year (for example, Summer 2026).
+        Import missing student profiles first. Set <code>enrollment_origin</code> to <code>internal</code> for Western students or <code>external</code> for other-school students.
+        External rows also need their <code>external_student_id</code>. Historical imports preserve completed or withdrawn status.</div>
     @if (session('success'))
         <div class="alert alert-success">{{ session('success') }}</div>
     @endif
