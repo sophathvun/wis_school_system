@@ -49,6 +49,11 @@ class PermissionHierarchy
                 'modules' => ['chat', 'notifications'],
                 'actions' => [],
             ],
+            'registrar-doc' => [
+                'label' => 'Registrar DOC', 'permission' => 'registrar-doc.view',
+                'description' => 'Show the Registrar DOC main menu linking to the registrar document sharing site.',
+                'modules' => [], 'actions' => [],
+            ],
             'settings' => [
                 'label' => 'Settings', 'permission' => 'settings.view',
                 'modules' => ['academic-years', 'grades', 'classes', 'sessions', 'education-levels', 'programs', 'groups', 'terms', 'school-info', 'locations', 'occupations', 'nationalities', 'academic-tracks', 'withdrawal-reasons', 'student-document-types'],

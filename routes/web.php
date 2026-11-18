@@ -564,13 +564,25 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         Route::post('/imports/{batch}/inspect','inspect')->name('inspect');Route::post('/imports/{batch}/confirm','confirm')->name('confirm');
         Route::post('/photos/preview','photoPreview')->name('photos.preview');Route::post('/photos/{batch}/{index}','photoProcess')->whereNumber('index')->name('photos.process');
     });
-    Route::view('/wmi-management', 'academic-module-placeholder', [
-        'title' => 'WMI Management',
-        'pretitle' => 'Management',
-        'icon' => 'ti-building-skyscraper',
-        'iconImage' => 'images/wmi_logo.png',
-        'description' => 'Use this module to manage WMI records and workflows.',
-    ])->name('wmi-management.index');
+    Route::get('/wmi-management', [\App\Http\Controllers\WmiManagementController::class,'index'])->name('wmi-management.index');
+    Route::get('/wmi-management/registrations/enrollments', [\App\Http\Controllers\WmiRegistrationController::class,'enrollments'])->name('wmi-management.registrations.enrollments');
+    Route::get('/wmi-management/registrations/export', [\App\Http\Controllers\WmiRegistrationController::class,'export'])->name('wmi-management.registrations.export');
+    Route::post('/wmi-management/registrations/import-ids', [\App\Http\Controllers\WmiRegistrationController::class,'importIds'])->name('wmi-management.registrations.import-ids');
+    Route::post('/wmi-management/registrations/allocate', [\App\Http\Controllers\WmiRegistrationController::class,'allocate'])->name('wmi-management.registrations.allocate');
+    Route::post('/wmi-management/registrations', [\App\Http\Controllers\WmiRegistrationController::class,'store'])->name('wmi-management.registrations.store');
+    Route::put('/wmi-management/registrations/{registration}', [\App\Http\Controllers\WmiRegistrationController::class,'update'])->whereNumber('registration')->name('wmi-management.registrations.update');
+    Route::delete('/wmi-management/registrations/{registration}', [\App\Http\Controllers\WmiRegistrationController::class,'destroy'])->whereNumber('registration')->name('wmi-management.registrations.destroy');
+    Route::post('/wmi-management/schools', [\App\Http\Controllers\WmiSchoolController::class,'store'])->name('wmi-management.schools.store');
+    Route::put('/wmi-management/schools/{school}', [\App\Http\Controllers\WmiSchoolController::class,'update'])->whereNumber('school')->name('wmi-management.schools.update');
+    Route::delete('/wmi-management/schools/{school}', [\App\Http\Controllers\WmiSchoolController::class,'destroy'])->whereNumber('school')->name('wmi-management.schools.destroy');
+    Route::post('/wmi-management/exam-centers', [\App\Http\Controllers\WmiExamCenterController::class,'store'])->name('wmi-management.centers.store');
+    Route::put('/wmi-management/exam-centers/{center}', [\App\Http\Controllers\WmiExamCenterController::class,'update'])->whereNumber('center')->name('wmi-management.centers.update');
+    Route::delete('/wmi-management/exam-centers/{center}', [\App\Http\Controllers\WmiExamCenterController::class,'destroy'])->whereNumber('center')->name('wmi-management.centers.destroy');
+    Route::post('/wmi-management/years', [\App\Http\Controllers\WmiYearController::class,'store'])->name('wmi-management.years.store');
+    Route::put('/wmi-management/years/{year}', [\App\Http\Controllers\WmiYearController::class,'update'])->whereNumber('year')->name('wmi-management.years.update');
+    Route::delete('/wmi-management/years/{year}', [\App\Http\Controllers\WmiYearController::class,'destroy'])->whereNumber('year')->name('wmi-management.years.destroy');
+    Route::get('/wmi-management/{section}', [\App\Http\Controllers\WmiManagementController::class,'section'])
+        ->whereIn('section',['preliminary-round','final-round','settings','import-export'])->name('wmi-management.section');
     Route::view('/student-discipline', 'academic-module-placeholder', [
         'title' => 'Student Discipline',
         'pretitle' => 'Student Affairs',

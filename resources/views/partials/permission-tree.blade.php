@@ -20,6 +20,7 @@
 <div class="row g-3 align-items-start mb-3">
 @php($mainMenuIcons['hrm']='ti-users-group')
 @php($mainMenuIcons['photo-editor']='ti-photo-edit')
+@php($mainMenuIcons['registrar-doc']='ti-folders')
 @php($mainMenuIcons['g12-national-exams']='ti-certificate')
 @foreach(\App\Support\G12NationalExamPermissions::ICONS as $section=>$icon)
     @php($submenuIcons['g12-national-exams.'.$section]=$icon)

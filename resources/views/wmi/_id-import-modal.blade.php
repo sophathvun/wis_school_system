@@ -1,0 +1,9 @@
+<div class="modal modal-blur fade wmi-registration-modal" id="wmiIdImportModal" tabindex="-1" aria-labelledby="wmiIdImportTitle" aria-hidden="true"><div class="modal-dialog modal-dialog-centered"><form class="modal-content wmi-year-modal" data-id-import-form>
+    @csrf<div class="modal-header"><h2 class="modal-title" id="wmiIdImportTitle">Import Committee WMI IDs</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div><div class="modal-body"><div class="alert alert-danger" data-task-error role="alert" hidden></div>
+        <p>Export the candidates, fill in <strong>wmi_id_number</strong>, and keep <strong>registration_reference</strong> unchanged. Format IDs as text to retain leading zeros.</p>
+        <div class="wmi-modal-field premium-form-field mb-3"><label class="form-label" for="wmiImportYear">WMI Year <span class="text-danger">*</span></label><select class="form-select" id="wmiImportYear" name="wmi_year_id" required data-registration-picker="WMI Year"><option value="">Select WMI Year</option>@foreach($registrationYears as $year)<option value="{{ $year->id }}">WMI {{ $year->year }}</option>@endforeach</select></div>
+        <label class="wmi-import-dropzone"><i class="ti ti-file-upload" aria-hidden="true"></i><strong>Choose or drop the completed file</strong><span>CSV or XLSX · Maximum 5 MB / 5,000 rows</span><input class="form-control" type="file" name="file" accept=".csv,.xlsx" required></label>
+        <div class="form-hint mt-3">Only WMI IDs are updated. Blank IDs leave records unchanged. Duplicate IDs, mismatched references, and attempts to replace existing IDs stop the entire import.</div>
+    </div><div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary">Validate &amp; Update IDs</button></div>
+</form></div></div>
+

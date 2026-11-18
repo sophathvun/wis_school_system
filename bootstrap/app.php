@@ -32,6 +32,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*')
                 || ($request->is('attendance', 'attendance/*') && $request->expectsJson())
+                || ($request->is('wmi-management/*') && $request->expectsJson())
                 || $request->is('hrm/staff-management/address-options')
                 || ($request->is('login/passkey', 'login/passkey/*', 'profile/passkeys', 'profile/passkeys/*') && $request->expectsJson())
                 || ($request->is('photo-editor', 'photo-editor/*', 'photos/size', 'hrm/staff-management/photo/*', 'settings/users/photo/*', 'profile/photo/*') && $request->expectsJson())

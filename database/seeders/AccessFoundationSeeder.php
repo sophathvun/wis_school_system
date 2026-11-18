@@ -27,6 +27,7 @@ class AccessFoundationSeeder extends Seeder
             ['code' => 'reports.export', 'module' => 'reports', 'action' => 'export', 'name' => 'Export reports'],
             ['code' => 'administrator.view', 'module' => 'administrator', 'action' => 'view', 'name' => 'View Administrator menu'],
             ['code' => 'communication.view', 'module' => 'communication', 'action' => 'view', 'name' => 'View Communication menu'],
+            ['code' => 'registrar-doc.view', 'module' => 'registrar-doc', 'action' => 'view', 'name' => 'View Registrar DOC'],
             ['code' => 'photo-editor.view', 'module' => 'photo-editor', 'action' => 'view', 'name' => 'Use Photo Editor (Crop, Adjust, Background and Download)'],
             ['code' => 'database-backups.view', 'module' => 'database-backups', 'action' => 'view', 'name' => 'View database backups'],
             ['code' => 'database-backups.create', 'module' => 'database-backups', 'action' => 'create', 'name' => 'Create database backups'],

@@ -15,6 +15,22 @@ beforeEach(function () {
     $this->ids = createUserPermissionInheritanceFixture();
 });
 
+it('registers Registrar DOC as an assignable main menu without granting existing roles', function () {
+    $migration=require database_path('migrations/2026_11_18_000001_add_registrar_doc_permission.php');
+    $before=DB::table('access_role_permissions')->get()->toArray();
+    $migration->up();$migration->up();
+    $permission=Permission::where('code','registrar-doc.view')->sole();
+    $tree=PermissionHierarchy::tree(Permission::all());
+    expect($tree['registrar-doc']['permission']->id)->toBe($permission->id)
+        ->and(PermissionHierarchy::visibleIds(Permission::all())->all())->toContain($permission->id)
+        ->and(PermissionHierarchy::normalizeIds([$permission->id],Permission::all()))->toBe([$permission->id])
+        ->and(DB::table('access_role_permissions')->get()->toArray())->toEqual($before);
+    foreach(['role','department','user'] as $prefix){
+        $html=view('partials.permission-tree',['permissionHierarchy'=>$tree,'permissionPrefix'=>$prefix,'assignedPermissions'=>collect()])->render();
+        expect($html)->toContain('Registrar DOC','data-permission-code="registrar-doc.view"');
+    }
+});
+
 it('shows inherited role and department grants together with additional user grants', function () {
     $state = UserPermissionState::forUser(User::find(1), Permission::all());
     expect($state['permissions']->pluck('code'))->toContain('photo-editor.view','students.enrollment.profile','western-scholarship.tab-scoring','western-scholarship.scoring','dashboard.customize','dashboard.reset')

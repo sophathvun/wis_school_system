@@ -24,6 +24,7 @@ export default defineConfig({
                 "resources/js/group.js",
                 "resources/js/studentEnrollment.js",
                 "resources/js/studentPhotoImport.js",
+                "resources/js/wmiManagement.js",
                 "resources/js/studentDataTransfer.js",
                 "resources/js/placementTests.js",
                 "resources/js/placementTestTake.js",
