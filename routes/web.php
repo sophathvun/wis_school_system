@@ -590,7 +590,7 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         'pretitle' => 'Student Affairs',
         'icon' => 'ti-shield-checkered',
         'description' => 'Use this module to manage student discipline records, actions, and follow-up activities.',
-    ])->name('student-discipline.index');
+    ])->middleware('permission:student-discipline.view')->name('student-discipline.index');
     Route::get('/homeroom-activities', [HomeroomController::class, 'index'])->middleware('permission:homeroom.view')->name('homeroom-activities.index');
     Route::post('/homeroom-activities/assignments', [HomeroomController::class, 'storeAssignment'])->middleware('permission:homeroom.manage-assignments')->name('homeroom-activities.assignments.store');
     Route::patch('/homeroom-activities/assignments/{assignment}', [HomeroomController::class, 'updateAssignment'])->middleware('permission:homeroom.manage-assignments')->name('homeroom-activities.assignments.update');
@@ -650,25 +650,25 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         'pretitle' => 'Financial Management',
         'icon' => 'ti-cash',
         'description' => 'Use this module to manage school fee setup and payment records.',
-    ])->name('financial-management.school-fee');
+    ])->middleware('permission:financial-management.school-fee.view')->name('financial-management.school-fee');
     Route::view('/financial-management/invoices', 'academic-module-placeholder', [
         'title' => 'Invoices',
         'pretitle' => 'Financial Management',
         'icon' => 'ti-file-invoice',
         'description' => 'Use this module to create and manage student invoices.',
-    ])->name('financial-management.invoices');
+    ])->middleware('permission:financial-management.invoices.view')->name('financial-management.invoices');
     Route::view('/financial-management/payments', 'academic-module-placeholder', [
         'title' => 'Payments',
         'pretitle' => 'Financial Management',
         'icon' => 'ti-credit-card-pay',
         'description' => 'Use this module to record and review fee payments.',
-    ])->name('financial-management.payments');
+    ])->middleware('permission:financial-management.payments.view')->name('financial-management.payments');
     Route::view('/financial-management/expenses', 'academic-module-placeholder', [
         'title' => 'Expenses',
         'pretitle' => 'Financial Management',
         'icon' => 'ti-receipt-2',
         'description' => 'Use this module to record and track school expenses.',
-    ])->name('financial-management.expenses');
+    ])->middleware('permission:financial-management.expenses.view')->name('financial-management.expenses');
 
     Route::get('/reports', [ReportsController::class, 'index'])->middleware(\App\Http\Middleware\EnsureAcademicReportPermission::class)->name('reports.index');
     Route::get('/reports/transcript-templates/{level}/{page}', [ReportsController::class, 'transcriptTemplate'])
@@ -684,13 +684,13 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         'pretitle' => 'Reports',
         'icon' => 'ti-users-group',
         'description' => 'Use this module to review, print, and export HRM reports.',
-    ])->name('reports.hrm');
+    ])->middleware('permission:reports.hrm.view')->name('reports.hrm');
     Route::view('/reports/financial-reports', 'academic-module-placeholder', [
         'title' => 'Financial Reports',
         'pretitle' => 'Reports',
         'icon' => 'ti-report-money',
         'description' => 'Use this module to review, print, and export financial reports.',
-    ])->name('reports.financial');
+    ])->middleware('permission:reports.financial.view')->name('reports.financial');
     Route::get('/reports/{type}', [ReportsController::class, 'show'])->middleware(\App\Http\Middleware\EnsureAcademicReportPermission::class)->name('reports.show');
     Route::post('/reports/{type}/generate-id-book-list-codes', [ReportsController::class, 'generateIdBookListCodes'])->middleware(\App\Http\Middleware\EnsureAcademicReportPermission::class)->name('reports.id-book-list-codes.generate');
     Route::get('/reports/{type}/excel', [ReportsController::class, 'excel'])->middleware(\App\Http\Middleware\EnsureAcademicReportPermission::class)->name('reports.excel');

@@ -151,6 +151,7 @@ class AccessFoundationSeeder extends Seeder
         foreach (G12CertificatePermissions::catalog() as $code => $name) {
             $permissions[] = ['code' => $code, 'module' => 'reports.g12', 'action' => substr($code, strlen('reports.g12.')), 'name' => $name];
         }
+        $permissions = [...$permissions, ...\App\Support\AdditionalMenuPermissions::catalog()];
         foreach ($permissions as $permission) {
             Permission::updateOrCreate(['code' => $permission['code']], $permission);
         }
@@ -176,7 +177,7 @@ class AccessFoundationSeeder extends Seeder
             $role = Role::updateOrCreate(['code' => $roleData['code']], $roleData + ['is_system' => true, 'status' => 1]);
             // These shared certificate actions require an explicit grant to non-super roles.
             $rolePermissions = $role->code === 'super-admin' ? $allPermissions : $allPermissions->filter(
-                fn ($permission) => $permission->code === 'pr-request.view' || $permission->module === 'western-scholarship' || $permission->module === 'wmi-management' || isset(\App\Support\HrmPermissions::catalog()[$permission->module])
+                fn ($permission) => $permission->code === 'pr-request.view' || in_array($permission->code, array_column(\App\Support\AdditionalMenuPermissions::catalog(), 'code'), true) || $permission->module === 'western-scholarship' || $permission->module === 'wmi-management' || isset(\App\Support\HrmPermissions::catalog()[$permission->module])
                     ? $role->permissions->contains('id', $permission->id)
                     : (in_array($permission->code, $reportTabCodes, true)
                     // New seeded roles keep the standard defaults; existing roles keep their selected tabs.

@@ -489,12 +489,14 @@
                 @include('layouts.partials.g9-national-exams-menu')
                 @include('layouts.partials.g12-national-exams-menu')
                 @include('layouts.partials.wmi-menu')
+                @if ($canView('student-discipline.view'))
                 <li class="nav-item {{ request()->routeIs('student-discipline.*') ? 'active' : '' }}">
                     <a class="nav-link" href="{{ route('student-discipline.index') }}">
                         <span class="nav-link-icon d-md-none d-lg-inline-block"><i class="ti ti-shield-checkered icon"></i></span>
                         <span class="nav-link-title">Student Discipline</span>
                     </a>
                 </li>
+                @endif
                 @if ($canView('homeroom.view'))
                     <li class="nav-item {{ request()->routeIs('homeroom-activities.*') ? 'active' : '' }}">
                         <a class="nav-link" href="{{ route('homeroom-activities.index') }}">
@@ -549,7 +551,7 @@
                         </div>
                     </li>
                 @endif
-                @if ($canView('administrator.view') || $canView('settings.view') || $canView('reports.view'))
+                @if ($canView('financial-management.view'))
                     <li class="nav-item dropdown {{ request()->routeIs('financial-management.*') ? 'active' : '' }}">
                         <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown"
                             data-bs-auto-close="false" role="button" aria-expanded="{{ request()->routeIs('financial-management.*') ? 'true' : 'false' }}">
@@ -557,18 +559,26 @@
                             <span class="nav-link-title">Financial Management</span>
                         </a>
                         <div class="dropdown-menu {{ request()->routeIs('financial-management.*') ? 'show' : '' }}">
+                            @if ($canView('financial-management.school-fee.view'))
                             <a class="dropdown-item {{ request()->routeIs('financial-management.school-fee') ? 'active' : '' }}" href="{{ route('financial-management.school-fee') }}">
                                 <i class="ti ti-cash me-2"></i> School Fee
                             </a>
+                            @endif
+                            @if ($canView('financial-management.invoices.view'))
                             <a class="dropdown-item {{ request()->routeIs('financial-management.invoices') ? 'active' : '' }}" href="{{ route('financial-management.invoices') }}">
                                 <i class="ti ti-file-invoice me-2"></i> Invoices
                             </a>
+                            @endif
+                            @if ($canView('financial-management.payments.view'))
                             <a class="dropdown-item {{ request()->routeIs('financial-management.payments') ? 'active' : '' }}" href="{{ route('financial-management.payments') }}">
                                 <i class="ti ti-credit-card-pay me-2"></i> Payments
                             </a>
+                            @endif
+                            @if ($canView('financial-management.expenses.view'))
                             <a class="dropdown-item {{ request()->routeIs('financial-management.expenses') ? 'active' : '' }}" href="{{ route('financial-management.expenses') }}">
                                 <i class="ti ti-receipt-2 me-2"></i> Expenses
                             </a>
+                            @endif
                         </div>
                     </li>
                 @endif
@@ -584,14 +594,18 @@
                                 href="{{ route('reports.index') }}">
                                 <i class="ti ti-school me-2"></i> Academic Reports
                             </a>
+                            @if ($canView('reports.hrm.view'))
                             <a class="dropdown-item {{ request()->routeIs('reports.hrm') ? 'active' : '' }}"
                                 href="{{ route('reports.hrm') }}">
                                 <i class="ti ti-users-group me-2"></i> HRM Reports
                             </a>
+                            @endif
+                            @if ($canView('reports.financial.view'))
                             <a class="dropdown-item {{ request()->routeIs('reports.financial') ? 'active' : '' }}"
                                 href="{{ route('reports.financial') }}">
                                 <i class="ti ti-report-money me-2"></i> Financial Reports
                             </a>
+                            @endif
                         </div>
                     </li>
                 @endif

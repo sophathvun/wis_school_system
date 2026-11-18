@@ -26,6 +26,7 @@ class PermissionHierarchy
             'staff' => 'Staff Management', 'hrm-settings' => 'HRM Settings', 'hrm-staff-data'=>'Staff Import / Export',
             'hrm-staff-attendance' => 'Staff Attendance', 'hrm-payroll' => 'Payroll', 'hrm-leave-requests' => 'Leave Requests',
             'hrm-performance-reviews' => 'Performance Reviews', 'hrm-staff-reports' => 'Staff Reports',
+            ...AdditionalMenuPermissions::MODULES,
         ], $nationalLabels, collect(\App\Http\Controllers\WmiManagementController::SECTIONS)->mapWithKeys(fn($section,$key)=>['wmi-management.'.$key=>$section['label']])->all(), AcademicReportPermissions::moduleLabels(), collect(AttendancePermissions::sections())->mapWithKeys(fn($section,$key)=>['attendance.'.$key=>$section[0]])->all());
     }
 
@@ -118,10 +119,19 @@ class PermissionHierarchy
                 'modules' => ['staff', 'hrm-settings', 'departments', 'positions', 'hrm-staff-data', 'hrm-staff-attendance', 'hrm-payroll', 'hrm-leave-requests', 'hrm-performance-reviews', 'hrm-staff-reports'],
                 'actions' => [],
             ],
+            'student-discipline' => [
+                'label' => 'Student Discipline', 'permission' => 'student-discipline.view',
+                'modules' => [], 'actions' => [],
+            ],
+            'financial-management' => [
+                'label' => 'Financial Management', 'permission' => 'financial-management.view',
+                'modules' => ['financial-management.school-fee', 'financial-management.invoices', 'financial-management.payments', 'financial-management.expenses'],
+                'actions' => [],
+            ],
             'reports' => [
                 'label' => 'Reports', 'permission' => 'reports.view',
-                'modules_label' => 'Academic Reports',
-                'modules' => array_keys(AcademicReportPermissions::moduleLabels()),
+                'modules_label' => 'Report Types',
+                'modules' => [...array_keys(AcademicReportPermissions::moduleLabels()), 'reports.hrm', 'reports.financial'],
                 'actions' => ['reports.export'],
             ],
         ];

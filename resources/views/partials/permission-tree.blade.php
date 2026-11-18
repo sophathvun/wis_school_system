@@ -22,6 +22,9 @@
 @php($mainMenuIcons['photo-editor']='ti-photo-edit')
 @php($mainMenuIcons['registrar-doc']='ti-folders')
 @php($mainMenuIcons['wmi-management']='ti-trophy')
+@php($mainMenuIcons['financial-management']='ti-building-bank')
+@php($mainMenuIcons['student-discipline']='ti-shield-checkered')
+@php($submenuIcons=array_merge($submenuIcons,['financial-management.school-fee'=>'ti-cash','financial-management.invoices'=>'ti-file-invoice','financial-management.payments'=>'ti-credit-card-pay','financial-management.expenses'=>'ti-receipt-2','reports.hrm'=>'ti-users-group','reports.financial'=>'ti-report-money']))
 @foreach(\App\Http\Controllers\WmiManagementController::SECTIONS as $wmiKey=>$wmiSection)
 @php($submenuIcons['wmi-management.'.$wmiKey]=$wmiSection['icon'])
 @endforeach

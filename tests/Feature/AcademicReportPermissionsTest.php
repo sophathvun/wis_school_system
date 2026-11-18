@@ -114,14 +114,14 @@ it('adds every tab to the permission hierarchy and nests certificate actions und
     $permissions=Permission::all();
     $tree=PermissionHierarchy::tree($permissions);
     expect(array_keys($tree['reports']['modules']))->toBe(array_keys(AcademicReportPermissions::moduleLabels()))
-        ->and($tree['reports']['modules_label'])->toBe('Academic Reports')
+        ->and($tree['reports']['modules_label'])->toBe('Report Types')
         ->and($tree['reports']['modules']['reports.k3']['actions']->pluck('code')->all())->toBe(['reports.k3.edit-template'])
         ->and(PermissionHierarchy::visibleIds($permissions))->toHaveCount(18);
     $html=view('partials.permission-tree',[
         'permissionHierarchy'=>$tree,'permissionPrefix'=>'reports','assignedPermissions'=>collect(),
     ])->render();
     foreach (AcademicReportPermissions::labels() as $label) expect($html)->toContain(strtoupper($label));
-    expect($html)->toContain('Academic Reports','reports.k3.edit-template');
+    expect($html)->toContain('Report Types','reports.k3.edit-template');
 });
 
 it('preserves legacy role department and user report grants without adding certificate edit rights', function () {
@@ -280,4 +280,51 @@ it('keeps selected report tabs when refreshing the permission catalog', function
         ->where('role_id',1)->whereIn('code',$tabCodes)->pluck('code')->all())->toBe(['reports.student-photo.view']);
     expect(DB::table('access_role_permissions')->join('access_permissions','access_permissions.id','=','permission_id')
         ->where('role_id',2)->whereIn('code',$tabCodes)->count())->toBe(15);
+});
+
+
+it('registers financial discipline and report menus without changing assignments and renders all permission pages', function () {
+    $migration = require database_path('migrations/2026_11_18_000008_add_financial_discipline_report_permissions.php');
+    $migration->up();
+    ($this->grant)(['reports.hrm.view'], 'role');
+    $migration->up();
+    expect(Permission::whereIn('code', array_column(\App\Support\AdditionalMenuPermissions::catalog(), 'code'))->count())->toBe(8)
+        ->and(DB::table('access_role_permissions')->count())->toBe(1);
+    $permissions = Permission::all();
+    $tree = PermissionHierarchy::tree($permissions);
+    expect($tree['financial-management']['modules'])->toHaveCount(4)
+        ->and($tree['student-discipline']['permission']->code)->toBe('student-discipline.view')
+        ->and($tree['reports']['modules']['reports.hrm']['permission']->code)->toBe('reports.hrm.view')
+        ->and($tree['reports']['modules']['reports.financial']['permission']->code)->toBe('reports.financial.view');
+    foreach (['role', 'user', 'department'] as $prefix) {
+        $html = view('partials.permission-tree', ['permissionHierarchy'=>$tree, 'permissionPrefix'=>$prefix, 'assignedPermissions'=>collect()])->render();
+        expect($html)->toContain('FINANCIAL MANAGEMENT', 'STUDENT DISCIPLINE', 'HRM REPORTS', 'FINANCIAL REPORTS', 'SCHOOL FEE', 'INVOICES', 'PAYMENTS', 'EXPENSES');
+    }
+    $childIds = $permissions->whereIn('code', ['financial-management.payments.view', 'reports.hrm.view'])->modelKeys();
+    expect(PermissionHierarchy::normalizeIds($childIds, $permissions))->toBe([]);
+});
+
+it('requires dedicated menu and parent grants for financial discipline and report routes', function () {
+    \App\Support\AdditionalMenuPermissions::registerMissing();
+    foreach (['student-discipline.index'=>'student-discipline.view', 'financial-management.school-fee'=>'financial-management.school-fee.view', 'financial-management.invoices'=>'financial-management.invoices.view', 'financial-management.payments'=>'financial-management.payments.view', 'financial-management.expenses'=>'financial-management.expenses.view', 'reports.hrm'=>'reports.hrm.view', 'reports.financial'=>'reports.financial.view'] as $routeName=>$code) {
+        $route = app('router')->getRoutes()->getByName($routeName);
+        expect($route->gatherMiddleware())->toContain('permission:'.$code);
+        $request = Request::create('/');
+        $request->setUserResolver(fn()=>User::find(1));
+        expect(fn()=>(new \App\Http\Middleware\EnsurePermission)->handle($request, fn()=>response('Allowed'), $code))->toThrow(HttpException::class);
+    }
+    ($this->grant)(['financial-management.invoices.view', 'reports.hrm.view', 'student-discipline.view'], 'role');
+    $user = User::find(1);
+    expect(\App\Support\AdditionalMenuPermissions::allows($user, 'student-discipline.view'))->toBeTrue()
+        ->and(\App\Support\AdditionalMenuPermissions::allows($user, 'financial-management.invoices.view'))->toBeFalse()
+        ->and(\App\Support\AdditionalMenuPermissions::allows($user, 'reports.hrm.view'))->toBeFalse();
+    ($this->grant)(['financial-management.view', 'reports.view'], 'role');
+    DB::table('users')->where('id', 1)->update(['active_campus_id'=>null]);
+    $user = User::find(1);
+    expect(\App\Support\AdditionalMenuPermissions::allows($user, 'financial-management.invoices.view'))->toBeTrue()
+        ->and(\App\Support\AdditionalMenuPermissions::allows($user, 'reports.hrm.view'))->toBeTrue()
+        ->and(\App\Support\AdditionalMenuPermissions::allows($user, 'reports.financial.view'))->toBeFalse();
+    $request = Request::create('/');
+    $request->setUserResolver(fn()=>$user);
+    expect((new \App\Http\Middleware\EnsurePermission)->handle($request, fn()=>response('Allowed'), 'reports.hrm.view')->status())->toBe(200);
 });

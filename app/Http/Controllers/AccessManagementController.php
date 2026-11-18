@@ -20,6 +20,7 @@ class AccessManagementController
     {
         \App\Support\StudentEnrollmentPermissions::registerMissing();
         \App\Support\WmiPermissions::registerMissing();
+        \App\Support\AdditionalMenuPermissions::registerMissing();
         \App\Support\ScholarshipPermissions::registerMissing();
         \App\Support\G12NationalExamPermissions::registerMissing();
         \App\Support\G9NationalExamPermissions::register();
