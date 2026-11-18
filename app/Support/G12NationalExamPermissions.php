@@ -31,14 +31,14 @@ class G12NationalExamPermissions {
         $ids=$campus!==null?[$campus]:$user->accessibleCampuses()->pluck('tb_school_info.id')->all();
         // Menu and all-campus viewing can use an unscoped role grant. Record
         // mutations still require their complete permission chain in a campus.
-        if($campus===null&&in_array($action,['view','records','results'],true))$ids=[null,...$ids];
+        if($campus===null&&in_array($action,['view','records','results','certificates'],true))$ids=[null,...$ids];
         if(!$ids)$ids=[null];
         foreach($ids as $id){$ok=true;foreach(array_unique([self::MODULE.'.view',self::MODULE.'.'.(self::PARENTS[$action]??$action),self::MODULE.'.'.$action]) as $code)if(!$user->hasPermission($code,$id)){$ok=false;break;}if($ok)return true;}
         return false;
     }
     public static function campusIds(User $user,string $action='records'): array {return $user->accessibleCampuses()->get()->filter(fn($c)=>self::allows($user,$action,(int)$c->id))->modelKeys();}
     public static function reportCampuses(User $user, string $action='results'): array {
-        if(!in_array($action,['records','results','results-export'],true)||!self::allows($user,$action))return [];
+        if(!in_array($action,['records','results','results-export','certificates'],true)||!self::allows($user,$action))return [];
         return \App\Models\SchoolInfo::where('status',1)->pluck('id')->map(fn($id)=>(int)$id)->all();
     }
 }

@@ -28,6 +28,7 @@
         </div>
 </div>@endsection
 @section('content')
+    @include('partials.back-to-top')
     @php
         $roleStatus = old('status', $editRole?->status ?? 1);
         $roleSortBy = $sortBy ?? request('sortBy', 'name');

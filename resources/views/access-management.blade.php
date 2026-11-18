@@ -3,6 +3,7 @@
 @section('title', 'Roles and Permissions')
 
 @section('content')
+    @include('partials.back-to-top')
     @vite('resources/css/pages/access-management.css')
     @vite('resources/css/pages/partials-permission-tree.css')
 

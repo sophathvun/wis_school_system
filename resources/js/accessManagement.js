@@ -1,6 +1,9 @@
 ﻿import * as bootstrap from "bootstrap";
 
+import { setupBackToTop } from "./helpers/backToTop.js";
+
 document.addEventListener("DOMContentLoaded", () => {
+    setupBackToTop(document.querySelector("[data-back-to-top]"));
     const successMessage = document.querySelector("[data-access-success-message]")?.dataset.accessSuccessMessage;
     if (successMessage && window.Swal) {
         window.Swal.fire({

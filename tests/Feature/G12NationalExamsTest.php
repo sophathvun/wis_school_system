@@ -786,3 +786,27 @@ it('separates all campus record filters from permitted create and edit campuses'
     expect(fn()=>$service->save($user,g12ExamData(['student_id'=>'REMOTE-CANDIDATE','campus_id'=>2,'version'=>$other->version]),$other))->toThrow(HttpException::class);
     expect($other->fresh()->name_en)->toBe('NATIONAL EXAM STUDENT');
 })->with(['role','department','user']);
+
+
+it('allows all campus certificate tracking filters while limiting updates and document uploads to assigned campuses',function(){
+    $service=app(G12NationalExams::class);$admin=User::find(1);
+    $own=$service->save($admin,g12ExamData());
+    $remote=$service->save($admin,g12ExamData(['student_id'=>'REMOTE-CERT','campus_id'=>2,'campus'=>'BKK']));
+    $user=g12ExamUser(['view','certificates','collection','documents-upload','documents-view'],'role');
+    $controller=app(G12NationalExamController::class);
+    $meta=$controller->meta(g12Request($user,['tab'=>'certificates']))->getData(true);
+    expect(array_column($meta['campuses'],'id'))->toBe([1,2]);
+    $list=$controller->list(g12Request($user,['tab'=>'certificates']))->getData(true);
+    expect($list['total'])->toBe(2);
+    $rows=collect($list['data'])->keyBy('id');
+    expect($rows[$own->id]['can_manage_collection'])->toBeTrue()->and($rows[$remote->id]['can_manage_collection'])->toBeFalse()
+        ->and($rows[$own->id]['can_upload_documents'])->toBeTrue()->and($rows[$remote->id]['can_upload_documents'])->toBeFalse();
+    $filtered=$controller->list(g12Request($user,['tab'=>'certificates','campus_id'=>2]))->getData(true);
+    expect($filtered['total'])->toBe(1)->and($filtered['data'][0]['id'])->toBe($remote->id);
+    $shown=$controller->show(g12Request($user),$remote)->getData(true);
+    expect($shown['permissions']['collection'])->toBeFalse()->and($shown['permissions']['documents-upload'])->toBeFalse();
+    $files=app(G12NationalExamFiles::class);
+    $files->collection($user,$own,'soft',['status'=>'available','number'=>'LOCAL-CERT','version'=>1]);
+    expect(fn()=>$files->collection($user,$remote,'soft',['status'=>'available','version'=>1]))->toThrow(HttpException::class);
+    expect(fn()=>$files->store($user,$remote,'soft_certificate',g12PhotoBytes(),'remote.jpg'))->toThrow(HttpException::class);
+});

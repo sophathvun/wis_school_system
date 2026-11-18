@@ -149,19 +149,22 @@ it('optimizes images creates private thumbnails supports JPG download and reject
     expect(fn()=>$this->tracking->save($this->admin,$candidate,g9TrackingInput(['version'=>1]),['receipt'=>UploadedFile::fake()->createWithContent('bad.svg','<svg xmlns="http://www.w3.org/2000/svg"></svg>')]))->toThrow(ValidationException::class);
 });
 
-it('scopes filters metadata documents and mutations to permitted campuses with independent view and manage grants',function(){
+it('views and filters tracking across campuses but scopes documents and mutations to permitted campuses',function(){
     $local=g9TrackedCandidate('local');$private=g9TrackedCandidate('private',['exam_center'=>'Private Center'],['campus_id'=>2]);
     $this->tracking->save($this->admin,$private,g9TrackingInput(['number'=>'G926-PRIVATE']),['provisional'=>g9TrackingUpload()]);
     $user=g9TrackingUser(['view','certificates']);
     $data=$this->controller->data(g12Request($user,['academic_year'=>1]),$this->tracking)->getData(true);
-    expect($data['records']['total'])->toBe(1)->and($data['records']['data'][0])->toMatchArray(['can_view_documents'=>false,'can_manage'=>false,'documents'=>[]]);
-    expect($this->controller->options(g12Request($user,['academic_year'=>1]))->getData(true)['exam_center'])->toBe(['មណ្ឌលប្រឡង ភ្នំពេញថ្មី']);
-    expect(fn()=>$this->controller->show(g12Request($user),$private,$this->tracking))->toThrow(HttpException::class)
-        ->and(fn()=>$this->controller->file(g12Request($user),G9ExamCertificateFile::sole(),$this->tracking))->toThrow(HttpException::class)
+    expect($data['records']['total'])->toBe(2)->and($data['records']['data'][0])->toMatchArray(['can_view_documents'=>false,'can_manage'=>false,'documents'=>[]]);
+    expect($this->controller->options(g12Request($user,['academic_year'=>1]))->getData(true)['exam_center'])->toContain('មណ្ឌលប្រឡង ភ្នំពេញថ្មី','Private Center');
+    expect($this->controller->show(g12Request($user),$private,$this->tracking)->getData(true)['can_manage'])->toBeFalse();
+    expect(fn()=>$this->controller->file(g12Request($user),G9ExamCertificateFile::sole(),$this->tracking))->toThrow(HttpException::class)
         ->and(fn()=>$this->tracking->save($user,$local,g9TrackingInput(),[]))->toThrow(HttpException::class);
     foreach(['certificates-documents-view','certificates-manage'] as $action)DB::table('access_user_permission_overrides')->insert(['user_id'=>2,'permission_id'=>DB::table('access_permissions')->where('code','g9-national-exams.'.$action)->value('id'),'allowed'=>true]);
     g12Request($user);$this->tracking->save($user,$local,g9TrackingInput(),[]);
     expect(fn()=>$this->tracking->save($user,$private,g9TrackingInput(['version'=>1]),[]))->toThrow(HttpException::class);
+    $filtered=$this->controller->data(g12Request($user,['academic_year'=>1,'campus'=>2]),$this->tracking)->getData(true);
+    expect($filtered['records']['total'])->toBe(1)->and($filtered['records']['data'][0]['id'])->toBe($private->id)
+        ->and($filtered['records']['data'][0]['can_manage'])->toBeFalse();
     expect(Access::parent('certificates-manage'))->toBe('certificates');
 });
 

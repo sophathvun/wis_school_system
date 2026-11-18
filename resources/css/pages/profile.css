@@ -424,18 +424,21 @@ body.dark .profile-edit-section-header {
     gap: 0.65rem;
     color: #8994a5;
     font-size: 0.8rem;
+    width: 100%;
+    min-width: 0;
 }
 
 .profile-password-meta {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+    min-width: 0;
 }
 
 .profile-password-note {
     margin: 0;
-    white-space: nowrap;
+    white-space: normal;
 }
 
 @media (max-width: 767.98px) {
@@ -858,6 +861,7 @@ body[data-bs-theme="dark"] .profile-share-actions .btn {
     display: inline-flex;
     align-items: center;
     gap: 0.25rem;
+    white-space: nowrap;
 }
 
 .profile-password-rule::before {
@@ -866,6 +870,7 @@ body[data-bs-theme="dark"] .profile-share-actions .btn {
     height: 0.75rem;
     border-radius: 50%;
     background: #dfe5ec;
+    flex-shrink: 0;
 }
 
 .profile-password-rule.is-valid {

@@ -1,0 +1,15 @@
+.app-back-to-top {
+    position: fixed;
+    right: 1.5rem;
+    bottom: calc(var(--wis-footer-height, 2.25rem) + 5rem);
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    z-index: 1025;
+    box-shadow: 0 4px 16px rgba(20, 35, 60, .2);
+}
+
+.app-back-to-top[hidden],
+.modal-open .app-back-to-top {
+    display: none;
+}

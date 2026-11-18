@@ -21,7 +21,7 @@ class G12NationalExamController {
     }
     private function query(Request $request,string $action){
         $data=$request->validate(['academic_year'=>'nullable|string|max:9','language_exam'=>'nullable|string|max:80','class_selected'=>'nullable|string|max:150','campus_id'=>'nullable|integer','center_id'=>'nullable|integer','record_id'=>'nullable|integer','grade'=>'nullable|string|max:80','result_status'=>'nullable|in:pending,passed,failed','certificate_status'=>'nullable|in:awaiting,available,collected,not_applicable,review','certificate_type'=>'nullable|in:soft,hard','search'=>'nullable|string|max:150']);
-        $ids=in_array($action,['records','results','results-export'],true)?Access::reportCampuses($request->user(),$action):Access::campusIds($request->user(),$action);
+        $ids=in_array($action,['records','results','results-export','certificates'],true)?Access::reportCampuses($request->user(),$action):Access::campusIds($request->user(),$action);
         return G12ExamRecord::whereIn('campus_id',$ids)
             ->when($data['academic_year']??null,fn($q,$v)=>$q->where('academic_year',$v))->when($data['campus_id']??null,fn($q,$v)=>$q->where('campus_id',$v))
             ->when($data['center_id']??null,fn($q,$v)=>$q->where('center_id',$v))->when($data['record_id']??null,fn($q,$v)=>$q->whereKey($v))->when($data['grade']??null,fn($q,$v)=>$q->where('grade',$v))
@@ -32,7 +32,7 @@ class G12NationalExamController {
             ->when(($data['certificate_status']??null)||($data['certificate_type']??null),fn($q)=>$q->whereHas('certificates',fn($s)=>$s->when($data['certificate_status']??null,fn($t,$v)=>$t->where('status',$v))->when($data['certificate_type']??null,fn($t,$v)=>$t->where('type',$v))));
     }
     public function meta(Request $request){
-        $tab=$this->tab($request);$ids=in_array($tab,['records','results'],true)?Access::reportCampuses($request->user(),$tab):Access::campusIds($request->user(),$tab);
+        $tab=$this->tab($request);$ids=in_array($tab,['records','results','certificates'],true)?Access::reportCampuses($request->user(),$tab):Access::campusIds($request->user(),$tab);
         $students=G12ExamRecord::whereIn('campus_id',$ids);
         $examData=$students->clone()->get(['data']);
         $examLanguages=$examData->map(fn($record)=>trim((string)($record->data['language_exam']??'')))->filter()->unique()->sortBy(fn($value)=>mb_strtolower($value))->values();
@@ -228,7 +228,7 @@ class G12NationalExamController {
             'can_upload_documents'=>$certificateEligible&&Access::allows($request->user(),'documents-upload',$r->campus_id),'can_manage_collection'=>$certificateEligible&&Access::allows($request->user(),'collection',$r->campus_id),'can_correct_collection'=>$certificateEligible&&Access::allows($request->user(),'collection-correct',$r->campus_id),'can_view_documents'=>Access::allows($request->user(),'documents-view',$r->campus_id)];
     }
     public function show(Request $request,G12ExamRecord $record){
-        abort_unless(in_array((int)$record->campus_id,Access::reportCampuses($request->user(),'records'),true)||Access::allows($request->user(),'scoring',$record->campus_id)||in_array((int)$record->campus_id,Access::reportCampuses($request->user()),true)||Access::allows($request->user(),'certificates',$record->campus_id)||Access::allows($request->user(),'reports',$record->campus_id),403);
+        abort_unless(in_array((int)$record->campus_id,Access::reportCampuses($request->user(),'records'),true)||Access::allows($request->user(),'scoring',$record->campus_id)||in_array((int)$record->campus_id,Access::reportCampuses($request->user()),true)||in_array((int)$record->campus_id,Access::reportCampuses($request->user(),'certificates'),true)||Access::allows($request->user(),'reports',$record->campus_id),403);
         $record->load(['center','campus','certificates','files'=>fn($files)=>$files->latest('id')]);$data=$this->summary($record,$request)+['data'=>$record->data,'campus_id'=>$record->campus_id,'center_id'=>$record->center_id,'photo_filename'=>$record->photo_filename,'document_folder'=>$record->document_folder];
         $data['files']=Access::allows($request->user(),'documents-view',$record->campus_id)?$record->files->map(fn($file)=>$this->fileSummary($file))->values():[];
         $data['history']=DB::table('tb_g12_exam_event')->where('record_id',$record->id)->latest('id')->limit(30)->get(['action','user_id','created_at']);
@@ -418,7 +418,7 @@ class G12NationalExamController {
         return Storage::disk('local')->response($file->path,$file->kind==='portrait'?basename($file->path):$file->original_name,['Content-Type'=>$file->mime,'X-Content-Type-Options'=>'nosniff','Cache-Control'=>'no-store, private'],$request->boolean('download')?'attachment':'inline');
     }
     public function photo(Request $request,G12ExamRecord $record){
-        abort_unless(in_array((int)$record->campus_id,Access::reportCampuses($request->user(),'records'),true)||Access::allows($request->user(),'assign-centers',$record->campus_id)||Access::allows($request->user(),'scoring',$record->campus_id)||in_array((int)$record->campus_id,Access::reportCampuses($request->user()),true)||Access::allows($request->user(),'certificates',$record->campus_id)||Access::allows($request->user(),'photos',$record->campus_id)||Access::allows($request->user(),'reports',$record->campus_id),403);
+        abort_unless(in_array((int)$record->campus_id,Access::reportCampuses($request->user(),'records'),true)||Access::allows($request->user(),'assign-centers',$record->campus_id)||Access::allows($request->user(),'scoring',$record->campus_id)||in_array((int)$record->campus_id,Access::reportCampuses($request->user()),true)||in_array((int)$record->campus_id,Access::reportCampuses($request->user(),'certificates'),true)||Access::allows($request->user(),'photos',$record->campus_id)||Access::allows($request->user(),'reports',$record->campus_id),403);
         abort_unless($record->photo_path&&Storage::disk('local')->exists($record->photo_path),404);
         return Storage::disk('local')->response($record->photo_path,null,['X-Content-Type-Options'=>'nosniff','Cache-Control'=>'no-store, private']);
     }

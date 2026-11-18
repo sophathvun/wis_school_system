@@ -1,4 +1,8 @@
 const modalEl = document.getElementById("roleModal");
+import { setupBackToTop } from "./helpers/backToTop.js";
+
+setupBackToTop(document.querySelector("[data-back-to-top]"));
+
 const modal = modalEl ? bootstrap.Modal.getOrCreateInstance(modalEl) : null;
 
 const wrapPremiumFields = () => {

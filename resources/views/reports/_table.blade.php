@@ -276,8 +276,8 @@
             <th colspan="2">Total</th>
             <th rowspan="2">Old</th>
             <th rowspan="2">New</th>
-            <th rowspan="2">Monthly<br>Dropout</th>
-            <th rowspan="2">Cumulative<br>Dropout</th>
+            <th rowspan="2">Monthly<br>Withdrawals</th>
+            <th rowspan="2">Cumulative<br>Withdrawals</th>
             <th rowspan="2">Campus</th>
         </tr>
         <tr>
@@ -415,7 +415,10 @@
         font-size: clamp(.48rem, .76vw, .68rem);
     }
     .reports-statistics-detail-table tbody th {
-        color: #fff !important;
+        color: #111 !important;
+    }
+    .reports-statistics-detail-table tbody tr:not(.statistics-detail-campus-row):not(.statistics-detail-total-row):not(.statistics-detail-grand-total-row) > th {
+        background: #fff !important;
     }
     .reports-statistics-detail-table th:first-child,
     .reports-statistics-detail-table td:first-child {
@@ -464,8 +467,8 @@
         background: #d9edf7 !important;
         height: 28px;
     }
-    .statistics-detail-grand-total-row th,
-    .statistics-detail-grand-total-row td {
+    .reports-statistics-detail-table tbody .statistics-detail-grand-total-row th,
+    .reports-statistics-detail-table tbody .statistics-detail-grand-total-row td {
         background: #3b73c9 !important;
         color: #ffffff !important;
         height: 30px;

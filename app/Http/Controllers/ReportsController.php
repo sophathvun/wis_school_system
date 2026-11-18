@@ -2005,7 +2005,7 @@ class ReportsController
         $mergeRefs[] = $totalStart . '5:' . $totalEnd . '5';
         $columnIndex += 2;
 
-        foreach (['Old', 'New', 'Monthly Dropout', 'Cumulative Dropout', 'Campus'] as $label) {
+        foreach (['Old', 'New', 'Monthly Withdrawals', 'Cumulative Withdrawals', 'Campus'] as $label) {
             $column = $this->xlsxColumnName($columnIndex);
             $topHeader[] = [$column, $label, 24];
             $secondHeader[] = [$column, '', 24];
@@ -2963,7 +2963,7 @@ JS;
 
     private function withdrawals(Request $request, array $filters)
     {
-        return StudentEnrollmentHistory::with([
+        return app(\App\Services\WithdrawalReportRows::class)->query()->with([
                 'student:id,student_no,student_id,photo_path,full_name_en,full_name_kh,gender,home_phone',
                 'academicYear:id,academic_year,period_type',
                 'campus:id,campus_name_en,campus_name_kh',
@@ -3268,7 +3268,7 @@ JS;
 
     private function withdrawalOptionBaseQuery(Request $request, array $filters)
     {
-        return StudentEnrollmentHistory::query()
+        return app(\App\Services\WithdrawalReportRows::class)->query()
             ->where('tb_student_enrollment_history.action_type', 'withdrawal')
             ->when(($filters['period_type'] ?? 'all') !== 'all', fn ($q) => $q->whereHas('academicYear', fn ($year) => $year->where('period_type', $filters['period_type'])))
             ->when(!$request->user()->isSuperAdmin(), fn ($q) => $q->whereIn('tb_student_enrollment_history.campus_id', $request->user()->accessibleCampuses()->pluck('tb_school_info.id')))
@@ -3357,9 +3357,7 @@ JS;
     {
         $reportMonth = $filters['month'] ?? now('Asia/Phnom_Penh')->format('Y-m');
         $reportDate = \Carbon\Carbon::createFromFormat('Y-m-d', $reportMonth . '-01')->endOfMonth();
-        $reportDateString = $reportDate->toDateString();
-        $monthStart = $reportDate->copy()->startOfMonth()->toDateString();
-        $monthEnd = $reportDate->copy()->endOfMonth()->toDateString();
+        $reportDateString = $reportDate->min(now('Asia/Phnom_Penh'))->toDateString();
 
         $rows = $this->enrollments($request, $filters, 'student-statistics-detail')
             ->join('tb_school_info', 'tb_school_info.id', '=', 'tb_student_enrollment.campus_id')
@@ -3405,29 +3403,16 @@ JS;
             ->orderByRaw('CAST(tb_session.session_order AS UNSIGNED)')
             ->get();
 
-        $dropoutRows = DB::table('tb_student_enrollment_history')
-            ->leftJoin('tb_academic_year', 'tb_academic_year.id', '=', 'tb_student_enrollment_history.academic_year_id')
-            ->where('tb_student_enrollment_history.action_type', 'withdrawal')
-            ->where('tb_student_enrollment_history.withdrawal_status', 'approved')
-            ->where('tb_student_enrollment_history.enrollment_status', 'withdrawn')
-            ->whereNotNull('tb_student_enrollment_history.effective_on')
-            ->whereDate('tb_student_enrollment_history.effective_on', '<=', $reportDateString)
-            ->when(($filters['period_type'] ?? 'all') !== 'all', fn ($q) => $q->where('tb_academic_year.period_type', $filters['period_type']))
-            ->when(!$request->user()->isSuperAdmin(), fn ($q) => $q->whereIn('tb_student_enrollment_history.campus_id', $request->user()->accessibleCampuses()->pluck('tb_school_info.id')))
-            ->when($filters['academic_year_id'] ?? null, fn ($q, $id) => $q->where('tb_student_enrollment_history.academic_year_id', $id))
-            ->when($filters['campus_id'] ?? null, fn ($q, $id) => $q->where('tb_student_enrollment_history.campus_id', $id))
-            ->when($filters['grade_id'] ?? null, fn ($q, $id) => $q->where('tb_student_enrollment_history.grade_id', $id))
-            ->when($filters['class_id'] ?? null, fn ($q, $id) => $q->where('tb_student_enrollment_history.class_id', $id))
-            ->when($filters['session_id'] ?? null, fn ($q, $id) => $q->where('tb_student_enrollment_history.session_id', $id))
-            ->select(
-                'tb_student_enrollment_history.grade_id',
-                'tb_student_enrollment_history.class_id',
-                DB::raw("COUNT(DISTINCT CASE WHEN tb_student_enrollment_history.effective_on BETWEEN '" . $monthStart . "' AND '" . $monthEnd . "' THEN tb_student_enrollment_history.student_id END) as monthly_dropout"),
-                DB::raw('COUNT(DISTINCT tb_student_enrollment_history.student_id) as cumulative_dropout')
-            )
-            ->groupBy('tb_student_enrollment_history.grade_id', 'tb_student_enrollment_history.class_id')
-            ->get()
-            ->keyBy(fn ($row) => ($row->grade_id ?: 0) . ':' . ($row->class_id ?: 0));
+        $dropoutRows = app(\App\Services\StatisticsDetailWithdrawals::class)->rows($request, $filters);
+        // Keep a class/campus visible even if its last student has withdrawn.
+        $existingClasses = $rows->map(fn ($row) => $row->campus_id.':'.($row->grade_id ?: 0).':'.($row->class_id ?: 0))->flip();
+        foreach ($dropoutRows as $key => $withdrawal) {
+            if ($existingClasses->has($key)) continue;
+            $placeholder = clone $withdrawal;
+            $placeholder->session_short_name = null;
+            $placeholder->total = $placeholder->female = $placeholder->new_total = 0;
+            $rows->push($placeholder);
+        }
 
         $groups = Session::where('status', 1)
             ->whereNotNull('session_short_name')
@@ -3458,7 +3443,7 @@ JS;
                     $female = (int) $items->sum('female');
                     $new = (int) $items->sum('new_total');
                     $old = max(0, $total - $new);
-                    $dropout = $dropoutRows->get(($first->grade_id ?: 0) . ':' . ($first->class_id ?: 0));
+                    $dropout = $dropoutRows->get($first->campus_id . ':' . ($first->grade_id ?: 0) . ':' . ($first->class_id ?: 0));
                     $class = trim((string) (($first->grade_short_name ?: $first->grade) . ($first->class_name ?? ''))) ?: '-';
                     $row = [
                         'grade' => $class,

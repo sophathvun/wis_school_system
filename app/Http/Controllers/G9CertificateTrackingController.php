@@ -16,7 +16,7 @@ class G9CertificateTrackingController
 
     private function campuses(Request $request): array
     {
-        $ids=Access::campusIds($request->user(),'certificates');abort_unless($ids,403);return $ids;
+        $ids=Access::reportCampuses($request->user(),'certificates');abort_unless($ids,403);return $ids;
     }
 
     public function index(Request $request)
@@ -78,7 +78,7 @@ class G9CertificateTrackingController
 
     public function show(Request $request,G9ExamCandidate $candidate,G9CertificateTracking $tracking)
     {
-        $tracking->authorize($request->user(),'certificates',$candidate->campus_id);
+        abort_unless(in_array((int)$candidate->campus_id,$this->campuses($request),true),403);
         return response()->json($tracking->summary($candidate->load(['campus','academicYear','certificateTracking','certificateFiles','certificateNumber']),$request->user(),true))->header('Cache-Control','private, no-store');
     }
 
