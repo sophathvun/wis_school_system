@@ -664,13 +664,13 @@ it('remembers a manual photo filename match for later uploads and rejects expire
     $user=g12ExamUser(['view','photos','photos-upload']);expect(fn()=>$files->process($user,$retry,0,$record->id,true))->toThrow(HttpException::class);
     $retry->update(['expires_at'=>now()->subMinute()]);expect(fn()=>$files->process($admin,$retry,0,$record->id,true))->toThrow(ValidationException::class,'expired');
 });
-it('scopes list, reports, private files and record details to authorized campuses',function(){
+it('allows record viewing across campuses while keeping private documents and other reports scoped',function(){
     $admin=User::find(1);$service=app(G12NationalExams::class);$first=$service->save($admin,g12ExamData());$other=$service->save($admin,g12ExamData(['student_id'=>'other','campus_id'=>2]));
     $file=app(G12NationalExamFiles::class)->store($admin,$other,'soft_certificate',g12PhotoBytes(),'certificate.jpg');
     $user=g12ExamUser(['view','records','reports','export','certificates','documents-view']);$controller=app(G12NationalExamController::class);
     expect(Access::allows($user,'records',1))->toBeTrue()->and(Access::allows($user,'records'))->toBeTrue();
-    $list=$controller->list(g12Request($user,['tab'=>'records','per_page'=>'15','page'=>99]))->getData(true);expect($list['total'])->toBe(1)->and($list['current_page'])->toBe(1)->and($list['data'][0]['id'])->toBe($first->id);
-    expect(fn()=>$controller->show(g12Request($user),$other))->toThrow(HttpException::class);
+    $list=$controller->list(g12Request($user,['tab'=>'records','per_page'=>'15','page'=>99]))->getData(true);expect($list['total'])->toBe(2)->and($list['current_page'])->toBe(1);
+    expect($controller->show(g12Request($user),$other)->getData(true)['can_edit'])->toBeFalse();
     expect(fn()=>$controller->file(g12Request($user),$file))->toThrow(HttpException::class);
     $report=$controller->report(g12Request($user,['format'=>'print']));expect($report->getData()['records']->modelKeys())->toBe([$first->id]);
 });
@@ -739,3 +739,50 @@ it('provides fictional sample center data on an empty installation and requires 
             ->and(G12ExamRecord::count())->toBe(0)->and(G12ExamImport::count())->toBe(0);
     }finally{@unlink($path);}
 });
+
+
+it('lets campus result viewers read and filter all campuses without cross campus edit or score access', function () {
+    $service = app(G12NationalExams::class); $admin = User::find(1);
+    $own = $service->save($admin,g12ExamData());
+    $other = $service->save($admin,g12ExamData(['student_id'=>'OTHER-RESULT','campus_id'=>2,'campus'=>'BKK']));
+    $user = g12ExamUser(['view','results','results-export','records','edit','scoring','scoring-manage'], 'role');
+    $controller = app(G12NationalExamController::class);
+    $meta = $controller->meta(g12Request($user,['tab'=>'results']))->getData(true);
+    expect(array_column($meta['campuses'],'id'))->toBe([1,2]);
+    $list = $controller->list(g12Request($user,['tab'=>'results']))->getData(true);
+    expect($list['total'])->toBe(2);
+    $rows = collect($list['data'])->keyBy('id');
+    expect($rows[$own->id]['can_edit'])->toBeTrue()->and($rows[$other->id]['can_edit'])->toBeFalse()
+        ->and($rows[$own->id]['can_score'])->toBeTrue()->and($rows[$other->id]['can_score'])->toBeFalse();
+    $filtered = $controller->list(g12Request($user,['tab'=>'results','campus_id'=>2]))->getData(true);
+    expect($filtered['total'])->toBe(1)->and($filtered['data'][0]['id'])->toBe($other->id);
+    expect($controller->show(g12Request($user),$other)->getData(true)['can_edit'])->toBeFalse();
+    expect(Access::reportCampuses($user,'results-export'))->toBe([1,2])
+        ->and(Access::campusIds($user,'edit'))->toBe([1])
+        ->and(Access::campusIds($user,'scoring-manage'))->toBe([1]);
+    expect(fn()=>$service->save($user,g12ExamData(['student_id'=>'OTHER-RESULT','campus_id'=>2,'version'=>$other->version]),$other))->toThrow(HttpException::class);
+    $ownList = $controller->list(g12Request($user,['tab'=>'records']))->getData(true);
+    expect($ownList['total'])->toBe(2);
+});
+
+
+it('separates all campus record filters from permitted create and edit campuses', function (string $source) {
+    $service=app(G12NationalExams::class); $admin=User::find(1);
+    $own=$service->save($admin,g12ExamData());
+    $other=$service->save($admin,g12ExamData(['student_id'=>'REMOTE-CANDIDATE','campus_id'=>2,'campus'=>'BKK']));
+    $user=g12ExamUser(['view','records','create','edit'],$source);
+    $controller=app(G12NationalExamController::class);
+    $meta=$controller->meta(g12Request($user,['tab'=>'records']))->getData(true);
+    expect(array_column($meta['campuses'],'id'))->toBe([1,2])
+        ->and($meta['create_campuses'])->toBe([1])->and($meta['edit_campuses'])->toBe([1]);
+    $filtered=$controller->list(g12Request($user,['tab'=>'records','campus_id'=>2]))->getData(true);
+    expect($filtered['total'])->toBe(1)->and($filtered['data'][0]['id'])->toBe($other->id)
+        ->and($filtered['data'][0]['can_edit'])->toBeFalse();
+    $saved=$service->save($user,g12ExamData(['student_id'=>'NEW-OWN','campus_id'=>1]));
+    expect($saved->campus_id)->toBe(1);
+    $updated=$service->save($user,g12ExamData(['student_name_en'=>'UPDATED OWN','version'=>$own->version]),$own);
+    expect($updated->name_en)->toBe('UPDATED OWN');
+    expect(fn()=>$service->save($user,g12ExamData(['student_id'=>'NEW-REMOTE','campus_id'=>2])))->toThrow(HttpException::class);
+    expect(fn()=>$service->save($user,g12ExamData(['student_id'=>'REMOTE-CANDIDATE','campus_id'=>2,'version'=>$other->version]),$other))->toThrow(HttpException::class);
+    expect($other->fresh()->name_en)->toBe('NATIONAL EXAM STUDENT');
+})->with(['role','department','user']);

@@ -34,4 +34,8 @@ class G12NationalExamPermissions {
         return false;
     }
     public static function campusIds(User $user,string $action='records'): array {return $user->accessibleCampuses()->get()->filter(fn($c)=>self::allows($user,$action,(int)$c->id))->modelKeys();}
+    public static function reportCampuses(User $user, string $action='results'): array {
+        if(!in_array($action,['records','results','results-export'],true)||!self::allows($user,$action))return [];
+        return \App\Models\SchoolInfo::where('status',1)->pluck('id')->map(fn($id)=>(int)$id)->all();
+    }
 }

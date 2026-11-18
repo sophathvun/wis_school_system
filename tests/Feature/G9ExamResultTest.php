@@ -161,16 +161,20 @@ it('cascades year center campus room grade and student choices and applies resul
         expect(fn()=>$this->results->data(g12Request(User::find(1),$input)))->toThrow(ValidationException::class);
 });
 
-it('enforces result and tab permissions and prevents cross campus data exposure',function(){
+it('allows results and filters across campuses while requiring separate tab and edit grants',function(){
     g9ResultCandidate('1');g9ResultCandidate('2',200,['exam_center'=>'Private Center'],['campus_id'=>2]);
     $user=User::find(2);
     expect(fn()=>$this->results->data(g12Request($user,['academic_year'=>1])))->toThrow(HttpException::class);
     foreach(['view','results'] as $action)DB::table('access_user_permission_overrides')->insert(['user_id'=>2,'permission_id'=>DB::table('access_permissions')->where('code','g9-national-exams.'.$action)->value('id'),'allowed'=>true]);
     $data=$this->results->data(g12Request($user,['academic_year'=>1]))->getData(true);
-    expect($data['summary']['total'])->toBe(1)->and($data['records']['data'][0]['campus'])->toBe('BCH');
-    expect($this->results->data(g12Request($user,['academic_year'=>1,'campus'=>2]))->getData(true)['summary']['total'])->toBe(0);
-    expect($this->results->options(g12Request($user,['academic_year'=>1]))->getData(true)['exam_center'])->toBe(['Center A']);
+    expect($data['summary']['total'])->toBe(2)->and(array_column($data['records']['data'],'campus'))->toBe(['BCH','BKK']);
+    expect($this->results->data(g12Request($user,['academic_year'=>1,'campus'=>2]))->getData(true)['summary']['total'])->toBe(1);
+    expect($this->results->options(g12Request($user,['academic_year'=>1]))->getData(true)['exam_center'])->toBe(['Center A','Private Center']);
     foreach(['graph','statistics'] as $tab)expect(fn()=>$this->results->data(g12Request($user,['academic_year'=>1,'view'=>$tab])))->toThrow(HttpException::class);
+    foreach(['candidates','edit','scoring','scoring-edit'] as $action)DB::table('access_user_permission_overrides')->insert(['user_id'=>2,'permission_id'=>DB::table('access_permissions')->where('code','g9-national-exams.'.$action)->value('id'),'allowed'=>true]);
+    g12Request($user);
+    expect(Access::allows($user,'edit',1))->toBeTrue()->and(Access::allows($user,'scoring-edit',1))->toBeTrue()
+        ->and(Access::allows($user,'edit',2))->toBeFalse()->and(Access::allows($user,'scoring-edit',2))->toBeFalse();
     expect($this->results->index(g12Request($user))->getData()['tabs'])->toBe(['results'=>true,'graph'=>false,'statistics'=>false]);
 });
 

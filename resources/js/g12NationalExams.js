@@ -453,7 +453,7 @@ if(root){
             html+=`<h4 class="mt-3">${escape(group)}</h4><div class="g12-fields mb-3">`;
             for(const [name,label]of Object.entries(fields)){
                 if(name==='campus'||name==='g12_exam_center'){
-                    const campus=name==='campus',key=campus?'campus_id':'center_id',rows=campus?meta.campuses:meta.centers.filter(c=>c.active||c.id===editing?.center_id);
+                    const campus=name==='campus',key=campus?'campus_id':'center_id',rows=campus?meta.campuses.filter(c=>(editing?meta.edit_campuses:meta.create_campuses).includes(c.id)):meta.centers.filter(c=>c.active||c.id===editing?.center_id);
                     html+=`<div class="scholarship-field"><label for="edit-${key}">${escape(label)}</label><select class="form-select" name="${key}" id="edit-${key}" data-placeholder="Select ${escape(label)}" ${campus?'required':''}><option value="">Select ${escape(label)}</option>${optionList(rows,campus?'campus_name_en':'name')}</select></div>`;
                 }else html+=field(name,label,values[name]??'',(['student_id','academic_year','student_name_en'].includes(name)?'required maxlength="255" ':'')+(editing&&['student_id','academic_year'].includes(name)?'readonly':''));
             }html+='</div>';

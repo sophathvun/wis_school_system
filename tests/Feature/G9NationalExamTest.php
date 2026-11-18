@@ -1445,3 +1445,27 @@ it('prints seat stickers and room plans in separate room pages with actual assig
     $keys=array_keys(\App\Support\G9CandidateReport::TITLES);
     expect(array_search('seat-stickers',$keys))->toBe(array_search('profile',$keys)+1)->and(array_search('room-seat-plan',$keys))->toBe(array_search('profile',$keys)+2);
 });
+
+
+it('lets campus candidate viewers filter all campuses but only create and edit in their permitted campus', function () {
+    $admin=User::find(1);
+    $own=$this->controller->save(g12Request($admin,$this->input))->getData(true)['id'];
+    $remote=$this->controller->save(g12Request($admin,array_replace($this->input,['student_code'=>'REMOTE-CANDIDATE','campus_id'=>2])))->getData(true)['id'];
+    foreach(['view','candidates','create','edit'] as $action)DB::table('access_role_permissions')->insert(['role_id'=>2,'permission_id'=>DB::table('access_permissions')->where('code','g9-national-exams.'.$action)->value('id')]);
+    DB::table('access_user_roles')->insert(['user_id'=>2,'role_id'=>2,'campus_id'=>1]);
+    $user=User::find(2);
+    $page=$this->controller->index(g12Request($user))->getData();
+    expect($page['campuses']->modelKeys())->toBe([1,2])->and($page['createCampuses'])->toBe([1])->and($page['editCampuses'])->toBe([1]);
+    $rows=$this->controller->listing(g12Request($user))->getData(true);
+    expect($rows['total'])->toBe(2);
+    $keyed=collect($rows['data'])->keyBy('id');
+    expect($keyed[$own]['can_edit'])->toBeTrue()->and($keyed[$remote]['can_edit'])->toBeFalse();
+    $filtered=$this->controller->listing(g12Request($user,['campus'=>2]))->getData(true);
+    expect($filtered['total'])->toBe(1)->and($filtered['data'][0]['id'])->toBe($remote);
+    $created=$this->controller->save(g12Request($user,array_replace($this->input,['student_code'=>'NEW-OWN'])))->getData(true);
+    expect(G9ExamCandidate::find($created['id'])->campus_id)->toBe(1);
+    $this->controller->save(g12Request($user,array_replace($this->input,['name_en'=>'UPDATED OWN','version'=>G9ExamCandidate::find($own)->version])),$own);
+    expect(G9ExamCandidate::find($own)->name_en)->toBe('UPDATED OWN');
+    expect(fn()=>$this->controller->save(g12Request($user,array_replace($this->input,['student_code'=>'NEW-REMOTE','campus_id'=>2]))))->toThrow(HttpException::class);
+    expect(fn()=>$this->controller->save(g12Request($user,array_replace($this->input,['student_code'=>'REMOTE-CANDIDATE','campus_id'=>2,'version'=>G9ExamCandidate::find($remote)->version])),$remote))->toThrow(HttpException::class);
+});

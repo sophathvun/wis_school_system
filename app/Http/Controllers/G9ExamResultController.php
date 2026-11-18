@@ -15,7 +15,7 @@ class G9ExamResultController
 
     private function campuses(Request $request): array
     {
-        $ids=Access::campusIds($request->user(),'results');
+        $ids=Access::reportCampuses($request->user(),'results');
         abort_unless($ids,403);
         return $ids;
     }
