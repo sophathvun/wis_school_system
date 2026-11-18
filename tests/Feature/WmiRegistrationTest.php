@@ -5,6 +5,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 
 beforeEach(function () {
+    $this->mock(\App\Support\WmiPermissions::class)->shouldReceive('check')->andReturn(true);
     $this->withoutMiddleware(\App\Http\Middleware\TrackUserPresence::class);$this->withoutVite();
     app('view')->getFinder()->prependLocation(base_path('tests/Fixtures/wmi-views'));
     (require database_path('migrations/2026_07_31_000001_create_location_tables.php'))->up();

@@ -5,9 +5,9 @@
         <form method="GET" action="{{ route('wmi-management.registrations.export') }}" class="wmi-registration-filters mb-4" data-tools-export>
             <div><label class="visually-hidden" for="wmiExportYear">WMI Year</label><select class="form-select" id="wmiExportYear" name="wmi_year_id" data-tool-picker="WMI Year"><option value="">All WMI Years</option>@foreach($registrationYears as $year)<option value="{{ $year->id }}">WMI {{ $year->year }}</option>@endforeach</select></div>
             <div><label class="visually-hidden" for="wmiExportCenter">Exam Center</label><select class="form-select" id="wmiExportCenter" name="wmi_exam_center_id" data-tool-picker="Exam Center"><option value="">All Exam Centers</option>@foreach($registrationCenters as $center)<option value="{{ $center->id }}" data-year="{{ $center->wmi_year_id }}">{{ $center->name }} · WMI {{ $registrationYears->firstWhere('id',$center->wmi_year_id)?->year }}</option>@endforeach</select></div>
-            <button class="btn btn-primary" type="submit"><i class="ti ti-download me-2" aria-hidden="true"></i>Export Candidates</button>
+            <button class="btn btn-primary" type="submit" @disabled(!\App\Support\WmiPermissions::current('import-export.export-candidates'))><i class="ti ti-download me-2" aria-hidden="true"></i>Export Candidates</button>
         </form>
         <hr><h3>Import Committee WMI IDs</h3><p class="text-secondary">Upload the completed CSV or XLSX file to update committee IDs. The import validates every row before saving and protects existing IDs.</p>
-        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#wmiIdImportModal" @disabled($registrationYears->isEmpty())><i class="ti ti-upload me-2" aria-hidden="true"></i>Import WMI IDs</button>
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#wmiIdImportModal" @disabled($registrationYears->isEmpty()||!\App\Support\WmiPermissions::current('import-export.import-ids'))><i class="ti ti-upload me-2" aria-hidden="true"></i>Import WMI IDs</button>
     </div>
 </section>

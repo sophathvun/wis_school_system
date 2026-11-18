@@ -2188,6 +2188,22 @@
 /* Enrollment list filters: persistent labels and searchable, theme-aware items. */
 /* Let the enrollment page scroll as one form, rather than trapping rows in a
    fixed-height table. Keep horizontal scrolling available on narrow screens. */
+.enrollment-back-to-top {
+    position: fixed;
+    right: 1.5rem;
+    bottom: calc(var(--wis-footer-height, 2.25rem) + 5rem);
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    z-index: 1025;
+    box-shadow: 0 4px 16px rgba(20, 35, 60, .2);
+}
+
+.enrollment-back-to-top[hidden],
+.modal-open .enrollment-back-to-top {
+    display: none;
+}
+
 .page > .page-wrapper:has(.enrollment-list-card) {
     height: 100dvh !important;
     overflow-x: hidden !important;

@@ -17,6 +17,10 @@
     </div>
 @endsection
 @section('content')
+    <button type="button" class="btn btn-primary btn-icon enrollment-back-to-top d-print-none"
+        id="enrollmentBackToTop" aria-label="Back to top" title="Back to top" hidden>
+        <i class="ti ti-arrow-up" aria-hidden="true"></i>
+    </button>
     @php($reportBranding = \App\Models\BrandingSetting::current())
     @php($reportLogo1Path = $reportBranding->report_logo_1_path ?: 'school_logo/student_profile_report_logo.png')
     @php($reportLogo1File = storage_path('app/public/' . $reportLogo1Path))

@@ -12,6 +12,22 @@ import intlTelInput from "intl-tel-input";
 import "intl-tel-input/styles";
 
 const csrf = document.querySelector('meta[name="csrf-token"]')?.content;
+const backToTop = document.getElementById("enrollmentBackToTop");
+const enrollmentScrollContainer = backToTop?.closest(".page-wrapper");
+if (backToTop && enrollmentScrollContainer) {
+    const syncBackToTop = () => {
+        backToTop.hidden = enrollmentScrollContainer.scrollTop < 250;
+    };
+    enrollmentScrollContainer.addEventListener("scroll", syncBackToTop, { passive: true });
+    backToTop.addEventListener("click", () => {
+        enrollmentScrollContainer.scrollTo({
+            top: 0,
+            behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth",
+        });
+    });
+    window.addEventListener("resize", syncBackToTop);
+    syncBackToTop();
+}
 const userPermissions = (() => {
     try {
         return JSON.parse(document.body?.dataset.userPermissions || "[]");

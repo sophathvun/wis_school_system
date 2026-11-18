@@ -564,6 +564,7 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         Route::post('/imports/{batch}/inspect','inspect')->name('inspect');Route::post('/imports/{batch}/confirm','confirm')->name('confirm');
         Route::post('/photos/preview','photoPreview')->name('photos.preview');Route::post('/photos/{batch}/{index}','photoProcess')->whereNumber('index')->name('photos.process');
     });
+    Route::middleware(\App\Http\Middleware\EnsureWmiPermission::class)->group(function () {
     Route::get('/wmi-management', [\App\Http\Controllers\WmiManagementController::class,'index'])->name('wmi-management.index');
     Route::get('/wmi-management/registrations/enrollments', [\App\Http\Controllers\WmiRegistrationController::class,'enrollments'])->name('wmi-management.registrations.enrollments');
     Route::get('/wmi-management/registrations/export', [\App\Http\Controllers\WmiRegistrationController::class,'export'])->name('wmi-management.registrations.export');
@@ -583,6 +584,7 @@ Route::middleware(['auth', 'active.user'])->group(function () {
     Route::delete('/wmi-management/years/{year}', [\App\Http\Controllers\WmiYearController::class,'destroy'])->whereNumber('year')->name('wmi-management.years.destroy');
     Route::get('/wmi-management/{section}', [\App\Http\Controllers\WmiManagementController::class,'section'])
         ->whereIn('section',['preliminary-round','final-round','settings','import-export'])->name('wmi-management.section');
+    });
     Route::view('/student-discipline', 'academic-module-placeholder', [
         'title' => 'Student Discipline',
         'pretitle' => 'Student Affairs',

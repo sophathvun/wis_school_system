@@ -86,6 +86,8 @@ class WmiRegistrationController
             'remark'=>['nullable','string','max:2000'],
         ]);
         if($record && (int)$data['wmi_year_id']!==(int)$record->wmi_year_id) throw ValidationException::withMessages(['wmi_year_id'=>'The registration year cannot be changed. Create a separate registration for another WMI year.']);
+        if($request->filled('room_no')||$request->filled('seat_no')||($record&&($record->room_no||$record->seat_no)&&($request->has('room_no')||$request->has('seat_no'))))
+            abort_unless(\App\Support\WmiPermissions::current('settings.room-seats.assign'),403,'Room and seat changes require Assign Rooms and Seats permission.');
         // Lock the center for every writer so automatic allocation cannot race with manual assignments.
         WmiExamCenter::whereKey($data['wmi_exam_center_id'])->lockForUpdate()->firstOrFail();
         if($data['student_source']==='western') {

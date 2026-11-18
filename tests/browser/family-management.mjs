@@ -62,10 +62,18 @@ try{
         assert.equal(await evaluate(`!!document.querySelector('[data-edit="2"]')`),mode==='central','Foreign family Edit obeys scope');
         if(mode!=='readonly'){
             await click('[data-edit="1"]');await until('document.getElementById("familyModal").classList.contains("show")');
+            assert.equal(await evaluate('new FormData(document.getElementById("familyForm")).get("family_id")'),'1','Editing submits the existing family ID');
+            assert.equal(await evaluate('document.getElementById("familySubmit").textContent'),'Update','Editing labels the submit button Update');
             assert.match(await evaluate('document.getElementById("familySharedNotice").textContent'),/2 children across BCH, BKK/);
             assert.equal(await evaluate('document.getElementById("familyStatusToggle").disabled'),mode!=='central');
             assert.equal(await evaluate('new FormData(document.getElementById("familyForm")).has("status")'),mode==='central');
             await click('#familyModal [data-bs-dismiss]');await delay(350);
+            if(mode==='central'){
+                await click('#newFamily');await until('document.getElementById("familyModal").classList.contains("show")');
+                assert.equal(await evaluate('new FormData(document.getElementById("familyForm")).get("family_id")'),'','Creating clears the previous family ID');
+                assert.equal(await evaluate('document.getElementById("familySubmit").textContent'),'Save Family','Creating restores the Save Family label');
+                await click('#familyModal [data-bs-dismiss]');await delay(350);
+            }
             await click('[data-family-members="1"]');await until('document.querySelectorAll("#membersTable tr").length===2');
             assert.match(await evaluate('document.getElementById("membersSharedNotice").textContent'),/Changes apply to the whole family/);
             await click('#membersModal [data-bs-dismiss]');await delay(350);

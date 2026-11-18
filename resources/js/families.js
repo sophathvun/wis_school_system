@@ -678,6 +678,7 @@ const resetForm = () => {
     );
     syncStatusToggle(field("family_status"), field("familyStatusToggle"));
     document.getElementById("familyModalTitle").textContent = "New Family";
+    document.getElementById("familySubmit").textContent = "Save Family";
     form.querySelector("[data-alert]")?.classList.add("d-none");
     refreshFamilyFloatingFields();
 };
@@ -695,6 +696,7 @@ const editFamily = (id) => {
                     ? String(family.status ?? 1)
                     : (family[name] ?? "");
     });
+    field("family_id").value = String(family.id);
     parentRelationships.forEach((relationship) => {
         const member =
             family.members?.find(
@@ -717,6 +719,7 @@ const editFamily = (id) => {
     });
     syncStatusToggle(field("family_status"), field("familyStatusToggle"));
     document.getElementById("familyModalTitle").textContent = "Edit Family";
+    document.getElementById("familySubmit").textContent = "Update";
     field("family_status").disabled = !family.can_status;
     field("familyStatusToggle").disabled = !family.can_status;
     parentRelationships.forEach((relationship) => {

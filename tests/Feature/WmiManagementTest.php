@@ -4,6 +4,7 @@ use App\Http\Controllers\WmiManagementController;
 use Illuminate\Http\Request;
 
 beforeEach(function () {
+    $this->mock(\App\Support\WmiPermissions::class)->shouldReceive('check')->andReturn(true);
     $this->withoutVite();
     (require database_path('migrations/2026_11_18_000002_create_wmi_years.php'))->up();
     (require database_path('migrations/2026_11_18_000003_create_wmi_exam_centers.php'))->up();

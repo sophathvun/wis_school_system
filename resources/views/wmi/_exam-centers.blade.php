@@ -14,7 +14,7 @@
                     </select>
                 </form>
             @endif
-            <button type="button" class="btn btn-primary flex-shrink-0 text-nowrap" data-wmi-center-new @disabled($centerYears->isEmpty())><i class="ti ti-plus me-2" aria-hidden="true"></i>Add New</button>
+            <button type="button" class="btn btn-primary flex-shrink-0 text-nowrap" data-wmi-center-new @disabled($centerYears->isEmpty() || !\App\Support\WmiPermissions::current('settings.exam-centers.create'))><i class="ti ti-plus me-2" aria-hidden="true"></i>Add New</button>
         </div>
     </div>
     @if($centerYears->isEmpty())
@@ -24,7 +24,7 @@
         @forelse($examCenters as $center)
             @php($linked=in_array($center->id,$linkedCenterIds,true))
             @php($centerPayload=["id"=>$center->id,"wmi_year_id"=>$center->wmi_year_id,"name"=>$center->name,"location"=>$center->location,"linked"=>$linked])
-            <tr><td><span class="wmi-year-number">{{ $examCenters->firstItem()+$loop->index }}</span></td><td class="text-nowrap fw-semibold">WMI {{ $center->wmiYear->year }}</td><td class="wmi-center-text"><strong>{{ $center->name }}</strong>@if($linked)<span class="badge bg-secondary-lt ms-2">Linked to data</span>@endif</td><td class="wmi-center-text">{{ $center->location }}</td><td><div class="d-flex justify-content-end gap-2"><button type="button" class="btn btn-sm btn-outline-primary" data-wmi-center-edit data-center='@json($centerPayload)' aria-label="Edit {{ $center->name }}"><i class="ti ti-edit me-1" aria-hidden="true"></i>Edit</button><span @if($linked) title="This exam center is linked to data and cannot be deleted." @endif><button class="btn btn-sm btn-outline-danger" type="button" data-wmi-center-delete data-id="{{ $center->id }}" data-name="{{ $center->name }}" @disabled($linked) aria-label="Delete {{ $center->name }}"><i class="ti ti-trash me-1" aria-hidden="true"></i>Delete</button></span></div></td></tr>
+            <tr><td><span class="wmi-year-number">{{ $examCenters->firstItem()+$loop->index }}</span></td><td class="text-nowrap fw-semibold">WMI {{ $center->wmiYear->year }}</td><td class="wmi-center-text"><strong>{{ $center->name }}</strong>@if($linked)<span class="badge bg-secondary-lt ms-2">Linked to data</span>@endif</td><td class="wmi-center-text">{{ $center->location }}</td><td><div class="d-flex justify-content-end gap-2"><button type="button" class="btn btn-sm btn-outline-primary" @disabled(!\App\Support\WmiPermissions::current('settings.exam-centers.update')) data-wmi-center-edit data-center='@json($centerPayload)' aria-label="Edit {{ $center->name }}"><i class="ti ti-edit me-1" aria-hidden="true"></i>Edit</button><span @if($linked) title="This exam center is linked to data and cannot be deleted." @endif><button class="btn btn-sm btn-outline-danger" type="button" data-wmi-center-delete data-id="{{ $center->id }}" data-name="{{ $center->name }}" @disabled($linked || !\App\Support\WmiPermissions::current('settings.exam-centers.delete')) aria-label="Delete {{ $center->name }}"><i class="ti ti-trash me-1" aria-hidden="true"></i>Delete</button></span></div></td></tr>
         @empty
             <tr><td colspan="5" class="text-center py-5"><span class="wmi-empty-icon"><i class="ti ti-building" aria-hidden="true"></i></span><h3>No exam centers found</h3><p class="text-secondary mb-0">Add an exam center and assign its WMI year.</p></td></tr>
         @endforelse

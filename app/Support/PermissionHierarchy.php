@@ -26,7 +26,7 @@ class PermissionHierarchy
             'staff' => 'Staff Management', 'hrm-settings' => 'HRM Settings', 'hrm-staff-data'=>'Staff Import / Export',
             'hrm-staff-attendance' => 'Staff Attendance', 'hrm-payroll' => 'Payroll', 'hrm-leave-requests' => 'Leave Requests',
             'hrm-performance-reviews' => 'Performance Reviews', 'hrm-staff-reports' => 'Staff Reports',
-        ], $nationalLabels, AcademicReportPermissions::moduleLabels(), collect(AttendancePermissions::sections())->mapWithKeys(fn($section,$key)=>['attendance.'.$key=>$section[0]])->all());
+        ], $nationalLabels, collect(\App\Http\Controllers\WmiManagementController::SECTIONS)->mapWithKeys(fn($section,$key)=>['wmi-management.'.$key=>$section['label']])->all(), AcademicReportPermissions::moduleLabels(), collect(AttendancePermissions::sections())->mapWithKeys(fn($section,$key)=>['attendance.'.$key=>$section[0]])->all());
     }
 
     public static function groups(): array
@@ -34,6 +34,14 @@ class PermissionHierarchy
         $nationalModules=[];$nationalActions=[];
         foreach(G12NationalExamPermissions::submenus() as $key=>$section){$module='g12-national-exams.'.$key;$nationalModules[]=$module;$nationalActions[$module]=array_map(fn($action)=>'g12-national-exams.'.$action,$section[1]);}
         return [
+            'wmi-management'=>[
+                'label'=>'WMI Management','permission'=>'wmi-management.view',
+                'description'=>'Authorized campus users can register Western and other-school students for any campus and view all WMI candidates. Campus Study and Campus Registered do not restrict WMI access. Enable each submenu and tab before its functions.',
+                'modules'=>array_map(fn($key)=>'wmi-management.'.$key,array_keys(\App\Http\Controllers\WmiManagementController::SECTIONS)),
+                'module_permissions'=>collect(\App\Http\Controllers\WmiManagementController::SECTIONS)->mapWithKeys(fn($section,$key)=>['wmi-management.'.$key=>'wmi-management.'.$key])->all(),
+                'module_actions'=>collect(\App\Http\Controllers\WmiManagementController::SECTIONS)->mapWithKeys(fn($section,$key)=>['wmi-management.'.$key=>array_values(array_filter(array_keys(WmiPermissions::catalog()),fn($code)=>str_starts_with($code,'wmi-management.'.$key.'.')))])->all(),
+                'actions'=>[],
+            ],
             'photo-editor' => [
                 'label' => 'Photo Editor', 'permission' => 'photo-editor.view',
                 'description' => 'Allow photo upload, crop and rotation, background replacement, color and clarity adjustments, photo sizes, and JPG / WebP downloads. Applies to assigned users independently of campus selection.',
@@ -140,6 +148,14 @@ class PermissionHierarchy
                                 'actions'=>collect($group['actions'])->map(fn($action)=>$byCode->get('western-scholarship.'.$action))->filter()->values()];
                         })->all();
                     }
+                    if(str_starts_with($module,'wmi-management.')){
+                        $section=substr($module,strlen('wmi-management.'));
+                        $tabs=\App\Http\Controllers\WmiManagementController::SECTIONS[$section]['tabs'];
+                        if($tabs)$modules[$module]['tabs']=collect($tabs)->map(function($tab,$key)use($module,$byCode){
+                            $code=$module.'.'.$key;
+                            return ['label'=>$tab[0],'permission'=>$byCode->get($code),'actions'=>collect(WmiPermissions::functions()[substr($code,strlen('wmi-management.'))]??[])->keys()->map(fn($action)=>$byCode->get($code.'.'.$action))->filter()->values()];
+                        })->all();
+                    }
                 }
             }
             $actions = collect($group['actions'])->map(fn ($code) => $byCode->get($code))->filter()->values();
@@ -215,6 +231,7 @@ class PermissionHierarchy
         foreach (StudentSkippingGradePermissions::PARENTS as $action=>$parent) {
             if (!$codes->has(StudentSkippingGradePermissions::MODULE.'.'.$parent)) $codes->forget(StudentSkippingGradePermissions::MODULE.'.'.$action);
         }
+        foreach(WmiPermissions::parents() as $code=>$parent)if(!$codes->has($parent))$codes->forget($code);
         foreach (ScholarshipPermissions::PARENTS as $action=>$parent) {
             if (!$codes->has('western-scholarship.'.$parent)) $codes->forget('western-scholarship.'.$action);
         }

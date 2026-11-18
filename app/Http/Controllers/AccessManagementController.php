@@ -19,6 +19,7 @@ class AccessManagementController
     public function index(Request $request)
     {
         \App\Support\StudentEnrollmentPermissions::registerMissing();
+        \App\Support\WmiPermissions::registerMissing();
         \App\Support\ScholarshipPermissions::registerMissing();
         \App\Support\G12NationalExamPermissions::registerMissing();
         \App\Support\G9NationalExamPermissions::register();

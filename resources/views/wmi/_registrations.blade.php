@@ -7,7 +7,7 @@
     </div>
     <section class="card wmi-years-card wmi-registration-list">
         <div class="card-header gap-3 flex-wrap"><span class="wmi-content-icon"><i class="ti ti-user-plus" aria-hidden="true"></i></span><div><div class="page-pretitle">Preliminary Round</div><h2 class="card-title mb-0">{{ $tab==='candidates'?'List of Candidates':'Pre Registration' }}</h2></div>
-            <button type="button" class="btn btn-primary ms-auto" data-wmi-registration-new @disabled($registrationYears->isEmpty()||$registrationCenters->isEmpty())><i class="ti ti-plus me-2" aria-hidden="true"></i>Register Candidate</button>
+            <button type="button" class="btn btn-primary ms-auto" data-wmi-registration-new @disabled($registrationYears->isEmpty()||$registrationCenters->isEmpty()||!\App\Support\WmiPermissions::current('preliminary-round.pre-registration.create'))><i class="ti ti-plus me-2" aria-hidden="true"></i>Register Candidate</button>
         </div>
         @if($registrationYears->isEmpty()||$registrationCenters->isEmpty())<div class="card-body border-bottom"><div class="alert alert-info mb-0">Create a WMI Year and assign an exam center in Settings to start registration.</div></div>@endif
         <div class="table-responsive wmi-registration-table-wrap"><table class="table table-vcenter mb-0 wmi-registration-table"><thead><tr><th class="wmi-list-number">No.</th><th>Student Name</th><th>Contact Info</th><th>Study Information</th><th>Registration</th><th class="wmi-list-action">Action</th></tr></thead><tbody>
@@ -38,8 +38,8 @@
                         <div class="wmi-list-line"><span class="wmi-list-label">Registered Date:</span> {{ $record->created_at?->format('d-M-Y')?:'?' }}</div>
                     </td>
                     <td data-label="Action"><div class="wmi-list-actions">
-                        <button type="button" class="btn btn-sm btn-outline-primary" data-wmi-registration-edit data-registration='@json($payload)' aria-label="Edit {{ $record->student_name }}"><i class="ti ti-edit me-1" aria-hidden="true"></i>Edit</button>
-                        <button type="button" class="btn btn-sm btn-outline-danger" data-wmi-registration-delete data-id="{{ $record->id }}" data-name="{{ $record->student_name }}" aria-label="Delete {{ $record->student_name }}"><i class="ti ti-trash me-1" aria-hidden="true"></i>Delete</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary" @disabled(!\App\Support\WmiPermissions::current('preliminary-round.pre-registration.update')) data-wmi-registration-edit data-registration='@json($payload)' aria-label="Edit {{ $record->student_name }}"><i class="ti ti-edit me-1" aria-hidden="true"></i>Edit</button>
+                        <button type="button" class="btn btn-sm btn-outline-danger" @disabled(!\App\Support\WmiPermissions::current('preliminary-round.pre-registration.delete')) data-wmi-registration-delete data-id="{{ $record->id }}" data-name="{{ $record->student_name }}" aria-label="Delete {{ $record->student_name }}"><i class="ti ti-trash me-1" aria-hidden="true"></i>Delete</button>
                     </div></td>
                 </tr>
             @empty<tr class="wmi-registration-empty"><td colspan="6" class="text-center py-5"><span class="wmi-empty-icon"><i class="ti ti-users" aria-hidden="true"></i></span><h3>No candidates found</h3><p class="text-secondary mb-0">Register a Western student or a student from another school.</p></td></tr>@endforelse

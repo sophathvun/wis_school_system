@@ -50,19 +50,34 @@ class AcademicReportPermissions
     {
         if (!$user) return [];
         if ($user->isSuperAdmin()) return self::labels();
-        if (!$user->hasPermission('reports.view', $user->active_campus_id)) return [];
-
-        return array_filter(self::labels(), fn ($label, $type) => $user->hasPermission(
-            self::REPORTS[$type]['module'].'.view', $user->active_campus_id
-        ), ARRAY_FILTER_USE_BOTH);
+        $campuses=self::permissionCampuses($user);
+        $visible=[];
+        foreach($campuses as $campus){
+            if(!$user->hasPermission('reports.view',$campus))continue;
+            foreach(self::REPORTS as $type=>$report){
+                if(!isset($visible[$type])&&$user->hasPermission($report['module'].'.view',$campus))$visible[$type]=$report['label'];
+            }
+        }
+        // Preserve the configured report order when multiple assigned campuses contribute grants.
+        return array_intersect_key(self::labels(),$visible);
     }
 
     public static function canView(?User $user, string $type): bool
     {
         if (!$user || !isset(self::REPORTS[$type])) return false;
-        return $user->isSuperAdmin() || (
-            $user->hasPermission('reports.view', $user->active_campus_id)
-            && $user->hasPermission(self::REPORTS[$type]['module'].'.view', $user->active_campus_id)
-        );
+        if($user->isSuperAdmin())return true;
+        foreach(self::permissionCampuses($user) as $campus){
+            if($user->hasPermission('reports.view',$campus)&&$user->hasPermission(self::REPORTS[$type]['module'].'.view',$campus))return true;
+        }
+        return false;
+    }
+
+    private static function permissionCampuses(User $user): array
+    {
+        // Reports routes do not require campus selection. A new campus user's
+        // role still applies to their assigned campus before they select one.
+        if($user->active_campus_id!==null)return [(int)$user->active_campus_id];
+        // Null retains existing global-role and personal permission behavior.
+        return [null,...$user->accessibleCampuses()->orderBy('tb_school_info.id')->pluck('tb_school_info.id')->map(fn($id)=>(int)$id)->all()];
     }
 }

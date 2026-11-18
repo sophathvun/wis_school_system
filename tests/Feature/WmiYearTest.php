@@ -5,6 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\{DB,Schema};
 
 beforeEach(function () {
+    $this->mock(\App\Support\WmiPermissions::class)->shouldReceive('check')->andReturn(true);
     $this->withoutMiddleware(\App\Http\Middleware\TrackUserPresence::class);
     $this->withoutVite();
     app('view')->getFinder()->prependLocation(base_path('tests/Fixtures/wmi-views'));

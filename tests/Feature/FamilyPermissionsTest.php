@@ -129,6 +129,16 @@ it('allows reading and searching all families but only edits a family with a cur
     $this->postJson('/families/save',[...$this->familyPayload,'family_id'=>3,'family_number'=>'F3'])->assertForbidden();
 });
 
+it('updates the same family number but rejects a number belonging to another family', function () {
+    ($this->grant)(['update']);
+    $this->postJson('/families/save', $this->familyPayload)
+        ->assertOk()->assertJsonPath('message', 'Family updated successfully.')->assertJsonPath('data.id', 1);
+    expect(Family::count())->toBe(4)->and(Family::find(1)->family_name)->toBe('Updated Family');
+    $this->postJson('/families/save', [...$this->familyPayload, 'family_number' => 'F2'])
+        ->assertUnprocessable()->assertJsonValidationErrors('family_number');
+    expect(Family::find(1)->family_number)->toBe('F1')->and(Family::find(2)->family_number)->toBe('F2');
+});
+
 it('allows either linked campus to edit shared contacts with the contact permission', function () {
     ($this->grant)(['members-update']);
     $this->postJson('/families/1/members/save',[...$this->memberPayload,'family_member_id'=>1])->assertOk();

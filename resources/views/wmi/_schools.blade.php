@@ -10,7 +10,7 @@
                     @foreach($assignedSchoolProvinces as $province)<option value="{{ $province->id }}" @selected((string)request('province_id')===(string)$province->id)>{{ $province->province_name_en }}@if($province->province_name_kh) — {{ $province->province_name_kh }}@endif</option>@endforeach
                 </select>
             </form>
-            <button type="button" class="btn btn-primary flex-shrink-0 text-nowrap" data-wmi-school-new><i class="ti ti-plus me-2" aria-hidden="true"></i>Add New</button>
+            <button type="button" class="btn btn-primary flex-shrink-0 text-nowrap" @disabled(!\App\Support\WmiPermissions::current('settings.schools.create')) data-wmi-school-new><i class="ti ti-plus me-2" aria-hidden="true"></i>Add New</button>
         </div>
     </div>
     @if($schoolProvinces->isEmpty())<div class="card-body border-bottom"><div class="alert alert-info mb-0">School Location is optional. Add provinces in Location Settings when needed.</div></div>@endif
@@ -26,8 +26,8 @@
                 <td class="wmi-center-text">{{ $school->province?->province_name_en??'?' }}@if($school->province?->province_name_kh)<div class="text-secondary">{{ $school->province->province_name_kh }}</div>@endif</td>
                 <td class="wmi-center-text">{{ $school->remark?:'—' }}</td>
                 <td><div class="d-flex justify-content-end gap-2">
-                    <button type="button" class="btn btn-sm btn-outline-primary" data-wmi-school-edit data-school='@json($schoolPayload)' aria-label="Edit {{ $school->name_en }}"><i class="ti ti-edit me-1" aria-hidden="true"></i>Edit</button>
-                    <span @if($linked) title="Schools linked to data cannot be deleted." @endif><button type="button" class="btn btn-sm btn-outline-danger" data-wmi-school-delete data-id="{{ $school->id }}" data-name="{{ $school->name_en }}" @disabled($linked) aria-label="Delete {{ $school->name_en }}"><i class="ti ti-trash me-1" aria-hidden="true"></i>Delete</button></span>
+                    <button type="button" class="btn btn-sm btn-outline-primary" @disabled(!\App\Support\WmiPermissions::current('settings.schools.update')) data-wmi-school-edit data-school='@json($schoolPayload)' aria-label="Edit {{ $school->name_en }}"><i class="ti ti-edit me-1" aria-hidden="true"></i>Edit</button>
+                    <span @if($linked) title="Schools linked to data cannot be deleted." @endif><button type="button" class="btn btn-sm btn-outline-danger" data-wmi-school-delete data-id="{{ $school->id }}" data-name="{{ $school->name_en }}" @disabled($linked || !\App\Support\WmiPermissions::current('settings.schools.delete')) aria-label="Delete {{ $school->name_en }}"><i class="ti ti-trash me-1" aria-hidden="true"></i>Delete</button></span>
                 </div></td>
             </tr>
         @empty

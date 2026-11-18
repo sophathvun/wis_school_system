@@ -29,15 +29,21 @@ class WmiManagementController
 
     public function index()
     {
-        return redirect()->route('wmi-management.section','preliminary-round');
+        foreach(self::SECTIONS as $section=>$config)if(\App\Support\WmiPermissions::current($section))return redirect()->route('wmi-management.section',$section);
+        abort(403);
     }
 
     public function section(Request $request, string $section)
     {
         abort_unless(isset(self::SECTIONS[$section]),404);
         $config=self::SECTIONS[$section];
-        $tab=$request->query('tab',array_key_first($config['tabs']));
-        abort_if($tab!==null && (!is_string($tab) || !isset($config['tabs'][$tab])),404);
+        $requested=$request->query('tab');
+        abort_if($requested!==null && (!is_string($requested) || !isset($config['tabs'][$requested])),404);
+        abort_unless(\App\Support\WmiPermissions::current($section),403);
+        $hadTabs=(bool)$config['tabs'];
+        $config['tabs']=array_filter($config['tabs'],fn($key)=>\App\Support\WmiPermissions::current($section.'.'.$key),ARRAY_FILTER_USE_KEY);
+        $tab=$requested??array_key_first($config['tabs']);
+        abort_if(($hadTabs&&$tab===null)||($tab!==null&&!isset($config['tabs'][$tab])),403);
         $years=null; $linkedYearIds=[];
         if ($section==='settings' && $tab==='academic-year') {
             $years=\App\Models\WmiYear::orderByDesc('year')->paginate(25)->withQueryString();

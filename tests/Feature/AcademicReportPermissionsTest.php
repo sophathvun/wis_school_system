@@ -172,6 +172,40 @@ it('limits visible tabs using user role or department grants and the active camp
     expect(AcademicReportPermissions::visibleTypes($user))->toBe($source==='user'?['student-photo'=>'Print Stu. Photo']:[]);
 })->with(['user','role','department']);
 
+it('allows assigned campus report grants before an active campus has been selected',function(string $source){
+    $this->migration->up();
+    if($source==='department'){
+        DB::table('access_departments')->insert(['id'=>1,'name'=>'Registrar']);
+        DB::table('users')->where('id',1)->update(['department_id'=>1]);
+    }
+    ($this->grant)(['reports.view','reports.student-photo.view'],$source);
+    DB::table('users')->where('id',1)->update(['active_campus_id'=>null]);
+    $user=User::findOrFail(1);
+    expect(AcademicReportPermissions::visibleTypes($user))->toBe(['student-photo'=>'Print Stu. Photo'])
+        ->and(AcademicReportPermissions::canView($user,'student-photo'))->toBeTrue()
+        ->and(AcademicReportPermissions::canView($user,'student-list'))->toBeFalse();
+    expect(($this->checkRoute)('/reports')->getStatusCode())->toBe(200)
+        ->and(($this->checkRoute)('/reports/student-photo')->getStatusCode())->toBe(200);
+    Schema::create('tb_academic_year',function(Blueprint $t){$t->id();$t->string('academic_year');$t->string('period_type');$t->integer('parent_academic_year_id')->nullable();$t->softDeletes();});
+    Schema::create('tb_grade',function(Blueprint $t){$t->id();$t->string('grade');$t->integer('grade_order');$t->integer('status')->default(1);$t->softDeletes();});
+    $request=Request::create('/reports');$request->setUserResolver(fn()=>User::findOrFail(1));
+    expect((new ReportsController)->index($request)->getData()['type'])->toBe('student-photo');
+    // The fallback must not turn the role into access for an unassigned campus.
+    $user->active_campus_id=3;
+    expect(AcademicReportPermissions::visibleTypes($user))->toBe([]);
+    expect(User::findOrFail(1)->accessibleCampuses()->pluck('tb_school_info.id')->all())->toBe([2]);
+})->with(['role','department']);
+
+it('does not use role grants at unassigned campuses or from inactive roles when no campus is selected',function(){
+    $this->migration->up();($this->grant)(['reports.view','reports.student-photo.view'],'role');
+    DB::table('users')->where('id',1)->update(['active_campus_id'=>null]);
+    DB::table('access_user_roles')->where('user_id',1)->update(['campus_id'=>3]);
+    expect(AcademicReportPermissions::visibleTypes(User::findOrFail(1)))->toBe([]);
+    DB::table('access_user_roles')->where('user_id',1)->update(['campus_id'=>2]);
+    DB::table('access_roles')->where('id',1)->update(['status'=>0]);
+    expect(AcademicReportPermissions::canView(User::findOrFail(1),'student-photo'))->toBeFalse();
+});
+
 it('enforces every tab on direct preview print Excel and PDF routes', function () {
     $this->migration->up();
     ($this->grant)(['reports.view']);

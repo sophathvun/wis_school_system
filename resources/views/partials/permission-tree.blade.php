@@ -21,6 +21,10 @@
 @php($mainMenuIcons['hrm']='ti-users-group')
 @php($mainMenuIcons['photo-editor']='ti-photo-edit')
 @php($mainMenuIcons['registrar-doc']='ti-folders')
+@php($mainMenuIcons['wmi-management']='ti-trophy')
+@foreach(\App\Http\Controllers\WmiManagementController::SECTIONS as $wmiKey=>$wmiSection)
+@php($submenuIcons['wmi-management.'.$wmiKey]=$wmiSection['icon'])
+@endforeach
 @php($mainMenuIcons['g12-national-exams']='ti-certificate')
 @foreach(\App\Support\G12NationalExamPermissions::ICONS as $section=>$icon)
     @php($submenuIcons['g12-national-exams.'.$section]=$icon)
@@ -138,6 +142,8 @@
                             @endif
                             @if($moduleKey==='western-scholarship')
                                 @include('partials.scholarship-permission-tabs')
+                            @elseif(str_starts_with($moduleKey,'wmi-management.') && isset($module['tabs']))
+                                @include('partials.wmi-permission-tabs')
                             @else
                             @foreach ($module['actions'] as $action)
                                 @php($actionOn = $assignedPermissions->contains('id', $action->id))
