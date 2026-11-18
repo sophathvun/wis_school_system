@@ -29,6 +29,9 @@ class G12NationalExamPermissions {
         if($campus!==null&&!$user->canAccessCampus($campus))return false;
         if($user->isSuperAdmin())return true;
         $ids=$campus!==null?[$campus]:$user->accessibleCampuses()->pluck('tb_school_info.id')->all();
+        // Menu and all-campus viewing can use an unscoped role grant. Record
+        // mutations still require their complete permission chain in a campus.
+        if($campus===null&&in_array($action,['view','records','results'],true))$ids=[null,...$ids];
         if(!$ids)$ids=[null];
         foreach($ids as $id){$ok=true;foreach(array_unique([self::MODULE.'.view',self::MODULE.'.'.(self::PARENTS[$action]??$action),self::MODULE.'.'.$action]) as $code)if(!$user->hasPermission($code,$id)){$ok=false;break;}if($ok)return true;}
         return false;
