@@ -78,6 +78,7 @@ beforeEach(function () {
 function idCardRequest(string $uri, string $method = 'GET', array $parameters = [], array $denied = []): Request
 {
     $user = Mockery::mock(User::class)->makePartial();
+    $user->active_campus_id = 1;
     $user->shouldReceive('isSuperAdmin')->andReturn(false);
     $user->shouldReceive('hasPermission')->andReturnUsing(fn ($code) => !in_array($code, $denied, true));
     $request = Request::create($uri, $method, $parameters);
@@ -88,6 +89,7 @@ function idCardRequest(string $uri, string $method = 'GET', array $parameters = 
 function idCardTemplateRequest(array $layout, int $version = 0, bool $allowed = true): Request
 {
     $user = Mockery::mock(User::class)->makePartial();
+    $user->active_campus_id = 1;
     $user->shouldReceive('isSuperAdmin')->andReturn(false);
     $user->shouldReceive('hasPermission')->andReturnUsing(fn ($code) => $code !== StudentIdCardLayout::EDIT_PERMISSION || $allowed);
     $request = Request::create('/students/id-card-qr/template', 'POST', [

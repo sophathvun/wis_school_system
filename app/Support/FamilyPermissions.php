@@ -8,7 +8,6 @@ use App\Models\User;
 
 class FamilyPermissions
 {
-    private array $grants = [];
     private ?array $campuses = null;
     private ?bool $superAdmin = null;
     private StudentEnrollmentPermissions $enrollmentAccess;
@@ -52,10 +51,7 @@ class FamilyPermissions
         if (!$this->user || !isset(self::catalog()[$action])) return false;
         if ($this->superAdmin ??= $this->user->isSuperAdmin()) return true;
         if (in_array($action, ['delete','status'], true) && !$this->isCentral()) return false;
-        $campus ??= $this->user->active_campus_id;
-        return $this->grants[$action.':'.$campus] ??= $this->user->hasPermission('students.view', $campus)
-            && $this->user->hasPermission('families.view', $campus)
-            && $this->user->hasPermission('families.'.$action, $campus);
+        return $this->enrollmentAccess->allowsModuleAction('families', $action, $campus);
     }
 
     public function campusIds(): array

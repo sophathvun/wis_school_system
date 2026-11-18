@@ -57,12 +57,27 @@ class StudentEnrollmentPermissions
     public function allows(string $action, ?int $permissionCampus = null): bool
     {
         if (!$this->user || !isset(self::catalog()[$action])) return false;
+        return $this->allowsModuleAction('students.enrollment', $action, $permissionCampus);
+    }
+
+    /** Resolve a complete menu/action grant within one campus, even before campus selection. */
+    public function allowsModuleAction(string $module, string $action, ?int $permissionCampus = null): bool
+    {
+        if (!$this->user) return false;
         if ($this->isSuperAdmin()) return true;
         $campus = $permissionCampus ?? $this->user->active_campus_id;
-        $key = $action.':'.$campus;
-        return $this->grants[$key] ??= $this->user->hasPermission('students.view', $campus)
-            && $this->user->hasPermission('students.enrollment.view', $campus)
-            && $this->user->hasPermission('students.enrollment.'.$action, $campus);
+        $key = $module.':'.$action.':'.($campus ?? 'unselected');
+        if (array_key_exists($key, $this->grants)) return $this->grants[$key];
+        // Explicit campus checks must never borrow permissions from another campus.
+        $campuses = $campus !== null ? [(int) $campus] : [null, ...$this->assignedCampusIds()];
+        foreach ($campuses as $candidate) {
+            if ($this->user->hasPermission('students.view', $candidate)
+                && $this->user->hasPermission($module.'.view', $candidate)
+                && $this->user->hasPermission($module.'.'.$action, $candidate)) {
+                return $this->grants[$key] = true;
+            }
+        }
+        return $this->grants[$key] = false;
     }
 
     public function isCentral(): bool

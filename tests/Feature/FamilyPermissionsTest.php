@@ -298,3 +298,28 @@ it('includes all family functions in the permission tree and migrates legacy gra
     expect($access->allows('search'))->toBeTrue()->and($access->allows('members-update'))->toBeTrue()
         ->and($access->allows('link'))->toBeTrue()->and($access->allows('history'))->toBeTrue()->and($access->allows('delete'))->toBeFalse();
 });
+
+
+it('uses assigned campus permissions before an active campus has been selected', function () {
+    ($this->grant)(['update']);
+    DB::table('users')->where('id', 1)->update(['active_campus_id'=>null]);
+    $user = User::find(1);
+    $this->actingAs($user);
+    $access = new FamilyPermissions($user);
+    expect($access->allows('view'))->toBeTrue()
+        ->and($access->allows('update'))->toBeTrue()
+        ->and($access->allows('delete'))->toBeFalse()
+        ->and($access->allows('view', 2))->toBeFalse();
+    expect($access->familyAction(Family::find(1), 'update'))->toBeTrue()->and($access->familyAction(Family::find(2), 'update'))->toBeFalse();
+    $this->getJson('/families/fetch')->assertOk();
+});
+
+it('does not bypass a selected campus or a missing students parent permission', function () {
+    ($this->grant)([]);
+    DB::table('users')->where('id', 1)->update(['active_campus_id'=>2]);
+    expect((new FamilyPermissions(User::find(1)))->allows('view'))->toBeFalse();
+    DB::table('users')->where('id', 1)->update(['active_campus_id'=>null]);
+    $parent = DB::table('access_permissions')->where('code', 'students.view')->value('id');
+    DB::table('access_role_permissions')->where('permission_id', $parent)->delete();
+    expect((new FamilyPermissions(User::find(1)))->allows('view'))->toBeFalse();
+});

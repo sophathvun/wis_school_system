@@ -163,3 +163,37 @@ it('rejects ZIP expansion beyond the per-photo limit before staging any files',f
         Storage::disk('local')->assertDirectoryEmpty('student-photo-imports/'.$id);
     }finally{@unlink($path);}
 });
+
+
+it('allows an assigned campus user to upload photos before selecting a campus while preserving ownership', function () {
+    DB::table('users')->where('id',1)->update(['active_campus_id'=>null]);
+    $this->actingAs(User::find(1));
+    $id = ($this->batch)(true);
+    ($this->upload)($id, 'SOK_DARA_00123.jpg')->assertOk();
+    ($this->upload)($id, 'OTHER_00456.jpg')->assertOk();
+    $rows = $this->getJson($this->base.'/'.$id)->assertOk()->json('rows');
+    expect(collect($rows)->firstWhere('student_code','00123')['status'])->toBe('ready')
+        ->and(collect($rows)->firstWhere('student_code','00456')['student_name'])->toBeNull();
+    ($this->confirm)($id)->assertOk();
+    $this->postJson($this->base.'/'.$id.'/process')->assertOk();
+    expect(DB::table('tb_student')->where('id',1)->value('photo_path'))->toEndWith('.webp')
+        ->and(DB::table('tb_student')->where('id',2)->value('photo_path'))->toBeNull();
+});
+
+it('allows QR card grants before campus selection and retains separate action and parent permissions', function () {
+    foreach (\App\Support\StudentIdCardPermissions::catalog() as $action=>$name) {
+        $id = DB::table('access_permissions')->insertGetId(['code'=>'student-id-card-qr.'.$action, 'module'=>'student-id-card-qr', 'action'=>$action, 'name'=>$name]);
+        if (in_array($action,['view','generate-qr'],true)) DB::table('access_role_permissions')->insert(['role_id'=>1,'permission_id'=>$id]);
+    }
+    DB::table('users')->where('id',1)->update(['active_campus_id'=>null]);
+    $user = User::find(1);
+    expect(\App\Support\StudentIdCardPermissions::allows($user,'view'))->toBeTrue()
+        ->and(\App\Support\StudentIdCardPermissions::allows($user,'generate-qr'))->toBeTrue()
+        ->and(\App\Support\StudentIdCardPermissions::allows($user,'print-class'))->toBeFalse()
+        ->and(\App\Support\StudentIdCardPermissions::allows($user,'edit-template'))->toBeFalse();
+    DB::table('users')->where('id',1)->update(['active_campus_id'=>2]);
+    expect(\App\Support\StudentIdCardPermissions::allows(User::find(1),'view'))->toBeFalse();
+    DB::table('users')->where('id',1)->update(['active_campus_id'=>null]);
+    DB::table('access_role_permissions')->where('permission_id',DB::table('access_permissions')->where('code','students.view')->value('id'))->delete();
+    expect(\App\Support\StudentIdCardPermissions::allows(User::find(1),'view'))->toBeFalse();
+});

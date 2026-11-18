@@ -7,7 +7,6 @@ use App\Models\User;
 
 class SummerSchoolPermissions
 {
-    private array $grants = [];
     private ?array $campuses = null;
     private ?bool $superAdmin = null;
     private StudentEnrollmentPermissions $studentAccess;
@@ -40,10 +39,7 @@ class SummerSchoolPermissions
     {
         if (!$this->user || !isset(self::catalog()[$action])) return false;
         if ($this->superAdmin ??= $this->user->isSuperAdmin()) return true;
-        $campus ??= $this->user->active_campus_id;
-        return $this->grants[$action.':'.$campus] ??= $this->user->hasPermission('students.view', $campus)
-            && $this->user->hasPermission('summer-school.view', $campus)
-            && $this->user->hasPermission('summer-school.'.$action, $campus);
+        return $this->studentAccess->allowsModuleAction('summer-school', $action, $campus);
     }
 
     private function campusIds(): array

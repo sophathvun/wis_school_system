@@ -23,10 +23,6 @@ class StudentIdCardPermissions
     public static function allows(?User $user, string $action): bool
     {
         if (!$user || !array_key_exists($action, self::catalog())) return false;
-        if ($user->isSuperAdmin()) return true;
-        foreach (array_unique(['students.view', self::MODULE . '.view', self::MODULE . '.' . $action]) as $code) {
-            if (!$user->hasPermission($code, $user->active_campus_id)) return false;
-        }
-        return true;
+        return (new StudentEnrollmentPermissions($user))->allowsModuleAction(self::MODULE, $action);
     }
 }

@@ -219,3 +219,27 @@ it('adds the action catalog to the permission tree and preserves existing read a
     expect($access->allows('filter'))->toBeTrue()->and($access->allows('history'))->toBeTrue()
         ->and($access->allows('update'))->toBeTrue()->and($access->allows('delete'))->toBeFalse();
 });
+
+
+it('uses assigned campus permissions before an active campus has been selected', function () {
+    ($this->grant)(['update']);
+    DB::table('users')->where('id', 1)->update(['active_campus_id'=>null]);
+    $user = User::find(1);
+    $this->actingAs($user);
+    $access = new StudentEnrollmentPermissions($user);
+    expect($access->allows('view'))->toBeTrue()
+        ->and($access->allows('update'))->toBeTrue()
+        ->and($access->allows('delete'))->toBeFalse()
+        ->and($access->allows('view', 2))->toBeFalse();
+    expect($access->canMutate(StudentEnrollment::find(1), 'update'))->toBeTrue()->and($access->canMutate(StudentEnrollment::find(2), 'update'))->toBeFalse();
+});
+
+it('does not bypass a selected campus or a missing students parent permission', function () {
+    ($this->grant)([]);
+    DB::table('users')->where('id', 1)->update(['active_campus_id'=>2]);
+    expect((new StudentEnrollmentPermissions(User::find(1)))->allows('view'))->toBeFalse();
+    DB::table('users')->where('id', 1)->update(['active_campus_id'=>null]);
+    $parent = DB::table('access_permissions')->where('code', 'students.view')->value('id');
+    DB::table('access_role_permissions')->where('permission_id', $parent)->delete();
+    expect((new StudentEnrollmentPermissions(User::find(1)))->allows('view'))->toBeFalse();
+});
