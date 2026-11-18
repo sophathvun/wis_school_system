@@ -742,14 +742,22 @@ class StudentEnrollmentController
 
     private function enrollmentListStats(Request $request): array
     {
+        $selectedYear = $request->filled('academic_year_id')
+            ? AcademicYear::find($request->integer('academic_year_id'))
+            : null;
+        $completedYear = in_array($selectedYear?->lifecycle_status, ['finished', 'archived'], true);
+        // Historical outcomes belong to the selected year, regardless of the student's current status.
+        $cardStatus = $completedYear
+            ? "tb_student_enrollment.enrollment_status IN ('completed', 'finished', 'graduated')"
+            : "tb_student_enrollment.enrollment_status = 'active'";
         $row = $this->filteredEnrollmentStatsQuery($request)
             ->selectRaw("
                 COUNT(DISTINCT tb_student_enrollment.student_id) as total_students,
                 COUNT(DISTINCT CASE WHEN LOWER(tb_student.gender) IN ('male', 'm') THEN tb_student_enrollment.student_id END) as total_male,
                 COUNT(DISTINCT CASE WHEN LOWER(tb_student.gender) IN ('female', 'f') THEN tb_student_enrollment.student_id END) as total_female,
-                COUNT(DISTINCT CASE WHEN tb_student_enrollment.enrollment_status = 'active' THEN tb_student_enrollment.student_id END) as active_students,
-                COUNT(DISTINCT CASE WHEN tb_student_enrollment.enrollment_status = 'active' AND LOWER(tb_student.gender) IN ('male', 'm') THEN tb_student_enrollment.student_id END) as active_male,
-                COUNT(DISTINCT CASE WHEN tb_student_enrollment.enrollment_status = 'active' AND LOWER(tb_student.gender) IN ('female', 'f') THEN tb_student_enrollment.student_id END) as active_female,
+                COUNT(DISTINCT CASE WHEN {$cardStatus} THEN tb_student_enrollment.student_id END) as active_students,
+                COUNT(DISTINCT CASE WHEN {$cardStatus} AND LOWER(tb_student.gender) IN ('male', 'm') THEN tb_student_enrollment.student_id END) as active_male,
+                COUNT(DISTINCT CASE WHEN {$cardStatus} AND LOWER(tb_student.gender) IN ('female', 'f') THEN tb_student_enrollment.student_id END) as active_female,
                 COUNT(DISTINCT CASE WHEN tb_student_enrollment.enrollment_status = 'withdrawn' THEN tb_student_enrollment.student_id END) as withdrawn_students,
                 COUNT(DISTINCT CASE WHEN tb_student_enrollment.enrollment_status = 'withdrawn' AND LOWER(tb_student.gender) IN ('male', 'm') THEN tb_student_enrollment.student_id END) as withdrawn_male,
                 COUNT(DISTINCT CASE WHEN tb_student_enrollment.enrollment_status = 'withdrawn' AND LOWER(tb_student.gender) IN ('female', 'f') THEN tb_student_enrollment.student_id END) as withdrawn_female,
@@ -766,6 +774,7 @@ class StudentEnrollmentController
                 'female' => (int) ($row->total_female ?? 0),
             ],
             'active' => [
+                'label' => $completedYear ? 'Completed the Year' : 'Active Students',
                 'count' => (int) ($row->active_students ?? 0),
                 'male' => (int) ($row->active_male ?? 0),
                 'female' => (int) ($row->active_female ?? 0),

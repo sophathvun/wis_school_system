@@ -3732,6 +3732,8 @@ const formatEnrollmentStatNumber = (value) =>
     new Intl.NumberFormat("en-US").format(Number(value || 0));
 
 const renderEnrollmentStats = (stats = {}) => {
+    const activeLabel = document.querySelector("[data-enrollment-active-label]");
+    if (activeLabel) activeLabel.textContent = stats.active?.label || "Active Students";
     document.querySelectorAll("[data-enrollment-stat]").forEach((element) => {
         const [group, key] = element.dataset.enrollmentStat.split(".");
         element.textContent = formatEnrollmentStatNumber(stats?.[group]?.[key]);

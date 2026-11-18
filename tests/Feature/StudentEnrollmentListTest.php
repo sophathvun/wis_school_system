@@ -111,6 +111,34 @@ it('ignores an active summer period when choosing the regular active year', func
     $this->getJson('/student-enrollments/fetch')->assertOk()->assertJsonPath('total',2)->assertJsonPath('data.0.id',4);
 });
 
+it('shows completed year outcomes including graduates while preserving campus and gender filters', function () {
+    DB::table('tb_academic_year')->where('id',3)->update(['lifecycle_status'=>'finished']);
+    DB::table('tb_student_enrollment')->where('id',3)->update(['enrollment_status'=>'completed']);
+    DB::table('tb_student_enrollment')->where('id',10)->update(['enrollment_status'=>'graduated','campus_id'=>2]);
+    DB::table('tb_student')->where('id',2)->update(['gender'=>'Male']);
+    ($this->addRow)(21,3,3,['enrollment_status'=>'withdrawn']);
+
+    $this->getJson('/student-enrollments/stats?academic_year_id=3')->assertOk()
+        ->assertJsonPath('total.count',3)->assertJsonPath('active.label','Completed the Year')
+        ->assertJsonPath('active.count',2)->assertJsonPath('active.male',1)
+        ->assertJsonPath('active.female',1)->assertJsonPath('withdrawn.count',1);
+    $this->getJson('/student-enrollments/stats?academic_year_id=3&campus_id=1')->assertOk()
+        ->assertJsonPath('active.count',1)->assertJsonPath('active.female',1)->assertJsonPath('active.male',0);
+    $this->getJson('/student-enrollments/stats?academic_year_id=3&enrollment_status=withdrawn')->assertOk()
+        ->assertJsonPath('active.count',0)->assertJsonPath('withdrawn.count',1);
+    $this->getJson('/student-enrollments/stats?academic_year_id=4')->assertOk()
+        ->assertJsonPath('active.label','Active Students')->assertJsonPath('active.count',2);
+});
+
+it('shows completed outcomes for archived Summer years', function () {
+    DB::table('tb_academic_year')->insert(['id'=>6,'academic_year'=>'Summer 2023','period_type'=>'summer','lifecycle_status'=>'archived']);
+    ($this->addRow)(20,1,6,['enrollment_status'=>'finished']);
+    ($this->addRow)(21,2,6,['enrollment_status'=>'withdrawn']);
+    $this->getJson('/student-enrollments/stats?academic_year_id=6')->assertOk()
+        ->assertJsonPath('active.label','Completed the Year')->assertJsonPath('active.count',1)
+        ->assertJsonPath('active.female',1)->assertJsonPath('withdrawn.count',1);
+});
+
 it('searches by Khmer name and family number and returns no rows for an unknown name', function () {
     DB::table('tb_student')->where('id',2)->update(['full_name_kh'=>'សុខ ដារ៉ា','family_number'=>'FAMILY002']);
     foreach (['សុខ ដារ៉ា','FAMILY002',' MATCH FORMER '] as $term) {

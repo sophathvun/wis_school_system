@@ -42,7 +42,7 @@
                         <div class="enrollment-summary-gender"><span>M: <strong data-enrollment-stat="total.male">0</strong></span><span>F: <strong data-enrollment-stat="total.female">0</strong></span></div>
                     </div>
                     <div class="enrollment-summary-card enrollment-summary-active" data-enrollment-stat-card="active">
-                        <div class="enrollment-summary-label">Active Students</div>
+                        <div class="enrollment-summary-label" data-enrollment-active-label>Active Students</div>
                         <div class="enrollment-summary-value" data-enrollment-stat="active.count">0</div>
                         <div class="enrollment-summary-gender"><span>M: <strong data-enrollment-stat="active.male">0</strong></span><span>F: <strong data-enrollment-stat="active.female">0</strong></span></div>
                     </div>
