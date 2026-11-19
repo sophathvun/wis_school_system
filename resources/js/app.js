@@ -27,37 +27,6 @@ const currentPermissions = (() => {
 window.userPermissions = currentPermissions;
 window.currentUserId = body?.dataset.currentUserId || "";
 
-const setupIdleLogout = () => {
-    if (!document.body?.dataset.currentUserId) return;
-
-    const idleLimitMs = 20 * 60 * 1000;
-    let idleTimer;
-    const logoutAfterIdle = async () => {
-        try {
-            await fetch("/logout", {
-                method: "POST",
-                headers: {
-                    "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')?.content || "",
-                    Accept: "application/json",
-                },
-                credentials: "same-origin",
-                keepalive: true,
-            });
-        } finally {
-            window.location.assign("/login");
-        }
-    };
-    const resetIdleTimer = () => {
-        window.clearTimeout(idleTimer);
-        idleTimer = window.setTimeout(logoutAfterIdle, idleLimitMs);
-    };
-
-    ["click", "keydown", "mousemove", "scroll", "touchstart"].forEach((eventName) => {
-        document.addEventListener(eventName, resetIdleTimer, { passive: true });
-    });
-    resetIdleTimer();
-};
-
 document.addEventListener('DOMContentLoaded', setupWebPush);
 
 const navigateWithParams = ({
@@ -98,7 +67,6 @@ document.addEventListener("change", (event) => {
 
 document.addEventListener("DOMContentLoaded", () => {
     setupInstallShortcut();
-    setupIdleLogout();
 
     const pageHeader = document.querySelector(".page-header");
     const card = document.querySelector(".page-body .card");
