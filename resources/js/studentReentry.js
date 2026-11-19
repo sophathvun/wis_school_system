@@ -1,3 +1,5 @@
+import { renderPagination } from './helpers/pagination.js';
+
 document.addEventListener('DOMContentLoaded', () => {
     const modalElement = document.getElementById('reentryModal');
     if (!modalElement || modalElement.dataset.enhanced === '1') return;
@@ -266,14 +268,26 @@ document.addEventListener('DOMContentLoaded', () => {
         `).join('') : '<div class="reentry-empty">No eligible returning students found.</div>';
     };
 
-    const renderTable = () => {
+    const renderTable = (page = 1) => {
         const term = field('reentry-search').value.toLowerCase().trim();
         const rows = state.withdrawals.filter(item => !term || `${label(item)} ${item.student?.full_name_kh || ''}`.toLowerCase().includes(term));
+        const perPage = Number(field('reentry-per-page').value) || 10;
+        const lastPage = Math.max(1, Math.ceil(rows.length / perPage));
+        const currentPage = Math.min(lastPage, Math.max(1, Number(page) || 1));
+        const start = (currentPage - 1) * perPage;
+        const pageRows = rows.slice(start, start + perPage);
         field('reentry-count').textContent = rows.length;
-        field('reentry-table').innerHTML = rows.length ? rows.map(item =>
+        field('reentry-table').innerHTML = pageRows.length ? pageRows.map(item =>
             `<tr><td>${photoMarkup(item)}</td><td>${studentNameMarkup(item)}</td><td>${escapeHtml(item.academic_year?.academic_year || '-')}</td><td>${escapeHtml(item.campus?.campus_name_en || '-')}</td><td>${escapeHtml(grade(item))}</td><td>${escapeHtml(item.session?.session_short_name || '-')}</td><td>${escapeHtml(formatDate(item.effective_on))}</td><td><span class="badge bg-success-lt text-success">${returnReason(item)}</span></td><td class="text-center"><button type="button" class="btn btn-sm btn-primary" data-reentry-student="${item.id}"><i class="ti ti-user-check me-1"></i>Re-entry</button></td></tr>`
         ).join('') : '<tr><td colspan="9"><div class="reentry-empty">No eligible returning students found.</div></td></tr>';
-        renderMobileCards(rows);
+        renderMobileCards(pageRows);
+        renderPagination({
+            current_page: currentPage,
+            last_page: lastPage,
+            from: rows.length ? start + 1 : 0,
+            to: Math.min(start + perPage, rows.length),
+            total: rows.length,
+        }, 'reentry-pagination-container', 'reentry-per-page', renderTable);
     };
 
     const showSource = () => {
@@ -320,7 +334,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderTable();
     };
 
-    field('reentry-search').addEventListener('input', renderTable);
+    field('reentry-search').addEventListener('input', () => renderTable(1));
     field('reentry-source').addEventListener('change', () => {
         clearFieldError('reentry-source');
         showSource();

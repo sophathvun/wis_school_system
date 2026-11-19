@@ -20,6 +20,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             \App\Http\Middleware\EnsureUtf8Encoding::class,
             \App\Http\Middleware\TrackUserPresence::class,
+            \App\Http\Middleware\ResolveProgramWorkspace::class,
         ]);
         $middleware->alias([
             'campus.context' => \App\Http\Middleware\ResolveCampusContext::class,
@@ -34,6 +35,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 || ($request->is('attendance', 'attendance/*') && $request->expectsJson())
                 || ($request->is('wmi-management/*') && $request->expectsJson())
                 || ($request->is('student-reentry', 'student-reentry/*') && $request->expectsJson())
+                || ($request->is('program-workspace/*', 'gep', 'gep/*') && $request->expectsJson())
                 || $request->is('hrm/staff-management/address-options')
                 || ($request->is('login/passkey', 'login/passkey/*', 'profile/passkeys', 'profile/passkeys/*') && $request->expectsJson())
                 || ($request->is('photo-editor', 'photo-editor/*', 'photos/size', 'hrm/staff-management/photo/*', 'settings/users/photo/*', 'profile/photo/*') && $request->expectsJson())

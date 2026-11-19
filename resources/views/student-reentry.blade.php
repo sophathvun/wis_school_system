@@ -69,6 +69,15 @@
             </table>
         </div>
         <div id="reentry-mobile-cards" class="reentry-mobile-cards"></div>
+        <div class="card-footer">
+            <select id="reentry-per-page" class="d-none" aria-hidden="true">
+                <option selected>10</option>
+                <option>25</option>
+                <option>50</option>
+                <option>100</option>
+            </select>
+            <div id="reentry-pagination-container"></div>
+        </div>
     </div>
     <div class="modal modal-blur fade reentry-modal" id="reentryModal" tabindex="-1"
         data-options-url="{{ route('student-reentry.options') }}" data-save-url="{{ route('student-reentry.save') }}"

@@ -7,6 +7,7 @@
         </button>
         <!-- END NAVBAR TOGGLER -->
         <div class="navbar-nav flex-row order-md-last">
+            <div class="nav-item d-flex align-items-center me-3">@include('layouts.partials.program-switcher')</div>
             <div class="d-none d-md-flex">
                 <div class="nav-item">
                     <a href="{{ request()->fullUrlWithQuery(['theme' => 'dark']) }}" class="nav-link px-0 hide-theme-dark" title="Enable dark mode"
@@ -79,6 +80,8 @@
     <!-- BEGIN NAVBAR MENU -->
     @php
         $nav = match (true) {
+            request()->routeIs('gep.settings.*') => ['parent'=>'GEP Settings','parentUrl'=>route('gep.settings.index'),'parentIcon'=>'ti-settings','label'=>\App\Support\GepSettingsPermissions::SECTIONS[request()->route('section')]['label']??'GEP Settings','icon'=>'ti-settings','url'=>route('gep.settings.section',['section'=>request()->route('section')??'academic-years'])],
+            request()->routeIs('gep.dashboard') => ['parent'=>null,'label'=>'GEP Dashboard','icon'=>'ti-dashboard','url'=>route('gep.dashboard')],
             request()->routeIs('photo-editor.*') => [
                 'parent' => null, 'label' => 'Photo Editor', 'icon' => 'ti-photo-edit',
                 'url' => route('photo-editor.index'),

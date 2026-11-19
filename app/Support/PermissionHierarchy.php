@@ -9,9 +9,11 @@ class PermissionHierarchy
 {
     public static function moduleLabels(): array
     {
+        $gepLabels=[];foreach(GepSettingsPermissions::SECTIONS as $key=>$section)$gepLabels['gep-settings.'.$key]=$section['label'];
         $nationalLabels=[];foreach(G12NationalExamPermissions::submenus() as $key=>$section)$nationalLabels['g12-national-exams.'.$key]=$section[0];
         foreach(G9NationalExamPermissions::sections() as $key=>$section)$nationalLabels['g9-national-exams.'.$key]=$section[0];
-        return array_merge([
+        return array_merge($gepLabels, [
+            'program-workspaces.wis'=>'WIS Workspace', 'program-workspaces.gep'=>'GEP Workspace',
             'users' => 'Users', 'departments' => 'Departments', 'positions' => 'Positions', 'roles' => 'Roles', 'notifications' => 'Notifications', 'chat' => 'Chat',
             'academic-years' => 'Academic Years', 'grades' => 'Grades', 'classes' => 'Classes', 'sessions' => 'Sessions',
             'education-levels' => 'Education Levels', 'programs' => 'Programs', 'school-info' => 'School Information',
@@ -35,6 +37,17 @@ class PermissionHierarchy
         $nationalModules=[];$nationalActions=[];
         foreach(G12NationalExamPermissions::submenus() as $key=>$section){$module='g12-national-exams.'.$key;$nationalModules[]=$module;$nationalActions[$module]=array_map(fn($action)=>'g12-national-exams.'.$action,$section[1]);}
         return [
+            'program-workspaces'=>[
+                'label'=>'Program Workspaces','permission'=>'program-workspaces.view',
+                'description'=>'Choose WIS, GEP, or both. Program access is required in addition to module and campus permissions.',
+                'modules'=>['program-workspaces.wis','program-workspaces.gep'],'actions'=>[],
+            ],
+            'gep-settings'=>[
+                'label'=>'GEP Settings','permission'=>'gep-settings.view',
+                'description'=>'GEP workspace access is also required. These settings belong to the General English Program.',
+                'modules'=>array_map(fn($key)=>'gep-settings.'.$key,array_keys(GepSettingsPermissions::SECTIONS)),
+                'actions'=>[],
+            ],
             'wmi-management'=>[
                 'label'=>'WMI Management','permission'=>'wmi-management.view',
                 'description'=>'Authorized campus users can register Western and other-school students for any campus and view all WMI candidates. Campus Study and Campus Registered do not restrict WMI access. Enable each submenu and tab before its functions.',

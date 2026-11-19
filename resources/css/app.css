@@ -3019,6 +3019,56 @@ body {
 
 
 
+.gep-settings-header {
+    background: #23395d;
+    color: #fff;
+}
+
+#gep-year-modal .modal-dialog,
+#gep-level-modal .modal-dialog,
+#gep-group-modal .modal-dialog,
+#gep-class-type-modal .modal-dialog,
+#gep-class-modal .modal-dialog,
+#gep-term-modal .modal-dialog {
+    width: calc(100vw - 2rem);
+    max-width: 380px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+#gep-year-modal .modal-header,
+#gep-year-modal .modal-footer,
+#gep-level-modal .modal-header,
+#gep-group-modal .modal-header,
+#gep-class-type-modal .modal-header,
+#gep-class-modal .modal-header,
+#gep-term-modal .modal-header,
+#gep-level-modal .modal-footer,
+#gep-group-modal .modal-footer,
+#gep-class-type-modal .modal-footer,
+#gep-class-modal .modal-footer,
+#gep-term-modal .modal-footer {
+    padding: 0.85rem 1rem;
+}
+
+#gep-year-modal .modal-body,
+#gep-level-modal .modal-body,
+#gep-group-modal .modal-body,
+#gep-class-type-modal .modal-body,
+#gep-class-modal .modal-body,
+#gep-term-modal .modal-body {
+    padding: 1rem;
+}
+
+#gep-year-modal .modal-title,
+#gep-level-modal .modal-title,
+#gep-group-modal .modal-title,
+#gep-class-type-modal .modal-title,
+#gep-class-modal .modal-title,
+#gep-term-modal .modal-title {
+    font-size: 1rem;
+}
+
 :root {
     --wis-footer-height: 2.25rem;
 }

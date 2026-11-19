@@ -33,6 +33,7 @@
         </button>
 
         <div class="navbar-nav flex-row d-lg-none">
+            <div class="nav-item me-2">@include('layouts.partials.program-switcher')</div>
             <div class="nav-item">
                 <a href="{{ request()->fullUrlWithQuery(['theme' => 'dark']) }}" class="nav-link px-0 hide-theme-dark" title="Enable dark mode"
                     data-bs-toggle="tooltip" data-bs-placement="bottom">

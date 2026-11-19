@@ -67,7 +67,11 @@
     data-web-push-public-key="{{ config('webpush.vapid.public_key') }}">
     @if (auth()->check())
         <div class="page">
-            @include('layouts.partials.sidebar')
+            @if(\App\Support\ProgramWorkspace::selected(auth()->user())==='gep')
+                @include('layouts.partials.gep-sidebar')
+            @else
+                @include('layouts.partials.sidebar')
+            @endif
             @include('layouts.partials.navbar')
             <div class="page-wrapper">
                 @hasSection('page-header')

@@ -152,6 +152,8 @@ class AccessFoundationSeeder extends Seeder
             $permissions[] = ['code' => $code, 'module' => 'reports.g12', 'action' => substr($code, strlen('reports.g12.')), 'name' => $name];
         }
         $permissions = [...$permissions, ...\App\Support\AdditionalMenuPermissions::catalog()];
+        $permissions = [...$permissions, ...\App\Support\ProgramWorkspace::catalog()];
+        $permissions = [...$permissions, ...\App\Support\GepSettingsPermissions::catalog()];
         foreach ($permissions as $permission) {
             Permission::updateOrCreate(['code' => $permission['code']], $permission);
         }
@@ -184,6 +186,14 @@ class AccessFoundationSeeder extends Seeder
                     ? ($role->wasRecentlyCreated || $role->permissions->contains('id', $permission->id))
                     : ((!in_array($permission->code, $skippingCentralCodes, true) && !in_array($permission->code, $idCardActionCodes, true) && !array_key_exists($permission->code, K3CertificatePermissions::catalog()) && !array_key_exists($permission->code, G9CertificatePermissions::catalog()) && !array_key_exists($permission->code, G12CertificatePermissions::catalog())) || $role->permissions->contains('id', $permission->id)))
             );
+            if ($role->code !== 'super-admin') {
+                $rolePermissions=$rolePermissions->reject(fn($p)=>str_starts_with($p->module,'gep-settings') && !$role->permissions->contains('id',$p->id));
+                if($role->wasRecentlyCreated && $role->code==='central-office-admin')$rolePermissions=$rolePermissions->merge($allPermissions->filter(fn($p)=>str_starts_with($p->module,'gep-settings')));
+                $rolePermissions = $rolePermissions->reject(fn($p)=>str_starts_with($p->module,'program-workspaces'))
+                    ->merge($allPermissions->filter(fn($p)=>str_starts_with($p->module,'program-workspaces')
+                        && ($role->permissions->contains('id',$p->id)
+                            || ($role->wasRecentlyCreated && ($p->code!=='program-workspaces.gep.view' || $role->code==='central-office-admin')))));
+            }
             $role->permissions()->sync($rolePermissions->modelKeys());
         }
     }

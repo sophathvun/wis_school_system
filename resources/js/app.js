@@ -12,6 +12,7 @@ import "./helpers/status-toggle.js";
 import "./premiumForms.js";
 import "./sidebar.js";
 import "./navbar.js";
+import "./programWorkspace.js";
 import "./chatWidget.js";
 import { setupInstallShortcut } from "./installShortcut.js";
 import { setupWebPush } from "./webPush.js";
