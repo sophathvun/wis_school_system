@@ -22,8 +22,7 @@
                     <div class="flex-fill">
                         <div class="text-secondary text-uppercase small fw-bold">Return to school workflow</div>
                         <h3 class="mb-1">Students eligible for re-entry</h3>
-                        <div class="text-secondary">Only officially withdrawn students are shown. Pending, rejected, and
-                            cancelled requests remain active.</div>
+                        <div class="text-secondary">Includes recorded withdrawals from any regular academic year and former students who missed at least one academic year. Pending withdrawal requests do not make an active student eligible.</div>
                     </div>
                     <div>
                         <div class="text-secondary small">Eligible students</div>
@@ -36,8 +35,8 @@
     <div class="card reentry-history-card">
         <div class="card-header">
             <div>
-                <h3 class="card-title mb-1">Re-entry History</h3>
-                <div class="text-secondary small">Review the previous withdrawal before creating a new enrollment.</div>
+                <h3 class="card-title mb-1">Returning Students</h3>
+                <div class="text-secondary small">Review the previous enrollment before registering the student for a return year.</div>
             </div>
             <div class="card-actions">
                 <div class="input-icon" style="width:360px;max-width:100%"><span class="input-icon-addon"><i
@@ -51,11 +50,11 @@
                     <tr>
                         <th>PHOTO</th>
                         <th>STUDENT NAME</th>
-                        <th>Withdrawn Academic Year</th>
+                        <th>Previous Academic Year</th>
                         <th>Campus</th>
                         <th>Grade</th>
                         <th>Group</th>
-                        <th>Withdrawal Date</th>
+                        <th>Previous End Date</th>
                         <th>Status</th>
                         <th class="text-center">Action</th>
                     </tr>
@@ -80,17 +79,16 @@
                     <div class="modal-header">
                         <div>
                             <h3 class="modal-title">Create Student Re-entry</h3>
-                            <div class="text-secondary small">Create a new active enrollment while preserving the previous
-                                withdrawal history.</div>
+                            <div class="text-secondary small">Create an active or pending enrollment while preserving the student’s previous records.</div>
                         </div><button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
                         <div class="alert alert-danger d-none" id="reentry-error"></div>
                         <div class="card bg-transparent mb-3">
                             <div class="card-header">
-                                <h3 class="card-title"><i class="ti ti-user me-2"></i>Withdrawn Student</h3>
+                                <h3 class="card-title"><i class="ti ti-user me-2"></i>Returning Student</h3>
                             </div>
-                            <div class="card-body"><label class="form-label">Select Withdrawn Student <span
+                            <div class="card-body"><label class="form-label">Select Returning Student <span
                                         class="text-danger">*</span></label><select id="reentry-source" class="form-select"
                                     required></select>
                                 <div class="reentry-source-card mt-3 d-none" id="reentry-source-card">

@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const saveUrl = modalElement.dataset.saveUrl;
     const csrf = modalElement.dataset.csrf || document.querySelector('meta[name="csrf-token"]')?.content || '';
     const requiredFields = {
-        'reentry-source': 'Withdrawn Student',
+        'reentry-source': 'Returning Student',
         'reentry-year': 'Academic Year',
         'reentry-campus': 'Campus',
         'reentry-grade': 'Grade',
@@ -26,6 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'reentry-date': 'Re-entry Date',
     };
     const serverFieldMap = {
+        source_enrollment_id: 'reentry-source',
         source_history_id: 'reentry-source',
         academic_year_id: 'reentry-year',
         campus_id: 'reentry-campus',
@@ -215,7 +216,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    setupSearchable('reentry-source', 'Withdrawn Student');
+    setupSearchable('reentry-source', 'Returning Student');
     setupSearchable('reentry-year', 'Academic Year');
     setupSearchable('reentry-campus', 'Campus');
     setupSearchable('reentry-grade', 'Grade');
@@ -232,6 +233,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const photoMarkup = item => item.student?.photo_path
         ? `<img class="reentry-table-photo" src="/storage/${escapeHtml(item.student.photo_path)}" alt="Student photo">`
         : '<span class="reentry-table-photo d-grid place-items-center"><i class="ti ti-user"></i></span>';
+    const returnReason = item => item.return_type === 'study_gap' ? 'Study gap' : 'Withdrawn';
 
     const studentNameMarkup = item => `<div>
         <div class="school-profile-khmer text-secondary small">${escapeHtml(item.student?.full_name_kh || '-')}</div>
@@ -251,17 +253,17 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="reentry-mobile-name">${escapeHtml(name(item))}</div>
                         <div class="school-profile-khmer text-secondary small">${escapeHtml(item.student?.full_name_kh || '-')}</div>
                     </div>
-                    <span class="badge bg-success-lt text-success">Eligible</span>
+                    <span class="badge bg-success-lt text-success">${returnReason(item)}</span>
                 </div>
                 <div class="reentry-mobile-details">
-                    <div class="reentry-mobile-detail-wide"><span>Withdrawn Class</span><strong>${escapeHtml(withdrawnClassLabel(item))}</strong></div>
-                    <div><span>Withdrawal Date</span><strong>${escapeHtml(formatDate(item.effective_on))}</strong></div>
+                    <div class="reentry-mobile-detail-wide"><span>Previous Class</span><strong>${escapeHtml(withdrawnClassLabel(item))}</strong></div>
+                    <div><span>Previous End Date</span><strong>${escapeHtml(formatDate(item.effective_on))}</strong></div>
                 </div>
                 <button type="button" class="btn btn-primary w-100" data-reentry-student="${item.id}">
                     <i class="ti ti-user-check me-1"></i>Re-entry
                 </button>
             </article>
-        `).join('') : '<div class="reentry-empty">No eligible withdrawn students found.</div>';
+        `).join('') : '<div class="reentry-empty">No eligible returning students found.</div>';
     };
 
     const renderTable = () => {
@@ -269,8 +271,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const rows = state.withdrawals.filter(item => !term || `${label(item)} ${item.student?.full_name_kh || ''}`.toLowerCase().includes(term));
         field('reentry-count').textContent = rows.length;
         field('reentry-table').innerHTML = rows.length ? rows.map(item =>
-            `<tr><td>${photoMarkup(item)}</td><td>${studentNameMarkup(item)}</td><td>${escapeHtml(item.academic_year?.academic_year || '-')}</td><td>${escapeHtml(item.campus?.campus_name_en || '-')}</td><td>${escapeHtml(grade(item))}</td><td>${escapeHtml(item.session?.session_short_name || '-')}</td><td>${escapeHtml(formatDate(item.effective_on))}</td><td><span class="badge bg-success-lt text-success">Eligible</span></td><td class="text-center"><button type="button" class="btn btn-sm btn-primary" data-reentry-student="${item.id}"><i class="ti ti-user-check me-1"></i>Re-entry</button></td></tr>`
-        ).join('') : '<tr><td colspan="9"><div class="reentry-empty">No eligible withdrawn students found.</div></td></tr>';
+            `<tr><td>${photoMarkup(item)}</td><td>${studentNameMarkup(item)}</td><td>${escapeHtml(item.academic_year?.academic_year || '-')}</td><td>${escapeHtml(item.campus?.campus_name_en || '-')}</td><td>${escapeHtml(grade(item))}</td><td>${escapeHtml(item.session?.session_short_name || '-')}</td><td>${escapeHtml(formatDate(item.effective_on))}</td><td><span class="badge bg-success-lt text-success">${returnReason(item)}</span></td><td class="text-center"><button type="button" class="btn btn-sm btn-primary" data-reentry-student="${item.id}"><i class="ti ti-user-check me-1"></i>Re-entry</button></td></tr>`
+        ).join('') : '<tr><td colspan="9"><div class="reentry-empty">No eligible returning students found.</div></td></tr>';
         renderMobileCards(rows);
     };
 
@@ -285,7 +287,7 @@ document.addEventListener('DOMContentLoaded', () => {
         field('reentry-source-photo').src = item.student?.photo_path ? `/storage/${item.student.photo_path}` : '';
         field('reentry-source-id').textContent = item.student?.student_id || item.student?.student_no || '';
         field('reentry-source-name').textContent = name(item);
-        field('reentry-source-info').textContent = `Withdrawn ${formatDate(item.effective_on)} · ${item.academic_year?.academic_year || '-'} · ${item.campus?.campus_name_en || '-'} · ${grade(item)} · ${item.session?.session_short_name || '-'}`;
+        field('reentry-source-info').textContent = [returnReason(item), formatDate(item.effective_on), item.academic_year?.academic_year || '-', item.campus?.campus_name_en || '-', grade(item), item.session?.session_short_name || '-'].join(' · ');
     };
 
     const filterClasses = () => {
@@ -298,12 +300,15 @@ document.addEventListener('DOMContentLoaded', () => {
         searchable['reentry-class']?.render();
     };
 
-    const load = async () => {
-        const response = await fetch(optionsUrl, { headers: { Accept: 'application/json' } });
+    const load = async (yearId = '') => {
+        const url = new URL(optionsUrl, window.location.origin);
+        if (yearId) url.searchParams.set('academic_year_id', yearId);
+        const response = await fetch(url, { headers: { Accept: 'application/json' } });
         if (!response.ok) throw new Error('Unable to load re-entry data.');
         Object.assign(state, await response.json());
         renderSource();
         fill('reentry-year', state.academicYears, 'academic_year', '');
+        field('reentry-year').value = state.target_academic_year_id || '';
         fill('reentry-campus', state.campuses, 'campus_name_en', '');
         fill('reentry-grade', state.grades, 'grade', '');
         fill('reentry-class', state.classes, 'class_name', '');
@@ -324,6 +329,18 @@ document.addEventListener('DOMContentLoaded', () => {
         clearFieldError('reentry-grade');
         filterClasses();
     });
+    field('reentry-year').addEventListener('change', async () => {
+        const sourceId = field('reentry-source').value;
+        try {
+            await load(field('reentry-year').value);
+            if (state.withdrawals.some(item => String(item.id) === sourceId)) field('reentry-source').value = sourceId;
+            searchable['reentry-source']?.sync();
+            showSource();
+        } catch (error) {
+            field('reentry-error').textContent = error.message;
+            field('reentry-error').classList.remove('d-none');
+        }
+    });
     Object.keys(requiredFields).forEach(id => {
         field(id)?.addEventListener('change', () => clearFieldError(id));
         field(id)?.addEventListener('input', () => clearFieldError(id));
@@ -331,6 +348,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const openReentry = async (sourceId = '') => {
         field('reentryForm').reset();
+        field('reentry-year').value = state.target_academic_year_id || '';
         Object.values(searchable).forEach(combo => combo.sync());
         field('reentry-error').classList.add('d-none');
         clearValidation();
@@ -367,7 +385,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const button = field('saveReentry');
         button.disabled = true;
         const payload = {
-            source_history_id: field('reentry-source').value,
+            source_enrollment_id: field('reentry-source').value,
             academic_year_id: field('reentry-year').value,
             campus_id: field('reentry-campus').value,
             grade_id: field('reentry-grade').value,

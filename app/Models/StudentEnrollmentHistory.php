@@ -9,6 +9,7 @@ class StudentEnrollmentHistory extends Model
     protected $table = 'tb_student_enrollment_history';
 
     protected $fillable = [
+        'source_enrollment_id',
         'enrollment_id', 'source_history_id', 'student_id', 'action_type', 'withdrawal_status', 'paper_signed_at', 'paper_signed_by', 'signed_form_path', 'principal_approved_at', 'principal_approved_by', 'approved_at', 'approved_by', 'rejected_at', 'rejected_by', 'rejection_reason', 'cancelled_at', 'cancelled_by', 'cancellation_reason', 'campus_id',
         'academic_year_id', 'grade_id', 'class_id', 'academic_track_id', 'session_id',
         'enrollment_status', 'student_type', 'effective_on', 'reason', 'reasons', 'reason_kh', 'other_reason_en', 'other_reason_kh', 'new_school', 'new_school_address', 'dropout_type', 'requested_by_type', 'requested_by_name', 'requested_by_phone', 'additional_comments', 'notes', 'changed_by',
