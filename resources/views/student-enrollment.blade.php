@@ -671,7 +671,7 @@
                                 </div>
                             </div>
                             <div class="family-member-row">
-                                <div class="family-member-heading">Guardian</div>
+                                <div class="family-member-heading">Guardian <span class="text-secondary fw-normal">(Optional)</span></div>
                                 <div class="col-md-3 premium-floating-field"><label class="form-label">Guardian Full Name
                                         (English)</label><input name="guardian_name_en" class="form-control"
                                         placeholder=" "></div>

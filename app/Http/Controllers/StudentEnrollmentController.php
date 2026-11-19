@@ -406,6 +406,16 @@ class StudentEnrollmentController
                 ], 422);
             }
         }
+        // Older form assets submit a default nationality and sometimes only a
+        // phone dial code even when the optional guardian section is untouched.
+        if (preg_match('/^\+?855$/', preg_replace('/[\s()-]/', '', (string) $request->input('guardian_phone', '')))) {
+            $request->merge(['guardian_phone' => null]);
+        }
+        $guardianFields = ['guardian_name_en', 'guardian_name_kh', 'guardian_occupation_id',
+            'guardian_occupation_en', 'guardian_occupation_kh', 'guardian_workplace', 'guardian_phone'];
+        if (!collect($guardianFields)->contains(fn ($field) => $request->filled($field))) {
+            $request->merge(['guardian_nationality_country_id' => null]);
+        }
         $validated = $request->validate([
             'student_id' => ['required', 'string', 'max:30', Rule::unique('tb_student', 'student_id')->ignore($request->input('student_record_id'))],
             'photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'dimensions:width=600,height=800', 'max:2048'],
@@ -474,7 +484,7 @@ class StudentEnrollmentController
             'father_nationality_country_id' => ['nullable', 'exists:tb_country,id'],
             'father_occupation_id' => ['nullable', 'exists:tb_occupation,id'],
             'father_phone' => ['required', 'string', 'max:50'],
-            'guardian_name_en' => ['nullable', 'string', 'max:160', 'required_with:guardian_name_kh,guardian_occupation_id,guardian_nationality_country_id,guardian_workplace,guardian_phone'],
+            'guardian_name_en' => ['nullable', 'string', 'max:160', 'required_with:guardian_name_kh,guardian_occupation_id,guardian_occupation_en,guardian_occupation_kh,guardian_nationality_country_id,guardian_workplace,guardian_phone'],
             'guardian_name_kh' => ['nullable', 'string', 'max:160'],
             'guardian_occupation_en' => ['nullable', 'string', 'max:120'],
             'guardian_occupation_kh' => ['nullable', 'string', 'max:120'],
@@ -485,6 +495,7 @@ class StudentEnrollmentController
         ], [
             'student_id.required' => 'Student ID is required.',
             'student_id.unique' => 'This Student ID already exists. Please enter a different Student ID.',
+            'guardian_name_en.required_with' => 'Please enter the guardian’s English name when providing guardian details, or leave the Guardian section blank.',
         ]);
 
         $placementAttempt = null;

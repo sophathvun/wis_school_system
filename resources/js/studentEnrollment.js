@@ -303,7 +303,9 @@ const syncFamilyPhoneValues = () => {
     initPhoneInputs();
     familyPhoneInputs.forEach(({ visible, hidden, intl }) => {
         if (hidden)
-            hidden.value = intl?.getNumber() || normalizeCambodiaPhoneValue(visible?.value || "");
+            hidden.value = String(visible?.value || "").trim()
+                ? intl?.getNumber() || normalizeCambodiaPhoneValue(visible.value)
+                : "";
     });
 };
 const syncHomePhoneValue = () => {
@@ -1749,7 +1751,7 @@ const applyNewEnrollmentCambodiaDefaults = () => {
     setSelectToCambodiaIfEmpty("nationality_country_id");
     setStudentBilingualText("nationality");
 
-    ["mother", "father", "guardian"].forEach((type) => {
+    ["mother", "father"].forEach((type) => {
         setSelectToCambodiaIfEmpty(`${type}_nationality_country_id`);
         setFamilyNationalitySelected(type);
     });

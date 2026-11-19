@@ -26,9 +26,13 @@ beforeEach(function () {
     foreach (['school_info', 'class', 'session', 'academic_track', 'group'] as $lookup) {
         Schema::create('tb_'.$lookup, function (Blueprint $table) {
             $table->id();
+            $table->boolean('status')->default(true);
             $table->softDeletes();
         });
     }
+    Schema::create('access_user_campuses',function(Blueprint $table){
+        $table->unsignedBigInteger('user_id');$table->unsignedBigInteger('campus_id');
+    });
     Schema::create('tb_grade', function (Blueprint $table) {
         $table->id();
         $table->string('grade');
@@ -103,6 +107,33 @@ it('preserves enrollment remarks and rejects attempts to change them through pro
     }
     expect(DB::table('tb_student_enrollment')->where('id',1)->value('notes'))->toBe($remark);
 })->with(['omit','replace','clear']);
+
+it('saves an untouched optional guardian section despite legacy nationality and dial-code defaults', function ($creating, $phone) {
+    $payload=[...$this->payload,'guardian_nationality_country_id'=>999,'guardian_phone'=>$phone];
+    if($creating){
+        unset($payload['enrollment_id'],$payload['student_record_id']);
+        $payload['student_id']='TEST002';
+    }
+    $this->mock(FamilyService::class,function($mock){
+        $mock->shouldReceive('syncStudentFamily')->andReturn(new Family);
+        $mock->shouldReceive('syncEnrollmentMember')->withArgs(function($family,$type,$data,$student){
+            if($type==='guardian')expect(array_filter($data,fn($value)=>filled($value)))->toBe([]);
+            return true;
+        })->times(3)->andReturnNull();
+    });
+    $response=$this->postJson(route('student-enrollments.save'),$payload);
+    if($creating)$response->assertCreated();else $response->assertOk();
+})->with([[true,''],[true,'+855'],[false,''],[false,'+855']]);
+
+it('requires a guardian name only when meaningful guardian details are entered',function($details){
+    $this->postJson(route('student-enrollments.save'),[...$this->payload,...$details])
+        ->assertUnprocessable()->assertJsonValidationErrors('guardian_name_en');
+})->with([[['guardian_phone'=>'+85512345678']],[['guardian_workplace'=>'Phnom Penh']],[['guardian_occupation_en'=>'Teacher']]]);
+
+it('accepts a named guardian without requiring optional guardian contact fields',function(){
+    $this->postJson(route('student-enrollments.save'),[...$this->payload,'guardian_name_en'=>'Sample Guardian'])
+        ->assertOk();
+});
 
 it('changes the photo URL on every upload and deletes each replaced file after saving', function () {
     $previousPath = $this->oldPhoto;
