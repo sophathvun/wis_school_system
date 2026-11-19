@@ -482,6 +482,7 @@ class DashboardController
     private function studentsByGradeChart($enrollmentScope): array
     {
         $counts = (clone $enrollmentScope)
+            ->where('tb_student_enrollment.enrollment_status', '!=', 'withdrawn')
             ->join('tb_student', 'tb_student.id', '=', 'tb_student_enrollment.student_id')
             ->select(
                 'tb_student_enrollment.grade_id',
@@ -648,6 +649,7 @@ class DashboardController
             ->get(['id', 'grade', 'grade_short_name']);
 
         $stats = (clone $enrollmentScope)
+            ->where('tb_student_enrollment.enrollment_status', '!=', 'withdrawn')
             ->join('tb_student', 'tb_student.id', '=', 'tb_student_enrollment.student_id')
             ->join('tb_school_info', 'tb_school_info.id', '=', 'tb_student_enrollment.campus_id')
             ->select(

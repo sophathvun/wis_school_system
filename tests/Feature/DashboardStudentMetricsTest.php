@@ -91,6 +91,50 @@ it('returns zero male and female counts for an empty dashboard scope', function 
         ->and((int) $counts->active_female)->toBe(0);
 });
 
+it('excludes withdrawn enrollments from campus grade tables and grade charts for current and completed years', function ($status) {
+    Schema::table('tb_student_enrollment',fn(Blueprint $t)=>$t->integer('grade_id')->nullable());
+    Schema::create('tb_grade',function(Blueprint $t){
+        $t->id();$t->string('grade');$t->string('grade_short_name');$t->integer('grade_order');
+        $t->boolean('status')->default(true);$t->softDeletes();
+    });
+    Schema::create('tb_school_info',function(Blueprint $t){$t->id();$t->string('campus_name_en');});
+    DB::table('tb_grade')->insert([
+        ['id'=>1,'grade'=>'Grade 1','grade_short_name'=>'1','grade_order'=>1],
+        ['id'=>2,'grade'=>'Grade 2','grade_short_name'=>'2','grade_order'=>2],
+    ]);
+    DB::table('tb_school_info')->insert([['id'=>1,'campus_name_en'=>'BCH'],['id'=>2,'campus_name_en'=>'BKK']]);
+    foreach([1=>'Male',2=>'Female',3=>'Female',4=>'Female',5=>'Male'] as $id=>$gender)
+        DB::table('tb_student')->insert(['id'=>$id,'gender'=>$gender]);
+    $base=['campus_id'=>1,'academic_year_id'=>10,'grade_id'=>1,'enrollment_status'=>$status];
+    foreach([
+        ['student_id'=>1],['student_id'=>1],['student_id'=>2],
+        ['student_id'=>3,'grade_id'=>2,'enrollment_status'=>'withdrawn'],
+        ['student_id'=>4,'campus_id'=>2,'grade_id'=>2],
+        ['student_id'=>5,'campus_id'=>2,'enrollment_status'=>'withdrawn'],
+        ['student_id'=>1,'academic_year_id'=>11,'enrollment_status'=>'withdrawn'],
+    ] as $row)DB::table('tb_student_enrollment')->insert(array_replace($base,$row));
+    $scope=StudentEnrollment::where('academic_year_id',10);
+    $method=new ReflectionMethod(DashboardController::class,'studentStatisticsByCampusGrade');
+    $table=$method->invoke(new DashboardController(),$scope);
+    expect($table['rows'])->toBe([
+        ['campus'=>'BCH','grades'=>[['total'=>2,'female'=>1],['total'=>0,'female'=>0]],'total'=>2,'female'=>1],
+        ['campus'=>'BKK','grades'=>[['total'=>0,'female'=>0],['total'=>1,'female'=>1]],'total'=>1,'female'=>1],
+    ])->and($table['grand_grades'])->toBe([['total'=>2,'female'=>1],['total'=>1,'female'=>1]])
+        ->and($table['grand_total'])->toBe(['total'=>3,'female'=>2])
+        ->and($scope->count())->toBe(6);
+    $campus=$method->invoke(new DashboardController(),(clone $scope)->where('campus_id',2));
+    expect($campus['grand_total'])->toBe(['total'=>1,'female'=>1]);
+    $chartMethod=new ReflectionMethod(DashboardController::class,'studentsByGradeChart');
+    $chart=collect($chartMethod->invoke(new DashboardController(),$scope))->keyBy('label');
+    expect($chart['1'])->toMatchArray(['value'=>2,'secondary_value'=>1])
+        ->and($chart['2'])->toMatchArray(['value'=>1,'secondary_value'=>1])
+        ->and($chart['Total'])->toMatchArray(['value'=>3,'secondary_value'=>2]);
+    $campusChart=collect($chartMethod->invoke(new DashboardController(),(clone $scope)->where('campus_id',2)))->keyBy('label');
+    expect($campusChart['1'])->toMatchArray(['value'=>0,'secondary_value'=>0])
+        ->and($campusChart['Total'])->toMatchArray(['value'=>1,'secondary_value'=>1])
+        ->and($scope->count())->toBe(6);
+})->with(['active','completed']);
+
 it('counts only confirmed graduates while pending results and cancellations stay outside graduation totals',function(){
     Schema::create('tb_student_graduation',function(Blueprint $t){$t->id();$t->integer('student_id');$t->integer('academic_year_id');$t->integer('campus_id');$t->string('status');});
     DB::table('tb_student_graduation')->insert([
