@@ -134,6 +134,12 @@ it('never replaces an existing graduation number when the certificate register c
     DB::table('tb_student_graduation')->insert(['student_id'=>3,'enrollment_id'=>3,'academic_year_id'=>1,'certificate_number'=>'HISTORICAL-ORIGINAL','status'=>'cancelled']);
     $wis=app(\App\Services\G12WisGraduation::class);
     expect(fn()=>$wis->numberForGraduation(3,1))->toThrow(ValidationException::class);
+    DB::table('tb_grade')->where('id',1)->update(['grade'=>'Grade 12']);
+    $certificatesBefore=DB::table('tb_g12_certificate')->orderBy('id')->get()->toJson();
+    $graduationsBefore=DB::table('tb_student_graduation')->orderBy('id')->get()->toJson();
+    expect(fn()=>(new \App\Http\Controllers\GraduationController)->graduate(wisGraduationRequest(['enrollment_ids'=>[2,3],'graduation_date'=>'2026-07-01','is_alumni'=>1])))->toThrow(ValidationException::class);
+    expect(DB::table('tb_g12_certificate')->orderBy('id')->get()->toJson())->toBe($certificatesBefore);
+    expect(DB::table('tb_student_graduation')->orderBy('id')->get()->toJson())->toBe($graduationsBefore);
     expect(DB::table('tb_student_graduation')->where('enrollment_id',3)->value('certificate_number'))->toBe('HISTORICAL-ORIGINAL');
     expect($certificate->fresh()->certificate_number)->toBe($number);
 });
