@@ -80,6 +80,8 @@
     <!-- BEGIN NAVBAR MENU -->
     @php
         $nav = match (true) {
+            request()->routeIs('gep.academic.*') => ['parent'=>null,'label'=>\App\Support\GepAcademicPermissions::MENUS[request()->route('academicMenu')]['label'],'icon'=>\App\Support\GepAcademicPermissions::MENUS[request()->route('academicMenu')]['icon'],'url'=>route('gep.academic.index',['academicMenu'=>request()->route('academicMenu')])],
+            request()->routeIs('gep.reports.*') => ['parent'=>'GEP Reports','parentUrl'=>route('gep.reports.index'),'parentIcon'=>'ti-report-analytics','label'=>\App\Support\GepReportPermissions::SECTIONS[request()->route('reportSection')]['label']??'GEP Reports','icon'=>'ti-report-analytics','url'=>route('gep.reports.section',['reportSection'=>request()->route('reportSection')??'student-list'])],
             request()->routeIs('gep.students.*') => ['parent'=>'GEP Students','parentUrl'=>route('gep.students.index'),'parentIcon'=>'ti-users','label'=>\App\Support\GepStudentPermissions::SECTIONS[request()->route('studentSection')]['label']??'GEP Students','icon'=>'ti-users','url'=>route('gep.students.section',['studentSection'=>request()->route('studentSection')??'enrollment'])],
             request()->routeIs('gep.settings.*') => ['parent'=>'GEP Settings','parentUrl'=>route('gep.settings.index'),'parentIcon'=>'ti-settings','label'=>\App\Support\GepSettingsPermissions::SECTIONS[request()->route('section')]['label']??'GEP Settings','icon'=>'ti-settings','url'=>route('gep.settings.section',['section'=>request()->route('section')??'academic-years'])],
             request()->routeIs('gep.dashboard') => ['parent'=>null,'label'=>'GEP Dashboard','icon'=>'ti-dashboard','url'=>route('gep.dashboard')],

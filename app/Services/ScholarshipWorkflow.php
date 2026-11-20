@@ -285,6 +285,8 @@ class ScholarshipWorkflow
                         ->where('grade_id',$enrollment->grade_id)->where('class_id',$enrollment->class_id)
                         ->where('session_id',$enrollment->session_id)->where('group_id',$enrollment->group_id))->get();
                 foreach($peers as $peer){
+                    if($peer->rank===$rank && (int)round($peer->eoy_average*100)!==(int)round($eoyAverage*100))
+                        throw ValidationException::withMessages(['eoy_average'=>sprintf('Students sharing Rank %d in the same class and group must have the same EOY Avg. The existing average is %.2f. Enter the correct rank or average.',$rank,$peer->eoy_average)]);
                     if(($peer->rank<$rank && $peer->eoy_average<=$eoyAverage) || ($peer->rank>$rank && $peer->eoy_average>=$eoyAverage))
                         throw ValidationException::withMessages(['eoy_average'=>sprintf('Check EOY Avg.: Rank 1 must be higher than Rank 2, and Rank 2 higher than Rank 3 in the same class and group. Rank %d currently has %.2f.',$peer->rank,$peer->eoy_average)]);
                 }

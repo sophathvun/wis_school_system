@@ -38,6 +38,24 @@
                         </div>
                     </li>
                 @endif
+                @php($gepReportSections=array_filter(\App\Support\GepReportPermissions::SECTIONS,fn($key)=>\App\Support\GepReportPermissions::allows(auth()->user(),$key),ARRAY_FILTER_USE_KEY))
+                @foreach(\App\Support\GepAcademicPermissions::MENUS as $key=>$item)
+                    @if(\App\Support\GepAcademicPermissions::allows(auth()->user(),$key))
+                        @php($gepAcademicActive=request()->routeIs('gep.academic.*') && request()->route('academicMenu')===$key)
+                        <li class="nav-item {{ $gepAcademicActive?'active':'' }}"><a class="nav-link" href="{{ route('gep.academic.index',['academicMenu'=>$key]) }}" @if($gepAcademicActive) aria-current="page" @endif><span class="nav-link-icon"><i class="ti {{ $item['icon'] }}" aria-hidden="true"></i></span><span class="nav-link-title">{{ $item['label'] }}</span></a></li>
+                    @endif
+                @endforeach
+                @if($gepReportSections)
+                    <li class="nav-item dropdown {{ request()->routeIs('gep.reports.*')?'active':'' }}">
+                        <a class="nav-link dropdown-toggle" href="#gep-reports-menu" data-bs-toggle="dropdown" data-bs-auto-close="false" role="button" aria-expanded="{{ request()->routeIs('gep.reports.*')?'true':'false' }}"><span class="nav-link-icon"><i class="ti ti-report-analytics"></i></span><span class="nav-link-title">GEP Reports</span></a>
+                        <div class="dropdown-menu {{ request()->routeIs('gep.reports.*')?'show':'' }}" id="gep-reports-menu">
+                            @foreach($gepReportSections as $key=>$item)
+                                <a class="dropdown-item {{ request()->route('reportSection')===$key?'active':'' }}" href="{{ route('gep.reports.section',['reportSection'=>$key]) }}" @if(request()->route('reportSection')===$key) aria-current="page" @endif><i class="ti {{ $item['icon'] }} me-2"></i>{{ $item['label'] }}</a>
+                            @endforeach
+                        </div>
+                    </li>
+                @endif
+                @include('layouts.partials.communication-menu')
                 <li class="nav-item"><a class="nav-link" href="{{ route('profile') }}"><span class="nav-link-icon"><i class="ti ti-user"></i></span><span class="nav-link-title">My Profile</span></a></li>
                 <li class="nav-item"><form method="post" action="{{ route('logout') }}">@csrf<button class="nav-link border-0 bg-transparent w-100" type="submit"><span class="nav-link-icon"><i class="ti ti-logout"></i></span><span class="nav-link-title">Log out</span></button></form></li>
             </ul>

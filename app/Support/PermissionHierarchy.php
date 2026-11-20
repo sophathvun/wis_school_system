@@ -11,6 +11,7 @@ class PermissionHierarchy
     {
         $gepLabels=[];foreach(GepSettingsPermissions::SECTIONS as $key=>$section)$gepLabels['gep-settings.'.$key]=$section['label'];
         foreach(GepStudentPermissions::SECTIONS as $key=>$section)$gepLabels['gep-students.'.$key]=$section['label'];
+        foreach(GepReportPermissions::SECTIONS as $key=>$section)$gepLabels['gep-reports.'.$key]=$section['label'];
         $nationalLabels=[];foreach(G12NationalExamPermissions::submenus() as $key=>$section)$nationalLabels['g12-national-exams.'.$key]=$section[0];
         foreach(G9NationalExamPermissions::sections() as $key=>$section)$nationalLabels['g9-national-exams.'.$key]=$section[0];
         return array_merge($gepLabels, [
@@ -52,6 +53,15 @@ class PermissionHierarchy
             'gep-students'=>[
                 'label'=>'GEP Students','permission'=>'gep-students.view','modules'=>array_map(fn($key)=>'gep-students.'.$key,array_keys(GepStudentPermissions::SECTIONS)),'actions'=>[],
                 'description'=>'Access GEP student modules. GEP workspace access is also required.',
+            ],
+            ...collect(GepAcademicPermissions::MENUS)->mapWithKeys(fn($menu,$key)=>['gep-'.$key=>[
+                'label'=>$menu['label'],'permission'=>'gep-'.$key.'.view','modules'=>[],'actions'=>[],
+                'description'=>'GEP workspace access is also required.',
+            ]])->all(),
+            'gep-reports'=>[
+                'label'=>'GEP Reports','permission'=>'gep-reports.view',
+                'modules'=>array_map(fn($key)=>'gep-reports.'.$key,array_keys(GepReportPermissions::SECTIONS)),'actions'=>[],
+                'description'=>'Access GEP reports. GEP workspace access is also required.',
             ],
             'wmi-management'=>[
                 'label'=>'WMI Management','permission'=>'wmi-management.view',

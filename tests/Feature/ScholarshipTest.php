@@ -557,6 +557,30 @@ it('allows valid EOY ordering regardless of the order students are assigned',fun
     expect(ScholarshipStudentRank::where('student_enrollment_id',3)->first()->eoy_average)->toBe((float)$average);
 })->with([[1,90,2,89.99],[2,90,1,90.01],[3,80,2,80.01],[2,90,3,0]]);
 
+it('rejects a shared class rank when EOY averages differ without saving the student',function($rank,$peerAverage,$average){
+    ScholarshipStudentRank::create(['student_enrollment_id'=>1,'rank'=>$rank,'eoy_average'=>$peerAverage,'assigned_by'=>1]);
+    DB::table('tb_student_enrollment')->where('id',3)->update(['campus_id'=>1]);
+    try{app(ScholarshipController::class)->saveRank(scholarshipRequest('POST',['academic_year_id'=>1,'campus_id'=>1,'enrollment_id'=>3,'rank'=>$rank,'eoy_average'=>$average]));$this->fail('Unequal average tie was accepted.');}
+    catch(ValidationException $error){expect($error->errors())->toHaveKey('eoy_average');}
+    expect(ScholarshipStudentRank::count())->toBe(1);
+})->with([[1,96,95],[1,95,96],[2,90,89.99],[3,80,80.01]]);
+
+it('allows students with equal EOY averages to share a class rank',function($rank){
+    ScholarshipStudentRank::create(['student_enrollment_id'=>1,'rank'=>$rank,'eoy_average'=>95.25,'assigned_by'=>1]);
+    DB::table('tb_student_enrollment')->where('id',3)->update(['campus_id'=>1]);
+    app(ScholarshipController::class)->saveRank(scholarshipRequest('POST',['academic_year_id'=>1,'campus_id'=>1,'enrollment_id'=>3,'rank'=>$rank,'eoy_average'=>95.25]));
+    expect(ScholarshipStudentRank::where('student_enrollment_id',3)->firstOrFail()->rank)->toBe($rank);
+})->with([1,2,3]);
+
+it('rejects edits that give a shared rank a different EOY average and preserves the saved values',function(){
+    ScholarshipStudentRank::create(['student_enrollment_id'=>1,'rank'=>1,'eoy_average'=>96,'assigned_by'=>1]);
+    DB::table('tb_student_enrollment')->where('id',3)->update(['campus_id'=>1]);
+    $record=ScholarshipStudentRank::create(['student_enrollment_id'=>3,'rank'=>2,'eoy_average'=>95,'assigned_by'=>1]);
+    try{app(ScholarshipController::class)->saveRank(scholarshipRequest('POST',['academic_year_id'=>1,'campus_id'=>1,'enrollment_id'=>3,'rank_id'=>$record->id,'rank'=>1,'eoy_average'=>95]));$this->fail('Conflicting rank edit was accepted.');}
+    catch(ValidationException $error){expect($error->errors())->toHaveKey('eoy_average');}
+    expect($record->fresh()->rank)->toBe(2)->and($record->fresh()->eoy_average)->toBe(95.0);
+});
+
 it('checks EOY ordering on edits without changing the saved value on failure',function(){
     ScholarshipStudentRank::create(['student_enrollment_id'=>1,'rank'=>1,'eoy_average'=>95,'assigned_by'=>1]);
     DB::table('tb_student_enrollment')->where('id',3)->update(['campus_id'=>1]);

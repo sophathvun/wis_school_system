@@ -28,6 +28,8 @@ beforeEach(function(){
     $this->migration->up();
     \App\Support\GepSettingsPermissions::registerMissing();
     \App\Support\GepStudentPermissions::registerMissing();
+    \App\Support\GepReportPermissions::registerMissing();
+    \App\Support\GepAcademicPermissions::registerMissing();
     $this->permissions=DB::table('access_permissions')->pluck('id','code');
     $this->give=function($programs){
         DB::table('access_role_permissions')->where('role_id',1)->delete();
@@ -494,6 +496,94 @@ it('registers the GEP student menu permissions without granting campus roles aut
     $ids=DB::table('access_permissions')->where('module','like','gep-students%')->pluck('id');
     expect($ids)->toHaveCount(10)->and(DB::table('access_role_permissions')->where('role_id',1)->whereIn('permission_id',$ids)->count())->toBe(0)
         ->and(DB::table('access_role_permissions')->where('role_id',2)->whereIn('permission_id',$ids)->count())->toBe(10);
+});
+
+it('opens each authorized GEP report with its own breadcrumb and sidebar item',function($section){
+    $user=($this->give)(['gep']);
+    foreach(['gep-reports.view','gep-reports.'.$section.'.view'] as $code)DB::table('access_role_permissions')->insert(['role_id'=>1,'permission_id'=>$this->permissions[$code]]);
+    $this->actingAs($user);$request=($this->workspaceRequest)('/gep/reports/'.$section,$user,'gep');
+    $route=app('router')->getRoutes()->match($request);$request->setRouteResolver(fn()=>$route);
+    $view=(new \App\Http\Controllers\GepReportController)->index($request,$section);
+    expect($view->name())->toBe('gep.reports')->and($view->getData()['current']['label'])->toBe(\App\Support\GepReportPermissions::SECTIONS[$section]['label']);
+    expect(view('layouts.partials.navbar')->render())->toContain('GEP Reports',route('gep.reports.section',['reportSection'=>$section]));
+    $sidebar=view('layouts.partials.gep-sidebar',['branding'=>null])->render();
+    expect($sidebar)->toContain('GEP Reports',route('gep.reports.section',['reportSection'=>$section]),'aria-current="page"');
+    foreach(array_keys(\App\Support\GepReportPermissions::SECTIONS) as $other)if($other!==$section)expect($sidebar)->not->toContain(route('gep.reports.section',['reportSection'=>$other]).'"');
+})->with(array_keys(\App\Support\GepReportPermissions::SECTIONS));
+
+it('requires the GEP report parent, submenu and workspace grants',function(){
+    $user=($this->give)(['gep']);
+    DB::table('access_role_permissions')->insert(['role_id'=>1,'permission_id'=>$this->permissions['gep-reports.student-list.view']]);
+    expect(\App\Support\GepReportPermissions::allows($user,'student-list'))->toBeFalse();
+    $request=($this->workspaceRequest)('/gep/reports',$user,'gep');
+    expect(fn()=>(new \App\Http\Controllers\GepReportController)->index($request))->toThrow(HttpException::class);
+    DB::table('access_role_permissions')->insert(['role_id'=>1,'permission_id'=>$this->permissions['gep-reports.view']]);
+    expect((new \App\Http\Controllers\GepReportController)->index($request)->getTargetUrl())->toBe(route('gep.reports.section',['reportSection'=>'student-list']));
+    expect(fn()=>(new \App\Http\Controllers\GepReportController)->index($request,'student-photos'))->toThrow(HttpException::class);
+    $user=($this->give)(['wis']);
+    foreach(['gep-reports.view','gep-reports.student-list.view'] as $code)DB::table('access_role_permissions')->insert(['role_id'=>1,'permission_id'=>$this->permissions[$code]]);
+    expect(\App\Support\GepReportPermissions::allows($user,'student-list'))->toBeFalse();
+});
+
+it('registers all GEP report permissions for central management without granting campus roles',function(){
+    $migration=require database_path('migrations/2026_11_20_000008_add_gep_report_menu_permissions.php');
+    $migration->up();$migration->up();
+    $ids=DB::table('access_permissions')->where('module','like','gep-reports%')->pluck('id');
+    expect($ids)->toHaveCount(9)->and(DB::table('access_role_permissions')->where('role_id',1)->whereIn('permission_id',$ids)->count())->toBe(0)
+        ->and(DB::table('access_role_permissions')->where('role_id',2)->whereIn('permission_id',$ids)->count())->toBe(9);
+    $group=\App\Support\PermissionHierarchy::groups()['gep-reports'];
+    expect($group['modules'])->toHaveCount(8)->and($group['permission'])->toBe('gep-reports.view');
+    $migration->down();expect(DB::table('access_permissions')->where('module','like','gep-reports%')->count())->toBe(0);
+});
+
+it('allows shared communication routes in GEP without switching the workspace',function($method,$path){
+    $user=($this->give)(['gep']);
+    $request=($this->workspaceRequest)($path,$user,'gep',$method);
+    $response=(new ResolveProgramWorkspace)->handle($request,fn()=>response('shared communication'));
+    expect($response->getContent())->toBe('shared communication')->and($request->session()->get('selected_program'))->toBe('gep');
+})->with([
+    ['GET','/communication/chat'],['GET','/settings/notifications/send'],['POST','/settings/notifications/send'],
+    ['GET','/settings/notifications'],['POST','/settings/notifications/upload-image'],
+    ['POST','/settings/notifications/1'],['DELETE','/settings/notifications/1'],['GET','/settings/feedback'],
+]);
+
+it('renders the shared Communication menu in GEP with WIS permissions and active states',function(){
+    $user=($this->give)(['gep']);$this->actingAs($user);
+    $request=($this->workspaceRequest)('/settings/notifications',$user,'gep');
+    $route=app('router')->getRoutes()->match($request);$request->setRouteResolver(fn()=>$route);
+    $html=view('layouts.partials.gep-sidebar',['branding'=>null,'permissionCodes'=>['*']])->render();
+    expect($html)->toContain('Communication','aria-expanded="true"','id="communication-menu"',route('chat.index'),route('notifications.send'),route('notifications.manage'),route('feedback.admin'));
+    $restricted=view('layouts.partials.gep-sidebar',['branding'=>null,'permissionCodes'=>['communication.view','chat.view']])->render();
+    expect($restricted)->toContain('id="communication-menu"',route('chat.index'),route('feedback.admin'))
+        ->not->toContain(route('notifications.send').'"',route('notifications.manage').'"');
+    $hidden=view('layouts.partials.gep-sidebar',['branding'=>null,'permissionCodes'=>['chat.view']])->render();
+    expect($hidden)->not->toContain('id="communication-menu"');
+});
+
+it('opens each GEP academic menu only with its own permission',function($menu){
+    $user=($this->give)(['gep']);$this->actingAs($user);
+    $request=($this->workspaceRequest)('/gep/'.$menu,$user,'gep');
+    $route=app('router')->getRoutes()->match($request);$request->setRouteResolver(fn()=>$route);
+    expect($route->getName())->toBe('gep.academic.index');
+    expect(fn()=>(new \App\Http\Controllers\GepAcademicController)->index($request,$menu))->toThrow(HttpException::class);
+    DB::table('access_role_permissions')->insert(['role_id'=>1,'permission_id'=>$this->permissions['gep-'.$menu.'.view']]);
+    $view=(new \App\Http\Controllers\GepAcademicController)->index($request,$menu);
+    expect($view->name())->toBe('gep.academic-module')->and($view->getData()['current']['label'])->toBe(\App\Support\GepAcademicPermissions::MENUS[$menu]['label']);
+    $html=view('layouts.partials.gep-sidebar',['branding'=>null])->render();
+    expect($html)->toContain(route('gep.academic.index',['academicMenu'=>$menu]),'aria-current="page"');
+    foreach(array_keys(\App\Support\GepAcademicPermissions::MENUS) as $other)if($other!==$menu)expect($html)->not->toContain(route('gep.academic.index',['academicMenu'=>$other]).'"');
+    expect(view('layouts.partials.navbar')->render())->toContain(\App\Support\GepAcademicPermissions::MENUS[$menu]['label']);
+    $user=($this->give)(['wis']);DB::table('access_role_permissions')->insert(['role_id'=>1,'permission_id'=>$this->permissions['gep-'.$menu.'.view']]);
+    expect(\App\Support\GepAcademicPermissions::allows($user,$menu))->toBeFalse();
+})->with(array_keys(\App\Support\GepAcademicPermissions::MENUS));
+
+it('registers three GEP academic menu permissions without granting campus roles',function(){
+    $migration=require database_path('migrations/2026_11_20_000009_add_gep_academic_menu_permissions.php');$migration->up();$migration->up();
+    $ids=DB::table('access_permissions')->whereIn('code',array_column(\App\Support\GepAcademicPermissions::catalog(),'code'))->pluck('id');
+    expect($ids)->toHaveCount(3)->and(DB::table('access_role_permissions')->where('role_id',1)->whereIn('permission_id',$ids)->count())->toBe(0)
+        ->and(DB::table('access_role_permissions')->where('role_id',2)->whereIn('permission_id',$ids)->count())->toBe(3);
+    foreach(\App\Support\GepAcademicPermissions::MENUS as $key=>$menu)expect(\App\Support\PermissionHierarchy::groups()['gep-'.$key]['permission'])->toBe('gep-'.$key.'.view');
+    $migration->down();expect(DB::table('access_permissions')->whereIn('id',$ids)->count())->toBe(0);
 });
 
 function gepYearTestSetup($test,array $actions=['create','edit','delete','status']):void

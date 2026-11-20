@@ -22,6 +22,13 @@
 @php($mainMenuIcons['program-workspaces']='ti-books')
 @php($mainMenuIcons['gep-settings']='ti-settings')
 @php($mainMenuIcons['gep-students']='ti-users')
+@foreach(\App\Support\GepAcademicPermissions::MENUS as $gepAcademicKey=>$gepAcademicMenu)
+@php($mainMenuIcons['gep-'.$gepAcademicKey]=$gepAcademicMenu['icon'])
+@endforeach
+@php($mainMenuIcons['gep-reports']='ti-report-analytics')
+@foreach(\App\Support\GepReportPermissions::SECTIONS as $gepReportKey=>$gepReportSection)
+@php($submenuIcons['gep-reports.'.$gepReportKey]=$gepReportSection['icon'])
+@endforeach
 @foreach(\App\Support\GepStudentPermissions::SECTIONS as $gepStudentKey=>$gepStudentSection)
 @php($submenuIcons['gep-students.'.$gepStudentKey]=$gepStudentSection['icon'])
 @endforeach

@@ -16,6 +16,7 @@ class ResolveProgramWorkspace
         $request->attributes->set('active_program', $selected);
         if ($request->is('program-workspace/switch', 'logout', 'profile', 'profile/*',
             'notifications', 'notifications/*', 'communication/*', 'push/*', 'help', 'help/*', 'feedback',
+            'settings/notifications', 'settings/notifications/*', 'settings/feedback',
             'login', 'login/*', 'forgot-password', 'reset-password', 'reset-password/*',
             'app/*', 'staff-card/*', 'student-card/*', 'certificates/*', 'placement-test/*',
             'settings/users', 'settings/users/*', 'settings/roles', 'settings/roles/*',
