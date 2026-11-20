@@ -587,7 +587,7 @@ const summerAddEnrollmentParityFields = () => {
         const dobParent = dobInput.parentElement;
         const dobNext = dobInput.nextSibling;
         const picker = document.createElement("div");
-        picker.className = "date-picker summer-date-picker";
+        picker.className = "date-picker summer-date-picker summer-dob-picker";
         dobInput.type = "hidden";
         picker.appendChild(dobInput);
         picker.insertAdjacentHTML("beforeend", '<div class="date-picker-trigger summer-dob-trigger"><i class="ti ti-cake summer-dob-cake"></i><input type="text" class="date-picker-display" inputmode="numeric" autocomplete="off"><i class="ti ti-calendar summer-dob-calendar"></i></div><div class="date-picker-popup d-none"><div class="date-picker-header"><button type="button" class="date-picker-nav" data-dob-nav="prev"><i class="ti ti-chevron-left"></i></button><button type="button" class="date-picker-year-toggle"><span class="date-picker-month-label"></span></button><button type="button" class="date-picker-nav" data-dob-nav="next"><i class="ti ti-chevron-right"></i></button></div><div class="date-picker-year-popup d-none"><div class="date-picker-years"></div></div><div class="date-picker-grid"><div class="date-picker-weekdays"><span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span></div><div class="date-picker-days"></div></div></div>');

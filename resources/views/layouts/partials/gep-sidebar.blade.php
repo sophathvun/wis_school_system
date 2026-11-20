@@ -11,7 +11,7 @@
                 <i class="ti ti-books me-2" aria-hidden="true"></i>GEP Management
             @endif
         </a>
-        <div class="d-lg-none">@include('layouts.partials.program-switcher')</div>
+        <div class="program-mobile-navbar-switch d-lg-none">@include('layouts.partials.program-switcher')</div>
         <button type="button" class="sidebar-collapse-toggle d-none d-lg-inline-flex" id="sidebarCollapseToggle" aria-label="Collapse sidebar" aria-expanded="true" title="Collapse sidebar"><i class="ti ti-layout-sidebar-left-collapse" aria-hidden="true"></i></button>
         <div class="collapse navbar-collapse" id="sidebar-menu">
             <ul class="navbar-nav pt-lg-3">

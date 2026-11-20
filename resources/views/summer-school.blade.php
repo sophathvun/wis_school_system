@@ -48,8 +48,8 @@
             <div class="modal-content">
                 <form id="summerSchoolForm" novalidate>
                     <div class="modal-header">
-                        <h3 class="modal-title">Register Summer Student</h3><button type="button" class="btn-close"
-                            data-bs-dismiss="modal"></button>
+                        <h3 class="modal-title text-white">Register Summer Student</h3><button type="button" class="btn-close btn-close-white"
+                            data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
                         <div class="summer-registration-layout">

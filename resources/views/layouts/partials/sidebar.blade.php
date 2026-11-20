@@ -32,8 +32,8 @@
             <i class="ti ti-layout-sidebar-left-collapse" aria-hidden="true"></i>
         </button>
 
+        <div class="program-mobile-navbar-switch d-lg-none">@include('layouts.partials.program-switcher')</div>
         <div class="navbar-nav flex-row d-lg-none">
-            <div class="nav-item me-2">@include('layouts.partials.program-switcher')</div>
             <div class="nav-item">
                 <a href="{{ request()->fullUrlWithQuery(['theme' => 'dark']) }}" class="nav-link px-0 hide-theme-dark" title="Enable dark mode"
                     data-bs-toggle="tooltip" data-bs-placement="bottom">

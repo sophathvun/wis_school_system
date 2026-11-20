@@ -653,7 +653,7 @@
 #summerSchoolModal .premium-floating-field.has-value > textarea,
 #summerSchoolModal .premium-floating-field.has-value > .phone-input-group {
     border-color: #6b5bd6 !important;
-    background-color: #fff !important;
+    background-color: var(--tblr-bg-surface, #fff) !important;
     box-shadow: 0 0 0 3px rgba(107, 91, 214, .14) !important;
 }
 
@@ -664,16 +664,16 @@
 #summerSchoolModal .premium-floating-field.has-value .summer-email-input,
 #summerSchoolModal .premium-floating-field.has-value .date-picker-trigger,
 #summerSchoolModal .premium-floating-field.has-value .summer-dob-khmer-input {
-    background-color: #fff !important;
+    background-color: var(--tblr-bg-surface, #fff) !important;
 }
 
 /* Student identifiers are populated automatically or from an existing
-   student selection; keep their filled state white instead of the browser's
+   student selection; keep their filled state theme-aware instead of the browser's
    readonly/autofill blue surface. */
 #summerSchoolModal .premium-floating-field > input[name="student_no"],
 #summerSchoolModal .premium-floating-field > input[name="student_id"] {
-    background-color: #fff !important;
-    -webkit-box-shadow: inset 0 0 0 1000px #fff !important;
+    background-color: var(--tblr-bg-surface, #fff) !important;
+    -webkit-box-shadow: inset 0 0 0 1000px var(--tblr-bg-surface, #fff) !important;
     box-shadow: 0 2px 7px rgba(31, 41, 55, .04) !important;
 }
 
@@ -681,9 +681,9 @@
 #summerSchoolModal .premium-floating-field > input[name="student_id"]:-webkit-autofill:hover,
 #summerSchoolModal .premium-floating-field > input[name="student_id"]:-webkit-autofill:focus,
 #summerSchoolModal .premium-floating-field > input[name="student_id"]:-webkit-autofill:active {
-    -webkit-box-shadow: inset 0 0 0 1000px #fff !important;
+    -webkit-box-shadow: inset 0 0 0 1000px var(--tblr-bg-surface, #fff) !important;
     -webkit-text-fill-color: var(--tblr-body-color) !important;
-    background-color: #fff !important;
+    background-color: var(--tblr-bg-surface, #fff) !important;
     background-image: none !important;
 }
 
@@ -699,8 +699,8 @@
 
 #summerSchoolModal .premium-floating-field > input[name="address_house_no_en"],
 #summerSchoolModal .premium-floating-field > input[name="address_street_en"] {
-    background-color: #fff !important;
-    -webkit-box-shadow: inset 0 0 0 1000px #fff !important;
+    background-color: var(--tblr-bg-surface, #fff) !important;
+    -webkit-box-shadow: inset 0 0 0 1000px var(--tblr-bg-surface, #fff) !important;
     box-shadow: 0 2px 7px rgba(31, 41, 55, .04) !important;
 }
 
@@ -710,24 +710,24 @@
 #summerSchoolModal .premium-floating-field > input[name="address_street_en"]:-webkit-autofill,
 #summerSchoolModal .premium-floating-field > input[name="address_street_en"]:-webkit-autofill:hover,
 #summerSchoolModal .premium-floating-field > input[name="address_street_en"]:-webkit-autofill:focus {
-    -webkit-box-shadow: inset 0 0 0 1000px #fff !important;
+    -webkit-box-shadow: inset 0 0 0 1000px var(--tblr-bg-surface, #fff) !important;
     -webkit-text-fill-color: var(--tblr-body-color) !important;
-    background-color: #fff !important;
+    background-color: var(--tblr-bg-surface, #fff) !important;
     background-image: none !important;
 }
 
 /* Family fields can also be populated by browser autofill. Keep every family
-   text input neutral regardless of its autofill/focus state. */
+   text input theme-aware regardless of its autofill/focus state. */
 #summerSchoolModal .summer-family-grid input,
 #summerSchoolModal .summer-family-grid input:-webkit-autofill,
 #summerSchoolModal .summer-family-grid input:-webkit-autofill:hover,
 #summerSchoolModal .summer-family-grid input:-webkit-autofill:focus,
 #summerSchoolModal .summer-family-grid input:-webkit-autofill:active {
-    background-color: #fff !important;
-    background: #fff !important;
+    background-color: var(--tblr-bg-surface, #fff) !important;
+    background: var(--tblr-bg-surface, #fff) !important;
     background-image: none !important;
-    -webkit-box-shadow: inset 0 0 0 1000px #fff !important;
-    box-shadow: inset 0 0 0 1000px #fff !important;
+    -webkit-box-shadow: inset 0 0 0 1000px var(--tblr-bg-surface, #fff) !important;
+    box-shadow: inset 0 0 0 1000px var(--tblr-bg-surface, #fff) !important;
     -webkit-text-fill-color: var(--tblr-body-color) !important;
     transition: background-color 9999s ease-out !important;
 }
@@ -945,7 +945,7 @@
     padding: .85rem 1rem;
     border: 1.5px solid #ddd6fe;
     border-radius: 18px;
-    background: #fff;
+    background: var(--tblr-bg-surface, #fff);
     text-align: left;
 }
 
@@ -1003,22 +1003,22 @@
     #summerSchoolModal .student-document-upload-layout { grid-template-columns: 1fr; }
 }
 
-/* Final override: populated controls should retain the same white surface as
+/* Final override: populated controls should retain the same theme surface as
    the Experience English field, regardless of the global filled-field theme. */
 #summerSchoolModal .premium-floating-field.has-value > .form-control,
 #summerSchoolModal .premium-floating-field.has-value > .form-select,
 #summerSchoolModal .premium-floating-field.has-value > textarea,
 #summerSchoolModal .premium-floating-field.has-value .form-control,
 #summerSchoolModal .premium-floating-field.has-value .form-select {
-    background: #fff !important;
+    background: var(--tblr-bg-surface, #fff) !important;
 }
 
 /* The registration form can move fields into family/assessment wrappers;
-   keep every visible text control white regardless of its final wrapper. */
+   keep every visible text control theme-aware regardless of its final wrapper. */
 #summerSchoolModal input.form-control,
 #summerSchoolModal textarea.form-control,
 #summerSchoolModal select.form-select {
-    background: #fff !important;
+    background: var(--tblr-bg-surface, #fff) !important;
 }
 
 #summerSchoolModal .summer-enrollment-section > .row {
@@ -1072,7 +1072,7 @@
     letter-spacing: .03em;
 }
 
-#summerSchoolModal .summer-western-student-info { margin: 1rem; border: 1px solid #d9e2ef; border-left: 6px solid #2875c7; border-radius: 14px 18px 18px 14px; overflow: hidden; background: #fff; }
+#summerSchoolModal .summer-western-student-info { margin: 1rem; border: 1px solid #d9e2ef; border-left: 6px solid #2875c7; border-radius: 14px 18px 18px 14px; overflow: hidden; background: var(--tblr-bg-surface, #fff); }
 #summerSchoolModal .summer-western-student-info-title { padding: .65rem 1rem; color: #fff; background: #173b63; font-size: .8rem; font-weight: 700; letter-spacing: .04em; }
 #summerSchoolModal .summer-western-student-info-body { display: grid; grid-template-columns: 5rem repeat(4, minmax(0, 1fr)); gap: 1rem; padding: 1rem; align-items: start; }
 #summerSchoolModal .summer-western-student-info-body > img,
@@ -1809,4 +1809,92 @@
     align-items: center !important;
     gap: .35rem !important;
     white-space: nowrap !important;
+}
+#summerSchoolModal .summer-dob-picker .date-picker-popup {
+    width: 22rem;
+    max-width: calc(100vw - 3rem);
+    left: 0;
+    right: auto;
+}
+
+#summerSchoolModal .summer-dob-picker .date-picker-header {
+    display: grid;
+    grid-template-columns: 2.25rem minmax(0, 1fr) 2.25rem;
+    align-items: center;
+    gap: .25rem;
+    padding: .85rem .75rem;
+}
+
+#summerSchoolModal .summer-dob-picker .date-picker-year-toggle {
+    min-width: 0;
+    white-space: nowrap;
+}
+
+#summerSchoolModal .summer-dob-picker .date-picker-grid { padding: .85rem .75rem 1rem; }
+
+#summerSchoolModal .summer-dob-picker .date-picker-weekdays,
+#summerSchoolModal .summer-dob-picker .date-picker-days {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: .25rem;
+    width: 100%;
+}
+
+#summerSchoolModal .summer-dob-picker .date-picker-weekdays span,
+#summerSchoolModal .summer-dob-picker .date-picker-day {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-width: 0;
+    height: 2.25rem;
+    padding: 0;
+    line-height: 1;
+    white-space: nowrap;
+    word-break: normal;
+    overflow-wrap: normal;
+}
+#summerSchoolModal input.form-control,
+#summerSchoolModal textarea.form-control,
+#summerSchoolModal select.form-select {
+    color: var(--tblr-body-color);
+    caret-color: var(--tblr-body-color);
+}
+
+#summerSchoolModal input.form-control::placeholder,
+#summerSchoolModal textarea.form-control::placeholder {
+    color: var(--tblr-secondary-color, #667382);
+    opacity: 1;
+}
+
+#summerSchoolModal input.form-control:autofill {
+    -webkit-text-fill-color: var(--tblr-body-color);
+    caret-color: var(--tblr-body-color);
+}
+
+/* These automatic/address controls also receive browser autofill paint.
+   Keep the inset covering layer and the actual background in sync. */
+html #summerSchoolModal {
+    --summer-identifier-surface: #fff;
+    --summer-identifier-text: #182433;
+}
+html[data-bs-theme="dark"] #summerSchoolModal {
+    --summer-identifier-surface: #151a28;
+    --summer-identifier-text: #e5e9f0;
+}
+html #summerSchoolModal .premium-floating-field > input:is([name="student_no"], [name="student_id"], [name="address_house_no_en"], [name="address_street_en"]),
+html #summerSchoolModal .premium-floating-field > input:is([name="student_no"], [name="student_id"], [name="address_house_no_en"], [name="address_street_en"]):-webkit-autofill,
+html #summerSchoolModal .premium-floating-field > input:is([name="student_no"], [name="student_id"], [name="address_house_no_en"], [name="address_street_en"]):-webkit-autofill:hover,
+html #summerSchoolModal .premium-floating-field > input:is([name="student_no"], [name="student_id"], [name="address_house_no_en"], [name="address_street_en"]):-webkit-autofill:focus {
+    background: var(--summer-identifier-surface) !important;
+    -webkit-box-shadow: inset 0 0 0 1000px var(--summer-identifier-surface) !important;
+    box-shadow: inset 0 0 0 1000px var(--summer-identifier-surface) !important;
+    color: var(--summer-identifier-text) !important;
+    -webkit-text-fill-color: var(--summer-identifier-text) !important;
+    caret-color: var(--summer-identifier-text);
+    transition: border-color .15s ease, color .15s ease !important;
+}
+#summerSchoolModal .modal-header {
+    background: #23395d;
+    color: #fff;
+    border-bottom-color: #23395d;
 }
