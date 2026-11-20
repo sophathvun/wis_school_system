@@ -4492,7 +4492,7 @@ const remove = async (id) => {
 const showEnrollmentHistory = async (id, studentName) => {
     if (!canEnrollment("history")) return;
     document.getElementById("enrollmentHistoryTitle").textContent =
-        `Enrollment History${studentName ? ` - ${studentName}` : ""}`;
+        `Student Activity History${studentName ? ` - ${studentName}` : ""}`;
     enrollmentHistoryTable.innerHTML = `<tr><td colspan="12" class="text-center">Loading...</td></tr>`;
     historyModal.show();
     let result = {};

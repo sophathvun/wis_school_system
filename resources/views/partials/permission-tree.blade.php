@@ -81,15 +81,25 @@
 </div>
 </div>
 @if(($permissionPrefix??'')==='department')</div>@endif
+@php($gepPermissionGroups = collect($permissionHierarchy)->filter(fn($group,$key)=>$key==='program-workspaces' || str_starts_with($key,'gep-')))
+@php($otherPermissionGroups = collect($permissionHierarchy)->except($gepPermissionGroups->keys()->all()))
+@foreach (['gep'=>$gepPermissionGroups,'other'=>$otherPermissionGroups] as $permissionSection => $permissionSectionGroups)
+@if ($permissionSectionGroups->isNotEmpty())
+@if ($permissionSection==='gep')
+<section class="card permission-program-card mb-3" data-gep-permission-card aria-label="General English Program (GEP)">
+    <div class="card-header permission-program-card-header"><h2 class="card-title mb-0"><i class="ti ti-books me-2" aria-hidden="true"></i>General English Program (GEP)</h2></div>
+    <div class="card-body">
+        <p class="text-secondary small mb-3">Set program access and GEP permissions here. Program Workspaces also controls access to WIS for staff who manage both programs.</p>
+@endif
 <div class="permission-modules-layout">
-    @foreach ($permissionHierarchy as $groupKey => $group)
+    @foreach ($permissionSectionGroups as $groupKey => $group)
         @php($main = $group['permission'])
         @if ($main)
             @php($mainId = $permissionPrefix . '-main-' . $groupKey)
             @php($mainOn = $assignedPermissions->contains('id', $main->id))
             <div class="col-md-6">
                 <div class="border rounded p-3" data-permission-group
-                    data-permission-group-label="{{ strtolower($group['label'] . ' ' . ($group['description'] ?? '')) }}">
+                    data-permission-group-label="{{ strtolower($group['label'] . ' ' . ($group['description'] ?? '') . ($permissionSection==='gep' ? ' General English Program GEP' : '')) }}">
                     <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2 permission-main-box-header">
                         <span class="fw-bold fs-5 permission-main-menu"><i
                                 class="ti {{ $mainMenuIcons[$groupKey] ?? 'ti-menu-2' }} me-2"></i>{{ strtoupper($group['label']) }} @include('partials.permission-inheritance', ['permissionId' => $main->id])</span>
@@ -208,3 +218,9 @@
         @endif
     @endforeach
 </div>
+@if ($permissionSection==='gep')
+    </div>
+</section>
+@endif
+@endif
+@endforeach

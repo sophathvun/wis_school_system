@@ -259,6 +259,67 @@ it('enforces class type action permissions and blocks deletion of linked types',
     expect(DB::table('tb_gep_class_type')->where('id',$id)->exists())->toBeTrue();
 });
 
+it('groups GEP permissions in one card without duplicating permission inputs',function(){
+    $permissions=\App\Models\Permission::all();
+    $html=view('partials.permission-tree',[
+        'permissionHierarchy'=>\App\Support\PermissionHierarchy::tree($permissions),
+        'assignedPermissions'=>collect(),'permissionPrefix'=>'role','fullAccess'=>false,
+    ])->render();
+    $dom=new DOMDocument();@$dom->loadHTML('<?xml encoding="UTF-8">'.$html);$xpath=new DOMXPath($dom);
+    $cards=$xpath->query('//*[@data-gep-permission-card]');
+    expect($cards->length)->toBe(1)->and($cards->item(0)->textContent)->toContain('General English Program (GEP)','Program Workspaces','GEP SETTINGS');
+    foreach($permissions as $permission){
+        expect($xpath->query('//input[@name="permissions[]" and @value="'.$permission->id.'"]')->length)->toBe(1);
+        if(str_starts_with($permission->code,'gep-settings.') || str_starts_with($permission->code,'program-workspaces.'))
+            expect($xpath->query('.//input[@name="permissions[]" and @value="'.$permission->id.'"]',$cards->item(0))->length)->toBe(1);
+    }
+});
+
+it('uploads replaces and removes a GEP sidebar logo independently of WIS branding',function(){
+    Schema::create('tb_branding_setting',function(Blueprint $table){
+        $table->id();$table->string('sidebar_logo_path')->nullable();$table->string('footer_text')->nullable();$table->timestamps();
+    });
+    (require database_path('migrations/2026_11_20_000001_add_gep_sidebar_logo_to_branding_settings.php'))->up();
+    (require database_path('migrations/2026_11_20_000002_add_gep_light_sidebar_logo_to_branding_settings.php'))->up();
+    \Illuminate\Support\Facades\Storage::fake('public');
+    $disk=\Illuminate\Support\Facades\Storage::disk('public');$disk->put('branding/wis.png','wis');
+    \App\Models\BrandingSetting::create(['sidebar_logo_path'=>'branding/wis.png','footer_text'=>'School']);
+    $controller=new \App\Http\Controllers\BrandingSettingController;
+    $save=function($data=[],$files=[])use($controller){
+        $request=\Illuminate\Http\Request::create('/branding-settings','POST',$data,[],$files);$request->setLaravelSession(app('session')->driver());return $controller->save($request);
+    };
+    $save(['footer_text'=>'School'],['gep_sidebar_logo'=>\Illuminate\Http\UploadedFile::fake()->image('gep.png')]);
+    $first=\App\Models\BrandingSetting::current()->gep_sidebar_logo_path;$disk->assertExists($first);
+    $save(['footer_text'=>'School'],['gep_sidebar_logo'=>\Illuminate\Http\UploadedFile::fake()->image('gep-new.png')]);
+    $second=\App\Models\BrandingSetting::current()->gep_sidebar_logo_path;
+    $disk->assertMissing($first);$disk->assertExists($second);
+    expect(fn()=>$save([],['gep_sidebar_logo'=>\Illuminate\Http\UploadedFile::fake()->create('invalid.txt',1,'text/plain')]))->toThrow(\Illuminate\Validation\ValidationException::class);
+    expect(\App\Models\BrandingSetting::current()->gep_sidebar_logo_path)->toBe($second);
+     $save(['footer_text'=>'School'],['gep_light_sidebar_logo'=>\Illuminate\Http\UploadedFile::fake()->image('gep-light.png')]);
+    $light=\App\Models\BrandingSetting::current()->gep_light_sidebar_logo_path;$disk->assertExists($light);
+    $save(['remove_gep_sidebar_logo'=>1,'footer_text'=>'School']);
+    expect(\App\Models\BrandingSetting::current()->gep_light_sidebar_logo_path)->toBe($light);
+    $save(['remove_gep_light_sidebar_logo'=>1,'footer_text'=>'School']);$disk->assertMissing($light);$disk->assertMissing($second);$disk->assertExists('branding/wis.png');
+    expect(\App\Models\BrandingSetting::current()->gep_sidebar_logo_path)->toBeNull()->and(\App\Models\BrandingSetting::current()->sidebar_logo_path)->toBe('branding/wis.png');
+});
+
+it('renders the GEP sidebar logo with a text fallback before a logo is uploaded',function(){
+    $user=($this->give)(['gep']);$this->actingAs($user);
+    ($this->workspaceRequest)('/gep',$user,'gep');
+    $branding=new \App\Models\BrandingSetting(['gep_sidebar_logo_path'=>'branding/gep.png']);
+    $html=view('layouts.partials.gep-sidebar',compact('branding'))->render();
+    expect($html)->toContain(asset('storage/branding/gep.png'),'General English Program logo','navbar-brand-image');
+    $branding->gep_light_sidebar_logo_path='branding/gep-light.png';
+    $html=view('layouts.partials.gep-sidebar',compact('branding'))->render();
+    expect($html)->toContain('has-light-sidebar-logo','sidebar-logo-light',asset('storage/branding/gep-light.png'),asset('storage/branding/gep.png'));
+    $branding->gep_sidebar_logo_path=null;
+    $html=view('layouts.partials.gep-sidebar',compact('branding'))->render();
+    expect($html)->toContain(asset('storage/branding/gep-light.png'));
+    $branding->gep_light_sidebar_logo_path=null;
+    $html=view('layouts.partials.gep-sidebar',compact('branding'))->render();
+    expect($html)->toContain('GEP Management')->not->toContain('General English Program logo');
+});
+
 function gepYearTestSetup($test,array $actions=['create','edit','delete','start']):void
 {
     $test->withMiddleware();

@@ -1,7 +1,16 @@
 <aside class="navbar navbar-vertical navbar-expand-lg app-sidebar d-print-none" id="appSidebar" data-bs-theme="dark" data-user-id="{{ auth()->id() }}">
     <div class="container-fluid">
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#sidebar-menu" aria-controls="sidebar-menu" aria-expanded="false" aria-label="Toggle navigation"><span class="navbar-toggler-icon"></span></button>
-        <a href="{{ route('gep.dashboard') }}" class="navbar-brand text-white text-decoration-none"><i class="ti ti-books me-2"></i>GEP Management</a>
+        <a href="{{ route('gep.dashboard') }}" class="navbar-brand text-white text-decoration-none {{ $branding?->gep_light_sidebar_logo_path ? 'has-light-sidebar-logo' : '' }}" data-sidebar-brand aria-label="GEP Management">
+            @if ($branding?->gep_sidebar_logo_path ?: $branding?->gep_light_sidebar_logo_path)
+                <img src="{{ asset('storage/' . ($branding->gep_sidebar_logo_path ?: $branding->gep_light_sidebar_logo_path)) }}" alt="General English Program logo" class="navbar-brand-image sidebar-logo-default">
+                @if ($branding?->gep_light_sidebar_logo_path)
+                    <img src="{{ asset('storage/' . $branding->gep_light_sidebar_logo_path) }}" alt="GEP logo for light sidebar" class="navbar-brand-image sidebar-logo-light">
+                @endif
+            @else
+                <i class="ti ti-books me-2" aria-hidden="true"></i>GEP Management
+            @endif
+        </a>
         <div class="d-lg-none">@include('layouts.partials.program-switcher')</div>
         <button type="button" class="sidebar-collapse-toggle d-none d-lg-inline-flex" id="sidebarCollapseToggle" aria-label="Collapse sidebar" aria-expanded="true" title="Collapse sidebar"><i class="ti ti-layout-sidebar-left-collapse" aria-hidden="true"></i></button>
         <div class="collapse navbar-collapse" id="sidebar-menu">

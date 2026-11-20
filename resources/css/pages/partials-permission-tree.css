@@ -16,6 +16,10 @@
 
 /* Module cards flow independently instead of reserving the tallest row's height. */
 .permission-modules-layout{column-count:2;column-gap:1rem}
+.permission-program-card{overflow:hidden}
+.permission-program-card-header{background:#23395d;color:#fff;min-height:0;padding:.9rem 1rem}
+.permission-program-card-header .card-title{color:inherit;font-size:1.1rem}
+.permission-program-card>.card-body{padding:1rem}
 .permission-modules-layout>.col-md-6{display:inline-block;width:100%;max-width:100%;margin:0 0 1rem;vertical-align:top;break-inside:avoid;page-break-inside:avoid}
 .permission-modules-layout [data-permission-group]{width:100%}
 @media(max-width:767.98px){.permission-modules-layout{column-count:1}}

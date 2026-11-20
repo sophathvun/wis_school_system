@@ -227,6 +227,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 });
                 group.closest(".col-md-6")?.classList.toggle("d-none", Boolean(term) && !groupMatches && visibleModules === 0);
             });
+            form.querySelectorAll('[data-gep-permission-card]').forEach(card => {
+                const hasVisibleGroup = Array.from(card.querySelectorAll('[data-permission-group]')).some(group => !group.closest('.col-md-6')?.classList.contains('d-none'));
+                card.classList.toggle('d-none', !hasVisibleGroup);
+            });
         });
     });
 

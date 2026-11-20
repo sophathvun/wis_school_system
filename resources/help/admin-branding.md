@@ -8,6 +8,8 @@ Open **Administrator → Branding** with branding access. Branding changes are s
 | --- | --- |
 | Dark Sidebar Logo | Navigation on the dark sidebar |
 | White Sidebar Logo | Navigation on the light sidebar |
+| GEP Dark Sidebar Logo | GEP navigation on dark and theme-colored sidebars |
+| GEP White Sidebar Logo | GEP navigation on the light sidebar |
 | Login Logo | Sign-in screen branding |
 | Mobile Shortcut Icon | Installed or saved mobile shortcut branding |
 | Favicon | Browser tab icon |

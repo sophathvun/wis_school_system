@@ -16,6 +16,8 @@ class BrandingSettingController
     public function save(Request $request)
     {
         $validated = $request->validate([
+            'gep_sidebar_logo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,svg', 'max:4096'],
+            'gep_light_sidebar_logo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,svg', 'max:4096'],
             'sidebar_logo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,svg', 'max:4096'],
             'light_sidebar_logo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,svg', 'max:4096'],
             'login_logo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,svg', 'max:4096'],
@@ -28,7 +30,7 @@ class BrandingSettingController
         ]);
 
         $branding = BrandingSetting::current();
-        foreach (['sidebar_logo', 'light_sidebar_logo', 'login_logo', 'shortcut_icon', 'favicon', 'footer_logo', 'report_logo_1', 'report_logo_2'] as $field) {
+        foreach (['sidebar_logo', 'light_sidebar_logo', 'gep_sidebar_logo', 'gep_light_sidebar_logo', 'login_logo', 'shortcut_icon', 'favicon', 'footer_logo', 'report_logo_1', 'report_logo_2'] as $field) {
             if ($request->hasFile($field)) {
                 $pathField = $field . '_path';
                 if ($branding->{$pathField}) Storage::disk('public')->delete($branding->{$pathField});

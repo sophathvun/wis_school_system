@@ -848,7 +848,7 @@
         <div class="modal-dialog modal-xl modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h3 class="modal-title" id="enrollmentHistoryTitle">Enrollment History</h3><button type="button"
+                    <h3 class="modal-title" id="enrollmentHistoryTitle">Student Activity History</h3><button type="button"
                         class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
