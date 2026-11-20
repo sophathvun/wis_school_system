@@ -325,6 +325,7 @@ function gepAssignmentsTestSetup($test,array $actions=['create','edit','delete',
     gepYearTestSetup($test);
     (require database_path('migrations/2026_11_19_000005_create_gep_terms.php'))->up();
     (require database_path('migrations/2026_11_20_000004_create_gep_term_assignments.php'))->up();
+    (require database_path('migrations/2026_11_20_000006_make_gep_term_dates_optional.php'))->up();
     foreach(['gep-settings.assign-terms.view',...array_map(fn($a)=>'gep-settings.assign-terms.'.$a,$actions)] as $code)
         DB::table('access_role_permissions')->insertOrIgnore(['role_id'=>1,'permission_id'=>DB::table('access_permissions')->where('code',$code)->value('id')]);
     $year=$test->postJson('/gep/settings/academic-years',['academic_year'=>'2025','lifecycle_status'=>'started'])->assertCreated()->json('data.id');
@@ -350,20 +351,23 @@ it('assigns terms as Pending with unique term and order and valid dates',functio
     $this->getJson($base.'/data?academic_year_id='.$year.'&search=Term%201&perPage=10')->assertOk()->assertJsonPath('total',1)->assertJsonPath('next_term.id',$id)->assertJsonPath('data.0.term.term_name','Term 1');
 });
 
-it('starts terms in order and requires confirmation before finishing the current term',function(){
+it('sets any term Started with earlier terms Finished and later terms Pending in that year only',function(){
     [$year,$terms]=gepAssignmentsTestSetup($this);$base='/gep/settings/assign-terms';
-    $first=$this->postJson($base,gepAssignmentPayload($year,$terms[0]))->json('data.id');
-    $second=$this->postJson($base,gepAssignmentPayload($year,$terms[1],2))->json('data.id');
-    $this->postJson($base.'/'.$second.'/start')->assertUnprocessable();
-    $this->postJson($base.'/'.$first.'/start')->assertOk();
-    $this->postJson($base.'/'.$second.'/start')->assertUnprocessable()->assertJsonValidationErrors('confirm_finish_current');
-    $this->assertDatabaseHas('tb_gep_term_assignment',['id'=>$first,'lifecycle_status'=>'started']);
-    $this->postJson($base.'/'.$second.'/start',['confirm_finish_current'=>true])->assertOk();
-    $this->assertDatabaseHas('tb_gep_term_assignment',['id'=>$first,'lifecycle_status'=>'finished','started_slot'=>null]);
-    $this->assertDatabaseHas('tb_gep_term_assignment',['id'=>$second,'lifecycle_status'=>'started','started_slot'=>1]);
-    $this->postJson($base.'/'.$first.'/start')->assertUnprocessable();
-    $this->postJson($base.'/'.$second.'/finish')->assertOk();
-    $this->getJson($base.'/data?academic_year_id='.$year)->assertOk()->assertJsonPath('current_term',null)->assertJsonPath('next_term',null);
+    $ids=[];foreach($terms as $i=>$term)$ids[]=$this->postJson($base,gepAssignmentPayload($year,$term,$i+1))->json('data.id');
+    $other=$this->postJson('/gep/settings/academic-years',['academic_year'=>'2026'])->json('data.id');
+    $otherId=$this->postJson($base,gepAssignmentPayload($other,$terms[0]))->json('data.id');
+    $this->postJson($base.'/'.$ids[1].'/start')->assertOk();
+    $this->assertDatabaseHas('tb_gep_term_assignment',['id'=>$ids[0],'lifecycle_status'=>'finished']);
+    $this->assertDatabaseHas('tb_gep_term_assignment',['id'=>$ids[1],'lifecycle_status'=>'started','started_slot'=>1]);
+    $this->assertDatabaseHas('tb_gep_term_assignment',['id'=>$ids[2],'lifecycle_status'=>'pending']);
+    $this->postJson($base.'/'.$ids[0].'/start')->assertUnprocessable()->assertJsonValidationErrors('confirm_finish_current');
+    $this->postJson($base.'/'.$ids[0].'/start',['confirm_finish_current'=>true])->assertOk();
+    $this->assertDatabaseHas('tb_gep_term_assignment',['id'=>$ids[1],'lifecycle_status'=>'pending','started_slot'=>null]);
+    $this->postJson($base.'/'.$ids[2].'/start',['confirm_finish_current'=>true])->assertOk();
+    $this->assertDatabaseHas('tb_gep_term_assignment',['id'=>$ids[0],'lifecycle_status'=>'finished']);
+    $this->assertDatabaseHas('tb_gep_term_assignment',['id'=>$ids[1],'lifecycle_status'=>'finished']);
+    $this->assertDatabaseHas('tb_gep_term_assignment',['id'=>$otherId,'lifecycle_status'=>'pending']);
+    $this->postJson($base.'/'.$ids[2].'/finish')->assertOk();
     expect(DB::table('tb_gep_term_assignment')->where('lifecycle_status','started')->count())->toBe(0);
 });
 
@@ -391,7 +395,7 @@ it('keeps date reminders informational and determines the next term independentl
     $this->travelTo(new DateTime('2025-02-01 12:00:00'));
     $id=$this->postJson($base,gepAssignmentPayload($year,$terms[0]))->json('data.id');
     $this->postJson($base,[...gepAssignmentPayload($year,$terms[1],2),'start_date'=>'2025-04-01','end_date'=>'2025-06-30'])->assertCreated();
-    $this->getJson($base.'/data?academic_year_id='.$year)->assertOk()->assertJsonPath('data.0.schedule_notice','Due to Start')->assertJsonPath('data.1.schedule_notice','Upcoming')->assertJsonPath('data.0.lifecycle_status','pending');
+    $this->getJson($base.'/data?academic_year_id='.$year)->assertOk()->assertJsonPath('data.0.sort_order',2)->assertJsonPath('data.1.sort_order',1)->assertJsonPath('data.0.schedule_notice','Upcoming')->assertJsonPath('data.1.schedule_notice','Due to Start')->assertJsonPath('next_term.id',$id)->assertJsonPath('data.0.lifecycle_status','pending');
     $this->getJson($base.'/data?academic_year_id='.$year.'&search=Term%202')->assertOk()->assertJsonPath('total',1)->assertJsonPath('next_term.id',$id);
     $this->travelTo(new DateTime('2025-07-01 12:00:00'));
     $this->getJson($base.'/data?academic_year_id='.$year)->assertOk()->assertJsonPath('data.0.schedule_notice','Past End Date')->assertJsonPath('data.0.lifecycle_status','pending');
@@ -425,6 +429,21 @@ it('protects assigned years and terms and deletes only unlinked Pending assignme
     DB::table('test_gep_assignment_links')->insert(['assignment_id'=>$id]);
     $this->deleteJson($base.'/'.$id)->assertUnprocessable();
     DB::table('test_gep_assignment_links')->delete();$this->deleteJson($base.'/'.$id)->assertOk();
+});
+
+it('returns the correct next and current terms for each year in the all-years list',function(){
+    [$year,$terms]=gepAssignmentsTestSetup($this);$base='/gep/settings/assign-terms';
+    $other=$this->postJson('/gep/settings/academic-years',['academic_year'=>'2026'])->assertCreated()->json('data.id');
+    $first=$this->postJson($base,gepAssignmentPayload($year,$terms[0]))->json('data.id');
+    $second=$this->postJson($base,gepAssignmentPayload($year,$terms[1],2))->json('data.id');
+    $new=$this->postJson($base,gepAssignmentPayload($other,$terms[0]))->json('data.id');
+    $rows=collect($this->getJson($base.'/data')->assertOk()->json('data'))->keyBy('id');
+    expect($rows[$first]['is_next_pending'])->toBeTrue()->and($rows[$second]['is_next_pending'])->toBeFalse()->and($rows[$new]['is_next_pending'])->toBeTrue();
+    $this->postJson($base.'/'.$first.'/start')->assertOk();
+    $rows=collect($this->getJson($base.'/data?perPage=1&page=2')->assertOk()->json('data'))->keyBy('id');
+    expect($rows[$second]['is_next_pending'])->toBeTrue()->and($rows[$second]['current_term']['id'])->toBe($first);
+    $rows=collect($this->getJson($base.'/data?search=2026')->assertOk()->json('data'))->keyBy('id');
+    expect($rows[$new]['current_term'])->toBeNull()->and($rows[$new]['is_next_pending'])->toBeTrue();
 });
 
 function gepYearTestSetup($test,array $actions=['create','edit','delete','status']):void
@@ -655,3 +674,18 @@ it('protects every GEP class mutation separately from view access',function(){
     $this->deleteJson($base.'/'.$id)->assertForbidden();
 });
 
+
+it('supports unknown historical term dates without false schedule reminders',function(){
+    [$year,$terms]=gepAssignmentsTestSetup($this);$base='/gep/settings/assign-terms';
+    $payload=gepAssignmentPayload($year,$terms[0]);unset($payload['start_date'],$payload['end_date']);
+    $id=$this->postJson($base,$payload)->assertCreated()->assertJsonPath('data.start_date',null)->assertJsonPath('data.end_date',null)->json('data.id');
+    $this->getJson($base.'/data?academic_year_id='.$year)->assertOk()->assertJsonPath('data.0.schedule_notice','');
+    $this->putJson($base.'/'.$id,[...$payload,'start_date'=>'','end_date'=>''])->assertOk()->assertJsonPath('data.start_date',null);
+    $this->putJson($base.'/'.$id,[...$payload,'start_date'=>null,'end_date'=>'2099-12-31'])->assertOk();
+    $this->putJson($base.'/'.$id,[...$payload,'start_date'=>'2099-01-01','end_date'=>null])->assertOk();
+    $this->getJson($base.'/data?academic_year_id='.$year)->assertOk()->assertJsonPath('data.0.schedule_notice','Upcoming');
+    $this->putJson($base.'/'.$id,[...$payload,'start_date'=>'2025-02-01','end_date'=>'2025-01-01'])->assertUnprocessable()->assertJsonValidationErrors('end_date');
+    $this->putJson($base.'/'.$id,[...$payload,'start_date'=>'invalid','end_date'=>null])->assertUnprocessable()->assertJsonValidationErrors('start_date');
+    $this->putJson($base.'/'.$id,[...$payload,'start_date'=>null,'end_date'=>null])->assertOk();
+    $this->postJson($base.'/'.$id.'/start')->assertOk();$this->postJson($base.'/'.$id.'/finish')->assertOk();
+});

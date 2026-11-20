@@ -3355,8 +3355,11 @@ html[data-bs-theme="dark"] .program-single-workspace {
 #gep-term-assignments .assignment-filter-field .wmi-picker-trigger:focus-visible,
 #gep-term-assignments .assignment-filter-field .wmi-picker-trigger[aria-expanded="true"],
 #gep-term-assignments .assignment-filter-field>.form-control:focus{outline:0;border-color:#7b82e6;box-shadow:0 0 0 3px #6b5bd620}
-#gep-term-assignments .assignment-search-field>.form-control{padding-left:42px}
-#gep-term-assignments .assignment-search-field>label{left:28px}
+#gep-term-assignments .assignment-search-field>.form-control{padding:24px 16px 8px 42px;line-height:1.25}
+#gep-term-assignments .assignment-search-field>.form-control:placeholder-shown:not(:focus){padding-top:16px;padding-bottom:16px}
+#gep-term-assignments .assignment-search-field>label{left:28px;max-width:calc(100% - 42px)}
+#gep-term-assignments .assignment-search-field>.form-control:focus~label,
+#gep-term-assignments .assignment-search-field>.form-control:not(:placeholder-shown)~label{color:var(--tblr-primary)}
 #gep-term-assignments .assignment-search-icon{position:absolute;left:15px;top:20px;font-size:1.15rem;color:var(--tblr-secondary-color);z-index:2;pointer-events:none}
 #gep-term-assignments .wmi-picker-panel{position:absolute;top:calc(100% + 8px);left:0;z-index:1050;width:max(100%,280px);max-width:calc(100vw - 48px);padding:12px;border:1px solid var(--tblr-border-color);border-radius:16px;background:var(--tblr-bg-surface);color:var(--tblr-body-color);box-shadow:0 15px 40px #14294326}
 #gep-term-assignments .wmi-picker-panel[hidden]{display:none}

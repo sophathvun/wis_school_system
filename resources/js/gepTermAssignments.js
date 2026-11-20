@@ -23,13 +23,11 @@ document.addEventListener('DOMContentLoaded',()=>{
             const result=await request(`/data?${new URLSearchParams({academic_year_id:get('assignment-year-filter').value,search:get('assignment-search').value.trim(),perPage:get('assignment-per-page').value,page:target})}`,'GET',undefined,loading.signal);
             if(result.current_page>result.last_page)return load(result.last_page);
             rows=result.data;page=result.current_page;summary=result;listError('');
-            const year=result.schedule_year,current=result.current_term,next=result.next_term;
-            get('assignment-summary').textContent=year?`GEP ${year.academic_year} • Current term: ${current?.term?.term_name??'None'} • Next term: ${next?.term?.term_name??'None'}${!year.status?' • Activate the academic year before starting a term.':''}`:'Select an academic year to review its term schedule.';
             get('assignment-rows').innerHTML=rows.length?rows.map((row,index)=>{
                 const status=row.lifecycle_status,label=status[0].toUpperCase()+status.slice(1);
-                const canStart=permissions.start&&row.id===next?.id&&year?.status&&(!current||permissions.finish);
-                return `<tr><td><span class="badge bg-primary-lt px-3 py-2">${result.from+index}</span></td><td>${esc(row.academic_year.academic_year)}</td><td class="fw-semibold">${esc(row.term.term_name)}</td><td>${row.sort_order}</td><td class="text-nowrap">${date(row.start_date)}</td><td class="text-nowrap">${date(row.end_date)}</td><td><span class="badge bg-${({pending:'orange',started:'green',finished:'secondary'})[status]}-lt">${label}</span></td><td><span class="text-${row.schedule_notice==='Upcoming'?'secondary':'warning'}">${esc(row.schedule_notice||'—')}</span></td><td><div class="btn-list justify-content-end flex-nowrap">${canStart?`<button class="btn btn-outline-success btn-sm" data-action="start" data-id="${row.id}">Start Term</button>`:''}${status==='started'&&permissions.finish?`<button class="btn btn-outline-warning btn-sm" data-action="finish" data-id="${row.id}">Finish</button>`:''}${permissions.edit?`<button class="btn btn-outline-primary btn-sm" data-action="edit" data-id="${row.id}">Edit</button>`:''}${permissions.delete&&status==='pending'?`<button class="btn btn-outline-danger btn-sm" data-action="delete" data-id="${row.id}">Delete</button>`:''}</div></td></tr>`;
-            }).join(''):'<tr><td colspan="9" class="text-center text-secondary py-4">No term assignments found.</td></tr>';
+                const canStart=permissions.start&&status!=='started'&&row.academic_year.status&&row.term.status&&(!row.current_term||permissions.finish);
+                return `<tr><td><span class="badge bg-primary-lt px-3 py-2">${result.from+index}</span></td><td>${esc(row.academic_year.academic_year)}</td><td class="fw-semibold">${esc(row.term.term_name)}</td><td>${row.sort_order}</td><td class="text-nowrap">${date(row.start_date)}</td><td class="text-nowrap">${date(row.end_date)}</td><td><span class="badge bg-${({pending:'orange',started:'green',finished:'red'})[status]}-lt">${label}</span></td><td>${status==='started'?'<span class="badge bg-green-lt">Started</span>':canStart?`<button class="btn btn-success btn-sm text-nowrap" data-action="start" data-id="${row.id}"><i class="ti ti-check me-1" aria-hidden="true"></i>Set Started</button>`:'<span class="text-secondary">—</span>'}</td><td><span class="text-${row.schedule_notice==='Upcoming'?'secondary':'warning'}">${esc(row.schedule_notice||'—')}</span></td><td><div class="btn-list justify-content-end flex-nowrap">${status==='started'&&permissions.finish?`<button class="btn btn-outline-warning btn-sm" data-action="finish" data-id="${row.id}">Finish</button>`:''}${permissions.edit?`<button class="btn btn-outline-primary btn-sm" data-action="edit" data-id="${row.id}">Edit</button>`:''}${permissions.delete&&status==='pending'?`<button class="btn btn-outline-danger btn-sm" data-action="delete" data-id="${row.id}">Delete</button>`:''}</div></td></tr>`;
+            }).join(''):'<tr><td colspan="10" class="text-center text-secondary py-4">No term assignments found.</td></tr>';
             renderPagination(result,'assignment-pagination','assignment-per-page',load);
         }catch(error){if(error.name!=='AbortError')listError(message(error));}
     };
@@ -47,7 +45,14 @@ document.addEventListener('DOMContentLoaded',()=>{
     form.addEventListener('submit',async event=>{
         event.preventDefault();get('assignment-save').disabled=true;form.querySelectorAll('.is-invalid').forEach(el=>el.classList.remove('is-invalid'));
         const data=Object.fromEntries(['academic_year_id','term_id','sort_order','start_date','end_date'].map(name=>[name,form.elements.namedItem(name).value]));
-        try{const result=await request(editing?`/${editing}`:'',editing?'PUT':'POST',data);modal.hide();notify(result.message);await load(editing?page:1);}
+        try{
+            const result=await request(editing?`/${editing}`:'',editing?'PUT':'POST',data);
+            get('assignment-year-filter').value=String(result.data.academic_year_id);
+            yearPicker.sync();
+            get('assignment-search').value='';clearTimeout(timer);
+            modal.hide();notify(result.message);
+            await load(1);
+        }
         catch(error){get('assignment-error').textContent=message(error);get('assignment-error').classList.remove('d-none');for(const [key,messages] of Object.entries(error.errors??{})){form.elements.namedItem(key)?.classList.add('is-invalid');const hint=form.querySelector(`[data-error="${key}"]`);if(hint)hint.textContent=messages[0];}}
         finally{get('assignment-save').disabled=false;}
     });
@@ -55,9 +60,9 @@ document.addEventListener('DOMContentLoaded',()=>{
         const button=event.target.closest('[data-action]');if(!button)return;
         const row=rows.find(row=>String(row.id)===button.dataset.id);if(!row)return;
         const action=button.dataset.action;if(action==='edit')return open(row);
-        const current=summary.current_term;
-        const text=action==='start'?`${current?`${current.term.term_name} will be marked Finished. `:''}${row.schedule_notice?`Schedule reminder: ${row.schedule_notice}. `:''}Student enrollments will stay unchanged.`:action==='finish'?'This term will be marked Finished. The next term will remain Pending until staff start it.':'Delete this Pending term assignment?';
-        const confirm=await Swal.fire({title:`${action==='start'?'Start':action==='finish'?'Finish':'Delete'} ${row.term.term_name}?`,text,icon:action==='delete'?'warning':'question',showCancelButton:true,confirmButtonText:action==='start'?'Start Term':action==='finish'?'Finish Term':'Delete'});if(!confirm.isConfirmed)return;
+        const current=row.current_term;
+        const text=action==='start'?`In GEP ${row.academic_year.academic_year}, earlier terms will become Finished, this term Started, and later terms Pending. ${row.schedule_notice?`Schedule reminder: ${row.schedule_notice}. `:''}Student enrollments will stay unchanged.`:action==='finish'?'This term will be marked Finished. The next term will remain Pending until staff start it.':'Delete this Pending term assignment?';
+        const confirm=await Swal.fire({title:`${action==='start'?'Set Started:':action==='finish'?'Finish':'Delete'} ${row.term.term_name}?`,text,icon:action==='delete'?'warning':'question',showCancelButton:true,confirmButtonText:action==='start'?'Set Started':action==='finish'?'Finish Term':'Delete'});if(!confirm.isConfirmed)return;
         button.disabled=true;
         try{const result=await request(`/${row.id}${action==='delete'?'':`/${action}`}`,action==='delete'?'DELETE':'POST',action==='start'?{confirm_finish_current:Boolean(current)}:undefined);notify(result.message);await load(page);}
         catch(error){listError(message(error));button.disabled=false;}
@@ -65,7 +70,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     get('assignment-year-filter').addEventListener('change',()=>load(1));
     get('assignment-search').addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(()=>load(1),250);});
     const initialize=async()=>{
-        try{options=await request('/options');get('assignment-year-filter').innerHTML='<option value="">All Academic Years</option>'+options.years.map(year=>`<option value="${year.id}">${esc(year.academic_year)}</option>`).join('');get('assignment-year-filter').value=options.years.find(year=>year.status)?.id??options.years[0]?.id??'';yearPicker.sync();await load();}
+        try{options=await request('/options');get('assignment-year-filter').innerHTML='<option value="">All Academic Years</option>'+options.years.map(year=>`<option value="${year.id}">${esc(year.academic_year)}</option>`).join('');get('assignment-year-filter').value='';yearPicker.sync();await load();}
         catch(error){listError(message(error));}
     };initialize();
 });

@@ -26,10 +26,14 @@ class GepTermAssignmentController
         $yearId=$data['academic_year_id']??null;
         $query=GepTermAssignment::with(['academicYear','term'])->when($yearId,fn($q)=>$q->where('academic_year_id',$yearId));
         $rows=$query->when(SettingsQuery::search($request),fn($q,$s)=>$q->where(fn($q)=>$q->whereHas('term',fn($q)=>$q->where('term_name','like','%'.$s.'%'))->orWhereHas('academicYear',fn($q)=>$q->where('academic_year','like','%'.$s.'%'))))
-            ->orderByDesc('academic_year_id')->orderBy('sort_order')->paginate(SettingsQuery::perPage($request));
-        $rows->getCollection()->each(function($row){
+            ->orderByDesc('academic_year_id')->orderByDesc('sort_order')->paginate(SettingsQuery::perPage($request));
+        $yearSchedules=GepTermAssignment::with('term')->whereIn('academic_year_id',$rows->getCollection()->pluck('academic_year_id')->unique())->whereIn('lifecycle_status',['started','pending'])->orderBy('sort_order')->get()->groupBy('academic_year_id');
+        $rows->getCollection()->each(function($row)use($yearSchedules){
+            $schedule=$yearSchedules->get($row->academic_year_id,collect());
+            $row->current_term=$schedule->firstWhere('lifecycle_status','started');
+            $row->is_next_pending=$schedule->firstWhere('lifecycle_status','pending')?->id===$row->id;
             $today=today()->toDateString();
-            $row->schedule_notice=$row->lifecycle_status==='finished'?'':($today>$row->end_date?'Past End Date':($row->lifecycle_status==='pending'?($today<$row->start_date?'Upcoming':'Due to Start'):''));
+            $row->schedule_notice=$row->lifecycle_status==='finished'?'':($row->end_date && $today>$row->end_date?'Past End Date':($row->lifecycle_status==='pending' && $row->start_date?($today<$row->start_date?'Upcoming':'Due to Start'):''));
         });
         $year=$yearId?GepAcademicYear::find($yearId):GepAcademicYear::where('status',true)->orderByDesc('academic_year')->first();
         $scope=fn()=>GepTermAssignment::with('term')->where('academic_year_id',$year?->id??0);
@@ -43,8 +47,8 @@ class GepTermAssignmentController
             'academic_year_id'=>['required','integer',Rule::exists('tb_gep_academic_year','id')],
             'term_id'=>['required','integer',Rule::exists('tb_gep_term','id')],
             'sort_order'=>['required','integer','min:1','max:2147483647'],
-            'start_date'=>['required','date_format:Y-m-d'],
-            'end_date'=>['required','date_format:Y-m-d','after_or_equal:start_date'],
+            'start_date'=>['nullable','date_format:Y-m-d'],
+            'end_date'=>['nullable','date_format:Y-m-d',Rule::when($request->filled('start_date'),'after_or_equal:start_date')],
         ]);
         $record=DB::transaction(function()use($data,$assignment){
             // Share the academic-year lock with year and term lifecycle changes.
@@ -70,17 +74,18 @@ class GepTermAssignmentController
         DB::transaction(function()use($request,$assignment){
             GepAcademicYear::orderBy('id')->lockForUpdate()->get(['id']);
             $record=GepTermAssignment::lockForUpdate()->findOrFail($assignment->id);
-            if($record->lifecycle_status!=='pending')throw ValidationException::withMessages(['term_id'=>'Only a Pending term can be started.']);
+            if($record->lifecycle_status==='started')throw ValidationException::withMessages(['term_id'=>'This term is already Started.']);
             if(!GepAcademicYear::findOrFail($record->academic_year_id)->status)throw ValidationException::withMessages(['academic_year_id'=>'Activate this GEP academic year first.']);
             if(!$record->term->status)throw ValidationException::withMessages(['term_id'=>'Enable this GEP term before starting it.']);
-            $next=GepTermAssignment::where('academic_year_id',$record->academic_year_id)->where('lifecycle_status','pending')->orderBy('sort_order')->first();
-            if($next->id!==$record->id)throw ValidationException::withMessages(['sort_order'=>'Start the next Pending term in order first.']);
             $current=GepTermAssignment::where('academic_year_id',$record->academic_year_id)->where('lifecycle_status','started')->lockForUpdate()->first();
             if($current){
                 $this->authorize($request,'finish');
                 if(!$request->boolean('confirm_finish_current'))throw ValidationException::withMessages(['confirm_finish_current'=>'Confirm finishing the current term before starting the next term.']);
-                $current->forceFill(['lifecycle_status'=>'finished','started_slot'=>null])->save();
             }
+            GepTermAssignment::where('academic_year_id',$record->academic_year_id)->where('id','!=',$record->id)->where('sort_order','<',$record->sort_order)
+                ->update(['lifecycle_status'=>'finished','started_slot'=>null]);
+            GepTermAssignment::where('academic_year_id',$record->academic_year_id)->where('id','!=',$record->id)->where('sort_order','>',$record->sort_order)
+                ->update(['lifecycle_status'=>'pending','started_slot'=>null]);
             $record->forceFill(['lifecycle_status'=>'started','started_slot'=>1])->save();
         });
         return response()->json(['message'=>'GEP term started.']);
