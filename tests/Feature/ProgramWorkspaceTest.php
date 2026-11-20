@@ -112,8 +112,8 @@ it('opens every authorized GEP setting section',function($section){
     foreach(['gep-settings.view','gep-settings.'.$section.'.view'] as $code)DB::table('access_role_permissions')->insert(['role_id'=>1,'permission_id'=>DB::table('access_permissions')->where('code',$code)->value('id')]);
     $request=($this->workspaceRequest)('/gep/settings/'.$section,$user,'gep');
     $view=(new \App\Http\Controllers\GepSettingsController)->index($request,$section);
-    expect($view->name())->toBe(match($section){'academic-years'=>'gep.academic-years','terms'=>'gep.terms','levels'=>'gep.levels','classes'=>'gep.classes','groups'=>'gep.groups','class-types'=>'gep.class-types',default=>'gep.settings'});
-    if(!in_array($section,['academic-years','terms','levels','classes','groups','class-types']))expect($view->getData()['current']['label'])->toBe(\App\Support\GepSettingsPermissions::SECTIONS[$section]['label']);
+    expect($view->name())->toBe(match($section){'academic-years'=>'gep.academic-years','terms'=>'gep.terms','levels'=>'gep.levels','classes'=>'gep.classes','groups'=>'gep.groups','class-types'=>'gep.class-types','assign-terms'=>'gep.assign-terms',default=>'gep.settings'});
+    if(!in_array($section,['academic-years','terms','levels','classes','groups','class-types','assign-terms']))expect($view->getData()['current']['label'])->toBe(\App\Support\GepSettingsPermissions::SECTIONS[$section]['label']);
 })->with(array_keys(\App\Support\GepSettingsPermissions::SECTIONS));
 
 it('requires the settings parent grant and GEP program access as well as the submenu',function(){
@@ -137,9 +137,9 @@ it('redirects to the first permitted GEP setting and blocks ungranted sections',
 it('registers the GEP settings menu and five submenus without granting them to campus roles automatically',function(){
     (require database_path('migrations/2026_11_19_000003_add_gep_settings_menu_permissions.php'))->up();
     $ids=DB::table('access_permissions')->where('module','like','gep-settings%')->pluck('id');
-    expect($ids)->toHaveCount(31)
+    expect($ids)->toHaveCount(37)
         ->and(DB::table('access_role_permissions')->where('role_id',1)->whereIn('permission_id',$ids)->count())->toBe(0)
-        ->and(DB::table('access_role_permissions')->where('role_id',2)->whereIn('permission_id',$ids)->count())->toBe(31);
+        ->and(DB::table('access_role_permissions')->where('role_id',2)->whereIn('permission_id',$ids)->count())->toBe(37);
 });
 
 it('renders the actual GEP submenu breadcrumb with its parent link and icon',function($section){
@@ -320,11 +320,119 @@ it('renders the GEP sidebar logo with a text fallback before a logo is uploaded'
     expect($html)->toContain('GEP Management')->not->toContain('General English Program logo');
 });
 
-function gepYearTestSetup($test,array $actions=['create','edit','delete','start']):void
+function gepAssignmentsTestSetup($test,array $actions=['create','edit','delete','start','finish']):array
+{
+    gepYearTestSetup($test);
+    (require database_path('migrations/2026_11_19_000005_create_gep_terms.php'))->up();
+    (require database_path('migrations/2026_11_20_000004_create_gep_term_assignments.php'))->up();
+    foreach(['gep-settings.assign-terms.view',...array_map(fn($a)=>'gep-settings.assign-terms.'.$a,$actions)] as $code)
+        DB::table('access_role_permissions')->insertOrIgnore(['role_id'=>1,'permission_id'=>DB::table('access_permissions')->where('code',$code)->value('id')]);
+    $year=$test->postJson('/gep/settings/academic-years',['academic_year'=>'2025','lifecycle_status'=>'started'])->assertCreated()->json('data.id');
+    $terms=[];for($i=1;$i<=3;$i++)$terms[]=DB::table('tb_gep_term')->insertGetId(['term_name'=>'Term '.$i,'short_name'=>'T'.$i,'status'=>true]);
+    return [$year,$terms];
+}
+
+function gepAssignmentPayload($year,$term,$order=1):array
+{
+    return ['academic_year_id'=>$year,'term_id'=>$term,'sort_order'=>$order,'start_date'=>'2025-01-01','end_date'=>'2025-03-31'];
+}
+
+it('assigns terms as Pending with unique term and order and valid dates',function(){
+    [$year,$terms]=gepAssignmentsTestSetup($this);$base='/gep/settings/assign-terms';
+    $payload=gepAssignmentPayload($year,$terms[0]);
+    $id=$this->postJson($base,[...$payload,'lifecycle_status'=>'started'])->assertCreated()->assertJsonPath('data.lifecycle_status','pending')->json('data.id');
+    $this->postJson($base,[...$payload,'sort_order'=>2])->assertUnprocessable()->assertJsonValidationErrors('term_id');
+    $this->postJson($base,[...$payload,'term_id'=>$terms[1]])->assertUnprocessable()->assertJsonValidationErrors('sort_order');
+    $this->postJson($base,[...$payload,'term_id'=>$terms[1],'sort_order'=>2,'end_date'=>'2024-01-01'])->assertUnprocessable()->assertJsonValidationErrors('end_date');
+    foreach([0,-1,1.5] as $invalid)$this->postJson($base,[...$payload,'sort_order'=>$invalid])->assertUnprocessable()->assertJsonValidationErrors('sort_order');
+    $this->putJson($base.'/'.$id,[...$payload,'end_date'=>'2025-04-30'])->assertOk()->assertJsonPath('data.end_date','2025-04-30');
+    $this->getJson($base.'/options')->assertOk()->assertJsonCount(1,'years')->assertJsonCount(3,'terms');
+    $this->getJson($base.'/data?academic_year_id='.$year.'&search=Term%201&perPage=10')->assertOk()->assertJsonPath('total',1)->assertJsonPath('next_term.id',$id)->assertJsonPath('data.0.term.term_name','Term 1');
+});
+
+it('starts terms in order and requires confirmation before finishing the current term',function(){
+    [$year,$terms]=gepAssignmentsTestSetup($this);$base='/gep/settings/assign-terms';
+    $first=$this->postJson($base,gepAssignmentPayload($year,$terms[0]))->json('data.id');
+    $second=$this->postJson($base,gepAssignmentPayload($year,$terms[1],2))->json('data.id');
+    $this->postJson($base.'/'.$second.'/start')->assertUnprocessable();
+    $this->postJson($base.'/'.$first.'/start')->assertOk();
+    $this->postJson($base.'/'.$second.'/start')->assertUnprocessable()->assertJsonValidationErrors('confirm_finish_current');
+    $this->assertDatabaseHas('tb_gep_term_assignment',['id'=>$first,'lifecycle_status'=>'started']);
+    $this->postJson($base.'/'.$second.'/start',['confirm_finish_current'=>true])->assertOk();
+    $this->assertDatabaseHas('tb_gep_term_assignment',['id'=>$first,'lifecycle_status'=>'finished','started_slot'=>null]);
+    $this->assertDatabaseHas('tb_gep_term_assignment',['id'=>$second,'lifecycle_status'=>'started','started_slot'=>1]);
+    $this->postJson($base.'/'.$first.'/start')->assertUnprocessable();
+    $this->postJson($base.'/'.$second.'/finish')->assertOk();
+    $this->getJson($base.'/data?academic_year_id='.$year)->assertOk()->assertJsonPath('current_term',null)->assertJsonPath('next_term',null);
+    expect(DB::table('tb_gep_term_assignment')->where('lifecycle_status','started')->count())->toBe(0);
+});
+
+it('requires an Active year and enabled term and preserves completed assignment identity',function(){
+    [$year,$terms]=gepAssignmentsTestSetup($this);$base='/gep/settings/assign-terms';
+    $id=$this->postJson($base,gepAssignmentPayload($year,$terms[0]))->json('data.id');
+    DB::table('tb_gep_term')->where('id',$terms[0])->update(['status'=>false]);
+    $this->postJson($base.'/'.$id.'/start')->assertUnprocessable();
+    DB::table('tb_gep_term')->where('id',$terms[0])->update(['status'=>true]);
+    DB::table('tb_gep_academic_year')->where('id',$year)->update(['status'=>false]);
+    $this->postJson($base.'/'.$id.'/start')->assertUnprocessable()->assertJsonValidationErrors('academic_year_id');
+    $this->patchJson('/gep/settings/academic-years/'.$year.'/status',['status'=>true])->assertOk();
+    $this->postJson($base.'/'.$id.'/start')->assertOk();
+    $this->putJson($base.'/'.$id,gepAssignmentPayload($year,$terms[1],2))->assertUnprocessable();
+    $this->postJson($base,gepAssignmentPayload($year,$terms[2],1))->assertUnprocessable();
+    $this->deleteJson($base.'/'.$id)->assertUnprocessable();
+    $this->patchJson('/gep/settings/academic-years/'.$year.'/status',['status'=>false])->assertUnprocessable();
+    $this->postJson($base.'/'.$id.'/finish')->assertOk();
+    $this->patchJson('/gep/settings/academic-years/'.$year.'/status',['status'=>false])->assertOk();
+    $this->assertDatabaseHas('tb_gep_term_assignment',['id'=>$id,'lifecycle_status'=>'finished','started_slot'=>null]);
+});
+
+it('keeps date reminders informational and determines the next term independently of search',function(){
+    [$year,$terms]=gepAssignmentsTestSetup($this);$base='/gep/settings/assign-terms';
+    $this->travelTo(new DateTime('2025-02-01 12:00:00'));
+    $id=$this->postJson($base,gepAssignmentPayload($year,$terms[0]))->json('data.id');
+    $this->postJson($base,[...gepAssignmentPayload($year,$terms[1],2),'start_date'=>'2025-04-01','end_date'=>'2025-06-30'])->assertCreated();
+    $this->getJson($base.'/data?academic_year_id='.$year)->assertOk()->assertJsonPath('data.0.schedule_notice','Due to Start')->assertJsonPath('data.1.schedule_notice','Upcoming')->assertJsonPath('data.0.lifecycle_status','pending');
+    $this->getJson($base.'/data?academic_year_id='.$year.'&search=Term%202')->assertOk()->assertJsonPath('total',1)->assertJsonPath('next_term.id',$id);
+    $this->travelTo(new DateTime('2025-07-01 12:00:00'));
+    $this->getJson($base.'/data?academic_year_id='.$year)->assertOk()->assertJsonPath('data.0.schedule_notice','Past End Date')->assertJsonPath('data.0.lifecycle_status','pending');
+    $this->travelBack();
+});
+
+it('enforces each term-assignment action permission and Finish permission when advancing',function(){
+    [$year,$terms]=gepAssignmentsTestSetup($this,[]);$base='/gep/settings/assign-terms';
+    $id=DB::table('tb_gep_term_assignment')->insertGetId(gepAssignmentPayload($year,$terms[0]));
+    $this->getJson($base.'/data')->assertOk();$this->getJson($base.'/options')->assertOk();
+    $this->postJson($base,gepAssignmentPayload($year,$terms[1],2))->assertForbidden();
+    $this->putJson($base.'/'.$id,gepAssignmentPayload($year,$terms[0]))->assertForbidden();
+    $this->postJson($base.'/'.$id.'/start')->assertForbidden();
+    $this->postJson($base.'/'.$id.'/finish')->assertForbidden();$this->deleteJson($base.'/'.$id)->assertForbidden();
+    DB::table('access_role_permissions')->insert(['role_id'=>1,'permission_id'=>DB::table('access_permissions')->where('code','gep-settings.assign-terms.start')->value('id')]);
+    $this->postJson($base.'/'.$id.'/start')->assertOk();
+    $second=DB::table('tb_gep_term_assignment')->insertGetId(gepAssignmentPayload($year,$terms[1],2));
+    $this->postJson($base.'/'.$second.'/start',['confirm_finish_current'=>true])->assertForbidden();
+    $this->assertDatabaseHas('tb_gep_term_assignment',['id'=>$id,'lifecycle_status'=>'started']);
+});
+
+it('protects assigned years and terms and deletes only unlinked Pending assignments',function(){
+    [$year,$terms]=gepAssignmentsTestSetup($this);$base='/gep/settings/assign-terms';
+    $id=$this->postJson($base,gepAssignmentPayload($year,$terms[0]))->json('data.id');
+    DB::table('access_role_permissions')->insert(['role_id'=>1,'permission_id'=>DB::table('access_permissions')->where('code','gep-settings.terms.view')->value('id')]);
+    DB::table('access_role_permissions')->insert(['role_id'=>1,'permission_id'=>DB::table('access_permissions')->where('code','gep-settings.terms.delete')->value('id')]);
+    $this->deleteJson('/gep/settings/terms/'.$terms[0])->assertUnprocessable();
+    $this->putJson('/gep/settings/academic-years/'.$year,['academic_year'=>'2025','lifecycle_status'=>'pending'])->assertOk();
+    $this->deleteJson('/gep/settings/academic-years/'.$year)->assertUnprocessable();
+    Schema::create('test_gep_assignment_links',function(Blueprint $t){$t->id();$t->foreignId('assignment_id')->constrained('tb_gep_term_assignment')->restrictOnDelete();});
+    DB::table('test_gep_assignment_links')->insert(['assignment_id'=>$id]);
+    $this->deleteJson($base.'/'.$id)->assertUnprocessable();
+    DB::table('test_gep_assignment_links')->delete();$this->deleteJson($base.'/'.$id)->assertOk();
+});
+
+function gepYearTestSetup($test,array $actions=['create','edit','delete','status']):void
 {
     $test->withMiddleware();
     config(['session.driver'=>'array']);
     (require database_path('migrations/2026_11_19_000004_create_gep_academic_years.php'))->up();
+    (require database_path('migrations/2026_11_20_000005_use_active_gep_academic_year_status.php'))->up();
     $user=($test->give)(['gep']);
     foreach(['gep-settings.view','gep-settings.academic-years.view',...array_map(fn($action)=>'gep-settings.academic-years.'.$action,$actions)] as $code)
         DB::table('access_role_permissions')->insertOrIgnore(['role_id'=>1,'permission_id'=>DB::table('access_permissions')->where('code',$code)->value('id')]);
@@ -419,38 +527,70 @@ it('protects every GEP level mutation separately from view access',function(){
 it('creates edits and paginates GEP academic years with duplicate and format validation',function(){
     gepYearTestSetup($this);
     $base='/gep/settings/academic-years';
-    $id=$this->postJson($base,['academic_year'=>'2026-2027','lifecycle_status'=>'pending'])->assertCreated()->json('data.id');
-    $this->postJson($base,['academic_year'=>'2026-2027','lifecycle_status'=>'pending'])->assertUnprocessable()->assertJsonValidationErrors('academic_year');
+    $id=$this->postJson($base,['academic_year'=>'2026','lifecycle_status'=>'pending'])->assertCreated()->json('data.id');
+    $this->postJson($base,['academic_year'=>'2026','lifecycle_status'=>'pending'])->assertUnprocessable()->assertJsonValidationErrors('academic_year');
     $this->postJson($base,['academic_year'=>'2026-2029','lifecycle_status'=>'pending'])->assertUnprocessable();
-    $this->putJson($base.'/'.$id,['academic_year'=>'2027-2028','lifecycle_status'=>'finished'])->assertOk();
-    $this->getJson($base.'/data?search=2027&perPage=10')->assertOk()->assertJsonPath('total',1)->assertJsonPath('data.0.academic_year','2027-2028');
+    foreach(['2026-2027','202','20261','abcd','0000'] as $invalid)$this->postJson($base,['academic_year'=>$invalid,'lifecycle_status'=>'pending'])->assertUnprocessable()->assertJsonValidationErrors('academic_year');
+    $this->putJson($base.'/'.$id,['academic_year'=>'2027','lifecycle_status'=>'finished'])->assertOk();
+    $this->getJson($base.'/data?search=2027&perPage=10')->assertOk()->assertJsonPath('total',1)->assertJsonPath('data.0.academic_year','2027');
     $this->deleteJson($base.'/'.$id)->assertOk();
     expect(DB::table('tb_gep_academic_year')->count())->toBe(0);
 });
 
-it('starts only one GEP year without touching WIS academic years and blocks deleting the started year',function(){
+it('converts GEP year ranges to single years while preserving record identities and status',function(){
     gepYearTestSetup($this);
+    $id=DB::table('tb_gep_academic_year')->insertGetId(['academic_year'=>'2023-2024','lifecycle_status'=>'started','started_slot'=>1]);
+    DB::table('tb_gep_academic_year')->insert(['academic_year'=>'2025','lifecycle_status'=>'pending']);
+    (require database_path('migrations/2026_11_20_000003_use_single_gep_academic_year.php'))->up();
+    $this->assertDatabaseHas('tb_gep_academic_year',['id'=>$id,'academic_year'=>'2023','lifecycle_status'=>'started','started_slot'=>1]);
+    expect(DB::table('tb_gep_academic_year')->count())->toBe(2);
+});
+
+it('stops conflicting GEP year conversions without partially changing records',function(){
+    gepYearTestSetup($this);
+    foreach(['2022-2023','2023-2024','2023'] as $year)DB::table('tb_gep_academic_year')->insert(['academic_year'=>$year,'lifecycle_status'=>'pending']);
+    expect(fn()=>(require database_path('migrations/2026_11_20_000003_use_single_gep_academic_year.php'))->up())->toThrow(RuntimeException::class);
+    expect(DB::table('tb_gep_academic_year')->orderBy('id')->pluck('academic_year')->all())->toBe(['2022-2023','2023-2024','2023']);
+});
+
+it('toggles academic year Active and Inactive independently without changing WIS or other GEP years',function(){
+    gepYearTestSetup($this);$base='/gep/settings/academic-years';
     Schema::create('tb_academic_year',fn(Blueprint $t)=>[$t->id(),$t->string('lifecycle_status')]);
     DB::table('tb_academic_year')->insert(['id'=>1,'lifecycle_status'=>'started']);
-    $base='/gep/settings/academic-years';
-    $first=$this->postJson($base,['academic_year'=>'2025-2026','lifecycle_status'=>'started'])->assertCreated()->json('data.id');
-    $second=$this->postJson($base,['academic_year'=>'2026-2027','lifecycle_status'=>'pending'])->assertCreated()->json('data.id');
-    $this->postJson($base.'/'.$second.'/start')->assertOk();
-    $this->assertDatabaseHas('tb_gep_academic_year',['id'=>$first,'lifecycle_status'=>'finished','started_slot'=>null]);
-    $this->assertDatabaseHas('tb_gep_academic_year',['id'=>$second,'lifecycle_status'=>'started','started_slot'=>1]);
-    $this->deleteJson($base.'/'.$second)->assertUnprocessable();
+    $first=$this->postJson($base,['academic_year'=>'2025','status'=>false])->assertCreated()->assertJsonPath('data.status',true)->json('data.id');
+    $second=$this->postJson($base,['academic_year'=>'2026'])->assertCreated()->json('data.id');
+    $this->patchJson($base.'/'.$first.'/status',['status'=>false])->assertOk()->assertJsonPath('data.status',false);
+    $this->putJson($base.'/'.$first,['academic_year'=>'2025','status'=>true])->assertOk()->assertJsonPath('data.status',false);
+    $this->patchJson($base.'/'.$first.'/status',['status'=>'invalid'])->assertUnprocessable();
+    $this->patchJson($base.'/'.$first.'/status',['status'=>true])->assertOk()->assertJsonPath('data.status',true);
+    expect((bool)DB::table('tb_gep_academic_year')->where('id',$second)->value('status'))->toBeTrue();
     expect(DB::table('tb_academic_year')->value('lifecycle_status'))->toBe('started');
+    $this->postJson($base.'/'.$first.'/start')->assertNotFound();
 });
 
 it('enforces GEP year action permissions independently of view access',function(){
     gepYearTestSetup($this,[]);
     $base='/gep/settings/academic-years';
-    $id=DB::table('tb_gep_academic_year')->insertGetId(['academic_year'=>'2026-2027','lifecycle_status'=>'pending']);
+    $id=DB::table('tb_gep_academic_year')->insertGetId(['academic_year'=>'2026','lifecycle_status'=>'pending']);
     $this->getJson($base.'/data')->assertOk();
-    $this->postJson($base,['academic_year'=>'2027-2028','lifecycle_status'=>'pending'])->assertForbidden();
-    $this->putJson($base.'/'.$id,['academic_year'=>'2026-2027','lifecycle_status'=>'finished'])->assertForbidden();
-    $this->postJson($base.'/'.$id.'/start')->assertForbidden();
+    $this->postJson($base,['academic_year'=>'2027','lifecycle_status'=>'pending'])->assertForbidden();
+    $this->putJson($base.'/'.$id,['academic_year'=>'2026','lifecycle_status'=>'finished'])->assertForbidden();
+    $this->patchJson($base.'/'.$id.'/status',['status'=>false])->assertForbidden();
     $this->deleteJson($base.'/'.$id)->assertForbidden();
+});
+
+it('migrates legacy GEP year states and delegated start grants to Active status grants',function(){
+    (require database_path('migrations/2026_11_19_000004_create_gep_academic_years.php'))->up();
+    foreach(['pending','started','finished'] as $index=>$state)DB::table('tb_gep_academic_year')->insert(['academic_year'=>(string)(2023+$index),'lifecycle_status'=>$state,'started_slot'=>$state==='started'?1:null]);
+    $old=DB::table('access_permissions')->insertGetId(['code'=>'gep-settings.academic-years.start','module'=>'gep-settings.academic-years','action'=>'start','name'=>'Start GEP year']);
+    DB::table('access_role_permissions')->insert(['role_id'=>1,'permission_id'=>$old]);
+    DB::table('access_user_permission_overrides')->insert(['user_id'=>1,'permission_id'=>$old,'allowed'=>false]);
+    (require database_path('migrations/2026_11_20_000005_use_active_gep_academic_year_status.php'))->up();
+    $status=DB::table('access_permissions')->where('code','gep-settings.academic-years.status')->value('id');
+    expect(DB::table('tb_gep_academic_year')->orderBy('academic_year')->pluck('status')->map(fn($v)=>(bool)$v)->all())->toBe([true,true,false]);
+    expect(DB::table('access_role_permissions')->where('role_id',1)->where('permission_id',$status)->exists())->toBeTrue();
+    expect((bool)DB::table('access_user_permission_overrides')->where('user_id',1)->where('permission_id',$status)->value('allowed'))->toBeFalse();
+    expect(DB::table('access_permissions')->where('id',$old)->exists())->toBeFalse();
 });
 
 it('saves updates and searches GEP level type and program',function(){

@@ -3331,3 +3331,42 @@ html[data-bs-theme="dark"] .program-single-workspace {
     .navbar-vertical.app-sidebar .navbar-nav.flex-row{margin-left:0!important;margin-right:0!important;gap:3px!important}
     .navbar-vertical.app-sidebar #sidebar-menu{max-height:calc(100dvh - 4.75rem)}
 }
+#gep-years .status-toggle-label {
+    width: calc(100% - 30px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    line-height: 1;
+    padding: 0;
+}
+#gep-years .status-toggle.is-active .status-toggle-label { left: 3px; right: auto; }
+#gep-years .status-toggle:not(.is-active) .status-toggle-label { right: 3px; left: auto; }
+#gep-term-assignments .assignment-filter-field{position:relative;min-width:0}
+#gep-term-assignments .assignment-filter-field .wmi-year-picker{position:relative}
+#gep-term-assignments .assignment-filter-field .wmi-picker-native{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+#gep-term-assignments .assignment-filter-field .wmi-picker-trigger,
+#gep-term-assignments .assignment-filter-field>.form-control{display:flex;align-items:center;justify-content:space-between;width:100%;height:58px;min-height:58px;border:1px solid var(--tblr-border-color);border-radius:14px;background:var(--tblr-bg-surface);color:var(--tblr-body-color);font-size:.88rem;box-shadow:0 2px 7px #1f293b06;transition:border-color .15s,box-shadow .15s}
+#gep-term-assignments .assignment-filter-field .wmi-picker-trigger{padding:24px 16px 8px;gap:12px;text-align:left}
+#gep-term-assignments .assignment-filter-field .wmi-picker-trigger>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#gep-term-assignments .assignment-filter-field .wmi-picker-trigger>i{position:absolute;right:16px;top:22px;color:var(--tblr-secondary-color)}
+#gep-term-assignments .assignment-filter-field>label{color:var(--tblr-secondary-color);font-size:.88rem;pointer-events:none}
+#gep-term-assignments .assignment-year-filter-field>label{transform:scale(.85) translateY(-.5rem) translateX(.15rem);color:var(--tblr-primary)}
+#gep-term-assignments .assignment-filter-field .wmi-picker-trigger:focus-visible,
+#gep-term-assignments .assignment-filter-field .wmi-picker-trigger[aria-expanded="true"],
+#gep-term-assignments .assignment-filter-field>.form-control:focus{outline:0;border-color:#7b82e6;box-shadow:0 0 0 3px #6b5bd620}
+#gep-term-assignments .assignment-search-field>.form-control{padding-left:42px}
+#gep-term-assignments .assignment-search-field>label{left:28px}
+#gep-term-assignments .assignment-search-icon{position:absolute;left:15px;top:20px;font-size:1.15rem;color:var(--tblr-secondary-color);z-index:2;pointer-events:none}
+#gep-term-assignments .wmi-picker-panel{position:absolute;top:calc(100% + 8px);left:0;z-index:1050;width:max(100%,280px);max-width:calc(100vw - 48px);padding:12px;border:1px solid var(--tblr-border-color);border-radius:16px;background:var(--tblr-bg-surface);color:var(--tblr-body-color);box-shadow:0 15px 40px #14294326}
+#gep-term-assignments .wmi-picker-panel[hidden]{display:none}
+#gep-term-assignments .wmi-picker-search{min-height:42px;border-radius:11px;margin-bottom:8px;font-size:.85rem;background:var(--tblr-bg-forms);color:var(--tblr-body-color)}
+#gep-term-assignments .wmi-picker-options{max-height:260px;overflow-y:auto;overscroll-behavior:contain;display:grid;gap:5px}
+#gep-term-assignments .wmi-picker-option{display:flex;align-items:center;gap:12px;min-height:46px;width:100%;padding:11px 12px;border:0;border-radius:11px;background:transparent;color:var(--tblr-body-color);text-align:left;font-size:.88rem}
+#gep-term-assignments .wmi-picker-option>span{flex:1;white-space:normal;overflow-wrap:anywhere}
+#gep-term-assignments .wmi-picker-option>.ti:first-child{font-size:1.15rem;color:var(--tblr-primary)}
+#gep-term-assignments .wmi-picker-check{visibility:hidden;color:var(--tblr-primary)}
+#gep-term-assignments .wmi-picker-option.is-selected{background:var(--tblr-primary-lt);font-weight:600}
+#gep-term-assignments .wmi-picker-option.is-selected .wmi-picker-check{visibility:visible}
+#gep-term-assignments .wmi-picker-option:hover,#gep-term-assignments .wmi-picker-option:focus-visible{outline:0;background:var(--tblr-bg-surface-secondary);box-shadow:inset 0 0 0 1px var(--tblr-primary)}
+#gep-term-assignments .wmi-picker-status{padding:12px;font-size:.82rem;color:var(--tblr-secondary-color);text-align:center}

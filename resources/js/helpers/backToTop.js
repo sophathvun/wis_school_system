@@ -1,8 +1,9 @@
 import "../../css/components/back-to-top.css";
 
-export function setupBackToTop(button) {
+export function setupBackToTop(button, extraContainers = []) {
     if (!button) return;
     const containers = [...new Set([
+        ...extraContainers,
         button.closest(".page-body"),
         button.closest(".page-wrapper"),
         document.scrollingElement,

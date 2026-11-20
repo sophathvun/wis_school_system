@@ -1,4 +1,7 @@
+import { setupBackToTop } from './helpers/backToTop.js';
+
 document.addEventListener('DOMContentLoaded', () => {
+    setupBackToTop(document.querySelector('[data-back-to-top]'), [document.getElementById('graduationListCard')]);
     const csrf = document.querySelector('meta[name="csrf-token"]')?.content || document.getElementById('graduationModal')?.dataset.csrf || '';
     const field = id => document.getElementById(id);
     const listCard = field('graduationListCard');
@@ -318,7 +321,7 @@ document.addEventListener('DOMContentLoaded', () => {
         field('graduationTable').innerHTML = rows.length ? rows.map((item, index) => {
             const student = item.student || {};
             const rowNumber = Number(result.from || 1) + index;
-            return `<tr><td>${rowNumber}</td><td><div class="graduation-table-student">${studentPhoto(student)}<div class="min-w-0"><div class="graduation-student-code">${esc(student.student_id || student.student_no || "-")}</div><div class="graduation-student-name-kh school-profile-khmer">${esc(studentNameKh(student) || "-")}</div><div class="graduation-student-name-en">${esc(studentName(student) || "-")}</div></div></div></td><td><div>${esc(item.academic_year?.academic_year || "-")}</div><div class="graduation-cell-meta">${esc(item.campus?.campus_name_en || "-")}</div></td><td>${gradeTrackCell(item)}</td><td>${esc(item.session?.session_short_name || "-")}</td><td><div>${esc(formatDate(item.graduation_date))}</div><div class="graduation-cell-meta">${esc(item.changed_by?.name || "System")}</div></td><td>${esc(item.certificate_number || "Not assigned")}</td><td>${graduationActionButtons(item)}<div class="graduation-cell-meta mt-2">Alumni: ${item.status === "completed" && item.is_alumni ? "Yes" : "No"}</div></td></tr>`;
+            return `<tr><td class="graduation-number-cell"><span class="badge bg-primary-lt graduation-number-badge">${rowNumber}</span></td><td><div class="graduation-table-student">${studentPhoto(student)}<div class="min-w-0"><div class="graduation-student-code">${esc(student.student_id || student.student_no || "-")}</div><div class="graduation-student-name-kh school-profile-khmer">${esc(studentNameKh(student) || "-")}</div><div class="graduation-student-name-en">${esc(studentName(student) || "-")}</div></div></div></td><td><div>${esc(item.academic_year?.academic_year || "-")}</div><div class="graduation-cell-meta">${esc(item.campus?.campus_name_en || "-")}</div></td><td>${gradeTrackCell(item)}</td><td>${esc(item.session?.session_short_name || "-")}</td><td><div>${esc(formatDate(item.graduation_date))}</div><div class="graduation-cell-meta">${esc(item.changed_by?.name || "System")}</div></td><td>${esc(item.certificate_number || "Not assigned")}</td><td>${graduationActionButtons(item)}<div class="graduation-cell-meta mt-2">Alumni: ${item.status === "completed" && item.is_alumni ? "Yes" : "No"}</div></td></tr>`;
         }).join('') : '<tr><td colspan="8" class="text-center">No graduated students found.</td></tr>';
         renderPagination(result, pageSize);
         updateSortIcons();

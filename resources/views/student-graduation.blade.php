@@ -52,7 +52,7 @@
             <table class="table card-table">
                 <thead>
                     <tr>
-                        <th>No.</th>
+                        <th class="graduation-number-cell">No.</th>
                         <th class="graduation-col-student"><button type="button" class="graduation-table-sort" data-graduation-sort="student_name">Student <span data-graduation-sort-icon="student_name"></span></button><button type="button" class="graduation-table-sort graduation-secondary-sort" data-graduation-sort="student_id">Student ID <span data-graduation-sort-icon="student_id"></span></button></th>
                         <th><button type="button" class="graduation-table-sort" data-graduation-sort="academic_year">Academic Year <span data-graduation-sort-icon="academic_year"></span></button><button type="button" class="graduation-table-sort graduation-secondary-sort" data-graduation-sort="campus">Campus <span data-graduation-sort-icon="campus"></span></button></th>
                         <th><button type="button" class="graduation-table-sort" data-graduation-sort="class">Grade <span data-graduation-sort-icon="class"></span></button></th>
@@ -152,6 +152,7 @@
         </div>
     </div>
 
+    @include('partials.back-to-top')
     @vite('resources/js/studentGraduation.js')
     @vite('resources/css/pages/student-graduation.css')
 @endsection

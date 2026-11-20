@@ -7,5 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class GepAcademicYear extends Model
 {
     protected $table='tb_gep_academic_year';
-    protected $fillable=['academic_year','lifecycle_status'];
+    protected $hidden=['lifecycle_status','started_slot'];
+    protected $casts=['status'=>'boolean'];
+    protected $fillable=['academic_year','status'];
 }
