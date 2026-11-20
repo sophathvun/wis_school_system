@@ -117,6 +117,34 @@ it('graduates without a number prefix and links the number assigned later only i
     expect($this->service->save($this->request,$this->data))->toBe(0)->and(G12Certificate::count())->toBe(4);
 });
 
+it('graduates historical certificate holders without regenerating numbers or issue dates',function(){
+    $this->service->save($this->request,$this->data);
+    $certificate=G12Certificate::where('student_id',3)->firstOrFail();
+    DB::table('tb_g12_certificate')->where('id',$certificate->id)->update(['certificate_number'=>'ISSUED-2024-001','historical_import'=>json_encode(['issue_date'=>'2025-07-15'])]);
+    DB::table('tb_grade')->where('id',1)->update(['grade'=>'Grade 12']);
+    $before=DB::table('tb_g12_certificate')->orderBy('id')->get()->toJson();
+    (new \App\Http\Controllers\GraduationController)->graduate(wisGraduationRequest(['enrollment_ids'=>[3,2],'graduation_date'=>'2026-07-01','is_alumni'=>1]));
+    expect(DB::table('tb_g12_certificate')->orderBy('id')->get()->toJson())->toBe($before);
+    expect(\App\Models\StudentGraduation::where('student_id',3)->value('certificate_number'))->toBe('ISSUED-2024-001');
+});
+
+it('never replaces an existing graduation number when the certificate register conflicts',function(){
+    $this->service->save($this->request,$this->data);
+    $certificate=G12Certificate::where('student_id',3)->firstOrFail();$number=$certificate->certificate_number;
+    DB::table('tb_student_graduation')->insert(['student_id'=>3,'enrollment_id'=>3,'academic_year_id'=>1,'certificate_number'=>'HISTORICAL-ORIGINAL','status'=>'cancelled']);
+    $wis=app(\App\Services\G12WisGraduation::class);
+    expect(fn()=>$wis->numberForGraduation(3,1))->toThrow(ValidationException::class);
+    expect(DB::table('tb_student_graduation')->where('enrollment_id',3)->value('certificate_number'))->toBe('HISTORICAL-ORIGINAL');
+    expect($certificate->fresh()->certificate_number)->toBe($number);
+});
+
+it('preserves graduation-only certificate numbers and leaves unassigned students without a number',function(){
+    DB::table('tb_student_graduation')->insert(['student_id'=>3,'enrollment_id'=>3,'academic_year_id'=>1,'certificate_number'=>'OLD-2024-001']);
+    $wis=app(\App\Services\G12WisGraduation::class);
+    expect($wis->numberForGraduation(3,1))->toBe('OLD-2024-001')->and($wis->numberForGraduation(2,1))->toBeNull();
+    expect(G12Certificate::count())->toBe(0);
+});
+
 it('keeps the same preassigned WIS number through printing pass release cancellation and public void verification',function(){
     $this->withoutVite();
     DB::table('tb_grade')->where('id',1)->update(['grade'=>'Grade 12']);
@@ -232,6 +260,8 @@ it('locks printed certificate numbers against prefix edits and does not reuse a 
 });
 
 it('authorizes printing and collection by report permission and campus and blocks pending or voided collection',function(){
+    // This fixture tests report/campus authorization without workspace assignment tables.
+    $this->withoutMiddleware(\App\Http\Middleware\ResolveProgramWorkspace::class);
     $this->service->save($this->request,$this->data);
     $user=g12CertificatePermissionUser([G12CertificatePermissions::ASSIGN_NUMBERS]);
     Schema::table('users',fn(Blueprint $table)=>$table->timestamp('last_seen_at')->nullable());

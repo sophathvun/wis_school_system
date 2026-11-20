@@ -325,6 +325,8 @@ Route::put('/gep/settings/assign-terms/{assignment}',[\App\Http\Controllers\GepT
 Route::post('/gep/settings/assign-terms/{assignment}/start',[\App\Http\Controllers\GepTermAssignmentController::class,'start'])->middleware('auth')->name('gep.assign-terms.start');
 Route::post('/gep/settings/assign-terms/{assignment}/finish',[\App\Http\Controllers\GepTermAssignmentController::class,'finish'])->middleware('auth')->name('gep.assign-terms.finish');
 Route::delete('/gep/settings/assign-terms/{assignment}',[\App\Http\Controllers\GepTermAssignmentController::class,'delete'])->middleware('auth')->name('gep.assign-terms.delete');
+Route::get('/gep/students',[\App\Http\Controllers\GepStudentController::class,'index'])->middleware('auth')->name('gep.students.index');
+Route::get('/gep/students/{studentSection}',[\App\Http\Controllers\GepStudentController::class,'index'])->where('studentSection','enrollment|promotion|graduation|transfer|withdrawal|reentry|id-card|import-export|help-guide')->middleware('auth')->name('gep.students.section');
 Route::get('/gep/settings/{section}', [\App\Http\Controllers\GepSettingsController::class, 'index'])->where('section','academic-years|terms|assign-terms|levels|classes|class-types|groups')->middleware('auth')->name('gep.settings.section');
 Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 Route::get('/dashboard/customize', [DashboardController::class, 'customize'])->name('dashboard.customize');

@@ -21,6 +21,10 @@
 @php($mainMenuIcons['hrm']='ti-users-group')
 @php($mainMenuIcons['program-workspaces']='ti-books')
 @php($mainMenuIcons['gep-settings']='ti-settings')
+@php($mainMenuIcons['gep-students']='ti-users')
+@foreach(\App\Support\GepStudentPermissions::SECTIONS as $gepStudentKey=>$gepStudentSection)
+@php($submenuIcons['gep-students.'.$gepStudentKey]=$gepStudentSection['icon'])
+@endforeach
 @foreach(\App\Support\GepSettingsPermissions::SECTIONS as $gepSettingKey=>$gepSettingSection)
 @php($submenuIcons['gep-settings.'.$gepSettingKey]=$gepSettingSection['icon'])
 @endforeach

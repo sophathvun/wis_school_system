@@ -80,6 +80,7 @@
     <!-- BEGIN NAVBAR MENU -->
     @php
         $nav = match (true) {
+            request()->routeIs('gep.students.*') => ['parent'=>'GEP Students','parentUrl'=>route('gep.students.index'),'parentIcon'=>'ti-users','label'=>\App\Support\GepStudentPermissions::SECTIONS[request()->route('studentSection')]['label']??'GEP Students','icon'=>'ti-users','url'=>route('gep.students.section',['studentSection'=>request()->route('studentSection')??'enrollment'])],
             request()->routeIs('gep.settings.*') => ['parent'=>'GEP Settings','parentUrl'=>route('gep.settings.index'),'parentIcon'=>'ti-settings','label'=>\App\Support\GepSettingsPermissions::SECTIONS[request()->route('section')]['label']??'GEP Settings','icon'=>'ti-settings','url'=>route('gep.settings.section',['section'=>request()->route('section')??'academic-years'])],
             request()->routeIs('gep.dashboard') => ['parent'=>null,'label'=>'GEP Dashboard','icon'=>'ti-dashboard','url'=>route('gep.dashboard')],
             request()->routeIs('photo-editor.*') => [

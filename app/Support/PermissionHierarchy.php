@@ -10,6 +10,7 @@ class PermissionHierarchy
     public static function moduleLabels(): array
     {
         $gepLabels=[];foreach(GepSettingsPermissions::SECTIONS as $key=>$section)$gepLabels['gep-settings.'.$key]=$section['label'];
+        foreach(GepStudentPermissions::SECTIONS as $key=>$section)$gepLabels['gep-students.'.$key]=$section['label'];
         $nationalLabels=[];foreach(G12NationalExamPermissions::submenus() as $key=>$section)$nationalLabels['g12-national-exams.'.$key]=$section[0];
         foreach(G9NationalExamPermissions::sections() as $key=>$section)$nationalLabels['g9-national-exams.'.$key]=$section[0];
         return array_merge($gepLabels, [
@@ -47,6 +48,10 @@ class PermissionHierarchy
                 'description'=>'GEP workspace access is also required. These settings belong to the General English Program.',
                 'modules'=>array_map(fn($key)=>'gep-settings.'.$key,array_keys(GepSettingsPermissions::SECTIONS)),
                 'actions'=>[],
+            ],
+            'gep-students'=>[
+                'label'=>'GEP Students','permission'=>'gep-students.view','modules'=>array_map(fn($key)=>'gep-students.'.$key,array_keys(GepStudentPermissions::SECTIONS)),'actions'=>[],
+                'description'=>'Access GEP student modules. GEP workspace access is also required.',
             ],
             'wmi-management'=>[
                 'label'=>'WMI Management','permission'=>'wmi-management.view',

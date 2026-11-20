@@ -27,6 +27,17 @@
                         </div>
                     </li>
                 @endif
+                @php($gepStudentSections=array_filter(\App\Support\GepStudentPermissions::SECTIONS,fn($key)=>\App\Support\GepStudentPermissions::allows(auth()->user(),$key),ARRAY_FILTER_USE_KEY))
+                @if($gepStudentSections)
+                    <li class="nav-item dropdown {{ request()->routeIs('gep.students.*')?'active':'' }}">
+                        <a class="nav-link dropdown-toggle" href="#gep-students-menu" data-bs-toggle="dropdown" data-bs-auto-close="false" role="button" aria-expanded="{{ request()->routeIs('gep.students.*')?'true':'false' }}"><span class="nav-link-icon"><i class="ti ti-users"></i></span><span class="nav-link-title">GEP Students</span></a>
+                        <div class="dropdown-menu {{ request()->routeIs('gep.students.*')?'show':'' }}" id="gep-students-menu">
+                            @foreach($gepStudentSections as $key=>$item)
+                                <a class="dropdown-item {{ request()->route('studentSection')===$key?'active':'' }}" href="{{ route('gep.students.section',['studentSection'=>$key]) }}" @if(request()->route('studentSection')===$key) aria-current="page" @endif><i class="ti {{ $item['icon'] }} me-2"></i>{{ $item['label'] }}</a>
+                            @endforeach
+                        </div>
+                    </li>
+                @endif
                 <li class="nav-item"><a class="nav-link" href="{{ route('profile') }}"><span class="nav-link-icon"><i class="ti ti-user"></i></span><span class="nav-link-title">My Profile</span></a></li>
                 <li class="nav-item"><form method="post" action="{{ route('logout') }}">@csrf<button class="nav-link border-0 bg-transparent w-100" type="submit"><span class="nav-link-icon"><i class="ti ti-logout"></i></span><span class="nav-link-title">Log out</span></button></form></li>
             </ul>

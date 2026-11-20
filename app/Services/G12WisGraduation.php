@@ -32,7 +32,13 @@ class G12WisGraduation
         if ($certificate?->status==='voided') throw ValidationException::withMessages([
             'enrollment_ids'=>'This student has a voided WIS certificate for this academic year. Its number cannot be reused. Review the cancellation before assigning graduation again.',
         ]);
-        return $certificate?->certificate_number ?: StudentGraduation::where('student_id',$student)->where('academic_year_id',$year)->value('certificate_number');
+        $existing=StudentGraduation::where('student_id',$student)->where('academic_year_id',$year)
+            ->whereNotNull('certificate_number')->where('certificate_number','!=','')->lockForUpdate()->pluck('certificate_number')->filter(fn($number)=>filled($number))->unique()->values();
+        if($existing->count()>1 || ($existing->isNotEmpty() && filled($certificate?->certificate_number) && $existing->first()!==$certificate->certificate_number)){
+            throw ValidationException::withMessages(['enrollment_ids'=>'Existing WIS certificate numbers conflict for this student and academic year. Graduation was not saved and no certificate number was changed. Review the issued certificate records first.']);
+        }
+        // Graduation only copies an existing identity. Number assignment is a separate action.
+        return $existing->first() ?? ($certificate?->certificate_number ?: null);
     }
 
     public function assigned(G12Certificate $certificate, int $year): void

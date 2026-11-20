@@ -153,7 +153,7 @@ class AccessFoundationSeeder extends Seeder
         }
         $permissions = [...$permissions, ...\App\Support\AdditionalMenuPermissions::catalog()];
         $permissions = [...$permissions, ...\App\Support\ProgramWorkspace::catalog()];
-        $permissions = [...$permissions, ...\App\Support\GepSettingsPermissions::catalog()];
+        $permissions = [...$permissions, ...\App\Support\GepSettingsPermissions::catalog(), ...\App\Support\GepStudentPermissions::catalog()];
         foreach ($permissions as $permission) {
             Permission::updateOrCreate(['code' => $permission['code']], $permission);
         }
@@ -187,8 +187,8 @@ class AccessFoundationSeeder extends Seeder
                     : ((!in_array($permission->code, $skippingCentralCodes, true) && !in_array($permission->code, $idCardActionCodes, true) && !array_key_exists($permission->code, K3CertificatePermissions::catalog()) && !array_key_exists($permission->code, G9CertificatePermissions::catalog()) && !array_key_exists($permission->code, G12CertificatePermissions::catalog())) || $role->permissions->contains('id', $permission->id)))
             );
             if ($role->code !== 'super-admin') {
-                $rolePermissions=$rolePermissions->reject(fn($p)=>str_starts_with($p->module,'gep-settings') && !$role->permissions->contains('id',$p->id));
-                if($role->wasRecentlyCreated && $role->code==='central-office-admin')$rolePermissions=$rolePermissions->merge($allPermissions->filter(fn($p)=>str_starts_with($p->module,'gep-settings')));
+                $rolePermissions=$rolePermissions->reject(fn($p)=>(str_starts_with($p->module,'gep-settings') || str_starts_with($p->module,'gep-students')) && !$role->permissions->contains('id',$p->id));
+                if($role->wasRecentlyCreated && $role->code==='central-office-admin')$rolePermissions=$rolePermissions->merge($allPermissions->filter(fn($p)=>(str_starts_with($p->module,'gep-settings') || str_starts_with($p->module,'gep-students'))));
                 $rolePermissions = $rolePermissions->reject(fn($p)=>str_starts_with($p->module,'program-workspaces'))
                     ->merge($allPermissions->filter(fn($p)=>str_starts_with($p->module,'program-workspaces')
                         && ($role->permissions->contains('id',$p->id)

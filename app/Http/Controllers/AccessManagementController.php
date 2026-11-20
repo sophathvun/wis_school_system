@@ -23,6 +23,7 @@ class AccessManagementController
         \App\Support\AdditionalMenuPermissions::registerMissing();
         \App\Support\ProgramWorkspace::registerMissing();
         \App\Support\GepSettingsPermissions::registerMissing();
+        \App\Support\GepStudentPermissions::registerMissing();
         \App\Support\ScholarshipPermissions::registerMissing();
         \App\Support\G12NationalExamPermissions::registerMissing();
         \App\Support\G9NationalExamPermissions::register();

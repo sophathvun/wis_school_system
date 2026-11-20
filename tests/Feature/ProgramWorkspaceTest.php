@@ -27,6 +27,7 @@ beforeEach(function(){
     $this->migration=require database_path('migrations/2026_11_19_000002_add_program_workspace_access.php');
     $this->migration->up();
     \App\Support\GepSettingsPermissions::registerMissing();
+    \App\Support\GepStudentPermissions::registerMissing();
     $this->permissions=DB::table('access_permissions')->pluck('id','code');
     $this->give=function($programs){
         DB::table('access_role_permissions')->where('role_id',1)->delete();
@@ -463,6 +464,36 @@ it('sequences terms across actual year values regardless of year creation order'
     $this->postJson($base.'/'.$a.'/start',['confirm_finish_current'=>true])->assertOk();
     $this->assertDatabaseHas('tb_gep_term_assignment',['id'=>$b,'lifecycle_status'=>'pending']);
     expect(DB::table('tb_gep_term_assignment')->where('lifecycle_status','started')->count())->toBe(1);
+});
+
+it('opens authorized GEP student submenus and renders their breadcrumbs',function($section){
+    $user=($this->give)(['gep']);
+    foreach(['gep-students.view','gep-students.'.$section.'.view'] as $code)DB::table('access_role_permissions')->insert(['role_id'=>1,'permission_id'=>DB::table('access_permissions')->where('code',$code)->value('id')]);
+    $this->actingAs($user);$request=($this->workspaceRequest)('/gep/students/'.$section,$user,'gep');
+    $route=app('router')->getRoutes()->match($request);$request->setRouteResolver(fn()=>$route);
+    $view=(new \App\Http\Controllers\GepStudentController)->index($request,$section);
+    expect($view->name())->toBe('gep.students')->and($view->getData()['current']['label'])->toBe(\App\Support\GepStudentPermissions::SECTIONS[$section]['label']);
+    expect(view('layouts.partials.navbar')->render())->toContain('GEP Students',route('gep.students.section',['studentSection'=>$section]));
+})->with(array_keys(\App\Support\GepStudentPermissions::SECTIONS));
+
+it('requires both GEP student parent and submenu permissions and GEP workspace access',function(){
+    $user=($this->give)(['gep']);
+    DB::table('access_role_permissions')->insert(['role_id'=>1,'permission_id'=>DB::table('access_permissions')->where('code','gep-students.enrollment.view')->value('id')]);
+    expect(\App\Support\GepStudentPermissions::allows($user,'enrollment'))->toBeFalse();
+    DB::table('access_role_permissions')->insert(['role_id'=>1,'permission_id'=>DB::table('access_permissions')->where('code','gep-students.view')->value('id')]);
+    $request=($this->workspaceRequest)('/gep/students',$user,'gep');
+    expect((new \App\Http\Controllers\GepStudentController)->index($request)->getTargetUrl())->toBe(route('gep.students.section',['studentSection'=>'enrollment']));
+    expect(fn()=>(new \App\Http\Controllers\GepStudentController)->index($request,'promotion'))->toThrow(HttpException::class);
+    $user=($this->give)(['wis']);
+    foreach(['gep-students.view','gep-students.enrollment.view'] as $code)DB::table('access_role_permissions')->insert(['role_id'=>1,'permission_id'=>DB::table('access_permissions')->where('code',$code)->value('id')]);
+    expect(\App\Support\GepStudentPermissions::allows($user,'enrollment'))->toBeFalse();
+});
+
+it('registers the GEP student menu permissions without granting campus roles automatically',function(){
+    (require database_path('migrations/2026_11_20_000007_add_gep_student_menu_permissions.php'))->up();
+    $ids=DB::table('access_permissions')->where('module','like','gep-students%')->pluck('id');
+    expect($ids)->toHaveCount(10)->and(DB::table('access_role_permissions')->where('role_id',1)->whereIn('permission_id',$ids)->count())->toBe(0)
+        ->and(DB::table('access_role_permissions')->where('role_id',2)->whereIn('permission_id',$ids)->count())->toBe(10);
 });
 
 function gepYearTestSetup($test,array $actions=['create','edit','delete','status']):void
