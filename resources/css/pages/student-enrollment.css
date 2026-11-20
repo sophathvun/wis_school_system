@@ -2330,3 +2330,8 @@
     flex-shrink: 0;
     font-weight: 700;
 }
+#enrollmentHistoryModal .modal-header {
+    background: #23395d;
+    color: #fff;
+    border-bottom-color: #23395d;
+}
