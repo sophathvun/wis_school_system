@@ -443,7 +443,26 @@ it('returns the correct next and current terms for each year in the all-years li
     $rows=collect($this->getJson($base.'/data?perPage=1&page=2')->assertOk()->json('data'))->keyBy('id');
     expect($rows[$second]['is_next_pending'])->toBeTrue()->and($rows[$second]['current_term']['id'])->toBe($first);
     $rows=collect($this->getJson($base.'/data?search=2026')->assertOk()->json('data'))->keyBy('id');
-    expect($rows[$new]['current_term'])->toBeNull()->and($rows[$new]['is_next_pending'])->toBeTrue();
+    expect($rows[$new]['current_term']['id'])->toBe($first)->and($rows[$new]['is_next_pending'])->toBeTrue();
+});
+
+it('sequences terms across actual year values regardless of year creation order',function(){
+    [$year2025,$terms]=gepAssignmentsTestSetup($this);$base='/gep/settings/assign-terms';
+    $year2023=$this->postJson('/gep/settings/academic-years',['academic_year'=>'2023'])->json('data.id');
+    $year2024=$this->postJson('/gep/settings/academic-years',['academic_year'=>'2024'])->json('data.id');
+    $a=$this->postJson($base,gepAssignmentPayload($year2023,$terms[0]))->json('data.id');
+    $b=$this->postJson($base,gepAssignmentPayload($year2024,$terms[0]))->json('data.id');
+    $c=$this->postJson($base,gepAssignmentPayload($year2025,$terms[0]))->json('data.id');
+    $this->getJson($base.'/data')->assertOk()->assertJsonPath('data.0.id',$c)->assertJsonPath('data.1.id',$b)->assertJsonPath('data.2.id',$a);
+    $this->postJson($base.'/'.$a.'/start')->assertOk();
+    $this->postJson($base.'/'.$b.'/start')->assertUnprocessable()->assertJsonValidationErrors('confirm_finish_current');
+    $this->postJson($base.'/'.$b.'/start',['confirm_finish_current'=>true])->assertOk();
+    $this->assertDatabaseHas('tb_gep_term_assignment',['id'=>$a,'lifecycle_status'=>'finished']);
+    $this->assertDatabaseHas('tb_gep_term_assignment',['id'=>$b,'lifecycle_status'=>'started']);
+    $this->assertDatabaseHas('tb_gep_term_assignment',['id'=>$c,'lifecycle_status'=>'pending']);
+    $this->postJson($base.'/'.$a.'/start',['confirm_finish_current'=>true])->assertOk();
+    $this->assertDatabaseHas('tb_gep_term_assignment',['id'=>$b,'lifecycle_status'=>'pending']);
+    expect(DB::table('tb_gep_term_assignment')->where('lifecycle_status','started')->count())->toBe(1);
 });
 
 function gepYearTestSetup($test,array $actions=['create','edit','delete','status']):void
