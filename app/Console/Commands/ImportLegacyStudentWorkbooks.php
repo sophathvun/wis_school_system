@@ -34,7 +34,8 @@ class ImportLegacyStudentWorkbooks extends Command
 
         $counts = ['students' => 0, 'enrollments' => 0, 'families' => 0, 'parents' => 0];
         $birthplaceResolver = new \App\Support\StudentBirthplaceResolver();
-        DB::transaction(function () use ($students, $enrollments, $parents, &$counts, $birthplaceResolver) {
+        $addressResolver = new \App\Support\StudentAddressResolver();
+        DB::transaction(function () use ($students, $enrollments, $parents, &$counts, $birthplaceResolver, $addressResolver) {
             $studentMap = [];
             foreach ($students as $row) {
                 $studentId = trim((string) ($row['student id'] ?? ''));
@@ -64,8 +65,12 @@ class ImportLegacyStudentWorkbooks extends Command
                     'remarks' => $this->nullable($row['remarks'] ?? null),
                     'status' => 1,
                 ]);
-                $student->fill(\App\Support\LegacyStudentProfile::missingBirthplace($student, $row))->saveQuietly();
+                $student->fill(\App\Support\LegacyStudentProfile::missingBirthplace($student, $row));
+                $student->fill(\App\Support\LegacyStudentProfile::missingAddress($student, $row));
+                $student->imported_location_data=['values'=>\App\Support\LegacyStudentProfile::locationSource($row)];
+                $student->saveQuietly();
                 $student->fill($birthplaceResolver->changes($student))->saveQuietly();
+                $student->fill($addressResolver->changes($student,$row))->saveQuietly();
                 $student->ensureIdCardQrCode();
                 $studentMap[$studentId] = $student;
                 $counts['students']++;
@@ -122,10 +127,11 @@ class ImportLegacyStudentWorkbooks extends Command
     {
         $zip = new ZipArchive(); if ($zip->open($file) !== true) throw new \RuntimeException("Cannot open {$file}");
         $shared = [];
-        if (($xml = $zip->getFromName('xl/sharedStrings.xml')) !== false) { $doc = simplexml_load_string($xml); foreach ($doc->si as $si) $shared[] = (string) ($si->t ?? implode('', array_map('strval', iterator_to_array($si->r->t ?? [])))); }
+        $text=fn($node)=>implode('',array_map('strval',$node->xpath('.//*[local-name()="t"]')?:[]));
+        if (($xml = $zip->getFromName('xl/sharedStrings.xml')) !== false) { $doc = simplexml_load_string($xml); foreach ($doc->si as $si) $shared[] = $text($si); }
         $sheet = simplexml_load_string($zip->getFromName('xl/worksheets/sheet1.xml')); $zip->close();
         $headers = []; $result = [];
-        foreach ($sheet->sheetData->row as $row) { $values = []; foreach ($row->c as $cell) { $ref = (string) $cell['r']; preg_match('/([A-Z]+)/', $ref, $match); $index = 0; foreach (str_split($match[1] ?? '') as $char) $index = $index * 26 + ord($char) - 64; $index--; $value = (string) ($cell->v ?? ''); if ((string) $cell['t'] === 's') $value = $shared[(int) $value] ?? ''; elseif ((string) $cell['t'] === 'inlineStr') $value = (string) ($cell->is->t ?? ''); $values[$index] = trim($value); } if (!$headers) { $headers = array_map(fn ($v) => strtolower(trim((string) $v)), array_values($values)); continue; } $rowData = []; foreach ($headers as $i => $header) $rowData[$header] = $values[$i] ?? null; $result[] = $rowData; }
+        foreach ($sheet->sheetData->row as $row) { $values = []; foreach ($row->c as $cell) { $ref = (string) $cell['r']; preg_match('/([A-Z]+)/', $ref, $match); $index = 0; foreach (str_split($match[1] ?? '') as $char) $index = $index * 26 + ord($char) - 64; $index--; $value = (string) ($cell->v ?? ''); if ((string) $cell['t'] === 's') $value = $shared[(int) $value] ?? ''; elseif ((string) $cell['t'] === 'inlineStr') $value = $text($cell->is); $values[$index] = trim($value); } if (!$headers) { $headers = array_map(fn ($v) => mb_strtolower(trim((string) $v)), $values); continue; } $rowData = []; foreach ($headers as $i => $header) if($header!=='')$rowData[$header] = $values[$i] ?? null; $result[] = $rowData; }
         return $result;
     }
 

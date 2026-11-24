@@ -10,6 +10,7 @@ class StudentBirthplaceResolver
     private array $locations = [];
     private array $countryMatches = [];
     private array $locationMatches = [];
+    private array $nameIndex = [];
 
     public static function clearTextForSelectionChanges(Student $student, array $input): array
     {
@@ -27,7 +28,14 @@ class StudentBirthplaceResolver
 
     private function records(string $level): \Illuminate\Support\Collection
     {
-        return $this->locations[$level] ??= DB::table('tb_'.$level)->get();
+        if(!isset($this->locations[$level])){
+            $this->locations[$level]=DB::table('tb_'.$level)->get()->keyBy('id');
+            foreach($this->locations[$level] as $record)foreach(['en','kh'] as $language){
+                $name=$this->name($record->{$level.'_name_'.$language}??'',$level);
+                if($name!=='')$this->nameIndex[$level][$name][$record->id]=$record;
+            }
+        }
+        return $this->locations[$level];
     }
 
     private function name($value, string $level): string
@@ -52,11 +60,8 @@ class StudentBirthplaceResolver
         $changes = [];
         $englishProvince = $student->birth_province_en;
         $countryKey = $this->name($englishProvince, 'country');
-        $countries = $this->countryMatches[$countryKey] ??= $this->records('country')->filter(fn ($record) =>
-            filled($englishProvince) && (
-                $this->name($record->country_name_en, 'country') === $this->name($englishProvince, 'country') ||
-                $this->name($record->country_name_kh, 'country') === $this->name($englishProvince, 'country')
-            ));
+        $this->records('country');
+        $countries = $this->countryMatches[$countryKey] ??= collect($this->nameIndex['country'][$countryKey]??[]);
         // In the old workbook the English field sometimes names a country,
         // while its Khmer counterpart names the actual province.
         if ($countries->count() === 1) {
@@ -69,7 +74,7 @@ class StudentBirthplaceResolver
         foreach (['province', 'district', 'commune', 'village'] as $level) {
             $records = $this->records($level);
             $id = $student->getAttribute('birth_'.$level.'_id');
-            $record = filled($id) ? $records->firstWhere('id', (int) $id) : null;
+            $record = filled($id) ? $records->get((int)$id) : null;
             if (!$record) {
                 $names = ['en'=>$level === 'province' ? $englishProvince : $student->getAttribute('birth_'.$level.'_en'),
                     'kh'=>$student->getAttribute('birth_'.$level.'_kh')];
@@ -77,16 +82,18 @@ class StudentBirthplaceResolver
                 // A lower level must belong to the same resolved parent.
                 if ($level !== 'province' && !$parentId) break;
                 $matchKey = json_encode([$parentId, $this->name($names['en'], $level), $this->name($names['kh'], $level)]);
-                $matches = $this->locationMatches[$level][$matchKey] ??= $records->filter(function ($candidate) use ($names, $level, $parentId, $parentLevel) {
-                    if ($parentId && (int) $candidate->{$parentLevel.'_id'} !== (int) $parentId) return false;
-                    $matched = false;
-                    foreach ($names as $language=>$name) {
-                        if (blank($name)) continue;
-                        if ($this->name($candidate->{$level.'_name_'.$language}, $level) !== $this->name($name, $level)) return false;
-                        $matched = true;
+                if(!isset($this->locationMatches[$level][$matchKey])){
+                    $sets=[];
+                    foreach($names as $name){
+                        if(blank($name))continue;
+                        $set=array_filter($this->nameIndex[$level][$this->name($name,$level)]??[],fn($candidate)=>!$parentId || (int)$candidate->{$parentLevel.'_id'}===(int)$parentId);
+                        if($set)$sets[]=$set;
                     }
-                    return $matched;
-                });
+                    $matches=$sets?array_shift($sets):[];
+                    foreach($sets as $set)$matches=array_intersect_key($matches,$set);
+                    $this->locationMatches[$level][$matchKey]=collect($matches);
+                }
+                $matches=$this->locationMatches[$level][$matchKey];
                 if ($matches->count() !== 1) break;
                 $record = $matches->first();
                 $changes['birth_'.$level.'_id'] = $record->id;

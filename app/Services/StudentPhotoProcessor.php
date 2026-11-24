@@ -34,6 +34,19 @@ class StudentPhotoProcessor
         return $this->encode($file, false, true);
     }
 
+    public function portraitWebp(UploadedFile $file): string
+    {
+        $size = @getimagesize($file->getRealPath());
+        if (!$size || $size[0] !== 600 || $size[1] !== 800) {
+            throw ValidationException::withMessages(['photo' => 'Crop the student photo to 600 × 800 pixels before saving.']);
+        }
+        $bytes = $this->sizedWebp($file);
+        if (strlen($bytes) >= self::MAX_BYTES) {
+            throw ValidationException::withMessages(['photo' => 'Use a portrait with a plain background to keep the photo under 40 KB.']);
+        }
+        return $bytes;
+    }
+
     private function encode(UploadedFile $file, bool $square, bool $nativeSize = false): string
     {
         $size = @getimagesize($file->getRealPath());

@@ -476,7 +476,7 @@ it('opens authorized GEP student submenus and renders their breadcrumbs',functio
     $view=(new \App\Http\Controllers\GepStudentController)->index($request,$section);
     expect($view->name())->toBe('gep.students')->and($view->getData()['current']['label'])->toBe(\App\Support\GepStudentPermissions::SECTIONS[$section]['label']);
     expect(view('layouts.partials.navbar')->render())->toContain('GEP Students',route('gep.students.section',['studentSection'=>$section]));
-})->with(array_keys(\App\Support\GepStudentPermissions::SECTIONS));
+})->with(array_values(array_diff(array_keys(\App\Support\GepStudentPermissions::SECTIONS),['enrollment'])));
 
 it('requires both GEP student parent and submenu permissions and GEP workspace access',function(){
     $user=($this->give)(['gep']);

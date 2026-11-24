@@ -24,6 +24,7 @@ class AccessManagementController
         \App\Support\ProgramWorkspace::registerMissing();
         \App\Support\GepSettingsPermissions::registerMissing();
         \App\Support\GepStudentPermissions::registerMissing();
+        \App\Support\GepEnrollmentPermissions::registerMissing();
         \App\Support\GepReportPermissions::registerMissing();
         \App\Support\GepAcademicPermissions::registerMissing();
         \App\Support\ScholarshipPermissions::registerMissing();

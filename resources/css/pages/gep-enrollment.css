@@ -1,0 +1,73 @@
+#gep-enrollments .gep-field{position:relative;min-width:0}
+#gep-enrollments .gep-field>.form-control,#gep-enrollments .wmi-picker-trigger{width:100%;height:56px;min-height:56px;border:1px solid var(--tblr-border-color);border-radius:12px;background:var(--tblr-bg-surface);color:var(--tblr-body-color);font-size:.875rem;padding:22px 14px 6px;box-shadow:0 2px 6px #172c4810}
+#gep-enrollments .gep-field>label{position:absolute;top:17px;left:14px;margin:0;pointer-events:none;font-size:.875rem;color:var(--tblr-secondary-color);transition:all .15s;z-index:2;max-width:calc(100% - 30px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#gep-enrollments .gep-field.has-value>label,#gep-enrollments .gep-field:focus-within>label{top:5px;font-size:.68rem;color:var(--tblr-primary);font-weight:600}
+#gep-enrollments .gep-field textarea.form-control{height:78px;resize:vertical}
+#gep-enrollments .gep-field:not(.has-value):not(:focus-within) input[type="date"]::-webkit-datetime-edit{opacity:0}
+[data-bs-theme="dark"] #gep-enrollments input[type="date"]{color-scheme:dark}
+#gep-enrollments .gep-field .form-control:focus,#gep-enrollments .wmi-picker-trigger:focus-visible{outline:0;border-color:#7573e8;box-shadow:0 0 0 3px #6b5bd620}
+#gep-enrollments .wmi-picker-native{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+#gep-enrollments .wmi-year-picker{position:relative}
+#gep-enrollments .wmi-picker-trigger{display:flex;justify-content:space-between;align-items:center;text-align:left;gap:8px}
+#gep-enrollments .wmi-picker-trigger>span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#gep-enrollments .gep-field:not(.has-value):not(:focus-within) .wmi-picker-trigger>span{opacity:0}
+#gep-enrollments .wmi-picker-trigger:disabled,#gep-enrollments .form-control:disabled{background:var(--tblr-bg-surface-secondary);opacity:.8}
+#gep-enrollments .wmi-picker-panel{position:absolute;top:calc(100% + 5px);left:0;min-width:100%;width:max-content;max-width:min(360px,85vw);background:var(--tblr-bg-surface);color:var(--tblr-body-color);border:1px solid var(--tblr-border-color);border-radius:14px;box-shadow:0 12px 32px #10244026;padding:10px;z-index:1080}
+#gep-enrollments .wmi-picker-panel[hidden]{display:none}
+#gep-enrollments .wmi-picker-search{font-size:.85rem;min-height:38px;border-radius:9px;margin-bottom:7px}
+#gep-enrollments .wmi-picker-options{max-height:210px;overflow-y:auto}
+#gep-enrollments .wmi-picker-option{display:flex;align-items:center;gap:8px;width:100%;padding:10px;border:0;border-radius:8px;background:transparent;color:inherit;text-align:left;font-size:.85rem}
+#gep-enrollments .wmi-picker-option:hover,#gep-enrollments .wmi-picker-option.is-selected{background:var(--tblr-primary-lt);color:var(--tblr-primary)}
+#gep-enrollments .wmi-picker-status{font-size:.8rem;color:var(--tblr-secondary-color)}
+#gep-enrollments .gep-enrollment-table{overflow-y:visible}
+#gep-enrollments .gep-enrollment-table table{min-width:1050px;font-size:.84rem}
+#gep-enrollments .gep-enrollment-table th{white-space:nowrap;background:#3c70c5;color:#fff}
+#gep-enrollments .gep-enrollment-table td{padding-top:18px;padding-bottom:18px}
+#gep-enrollments .gep-student-name{font-weight:600;overflow-wrap:anywhere}
+#gep-enrollments .gep-enrollment-section{border:1px solid var(--tblr-border-color);border-radius:12px}
+#gep-enrollments .gep-enrollment-section h3{background:#203858;color:#fff;padding:12px 16px;margin:0;border-radius:11px 11px 0 0;font-size:.9rem}
+#gep-enrollment-modal .modal-dialog{width:calc(100% - 16px);max-width:1900px;height:calc(100dvh - 32px);margin:16px auto}
+#gep-enrollment-modal .modal-content{height:100%;max-height:100%;border-radius:12px}
+#gep-enrollment-modal .modal-header{background:#293b5b;padding:20px 28px;min-height:70px}
+#gep-enrollment-modal .modal-body{padding:30px;overflow-y:auto;overflow-x:hidden;min-height:0}
+#gep-enrollment-modal .modal-footer{background:var(--tblr-bg-surface-secondary);padding:18px 28px}
+#gep-enrollments .gep-registration-layout{display:grid;grid-template-columns:260px minmax(0,1fr);gap:25px;align-items:start}
+#gep-enrollments .gep-registration-layout.is-editing{grid-template-columns:minmax(0,1fr)}
+#gep-enrollments .gep-registration-content{min-width:0;border:1px solid var(--tblr-border-color);border-radius:16px;padding:30px}
+#gep-enrollments .gep-registration-modes{display:grid;gap:10px;position:sticky;top:0}
+#gep-enrollments .gep-registration-nav-title{padding:6px 14px 10px;font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--tblr-secondary-color)}
+#gep-enrollments .gep-registration-modes .btn{display:flex;justify-content:space-between;gap:8px;text-align:left;white-space:normal;min-height:64px;border:1px solid var(--tblr-border-color);border-radius:13px;padding:16px;background:var(--tblr-bg-surface);color:var(--tblr-body-color)}
+#gep-enrollment-modal .gep-enrollment-section h3{font-size:.9rem;text-transform:uppercase;padding:20px}
+#gep-enrollment-modal .gep-enrollment-section>.p-3{padding:20px!important}
+#gep-enrollment-modal .gep-field>.form-control,#gep-enrollment-modal .wmi-picker-trigger{height:64px;min-height:64px;border-radius:18px;border-color:#8070ff;font-size:.95rem}
+#gep-enrollment-modal .gep-field>label{top:21px}
+#gep-enrollment-modal .gep-field.has-value>label,#gep-enrollment-modal .gep-field:focus-within>label{top:6px;font-size:.74rem}
+#gep-enrollment-modal .gep-lookup-search-field>label{top:6px;font-size:.74rem;color:var(--tblr-primary);font-weight:600}
+#gep-enrollments .gep-student-lookup{position:relative;min-width:0}
+#gep-enrollments .gep-student-lookup .gep-student-results{position:absolute;z-index:1080;top:calc(100% + 5px);left:12px;right:12px;border:1px solid var(--tblr-border-color);border-radius:12px;padding:8px;background:var(--tblr-bg-surface);box-shadow:0 12px 32px #10244026}
+@media(max-width:1199px){#gep-enrollments .gep-registration-layout{grid-template-columns:210px minmax(0,1fr);gap:18px}#gep-enrollments .gep-registration-content{padding:18px}}
+@media(max-width:767px){#gep-enrollment-modal .modal-dialog{width:100%;height:100dvh;margin:0}#gep-enrollment-modal .modal-content{border-radius:0}#gep-enrollment-modal .modal-body{padding:14px}#gep-enrollments .gep-registration-layout{grid-template-columns:1fr;gap:16px}#gep-enrollments .gep-registration-modes{position:static;grid-template-columns:1fr 1fr}#gep-enrollments .gep-registration-nav-title{grid-column:1/-1;padding-bottom:0}#gep-enrollments .gep-registration-content{padding:12px}#gep-enrollment-modal .modal-header,#gep-enrollment-modal .modal-footer{padding:16px}}
+#gep-enrollments .gep-registration-modes .btn.active{border-color:var(--tblr-primary);background:var(--tblr-primary-lt);color:var(--tblr-primary)}
+#gep-enrollments .gep-student-results{max-height:240px;overflow:auto}
+#gep-enrollments .gep-student-result{width:100%;text-align:left;border:1px solid var(--tblr-border-color);border-radius:10px;background:var(--tblr-bg-surface);color:var(--tblr-body-color);padding:10px 14px;margin-bottom:5px}
+#gep-enrollments .gep-student-result:hover{border-color:var(--tblr-primary);background:var(--tblr-primary-lt)}
+#gep-enrollments .gep-history-event{border-left:3px solid var(--tblr-primary);padding:0 0 18px 16px;margin-left:6px}
+#gep-enrollments .gep-photo-upload{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+#gep-enrollments .gep-photo-dropzone{flex:1;min-width:220px;display:flex;flex-direction:column;align-items:center;gap:8px;padding:24px;text-align:center;border:2px dashed var(--tblr-border-color);border-radius:14px;background:var(--tblr-bg-surface-secondary);color:var(--tblr-body-color);cursor:pointer}
+#gep-enrollments .gep-photo-dropzone small{color:var(--tblr-secondary-color)}
+#gep-enrollments .gep-photo-dropzone:is(:hover,:focus-visible,.is-dragging){border-color:var(--tblr-primary);background:var(--tblr-primary-lt);outline:0}
+#gep-enrollments .gep-photo-preview{display:flex;flex-direction:column;gap:8px;align-items:center;width:140px}
+#gep-enrollments .gep-photo-preview img{width:105px;height:140px;object-fit:cover;border-radius:8px;border:1px solid var(--tblr-border-color)}
+#gep-enrollments .gep-parent-section{border:0;padding:0;margin:0 0 24px;min-width:0}
+#gep-enrollments .gep-parent-section:last-child{margin-bottom:0}
+#gep-enrollments .gep-parent-section legend{font-size:.9rem;font-weight:600;margin-bottom:12px;float:none;width:auto}
+#gep-enrollments .gep-list-photo{width:42px;height:56px;object-fit:cover;border-radius:7px;float:left;margin:0 12px 8px 0}
+#gep-enrollments .gep-profile-subsection{margin:20px -20px 0;padding:20px;border-top:1px solid var(--tblr-border-color)}
+#gep-enrollments .gep-profile-subsection h4{font-size:.9rem;text-transform:uppercase;margin-bottom:22px}
+#gep-enrollments .gep-location-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px}
+#gep-enrollments .gep-address-grid{display:grid;grid-template-columns:1fr 1fr 3fr;gap:14px}
+#gep-enrollments .gep-field .form-control[readonly]{background:var(--tblr-bg-surface-secondary);color:var(--tblr-body-color)}
+@media(max-width:1199px){#gep-enrollments .gep-location-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#gep-enrollments .gep-address-grid{grid-template-columns:1fr 1fr}#gep-enrollments .gep-address-grid>.gep-field:last-child{grid-column:1/-1}}
+@media(max-width:575px){#gep-enrollments .gep-location-grid,#gep-enrollments .gep-address-grid{grid-template-columns:minmax(0,1fr)}}
+#gep-enrollments .gep-history-values{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 16px;font-size:.8rem}
+@media(max-width:575px){#gep-enrollments .card-header .btn{font-size:.78rem}#gep-enrollments .gep-registration-modes{gap:7px}#gep-enrollments .gep-registration-modes .btn{font-size:.82rem;padding:12px 6px}#gep-enrollments .gep-history-values{grid-template-columns:1fr}}

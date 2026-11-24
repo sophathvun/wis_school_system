@@ -326,6 +326,18 @@ Route::post('/gep/settings/assign-terms/{assignment}/start',[\App\Http\Controlle
 Route::post('/gep/settings/assign-terms/{assignment}/finish',[\App\Http\Controllers\GepTermAssignmentController::class,'finish'])->middleware('auth')->name('gep.assign-terms.finish');
 Route::delete('/gep/settings/assign-terms/{assignment}',[\App\Http\Controllers\GepTermAssignmentController::class,'delete'])->middleware('auth')->name('gep.assign-terms.delete');
 Route::get('/gep/students',[\App\Http\Controllers\GepStudentController::class,'index'])->middleware('auth')->name('gep.students.index');
+Route::prefix('gep/students/enrollment')->middleware('auth')->group(function(){
+    Route::get('/profile',[\App\Http\Controllers\GepEnrollmentController::class,'profile'])->name('gep.enrollments.profile');
+    Route::get('/locations',[\App\Http\Controllers\GepEnrollmentController::class,'locations'])->name('gep.enrollments.locations');
+    Route::post('/photo/size',[\App\Http\Controllers\GepEnrollmentController::class,'photoSize'])->middleware('throttle:60,1')->name('gep.enrollments.photo.size');
+    Route::post('/photo/background',[\App\Http\Controllers\GepEnrollmentController::class,'photoBackground'])->middleware('throttle:12,1')->name('gep.enrollments.photo.background');
+    Route::get('/data',[\App\Http\Controllers\GepEnrollmentController::class,'fetch'])->name('gep.enrollments.data');
+    Route::get('/students',[\App\Http\Controllers\GepEnrollmentController::class,'students'])->name('gep.enrollments.students');
+    Route::post('/',[\App\Http\Controllers\GepEnrollmentController::class,'save'])->name('gep.enrollments.store');
+    Route::put('/{enrollment}',[\App\Http\Controllers\GepEnrollmentController::class,'save'])->name('gep.enrollments.update');
+    Route::delete('/{enrollment}',[\App\Http\Controllers\GepEnrollmentController::class,'delete'])->name('gep.enrollments.delete');
+    Route::get('/{enrollment}/history',[\App\Http\Controllers\GepEnrollmentController::class,'history'])->name('gep.enrollments.history');
+});
 Route::get('/gep/{academicMenu}',[\App\Http\Controllers\GepAcademicController::class,'index'])->where('academicMenu','attendance|grading|student-schedule')->middleware('auth')->name('gep.academic.index');
 Route::get('/gep/reports',[\App\Http\Controllers\GepReportController::class,'index'])->middleware('auth')->name('gep.reports.index');
 Route::get('/gep/reports/{reportSection}',[\App\Http\Controllers\GepReportController::class,'index'])->where('reportSection','student-list|student-contact-list|withdrawn-students|graduated-certificates|student-statistics-detail|student-statistics|student-photos|customize-student-list')->middleware('auth')->name('gep.reports.section');

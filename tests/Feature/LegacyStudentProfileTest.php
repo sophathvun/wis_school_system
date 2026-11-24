@@ -4,6 +4,23 @@ use App\Models\Student;
 use App\Models\FamilyMember;
 use App\Support\LegacyStudentProfile;
 
+it('extracts labelled bilingual house street and village without changing full addresses', function () {
+    $en='#168B, Group 1, Ta Ngoun Village, S/K Kakab Khan Por Senchey, Phnom Penh';
+    $kh='ផ្ទះលេខ១៦៨EoBo ផ្លូវ២៣K ភូមិតាងួន សង្កាត់កាកាប ខណ្ឌពោធិ៍សែនជ័យ';
+    $values=LegacyStudentProfile::address(['home address'=>$en,'kh_current_address'=>$kh]);
+    expect($values)->toMatchArray(['current_address_en'=>$en,'current_address_kh'=>$kh,
+        'address_house_no_en'=>'168B','address_house_no_kh'=>'១៦៨EoBo','address_street_kh'=>'២៣K',
+        'address_village_en'=>'Ta Ngoun','address_village_kh'=>'តាងួន']);
+    expect($values)->not->toHaveKey('address_street_en');
+    expect(LegacyStudentProfile::addressComponents(['current_address_en'=>'House 1, House 2']))->toBe([]);
+    expect(LegacyStudentProfile::addressComponents(['current_address_en'=>'No component labels here']))->toBe([]);
+});
+
+it('accepts the actual Province of Birth workbook header and preserves nonempty aliases',function(){
+    expect(LegacyStudentProfile::birthplace(['province of birth'=>'Phnom Penh','place of birth'=>'','kh_place_of_birth'=>'ភ្នំពេញ']))->toBe(['birth_province_en'=>'Phnom Penh','birth_province_kh'=>'ភ្នំពេញ']);
+    expect(LegacyStudentProfile::birthplace(['province of birth'=>'','place of birth'=>'Kandal']))->toBe(['birth_province_en'=>'Kandal']);
+});
+
 it('maps each legacy birthplace level without depending on the sample files at runtime', function () {
     $row=['place of birth'=>'Phnom Penh','kh_place_of_birth'=>'រាជធានីភ្នំពេញ','phoum_pob'=>'Village One','kh_phoum_pob'=>'ភូមិ១','sangkat_pob'=>'Tuek Thla','kh_sangkat_pob'=>'សង្កាត់ទឹកថ្លា','khan_pob'=>'Sen Sok','kh_khan_pob'=>'ខណ្ឌសែនសុខ'];
     $data=LegacyStudentProfile::missingBirthplace(new Student(),$row);

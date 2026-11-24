@@ -45,6 +45,16 @@ const canStudentDocumentPreview = hasPermission("student-documents.preview");
 const canStudentDocumentDownload = hasPermission("student-documents.download");
 const canStudentDocumentDelete = hasPermission("student-documents.delete");
 const form = document.getElementById("enrollmentForm");
+let importedLocationStudent = null;
+const importedLocationText=(prefix,type)=>{
+    if(!importedLocationStudent)return '';
+    return [importedLocationStudent[`${prefix}_${type}_kh`],importedLocationStudent[`${prefix}_${type}_en`]].filter(Boolean).join(' / ');
+};
+const clearImportedLocationText=(prefix,type)=>{
+    if(!importedLocationStudent)return;
+    const order=['country','province','district','commune','village'];
+    order.slice(order.indexOf(type)).forEach(level=>['en','kh'].forEach(lang=>{delete importedLocationStudent[`${prefix}_${level}_${lang}`];}));
+};
 const modal = new bootstrap.Modal(document.getElementById("enrollmentModal"));
 const historyModal = new bootstrap.Modal(
     document.getElementById("enrollmentHistoryModal"),
@@ -2713,7 +2723,8 @@ const setBirthSelectedText = (type) => {
     if (!ui.select || !ui.selected) return;
     const selected = ui.select.selectedOptions?.[0];
     if (!selected || !selected.value) {
-        ui.selected.innerHTML = emptySelectedLabel;
+        const imported=importedLocationText('birth',type);
+        ui.selected.innerHTML = imported?`<span class="text-secondary">${escapeHtml(imported)}</span>`:emptySelectedLabel;
         return;
     }
     const kh = selected.dataset.kh || "";
@@ -2879,7 +2890,7 @@ const setAddressSelectedText = (type) => {
     const ui = addressUi(type);
     const option = ui.select?.selectedOptions?.[0];
     if (!option || !option.value) {
-        if (ui.selected) ui.selected.textContent = emptySelectedLabel;
+        if (ui.selected) ui.selected.textContent = importedLocationText('address',type)||emptySelectedLabel;
         refreshPremiumFieldStates();
         return;
     }
@@ -3113,6 +3124,7 @@ const loadAddressLocations = async () => {
 };
 addressFields.forEach((type) =>
     field(`address_${type}_id`)?.addEventListener("change", () => {
+        clearImportedLocationText('address',type);
         setAddressSelectedText(type);
         filterAddressLocations(type);
         updateCurrentAddress();
@@ -3187,6 +3199,7 @@ birthFields.forEach((type) => {
         closeBirthMenu(type);
     });
     ui.select?.addEventListener("change", () => {
+        clearImportedLocationText('birth',type);
         setBirthSelectedText(type);
         renderBirthResults(type);
     });
@@ -3866,6 +3879,7 @@ const setEnrollmentAssignmentLocked = (locked) => {
 
 const openCreate = async (forEdit = false) => {
     if (!forEdit && !canEnrollment("create")) return;
+    importedLocationStudent=null;
     form.reset();
     resetEnrollmentDocumentFiles();
     field("enrollment_id").value = "";
@@ -3929,6 +3943,7 @@ const openEdit = async (id) => {
     title.textContent = "Edit Student Enrollment";
     submit.textContent = "Update";
     const student = row.student || {};
+    importedLocationStudent={...student};
     field("enrollment_id").value = row.id;
     field("enrollment_notes").value = row.notes ?? "";
     field("student_record_id").value = row.student_id;
@@ -4083,7 +4098,7 @@ const openEdit = async (id) => {
         addressFields.some((type) => field(`address_${type}_id`)?.value) ||
         field("address_house_no_en")?.value ||
         field("address_street_en")?.value;
-    if (hasStructuredAddress) updateCurrentAddress();
+    if (hasStructuredAddress && !student.current_address_en && !student.current_address_kh) updateCurrentAddress();
     field("status").value = row.status ? "1" : "0";
     field("enrollment_status").value =
         row.enrollment_status || (row.status ? "active" : "cancelled");

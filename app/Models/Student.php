@@ -13,7 +13,12 @@ class Student extends Model
 {
     protected $table = 'tb_student';
     protected $fillable = ['student_no', 'student_id', 'id_card_qr_code', 'id_card_qr_generated_at', 'photo_path', 'family_number', 'full_name_en', 'full_name_kh', 'gender', 'gender_kh', 'date_of_birth', 'home_phone', 'email', 'nationality_country_id', 'birth_country_id', 'birth_province_id', 'birth_district_id', 'birth_commune_id', 'birth_village_id', 'birth_village_en', 'birth_village_kh', 'birth_commune_en', 'birth_commune_kh', 'birth_district_en', 'birth_district_kh', 'birth_province_en', 'birth_province_kh', 'address_country_id', 'address_province_id', 'address_district_id', 'address_commune_id', 'address_village_id', 'address_house_no_en', 'address_house_no_kh', 'address_street_en', 'address_street_kh', 'current_address_en', 'current_address_kh', 'previous_school', 'experienced_english', 'test_result', 'tested_by', 'remarks', 'status'];
-    protected $casts = ['date_of_birth' => 'date:Y-m-d', 'id_card_qr_generated_at' => 'datetime'];
+    protected $casts = ['date_of_birth' => 'date:Y-m-d', 'id_card_qr_generated_at' => 'datetime','imported_location_data'=>'array'];
+
+    public function getFillable()
+    {
+        return [...parent::getFillable(),'imported_location_data',...array_merge(...array_map(fn($level)=>['address_'.$level.'_en','address_'.$level.'_kh'],['province','district','commune','village']))];
+    }
 
     protected static function booted(): void
     {

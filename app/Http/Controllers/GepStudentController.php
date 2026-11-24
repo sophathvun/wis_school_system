@@ -12,6 +12,7 @@ class GepStudentController
         if($studentSection===null){abort_unless($sections,403);return redirect()->route('gep.students.section',['studentSection'=>array_key_first($sections)]);}
         abort_unless(isset(GepStudentPermissions::SECTIONS[$studentSection]),404);
         abort_unless(isset($sections[$studentSection]),403);
+        if($studentSection==='enrollment')return app(GepEnrollmentController::class)->index($request);
         return view('gep.students',['current'=>GepStudentPermissions::SECTIONS[$studentSection]]);
     }
 }
