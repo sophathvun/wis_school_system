@@ -272,6 +272,15 @@ class StudentEnrollmentController
         ]);
     }
 
+    public function unenrolledProfile(Request $request)
+    {
+        $this->authorizeAction('create');
+        $data=$request->validate(['student_id'=>['required','string','max:30']]);
+        $student=Student::where('student_id',trim($data['student_id']))
+            ->whereDoesntHave('enrollments')->with('families.members')->firstOrFail();
+        return response()->json(['student'=>$student]);
+    }
+
     public function familyDetails(Request $request)
     {
         $this->authorizeFormAccess();

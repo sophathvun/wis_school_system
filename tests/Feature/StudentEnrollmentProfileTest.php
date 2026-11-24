@@ -19,6 +19,7 @@ beforeEach(function () {
         $t->timestamps();
     });
     (require database_path('migrations/2026_10_06_000005_add_legacy_birthplace_text_to_students.php'))->up();
+    Schema::create('tb_student_enrollment', function (Blueprint $t) { $t->id(); $t->integer('student_id'); });
     foreach (['village', 'commune', 'district', 'province', 'occupation', 'nationality', 'country'] as $type) {
         Schema::create('tb_'.$type, function (Blueprint $t) use ($type) {
             $t->id(); $t->string($type.'_name_en')->nullable(); $t->string($type.'_name_kh')->nullable();
@@ -43,6 +44,22 @@ beforeEach(function () {
     DB::table('tb_student')->insert(['id'=>1, 'student_id'=>'TEST001', 'family_number'=>'TEST-FAMILY']);
     DB::table('tb_family')->insert(['id'=>1, 'family_number'=>'TEST-FAMILY']);
     DB::table('tb_family_student')->insert(['family_id'=>1, 'student_id'=>1]);
+});
+
+it('finds an unenrolled profile by exact student ID without creating records', function () {
+    $this->getJson(route('student-enrollments.unenrolled-profile',['student_id'=>'TEST001']))
+        ->assertOk()->assertJsonPath('student.id',1)->assertJsonPath('student.student_id','TEST001');
+    expect(DB::table('tb_student')->count())->toBe(1)->and(DB::table('tb_student_enrollment')->count())->toBe(0);
+    $this->getJson(route('student-enrollments.unenrolled-profile',['student_id'=>'MISSING']))->assertNotFound();
+    DB::table('tb_student_enrollment')->insert(['student_id'=>1]);
+    $this->getJson(route('student-enrollments.unenrolled-profile',['student_id'=>'TEST001']))->assertNotFound();
+});
+
+it('requires enrollment create permission to look up an unenrolled profile',function(){
+    $this->withoutMiddleware(\App\Http\Middleware\ResolveProgramWorkspace::class);
+    $user=Mockery::mock(\App\Models\User::class)->makePartial();$user->id=2;$user->active_campus_id=1;
+    $user->shouldReceive('isSuperAdmin')->andReturnFalse();$user->shouldReceive('hasPermission')->andReturnFalse();
+    $this->actingAs($user)->getJson(route('student-enrollments.unenrolled-profile',['student_id'=>'TEST001']))->assertForbidden();
 });
 
 it('loads the selected students birthplace and bilingual lookup values for all three family contacts', function () {

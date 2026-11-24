@@ -125,6 +125,18 @@ it('saves an untouched optional guardian section despite legacy nationality and 
     if($creating)$response->assertCreated();else $response->assertOk();
 })->with([[true,''],[true,'+855'],[false,''],[false,'+855']]);
 
+it('creates the first enrollment using an imported profile without duplicating the student or replacing its photo',function(){
+    DB::table('tb_student_enrollment')->delete();
+    $this->postJson(route('student-enrollments.save'),[...$this->payload,'enrollment_id'=>null])
+        ->assertCreated()->assertJsonPath('data.student_id',1);
+    expect(DB::table('tb_student')->count())->toBe(1)
+        ->and(DB::table('tb_student_enrollment')->count())->toBe(1)
+        ->and(DB::table('tb_student')->value('student_no'))->toBe('00000001')
+        ->and(DB::table('tb_student')->value('photo_path'))->toBe($this->oldPhoto);
+    $this->postJson(route('student-enrollments.save'),[...$this->payload,'enrollment_id'=>null])->assertUnprocessable();
+    expect(DB::table('tb_student_enrollment')->count())->toBe(1);
+});
+
 it('requires a guardian name only when meaningful guardian details are entered',function($details){
     $this->postJson(route('student-enrollments.save'),[...$this->payload,...$details])
         ->assertUnprocessable()->assertJsonValidationErrors('guardian_name_en');

@@ -833,6 +833,7 @@ Route::get('/student-enrollments/list-options', [StudentEnrollmentController::cl
 Route::get('/student-enrollments/quick-options', [StudentEnrollmentController::class, 'quickOptions'])->name('student-enrollments.quick-options');
 Route::get('/student-enrollments/options', [StudentEnrollmentController::class, 'options'])->name('student-enrollments.options');
 Route::get('/student-enrollments/family-details', [StudentEnrollmentController::class, 'familyDetails'])->name('student-enrollments.family-details');
+Route::get('/student-enrollments/unenrolled-profile', [StudentEnrollmentController::class, 'unenrolledProfile'])->middleware('auth')->name('student-enrollments.unenrolled-profile');
 Route::get('/student-enrollments/filter-options', [StudentEnrollmentController::class, 'filterOptions'])->name('student-enrollments.filter-options');
 Route::get('/student-enrollments/stats', [StudentEnrollmentController::class, 'stats'])->name('student-enrollments.stats');
 Route::get('/student-enrollments/fetch', [StudentEnrollmentController::class, 'fetchData'])->name('student-enrollments.fetch');

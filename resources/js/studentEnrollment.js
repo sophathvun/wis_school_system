@@ -1657,7 +1657,8 @@ const displayEnrollmentValidationErrors = (errors = {}, fallbackMessage = "Pleas
     return false;
 };
 
-const showDuplicateStudentIdError = () => {
+const showDuplicateStudentIdError = async () => {
+    if (await offerUnenrolledStudentProfile()) return false;
     const studentId = (field("student_id")?.value || "").trim();
     const safeStudentId = escapeHtml(studentId);
     const detail = studentId
@@ -3884,6 +3885,7 @@ const openCreate = async (forEdit = false) => {
     resetEnrollmentDocumentFiles();
     field("enrollment_id").value = "";
     field("student_record_id").value = "";
+    field("student_id").readOnly = false;
     field("student_no").value = "";
     if (!forEdit) {
         field("existing_family_number").value = "";
@@ -3934,17 +3936,21 @@ const openCreate = async (forEdit = false) => {
 const openEdit = async (id) => {
     const row = rows.find((item) => item.id === id);
     if (!row?.can_edit) return;
+    return populateEnrollmentForm(row, true);
+};
+
+const populateEnrollmentForm = async (row, editing) => {
     // Wait until the form's option lists are loaded before applying the
     // existing values. Otherwise loadOptions() can rebuild the selects after
     // they are populated and clear the selected data.
     await openCreate(true);
     selectEnrollmentAcademicYear(field("academic_year_id"), row);
-    setEnrollmentAssignmentLocked(true);
+    setEnrollmentAssignmentLocked(editing);
     title.textContent = "Edit Student Enrollment";
     submit.textContent = "Update";
     const student = row.student || {};
     importedLocationStudent={...student};
-    field("enrollment_id").value = row.id;
+    field("enrollment_id").value = editing ? row.id : "";
     field("enrollment_notes").value = row.notes ?? "";
     field("student_record_id").value = row.student_id;
     // Prefer the family matching the stored number, but fall back to the
@@ -4105,10 +4111,39 @@ const openEdit = async (id) => {
     setEnrollmentDate(
         row.enrolled_on ? String(row.enrolled_on).slice(0, 10) : "",
     );
-    title.textContent = "Edit Student Enrollment";
-    submit.textContent = "Update";
+    title.textContent = editing ? "Edit Student Enrollment" : "Enroll Existing Student";
+    submit.textContent = editing ? "Update" : "Create Enrollment";
+    field("student_id").readOnly = !editing;
     refreshPremiumFieldStates();
 };
+
+let profileLookupPending = false;
+const offerUnenrolledStudentProfile = async () => {
+    if (profileLookupPending || field("enrollment_id").value || field("student_record_id").value || !canEnrollment("create")) return false;
+    const studentId=field("student_id").value.trim();
+    if (!studentId) return false;
+    profileLookupPending=true;
+    try {
+        const response=await fetch(`/student-enrollments/unenrolled-profile?${new URLSearchParams({student_id:studentId})}`,{headers:{Accept:"application/json"}});
+        if (!response.ok) return false;
+        const {student}=await response.json();
+        if (field("student_id").value.trim()!==studentId || !document.getElementById("enrollmentModal").classList.contains("show")) return false;
+        const result=await showConfirm("Existing Student Profile",`${student.student_id} — ${student.full_name_en || student.full_name_kh}. This profile has no enrollment. Load it to create an enrollment?`,"Use Existing Profile","Cancel");
+        if (!result.isConfirmed || field("student_id").value.trim()!==studentId) return false;
+        const assignment=Object.fromEntries([...enrollmentAssignmentFields,"group_id","enrollment_status","status","enrolled_on"].map(key=>[key,field(key)?.value || ""]));
+        assignment.status=field("status").value==="1";
+        assignment.notes=field("enrollment_notes").value;
+        assignment.enrolled_on ||= todayEnrollmentDate();
+        await populateEnrollmentForm({...assignment,student,student_id:student.id},false);
+        clearEnrollmentValidation();
+        form.querySelector("[data-alert]")?.classList.add("d-none");
+        return true;
+    } catch (_) { return false; }
+    finally { profileLookupPending=false; }
+};
+field("student_id")?.addEventListener("change",()=>{
+    offerUnenrolledStudentProfile().catch(()=>{});
+});
 
 let selectedEnrollmentDocumentFiles = [];
 const documentDropzone = field("enrollmentDocumentDropzone");
