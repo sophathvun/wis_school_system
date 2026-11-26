@@ -1541,6 +1541,16 @@
 }
 .reports-workspace-moeys-id-number-book .get-student-list-preview-table { min-width: 1100px; }
 /* Score and Attendance Lists keep printing controls in a separate second row. */
+.report-month-picker { position:relative; }
+.report-month-trigger { display:flex; align-items:center; justify-content:space-between; gap:.5rem; width:100%; height:56px; padding:1.25rem 1rem .35rem; border:1.5px solid #6b5bd6; border-radius:18px; text-align:left; }
+.report-month-trigger span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.report-month-popup { position:absolute; top:calc(100% + .4rem); left:0; z-index:1100; width:290px; max-width:calc(100vw - 32px); padding:.75rem; border:1px solid var(--tblr-border-color); border-radius:14px; background:var(--tblr-bg-surface,#fff); box-shadow:0 .75rem 1.5rem #0003; }
+.report-month-popup[hidden] { display:none!important; }
+.report-month-heading { display:flex; align-items:center; justify-content:space-between; gap:.5rem; margin-bottom:.5rem; }
+.report-month-heading input { width:100px; padding:.4rem; border:1px solid var(--tblr-border-color); border-radius:8px; background:var(--tblr-bg-surface,#fff); color:var(--tblr-body-color); text-align:center; }
+.report-month-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.35rem; }
+.report-month-option { padding:.6rem; border:0; border-radius:8px; background:transparent; color:var(--tblr-body-color); }
+.report-month-option:hover,.report-month-option:focus-visible,.report-month-option[aria-pressed="true"] { background:var(--tblr-primary-lt,#eef2ff); color:var(--tblr-primary,#3973cf); }
 .report-filter-form-score-list .score-list-print-options,
 .report-filter-form-attendance-list .attendance-list-print-options {
     display: grid !important;

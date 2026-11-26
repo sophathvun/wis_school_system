@@ -1,12 +1,14 @@
 import { Tooltip } from 'bootstrap';
 import { initPremiumDatePicker } from './premiumDatePicker';
 import {bindDropdownSearch, dropdownOptionMatches} from './helpers/dropdownSearch.js';
+import {initReportMonthPicker} from './helpers/reportMonthPicker.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     const workspace = document.querySelector('[data-report-type]');
     if (!workspace) return;
 
     const reportType = workspace.dataset.reportType || '';
+    if(reportType==='attendance-list')initReportMonthPicker(workspace.querySelector('input[name="month"]'));
     workspace.querySelectorAll('[data-premium-date-picker]').forEach(initPremiumDatePicker);
     const reportDate = workspace.dataset.reportDate || '';
     const form = workspace.querySelector('form');
