@@ -1,3 +1,4 @@
+import { dropdownTextMatches } from './helpers/dropdownSearch.js';
 import { renderPagination, renderPageInfo } from "./helpers/pagination.js";
 import { showSuccess, showError, showConfirm } from "./helpers/sweet-alert2.js";
 import intlTelInput from "intl-tel-input";
@@ -276,9 +277,9 @@ const renderSchoolProfileAddressResults = (type) => {
         .filter(
             (option) =>
                 !term ||
-                option.textContent.toLowerCase().includes(term) ||
-                (option.dataset.kh || "").toLowerCase().includes(term) ||
-                (option.dataset.en || "").toLowerCase().includes(term),
+                dropdownTextMatches(option.textContent.toLowerCase(), term) ||
+                dropdownTextMatches((option.dataset.kh || "").toLowerCase(), term) ||
+                dropdownTextMatches((option.dataset.en || "").toLowerCase(), term),
         );
     ui.results.innerHTML = options.length
         ? options

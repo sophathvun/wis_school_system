@@ -1,3 +1,4 @@
+import { dropdownTextMatches } from './helpers/dropdownSearch.js';
 document.addEventListener('DOMContentLoaded', () => {
     const page = document.querySelector('[data-student-documents-page]');
     if (!page || page.dataset.enhanced === '1') return;
@@ -113,7 +114,7 @@ document.addEventListener('DOMContentLoaded', () => {
             familyPhones,
         ].filter(Boolean).join(' '));
         const digitHaystack = normalizeDigits([student.home_phone, familyPhones].filter(Boolean).join(' '));
-        return (term && textHaystack.includes(term)) || (digits && digitHaystack.includes(digits));
+        return (term && dropdownTextMatches(textHaystack, term)) || (digits && digitHaystack.includes(digits));
     };
 
     const studentMatchesFilters = student => {
@@ -130,7 +131,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const renderStudentResults = () => {
         const term = studentSearch.value.toLowerCase().trim();
-        const options = Array.from(studentSelect.options).slice(1).filter(option => !term || option.textContent.toLowerCase().includes(term));
+        const options = Array.from(studentSelect.options).slice(1).filter(option => !term || dropdownTextMatches(option.textContent.toLowerCase(), term));
         studentResults.innerHTML = options.length ? options.map(option =>
             `<button type="button" class="location-combobox-option" data-student-value="${option.value}">${esc(option.textContent)}</button>`
         ).join('') : '<div class="text-secondary px-2 py-3">No students found</div>';
@@ -341,7 +342,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const renderDocumentTypes = () => {
         const term = documentTypeSearch.value.toLowerCase().trim();
-        const options = Array.from(documentTypeSelect.options).slice(1).filter(option => !term || option.textContent.toLowerCase().includes(term));
+        const options = Array.from(documentTypeSelect.options).slice(1).filter(option => !term || dropdownTextMatches(option.textContent.toLowerCase(), term));
         documentTypeResults.innerHTML = options.length ? options.map(option =>
             `<button type="button" class="location-combobox-option" data-document-type-value="${option.value}">${esc(option.textContent)}</button>`
         ).join('') : '<div class="text-secondary px-2 py-3">No document types found</div>';

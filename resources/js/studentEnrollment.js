@@ -1,3 +1,4 @@
+import { dropdownTextMatches } from './helpers/dropdownSearch.js';
 import { renderPagination, renderPageInfo } from "./helpers/pagination.js";
 import { showSuccess, showConfirm, showError } from "./helpers/sweet-alert2.js";
 import { formatStudentBirthplace } from "./helpers/student-profile.js";
@@ -2089,7 +2090,7 @@ const setupFamilyNativeSearch = (select, placeholder) => {
                 (option, index) =>
                     index === 0 ||
                     !term ||
-                    `${option.text} ${option.kh}`.toLowerCase().includes(term),
+                    dropdownTextMatches(`${option.text} ${option.kh}`.toLowerCase(), term),
             );
             const selectedValue = select.value;
             select.innerHTML = filtered
@@ -2161,8 +2162,8 @@ const setupFamilyOccupation = (type, occupations) => {
             .filter(
                 (option) =>
                     !term ||
-                    option.textContent.toLowerCase().includes(term) ||
-                    (option.dataset.kh || "").toLowerCase().includes(term),
+                    dropdownTextMatches(option.textContent.toLowerCase(), term) ||
+                    dropdownTextMatches((option.dataset.kh || "").toLowerCase(), term),
             );
         ui.results.innerHTML = options.length
             ? options
@@ -2226,8 +2227,8 @@ const renderFamilyNationalityResults = (type) => {
         .filter(
             (option) =>
                 !term ||
-                option.textContent.toLowerCase().includes(term) ||
-                (option.dataset.kh || "").toLowerCase().includes(term),
+                dropdownTextMatches(option.textContent.toLowerCase(), term) ||
+                dropdownTextMatches((option.dataset.kh || "").toLowerCase(), term),
         );
     ui.results.innerHTML = options.length
         ? options
@@ -2345,8 +2346,8 @@ const renderStudentBilingualResults = (type) => {
         .filter(
             (option) =>
                 !term ||
-                option.textContent.toLowerCase().includes(term) ||
-                (option.dataset.kh || "").toLowerCase().includes(term),
+                dropdownTextMatches(option.textContent.toLowerCase(), term) ||
+                dropdownTextMatches((option.dataset.kh || "").toLowerCase(), term),
         );
     ui.results.innerHTML =
         options
@@ -2652,7 +2653,7 @@ const renderCampusResults = () => {
     if (!campusResults || !campusSelect) return;
     const term = (campusSearch?.value || "").trim().toLowerCase();
     const items = term
-        ? campusItems.filter((item) => item.label.toLowerCase().includes(term))
+        ? campusItems.filter((item) => dropdownTextMatches(item.label.toLowerCase(), term))
         : campusItems;
     campusResults.innerHTML = "";
 
@@ -2749,8 +2750,8 @@ const renderBirthResults = (type) => {
     const filtered = term
         ? options.filter(
               (option) =>
-                  option.textContent.toLowerCase().includes(term) ||
-                  (option.dataset.kh || "").toLowerCase().includes(term),
+                  dropdownTextMatches(option.textContent.toLowerCase(), term) ||
+                  dropdownTextMatches((option.dataset.kh || "").toLowerCase(), term),
           )
         : options;
 
@@ -2914,8 +2915,8 @@ const renderAddressResults = (type) => {
         .filter(
             (option) =>
                 !term ||
-                option.textContent.toLowerCase().includes(term) ||
-                (option.dataset.kh || "").toLowerCase().includes(term),
+                dropdownTextMatches(option.textContent.toLowerCase(), term) ||
+                dropdownTextMatches((option.dataset.kh || "").toLowerCase(), term),
         );
     ui.results.innerHTML = options.length
         ? options

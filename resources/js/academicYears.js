@@ -1,3 +1,4 @@
+import { dropdownTextMatches } from './helpers/dropdownSearch.js';
 ﻿import { renderPagination, renderPageInfo } from "./helpers/pagination.js";
 import { showAlert, showSuccess, showError, showConfirm } from "./helpers/sweet-alert2.js";
 
@@ -47,7 +48,7 @@ const filterComboboxes = [...document.querySelectorAll("[data-filter-combobox]")
     const close = () => menu.classList.add("d-none");
     const render = (options = []) => {
         const term = search.value.trim().toLowerCase();
-        const filtered = options.filter((option) => option.label.toLowerCase().includes(term));
+        const filtered = options.filter((option) => dropdownTextMatches(option.label.toLowerCase(), term));
         results.innerHTML = [
             `<button type="button" class="academic-year-combobox-option" data-value="">${allLabel}</button>`,
             ...filtered.map((option) => `<button type="button" class="academic-year-combobox-option${input.value === option.value ? " is-selected" : ""}" data-value="${option.value}">${option.label}</button>`),

@@ -1,3 +1,4 @@
+import { dropdownTextMatches } from './helpers/dropdownSearch.js';
 import { Modal } from 'bootstrap';
 import Swal from 'sweetalert2';
 import { initPremiumDatePicker } from './premiumDatePicker.js';
@@ -35,7 +36,7 @@ export function initRankPrintSettings(root) {
         const show=(term='')=>{
             if(loading||saving||!ready)return;
             closePickers();results.replaceChildren();
-            const matches=staff.filter(person=>[person.name,person.name_kh,person.code,person.position].join(' ').toLowerCase().includes(term.trim().toLowerCase()));
+            const matches=staff.filter(person=>dropdownTextMatches([person.name,person.name_kh,person.code,person.position].join(' ').toLowerCase(), term.trim().toLowerCase()));
             matches.slice(0,50).forEach(person=>{
                 const option=document.createElement('button');option.type='button';option.tabIndex=-1;option.dataset.staffId=person.id;option.setAttribute('role','option');option.setAttribute('aria-selected',String(id.value)===String(person.id)?'true':'false');
                 option.textContent=person.name;const detail=document.createElement('small');detail.textContent=[person.code,person.position||'No position assigned in HRM'].filter(Boolean).join(' · ');option.append(detail);

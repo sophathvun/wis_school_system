@@ -21,8 +21,8 @@
 .att-daily-table [data-daily-missed]{width:100px}
 .att-daily-table [data-daily-remarks]{min-width:200px}
 .att-daily-table select{min-width:160px}
-@media(min-width:992px){.att-filters:has([data-att-daily-class]:not([hidden])){grid-template-columns:repeat(5,minmax(0,1fr))}}
-@media(min-width:992px){[data-attendance][data-workspace="daily"] .att-filters{grid-template-columns:repeat(5,minmax(0,1fr))}}
+@media(min-width:992px){.att-filters:has([data-att-daily-class]:not([hidden])){grid-template-columns:repeat(6,minmax(0,1fr))}}
+@media(min-width:992px){[data-attendance][data-workspace="daily"] .att-filters{grid-template-columns:repeat(6,minmax(0,1fr))}}
 [data-attendance] details>summary{cursor:pointer}
 @media(max-width:767.98px){.att-filters{grid-template-columns:1fr 1fr}.att-hero{padding:1.2rem;flex-wrap:wrap}.att-hero h2{font-size:1.25rem}.att-summary{gap:.5rem}.att-stat{padding:.8rem}.att-table thead{display:none}.att-table,.att-table tbody,.att-table tr,.att-table td{display:block;width:100%}.att-table tr{border:1px solid var(--tblr-border-color);border-radius:12px;padding:.5rem;margin-bottom:1rem}.att-table td{border:0;padding:.35rem}.att-table td:first-child{color:var(--tblr-secondary-color);font-size:.7rem}.att-table input[name="late_minutes"],.att-table input[name="note"]{width:100%}.att-save-bar .btn{flex:1}.att-assignment-fields{grid-template-columns:1fr}}
 [data-att-date-picker] .form-control{padding-right:2.75rem}

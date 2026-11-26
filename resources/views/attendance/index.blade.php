@@ -34,6 +34,7 @@
             </div>
             <div @if(in_array(request()->route('workspace'), ['daily', 'settings'], true)) hidden @endif><label class="form-label" for="attMode">Workspace</label><select class="form-select" id="attMode" name="mode"><option value="mine">My Subject Sessions</option></select></div>
             <div data-att-daily-class hidden><label class="form-label" for="attDailyClass">Grade</label><select class="form-select" id="attDailyClass" name="class_id"><option value="">Select grade</option></select></div>
+            <div data-att-daily-filter hidden><label class="form-label" for="attDailyGroup">Group</label><select class="form-select" id="attDailyGroup" data-daily-group-filter><option value="">All groups</option></select></div>
             <div data-att-daily-filter hidden><label class="form-label" for="attDailyStudent">Student Name</label><select class="form-select" id="attDailyStudent" data-daily-student-filter><option value="">All students</option></select></div>
             <div data-att-daily-filter hidden><label class="form-label" for="attDailySearch">Search</label><div class="input-icon"><input type="search" id="attDailySearch" class="form-control" data-daily-search placeholder="Name or student ID"><span class="input-icon-addon"><i class="ti ti-search" aria-hidden="true"></i></span></div></div>
         </form>

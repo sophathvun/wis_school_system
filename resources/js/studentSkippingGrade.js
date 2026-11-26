@@ -1,3 +1,4 @@
+import { dropdownTextMatches } from './helpers/dropdownSearch.js';
 import { existingPromotedPlacement, minimumRequestedGradeOrder } from './helpers/existingPromotion';
 import Swal from 'sweetalert2';
 import { Dropdown, Tooltip } from 'bootstrap';
@@ -218,7 +219,7 @@ if (root) {
             toggle.setAttribute('aria-label', `${label}: ${toggle.textContent}`);
             const term = input.value.trim().toLocaleLowerCase();
             results.replaceChildren();
-            [...select.options].filter((item) => !item.hidden && !item.disabled && (!item.value || (item.dataset.searchText || item.textContent).toLocaleLowerCase().includes(term))).forEach((item) => {
+            [...select.options].filter((item) => !item.hidden && !item.disabled && (!item.value || dropdownTextMatches((item.dataset.searchText || item.textContent).toLocaleLowerCase(), term))).forEach((item) => {
                 const button = document.createElement('button');
                 button.type = 'button'; button.textContent = item.textContent;
                 button.setAttribute('role', 'option'); button.setAttribute('aria-selected', String(item.selected));

@@ -52,7 +52,7 @@ class ReportsController
             'campuses' => $payload['photoCampuses'] ?? $this->campuses($request, $payload['filters'], $type),
             'grades' => Grade::where('status', 1)->orderByRaw('CAST(grade_order AS UNSIGNED)')->get(['id', 'grade']),
             'gradeClassOptions' => $payload['photoGradeClassOptions'] ?? (($this->isStudentListReport($type) || $this->isStudentContactListReport($type) || $type === 'attendance-list' || $type === 'score-list' || $type === 'moeys-id-number-book' || $type === 'moeys-sikkhakarik-book') ? $this->gradeClassOptions($request, $payload['filters'], $type) : ($type === 'withdrawn-students' ? $this->withdrawalGradeClassOptions($request, $payload['filters']) : collect())),
-            'groupOptions' => ($this->isStudentListReport($type) || $this->isStudentContactListReport($type) || $type === 'moeys-sikkhakarik-book') ? $this->groupOptions($request, $payload['filters']) : ($type === 'withdrawn-students' ? $this->withdrawalGroupOptions($request, $payload['filters']) : collect()),
+            'groupOptions' => ($this->isStudentListReport($type) || $this->isStudentContactListReport($type) || in_array($type, ['moeys-sikkhakarik-book', 'score-list', 'attendance-list'], true)) ? $this->groupOptions($request, $payload['filters']) : ($type === 'withdrawn-students' ? $this->withdrawalGroupOptions($request, $payload['filters']) : collect()),
         ]);
     }
 

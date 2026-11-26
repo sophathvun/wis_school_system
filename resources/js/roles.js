@@ -1,3 +1,4 @@
+import { dropdownTextMatches } from './helpers/dropdownSearch.js';
 const modalEl = document.getElementById("roleModal");
 import { setupBackToTop } from "./helpers/backToTop.js";
 
@@ -66,7 +67,7 @@ const initDepartmentCombobox = () => {
     const render = () => {
         const term = search.value.toLowerCase().trim();
         const options = [...select.options].filter(
-            (option) => option.value && (!term || option.textContent.toLowerCase().includes(term)),
+            (option) => option.value && (!term || dropdownTextMatches(option.textContent.toLowerCase(), term)),
         );
         results.innerHTML = options.length
             ? options

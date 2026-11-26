@@ -1,3 +1,4 @@
+import { dropdownTextMatches } from './helpers/dropdownSearch.js';
 document.addEventListener("DOMContentLoaded", () => {
     const escapeHtml = (value) =>
         String(value ?? "")
@@ -68,7 +69,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const renderOptions = () => {
             const term = search.value.trim().toLowerCase();
-            const matches = options.filter((option) => option.label.toLowerCase().includes(term));
+            const matches = options.filter((option) => dropdownTextMatches(option.label.toLowerCase(), term));
 
             results.innerHTML = matches.length
                 ? matches

@@ -89,7 +89,7 @@ if(root){
         get('[data-att-history]').innerHTML=register.history.length?register.history.map(event=>{let details={};try{details=JSON.parse(event.details);}catch{}return `<div class="border-bottom py-2"><strong>${escape(event.name)}</strong> · ${escape(event.action.replaceAll('_',' '))}<br><small>${escape(event.created_at)}</small>${details.reason?`<div>${escape(details.reason)}</div>`:''}</div>`;}).join(''):'No changes recorded yet.';
         counts();get('[data-att-search]').value='';
     }
-    form.addEventListener('change',event=>{if(event.target.matches('[data-daily-student-filter], [data-daily-search]'))return;if(saving){Object.entries(filterSnapshot||{}).forEach(([name,value])=>form.elements[name].value=value);return;}run(async()=>{
+    form.addEventListener('change',event=>{if(event.target.matches('[data-daily-student-filter], [data-daily-group-filter], [data-daily-search]'))return;if(saving){Object.entries(filterSnapshot||{}).forEach(([name,value])=>form.elements[name].value=value);return;}run(async()=>{
         if(!discard()){Object.entries(filterSnapshot||{}).forEach(([name,value])=>form.elements[name].value=value);return;}
         dirty=false;get('[data-att-register]').hidden=true;selected=null;await load();
     });});

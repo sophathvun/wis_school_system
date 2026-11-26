@@ -1,3 +1,4 @@
+import { dropdownTextMatches } from './helpers/dropdownSearch.js';
 import * as bootstrap from "bootstrap";
 import { showWarning } from "./helpers/sweet-alert2.js";
 
@@ -460,7 +461,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const select = field(selectId),
                     term = (field(searchId)?.value || '').toLowerCase();
                 Array.from(select.options).forEach((option, index) => {
-                    option.hidden = index > 0 && !option.text.toLowerCase().includes(term);
+                    option.hidden = index > 0 && !dropdownTextMatches(option.text.toLowerCase(), term);
                 });
             };
             const setupSearchableSelect = (id, label) => {
@@ -485,8 +486,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 };
                 const render = () => {
                     const term = searchInput.value.toLowerCase();
-                    const opts = Array.from(select.options).filter(option => option.value !== '' && (!term || option
-                        .textContent.toLowerCase().includes(term)));
+                    const opts = Array.from(select.options).filter(option => option.value !== '' && (!term || dropdownTextMatches(option
+                        .textContent.toLowerCase(), term)));
                     results.innerHTML = opts.length ? opts.map(option =>
                             '<button type="button" class="location-combobox-option" data-withdrawal-select="' +
                             id + '" data-value="' + option.value + '">' + esc(option.textContent) +
@@ -787,8 +788,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 historySelects[config.key] = select;
                 const render = () => {
                     const term = search.value.toLowerCase().trim();
-                    const options = Array.from(select.options).slice(1).filter(option => !term || option
-                        .textContent.toLowerCase().includes(term));
+                    const options = Array.from(select.options).slice(1).filter(option => !term || dropdownTextMatches(option
+                        .textContent.toLowerCase(), term));
                     const allOption =
                         '<button type="button" class="location-combobox-option" data-value="">All ' + config
                         .label + '</button>';
@@ -1082,8 +1083,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 syncBlankLabelState();
                 const render = () => {
                     const term = (search?.value || '').toLowerCase().trim();
-                    const items = Array.from(select.options).filter(option => option.value !== '' && (!term || option
-                        .textContent.toLowerCase().includes(term)));
+                    const items = Array.from(select.options).filter(option => option.value !== '' && (!term || dropdownTextMatches(option
+                        .textContent.toLowerCase(), term)));
                     if (results) results.innerHTML = items.length ? items.map(option =>
                             '<button type="button" class="location-combobox-option" data-withdrawal-select="' +
                             id + '" data-value="' + escapeHtml(option.value) + '">' + escapeHtml(option

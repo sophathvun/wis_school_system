@@ -1,3 +1,4 @@
+import { dropdownTextMatches } from './helpers/dropdownSearch.js';
 import { initStudentIdCardEditor } from './studentIdCardEditor';
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -62,7 +63,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const render = () => {
             const term = search.value.trim().toLowerCase();
-            const matches = options.filter((option) => option.label.toLowerCase().includes(term));
+            const matches = options.filter((option) => dropdownTextMatches(option.label.toLowerCase(), term));
             results.innerHTML = matches.length
                 ? matches
                       .map(

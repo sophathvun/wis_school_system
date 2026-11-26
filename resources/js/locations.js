@@ -1,3 +1,4 @@
+import { dropdownTextMatches } from './helpers/dropdownSearch.js';
 ﻿import { renderPagination, renderPageInfo } from "./helpers/pagination.js";
 import { showSuccess, showConfirm, showError } from "./helpers/sweet-alert2.js";
 
@@ -106,7 +107,7 @@ const setModalStatus = (isActive = true) => {
 const renderLevelOptions = () => {
     if (!levelResults || !levelSelected) return;
     const term = levelSearch?.value.trim().toLowerCase() || "";
-    const items = levelOptionsList.filter((item) => item.label.toLowerCase().includes(term));
+    const items = levelOptionsList.filter((item) => dropdownTextMatches(item.label.toLowerCase(), term));
     const current = levelOptionsList.find((item) => item.value === level.value);
     levelSelected.textContent = current?.label || "Country";
     levelResults.innerHTML = items.length
@@ -343,7 +344,7 @@ const renderFilterComboboxOptions = (wrap, select, source, placeholder, nameKey,
         if (!term) return true;
         const en = String(item[nameKey] ?? "").toLowerCase();
         const kh = String(item[khKeyName] ?? "").toLowerCase();
-        return en.includes(term) || kh.includes(term);
+        return dropdownTextMatches(en, term) || dropdownTextMatches(kh, term);
     });
 
     const current = availableItems.find((item) => String(item.id) === String(select.value));
@@ -414,7 +415,7 @@ const renderParentOptions = () => {
         ? parentOptionsList.filter((item) => {
               const en = String(item[nameKey] ?? "").toLowerCase();
               const kh = String(item[khKeyName] ?? "").toLowerCase();
-              return en.includes(term) || kh.includes(term);
+              return dropdownTextMatches(en, term) || dropdownTextMatches(kh, term);
           })
         : parentOptionsList;
 

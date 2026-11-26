@@ -1,3 +1,4 @@
+import { dropdownTextMatches } from './helpers/dropdownSearch.js';
 import { showSuccess } from "./helpers/sweet-alert2.js";
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -333,7 +334,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         const render = () => {
             const term = search.value.toLowerCase().trim();
-            const options = [...select.options].filter(option => option.value && (!term || option.textContent.toLowerCase().includes(term)));
+            const options = [...select.options].filter(option => option.value && (!term || dropdownTextMatches(option.textContent.toLowerCase(), term)));
             list.innerHTML = options.length ? options.map(option => `<label class="notification-check-row"><input class="form-check-input" type="checkbox" value="${escapeHtml(option.value)}" ${option.selected ? 'checked' : ''}><span>${escapeHtml(option.textContent)}</span></label>`).join('') : '<div class="text-secondary px-2 py-2">No departments found</div>';
             syncSelected();
         };
@@ -394,7 +395,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const options = [...select.options].filter(option => {
                 const staff = staffProfiles[option.value] || {};
                 const haystack = `${staff.name || ''} ${staff.username || ''} ${staff.email || ''} ${staff.position || ''}`.toLowerCase();
-                return option.value && (!term || haystack.includes(term));
+                return option.value && (!term || dropdownTextMatches(haystack, term));
             });
             list.innerHTML = options.length ? options.map(option => {
                 const staff = staffProfiles[option.value] || {};

@@ -1,3 +1,4 @@
+import { dropdownTextMatches } from './helpers/dropdownSearch.js';
 import { Modal, Tooltip } from 'bootstrap';
 import Swal from 'sweetalert2';
 import { renderPagination } from './helpers/pagination.js';
@@ -268,7 +269,7 @@ if (root) {
             button.disabled = select.disabled;
             results.replaceChildren();
             const term = search.value.trim().toLowerCase();
-            [...select.options].filter(option => !option.disabled && (select.hasAttribute('data-remote-students') || option.text.toLowerCase().includes(term))).forEach(option => {
+            [...select.options].filter(option => !option.disabled && (select.hasAttribute('data-remote-students') || dropdownTextMatches(option.text.toLowerCase(), term))).forEach(option => {
                 const item = document.createElement('button'); item.type = 'button';
                 item.className = 'scholarship-select-option'; item.textContent = option.text;
                 item.setAttribute('role', 'option'); item.setAttribute('aria-selected', String(option.selected));

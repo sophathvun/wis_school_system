@@ -1,3 +1,4 @@
+import { dropdownTextMatches } from './helpers/dropdownSearch.js';
 document.addEventListener('DOMContentLoaded', () => {
     const modal = document.getElementById('positionModal');
     const name = modal?.querySelector('input[name="name"]');
@@ -34,7 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const render = () => {
             const term = search.value.toLowerCase().trim();
-            const options = [...department.options].filter(option => option.value && (!term || option.textContent.toLowerCase().includes(term)));
+            const options = [...department.options].filter(option => option.value && (!term || dropdownTextMatches(option.textContent.toLowerCase(), term)));
             results.replaceChildren();
             options.forEach(option => {
                 const item = document.createElement('button');

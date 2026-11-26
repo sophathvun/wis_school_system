@@ -2,6 +2,7 @@ import {renderDailyAttendanceRow} from './dailyAttendanceRow.js';
 import {initAttendancePeriodPopup} from './attendancePeriodPopup.js';
 import {initAttendanceLeave} from './attendanceLeave.js';
 import Swal from 'sweetalert2';
+import {dailyAttendanceGroups, matchesDailyAttendance} from './helpers/dailyAttendanceFilters.js';
 
 export function initDailyAttendance(root,meta){
     const get=s=>root.querySelector(s),filters=get('[data-att-filters]');
@@ -16,14 +17,17 @@ export function initDailyAttendance(root,meta){
     const changed=()=>{if(locked)return;blankOnly=false;dirty=true;revision++;counts();get('[data-daily-message]').textContent='Changes will save automatically…';queueSave();};
     const statuses={P:'Present',EX:'Excused Absent',UX:'Unexcused Absent',T:'Tardy'};
     const studentFilter=get('[data-daily-student-filter]');
+    const groupFilter=get('[data-daily-group-filter]');
     const filterStudents=()=>{
-        const term=get('[data-daily-search]').value.trim().toLowerCase();
+        const filters={group:groupFilter.value,studentId:studentFilter.value,search:get('[data-daily-search]').value};
         get('[data-daily-students]').querySelectorAll('[data-daily-name]').forEach(row=>{
-            row.hidden=Boolean(studentFilter.value&&row.dataset.dailyStudent!==studentFilter.value)||!row.dataset.dailyName.includes(term);
+            const student=students.find(student=>String(student.id)===row.dataset.dailyStudent);
+            row.hidden=!student||!matchesDailyAttendance(student,filters);
         });
+        counts();
     };
     const syncStudentFilter=(previous=studentFilter.value)=>{
-        studentFilter.replaceChildren(new Option('All students',''),...students.map(student=>new Option([student.name_kh,student.name].filter(Boolean).join(' · '),student.id)));
+        studentFilter.replaceChildren(new Option('All students',''),...students.filter(student=>matchesDailyAttendance(student,{group:groupFilter.value})).map(student=>new Option([student.name_kh,student.name].filter(Boolean).join(' · '),student.id)));
         if([...studentFilter.options].some(option=>option.value===previous))studentFilter.value=previous;
         filterStudents();
     };
@@ -63,7 +67,7 @@ export function initDailyAttendance(root,meta){
             row.querySelector('[data-daily-missed-note]').textContent=`Missed periods: ${missed.value||0}`;
         });
         const result={P:0,EX:0,UX:0,T:0,unmarked:0};
-        get('[data-daily-students]').querySelectorAll('[data-daily-status]').forEach(input=>result[input.value||'unmarked']++);
+        get('[data-daily-students]').querySelectorAll('[data-daily-status]').forEach(input=>{if(!input.closest('[data-daily-student]').hidden)result[input.value||'unmarked']++;});
         get('[data-daily-counts]').innerHTML=Object.entries(result).map(([key,value])=>`<span class="badge ${key==='P'?'bg-green-lt':key==='UX'?'bg-red-lt':'bg-blue-lt'}">${key==='unmarked'?'Unmarked':`${{EX:'E',UX:'U'}[key]||key} · ${statuses[key]}`}: ${value}</span>`).join('');
     }
     function syncClasses(){
@@ -84,7 +88,8 @@ export function initDailyAttendance(root,meta){
         get('[data-att-date-label]').textContent=daily?'Attendance Date':'Session Date';
         sessionSections.forEach(section=>section.hidden=daily);
         if(!daily)return;
-        const selectedStudent=studentFilter.value;
+        const selectedStudent=studentFilter.value,selectedGroup=groupFilter.value;
+        groupFilter.replaceChildren(new Option('All groups',''));
         get('[data-att-register]').hidden=true;
         syncClasses();
         lastFilters=Object.fromEntries(new FormData(filters));
@@ -111,13 +116,15 @@ export function initDailyAttendance(root,meta){
             get('[data-daily-present]').hidden=!permissions.create;
             get('[data-daily-message]').textContent=future?'Future date — read only.':conflict?'Update the original class register to avoid duplicate daily attendance.':past?'Past attendance — read only. Click Edit to make corrections.':register?'Saved register loaded. Changes save automatically.':'Changes save automatically when you mark attendance.';
             get('[data-daily-history]').innerHTML=data.history.length?data.history.map(event=>`<div class="border-bottom py-2">${escape(event.name)} · ${escape(event.created_at)}</div>`).join(''):'No saved changes yet.';
+            groupFilter.replaceChildren(new Option('All groups',''),...dailyAttendanceGroups(students).map(group=>new Option(group,group)));
+            if([...groupFilter.options].some(option=>option.value===selectedGroup))groupFilter.value=selectedGroup;
             counts();
             syncStudentFilter(selectedStudent);
             leave.load();
         }catch(error){if(version===loading)get('[data-daily-students]').innerHTML=`<tr><td colspan="7" class="text-danger">${escape(error.message)}</td></tr>`;}
     }
     filters.addEventListener('change',event=>{
-        if(event.target.matches('[data-premium-date-input], .location-combobox-search, [data-daily-student-filter], [data-daily-search]'))return;
+        if(event.target.matches('[data-premium-date-input], .location-combobox-search, [data-daily-student-filter], [data-daily-group-filter], [data-daily-search]'))return;
         if(busy){event.stopImmediatePropagation();Object.entries(lastFilters||{}).forEach(([key,value])=>filters.elements[key].value=value);return;}
         if(dirty&&!confirm('Discard unsaved daily attendance changes?')){
             event.stopImmediatePropagation();Object.entries(lastFilters||{}).forEach(([key,value])=>filters.elements[key].value=value);return;
@@ -136,7 +143,7 @@ export function initDailyAttendance(root,meta){
         if(locked||busy)return;
         let filled=0;
         get('[data-daily-students]').querySelectorAll('[data-daily-status]').forEach(input=>{
-            if(input.value||input.disabled)return;
+            if(input.value||input.disabled||input.closest('[data-daily-student]').hidden)return;
             input.value='P';input.closest('[data-daily-student]').querySelector('[data-daily-missed]').value=0;filled++;
         });
         if(!filled){get('[data-daily-message]').textContent='No blank attendance to fill. Existing statuses are unchanged.';return;}
@@ -174,6 +181,7 @@ export function initDailyAttendance(root,meta){
     });
     get('[data-daily-search]').addEventListener('input',filterStudents);
     studentFilter.addEventListener('change',filterStudents);
+    groupFilter.addEventListener('change',()=>{periodPopup.close();studentFilter.value='';syncStudentFilter();});
     async function saveChanges(){
         clearTimeout(autosaveTimer);
         if(busy||locked||!scope||!dirty)return;

@@ -728,7 +728,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const filterOptions = () => {
                 const term = search.value.trim().toLowerCase();
                 options.forEach((option) => {
-                    option.hidden = term !== '' && !option.textContent.toLowerCase().includes(term);
+                    option.hidden = term !== '' && !dropdownOptionMatches(option, term);
                 });
                 empty.classList.toggle('d-none', options.some((option) => !option.hidden));
             };

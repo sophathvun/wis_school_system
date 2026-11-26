@@ -1,4 +1,5 @@
 import { createPopper } from '@popperjs/core';
+import {bindDropdownSearch, dropdownOptionMatches} from './helpers/dropdownSearch.js';
 
 /** Searchable single/multiple select; touch selections never depend on input blur. */
 export function createSeatPicker(select) {
@@ -19,7 +20,7 @@ export function createSeatPicker(select) {
         button.textContent=selected.length?selected.map(option=>option.textContent).join(', '):select.dataset.placeholder;
         button.disabled=select.disabled;button.classList.toggle('is-invalid',select.classList.contains('is-invalid'));
         results.replaceChildren();
-        const options=[...select.options].filter(option=>!option.disabled&&option.textContent.toLowerCase().includes(search.value.trim().toLowerCase()));
+        const options=[...select.options].filter(option=>!option.disabled&&!option.hidden&&dropdownOptionMatches(option,search.value));
         options.forEach(option=>{
             const item=document.createElement('button');item.type='button';item.className='scholarship-select-option';item.dataset.seatOption=option.value;item.setAttribute('role','option');item.setAttribute('aria-selected',String(option.selected));
             if(select.multiple){const check=document.createElement('i');check.className='ti me-2 '+(option.selected?'ti-square-check':'ti-square');check.setAttribute('aria-hidden','true');item.append(check);}
@@ -42,8 +43,9 @@ export function createSeatPicker(select) {
         render();popper=createPopper(button,menu,{strategy:'fixed',placement:'bottom-start',modifiers:[{name:'offset',options:{offset:[0,6]}},{name:'preventOverflow',options:{padding:12}},{name:'flip',options:{padding:12}}]});
         search.focus({preventScroll:true});
     };
-    button.addEventListener('click',()=>menu.hidden?open():close());search.addEventListener('input',render);
+    button.addEventListener('click',()=>menu.hidden?open():close());bindDropdownSearch(search,render);
     field.addEventListener('keydown',event=>{
+        if(event.isComposing||event.keyCode===229)return;
         if(event.key==='Enter'&&event.target===search){event.preventDefault();results.querySelector('button')?.click();}
         if(event.key==='Escape'&&!menu.hidden){event.preventDefault();event.stopPropagation();close();button.focus();}
         if(['ArrowDown','ArrowUp'].includes(event.key)){

@@ -1,3 +1,4 @@
+import { dropdownTextMatches } from './helpers/dropdownSearch.js';
 import { setupBackToTop } from './helpers/backToTop.js';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -111,7 +112,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const item = searchable[id];
         if (!item) return;
         const term = item.search.value.trim().toLowerCase();
-        const matches = Array.from(item.select.options).slice(1).filter(option => option.textContent.toLowerCase().includes(term));
+        const matches = Array.from(item.select.options).slice(1).filter(option => dropdownTextMatches(option.textContent.toLowerCase(), term));
         const allOption = ['graduation-year', 'graduation-campus', 'graduation-class'].includes(id)
             ? `<button type="button" class="location-combobox-option" data-value="">All ${id === 'graduation-year' ? 'Academic Years' : id === 'graduation-campus' ? 'Campuses' : 'Grades'}</button>`
             : '';
@@ -184,7 +185,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const renderEnrollmentMultiOptions = () => {
         if (!enrollmentMulti) return;
         const term = enrollmentMulti.search.value.trim().toLowerCase();
-        const matches = enrollmentOptions().filter(option => option.textContent.toLowerCase().includes(term) || (option.dataset.info || '').toLowerCase().includes(term));
+        const matches = enrollmentOptions().filter(option => dropdownTextMatches(option.textContent.toLowerCase(), term) || dropdownTextMatches((option.dataset.info || '').toLowerCase(), term));
         enrollmentMulti.results.innerHTML = matches.length ? matches.slice(0, 120).map(option => `
                 <button type="button" class="graduation-multiselect-option" data-value="${option.value}">
                     <input class="form-check-input" type="checkbox" ${selectedGraduateEnrollmentIds.has(option.value) ? 'checked' : ''}>

@@ -16,6 +16,9 @@ import "./programWorkspace.js";
 import "./chatWidget.js";
 import { setupInstallShortcut } from "./installShortcut.js";
 import { setupWebPush } from "./webPush.js";
+import { installDropdownSearchCompatibility } from "./helpers/dropdownSearch.js";
+
+installDropdownSearchCompatibility();
 
 const body = document.body;
 const currentPermissions = (() => {

@@ -1,3 +1,4 @@
+import { dropdownTextMatches } from './helpers/dropdownSearch.js';
 import intlTelInput from "intl-tel-input";
 import "intl-tel-input/styles";
 import { showError, showSuccess } from "./helpers/sweet-alert2";
@@ -316,7 +317,7 @@ const summerSetupSearchableFilter = (id, label, skipFirstOption = true) => {
             .slice(skipFirstOption ? 1 : 0)
             .filter(
                 (option) =>
-                    !term || option.textContent.toLowerCase().includes(term),
+                    !term || dropdownTextMatches(option.textContent.toLowerCase(), term),
             );
         results.innerHTML = options.length
             ? options
@@ -737,7 +738,7 @@ const summerAddEnrollmentParityFields = () => {
         const renderOptions = () => {
             const term = search.value.toLowerCase().trim();
             combo.querySelector(".location-combobox-results").innerHTML = Array.from(familySelect.options).slice(1)
-                .filter((option) => !term || option.dataset.display.toLowerCase().includes(term))
+                .filter((option) => !term || dropdownTextMatches(option.dataset.display.toLowerCase(), term))
                 .map((option) => `<button type="button" class="location-combobox-option" data-value="${summerEsc(option.value)}">${summerEsc(option.dataset.display)}</button>`)
                 .join("") || '<div class="text-secondary px-2 py-2">No options found</div>';
         };
@@ -1875,7 +1876,7 @@ const summerPopulateParityOptions = () => {
         };
         const renderOptions = () => {
             const term = search.value.toLowerCase().trim();
-            combo.querySelector(".location-combobox-results").innerHTML = Array.from(select.options).slice(1).filter((option) => !option.hidden && (!term || `${option.textContent} ${option.dataset.en || ""} ${option.dataset.kh || ""}`.toLowerCase().includes(term))).map((option) => `<button type="button" class="location-combobox-option" data-value="${summerEsc(option.value)}">${id === "summerGender" ? genderIcon(option.value) : ""}${withFlag && option.dataset.flag ? `<img src="${summerEsc(option.dataset.flag)}" class="location-flag me-2" alt="">` : ""}<span><span class="location-combobox-khmer">${summerEsc(option.dataset.kh || "")}</span><span class="location-combobox-english d-block">${summerEsc(option.dataset.en || option.textContent)}</span></span></button>`).join("") || '<div class="text-secondary px-2 py-2">No options found</div>';
+            combo.querySelector(".location-combobox-results").innerHTML = Array.from(select.options).slice(1).filter((option) => !option.hidden && (!term || dropdownTextMatches(`${option.textContent} ${option.dataset.en || ""} ${option.dataset.kh || ""}`.toLowerCase(), term))).map((option) => `<button type="button" class="location-combobox-option" data-value="${summerEsc(option.value)}">${id === "summerGender" ? genderIcon(option.value) : ""}${withFlag && option.dataset.flag ? `<img src="${summerEsc(option.dataset.flag)}" class="location-flag me-2" alt="">` : ""}<span><span class="location-combobox-khmer">${summerEsc(option.dataset.kh || "")}</span><span class="location-combobox-english d-block">${summerEsc(option.dataset.en || option.textContent)}</span></span></button>`).join("") || '<div class="text-secondary px-2 py-2">No options found</div>';
         };
         toggle.addEventListener("click", () => {
             document.querySelectorAll("#summerSchoolModal .location-combobox-menu").forEach((other) => {

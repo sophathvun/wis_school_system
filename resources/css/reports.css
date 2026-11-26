@@ -1540,6 +1540,27 @@
     }
 }
 .reports-workspace-moeys-id-number-book .get-student-list-preview-table { min-width: 1100px; }
+/* Score and Attendance Lists keep printing controls in a separate second row. */
+.report-filter-form-score-list .score-list-print-options,
+.report-filter-form-attendance-list .attendance-list-print-options {
+    display: grid !important;
+    grid-column: 1 / -1;
+    width: 100%;
+    margin-left: 0;
+    margin-right: 0;
+    grid-template-columns: 1fr;
+    gap: .5rem;
+}
+@media (min-width: 768px) {
+    .report-filter-form-score-list .score-list-print-options,
+    .report-filter-form-attendance-list .attendance-list-print-options { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (min-width: 1200px) {
+    .report-filter-form-score-list .card-body > .row,
+    .report-filter-form-score-list .score-list-print-options,
+    .report-filter-form-attendance-list .card-body > .row,
+    .report-filter-form-attendance-list .attendance-list-print-options { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+}
 .reports-workspace-moeys-id-number-book .get-student-list-preview-table th { background: var(--tblr-primary); color: #fff; white-space: nowrap; }
 .reports-workspace-moeys-id-number-book .get-student-list-preview-table td { white-space: nowrap; }
 

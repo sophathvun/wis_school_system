@@ -1,3 +1,4 @@
+import { dropdownTextMatches } from './helpers/dropdownSearch.js';
 ﻿import * as bootstrap from "bootstrap";
 
 import { setupBackToTop } from "./helpers/backToTop.js";
@@ -33,7 +34,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const sync=()=>{label.textContent=select.selectedOptions[0]?.textContent.trim()||'';picker.classList.toggle('has-value',Boolean(label.textContent));list.querySelectorAll('button').forEach(button=>{const active=button.dataset.value===select.value;button.classList.toggle('is-selected',active);button.setAttribute('aria-pressed',String(active));});};
         for(const option of select.options){const button=document.createElement('button');button.type='button';button.textContent=option.textContent.trim();button.dataset.value=option.value;button.disabled=option.disabled;list.append(button);button.addEventListener('click',()=>{select.value=option.value;sync();close();toggle.focus();select.dispatchEvent(new Event('change',{bubbles:true}));});}
         toggle.addEventListener('click',()=>{const open=menu.hidden;document.querySelectorAll('.access-role-picker-menu').forEach(other=>{if(other!==menu){other.hidden=true;other.parentElement.querySelector('button').setAttribute('aria-expanded','false');}});menu.hidden=!open;toggle.setAttribute('aria-expanded',String(open));if(open)search.focus();});
-        search.addEventListener('input',()=>{let visible=0;for(const button of list.children){button.hidden=!button.textContent.toLowerCase().includes(search.value.trim().toLowerCase());if(!button.hidden)visible++;}empty.hidden=visible>0;});
+        search.addEventListener('input',()=>{let visible=0;for(const button of list.children){button.hidden=!dropdownTextMatches(button.textContent.toLowerCase(), search.value.trim().toLowerCase());if(!button.hidden)visible++;}empty.hidden=visible>0;});
         picker.addEventListener('keydown',event=>{if(event.key==='Escape'){close();toggle.focus();}if(event.key==='ArrowDown'||event.key==='ArrowUp'){event.preventDefault();const choices=[search,...list.querySelectorAll('button:not([hidden]):not(:disabled)')];const current=choices.indexOf(document.activeElement);choices[(current+(event.key==='ArrowDown'?1:-1)+choices.length)%choices.length]?.focus();}});
         document.addEventListener('click',event=>{if(!picker.contains(event.target))close();});select.addEventListener('change',sync);sync();
     });
@@ -196,21 +197,21 @@ document.addEventListener("DOMContentLoaded", () => {
         search.addEventListener("input", () => {
             const term = search.value.toLowerCase().trim();
             form.querySelectorAll("[data-permission-group]").forEach((group) => {
-                const groupMatches = !term || (group.dataset.permissionGroupLabel || "").includes(term);
+                const groupMatches = !term || dropdownTextMatches(group.dataset.permissionGroupLabel || "", term);
                 let visibleModules = 0;
                 group.querySelectorAll("[data-permission-module]").forEach((module) => {
-                    const moduleMatches = groupMatches || !term || (module.dataset.permissionModuleLabel || "").includes(term);
+                    const moduleMatches = groupMatches || !term || dropdownTextMatches(module.dataset.permissionModuleLabel || "", term);
                     const matches =
                         moduleMatches ||
-                        module.textContent.toLowerCase().includes(term);
+                        dropdownTextMatches(module.textContent.toLowerCase(), term);
                     module.classList.toggle("d-none", !matches);
                     module.querySelectorAll('[data-permission-tab]').forEach(tab => {
                         const header = tab.firstElementChild;
-                        const tabMatches = moduleMatches || header?.textContent.toLowerCase().includes(term);
+                        const tabMatches = moduleMatches || dropdownTextMatches(header?.textContent.toLowerCase(), term);
                         let matchingActions = 0;
                         tab.querySelectorAll('.permission-action').forEach(action => {
                             if (action === header) return;
-                            const actionMatches = tabMatches || action.textContent.toLowerCase().includes(term);
+                            const actionMatches = tabMatches || dropdownTextMatches(action.textContent.toLowerCase(), term);
                             action.classList.toggle('d-none', !actionMatches);
                             if (actionMatches) matchingActions++;
                         });
@@ -258,7 +259,7 @@ document.addEventListener("DOMContentLoaded", () => {
         search?.addEventListener("input", () => {
             const term = search.value.toLowerCase().trim();
             picker.querySelectorAll("[data-campus-name]").forEach((option) => {
-                option.classList.toggle("d-none", Boolean(term) && !option.dataset.campusName.includes(term));
+                option.classList.toggle("d-none", Boolean(term) && !dropdownTextMatches(option.dataset.campusName, term));
             });
         });
         picker.querySelectorAll('input[type="checkbox"]').forEach((input) => input.addEventListener("change", updateLabel));
@@ -270,7 +271,7 @@ document.addEventListener("DOMContentLoaded", () => {
         toggle?.addEventListener("click", () => { const open = menu.classList.toggle("d-none"); toggle.setAttribute("aria-expanded", String(!open)); if (!open) search?.focus(); });
         search?.addEventListener("input", () => {
             const term = search.value.toLowerCase().trim();let visible=0;
-            picker.querySelectorAll("[data-department-id]").forEach((option) => {const match=!term||option.textContent.toLowerCase().includes(term);option.classList.toggle("d-none",!match);if(match)visible++;});
+            picker.querySelectorAll("[data-department-id]").forEach((option) => {const match=!term||dropdownTextMatches(option.textContent.toLowerCase(), term);option.classList.toggle("d-none",!match);if(match)visible++;});
             picker.querySelector('[data-department-picker-empty]')?.classList.toggle('d-none',visible>0);
         });
         picker.addEventListener('keydown',event=>{if(event.key==='Escape'){menu.classList.add('d-none');toggle.setAttribute('aria-expanded','false');toggle.focus();}});

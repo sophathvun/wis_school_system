@@ -1,3 +1,4 @@
+import { dropdownTextMatches } from './helpers/dropdownSearch.js';
 import * as bootstrap from "bootstrap";
 import { setupPersonPhotoEditor } from "./helpers/personPhotoEditor";
 import { studentPhotoJpeg } from "./helpers/studentPhotoEditor";
@@ -225,7 +226,7 @@ const initStaffPhotoUploader = () => {
         const render = () => {
             const term = normalizeSearchText(search.value);
             const options = [...select.options].filter(
-                (option) => (option.value || select.name === "staff_profile_id") && optionSearchText(option).includes(term),
+                (option) => (option.value || select.name === "staff_profile_id") && dropdownTextMatches(optionSearchText(option), term),
             );
             results.innerHTML = options.length
                 ? options

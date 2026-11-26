@@ -1,3 +1,4 @@
+import { dropdownTextMatches } from './helpers/dropdownSearch.js';
 import { renderPagination, renderPageInfo } from "./helpers/pagination.js";
 import { showSuccess, showConfirm, showError } from "./helpers/sweet-alert2.js";
 import intlTelInput from "intl-tel-input";
@@ -217,7 +218,7 @@ const renderFamilyComboResults = (ui, type) => {
         .slice(1)
         .filter((option) => {
             const haystack = `${option.textContent || ""} ${option.dataset.kh || ""}`.toLowerCase();
-            return !term || haystack.includes(term);
+            return !term || dropdownTextMatches(haystack, term);
         });
     const emptyMessage =
         type === "occupation" ? "No occupations found" : "No nationalities found";

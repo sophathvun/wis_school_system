@@ -1,3 +1,4 @@
+import { dropdownTextMatches } from './helpers/dropdownSearch.js';
 const page = document.getElementById("studentSearchPage");
 
 if (page) {
@@ -55,7 +56,7 @@ if (page) {
                 const term = combo.input.value.toLowerCase();
                 const opts = Array.from(select.options)
                     .slice(1)
-                    .filter((option) => option.text.toLowerCase().includes(term));
+                    .filter((option) => dropdownTextMatches(option.text.toLowerCase(), term));
                 combo.results.innerHTML =
                     `<button type="button" class="location-combobox-option" data-value="">${combo.placeholder}</button>` +
                     (opts.length

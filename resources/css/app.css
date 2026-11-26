@@ -521,6 +521,8 @@
 
 /* Popup searches have their own label; the floating-field placeholder rule must not hide their hint. */
 .premium-form-field .location-combobox-search::placeholder,
+.premium-form-field input[data-dropdown-search-active]::placeholder,
+input[data-dropdown-search-active]::placeholder,
 .location-combobox-search::placeholder,
 .wmi-picker-search::placeholder {
     color: var(--tblr-secondary, #667382);

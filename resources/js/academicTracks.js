@@ -1,3 +1,4 @@
+import { dropdownTextMatches } from './helpers/dropdownSearch.js';
 import { renderPagination, renderPageInfo } from "./helpers/pagination.js";
 import { showSuccess, showConfirm, showError } from "./helpers/sweet-alert2.js";
 
@@ -58,7 +59,7 @@ const renderGradeOptions = () => {
     if (!gradeCombo || !gradeSelect) return;
     const term = gradeCombo.search.value.trim().toLowerCase();
     const options = Array.from(gradeSelect.options).filter((option) =>
-        !term || option.textContent.toLowerCase().includes(term),
+        !term || dropdownTextMatches(option.textContent.toLowerCase(), term),
     );
     gradeCombo.results.innerHTML = options.length
         ? options
@@ -140,7 +141,7 @@ const setupSearchableSelect = (select, label) => {
     const render = () => {
         const term = combo.search.value.trim().toLowerCase();
         const options = Array.from(select.options).filter((option) =>
-            !term || option.textContent.toLowerCase().includes(term),
+            !term || dropdownTextMatches(option.textContent.toLowerCase(), term),
         );
         combo.results.innerHTML = options.length
             ? options

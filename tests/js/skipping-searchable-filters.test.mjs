@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
+import {dropdownTextMatches} from '../../resources/js/helpers/dropdownSearch.js';
 
 const pageSource = readFileSync(new URL('../../resources/js/studentSkippingGrade.js', import.meta.url), 'utf8');
 const source = pageSource.slice(
@@ -47,7 +48,7 @@ function setup(touch = true) {
     document.createElement = () => new Element();
     const root = { querySelector: () => null, querySelectorAll: () => [select] };
     vm.runInNewContext(source, {
-        root, document, studentFilter: null, Event,
+        root, document, studentFilter: null, Event, dropdownTextMatches,
         window: { matchMedia: () => ({ matches: touch }) },
     });
     const wrapper = field.children[1];

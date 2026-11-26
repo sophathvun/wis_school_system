@@ -1,3 +1,4 @@
+import { dropdownTextMatches } from './helpers/dropdownSearch.js';
 import { renderPagination } from './helpers/pagination.js';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -86,7 +87,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         const render = () => {
             const term = search.value.toLowerCase().trim();
-            const options = Array.from(select.options).slice(1).filter(option => !option.hidden && (!term || option.textContent.toLowerCase().includes(term)));
+            const options = Array.from(select.options).slice(1).filter(option => !option.hidden && (!term || dropdownTextMatches(option.textContent.toLowerCase(), term)));
             results.innerHTML = options.length ? options.map(option =>
                 `<button type="button" class="location-combobox-option" data-searchable-value="${escapeHtml(option.value)}">${escapeHtml(option.textContent)}</button>`).join('') : '<div class="text-secondary px-2 py-3">No options found</div>';
         };
@@ -270,7 +271,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const renderTable = (page = 1) => {
         const term = field('reentry-search').value.toLowerCase().trim();
-        const rows = state.withdrawals.filter(item => !term || `${label(item)} ${item.student?.full_name_kh || ''}`.toLowerCase().includes(term));
+        const rows = state.withdrawals.filter(item => !term || dropdownTextMatches(`${label(item)} ${item.student?.full_name_kh || ''}`.toLowerCase(), term));
         const perPage = Number(field('reentry-per-page').value) || 10;
         const lastPage = Math.max(1, Math.ceil(rows.length / perPage));
         const currentPage = Math.min(lastPage, Math.max(1, Number(page) || 1));

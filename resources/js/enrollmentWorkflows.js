@@ -1,3 +1,4 @@
+import { dropdownTextMatches } from './helpers/dropdownSearch.js';
 import { promotionPreviewRow } from './helpers/promotionPreview';
 
             document.addEventListener('DOMContentLoaded', () => {
@@ -300,8 +301,8 @@ import { promotionPreviewRow } from './helpers/promotionPreview';
                         ? Array.from(item.select.options)
                         : Array.from(item.select.options).slice(1);
                     const matches = sourceOptions
-                        .filter((option) => (option.dataset.search ||
-                            `${option.textContent} ${option.dataset.info || ''}`.toLowerCase()).includes(term));
+                        .filter((option) => dropdownTextMatches(option.dataset.search ||
+                            `${option.textContent} ${option.dataset.info || ''}`.toLowerCase(), term));
                     const visibleMatches = matches.slice(0, 50);
                     const allOption = ['workflow-history-academic-year', 'workflow-history-campus',
                             'workflow-history-grade-class', 'workflow-history-status'
