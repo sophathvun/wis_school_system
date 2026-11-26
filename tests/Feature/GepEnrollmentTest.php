@@ -50,6 +50,7 @@ beforeEach(function(){
     (require database_path('migrations/2026_11_24_000003_separate_gep_student_profiles.php'))->up();
     (require database_path('migrations/2026_11_26_000001_create_gep_student_id_sequence.php'))->up();
     (require database_path('migrations/2026_11_26_000002_add_gep_enrollment_student_type.php'))->up();
+    (require database_path('migrations/2026_11_26_000004_create_gep_families.php'))->up();
     $this->user=Mockery::mock(User::class)->makePartial();$this->user->id=1;$this->user->shouldReceive('isSuperAdmin')->andReturn(true);
     $this->request=function(array $data=[],string $method='POST'){$r=Request::create('/gep/students/enrollment',$method,$data);app()->instance('request',$r);$r->setUserResolver(fn()=>$this->user);return $r;};
     $this->payload=['source'=>'existing','student_id'=>1,'term_assignment_id'=>1,'campus_id'=>1,'level_id'=>1,'class_type_id'=>1,'class_id'=>1,'group_id'=>1,'enrollment_status'=>'active','enrolled_on'=>'2026-11-24'];
@@ -375,11 +376,109 @@ it('previews and imports GEP profiles enrollments and families separately withou
     DB::transaction(fn()=>$transfer->import('enrollments',[$row],$this->user));
     $family=['student_identifier'=>'26193510','academic_year'=>'2026','term'=>'Term 1','relationship_type'=>'mother','full_name_en'=>'MOTHER NAME','phone'=>'012345678','nationality'=>'Cambodia','occupation'=>'Teacher'];
     DB::transaction(fn()=>$transfer->import('families',[$family],$this->user));
-    expect(GepEnrollment::first()->parent_information['mother']['phone'])->toBe('+85512345678')
+    expect(GepStudent::first()->familyInformation()['mother']['phone'])->toBe('+85512345678')
         ->and(GepEnrollment::first()->enrollment_status)->toBe('completed')
         ->and(DB::table('tb_student')->get()->toJson())->toBe($wis);
     foreach(['students','enrollments','families'] as $type){expect($transfer->samples($type))->toHaveCount(2);expect($transfer->export($type,$this->user))->toHaveCount(1);}
     expect(app(\App\Services\GepStudentIdAllocator::class)->synchronize())->toBe(193510);
+});
+
+it('preserves historical GEP IDs during import without advancing the new ID sequence',function(){
+    $rows=[['student_identifier'=>'17L7B0010','full_name_en'=>'LEGACY ONE'],['student_identifier'=>'GEP-0020','full_name_en'=>'LEGACY TWO']];
+    DB::transaction(fn()=>app(\App\Services\GepDataTransfer::class)->import('students',$rows,$this->user));
+    expect(GepStudent::orderBy('id')->pluck('student_identifier')->all())->toBe(['17L7B0010','GEP-0020'])
+        ->and(GepStudent::first()->profile['family_number'])->toBe('GEP-F17L7B0010')
+        ->and(GepEnrollment::count())->toBe(0)
+        ->and(DB::table('tb_gep_student_id_sequence')->value('last_number'))->toBe(190000);
+});
+
+it('imports family details before enrollment and preserves them across terms without duplicate exports',function(){
+    $transfer=app(\App\Services\GepDataTransfer::class);
+    DB::transaction(fn()=>$transfer->import('students',[['student_identifier'=>'26190001','full_name_en'=>'FAMILY PROFILE']],$this->user));
+    $family=['student_identifier'=>'26190001','relationship_type'=>'mother','full_name_en'=>'MOTHER','phone'=>'012345678'];
+    DB::beginTransaction();$transfer->import('families',[$family],$this->user);DB::rollBack();
+    expect(GepStudent::first()->familyInformation())->toBe([]);
+    DB::transaction(fn()=>$transfer->import('families',[$family],$this->user));
+    expect(GepEnrollment::count())->toBe(0)->and($transfer->export('families',$this->user))->toHaveCount(1);
+    $member=GepStudent::first();
+    $base=['gep_student_id'=>$member->id,'campus_id'=>1,'level_id'=>1,'class_id'=>1,'class_type_id'=>1,'group_id'=>1,'enrollment_status'=>'pending','enrolled_on'=>'2026-01-01'];
+    GepEnrollment::create([...$base,'term_assignment_id'=>1]);GepEnrollment::create([...$base,'term_assignment_id'=>2]);
+    DB::transaction(fn()=>$transfer->import('families',[[...$family,'phone'=>'','full_name_en'=>'CORRECTED MOTHER']],$this->user));
+    $export=$transfer->export('families',$this->user);
+    expect($export)->toHaveCount(1)->and($export[0]['full_name_en'])->toBe('CORRECTED MOTHER')->and($export[0]['phone'])->toBe('+85512345678')
+        ->and(array_key_exists('term',$export[0]))->toBeFalse()->and(array_key_exists('academic_year',$export[0]))->toBeFalse();
+    expect($transfer->columns('families'))->not->toContain('term')->not->toContain('academic_year');
+});
+
+it('copies historical family details into the student profile without changing enrollment snapshots',function(){
+    $this->controller->save(($this->request)([...$this->payload,'mother_name_en'=>'EARLIER MOTHER','mother_phone'=>'012345678']));
+    $member=GepStudent::first();$profile=$member->profile;unset($profile['parent_information']);$member->update(['profile'=>$profile]);
+    $snapshot=DB::table('tb_gep_enrollment')->get()->toJson();
+    (require database_path('migrations/2026_11_26_000003_move_gep_family_information_to_students.php'))->up();
+    (require database_path('migrations/2026_11_26_000004_create_gep_families.php'))->up();
+    expect($member->fresh()->profile['parent_information']['mother']['name_en'])->toBe('EARLIER MOTHER')
+        ->and(DB::table('tb_gep_enrollment')->get()->toJson())->toBe($snapshot);
+    $this->controller->save(($this->request)([...$this->payload,'gep_student_id'=>$member->id,'student_id'=>null,'term_assignment_id'=>2,'enrollment_status'=>'pending']));
+    expect(GepEnrollment::latest('id')->first()->parent_information['mother']['name_en'])->toBe('EARLIER MOTHER');
+    $this->controller->save(($this->request)([...$this->payload,'term_assignment_id'=>2,'enrollment_status'=>'pending','mother_name_en'=>'CORRECTED MOTHER']),GepEnrollment::latest('id')->first());
+    expect($member->fresh()->familyInformation()['mother']['name_en'])->toBe('CORRECTED MOTHER')
+        ->and(GepEnrollment::orderBy('id')->first()->parent_information['mother']['name_en'])->toBe('EARLIER MOTHER');
+    $records=$this->controller->fetch(($this->request)([],'GET'))->getData(true)['records']['data'];
+    foreach($records as $record)expect($record['parent_information']['mother']['name_en'])->toBe('CORRECTED MOTHER');
+});
+
+it('links siblings by Family Number and exports shared parents once',function(){
+    $transfer=app(\App\Services\GepDataTransfer::class);
+    DB::transaction(fn()=>$transfer->import('students',[
+        ['student_identifier'=>'26190001','family_number'=>'GEP-F26190001','full_name_en'=>'FIRST SIBLING'],
+        ['student_identifier'=>'26190002','family_number'=>'GEP-F26190001','full_name_en'=>'SECOND SIBLING'],
+        ['student_identifier'=>'26190003','family_number'=>'GEP-F26190003','full_name_en'=>'OTHER FAMILY'],
+    ],$this->user));
+    $mother=['family_number'=>'GEP-F26190001','relationship_type'=>'mother','full_name_en'=>'SHARED MOTHER','phone'=>'012345678'];
+    DB::transaction(fn()=>$transfer->import('families',[$mother],$this->user));
+    $members=GepStudent::orderBy('id')->get();
+    foreach($members->take(2) as $member)expect($member->familyInformation()['mother']['name_en'])->toBe('SHARED MOTHER');
+    expect($members[2]->familyInformation())->toBe([])->and(GepEnrollment::count())->toBe(0);
+    $export=$transfer->export('families',$this->user);
+    expect($export)->toHaveCount(1)->and($export[0]['family_number'])->toBe('GEP-F26190001')->and(array_key_exists('student_identifier',$export[0]))->toBeFalse();
+    $parents=$members[1]->familyInformation();$parents['mother']['name_en']='CORRECTED MOTHER';
+    DB::transaction(fn()=>$members[1]->saveFamilyInformation($parents,$this->user));
+    expect($members[0]->fresh()->familyInformation()['mother']['name_en'])->toBe('CORRECTED MOTHER');
+    expect(fn()=>DB::transaction(fn()=>$transfer->import('families',[$mother,$mother],$this->user)))->toThrow(ValidationException::class);
+    expect($members[0]->fresh()->familyInformation()['mother']['name_en'])->toBe('CORRECTED MOTHER');
+    expect(fn()=>DB::transaction(fn()=>$transfer->import('families',[[...$mother,'family_number'=>'UNKNOWN']],$this->user)))->toThrow(ValidationException::class);
+});
+
+it('migrates sibling family details into one record while retaining the original profile snapshots',function(){
+    GepStudent::create(['source'=>'new','student_identifier'=>'26190001','profile'=>['family_number'=>'GEP-FSHARED','full_name_en'=>'FIRST','parent_information'=>['mother'=>['name_en'=>'EARLIER MOTHER','phone'=>'+85512345678']]]]);
+    GepStudent::create(['source'=>'new','student_identifier'=>'26190002','profile'=>['family_number'=>'GEP-FSHARED','full_name_en'=>'SECOND','parent_information'=>['mother'=>['name_en'=>'LATEST MOTHER']]]]);
+    $before=DB::table('tb_gep_student')->orderBy('id')->get()->toJson();
+    (require database_path('migrations/2026_11_26_000004_create_gep_families.php'))->up();
+    expect(\App\Models\GepFamily::count())->toBe(1)
+        ->and(GepStudent::first()->familyInformation()['mother']['name_en'])->toBe('LATEST MOTHER')
+        ->and(GepStudent::first()->familyInformation()['mother']['phone'])->toBe('+85512345678')
+        ->and(DB::table('tb_gep_student')->orderBy('id')->get()->toJson())->toBe($before);
+});
+
+it('previews and applies Family Number CSV uploads without Student ID or term columns',function(){
+    $transfer=app(\App\Services\GepDataTransfer::class);
+    DB::transaction(fn()=>$transfer->import('students',[['student_identifier'=>'26190001','full_name_en'=>'STUDENT']],$this->user));
+    $controller=app(\App\Http\Controllers\GepDataTransferController::class);
+    $make=function(bool $apply=false){$r=($this->request)(['apply'=>$apply?'1':'0']);$r->files->set('file',\Illuminate\Http\UploadedFile::fake()->createWithContent('families.csv',"family_number,relationship_type,full_name_en\nGEP-F26190001,mother,MOTHER\n"));$r->setLaravelSession(app('session')->driver());return $r;};
+    $controller->upload($make(),'families',$transfer);
+    expect(GepStudent::first()->familyInformation())->toBe([]);
+    $controller->upload($make(true),'families',$transfer);
+    expect(GepStudent::first()->familyInformation()['mother']['name_en'])->toBe('MOTHER');
+});
+
+it('blocks changes to a shared family when a sibling is outside permitted campuses',function(){
+    $this->controller->save(($this->request)([...$this->payload,'family_number'=>'GEP-FSHARED']));
+    $this->controller->save(($this->request)([...$this->payload,'student_id'=>2,'campus_id'=>2,'family_number'=>'GEP-FSHARED']));
+    ($this->campusUser)();
+    $row=['family_number'=>'GEP-FSHARED','relationship_type'=>'mother','full_name_en'=>'UNAUTHORIZED'];
+    expect(fn()=>DB::transaction(fn()=>app(\App\Services\GepDataTransfer::class)->import('families',[$row],$this->user)))->toThrow(HttpException::class);
+    expect(fn()=>$this->controller->save(($this->request)([...$this->payload,'mother_name_en'=>'UNAUTHORIZED']),GepEnrollment::orderBy('id')->first()))->toThrow(HttpException::class);
+    expect(GepStudent::first()->familyInformation())->toBe([]);
 });
 
 it('rejects duplicate upload records and rolls back the entire GEP import',function(){
@@ -480,7 +579,7 @@ it('provides two-row CSV templates and a usable GEP transfer page',function(){
         $response=$controller->download($request,$type,'template',$transfer);
         ob_start();$response->sendContent();$content=ob_get_clean();
         $file=fopen('php://temp','w+');fwrite($file,$content);rewind($file);$rows=[];while(($row=fgetcsv($file,escape:''))!==false)$rows[]=$row;fclose($file);
-        expect($rows)->toHaveCount(3)->and($rows[1][0])->toBe('26190001')->and($rows[2][0])->toBe('26190002');
+        expect($rows)->toHaveCount(3)->and($rows[1][0])->toBe($type==='families'?'GEP-F26190001':'26190001')->and($rows[2][0])->toBe($type==='families'?'GEP-F26190001':'26190002');
     }
 });
 

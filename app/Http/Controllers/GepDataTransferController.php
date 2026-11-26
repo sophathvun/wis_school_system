@@ -38,7 +38,9 @@ class GepDataTransferController
         $sessionKey='gep-transfer-preview.'.$type;
         if($request->boolean('apply') && $request->session()->get($sessionKey)!==$hash)throw ValidationException::withMessages(['file'=>'Preview this exact CSV file first, then choose it again to apply.']);
         $handle=fopen($file->getRealPath(),'rb');$headers=fgetcsv($handle,escape:'')?:[];$headers[0]=preg_replace('/^\xEF\xBB\xBF/','',$headers[0]??'');$headers=array_map('trim',$headers);
-        if(count(array_unique($headers))!==count($headers)||array_diff($headers,$columns)||!in_array('student_identifier',$headers,true)){fclose($handle);throw ValidationException::withMessages(['file'=>'Use the sample column headers without duplicate or unknown columns.']);}
+        $acceptedColumns=$type==='families'?[...$columns,'student_identifier','academic_year','term']:$columns;
+        $hasLink=$type==='families'?(in_array('family_number',$headers,true)||in_array('student_identifier',$headers,true)):in_array('student_identifier',$headers,true);
+        if(count(array_unique($headers))!==count($headers)||array_diff($headers,$acceptedColumns)||!$hasLink){fclose($handle);throw ValidationException::withMessages(['file'=>'Use the sample column headers without duplicate or unknown columns. Family imports require Family Number.']);}
         $rows=[];while(($values=fgetcsv($handle,escape:''))!==false){if(count(array_filter($values,fn($v)=>filled($v)))===0)continue;if(count($values)!==count($headers)){fclose($handle);throw ValidationException::withMessages(['file'=>'CSV row '.(count($rows)+2).' has the wrong number of columns.']);}$rows[]=array_map(fn($v)=>trim((string)$v),array_combine($headers,$values));}fclose($handle);
         if(!$rows)throw ValidationException::withMessages(['file'=>'The CSV contains no records.']);
         DB::beginTransaction();

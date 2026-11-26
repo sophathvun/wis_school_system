@@ -74,6 +74,8 @@ class GepEnrollmentController
         $page=min((int)($filters['page']??1),max(1,(int)ceil($count/$perPage)));
         $result=$query->with(self::RELATIONS)->orderByDesc('enrolled_on')->orderByDesc('id')->paginate($perPage,['*'],'page',$page);
         $result->getCollection()->each(function($row)use($request){
+            $row->parent_information=$row->gepStudent->familyInformation();
+            if($row->parent_information){$row->guardian_name=$row->parent_information['guardian']['name_en']??null;$row->guardian_phone=$row->parent_information['guardian']['phone']??null;}
             $editable=in_array($row->enrollment_status,['active','pending'],true) && $row->termAssignment->lifecycle_status!=='finished';
             $row->setAttribute('permissions',collect(['edit','delete','history'])->mapWithKeys(fn($a)=>[$a=>($a==='history'||$editable)&&Access::allows($request->user(),$a,(int)$row->campus_id)])->all());
         });
@@ -119,13 +121,13 @@ class GepEnrollmentController
         if(!empty($data['gep_student_id'])){
             $member=GepStudent::whereKey($data['gep_student_id'])->whereHas('enrollments',fn($q)=>$q->whereIn('campus_id',$campuses))->firstOrFail();
             return response()->json(['student_type_default'=>$member->enrollments()->exists()?'old':'new','profile'=>$member->profile,'student_identifier'=>$member->student_identifier,'gep_code'=>$member->gep_code,'photo_url'=>$member->photo_url,
-                'parent_information'=>$member->enrollments()->whereIn('campus_id',$campuses)->latest('id')->value('parent_information')]);
+                'parent_information'=>$member->familyInformation()]);
         }
         $student=Student::whereKey($data['student_id'])->whereHas('enrollments',fn($q)=>$q->whereIn('campus_id',$campuses))->firstOrFail();
         $member=GepStudent::where('student_id',$student->id)->whereHas('enrollments',fn($q)=>$q->whereIn('campus_id',$campuses))->first();
         return response()->json(['student_type_default'=>$member && $member->enrollments()->exists()?'old':'new','profile'=>$member?->profile ?? Profile::snapshot($student),'student_identifier'=>$member?->student_identifier,
             'gep_code'=>$member?->gep_code,'photo_url'=>$member?->photo_url ?: ($student->photo_path?Storage::disk('public')->url($student->photo_path):null),
-            'parent_information'=>$member?->enrollments()->whereIn('campus_id',$campuses)->latest('id')->value('parent_information')]);
+            'parent_information'=>$member?->familyInformation()]);
     }
 
     public function locations(Request $request)
@@ -154,7 +156,7 @@ class GepEnrollmentController
         $rules += Profile::rules();
         $selectedMemberId=$enrollment?->gep_student_id ?: ($request->input('source')==='existing'?($request->integer('gep_student_id') ?: ($request->filled('student_id')?GepStudent::where('student_id',$request->input('student_id'))->value('id'):null)):null);
         $rules['student_identifier']=['nullable','string','max:30',Rule::unique('tb_gep_student','student_identifier')->ignore($selectedMemberId)];
-        $rules['student_identifier'][]=function($attribute,$value,$fail)use($selectedMemberId){if(preg_match('/^GEP-0*(\d+)$/i',$value,$match) && (int)$match[1] !== (int)$selectedMemberId)$fail('The GEP-number format is reserved for automatically assigned IDs.');};
+        $rules['student_identifier'][]=function($attribute,$value,$fail)use($selectedMemberId){if($selectedMemberId && GepStudent::whereKey($selectedMemberId)->value('student_identifier')===$value)return;if(preg_match('/^GEP-0*(\d+)$/i',$value,$match) && (int)$match[1] !== (int)$selectedMemberId)$fail('The GEP-number format is reserved for automatically assigned IDs.');};
         $rules['existing_family_id']=['nullable','integer'];
         if(!$enrollment)$rules += [
             'source'=>['required',Rule::in(['existing','new'])],'student_id'=>['nullable','integer'],'gep_student_id'=>['nullable','integer'],
@@ -245,20 +247,28 @@ class GepEnrollmentController
                 }
             }
             $values=collect($data)->only(self::FIELDS)->all();$values['guardian_phone']=PhoneNumber::normalize($values['guardian_phone']??null);
-            // Parent details belong to this GEP enrollment; shared WIS family records are never overwritten.
+            // Family details belong to the GEP student; enrollments retain their saved snapshots.
+            $savedParents=$gepStudent->familyInformation(true);
             if(collect(array_keys($data))->contains(fn($key)=>$key!=='guardian_phone' && preg_match('/^(mother|father|guardian)_(name_en|name_kh|occupation|nationality|phone|workplace)$/',$key))){
                 $parents=[];
                 foreach(['mother','father','guardian'] as $parent)foreach(self::PARENT_FIELDS as $field){
+                    if(!array_key_exists($parent.'_'.$field,$data)){$parents[$parent][$field]=$savedParents[$parent][$field]??null;continue;}
                     $value=trim($data[$parent.'_'.$field]??'');
                     $parents[$parent][$field]=$field==='phone'?Profile::phone($value):($value!==''?$value:null);
                 }
                 foreach(['mother','father','guardian'] as $parent)foreach(['occupation'=>'occupation_id','nationality'=>'nationality_country_id'] as $text=>$key){
-                    if(!array_key_exists($parent.'_'.$text,$data) && (string)($enrollment->parent_information[$parent][$key]??'')===(string)($parents[$parent][$key]??''))
-                        $parents[$parent][$text]=$enrollment->parent_information[$parent][$text]??null;
+                    if(!array_key_exists($parent.'_'.$text,$data) && (string)($savedParents[$parent][$key]??'')===(string)($parents[$parent][$key]??''))
+                        $parents[$parent][$text]=$savedParents[$parent][$text]??null;
                 }
                 $values['guardian_name']=$parents['guardian']['name_en'];
                 $values['guardian_phone']=$parents['guardian']['phone'];
                 $enrollment->parent_information=$parents;
+                $gepStudent->saveFamilyInformation($parents,$request->user());
+                $profile=$gepStudent->profile;
+            }elseif($savedParents){
+                $enrollment->parent_information=$savedParents;
+                $values['guardian_name']=$savedParents['guardian']['name_en']??null;
+                $values['guardian_phone']=$savedParents['guardian']['phone']??null;
             }
             $enrollment->fill([...$values,'updated_by'=>$request->user()->id])->save();
             if($before){$before['photo_path']=$beforePhoto;$before['student_profile']=$beforeProfile;$before['student_identifier']=$beforeIdentifier;}
