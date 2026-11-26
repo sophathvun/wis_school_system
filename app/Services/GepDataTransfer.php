@@ -8,7 +8,7 @@ use Illuminate\Validation\ValidationException;
 
 class GepDataTransfer
 {
-    public const ENROLLMENT=['student_identifier','academic_year','term','campus','level','class','class_type','group','enrollment_status','enrolled_on','notes'];
+    public const ENROLLMENT=['student_identifier','academic_year','term','campus','level','class','class_type','group','student_type','enrollment_status','enrolled_on','notes'];
     public const FAMILY=['student_identifier','academic_year','term','relationship_type','full_name_en','full_name_kh','phone','occupation','nationality','workplace'];
     public function columns(string $type): array
     {
@@ -20,7 +20,7 @@ class GepDataTransfer
             $common=['student_identifier'=>'2619000'.$i];
             return match($type){
                 'students'=>$common+['full_name_en'=>$i===1?'SAMPLE SOK DARA':'SAMPLE CHAN SREY','gender'=>$i===1?'M':'F','date_of_birth'=>'2010-01-0'.$i,'family_number'=>'GEP-F'.$common['student_identifier'],'home_phone'=>'+8551234567'.$i,'nationality_en'=>'Cambodian','birth_country_en'=>'Cambodia','address_country_en'=>'Cambodia','birth_province_en'=>'Phnom Penh','address_province_en'=>'Phnom Penh','address_district_en'=>'Sen Sok','address_commune_en'=>'Tuek Thla','address_village_en'=>'Sample village '.$i,'address_house_no_en'=>'12'.$i,'address_street_en'=>'10'.$i,'current_address_en'=>'Sample address '.$i,'email'=>'sample'.$i.'@example.com'],
-                'enrollments'=>$common+['academic_year'=>'2026','term'=>'Term 1','campus'=>'STD','level'=>'Level 1','class'=>'A','class_type'=>'Full-Time','group'=>'M','enrollment_status'=>'active','enrolled_on'=>'2026-11-26','notes'=>'Sample only: replace settings with exact names from GEP Settings.'],
+                'enrollments'=>$common+['academic_year'=>'2026','term'=>'Term 1','campus'=>'STD','level'=>'Level 1','class'=>'A','class_type'=>'Full-Time','group'=>'M','student_type'=>'new','enrollment_status'=>'active','enrolled_on'=>'2026-11-26','notes'=>'Sample only: replace settings with exact names from GEP Settings.'],
                 'families'=>$common+['academic_year'=>'2026','term'=>'Term 1','relationship_type'=>$i===1?'mother':'father','full_name_en'=>'SAMPLE PARENT '.$i,'phone'=>'+8551234567'.$i,'nationality'=>'Cambodia','occupation'=>'Teacher','workplace'=>'Sample workplace'],
             };
         },[1,2]);
@@ -50,7 +50,7 @@ class GepDataTransfer
         $counts=['created'=>0,'updated'=>0,'rows'=>count($rows),'unresolved_names'=>0];$keys=[];
         foreach($rows as $index=>$row){
             try{
-                $required=match($type){'students'=>['student_identifier','full_name_en'],'enrollments'=>array_diff(self::ENROLLMENT,['notes']),'families'=>['student_identifier','academic_year','term','relationship_type','full_name_en']};
+                $required=match($type){'students'=>['student_identifier','full_name_en'],'enrollments'=>array_diff(self::ENROLLMENT,['notes','student_type']),'families'=>['student_identifier','academic_year','term','relationship_type','full_name_en']};
                 foreach($required as $field)if(blank($row[$field]??null))throw new \RuntimeException("{$field} is required.");
                 $key=implode('|',array_map(fn($f)=>$row[$f]??'',match($type){'students'=>['student_identifier'],'enrollments'=>['student_identifier','academic_year','term'],'families'=>['student_identifier','academic_year','term','relationship_type']}));
                 if(isset($keys[$key]))throw new \RuntimeException('Duplicate record in this CSV.');$keys[$key]=true;
@@ -77,9 +77,10 @@ class GepDataTransfer
                         if($enrollment)abort_unless(Access::allows($user,'edit',$enrollment->campus_id),403);
                         if(!$enrollment)$enrollment=new GepEnrollment(['gep_student_id'=>$member->id,'term_assignment_id'=>$assignment,'created_by'=>$user->id]);
                         $before=$new?null:$enrollment->toArray();
-                        Validator::make($row,['enrollment_status'=>'required|in:active,pending,completed,withdrawn,graduated','enrolled_on'=>'required|date_format:Y-m-d','notes'=>'nullable|string|max:2000'])->validate();
+                        Validator::make($row,['student_type'=>'nullable|in:new,old','enrollment_status'=>'required|in:active,pending,completed,withdrawn,graduated','enrolled_on'=>'required|date_format:Y-m-d','notes'=>'nullable|string|max:2000'])->validate();
                         $values=['campus_id'=>$campus,'enrollment_status'=>$row['enrollment_status'],'enrolled_on'=>$row['enrolled_on']];
                         foreach(['level'=>['level','level_name'],'class'=>['class','class_name'],'class_type'=>['class_type','type_name'],'group'=>['group','group_code']] as $name=>[$table,$column])$values[$name.'_id']=$this->lookup('tb_gep_'.$table,$column,$row[$name]);
+                        if(filled($row['student_type']??null))$values['student_type']=$row['student_type'];
                         if(filled($row['notes']??null))$values['notes']=$row['notes'];
                         $enrollment->fill($values);$enrollment->updated_by=$user->id;$enrollment->save();
                     }else{
@@ -119,7 +120,7 @@ class GepDataTransfer
         }
         $rows=[];foreach($enrollments as $record){
             $row=['student_identifier'=>$record->gepStudent->student_identifier,'academic_year'=>$record->termAssignment->academicYear->academic_year,'term'=>$record->termAssignment->term->term_name];
-            if($type==='enrollments')$rows[]=$row+['campus'=>$record->campus->campus_name_en,'level'=>$record->level->level_name,'class'=>$record->schoolClass->class_name,'class_type'=>$record->classType->type_name,'group'=>$record->group->group_code,'enrollment_status'=>$record->enrollment_status,'enrolled_on'=>$record->enrolled_on?->format('Y-m-d'),'notes'=>$record->notes];
+            if($type==='enrollments')$rows[]=$row+['campus'=>$record->campus->campus_name_en,'level'=>$record->level->level_name,'class'=>$record->schoolClass->class_name,'class_type'=>$record->classType->type_name,'group'=>$record->group->group_code,'student_type'=>$record->student_type,'enrollment_status'=>$record->enrollment_status,'enrolled_on'=>$record->enrolled_on?->format('Y-m-d'),'notes'=>$record->notes];
             else foreach($record->parent_information ?: (filled($record->guardian_name)?['guardian'=>['name_en'=>$record->guardian_name,'phone'=>$record->guardian_phone]]:[]) as $relationship=>$parent)if(filled($parent['name_en']??null)){
                 $occupation=$parent['occupation_id']??null;$nationality=$parent['nationality_country_id']??null;
                 $rows[]=$row+['relationship_type'=>$relationship,'full_name_en'=>$parent['name_en'],'full_name_kh'=>$parent['name_kh']??'','phone'=>$parent['phone']??'','occupation'=>filled($parent['occupation']??null)?$parent['occupation']:($occupation?DB::table('tb_occupation')->where('id',$occupation)->value('occupation_name_en'):''),'nationality'=>filled($parent['nationality']??null)?$parent['nationality']:($nationality?DB::table('tb_country')->where('id',$nationality)->value('country_name_en'):''),'workplace'=>$parent['workplace']??''];

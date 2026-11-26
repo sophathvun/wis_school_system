@@ -14,7 +14,7 @@ use Illuminate\Validation\{Rule,ValidationException};
 
 class GepEnrollmentController
 {
-    private const FIELDS = ['term_assignment_id','campus_id','level_id','class_type_id','class_id','group_id','enrollment_status','enrolled_on','notes','guardian_name','guardian_phone','parent_information'];
+    private const FIELDS = ['term_assignment_id','campus_id','level_id','class_type_id','class_id','group_id','student_type','enrollment_status','enrolled_on','notes','guardian_name','guardian_phone','parent_information'];
     private const PARENT_FIELDS = ['name_en','name_kh','occupation','nationality','phone','workplace','occupation_id','nationality_country_id'];
     private const RELATIONS = ['gepStudent', 'termAssignment.academicYear','termAssignment.term','campus:id,campus_name_en','level','classType','schoolClass','group'];
 
@@ -118,12 +118,12 @@ class GepEnrollmentController
         $campuses=Access::campuses($request->user())->pluck('id');
         if(!empty($data['gep_student_id'])){
             $member=GepStudent::whereKey($data['gep_student_id'])->whereHas('enrollments',fn($q)=>$q->whereIn('campus_id',$campuses))->firstOrFail();
-            return response()->json(['profile'=>$member->profile,'student_identifier'=>$member->student_identifier,'gep_code'=>$member->gep_code,'photo_url'=>$member->photo_url,
+            return response()->json(['student_type_default'=>$member->enrollments()->exists()?'old':'new','profile'=>$member->profile,'student_identifier'=>$member->student_identifier,'gep_code'=>$member->gep_code,'photo_url'=>$member->photo_url,
                 'parent_information'=>$member->enrollments()->whereIn('campus_id',$campuses)->latest('id')->value('parent_information')]);
         }
         $student=Student::whereKey($data['student_id'])->whereHas('enrollments',fn($q)=>$q->whereIn('campus_id',$campuses))->firstOrFail();
         $member=GepStudent::where('student_id',$student->id)->whereHas('enrollments',fn($q)=>$q->whereIn('campus_id',$campuses))->first();
-        return response()->json(['profile'=>$member?->profile ?? Profile::snapshot($student),'student_identifier'=>$member?->student_identifier,
+        return response()->json(['student_type_default'=>$member && $member->enrollments()->exists()?'old':'new','profile'=>$member?->profile ?? Profile::snapshot($student),'student_identifier'=>$member?->student_identifier,
             'gep_code'=>$member?->gep_code,'photo_url'=>$member?->photo_url ?: ($student->photo_path?Storage::disk('public')->url($student->photo_path):null),
             'parent_information'=>$member?->enrollments()->whereIn('campus_id',$campuses)->latest('id')->value('parent_information')]);
     }
@@ -143,6 +143,7 @@ class GepEnrollmentController
             'photo'=>['nullable','image','mimes:jpg,jpeg,png,webp','max:10240','dimensions:width=600,height=800'],
             'term_assignment_id'=>['required','integer'],'campus_id'=>['required','integer',Rule::exists('tb_school_info','id')->where('status',1)->whereNull('deleted_at')],
             'level_id'=>['required','integer'],'class_type_id'=>['required','integer'],'class_id'=>['required','integer'],'group_id'=>['required','integer'],
+            'student_type'=>['nullable',Rule::in(['new','old'])],
             'enrollment_status'=>['required',Rule::in(['active','pending'])],'enrolled_on'=>['required','date_format:Y-m-d'],
             'notes'=>['nullable','string','max:2000'],'guardian_name'=>['nullable','string','max:150'],'guardian_phone'=>['nullable','string','max:50'],
         ];
@@ -195,7 +196,7 @@ class GepEnrollmentController
                     $campuses=Access::campuses($request->user())->pluck('id');
                     if(!$student || (! $student->enrollments()->whereIn('campus_id',$campuses)->exists()
                         && !GepEnrollment::whereIn('campus_id',$campuses)->whereHas('gepStudent',fn($q)=>$q->where('student_id',$student->id))->exists()))abort(403);
-                    $gepStudent=GepStudent::firstOrCreate(['student_id'=>$student->id],['source'=>'existing','profile'=>Profile::snapshot($student)]);
+                    $gepStudent=GepStudent::firstOrCreate(['student_id'=>$student->id],['source'=>'existing','profile'=>array_replace(Profile::snapshot($student),['family_number'=>null])]);
                     }
                 }else{
                     $name=trim($data['full_name_en']);
@@ -225,6 +226,7 @@ class GepEnrollmentController
                 throw ValidationException::withMessages(['student_identifier'=>'This student already has a permanent GEP Student ID.']);
             $identifier=$identifier ?: (filled($data['student_identifier']??null)?$data['student_identifier']:app(\App\Services\GepStudentIdAllocator::class)->allocate($year->academic_year));
             $gepStudent->update(['profile'=>$profile,'student_identifier'=>$identifier]);
+            $profile=$gepStudent->profile;
             $beforePhoto=$gepStudent->photo_path;
             if($request->hasFile('photo')){
                 $bytes=app(StudentPhotoProcessor::class)->portraitWebp($request->file('photo'));

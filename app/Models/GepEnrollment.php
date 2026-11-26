@@ -7,8 +7,18 @@ class GepEnrollment extends Model
 {
     use SoftDeletes;
     protected $table = 'tb_gep_enrollment';
-    protected $fillable = ['gep_student_id','term_assignment_id','campus_id','level_id','class_type_id','class_id','group_id','enrollment_status','enrolled_on','notes','guardian_name','guardian_phone','created_by','updated_by','active_slot'];
+    protected $fillable = ['gep_student_id','term_assignment_id','campus_id','level_id','class_type_id','class_id','group_id','student_type','enrollment_status','enrolled_on','notes','guardian_name','guardian_phone','created_by','updated_by','active_slot'];
     protected $casts = ['enrolled_on'=>'date:Y-m-d', 'parent_information'=>'array'];
+    protected static function booted(): void
+    {
+        static::saving(function(self $enrollment){
+            if(blank($enrollment->student_type)){
+                $previous=self::where('gep_student_id',$enrollment->gep_student_id);
+                if($enrollment->exists)$previous->where('id','!=',$enrollment->id);
+                $enrollment->student_type=$previous->exists()?'old':'new';
+            }
+        });
+    }
     public function gepStudent(){return $this->belongsTo(GepStudent::class);}
     public function termAssignment(){return $this->belongsTo(GepTermAssignment::class);}
     public function campus(){return $this->belongsTo(SchoolInfo::class);}

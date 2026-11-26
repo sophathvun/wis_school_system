@@ -176,7 +176,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td><div><i class="ti ti-phone me-1"></i>${esc(student.home_phone||'—')}</div><div class="small text-secondary text-break"><i class="ti ti-mail me-1"></i>${esc(student.email||'—')}</div>${row.guardian_name?`<div class="small mt-1">Guardian: ${esc(row.guardian_name)}<br>${esc(row.guardian_phone||'')}</div>`:''}</td>
                     <td><strong>${esc(row.term_assignment.academic_year.academic_year)}</strong><div>${esc(row.term_assignment.term.term_name)}</div></td>
                     <td><strong>${esc(row.campus.campus_name_en)}</strong><div>${esc(row.level.level_name)} · ${esc(row.school_class.class_name)}</div><div class="small text-secondary">${esc(row.class_type.type_name)} · ${esc(row.group.session_name)} (${esc(row.group.group_code)})</div></td>
-                    <td><span class="badge bg-${style}-lt">${esc(status[0].toUpperCase()+status.slice(1))}</span><div class="small text-secondary mt-1">${date(row.enrolled_on)}</div></td>
+                    <td><span class="badge bg-primary-lt me-1">${row.student_type==='old'?'Old':'New'}</span><span class="badge bg-${style}-lt">${esc(status[0].toUpperCase()+status.slice(1))}</span><div class="small text-secondary mt-1">${date(row.enrolled_on)}</div></td>
                     <td><div class="btn-list justify-content-end flex-nowrap">${row.permissions.history?`<button class="btn btn-sm btn-outline-secondary" data-action="history" data-id="${row.id}" title="Activity history" aria-label="Activity history"><i class="ti ti-history"></i></button>`:''}${row.permissions.edit?`<button class="btn btn-sm btn-outline-primary" data-action="edit" data-id="${row.id}" title="Edit enrollment" aria-label="Edit enrollment"><i class="ti ti-edit"></i></button>`:''}${row.permissions.delete?`<button class="btn btn-sm btn-outline-danger" data-action="delete" data-id="${row.id}" title="Delete enrollment" aria-label="Delete enrollment"><i class="ti ti-trash"></i></button>`:''}</div></td></tr>`;
             }).join('') : '<tr><td colspan="7" class="text-center text-secondary py-5">No GEP enrollments match these filters.</td></tr>';
             renderPagination(result.records,'gep-enrollment-pagination','gep-enrollment-per-page',load);
@@ -196,7 +196,7 @@ document.addEventListener('DOMContentLoaded', () => {
         photoEditor.resetPreview();
         resetProfile();get('gep-selected-gep-student-id').value='';
         clearTimeout(searchTimer);
-        source=value; searching?.abort();get('gep-student-results').replaceChildren();get('gep-student-search').value='';get('gep-selected-student-id').value='';get('gep-selected-student').classList.add('d-none');
+        source=value; if(!editing){get('gep-form-student_type').value='new';sync(get('gep-form-student_type'));} searching?.abort();get('gep-student-results').replaceChildren();get('gep-student-search').value='';get('gep-selected-student-id').value='';get('gep-selected-student').classList.add('d-none');
         get('gep-student-results').classList.add('d-none');get('gep-student-search').setAttribute('aria-expanded','false');
         get('gep-student-information').classList.toggle('d-none',source==='existing'&&!editing);
         get('gep-existing-panel').classList.toggle('d-none',source!=='existing'||Boolean(editing));
@@ -220,7 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
             get('gep-edit-student').textContent=`${row.gep_student.gep_code} · ${row.gep_student.profile?.full_name_en||''}`;
             try{await fillProfile(row.gep_student.profile,row.gep_student.student_identifier,row.gep_student.gep_code);}catch(error){if(error.name!=='AbortError')showError('gep-form-error',error);}
             get('gep-form-academic_year_id').value=row.term_assignment.academic_year_id;formTerms(row.term_assignment_id);
-            ['term_assignment_id','campus_id','level_id','class_type_id','class_id','group_id','enrollment_status','enrolled_on','notes'].forEach(field => {form.elements.namedItem(field).value=field==='enrolled_on'?row[field]?.slice(0,10):row[field]??'';});
+            ['term_assignment_id','campus_id','level_id','class_type_id','class_id','group_id','student_type','enrollment_status','enrolled_on','notes'].forEach(field => {form.elements.namedItem(field).value=field==='enrolled_on'?row[field]?.slice(0,10):row[field]??'';});
             fillParents(row.parent_information||{guardian:{name_en:row.guardian_name,phone:row.guardian_phone}});
             if(row.gep_student.photo_url)photoEditor.showPreview(row.gep_student.photo_url);
         }else{
@@ -280,6 +280,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if(source!=='existing'||get('gep-student-search').dataset.loadingStudent!==selectedId)return;
         await fillProfile(result.profile,result.student_identifier,result.gep_code);
         if(source!=='existing'||get('gep-student-search').dataset.loadingStudent!==selectedId)return;
+        get('gep-form-student_type').value=result.student_type_default||'new';sync(get('gep-form-student_type'));
         enableProfile(true);photoEditor.resetPreview();if(result.photo_url)photoEditor.showPreview(result.photo_url);
         fillParents(result.parent_information||{});
         get('gep-student-information').classList.remove('d-none');get('gep-student-search').value=student.full_name_en;sync(get('gep-student-search'));closeLookup();

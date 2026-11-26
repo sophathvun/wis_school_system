@@ -49,6 +49,7 @@ beforeEach(function(){
     (require database_path('migrations/2026_11_24_000002_add_gep_enrollment_photo_and_parents.php'))->up();
     (require database_path('migrations/2026_11_24_000003_separate_gep_student_profiles.php'))->up();
     (require database_path('migrations/2026_11_26_000001_create_gep_student_id_sequence.php'))->up();
+    (require database_path('migrations/2026_11_26_000002_add_gep_enrollment_student_type.php'))->up();
     $this->user=Mockery::mock(User::class)->makePartial();$this->user->id=1;$this->user->shouldReceive('isSuperAdmin')->andReturn(true);
     $this->request=function(array $data=[],string $method='POST'){$r=Request::create('/gep/students/enrollment',$method,$data);app()->instance('request',$r);$r->setUserResolver(fn()=>$this->user);return $r;};
     $this->payload=['source'=>'existing','student_id'=>1,'term_assignment_id'=>1,'campus_id'=>1,'level_id'=>1,'class_type_id'=>1,'class_id'=>1,'group_id'=>1,'enrollment_status'=>'active','enrolled_on'=>'2026-11-24'];
@@ -79,6 +80,7 @@ it('creates a new student with optional guardian blank and no WIS enrollment',fu
     $data=[...$this->payload,'source'=>'new','student_id'=>null,'full_name_en'=>'NEW GEP STUDENT','gender'=>'F','date_of_birth'=>'2012-06-15'];
     $this->controller->save(($this->request)($data));
     $student=GepStudent::firstOrFail();
+    expect($student->profile['family_number'])->toBe('GEP-F26190001');
     expect($student->profile['full_name_en'])->toBe('NEW GEP STUDENT')->and($student->student_id)->toBeNull()->and($student->student_identifier)->toBe('26190001')->and(GepEnrollment::first()->guardian_name)->toBeNull()
         ->and(Student::count())->toBe(2)->and(DB::table('tb_student_enrollment')->count())->toBe(2)->and(DB::table('tb_student_number_sequence')->value('last_number'))->toBe(101);
 });
@@ -88,6 +90,18 @@ it('rejects duplicate student term enrollment and permits another pending term w
     expect(fn()=>$this->controller->save(($this->request)($this->payload)))->toThrow(ValidationException::class);
     $this->controller->save(($this->request)([...$this->payload,'term_assignment_id'=>2,'enrollment_status'=>'pending']));
     expect(GepStudent::count())->toBe(1)->and(GepEnrollment::count())->toBe(2);
+    expect(GepEnrollment::orderBy('id')->pluck('student_type')->all())->toBe(['new','old']);
+});
+
+it('allows staff to correct student type and preserves it when editing without a type',function(){
+    $this->controller->save(($this->request)([...$this->payload,'student_type'=>'old']));
+    $record=GepEnrollment::firstOrFail();
+    expect($record->student_type)->toBe('old');
+    $this->controller->save(($this->request)($this->payload),$record);
+    expect($record->fresh()->student_type)->toBe('old');
+    $this->controller->save(($this->request)([...$this->payload,'student_type'=>'new']),$record);
+    expect($record->fresh()->student_type)->toBe('new');
+    expect(fn()=>$this->controller->save(($this->request)([...$this->payload,'student_type'=>'other']),$record))->toThrow(ValidationException::class);
 });
 
 it('rejects invalid settings or lifecycle without creating a student or audit entry',function($change,$updates){
@@ -337,6 +351,7 @@ it('continues the six digit sequence across academic years after direct imports'
 
 it('advances the counter for imported models and never renumbers an existing GEP student',function(){
     $member=GepStudent::create(['student_identifier'=>'25194000','source'=>'new','profile'=>['full_name_en'=>'IMPORTED']]);
+    expect($member->profile['family_number'])->toBe('GEP-F25194000');
     expect(DB::table('tb_gep_student_id_sequence')->value('last_number'))->toBe(194000);
     expect(fn()=>$member->update(['student_identifier'=>'26194001']))->toThrow(ValidationException::class);
     $member->refresh();

@@ -70,6 +70,7 @@
                     @foreach(['academic_year_id'=>'Academic Year','term_assignment_id'=>'Term','campus_id'=>'Campus','level_id'=>'Level','class_id'=>'Class','class_type_id'=>'Class Type','group_id'=>'Group','enrollment_status'=>'Enrollment Status'] as $name=>$label)
                         <div class="col-12 col-sm-6 col-lg-3"><div class="gep-field"><select id="gep-form-{{ $name }}" name="{{ $name }}" required aria-label="{{ $label }}"></select><label for="gep-form-{{ $name }}">{{ $label }} <span class="text-danger">*</span></label></div></div>
                     @endforeach
+                    <div class="col-12 col-sm-6 col-lg-3"><div class="gep-field"><select id="gep-form-student_type" name="student_type" required aria-label="Student Type"><option value="new">New</option><option value="old">Old</option></select><label for="gep-form-student_type">Student Type <span class="text-danger">*</span></label></div></div>
                     <div class="col-12 col-lg-6 gep-assignment-date">@include('gep._birth-date', ['dateField'=>'enrolled_on'])</div>
                     <div class="col-12 gep-assignment-notes"><div class="gep-field"><textarea class="form-control" id="gep-form-notes" name="notes" placeholder=" " maxlength="2000"></textarea><label for="gep-form-notes">Notes</label></div></div>
                 </div></div></section>
