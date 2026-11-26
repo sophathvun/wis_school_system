@@ -519,6 +519,16 @@
     font-size: 0.875rem;
 }
 
+/* Filtering uses the native hidden attribute. Option layout rules (including
+   display:flex !important on report buttons) must never reveal rejected items. */
+:is([class*="combobox"], [class*="picker"], [class*="select-menu"], [class*="filter-menu"], [class*="searchable-menu"], .report-column-dropdown) [hidden]:not([hidden="until-found"]),
+:is([class*="combobox"], [class*="picker"], [class*="select-menu"], [class*="filter-menu"], [class*="searchable-menu"])[hidden]:not([hidden="until-found"]),
+.report-filter-options button[hidden],
+.report-class-picker-option[hidden],
+.report-column-option[hidden] {
+    display: none !important;
+}
+
 /* Popup searches have their own label; the floating-field placeholder rule must not hide their hint. */
 .premium-form-field .location-combobox-search::placeholder,
 .premium-form-field input[data-dropdown-search-active]::placeholder,

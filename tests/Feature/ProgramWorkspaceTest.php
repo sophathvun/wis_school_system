@@ -474,7 +474,8 @@ it('opens authorized GEP student submenus and renders their breadcrumbs',functio
     $this->actingAs($user);$request=($this->workspaceRequest)('/gep/students/'.$section,$user,'gep');
     $route=app('router')->getRoutes()->match($request);$request->setRouteResolver(fn()=>$route);
     $view=(new \App\Http\Controllers\GepStudentController)->index($request,$section);
-    expect($view->name())->toBe('gep.students')->and($view->getData()['current']['label'])->toBe(\App\Support\GepStudentPermissions::SECTIONS[$section]['label']);
+    expect($view->name())->toBe($section==='import-export'?'gep.data-transfer':'gep.students');
+    if($section!=='import-export')expect($view->getData()['current']['label'])->toBe(\App\Support\GepStudentPermissions::SECTIONS[$section]['label']);
     expect(view('layouts.partials.navbar')->render())->toContain('GEP Students',route('gep.students.section',['studentSection'=>$section]));
 })->with(array_values(array_diff(array_keys(\App\Support\GepStudentPermissions::SECTIONS),['enrollment'])));
 
@@ -490,6 +491,28 @@ it('requires both GEP student parent and submenu permissions and GEP workspace a
     foreach(['gep-students.view','gep-students.enrollment.view'] as $code)DB::table('access_role_permissions')->insert(['role_id'=>1,'permission_id'=>DB::table('access_permissions')->where('code',$code)->value('id')]);
     expect(\App\Support\GepStudentPermissions::allows($user,'enrollment'))->toBeFalse();
 });
+
+it('shows the shared School Information link in GEP only with its existing view permission',function(){
+    $user=($this->give)(['gep']);$this->actingAs($user);
+    $request=($this->workspaceRequest)('/settings/school-info',$user,'gep');
+    $route=app('router')->getRoutes()->match($request);$request->setRouteResolver(fn()=>$route);
+    $html=view('layouts.partials.gep-sidebar',['branding'=>null,'permissionCodes'=>['school-info.view']])->render();
+    expect($html)->toContain('School Information',route('schoolInfo.index'),'aria-current="page"')
+        ->and($html)->toContain('id="gep-settings-menu"');
+    $hidden=view('layouts.partials.gep-sidebar',['branding'=>null,'permissionCodes'=>[]])->render();
+    expect($hidden)->not->toContain('School Information');
+});
+
+it('shares School Information routes with GEP without changing the selected workspace',function($path,$method){
+    $user=($this->give)(['gep']);$request=($this->workspaceRequest)($path,$user,'gep',$method);
+    $response=(new ResolveProgramWorkspace)->handle($request,fn()=>response('shared school information'));
+    expect($response->getContent())->toBe('shared school information')
+        ->and($request->attributes->get('active_program'))->toBe('gep')
+        ->and($request->session()->get('selected_program'))->toBe('gep');
+})->with([
+    ['/settings/school-info','GET'],['/school-info/fetch','GET'],['/school-info/print','GET'],
+    ['/school-info/pdf','GET'],['/school-info/excel','GET'],['/school-info/save','POST'],['/school-info/delete/1','DELETE'],
+]);
 
 it('registers the GEP student menu permissions without granting campus roles automatically',function(){
     (require database_path('migrations/2026_11_20_000007_add_gep_student_menu_permissions.php'))->up();

@@ -17,10 +17,15 @@
             <ul class="navbar-nav pt-lg-3">
                 <li class="nav-item {{ request()->routeIs('gep.dashboard')?'active':'' }}"><a class="nav-link" href="{{ route('gep.dashboard') }}"><span class="nav-link-icon"><i class="ti ti-dashboard"></i></span><span class="nav-link-title">GEP Dashboard</span></a></li>
                 @php($gepSettingsSections=array_filter(\App\Support\GepSettingsPermissions::SECTIONS,fn($key)=>\App\Support\GepSettingsPermissions::allows(auth()->user(),$key),ARRAY_FILTER_USE_KEY))
-                @if($gepSettingsSections)
-                    <li class="nav-item dropdown {{ request()->routeIs('gep.settings.*')?'active':'' }}">
-                        <a class="nav-link dropdown-toggle" href="#gep-settings-menu" data-bs-toggle="dropdown" data-bs-auto-close="false" role="button" aria-expanded="{{ request()->routeIs('gep.settings.*')?'true':'false' }}"><span class="nav-link-icon"><i class="ti ti-settings"></i></span><span class="nav-link-title">GEP Settings</span></a>
-                        <div class="dropdown-menu {{ request()->routeIs('gep.settings.*')?'show':'' }}" id="gep-settings-menu">
+                @php($gepCanViewSchoolInfo=in_array('*',$permissionCodes??[],true)||in_array('school-info.view',$permissionCodes??[],true))
+                @php($gepSettingsActive=request()->routeIs('gep.settings.*','schoolInfo.*'))
+                @if($gepSettingsSections || $gepCanViewSchoolInfo)
+                    <li class="nav-item dropdown {{ $gepSettingsActive?'active':'' }}">
+                        <a class="nav-link dropdown-toggle" href="#gep-settings-menu" data-bs-toggle="dropdown" data-bs-auto-close="false" role="button" aria-expanded="{{ $gepSettingsActive?'true':'false' }}"><span class="nav-link-icon"><i class="ti ti-settings"></i></span><span class="nav-link-title">GEP Settings</span></a>
+                        <div class="dropdown-menu {{ $gepSettingsActive?'show':'' }}" id="gep-settings-menu">
+                            @if($gepCanViewSchoolInfo)
+                                <a class="dropdown-item {{ request()->routeIs('schoolInfo.*')?'active':'' }}" href="{{ route('schoolInfo.index') }}" @if(request()->routeIs('schoolInfo.*')) aria-current="page" @endif><i class="ti ti-building-community me-2" aria-hidden="true"></i>School Information</a>
+                            @endif
                             @foreach($gepSettingsSections as $key=>$item)
                                 <a class="dropdown-item {{ request()->route('section')===$key?'active':'' }}" href="{{ route('gep.settings.section',['section'=>$key]) }}" @if(request()->route('section')===$key) aria-current="page" @endif><i class="ti {{ $item['icon'] }} me-2"></i>{{ $item['label'] }}</a>
                             @endforeach

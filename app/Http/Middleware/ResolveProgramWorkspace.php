@@ -20,6 +20,7 @@ class ResolveProgramWorkspace
             'login', 'login/*', 'forgot-password', 'reset-password', 'reset-password/*',
             'app/*', 'staff-card/*', 'student-card/*', 'certificates/*', 'placement-test/*',
             'settings/users', 'settings/users/*', 'settings/roles', 'settings/roles/*',
+            'settings/school-info', 'school-info/*',
             'settings/access', 'settings/access/*', 'settings/departments', 'settings/departments/*', 'settings/positions', 'settings/positions/*')) {
             return $next($request);
         }
