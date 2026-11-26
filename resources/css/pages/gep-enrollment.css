@@ -1,4 +1,16 @@
 #gep-enrollments .gep-field{position:relative;min-width:0}
+#gep-enrollments .gep-enrollment-filter-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+#gep-enrollments .gep-enrollment-filter-grid>div{min-width:0}
+#gep-enrollments .gep-enrollment-filter-grid .gep-filter-search{grid-column:1/-1}
+#gep-enrollments .gep-enrollment-filters .gep-field>.form-control,
+#gep-enrollments .gep-enrollment-filters .wmi-picker-trigger{height:44px;min-height:44px;padding:17px 10px 4px;font-size:.75rem;border-radius:10px}
+#gep-enrollments .gep-enrollment-filters .gep-field>label{top:13px;left:10px;font-size:.75rem}
+#gep-enrollments .gep-enrollment-filters .gep-field.has-value>label,
+#gep-enrollments .gep-enrollment-filters .gep-field:focus-within>label{top:4px;font-size:.6rem}
+#gep-enrollments .gep-enrollment-filters :is(.wmi-picker-search,.wmi-picker-option,#gep-filter-reset){font-size:.75rem}
+#gep-enrollments .gep-enrollment-filters #gep-filter-reset{min-height:44px;border-radius:10px}
+@media(min-width:768px){#gep-enrollments .gep-enrollment-filter-grid{grid-template-columns:repeat(4,minmax(0,1fr))}#gep-enrollments .gep-enrollment-filter-grid .gep-filter-search{grid-column:span 3}}
+@media(min-width:1200px){#gep-enrollments .gep-enrollment-filter-grid{grid-template-columns:repeat(8,minmax(0,1fr))}#gep-enrollments .gep-enrollment-filter-grid .gep-filter-search{grid-column:span 6}#gep-enrollments .gep-enrollment-filter-grid .gep-filter-reset{grid-column:span 2}}
 #gep-enrollments .gep-field>.form-control,#gep-enrollments .wmi-picker-trigger{width:100%;height:56px;min-height:56px;border:1px solid var(--tblr-border-color);border-radius:12px;background:var(--tblr-bg-surface);color:var(--tblr-body-color);font-size:.875rem;padding:22px 14px 6px;box-shadow:0 2px 6px #172c4810}
 #gep-enrollments .gep-field>label{position:absolute;top:17px;left:14px;margin:0;pointer-events:none;font-size:.875rem;color:var(--tblr-secondary-color);transition:all .15s;z-index:2;max-width:calc(100% - 30px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #gep-enrollments .gep-field.has-value>label,#gep-enrollments .gep-field:focus-within>label{top:5px;font-size:.68rem;color:var(--tblr-primary);font-weight:600}
@@ -14,6 +26,7 @@
 #gep-enrollments .wmi-picker-trigger:disabled,#gep-enrollments .form-control:disabled{background:var(--tblr-bg-surface-secondary);opacity:.8}
 #gep-enrollments .wmi-picker-panel{position:absolute;top:calc(100% + 5px);left:0;min-width:100%;width:max-content;max-width:min(360px,85vw);background:var(--tblr-bg-surface);color:var(--tblr-body-color);border:1px solid var(--tblr-border-color);border-radius:14px;box-shadow:0 12px 32px #10244026;padding:10px;z-index:1080}
 #gep-enrollments .wmi-picker-panel[hidden]{display:none}
+#gep-enrollments .gep-filter-menu-end .wmi-picker-panel{left:auto;right:0}
 #gep-enrollments .wmi-picker-search{font-size:.85rem;min-height:38px;border-radius:9px;margin-bottom:7px}
 #gep-enrollments .wmi-picker-options{max-height:210px;overflow-y:auto}
 #gep-enrollments .wmi-picker-option{display:flex;align-items:center;gap:8px;width:100%;padding:10px;border:0;border-radius:8px;background:transparent;color:inherit;text-align:left;font-size:.85rem}

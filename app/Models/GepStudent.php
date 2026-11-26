@@ -15,6 +15,9 @@ class GepStudent extends Model
             if($student->exists && $student->isDirty('student_identifier') && filled($student->getRawOriginal('student_identifier')))
                 throw \Illuminate\Validation\ValidationException::withMessages(['student_identifier'=>'A student keeps their existing GEP Student ID.']);
             if($student->isDirty('student_identifier'))app(\App\Services\GepStudentIdAllocator::class)->observeIdentifier($student->student_identifier);
+            if(filled($student->student_identifier) && blank($student->profile['family_number']??null)){
+                $student->profile=array_replace($student->profile??[],['family_number'=>'GEP-F'.$student->student_identifier]);
+            }
         });
     }
     public function getPhotoUrlAttribute(): ?string

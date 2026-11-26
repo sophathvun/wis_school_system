@@ -5,12 +5,12 @@
     <div class="card shadow-sm mb-3 gep-enrollment-filters">
         <div class="card-header gep-settings-header py-2"><h2 class="card-title text-white mb-0">Data Filters</h2><button class="btn btn-sm btn-outline-light ms-auto" type="button" id="gep-filter-toggle" aria-expanded="true" aria-controls="gep-filter-body"><i class="ti ti-adjustments-horizontal me-1"></i><span>Collapse</span></button></div>
         <div class="card-body" id="gep-filter-body">
-            <div class="row g-2">
+            <div class="gep-enrollment-filter-grid">
                 @foreach(['academic_year_id'=>'Academic Year','term_assignment_id'=>'Term','campus_id'=>'Campus','level_id'=>'Level','class_id'=>'Class','class_type_id'=>'Class Type','group_id'=>'Group','enrollment_status'=>'Status'] as $name=>$label)
-                    <div class="col-6 col-md-4 col-xl-3"><div class="gep-field"><select id="gep-filter-{{ $name }}" data-filter="{{ $name }}" aria-label="{{ $label }}"></select><label for="gep-filter-{{ $name }}">{{ $label }}</label></div></div>
+                    <div @class(['gep-filter-menu-end' => $name === 'enrollment_status'])><div class="gep-field"><select id="gep-filter-{{ $name }}" data-filter="{{ $name }}" aria-label="{{ $label }}"></select><label for="gep-filter-{{ $name }}">{{ $label }}</label></div></div>
                 @endforeach
-                <div class="col-12 col-md-9"><div class="gep-field"><input type="search" id="gep-enrollment-search" class="form-control" placeholder=" " maxlength="150" data-search-normalized="true"><label for="gep-enrollment-search">Search name, Student ID or GEP number</label></div></div>
-                <div class="col-12 col-md-3"><button class="btn btn-outline-secondary h-100 w-100" type="button" id="gep-filter-reset"><i class="ti ti-refresh me-1"></i>Reset Filters</button></div>
+                <div class="gep-filter-search"><div class="gep-field"><input type="search" id="gep-enrollment-search" class="form-control" placeholder=" " maxlength="150" data-search-normalized="true"><label for="gep-enrollment-search">Search name, Student ID or GEP number</label></div></div>
+                <div class="gep-filter-reset"><button class="btn btn-outline-secondary h-100 w-100" type="button" id="gep-filter-reset"><i class="ti ti-refresh me-1"></i>Reset Filters</button></div>
             </div>
         </div>
     </div>
