@@ -13,6 +13,12 @@ export function setupWmiRegistrations() {
         pickers.forEach(picker=>picker.sync());
         document.querySelectorAll('.wmi-registration-modal .wmi-modal-field').forEach(field=>{field.classList.toggle('wmi-has-value',Boolean(field.querySelector('input,select,textarea')?.value));});
     };
+    const phone=form.elements.phone_number,telegram=form.elements.telegram_number,samePhone=document.getElementById('wmiRegTelegramSame');
+    const syncTelegram=()=>{if(samePhone.checked)telegram.value=phone.value;telegram.readOnly=samePhone.checked;sync();};
+    samePhone.addEventListener('change',syncTelegram);
+    phone.addEventListener('input',syncTelegram);phone.addEventListener('change',syncTelegram);
+    const syncSchoolType=()=>{document.getElementById('wmiRegSchoolType').value=form.elements.wmi_school_id.selectedOptions[0]?.dataset.schoolType||'';sync();};
+    form.elements.wmi_school_id.addEventListener('change',syncSchoolType);
     document.querySelectorAll('.wmi-registration-modal').forEach(modal=>{modal.addEventListener('input',sync);modal.addEventListener('change',sync);modal.addEventListener('shown.bs.modal',sync);});
     const request=async(url,method,payload)=>{
         const multipart=payload instanceof FormData;
@@ -54,18 +60,19 @@ export function setupWmiRegistrations() {
     const sourceState=()=>{
         const western=source()==='western';
         form.querySelector('[data-western-fields]').hidden=!western;
-        form.querySelector('[data-other-fields]').hidden=western;
+        form.querySelectorAll('[data-other-fields]').forEach(field=>{field.hidden=western;});
+        form.querySelectorAll('[data-western-only]').forEach(field=>{field.hidden=!western;});
         form.querySelectorAll('[data-snapshot]').forEach(input=>{input.readOnly=western||input.name==='campus_study';});
         form.elements.gender.disabled=western;form.elements.wmi_school_id.disabled=western;form.elements.wmi_school_id.required=!western;
         form.elements.student_name.required=!western;form.elements.current_grade.required=!western;form.elements.gender.required=!western;
-        if(!western)form.elements.campus_study.value='Other';sync();
+        if(!western)form.elements.campus_study.value='Other';syncSchoolType();syncTelegram();sync();
     };
     const yearChanged=()=>{filterCenters(form.elements.wmi_exam_center_id,form.elements.wmi_year_id.value);sync();};
     form.elements.wmi_year_id.addEventListener('change',yearChanged);
     const registrar=document.getElementById('wmiRegRegistrar');
     const snapshot=(data)=>{
         ['enrollment_id','student_name','student_name_kh','date_of_birth','gender','current_grade','campus_study','phone_number','email_address'].forEach(key=>{form.elements[key].value=data[key]??'';});
-        selected.textContent=`Selected: ${data.student_code||''} · ${data.student_name} · ${data.academic_year||''} · ${data.campus_study}`;results.replaceChildren();sync();
+        selected.textContent=`Selected: ${data.student_code||''} · ${data.student_name} · ${data.academic_year||''} · ${data.campus_study}`;results.replaceChildren();syncTelegram();sync();
     };
     const search=async()=>{
         const q=studentSearch.value.trim();searchController?.abort();const version=++searchVersion;
@@ -86,11 +93,12 @@ export function setupWmiRegistrations() {
     [lookupCampus,lookupGrade].forEach(select=>select.addEventListener('change',()=>{resetSearch();form.elements.enrollment_id.value='';selected.textContent='';search();}));
     academicYear.addEventListener('change',()=>{resetSearch();form.elements.enrollment_id.value='';selected.textContent='';search();});
     form.querySelectorAll('[name="student_source"]').forEach(radio=>radio.addEventListener('change',()=>{
-        resetSearch();selected.textContent='';['enrollment_id','student_name','student_name_kh','date_of_birth','gender','current_grade','campus_study','phone_number','email_address','wmi_school_id'].forEach(key=>{form.elements[key].value='';});sourceState();
+        resetSearch();selected.textContent='';samePhone.checked=false;['enrollment_id','student_name','student_name_kh','date_of_birth','gender','current_grade','campus_study','phone_number','telegram_number','email_address','wmi_school_id'].forEach(key=>{form.elements[key].value='';});sourceState();
     }));
     const open=(record=null)=>{
         if(busy)return;form.reset();resetSearch();editing=record?.id||null;selected.textContent='';error.hidden=true;
         fields.forEach(key=>{if(key!=='student_source')form.elements[key].value=record?.[key]??'';});
+        samePhone.checked=Boolean(phone.value&&phone.value===telegram.value);
         form.querySelector(`[name="student_source"][value="${record?.student_source||'western'}"]`).checked=true;
         if(!record)form.elements.wmi_year_id.value=filterYear.value;
         form.elements.wmi_year_id.disabled=!!record;

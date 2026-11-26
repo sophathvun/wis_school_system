@@ -263,6 +263,9 @@
 .wmi-registration-card-body { padding: 20px; }
 #wmiRegistrationModal .wmi-lookup-grid { grid-template-columns: repeat(4,minmax(0,1fr)); }
 #wmiRegistrationModal .wmi-form-grid { gap: 14px; }
+#wmiRegistrationModal .wmi-telegram-field { min-width: 0; }
+#wmiRegistrationModal #wmiReg_current_grade::placeholder { color: transparent; }
+#wmiRegistrationModal #wmiReg_current_grade:focus::placeholder { color: var(--tblr-secondary); }
 #wmiRegistrationModal .wmi-modal-field > .form-control,
 #wmiRegistrationModal .wmi-modal-field .wmi-picker-trigger { min-height: 64px; }
 #wmiRegistrationModal .wmi-enrollment-results:empty { display: none; }
