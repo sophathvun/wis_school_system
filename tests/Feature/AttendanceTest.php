@@ -15,6 +15,34 @@ it('converts legacy late marks to tardy without changing their historical detail
     $migration=require database_path('migrations/2026_11_12_000002_use_t_for_daily_tardy_attendance.php');$migration->up();$migration->up();
     expect((array)DB::table('attendance_daily_marks')->where('id',$id)->first())->toBe(array_replace($before,['status'=>'T']));
 });
+
+it('blocks manual daily attendance on weekends and configured public holidays without changing records',function(){
+    $controller=app(\App\Http\Controllers\DailyAttendanceController::class);$admin=User::find(1);
+    DB::table('attendance_calendars')->insert(['academic_year_id'=>1,'campus_id'=>1,'weekdays'=>json_encode([1,2,3,4,5]),'holidays'=>json_encode(['2026-11-02']),'holiday_descriptions'=>json_encode(['2026-11-02'=>'Public holiday test']),'version'=>0,'updated_by'=>1]);
+    foreach(['2026-10-31'=>'Saturday','2026-11-01'=>'Sunday','2026-11-02'=>'Public holiday'] as $date=>$reason){
+        $scope=['academic_year_id'=>1,'campus_id'=>1,'class_id'=>1,'date'=>$date];
+        $data=$controller->show(g12Request($admin,$scope))->getData(true);
+        expect($data['date_availability']['allowed'])->toBeFalse()->and($data['date_availability']['reason'])->toContain($reason);
+        expect(fn()=>$controller->save(g12Request($admin,$scope+['edit_past'=>true,'version'=>0,'marks'=>[['student_id'=>1,'status'=>'P','missed_sessions'=>0]]])))->toThrow(ValidationException::class);
+    }
+    expect(DB::table('attendance_daily_marks')->count())->toBe(0)->and(DB::table('attendance_daily_registers')->count())->toBe(0);
+    expect($controller->show(g12Request($admin,['academic_year_id'=>1,'campus_id'=>1,'class_id'=>1,'date'=>'2026-11-03']))->getData(true)['date_availability']['allowed'])->toBeTrue();
+});
+it('allows configured Saturday and Sunday attendance but public holidays still take precedence',function(){
+    $controller=app(\App\Http\Controllers\DailyAttendanceController::class);$admin=User::find(1);
+    DB::table('attendance_calendars')->insert(['academic_year_id'=>1,'campus_id'=>1,'weekdays'=>json_encode([0,1,2,3,4,5,6]),'holidays'=>'[]','version'=>0,'updated_by'=>1]);
+    foreach(['2026-10-31','2026-11-01'] as $date){
+        $scope=['academic_year_id'=>1,'campus_id'=>1,'class_id'=>1,'date'=>$date];
+        expect($controller->show(g12Request($admin,$scope))->getData(true)['date_availability']['allowed'])->toBeTrue();
+        $controller->save(g12Request($admin,$scope+['edit_past'=>true,'version'=>0,'marks'=>[['student_id'=>1,'status'=>'P','missed_sessions'=>0]]]));
+    }
+    expect(DB::table('attendance_daily_marks')->count())->toBe(2);
+    DB::table('attendance_calendars')->update(['holidays'=>json_encode(['2026-11-01'])]);
+    $scope=['academic_year_id'=>1,'campus_id'=>1,'class_id'=>1,'date'=>'2026-11-01'];
+    expect($controller->show(g12Request($admin,$scope))->getData(true)['date_availability']['allowed'])->toBeFalse();
+    expect(fn()=>$controller->save(g12Request($admin,$scope+['edit_past'=>true,'version'=>1,'marks'=>[['student_id'=>1,'status'=>'UX','missed_sessions'=>1]]])))->toThrow(ValidationException::class);
+    expect(DB::table('attendance_daily_marks')->where('attendance_date','2026-11-01')->value('status'))->toBe('P');
+});
 beforeEach(function(){
     $this->travelTo(\Carbon\CarbonImmutable::parse('2026-11-02 12:00:00','Asia/Bangkok'));
     createG12NationalSchema();
@@ -355,7 +383,7 @@ it('limits full-day nursery through grade three to six periods and retains seven
 
 it('requires explicit edit mode for past dates and rejects future dates even in edit mode',function(){
     $controller=app(\App\Http\Controllers\DailyAttendanceController::class);$admin=User::find(1);
-    $input=['academic_year_id'=>1,'campus_id'=>1,'class_id'=>1,'date'=>'2026-11-01','version'=>0,'partial'=>true,'marks'=>[['student_id'=>1,'status'=>'P','missed_sessions'=>0]]];
+    $input=['academic_year_id'=>1,'campus_id'=>1,'class_id'=>1,'date'=>'2026-10-30','version'=>0,'partial'=>true,'marks'=>[['student_id'=>1,'status'=>'P','missed_sessions'=>0]]];
     expect(fn()=>$controller->save(g12Request($admin,$input)))->toThrow(HttpException::class);
     $input['edit_past']=true;$controller->save(g12Request($admin,$input));
     expect(DB::table('attendance_daily_marks')->value('status'))->toBe('P');

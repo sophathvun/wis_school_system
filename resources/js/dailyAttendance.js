@@ -3,6 +3,7 @@ import {initAttendancePeriodPopup} from './attendancePeriodPopup.js';
 import {initAttendanceLeave} from './attendanceLeave.js';
 import Swal from 'sweetalert2';
 import {dailyAttendanceGroups, matchesDailyAttendance} from './helpers/dailyAttendanceFilters.js';
+import {dailyAttendanceDateReason} from './helpers/dailyAttendanceDate.js';
 
 export function initDailyAttendance(root,meta){
     const get=s=>root.querySelector(s),filters=get('[data-att-filters]');
@@ -11,6 +12,11 @@ export function initDailyAttendance(root,meta){
     let scope,register,students=[],dirty=false,loading=0,busy=false,lastFilters;
     let autosaveTimer,revision=0;
     let editPast=false,blankOnly=false,locked=true;
+    let blockedDate=false,lastDateNotice='';
+    const showDateNotice=(reason,date)=>{
+        const key=`${date}:${reason}`;if(key===lastDateNotice)return;lastDateNotice=key;
+        Swal.fire({icon:'warning',title:'Attendance unavailable',text:`${date}: ${reason}. Attendance cannot be entered on this date. Please select a school day.`,background:'#fff1f2',color:'#8b2535',confirmButtonColor:'#d63939'});
+    };
     let permissions={};
     const leave=initAttendanceLeave(root,meta,()=>({scope,students,busy,dirty}),load);
     const queueSave=()=>{clearTimeout(autosaveTimer);autosaveTimer=setTimeout(saveChanges,700);};
@@ -82,6 +88,7 @@ export function initDailyAttendance(root,meta){
         clearTimeout(autosaveTimer);
         editPast=false;blankOnly=false;locked=true;get('[data-daily-edit]').hidden=true;
         const version=++loading;
+        blockedDate=false;get('[data-att-daily]').classList.remove('att-non-school-day');
         const daily=active();get('[data-att-daily]').hidden=!daily;get('[data-att-daily-class]').hidden=!daily;
         root.querySelectorAll('[data-att-daily-filter]').forEach(field=>field.hidden=!daily);
         get('[data-att-filter-title]').textContent=daily?'Daily Attendance Filters':'Subject Session Filters';
@@ -94,6 +101,11 @@ export function initDailyAttendance(root,meta){
         syncClasses();
         lastFilters=Object.fromEntries(new FormData(filters));
         const {academic_year_id,campus_id,date}=lastFilters;
+        const day=date?new Date(`${date}T12:00:00`).getDay():-1;
+        const calendar=(meta.daily_calendars||[]).find(calendar=>String(calendar.academic_year_id)===String(academic_year_id)&&String(calendar.campus_id)===String(campus_id));
+        const dateReason=dailyAttendanceDateReason(date,calendar);
+        root.dispatchEvent(new CustomEvent('attendance-date-availability',{detail:{holidays:calendar?.holidays||[],weekdays:calendar?.weekdays||[1,2,3,4,5]}}));
+        if(dateReason){blockedDate=true;get('[data-att-daily]').classList.add('att-non-school-day');showDateNotice(dateReason,date);}else lastDateNotice='';
         const [class_id,grade_id]=String(lastFilters.class_id||'').split(':');
         get('[data-daily-save]').disabled=true;get('[data-daily-save]').hidden=true;get('[data-daily-present]').disabled=true;
         scope=null;students=[];get('[data-daily-counts]').innerHTML='';get('[data-daily-history]').textContent='';
@@ -105,16 +117,21 @@ export function initDailyAttendance(root,meta){
         try{
             const data=await call(null,new URLSearchParams({academic_year_id,campus_id,class_id,...(Number(grade_id)?{grade_id}:{}),date}));if(version!==loading)return;
             scope={academic_year_id,campus_id,class_id,...(Number(grade_id)?{grade_id}:{}),date};register=data.register;students=data.students;dirty=false;
+            blockedDate=blockedDate||data.date_availability?.allowed===false;
+            get('[data-att-daily]').classList.toggle('att-non-school-day',blockedDate);
+            root.dispatchEvent(new CustomEvent('attendance-date-availability',{detail:{holidays:data.date_availability?.holidays||[],weekdays:data.date_availability?.weekdays||[1,2,3,4,5]}}));
+            if(blockedDate)showDateNotice(data.date_availability?.reason||(day===0?'Sunday':'Saturday'),date);else lastDateNotice='';
             permissions=data.permissions||{};meta.current_attendance_permissions=permissions;
             get('[data-leave-open]').hidden=!permissions['leave-create'];
             const today=data.today;
-            const future=date>today,past=date<today,conflict=students.some(s=>s.other_class),disabled=future||past||conflict||(!permissions.create&&!permissions.edit);
+            const future=date>today,past=date<today,conflict=students.some(s=>s.other_class),disabled=blockedDate||future||past||conflict||(!permissions.create&&!permissions.edit);
             locked=disabled;
-            get('[data-daily-edit]').hidden=!past||conflict||!students.length||!permissions.edit;
+            get('[data-daily-edit]').hidden=blockedDate||!past||conflict||!students.length||!permissions.edit;
             get('[data-daily-students]').innerHTML=students.length?students.map((student,index)=>renderDailyAttendanceRow({...student,can_delete:permissions.delete&&!student.mark?.leave_id&&!conflict&&!future},index,disabled||!(student.mark?permissions.edit:permissions.create),statuses,escape,meta.periods)).join(''):'<tr><td colspan="7">No students enrolled in this class on the selected date.</td></tr>';
             get('[data-daily-save]').disabled=disabled||!students.length;get('[data-daily-present]').disabled=disabled||!students.length;
             get('[data-daily-present]').hidden=!permissions.create;
             get('[data-daily-message]').textContent=future?'Future date — read only.':conflict?'Update the original class register to avoid duplicate daily attendance.':past?'Past attendance — read only. Click Edit to make corrections.':register?'Saved register loaded. Changes save automatically.':'Changes save automatically when you mark attendance.';
+            if(blockedDate)get('[data-daily-message]').textContent=`${data.date_availability?.reason||'Weekend'} — attendance entry is unavailable. Choose a school day.`;
             get('[data-daily-history]').innerHTML=data.history.length?data.history.map(event=>`<div class="border-bottom py-2">${escape(event.name)} · ${escape(event.created_at)}</div>`).join(''):'No saved changes yet.';
             groupFilter.replaceChildren(new Option('All groups',''),...dailyAttendanceGroups(students).map(group=>new Option(group,group)));
             if([...groupFilter.options].some(option=>option.value===selectedGroup))groupFilter.value=selectedGroup;
@@ -133,7 +150,7 @@ export function initDailyAttendance(root,meta){
         if(['academic_year_id','campus_id'].includes(event.target.name))syncClasses();
     },true);
     get('[data-daily-edit]').addEventListener('click',()=>{
-        if(busy||!scope)return;
+        if(busy||!scope||blockedDate)return;
         editPast=true;locked=false;
         get('[data-daily-students]').querySelectorAll('[data-daily-status]').forEach(input=>input.disabled=!(students.find(student=>student.id===Number(input.closest('[data-daily-student]').dataset.dailyStudent))?.mark?permissions.edit:permissions.create));
         get('[data-daily-edit]').hidden=true;get('[data-daily-present]').disabled=false;get('[data-daily-save]').disabled=false;

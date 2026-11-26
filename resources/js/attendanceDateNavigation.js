@@ -5,6 +5,7 @@ export function initAttendanceDateNavigation(root, calendar) {
     const value = filters.elements.date;
     const input = root.querySelector('[data-premium-date-input]');
     const days = navigation.querySelector('[data-att-date-days]');
+    let holidays=[],weekdays=[1,2,3,4,5];
     const pad = number => String(number).padStart(2, '0');
     const iso = date => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
     const parse = raw => {
@@ -25,6 +26,9 @@ export function initAttendanceDateNavigation(root, calendar) {
             const button = document.createElement('button');
             button.type = 'button';
             button.className = `att-date-day${index === 3 ? ' is-selected' : ''}`;
+            const closed=!weekdays.includes(date.getDay())||holidays.includes(iso(date));
+            button.classList.toggle('is-non-school-day',closed);
+            if(closed)button.title='Non-school day or public holiday — attendance entry unavailable';
             button.dataset.attDate = iso(date);
             button.setAttribute('aria-label', date.toLocaleDateString('en-GB', {weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'}));
             if (index === 3) button.setAttribute('aria-current', 'date');
@@ -52,4 +56,5 @@ export function initAttendanceDateNavigation(root, calendar) {
         if (event.target === value) queueMicrotask(render);
     }, true);
     render();
+    root.addEventListener('attendance-date-availability',event=>{holidays=event.detail.holidays||[];weekdays=event.detail.weekdays||[1,2,3,4,5];render();});
 }

@@ -13,6 +13,15 @@ use Illuminate\Validation\{Rule,ValidationException};
 
 class DailyAttendanceController
 {
+    private function dateAvailability(array $scope): array
+    {
+        $calendar=app(\App\Services\AttendanceLeave::class)->calendar((int)$scope['academic_year_id'],(int)$scope['campus_id']);
+        $date=CarbonImmutable::parse($scope['date']);
+        $holiday=in_array($scope['date'],$calendar['holidays'],true);
+        $reason=$holiday?'Public holiday'.(filled($calendar['holiday_descriptions'][$scope['date']]??null)?': '.$calendar['holiday_descriptions'][$scope['date']]:''):
+            (in_array($date->dayOfWeek,$calendar['weekdays'],true)?null:($date->isWeekend()?$date->format('l'):'Non-school day'));
+        return ['allowed'=>$reason===null,'reason'=>$reason,'holidays'=>$calendar['holidays'],'weekdays'=>$calendar['weekdays']];
+    }
     private function scope(Request $request): array
     {
         $scope=$request->validate(['academic_year_id'=>['required','integer','exists:tb_academic_year,id'],'campus_id'=>['required','integer'],'class_id'=>['required','integer','exists:tb_class,id'],'date'=>['required','date_format:Y-m-d']]);
@@ -43,7 +52,8 @@ class DailyAttendanceController
     public function show(Request $request)
     {
         $scope=$this->scope($request);
-        app(\App\Services\AttendanceLeave::class)->applyDue($scope['academic_year_id'],$scope['campus_id'],$scope['date']);
+        $availability=$this->dateAvailability($scope);
+        if($availability['allowed'])app(\App\Services\AttendanceLeave::class)->applyDue($scope['academic_year_id'],$scope['campus_id'],$scope['date']);
         $register=DB::table('attendance_daily_registers')->where($this->registerScope($scope))->first();
         $roster=$this->roster($scope);
         $marks=DB::table('attendance_daily_marks')->where('academic_year_id',$scope['academic_year_id'])->where('attendance_date',$scope['date'])->whereIn('student_id',$roster->pluck('student_id'))->get()->keyBy('student_id');
@@ -68,11 +78,13 @@ class DailyAttendanceController
         });
         $history=$register?DB::table('attendance_daily_events as e')->join('users as u','u.id','=','e.user_id')->where('e.register_id',$register->id)->orderByDesc('e.id')->limit(20)->get(['u.name','e.created_at']):[];
         $permissions=collect(['create','edit','delete','leave-create','leave-edit','leave-cancel','leave-attachment'])->mapWithKeys(fn($action)=>[$action=>AttendancePermissions::allows($request->user(),$action,(int)$scope['campus_id'])]);
-        return response()->json(['register'=>$register,'students'=>$students,'history'=>$history,'permissions'=>$permissions,'today'=>now('Asia/Bangkok')->toDateString()]);
+        return response()->json(['register'=>$register,'students'=>$students,'history'=>$history,'permissions'=>$permissions,'date_availability'=>$availability,'today'=>now('Asia/Bangkok')->toDateString()]);
     }
     public function save(Request $request)
     {
         $scope=$this->scope($request);
+        $availability=$this->dateAvailability($scope);
+        if(!$availability['allowed'])throw ValidationException::withMessages(['date'=>'Attendance cannot be entered on '.$availability['reason'].'. Choose a school day.']);
         if ($request->boolean('edit_past')) abort_unless(AttendancePermissions::allows($request->user(),'edit',(int)$scope['campus_id']),403);
         app(\App\Services\AttendanceLeave::class)->applyDue($scope['academic_year_id'],$scope['campus_id'],$scope['date']);
         abort_if($scope['date']>now('Asia/Bangkok')->toDateString(),422,'Daily attendance cannot be saved for a future date.');

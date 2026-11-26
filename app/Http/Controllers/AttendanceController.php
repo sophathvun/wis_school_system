@@ -63,6 +63,12 @@ class AttendanceController
             'settings_campuses'=>AttendancePermissions::writeCampuses($request->user(),'settings'),
             'campuses'=>SchoolInfo::whereIn('id',$ids)->orderBy('campus_name_en')->get(['id','campus_name_en']),
             'manage_campuses'=>$manage,
+            'daily_calendars'=>DB::table('attendance_calendars')->whereIn('campus_id',$manage)->get(['academic_year_id','campus_id','weekdays','holidays','holiday_descriptions'])->map(fn($calendar)=>[
+                'academic_year_id'=>$calendar->academic_year_id,'campus_id'=>$calendar->campus_id,
+                'weekdays'=>json_decode($calendar->weekdays,true)?:[],
+                'holidays'=>json_decode($calendar->holidays,true)?:[],
+                'holiday_descriptions'=>json_decode($calendar->holiday_descriptions??'{}',true)?:[],
+            ]),
             'periods'=>DB::table('schedule_periods')->where('active',true)->whereNull('deleted_at')->orderBy('display_order')->orderBy('starts_at')->get()->map(function($period){$period->applicable_groups=json_decode($period->applicable_groups??'[]',true)?:[];return $period;}),
             'years'=>AcademicYear::orderByDesc('academic_year')->get(['id','academic_year']),
             'classes'=>$classes,

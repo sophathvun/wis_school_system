@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const isQuietAttendance = ['attendance-list', 'score-list', 'student-id-books-moeys', 'moeys-sikkhakarik-book'].includes(reportType);
     const requiresManualApply = ['moeys-id-number-book'].includes(reportType);
     let quietRefreshController = null;
+    let refreshClassPicker = () => {};
 
     const quietRefreshAttendance = async () => {
         if (!isQuietAttendance || !form) {
@@ -62,6 +63,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 currentTarget.value = nextTarget.value;
                 currentBox.outerHTML = nextBox.outerHTML;
             });
+
+            const classSelect = form.querySelector('select[name="print_grade_classes[]"]');
+            const nextClassSelect = doc.querySelector('select[name="print_grade_classes[]"]');
+            if (classSelect && nextClassSelect) {
+                classSelect.replaceChildren(...Array.from(nextClassSelect.options, option => new Option(option.textContent, option.value, option.selected, option.selected)));
+                refreshClassPicker();
+            }
 
             if (nextWorkspace?.dataset.reportDate) workspace.dataset.reportDate = nextWorkspace.dataset.reportDate;
             window.history.replaceState({}, '', url.toString());
@@ -884,6 +892,8 @@ document.addEventListener('DOMContentLoaded', () => {
             label.textContent = selected.join(', ');
         };
 
+        const renderOptions = () => {
+        options.replaceChildren();
         [...select.options].forEach((option) => {
             const row = document.createElement('label');
             row.className = 'report-class-picker-option';
@@ -899,6 +909,17 @@ document.addEventListener('DOMContentLoaded', () => {
             row.append(checkbox, document.createTextNode(option.textContent.trim()));
             options.append(row);
         });
+        if (!select.options.length) {
+            const empty = document.createElement('div');
+            empty.className = 'text-secondary px-2 py-2';
+            empty.setAttribute('role', 'status');
+            empty.textContent = 'No classes available. Select an Academic Year and Campus.';
+            options.append(empty);
+        }
+        sync();
+        };
+        refreshClassPicker = () => { search.value = ''; renderOptions(); };
+        refreshClassPicker();
 
         menu.append(search, options);
         picker.append(toggle, menu);
@@ -922,6 +943,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
         document.addEventListener('click', () => picker.classList.remove('is-open'));
+        select.addEventListener('change', sync);
         sync();
     }
 
