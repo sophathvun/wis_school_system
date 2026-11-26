@@ -17,6 +17,7 @@ export default defineConfig({
                 "resources/js/academicYears.js",
                 "resources/js/gepAcademicYears.js",
                 "resources/js/gepEnrollment.js",
+                "resources/js/gepDataTransfer.js",
                 "resources/js/gepTermAssignments.js",
                 "resources/js/gepTerms.js",
                 "resources/js/gepClasses.js",

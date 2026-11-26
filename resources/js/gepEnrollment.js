@@ -3,6 +3,11 @@ import { renderPagination } from './helpers/pagination.js';
 import { setupWmiYearPicker } from './helpers/wmiYearPicker.js';
 import { setupBackToTop } from './helpers/backToTop.js';
 import { createStudentPhotoEditor } from './helpers/studentPhotoEditor.js';
+import { initPremiumDatePicker } from './premiumDatePicker.js';
+import { dateKhmer } from './helpers/staffProfileFields.js';
+import intlTelInput from 'intl-tel-input';
+import 'intl-tel-input/styles';
+import { formatGepCambodiaPhone, gepPhoneValue } from './helpers/gepEnrollmentPhone.js';
 import '../css/pages/gep-enrollment.css';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -16,11 +21,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const pickers = new Map(); let rows = [], editing = null, source = 'existing', page = 1, timer, searchTimer, loading, searching;
     const sync = element => {
         if (!element) return;
-        element.closest('.gep-field')?.classList.toggle('has-value', Boolean(element.value) || element.hasAttribute('data-filter'));
+        const wrapper=element.closest('.gep-field');
+        wrapper?.classList.toggle('has-value', Boolean(element.value || element.dataset.importedName) || element.hasAttribute('data-filter') || wrapper.hasAttribute('data-gep-always-float'));
         pickers.get(element)?.sync();
+        if(!element.value && element.dataset.importedName){
+            const label=get(`${element.id}Value`);
+            if(label){label.textContent=element.dataset.importedName;label.title='Imported name: no unique match in the location/settings list. Select a listed name to replace it.';}
+        }else if(element.tagName==='SELECT')get(`${element.id}Value`)?.removeAttribute('title');
     };
     const setOptions = (select, items, label, value = '') => {
-        select.innerHTML = `<option value="">${select.hasAttribute('data-filter') ? esc(`All ${label}`) : ''}</option>` + items.map(item => `<option value="${esc(item.value)}">${esc(item.label)}</option>`).join('');
+        select.innerHTML = `<option value="">${select.hasAttribute('data-filter') ? esc(`All ${label}`) : ''}</option>` + items.map(item => `<option value="${esc(item.value)}"${item.flag?` data-flag="${esc(item.flag)}"`:''}${item.primary?` data-primary-label="${esc(item.primary)}" data-secondary-label="${esc(item.secondary)}"`:''}>${esc(item.label)}</option>`).join('');
         select.value = String(value ?? ''); sync(select);
     };
     const assignments = (year, forForm) => options.assignments.filter(a => (!year || String(a.academic_year_id) === String(year)) && (!forForm || (a.lifecycle_status !== 'finished' && a.academic_year?.status && a.term?.status) || a.id === editing?.term_assignment_id));
@@ -55,12 +65,13 @@ document.addEventListener('DOMContentLoaded', () => {
         setOptions(get('gep-lookup-class_id'),[...choices.values()].sort((a,b)=>a.gradeOrder-b.gradeOrder||a.label.localeCompare(b.label,'en',{numeric:true,sensitivity:'base'})),'Grades');
     };
     fillLookupClasses();
-    root.querySelectorAll('[data-country-select]').forEach(select=>setOptions(select,options.countries.map(c=>({value:c.id,label:select.dataset.countrySelect==='nationality'?`${c.nationality_name_kh||''} / ${c.nationality_name_en||c.country_name_en}`:`${c.country_name_kh||''} / ${c.country_name_en}`})),'Countries'));
+    const cambodia=options.countries.find(c=>String(c.country_name_en).trim().toLowerCase()==='cambodia');
+    root.querySelectorAll('[data-country-select]').forEach(select=>setOptions(select,options.countries.map(c=>({value:c.id,flag:c.flag_path||(c.id===cambodia?.id?'/flags/cambodia.svg':''),primary:select.dataset.countrySelect==='nationality'?(c.nationality_name_en||c.country_name_en):'',secondary:c.nationality_name_kh||'',label:select.dataset.countrySelect==='nationality'?`${c.nationality_name_kh||''} / ${c.nationality_name_en||c.country_name_en}`:`${c.country_name_en} / ${c.country_name_kh||''}`})),'Countries'));
     root.querySelectorAll('[data-occupation-select]').forEach(select=>setOptions(select,options.occupations.map(o=>({value:o.id,label:`${o.occupation_name_kh||''} / ${o.occupation_name_en}`})),'Occupations'));
     setOptions(get('gep-form-existing_family_id'),options.families.map(f=>({value:f.id,label:f.label})),'GEP Families');
     root.querySelectorAll('.gep-field select').forEach(select => { pickers.set(select,setupWmiYearPicker(select,select.getAttribute('aria-label') || select.name || 'options','ti-chevron-right')); sync(select); });
     root.querySelectorAll('.gep-field input,.gep-field textarea,.gep-field select').forEach(element => {
-        ['input','change'].forEach(event => element.addEventListener(event,() => sync(element))); sync(element);
+        ['input','change'].forEach(event => element.addEventListener(event,() => {delete element.dataset.importedName;sync(element);})); sync(element);
     });
     get('gep-student-search').closest('.gep-field').classList.add('gep-lookup-search-field');
     const request = async (path, method = 'GET', data, signal) => {
@@ -79,24 +90,55 @@ document.addEventListener('DOMContentLoaded', () => {
         elements:{parent:get('gep-enrollment-modal'),input:get('gep-student-photo'),dropzone:get('gep-photo-dropzone'),preview:get('gep-photo-preview'),previewContainer:get('gep-photo-preview-container'),editButton:get('gep-photo-edit')},
         showError:(title,message)=>Swal.fire({icon:'error',title,text:message}),showSuccess:(title)=>toast(title),saveMessage:'Save the GEP enrollment to apply this photo.'});
     const profileFields=[...form.querySelectorAll('[data-profile-field]')];
+    const createPhoneControl=(visibleId,hiddenId)=>{
+        const visible=get(visibleId),hidden=get(hiddenId);
+        const intl=intlTelInput(visible,{initialCountry:'kh',countryOrder:['kh'],numberDisplayFormat:'NATIONAL',separateDialCode:true,customPlaceholder:()=> 'Enter phone number',dropdownParent:get('gep-enrollment-modal'),loadUtils:()=>import('intl-tel-input/utils')});
+        visible.placeholder='Enter phone number';
+        const syncPhone=()=>{hidden.value=visible.value.trim()?(intl.getNumber()||gepPhoneValue(visible.value,intl.getSelectedCountry()?.dialCode||'855')):'';sync(hidden);};
+        const setValue=value=>{
+            const saved=String(value||'').trim();
+            intl.setNumber('');intl.setSelectedCountry('kh');
+            if(saved)intl.setNumber(saved.startsWith('+')?saved:gepPhoneValue(saved));
+            if(intl.getSelectedCountry()?.iso2==='kh')visible.value=formatGepCambodiaPhone(value);
+            hidden.value=value||'';sync(hidden);
+        };
+        visible.addEventListener('input',()=>{if(intl.getSelectedCountry()?.iso2==='kh')visible.value=formatGepCambodiaPhone(visible.value);syncPhone();});
+        visible.addEventListener('countrychange',syncPhone);
+        return {sync:syncPhone,setValue,setDisabled:disabled=>intl.setDisabled(disabled)};
+    };
+    const homePhoneControl=createPhoneControl('gep-home-phone-display','gep-form-home_phone');
+    const parentPhoneControls=Object.fromEntries(['mother','father','guardian'].map(parent=>[parent,createPhoneControl(`gep-${parent}-phone-display`,`gep-form-${parent}-phone`)]));
     let profileVersion=0,profileRequest;
-    const enableProfile=enabled=>profileFields.forEach(field=>{field.disabled=!enabled;field.required=enabled&&field.hasAttribute('data-profile-required');sync(field);});
-    const dobKhmer=()=>{const value=get('gep-form-date_of_birth').value;get('gep-dob-kh').value=value?new Intl.DateTimeFormat('km-KH',{day:'numeric',month:'long',year:'numeric'}).format(new Date(value+'T12:00:00')):'';sync(get('gep-dob-kh'));};
+    const enableProfile=enabled=>{profileFields.forEach(field=>{field.disabled=!enabled;field.required=enabled&&field.hasAttribute('data-profile-required');sync(field);});homePhoneControl.setDisabled(!enabled);get('gep-birth-date-display').disabled=!enabled;get('gep-birth-date-display').closest('.date-picker').querySelector('[data-premium-date-toggle]').disabled=!enabled;};
+    const dobKhmer=()=>{get('gep-dob-kh').value=dateKhmer(get('gep-form-date_of_birth').value);sync(get('gep-dob-kh'));sync(get('gep-form-date_of_birth'));};
+    const birthDatePicker=initPremiumDatePicker(get('gep-birth-date-display').closest('[data-premium-date-picker]'));
+    const enrolledDatePicker=initPremiumDatePicker(get('gep-enrolled-date-display').closest('[data-premium-date-picker]'));
+    get('gep-birth-date-display').addEventListener('input',dobKhmer);
     const resetProfile=()=>{
+        birthDatePicker.close();
         delete get('gep-student-search').dataset.loadingStudent;
-        profileVersion++;profileRequest?.abort();profileFields.forEach(field=>{field.value='';sync(field);});
+        profileVersion++;profileRequest?.abort();profileFields.forEach(field=>{field.value='';delete field.dataset.importedName;sync(field);});
+        get('gep-form-student_identifier').readOnly=false;
         for(const prefix of ['birth','address'])for(const type of ['province','district','commune','village'])setOptions(get(`gep-form-${prefix}_${type}_id`),[],type);
-        get('gep-student-number').value='';sync(get('gep-student-number'));dobKhmer();
+        get('gep-student-number').value='';sync(get('gep-student-number'));birthDatePicker.setValue('');dobKhmer();homePhoneControl.setValue('');
+        Object.values(parentPhoneControls).forEach(control=>control.setValue(''));
     };
     const fillParents=parents=>{
         for(const parent of ['mother','father','guardian'])for(const field of ['name_en','name_kh','occupation_id','nationality_country_id','phone','workplace']){
-            const control=form.elements.namedItem(`${parent}_${field}`);control.value=parents?.[parent]?.[field]??'';sync(control);
+            if(field==='phone'){parentPhoneControls[parent].setValue(parents?.[parent]?.phone||'');continue;}
+            const control=form.elements.namedItem(`${parent}_${field}`),raw=parents?.[parent]?.[field==='occupation_id'?'occupation':field==='nationality_country_id'?'nationality':'']||'';
+            control.dataset.importedName=raw;
+            control.value=parents?.[parent]?.[field]||(field==='nationality_country_id'&&!raw?cambodia?.id||'':'');sync(control);
         }
     };
     const fillProfile=async(profile={},identifier='',number='')=>{
         const version=++profileVersion;profileRequest?.abort();profileRequest=new AbortController();
-        for(const field of profileFields){if(field.dataset.locationPrefix && field.dataset.locationType!=='country')continue;field.value=profile[field.name]??'';sync(field);}
-        get('gep-form-student_identifier').value=identifier||'';get('gep-student-number').value=number||'';sync(get('gep-form-student_identifier'));sync(get('gep-student-number'));dobKhmer();
+        const importedName=field=>{const base=field.name==='nationality_country_id'?'nationality':field.name.replace(/_id$/,'');return [profile.transfer_names?.[`${base}_en`],profile.transfer_names?.[`${base}_kh`]].filter(Boolean).join(' / ');};
+        for(const field of profileFields){field.dataset.importedName=importedName(field);if(field.dataset.locationPrefix && field.dataset.locationType!=='country')continue;field.value=profile[field.name]??'';sync(field);}
+        homePhoneControl.setValue(profile.home_phone||'');
+        if(!get('gep-form-nationality_country_id').value&&!get('gep-form-nationality_country_id').dataset.importedName&&cambodia){get('gep-form-nationality_country_id').value=cambodia.id;sync(get('gep-form-nationality_country_id'));}
+        get('gep-form-student_identifier').value=identifier||'';get('gep-student-number').value=number||'';sync(get('gep-form-student_identifier'));sync(get('gep-student-number'));birthDatePicker.setValue(get('gep-form-date_of_birth').value);dobKhmer();
+        get('gep-form-student_identifier').readOnly=Boolean(identifier);
         for(const prefix of ['birth','address']){
             for(const [type,parent] of [['province','country'],['district','province'],['commune','district'],['village','commune']]){
                 const parentId=profile[`${prefix}_${parent}_id`],control=get(`gep-form-${prefix}_${type}_id`);
@@ -110,10 +152,10 @@ document.addEventListener('DOMContentLoaded', () => {
     for(const prefix of ['birth','address']){
         const types=['country','province','district','commune','village'];let locationVersion=0;
         types.slice(0,-1).forEach((type,index)=>get(`gep-form-${prefix}_${type}_id`).addEventListener('change',async()=>{
-            const version=++locationVersion;const parentId=get(`gep-form-${prefix}_${type}_id`).value;
-            types.slice(index+1).forEach(child=>setOptions(get(`gep-form-${prefix}_${child}_id`),[],child));
+            const version=++locationVersion,profileAtRequest=profileVersion;const parentId=get(`gep-form-${prefix}_${type}_id`).value;
+            types.slice(index+1).forEach(child=>{const control=get(`gep-form-${prefix}_${child}_id`);delete control.dataset.importedName;setOptions(control,[],child);});
             if(!parentId)return;
-            try{const result=await request(`/locations?${new URLSearchParams({type:types[index+1],parent_id:parentId})}`);if(version!==locationVersion)return;setOptions(get(`gep-form-${prefix}_${types[index+1]}_id`),result.data.map(v=>({value:v.id,label:`${v.name_kh||''} / ${v.name_en}`})),types[index+1]);}catch(error){showError('gep-form-error',error);}
+            try{const result=await request(`/locations?${new URLSearchParams({type:types[index+1],parent_id:parentId})}`);if(version!==locationVersion||profileAtRequest!==profileVersion)return;setOptions(get(`gep-form-${prefix}_${types[index+1]}_id`),result.data.map(v=>({value:v.id,label:`${v.name_kh||''} / ${v.name_en}`})),types[index+1]);}catch(error){showError('gep-form-error',error);}
         }));
     }
     get('gep-form-existing_family_id').addEventListener('change',async()=>{
@@ -159,6 +201,9 @@ document.addEventListener('DOMContentLoaded', () => {
         get('gep-student-information').classList.toggle('d-none',source==='existing'&&!editing);
         get('gep-existing-panel').classList.toggle('d-none',source!=='existing'||Boolean(editing));
         enableProfile(source==='new'||Boolean(editing));
+        if(!editing)fillParents({});
+        if(!editing&&cambodia)root.querySelectorAll('[data-country-select="nationality"]').forEach(select=>{if(!select.value){select.value=cambodia.id;sync(select);}});
+        if(source==='new'&&!editing&&cambodia)for(const prefix of ['birth','address']){const country=get(`gep-form-${prefix}_country_id`);country.value=cambodia.id;sync(country);country.dispatchEvent(new Event('change',{bubbles:true}));}
         root.querySelectorAll('[data-source]').forEach(button => {const active=button.dataset.source===source;button.classList.toggle('active',active);button.setAttribute('aria-pressed',String(active));});
     };
     const formTerms = (value = '') => {
@@ -183,15 +228,15 @@ document.addEventListener('DOMContentLoaded', () => {
             get('gep-form-academic_year_id').value=get('gep-filter-academic_year_id').value || current?.academic_year_id || options.years.find(y=>y.status)?.id || '';
             formTerms(current && String(current.academic_year_id)===get('gep-form-academic_year_id').value?current.id:'');
             const campuses=options.createCampuses;get('gep-form-campus_id').value=campuses.find(c=>String(c.id)===get('gep-filter-campus_id').value)?.id || (campuses.length===1?campuses[0].id:'');
-            get('gep-form-enrollment_status').value=current?'active':'pending';get('gep-form-enrolled_on').value=options.today;
+            get('gep-form-enrollment_status').value='active';get('gep-form-enrolled_on').value=options.today;
         }
+        enrolledDatePicker.setValue(get('gep-form-enrolled_on').value);
         form.querySelectorAll('input,textarea,select').forEach(sync);
         get('gep-enrollment-title').textContent=row?'Edit GEP Enrollment':'Register GEP Student';get('gep-enrollment-save').textContent=row?'Update':'Register Student';modal.show();
     };
     get('gep-enrollment-add')?.addEventListener('click',() => open());
     root.querySelectorAll('[data-source]').forEach(button => button.addEventListener('click',()=>setSource(button.dataset.source)));
     get('gep-form-academic_year_id').addEventListener('change',()=>formTerms());
-    get('gep-form-term_assignment_id').addEventListener('change',()=>{const term=options.assignments.find(a=>String(a.id)===get('gep-form-term_assignment_id').value);get('gep-form-enrollment_status').value=term?.lifecycle_status==='started'?'active':'pending';sync(get('gep-form-enrollment_status'));});
     let studentMatches=[];
     const lookupStudents=()=>{
         clearTimeout(searchTimer);searching?.abort();get('gep-student-results').replaceChildren();
@@ -236,13 +281,15 @@ document.addEventListener('DOMContentLoaded', () => {
         await fillProfile(result.profile,result.student_identifier,result.gep_code);
         if(source!=='existing'||get('gep-student-search').dataset.loadingStudent!==selectedId)return;
         enableProfile(true);photoEditor.resetPreview();if(result.photo_url)photoEditor.showPreview(result.photo_url);
-        if(result.parent_information)fillParents(result.parent_information);
+        fillParents(result.parent_information||{});
         get('gep-student-information').classList.remove('d-none');get('gep-student-search').value=student.full_name_en;sync(get('gep-student-search'));closeLookup();
         get('gep-selected-student-id').value=student.gep_student_id?'':student.id;get('gep-selected-gep-student-id').value=student.gep_student_id||'';get('gep-selected-student').textContent=`Selected: ${student.full_name_en} · ${student.student_id||student.student_no} · DOB: ${date(student.date_of_birth)}`;get('gep-selected-student').classList.remove('d-none');get('gep-student-results').replaceChildren();
         }catch(error){if(error.name!=='AbortError')showError('gep-form-error',error);}
     });
     form.addEventListener('submit',async event=>{
+        if(event.defaultPrevented)return;
         event.preventDefault();showError('gep-form-error',null);form.querySelectorAll('.is-invalid').forEach(e=>e.classList.remove('is-invalid'));
+        homePhoneControl.sync();Object.values(parentPhoneControls).forEach(control=>control.sync());
         if(!editing&&source==='existing'&&!get('gep-selected-student-id').value&&!get('gep-selected-gep-student-id').value){showError('gep-form-error',new Error('Search and select an existing student first.'));get('gep-student-search').focus();return;}
         const button=get('gep-enrollment-save');button.disabled=true;
         const data=new FormData(form);data.set('term_assignment_id',get('gep-form-term_assignment_id').value);

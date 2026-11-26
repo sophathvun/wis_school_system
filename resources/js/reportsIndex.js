@@ -1,5 +1,6 @@
 import { Tooltip } from 'bootstrap';
 import { initPremiumDatePicker } from './premiumDatePicker';
+import {bindDropdownSearch, dropdownOptionMatches} from './helpers/dropdownSearch.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     const workspace = document.querySelector('[data-report-type]');
@@ -375,10 +376,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        search.addEventListener('input', () => {
+        bindDropdownSearch(search, () => {
             const query = search.value.trim().toLowerCase();
             options.forEach((option) => {
-                option.hidden = Boolean(query) && !option.textContent.trim().toLowerCase().includes(query);
+                option.hidden = !dropdownOptionMatches(option, query);
             });
         });
 
@@ -754,7 +755,7 @@ document.addEventListener('DOMContentLoaded', () => {
             dropdown.querySelectorAll('input[name="selected_columns[]"]').forEach((checkbox) => {
                 checkbox.addEventListener('change', syncSummary);
             });
-            search.addEventListener('input', () => {
+            bindDropdownSearch(search, () => {
                 filterOptions();
             });
             syncSummary();
@@ -914,10 +915,10 @@ document.addEventListener('DOMContentLoaded', () => {
             picker.classList.toggle('is-open');
             if (picker.classList.contains('is-open')) search.focus();
         });
-        search.addEventListener('input', () => {
+        bindDropdownSearch(search, () => {
             const query = search.value.toLowerCase().trim();
             options.querySelectorAll('.report-class-picker-option').forEach((row) => {
-                row.hidden = Boolean(query) && !row.textContent.toLowerCase().includes(query);
+                row.hidden = !dropdownOptionMatches(row, query);
             });
         });
         document.addEventListener('click', () => picker.classList.remove('is-open'));

@@ -1,5 +1,5 @@
 <div class="row g-3">
-    <div class="col-12 col-sm-6 col-xl-3"><div class="gep-field has-value"><input id="gep-student-number" class="form-control" readonly placeholder="Assigned automatically"><label for="gep-student-number">Student No. (Auto)</label></div></div>
+    <div class="col-12 col-sm-6 col-xl-3"><div class="gep-field has-value" data-gep-always-float><input id="gep-student-number" class="form-control" readonly placeholder="Assigned automatically"><label for="gep-student-number">Student No. (Auto)</label></div></div>
     <div class="col-12 col-sm-6 col-xl-3"><div class="gep-field"><input id="gep-form-student_identifier" name="student_identifier" class="form-control" maxlength="30" placeholder=" " data-profile-field><label for="gep-form-student_identifier">GEP Student ID (Auto if blank)</label></div></div>
     <div class="col-12 col-sm-6 col-xl-3"><div class="gep-field"><select id="gep-form-existing_family_id" name="existing_family_id" data-profile-field aria-label="Existing GEP Family / Sibling"></select><label for="gep-form-existing_family_id">Existing GEP Family / Sibling</label></div></div>
     <div class="col-12 col-sm-6 col-xl-3"><div class="gep-field"><input id="gep-form-family_number" name="family_number" class="form-control" maxlength="30" placeholder=" " data-profile-field><label for="gep-form-family_number">Family Number</label></div></div>
@@ -8,16 +8,22 @@
     @endforeach
     <div class="col-12 col-sm-6 col-xl-3"><div class="gep-field"><select id="gep-form-gender" name="gender" data-profile-field><option value=""></option><option value="M">ប្រុស / Male</option><option value="F">ស្រី / Female</option></select><label for="gep-form-gender">Gender (Khmer / English)</label></div></div>
     <div class="col-12 col-sm-6 col-xl-3"><div class="gep-field"><select id="gep-form-nationality_country_id" name="nationality_country_id" data-country-select="nationality" data-profile-field></select><label for="gep-form-nationality_country_id">Nationality (Khmer / English)</label></div></div>
-    <div class="col-12 col-sm-6 col-xl-3"><div class="gep-field"><input type="date" id="gep-form-date_of_birth" name="date_of_birth" class="form-control" max="{{ $options['today'] }}" data-profile-field><label for="gep-form-date_of_birth">Date of Birth</label></div></div>
+    <div class="col-12 col-sm-6 col-xl-3">@include('gep._birth-date')</div>
     <div class="col-12 col-sm-6 col-xl-3"><div class="gep-field"><input id="gep-dob-kh" class="form-control school-profile-khmer" readonly placeholder=" "><label for="gep-dob-kh">ថ្ងៃខែឆ្នាំកំណើត (Date of Birth)</label></div></div>
-    @foreach(['home_phone'=>['Home Phone','tel'],'email'=>['E-mail','email']] as $name=>[$label,$type])
-        <div class="col-12 col-sm-6 col-xl-3"><div class="gep-field"><input type="{{ $type }}" id="gep-form-{{ $name }}" name="{{ $name }}" class="form-control" placeholder=" " maxlength="{{ $name==='home_phone'?50:150 }}" data-profile-field><label for="gep-form-{{ $name }}">{{ $label }}</label></div></div>
-    @endforeach
+    <div class="col-12 col-sm-6 col-xl-3"><div class="gep-field gep-home-phone-field">
+        <input id="gep-home-phone-display" class="form-control" type="tel" autocomplete="tel" maxlength="50" aria-label="Home Phone">
+        <input id="gep-form-home_phone" name="home_phone" type="hidden" data-profile-field>
+        <label for="gep-home-phone-display">Home Phone</label>
+    </div></div>
+    <div class="col-12 col-sm-6 col-xl-3"><div class="gep-field gep-email-field" data-gep-always-float>
+        <div class="input-icon gep-email-control"><i class="ti ti-mail" aria-hidden="true"></i><input type="email" id="gep-form-email" name="email" class="form-control" placeholder=" " maxlength="150" data-profile-field></div>
+        <label for="gep-form-email">Email</label>
+    </div></div>
     <div class="col-12"><div class="gep-field"><textarea id="gep-form-remarks" name="remarks" class="form-control" placeholder=" " maxlength="5000" data-profile-field></textarea><label for="gep-form-remarks">Remarks</label></div></div>
 </div>
 @foreach(['birth'=>'Place of Birth','address'=>'Home Address'] as $prefix=>$title)
     <div class="gep-profile-subsection"><h4>{{ $title }}</h4><div class="gep-location-grid">
-        @foreach(['country'=>'Country (Khmer / English)','province'=>'Province / City','district'=>'District / Khan','commune'=>'Commune','village'=>'Village'] as $type=>$label)
+        @foreach(['country'=>'Country','province'=>'Province / City','district'=>'District / Khan','commune'=>'Commune','village'=>'Village'] as $type=>$label)
             <div class="gep-field"><select id="gep-form-{{ $prefix }}_{{ $type }}_id" name="{{ $prefix }}_{{ $type }}_id" data-location-prefix="{{ $prefix }}" data-location-type="{{ $type }}" data-profile-field @if($type==='country') data-country-select="country" @endif></select><label for="gep-form-{{ $prefix }}_{{ $type }}_id">{{ $label }}</label></div>
         @endforeach
     </div>

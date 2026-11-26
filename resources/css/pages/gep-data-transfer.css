@@ -1,0 +1,6 @@
+@import '../components/skipping-documents-upload.css';
+
+.gep-transfer-upload [hidden] { display: none !important; }
+.gep-transfer-upload .premium-document-dropzone { min-height: 210px; }
+.gep-transfer-upload .document-file-details { min-width: 0; flex: 1; }
+.gep-transfer-upload .document-file-name { overflow-wrap: anywhere; white-space: normal; }

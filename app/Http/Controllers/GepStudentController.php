@@ -13,6 +13,7 @@ class GepStudentController
         abort_unless(isset(GepStudentPermissions::SECTIONS[$studentSection]),404);
         abort_unless(isset($sections[$studentSection]),403);
         if($studentSection==='enrollment')return app(GepEnrollmentController::class)->index($request);
+        if($studentSection==='import-export')return app(GepDataTransferController::class)->index($request);
         return view('gep.students',['current'=>GepStudentPermissions::SECTIONS[$studentSection]]);
     }
 }

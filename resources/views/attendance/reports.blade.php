@@ -20,7 +20,7 @@
                 <div class="card mb-3">
                     <div class="card-header att-header"><h3 class="card-title"><i class="ti ti-filter me-2"></i>Data Filters</h3><button type="button" class="btn btn-sm btn-outline-light ms-auto" data-report-filter-toggle aria-expanded="true" aria-controls="attendanceReportFilters" aria-label="Collapse data filters"><i class="ti ti-chevron-up" aria-hidden="true"></i></button></div>
                     <form class="card-body att-report-filters" id="attendanceReportFilters" data-report-filters><input type="hidden" name="report" value="detail">
-                        @foreach(['academic_year_id' => 'Academic Year', 'campus_id' => 'Campus', 'grade_class' => 'Grade', 'student_id' => 'Student Name'] as $name => $label)
+                        @foreach(['academic_year_id' => 'Academic Year', 'campus_id' => 'Campus', 'grade_class' => 'Grade', 'group' => 'Group', 'student_id' => 'Student Name'] as $name => $label)
                             <div class="premium-form-field staff-form-field">
                                 <label class="form-label" for="report-{{ $name }}">{{ $label }}</label>
                                 <select class="form-select" id="report-{{ $name }}" name="{{ $name }}" aria-label="{{ $label }}"></select>
@@ -58,7 +58,7 @@
                 <div class="card mb-3">
                     <div class="card-header att-header"><h3 class="card-title"><i class="ti ti-filter me-2"></i>Data Filters</h3><button type="button" class="btn btn-sm btn-outline-light ms-auto" data-statistics-filter-toggle aria-expanded="true" aria-controls="attendanceStatisticsFilters" aria-label="Collapse data filters"><i class="ti ti-chevron-up" aria-hidden="true"></i></button></div>
                     <form class="card-body att-report-filters att-statistics-filters" id="attendanceStatisticsFilters" data-statistics-filters><input type="hidden" name="report" value="statistics">
-                        @foreach(['academic_year_id' => 'Academic Year', 'campus_id' => 'Campus', 'grade_class' => 'Grade', 'student_id' => 'Student Name'] as $name => $label)
+                        @foreach(['academic_year_id' => 'Academic Year', 'campus_id' => 'Campus', 'grade_class' => 'Grade', 'group' => 'Group', 'student_id' => 'Student Name'] as $name => $label)
                             <div class="premium-form-field staff-form-field"><label class="form-label" for="statistics-{{ $name }}">{{ $label }}</label><select class="form-select" id="statistics-{{ $name }}" name="{{ $name }}" aria-label="{{ $label }}"></select></div>
                         @endforeach
                         <div class="premium-form-field att-report-date-range" data-statistics-date-range>

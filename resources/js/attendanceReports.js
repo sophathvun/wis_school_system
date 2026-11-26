@@ -156,6 +156,7 @@ async function initAttendanceDetails(root) {
             if (serial !== optionsRequest) return;
             fill('campus_id', data.campuses, 'campus_name_en', 'All campuses');
             fill('grade_class', data.grades, 'label', 'All grades');
+            fill('group', data.groups, 'label', 'All groups');
             fill('student_id', data.students, 'label', 'Select student');
             sync(); await loadRows();
         } catch (failure) {if (serial === optionsRequest) {rows.replaceChildren(); profile.hidden = true; error.textContent = failure.message;}}
@@ -163,7 +164,7 @@ async function initAttendanceDetails(root) {
     form.addEventListener('submit', event => event.preventDefault());
     form.addEventListener('change', event => {
         const name = event.target.name;
-        const fields = ['academic_year_id', 'campus_id', 'grade_class', 'student_id'];
+        const fields = ['academic_year_id', 'campus_id', 'grade_class', 'group', 'student_id'];
         if (['date_from', 'date_to'].includes(name)) {sync();loadRows();return;}
         if (!fields.includes(name)) return;
         fields.slice(fields.indexOf(name) + 1).forEach(field => form.elements[field].value = '');
@@ -181,10 +182,11 @@ async function initAttendanceDetails(root) {
         const rangeInput = root.querySelector('[data-report-date-range] input:not([type=hidden])');
         rangeInput.value = ''; rangeInput.setCustomValidity('');
         form.elements.academic_year_id.value = record.academic_year_id;
-        ['campus_id', 'grade_class', 'student_id'].forEach(name => form.elements[name].value = '');
+        ['campus_id', 'grade_class', 'group', 'student_id'].forEach(name => form.elements[name].value = '');
         await loadOptions();
         form.elements.campus_id.value = record.campus_id; await loadOptions();
         form.elements.grade_class.value = record.grade_class; await loadOptions();
+        form.elements.group.value = record.group || ''; await loadOptions();
         form.elements.student_id.value = record.student_id;
         if (record.date_from && record.date_to) {
             form.elements.date_from.value = record.date_from; form.elements.date_to.value = record.date_to;

@@ -519,6 +519,14 @@
     font-size: 0.875rem;
 }
 
+/* Popup searches have their own label; the floating-field placeholder rule must not hide their hint. */
+.premium-form-field .location-combobox-search::placeholder,
+.location-combobox-search::placeholder,
+.wmi-picker-search::placeholder {
+    color: var(--tblr-secondary, #667382);
+    opacity: 1;
+}
+
 .family-information .form-control {
     height: var(--tblr-form-control-height);
 }

@@ -22,6 +22,7 @@ class AttendanceReportController
             'academic_year_id' => ['required', 'integer', 'exists:tb_academic_year,id'],
             'campus_id' => ['nullable', 'integer'],
             'grade_class' => ['nullable', 'regex:/^\d+:\d+$/'],
+            'group' => ['nullable', Rule::in(['M', 'A', 'III'])],
             'student_id' => ['nullable', 'integer'],
             'search' => ['nullable', 'string', 'max:200'],
             'date_from' => ['nullable', 'date_format:Y-m-d'],
@@ -65,6 +66,20 @@ class AttendanceReportController
         return response()->json(AcademicYear::orderByDesc('academic_year')->get(['id', 'academic_year']));
     }
 
+    private function applyGroup($query, array $input): void
+    {
+        if (empty($input['group'])) return;
+        // Use the same session-first group code shown on attendance records.
+        $group = $input['group'];
+        $query->where(function ($query) use ($group) {
+            $query->whereHas('session', fn ($session) => $session->whereRaw("UPPER(TRIM(REPLACE(session_short_name, 'Ⅲ', 'III'))) = ?", [$group]))
+                ->orWhere(function ($fallback) use ($group) {
+                    $fallback->whereDoesntHave('session', fn ($session) => $session->whereNotNull('session_short_name')->where('session_short_name', '<>', ''))
+                        ->whereHas('schoolGroup', fn ($schoolGroup) => $schoolGroup->whereRaw("UPPER(TRIM(REPLACE(group_name, 'Ⅲ', 'III'))) = ?", [$group]));
+                });
+        });
+    }
+
     public function options(Request $request)
     {
         $input = $this->filters($request);
@@ -76,11 +91,15 @@ class AttendanceReportController
             ->map(fn ($e) => ['id' => ($e->grade_id ?? 0).':'.$e->class_id, 'label' => $this->gradeClass($e)])
             ->sortBy('label', SORT_NATURAL)->values();
         $this->applyGrade($query, $input);
+        $groups = (clone $query)->with(['session', 'schoolGroup'])->get()->map(fn ($enrollment) => AttendanceStudyGroup::code($enrollment))
+            ->filter()->unique()->sortBy(fn ($code) => array_search($code, ['M', 'A', 'III'], true))
+            ->map(fn ($code) => ['id' => $code, 'label' => $code])->values();
+        $this->applyGroup($query, $input);
         $students = $query->with('student')->get()->unique('student_id')->map(fn ($e) => [
             'id' => $e->student_id,
             'label' => trim(($e->student?->student_id ?? '').' · '.($e->student?->full_name_kh ?? '').' · '.($e->student?->full_name_en ?? '')),
         ])->sortBy('label')->values();
-        return response()->json(['campuses' => $campuses, 'grades' => $grades, 'students' => $students,
+        return response()->json(['campuses' => $campuses, 'grades' => $grades, 'groups' => $groups, 'students' => $students,
             'years' => AcademicYear::orderByDesc('academic_year')->get(['id', 'academic_year'])]);
     }
 
@@ -90,6 +109,7 @@ class AttendanceReportController
         $request->validate(['student_id' => ['required', 'integer']]);
         $enrollments = $this->enrollments($request, $input);
         $this->applyGrade($enrollments, $input);
+        $this->applyGroup($enrollments, $input);
         $enrollments->when($input['student_id'] ?? null, fn ($q, $id) => $q->where('student_id', $id));
         $profile = (clone $enrollments)->with(['student', 'grade', 'schoolClass', 'academicYear', 'campus', 'session', 'schoolGroup'])->orderByDesc('id')->firstOrFail();
         $query = DB::table('attendance_daily_marks')->whereIn('enrollment_id', $enrollments->select('id'))
@@ -132,6 +152,7 @@ class AttendanceReportController
         $input = $this->filters($request, 'statistics');
         $scope = $this->enrollments($request, $input);
         $this->applyGrade($scope, $input);
+        $this->applyGroup($scope, $input);
         $scope->when($input['student_id'] ?? null, fn ($q, $id) => $q->where('student_id', $id));
         // One row per student, including students with no recorded absences.
         $latest = (clone $scope)->selectRaw('MAX(id)')->groupBy('student_id');

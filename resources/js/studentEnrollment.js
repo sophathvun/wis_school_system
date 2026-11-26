@@ -6,6 +6,7 @@ import { createStudentPhotoEditor, studentPhotoJpeg } from "./helpers/studentPho
 import { createEnrollmentFamilyOptionsLoader } from "./helpers/enrollment-family-options.js";
 import { selectEnrollmentAcademicYear } from "./helpers/enrollment-academic-year.js";
 import { setupEnrollmentSearch } from "./helpers/enrollment-search.js";
+import { bindDropdownSearch, dropdownOptionMatches } from "./helpers/dropdownSearch.js";
 import "../css/components/student-profile-birthplace.css";
 import birthplaceStyles from "../css/components/student-profile-birthplace.css?raw";
 import intlTelInput from "intl-tel-input";
@@ -1934,7 +1935,7 @@ const setupSearchableEnrollmentSelect = (id, label) => {
             .slice(1)
             .filter(
                 (option) =>
-                    !term || option.textContent.toLowerCase().includes(term),
+                    dropdownOptionMatches(option, term),
             );
         const allOption = isListFilter
             ? `<button type="button" class="location-combobox-option" data-searchable-select-id="${id}" data-searchable-select-value="">${emptyLabel}</button>`
@@ -1983,7 +1984,7 @@ const setupSearchableEnrollmentSelect = (id, label) => {
         },
         true,
     );
-    searchInput.addEventListener("input", () => {
+    bindDropdownSearch(searchInput, () => {
         if (!isFamilyPicker) return render();
         // Invalidate older results immediately while the user types.
         familySearchRequestId++;

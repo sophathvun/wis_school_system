@@ -6,7 +6,7 @@
         <div class="card-header gep-settings-header py-2"><h2 class="card-title text-white mb-0">Data Filters</h2><button class="btn btn-sm btn-outline-light ms-auto" type="button" id="gep-filter-toggle" aria-expanded="true" aria-controls="gep-filter-body"><i class="ti ti-adjustments-horizontal me-1"></i><span>Collapse</span></button></div>
         <div class="card-body" id="gep-filter-body">
             <div class="row g-2">
-                @foreach(['academic_year_id'=>'Academic Year','term_assignment_id'=>'Term','campus_id'=>'Campus','level_id'=>'Level','class_type_id'=>'Class Type','class_id'=>'Class','group_id'=>'Group','enrollment_status'=>'Status'] as $name=>$label)
+                @foreach(['academic_year_id'=>'Academic Year','term_assignment_id'=>'Term','campus_id'=>'Campus','level_id'=>'Level','class_id'=>'Class','class_type_id'=>'Class Type','group_id'=>'Group','enrollment_status'=>'Status'] as $name=>$label)
                     <div class="col-6 col-md-4 col-xl-3"><div class="gep-field"><select id="gep-filter-{{ $name }}" data-filter="{{ $name }}" aria-label="{{ $label }}"></select><label for="gep-filter-{{ $name }}">{{ $label }}</label></div></div>
                 @endforeach
                 <div class="col-12 col-md-9"><div class="gep-field"><input type="search" id="gep-enrollment-search" class="form-control" placeholder=" " maxlength="150" data-search-normalized="true"><label for="gep-enrollment-search">Search name, Student ID or GEP number</label></div></div>
@@ -27,7 +27,7 @@
         <div class="table-responsive gep-enrollment-table"><table class="table table-vcenter card-table mb-0"><thead><tr><th>No.</th><th>Student</th><th>Contact</th><th>Academic Year / Term</th><th>Study Information</th><th>Enrollment</th><th class="text-end">Actions</th></tr></thead><tbody id="gep-enrollment-rows"><tr><td colspan="7" class="text-center py-5">Loading enrollments…</td></tr></tbody></table></div>
         <div class="card-footer"><select id="gep-enrollment-per-page" class="d-none" aria-label="Records per page"><option>10</option><option>25</option><option>50</option><option>100</option><option>all</option></select><div id="gep-enrollment-pagination"></div></div>
     </div>
-    <div class="modal modal-blur fade" id="gep-enrollment-modal" tabindex="-1" aria-labelledby="gep-enrollment-title" aria-hidden="true">
+    <div class="modal modal-blur fade gep-compact-registration" id="gep-enrollment-modal" tabindex="-1" aria-labelledby="gep-enrollment-title" aria-hidden="true">
         <div class="modal-dialog modal-xl modal-dialog-scrollable"><form class="modal-content" id="gep-enrollment-form">
             <div class="modal-header gep-settings-header"><h2 class="modal-title text-white" id="gep-enrollment-title">Register GEP Student</h2><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button></div>
             <div class="modal-body">
@@ -66,18 +66,28 @@
                 <div id="gep-new-panel">@include('gep._student-profile-fields')</div>
                 <div id="gep-edit-student" class="alert alert-primary d-none"></div>
                 </div></section>
-                <section class="gep-enrollment-section mb-3"><h3>Enrollment Information</h3><div class="p-3"><div class="row g-3">
-                    @foreach(['academic_year_id'=>'Academic Year','term_assignment_id'=>'Term','campus_id'=>'Campus','level_id'=>'Level','class_type_id'=>'Class Type','class_id'=>'Class','group_id'=>'Group','enrollment_status'=>'Enrollment Status'] as $name=>$label)
+                <section class="gep-enrollment-section mb-3"><h3>Enrollment Information</h3><div class="p-3"><div class="row g-3 gep-assignment-grid">
+                    @foreach(['academic_year_id'=>'Academic Year','term_assignment_id'=>'Term','campus_id'=>'Campus','level_id'=>'Level','class_id'=>'Class','class_type_id'=>'Class Type','group_id'=>'Group','enrollment_status'=>'Enrollment Status'] as $name=>$label)
                         <div class="col-12 col-sm-6 col-lg-3"><div class="gep-field"><select id="gep-form-{{ $name }}" name="{{ $name }}" required aria-label="{{ $label }}"></select><label for="gep-form-{{ $name }}">{{ $label }} <span class="text-danger">*</span></label></div></div>
                     @endforeach
-                    <div class="col-12 col-sm-6 col-lg-3"><div class="gep-field"><input type="date" class="form-control" id="gep-form-enrolled_on" name="enrolled_on" required><label for="gep-form-enrolled_on">Enrolled On <span class="text-danger">*</span></label></div></div>
-                    <div class="col-12"><div class="gep-field"><textarea class="form-control" id="gep-form-notes" name="notes" placeholder=" " maxlength="2000"></textarea><label for="gep-form-notes">Notes</label></div></div>
+                    <div class="col-12 col-lg-6 gep-assignment-date">@include('gep._birth-date', ['dateField'=>'enrolled_on'])</div>
+                    <div class="col-12 gep-assignment-notes"><div class="gep-field"><textarea class="form-control" id="gep-form-notes" name="notes" placeholder=" " maxlength="2000"></textarea><label for="gep-form-notes">Notes</label></div></div>
                 </div></div></section>
                 <section class="gep-enrollment-section"><h3>Parent Information <span class="fw-normal small">(Optional)</span></h3><div class="p-3">
                     @foreach(['mother'=>'Mother','father'=>'Father','guardian'=>'Guardian'] as $parent=>$parentLabel)
                         <fieldset class="gep-parent-section"><legend>{{ $parentLabel }}</legend><div class="row g-3">
                             @foreach(['name_en'=>'Full Name (English)','name_kh'=>'Full Name (Khmer)','occupation_id'=>'Occupation (Khmer / English)','nationality_country_id'=>'Nationality (Khmer / English)','phone'=>'Phone Number','workplace'=>'Workplace'] as $field=>$label)
-                                <div class="col-12 col-sm-6 col-xl-3"><div class="gep-field">@if(in_array($field,['occupation_id','nationality_country_id']))<select id="gep-form-{{ $parent }}-{{ $field }}" name="{{ $parent }}_{{ $field }}" @if($field==='nationality_country_id') data-country-select="nationality" @else data-occupation-select @endif></select>@else<input class="form-control" id="gep-form-{{ $parent }}-{{ $field }}" name="{{ $parent }}_{{ $field }}" type="{{ $field==='phone'?'tel':'text' }}" placeholder=" " maxlength="{{ $field==='phone'?50:150 }}">@endif<label for="gep-form-{{ $parent }}-{{ $field }}">{{ $label }}</label></div></div>
+                                <div class="col-12 col-sm-6 col-xl-3"><div class="gep-field @if($field==='phone') gep-home-phone-field @endif">
+                                    @if(in_array($field,['occupation_id','nationality_country_id']))
+                                        <select id="gep-form-{{ $parent }}-{{ $field }}" name="{{ $parent }}_{{ $field }}" @if($field==='nationality_country_id') data-country-select="nationality" @else data-occupation-select @endif></select>
+                                    @elseif($field==='phone')
+                                        <input class="form-control" id="gep-{{ $parent }}-phone-display" type="tel" autocomplete="tel" maxlength="50" aria-label="{{ $parentLabel }} Phone Number">
+                                        <input type="hidden" id="gep-form-{{ $parent }}-phone" name="{{ $parent }}_phone">
+                                    @else
+                                        <input class="form-control" id="gep-form-{{ $parent }}-{{ $field }}" name="{{ $parent }}_{{ $field }}" type="text" placeholder=" " maxlength="150">
+                                    @endif
+                                    <label for="{{ $field==='phone'?'gep-'.$parent.'-phone-display':'gep-form-'.$parent.'-'.$field }}">{{ $label }}</label>
+                                </div></div>
                             @endforeach
                         </div></fieldset>
                     @endforeach

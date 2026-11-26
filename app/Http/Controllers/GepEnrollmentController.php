@@ -41,7 +41,7 @@ class GepEnrollmentController
             'classTypes'=>GepClassType::orderBy('sort_order')->get(),
             'classes'=>GepClass::orderBy('sort_order')->orderBy('class_name')->get(),
             'groups'=>GepGroup::orderBy('sort_order')->get(),
-            'countries'=>DB::table('tb_country')->where('status',1)->orderBy('country_name_en')->get(['id','country_name_en','country_name_kh','nationality_name_en','nationality_name_kh']),
+            'countries'=>DB::table('tb_country')->where('status',1)->orderBy('country_name_en')->get(['id','country_name_en','country_name_kh','nationality_name_en','nationality_name_kh','flag_path']),
             'occupations'=>DB::table('tb_occupation')->where('status',1)->whereNull('deleted_at')->orderBy('occupation_name_en')->get(['id','occupation_name_en','occupation_name_kh']),
             'families'=>GepStudent::whereHas('enrollments',fn($q)=>$q->whereIn('campus_id',Access::campuses($request->user())->pluck('id')))->whereNotNull('profile->family_number')->orderByDesc('id')->get()->filter(fn($m)=>filled($m->profile['family_number']??null))->map(fn($m)=>['id'=>$m->id,'label'=>$m->profile['family_number'].' · '.($m->profile['full_name_en']??$m->gep_code),'family_number'=>$m->profile['family_number']])->values(),
             'lookupYears'=>DB::table('tb_academic_year')->where('period_type','regular')->whereIn('id',DB::table('tb_student_enrollment')->whereIn('campus_id',Access::campuses($request->user())->pluck('id'))->select('academic_year_id'))->orderByDesc('academic_year')->get(['id','academic_year']),
@@ -209,6 +209,7 @@ class GepEnrollmentController
             $beforeProfile=$gepStudent->profile;
             $beforeIdentifier=$gepStudent->student_identifier;
             $profile=array_replace($beforeProfile??[],collect($data)->only(Profile::FIELDS)->all());
+            $profile=\App\Support\GepTransferNames::clearChanged($beforeProfile??[],$profile);
             $this->validateLocations($profile);
             if(empty($profile['full_name_en']))throw ValidationException::withMessages(['full_name_en'=>'Full Name (English) is required.']);
             $profile['full_name_en']=trim($profile['full_name_en']);
@@ -219,7 +220,11 @@ class GepEnrollmentController
                 if(empty($family->profile['family_number']))throw ValidationException::withMessages(['existing_family_id'=>'Select a GEP family with a family number.']);
                 $profile['family_number']=$family->profile['family_number'];
             }
-            $gepStudent->update(['profile'=>$profile,'student_identifier'=>filled($data['student_identifier']??null)?$data['student_identifier']:($gepStudent->student_identifier ?: $gepStudent->gep_code)]);
+            $identifier=$gepStudent->student_identifier;
+            if(filled($identifier) && filled($data['student_identifier']??null) && $data['student_identifier']!==$identifier)
+                throw ValidationException::withMessages(['student_identifier'=>'This student already has a permanent GEP Student ID.']);
+            $identifier=$identifier ?: (filled($data['student_identifier']??null)?$data['student_identifier']:app(\App\Services\GepStudentIdAllocator::class)->allocate($year->academic_year));
+            $gepStudent->update(['profile'=>$profile,'student_identifier'=>$identifier]);
             $beforePhoto=$gepStudent->photo_path;
             if($request->hasFile('photo')){
                 $bytes=app(StudentPhotoProcessor::class)->portraitWebp($request->file('photo'));
@@ -244,6 +249,10 @@ class GepEnrollmentController
                 foreach(['mother','father','guardian'] as $parent)foreach(self::PARENT_FIELDS as $field){
                     $value=trim($data[$parent.'_'.$field]??'');
                     $parents[$parent][$field]=$field==='phone'?Profile::phone($value):($value!==''?$value:null);
+                }
+                foreach(['mother','father','guardian'] as $parent)foreach(['occupation'=>'occupation_id','nationality'=>'nationality_country_id'] as $text=>$key){
+                    if(!array_key_exists($parent.'_'.$text,$data) && (string)($enrollment->parent_information[$parent][$key]??'')===(string)($parents[$parent][$key]??''))
+                        $parents[$parent][$text]=$enrollment->parent_information[$parent][$text]??null;
                 }
                 $values['guardian_name']=$parents['guardian']['name_en'];
                 $values['guardian_phone']=$parents['guardian']['phone'];

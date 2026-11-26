@@ -1,3 +1,5 @@
+import {bindDropdownSearch, dropdownOptionMatches} from './dropdownSearch.js';
+
 export function setupStaffLocationSelect(form, select, kind) {
     const field = select.closest('.staff-form-field');
     const multiple = select.multiple;
@@ -36,6 +38,7 @@ export function setupStaffLocationSelect(form, select, kind) {
             line.textContent = option.dataset[language];
             text.appendChild(line);
         }
+        if (!text.childNodes.length) text.textContent = option?.textContent || '';
         if (!option?.dataset.flag) return text;
         const flagged = document.createElement('span');
         flagged.className = 'staff-birth-country-label';
@@ -51,7 +54,7 @@ export function setupStaffLocationSelect(form, select, kind) {
         results.replaceChildren();
         [...select.options].forEach((option,index) => {
             if (option.hidden || option.disabled) return;
-            if (term && !`${option.dataset.en || ''} ${option.dataset.kh || ''}`.toLowerCase().includes(term)) return;
+            if (!dropdownOptionMatches(option, term)) return;
             const button = document.createElement('button');
             button.type = 'button';
             button.className = `location-combobox-option${option.selected ? ' is-selected' : ''}`;
@@ -67,7 +70,7 @@ export function setupStaffLocationSelect(form, select, kind) {
                 button.disabled = option.dataset.locked === 'true';
             }
             if (option.dataset.en || option.dataset.kh) button.appendChild(textFor(option));
-            else button.textContent = `Clear ${locationLabel}`;
+            else button.textContent = option.textContent || `Clear ${locationLabel}`;
             if (multiple && option.dataset.locked === 'true') {
                 const badge = document.createElement('small');
                 badge.className = 'badge bg-primary-lt ms-auto';
@@ -87,7 +90,7 @@ export function setupStaffLocationSelect(form, select, kind) {
         const option = select.selectedOptions[0];
         if (multiple) selected.textContent = [...select.selectedOptions].map(item => item.dataset.en || item.textContent).join(', ');
         else selected.replaceChildren(textFor(option));
-        field.classList.toggle('has-value', multiple ? select.selectedOptions.length > 0 : Boolean(option?.dataset.en || option?.dataset.kh));
+        field.classList.toggle('has-value', multiple ? select.selectedOptions.length > 0 : Boolean(option?.dataset.en || option?.dataset.kh || option?.textContent));
         const fields = kind === 'nationality' ? [['en','nationality'],['kh','nationality_kh']] : kind === 'province' ? [['en','place_of_birth_en'],['kh','place_of_birth_kh']] : [];
         for (const [language,name] of fields) {
             const input = form.elements.namedItem(name);
@@ -103,7 +106,7 @@ export function setupStaffLocationSelect(form, select, kind) {
         search.value = ''; render(); search.focus();
     };
     toggle.addEventListener('click', () => menu.classList.contains('d-none') ? open() : close());
-    search.addEventListener('input',render);
+    bindDropdownSearch(search,render);
     results.addEventListener('click', event => {
         const button = event.target.closest('[data-index]');
         if (!button) return;
@@ -118,6 +121,7 @@ export function setupStaffLocationSelect(form, select, kind) {
         else { close(); toggle.focus(); }
     });
     combo.addEventListener('keydown', event => {
+        if (event.isComposing || event.keyCode === 229) return;
         if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close(); toggle.focus(); return; }
         if (!['ArrowDown','ArrowUp','Home','End'].includes(event.key)) return;
         if (event.target === search && ['Home','End'].includes(event.key)) return;

@@ -70,4 +70,78 @@
 @media(max-width:1199px){#gep-enrollments .gep-location-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#gep-enrollments .gep-address-grid{grid-template-columns:1fr 1fr}#gep-enrollments .gep-address-grid>.gep-field:last-child{grid-column:1/-1}}
 @media(max-width:575px){#gep-enrollments .gep-location-grid,#gep-enrollments .gep-address-grid{grid-template-columns:minmax(0,1fr)}}
 #gep-enrollments .gep-history-values{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 16px;font-size:.8rem}
+/* Use the same compact layout for both student registration modes. */
+#gep-enrollment-modal.gep-compact-registration{font-size:.8125rem}
+#gep-enrollment-modal.gep-compact-registration .modal-header{min-height:56px;padding:14px 20px}
+#gep-enrollment-modal.gep-compact-registration .modal-title{font-size:1rem}
+#gep-enrollment-modal.gep-compact-registration .modal-body{padding:18px}
+#gep-enrollment-modal.gep-compact-registration .modal-footer{padding:12px 20px}
+#gep-enrollment-modal.gep-compact-registration .btn{font-size:.8125rem}
+#gep-enrollment-modal.gep-compact-registration .gep-registration-content{padding:18px}
+#gep-enrollment-modal.gep-compact-registration .gep-registration-modes .btn{min-height:48px;padding:10px 12px}
+#gep-enrollment-modal.gep-compact-registration .gep-enrollment-section h3{font-size:.8125rem;padding:12px 14px}
+#gep-enrollment-modal.gep-compact-registration .gep-enrollment-section>.p-3{padding:14px!important}
+#gep-enrollment-modal.gep-compact-registration .gep-field>.form-control,
+#gep-enrollment-modal.gep-compact-registration .wmi-picker-trigger{height:48px;min-height:48px;border-radius:12px;font-size:.8125rem;padding:18px 12px 4px}
+#gep-enrollment-modal.gep-compact-registration .gep-field>label{top:14px;left:12px;font-size:.8125rem}
+#gep-enrollment-modal.gep-compact-registration .gep-field.has-value>label,
+#gep-enrollment-modal.gep-compact-registration .gep-field:focus-within>label{top:4px;font-size:.65rem}
+#gep-enrollment-modal.gep-compact-registration .gep-lookup-search-field>label{top:4px;font-size:.65rem}
+#gep-enrollment-modal.gep-compact-registration .gep-field textarea.form-control{height:64px;min-height:64px}
+#gep-enrollment-modal.gep-compact-registration .row.g-3{--tblr-gutter-y:12px;--tblr-gutter-x:12px}
+#gep-enrollment-modal.gep-compact-registration .gep-profile-subsection{margin:14px -14px 0;padding:14px}
+#gep-enrollment-modal.gep-compact-registration .gep-profile-subsection h4{font-size:.8125rem;margin-bottom:14px}
+#gep-enrollment-modal.gep-compact-registration .gep-location-grid,
+#gep-enrollment-modal.gep-compact-registration .gep-address-grid{gap:12px}
+#gep-enrollment-modal.gep-compact-registration .gep-parent-section{margin-bottom:16px}
+#gep-enrollment-modal.gep-compact-registration .gep-parent-section legend{font-size:.8125rem;margin-bottom:10px}
+#gep-enrollment-modal.gep-compact-registration .gep-photo-dropzone{padding:16px;gap:4px;font-size:.8125rem}
+#gep-enrollment-modal.gep-compact-registration .gep-photo-dropzone small{font-size:.7rem}
+#gep-enrollment-modal.gep-compact-registration .wmi-picker-option,
+#gep-enrollment-modal.gep-compact-registration .wmi-picker-search{font-size:.8125rem}
+@media(max-width:767px){#gep-enrollment-modal.gep-compact-registration .modal-body{padding:12px}#gep-enrollment-modal.gep-compact-registration .gep-registration-content{padding:12px}}
 @media(max-width:575px){#gep-enrollments .card-header .btn{font-size:.78rem}#gep-enrollments .gep-registration-modes{gap:7px}#gep-enrollments .gep-registration-modes .btn{font-size:.82rem;padding:12px 6px}#gep-enrollments .gep-history-values{grid-template-columns:1fr}}
+#gep-enrollments .wmi-picker-flag{width:24px;height:16px;object-fit:cover;border-radius:2px;flex-shrink:0}
+#gep-enrollments .wmi-picker-trigger>span:has(.wmi-picker-flag),#gep-enrollments .wmi-picker-option>span:has(.wmi-picker-flag){display:flex;align-items:center;gap:8px;min-width:0}
+#gep-enrollments .wmi-picker-trigger>span>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#gep-enrollment-modal .gep-birth-date-picker>.form-control{height:64px;min-height:64px;border:1px solid #8070ff;border-radius:18px;background:var(--tblr-bg-surface);color:var(--tblr-body-color);font-size:.95rem;padding:22px 42px 6px 14px}
+#gep-enrollment-modal.gep-compact-registration .gep-birth-date-picker>.form-control{height:48px;min-height:48px;border-radius:12px;font-size:.8125rem;padding:18px 40px 4px 12px}
+#gep-enrollment-modal .gep-birth-date-picker>.date-picker-trigger{position:absolute;right:5px;top:50%;transform:translateY(-50%);width:32px;height:32px;min-height:32px;justify-content:center;padding:0;border:0;background:transparent}
+#gep-enrollment-modal .gep-date-format{font-size:.6rem;color:var(--tblr-secondary-color);margin-left:6px}
+#gep-enrollment-modal .gep-birth-date-field:focus-within>label{top:6px;font-size:.74rem}
+#gep-enrollment-modal.gep-compact-registration .gep-birth-date-field:focus-within>label{top:4px;font-size:.65rem}
+#gep-enrollment-modal .gep-date-calendar{z-index:1090;background:var(--tblr-bg-surface);color:var(--tblr-body-color);border-color:var(--tblr-border-color)}
+#gep-enrollment-modal .gep-date-calendar .date-picker-days{grid-template-columns:repeat(7,minmax(0,1fr))}
+#gep-enrollment-modal .gep-date-calendar .date-picker-day{white-space:nowrap;min-width:0}
+#gep-enrollment-modal .gep-date-calendar .date-picker-year-popup{background:var(--tblr-bg-surface);color:var(--tblr-body-color)}
+#gep-enrollment-modal .gep-calendar-footer{padding:10px 14px;border-top:1px solid var(--tblr-border-color);text-align:right}
+#gep-enrollment-modal .gep-assignment-notes textarea.form-control{height:64px;min-height:64px}
+#gep-enrollment-modal.gep-compact-registration .gep-assignment-notes textarea.form-control{height:48px;min-height:48px}
+#gep-enrollment-modal .wmi-picker-bilingual{display:flex;flex-direction:column;line-height:1.1;min-width:0}
+#gep-enrollment-modal .wmi-picker-bilingual small{font-size:.65rem;color:var(--tblr-secondary-color);margin-top:2px}
+#gep-enrollment-modal .gep-home-phone-field .iti{width:100%;--iti-bg:var(--tblr-bg-surface);--iti-border-color:var(--tblr-border-color);--iti-hover-color:var(--tblr-primary-lt);--iti-text-color:var(--tblr-body-color);--iti-icon-color:var(--tblr-secondary-color)}
+#gep-enrollment-modal .gep-home-phone-field input.form-control{height:64px;min-height:64px;border:1px solid #8070ff;border-radius:18px;background:var(--tblr-bg-surface);color:var(--tblr-body-color);font-size:.95rem;padding-top:22px;padding-bottom:6px}
+#gep-enrollment-modal.gep-compact-registration .gep-home-phone-field input.form-control{height:48px;min-height:48px;border-radius:12px;font-size:.8125rem;padding-top:18px;padding-bottom:4px}
+#gep-enrollment-modal .gep-home-phone-field>label{top:6px;font-size:.74rem;color:var(--tblr-primary);font-weight:600}
+#gep-enrollment-modal.gep-compact-registration .gep-home-phone-field>label{top:4px;font-size:.65rem}
+#gep-enrollment-modal .gep-home-phone-field .iti__country-container{top:18px;bottom:4px}
+#gep-enrollment-modal .iti--container{z-index:1100;--iti-bg:var(--tblr-bg-surface);--iti-border-color:var(--tblr-border-color);--iti-hover-color:var(--tblr-primary-lt);--iti-text-color:var(--tblr-body-color);--iti-icon-color:var(--tblr-secondary-color)}
+#gep-enrollment-modal .iti{--iti-country-selector-bg:var(--tblr-bg-surface)}
+#gep-enrollment-modal .iti__dropdown-content,#gep-enrollment-modal .iti__search-input{background:var(--tblr-bg-surface);color:var(--tblr-body-color);border-color:var(--tblr-border-color)}
+#gep-enrollment-modal .gep-field[data-gep-always-float]>label{top:6px;font-size:.74rem;color:var(--tblr-primary);font-weight:600}
+#gep-enrollment-modal.gep-compact-registration .gep-field[data-gep-always-float]>label{top:4px;font-size:.65rem}
+#gep-enrollment-modal .gep-email-control{height:64px;min-height:64px;display:flex;align-items:center;gap:10px;padding:22px 14px 6px;border:1px solid #8070ff;border-radius:18px;background:var(--tblr-bg-surface);color:var(--tblr-body-color)}
+#gep-enrollment-modal.gep-compact-registration .gep-email-control{height:48px;min-height:48px;padding:18px 12px 4px;border-radius:12px}
+#gep-enrollment-modal .gep-email-control>.ti-mail{position:static;flex:0 0 auto;color:var(--tblr-secondary-color)}
+#gep-enrollment-modal .gep-email-control>.form-control{height:100%;min-height:0;min-width:0;padding:0;border:0;background:transparent;box-shadow:none;font-size:.95rem;color:inherit}
+#gep-enrollment-modal.gep-compact-registration .gep-email-control>.form-control{font-size:.8125rem}
+#gep-enrollment-modal .gep-email-control:focus-within{border-color:#7573e8;box-shadow:0 0 0 3px #6b5bd620}
+#gep-enrollment-modal.gep-compact-registration #gep-enrolled-date-display{font-size:.75rem}
+#gep-enrollment-modal .gep-address-grid textarea.form-control{height:64px;min-height:64px}
+#gep-enrollment-modal.gep-compact-registration .gep-address-grid textarea.form-control{height:48px;min-height:48px}
+@media(min-width:1400px){
+    #gep-enrollment-modal .gep-assignment-grid{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:12px;margin:0}
+    #gep-enrollment-modal .gep-assignment-grid>div{width:auto;min-width:0;padding:0;margin:0}
+    #gep-enrollment-modal .gep-assignment-date{grid-column:span 2}
+    #gep-enrollment-modal .gep-assignment-notes{grid-column:3/-1}
+}

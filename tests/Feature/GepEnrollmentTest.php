@@ -23,7 +23,7 @@ beforeEach(function(){
     Schema::create('tb_academic_year',function(Blueprint $t){$t->id();$t->string('academic_year');$t->string('period_type')->default('regular');});
     Schema::create('tb_grade',function(Blueprint $t){$t->id();$t->string('grade');$t->string('grade_short_name')->nullable();$t->integer('grade_order');});
     Schema::create('tb_class',function(Blueprint $t){$t->id();$t->integer('academic_year_id');$t->integer('grade_id');$t->string('class_name');});
-    Schema::create('tb_country',function(Blueprint $t){$t->id();foreach(['country_name_en','country_name_kh','nationality_name_en','nationality_name_kh'] as $name)$t->string($name)->nullable();$t->boolean('status')->default(1);});
+    Schema::create('tb_country',function(Blueprint $t){$t->id();foreach(['country_name_en','country_name_kh','nationality_name_en','nationality_name_kh','flag_path'] as $name)$t->string($name)->nullable();$t->boolean('status')->default(1);});
     Schema::create('tb_occupation',function(Blueprint $t){$t->id();$t->string('occupation_name_en');$t->string('occupation_name_kh')->nullable();$t->boolean('status')->default(1);$t->softDeletes();});
     foreach(['province'=>'country','district'=>'province','commune'=>'district','village'=>'commune'] as $child=>$parent)Schema::create('tb_'.$child,function(Blueprint $t)use($child,$parent){$t->id();$t->integer($parent.'_id');$t->string($child.'_name_en');$t->string($child.'_name_kh')->nullable();$t->boolean('status')->default(1);});
     DB::table('tb_country')->insert([['id'=>1,'country_name_en'=>'Cambodia','nationality_name_en'=>'Cambodian'],['id'=>2,'country_name_en'=>'Thailand','nationality_name_en'=>'Thai']]);
@@ -48,6 +48,7 @@ beforeEach(function(){
     (require database_path('migrations/2026_11_24_000001_create_gep_enrollments.php'))->up();
     (require database_path('migrations/2026_11_24_000002_add_gep_enrollment_photo_and_parents.php'))->up();
     (require database_path('migrations/2026_11_24_000003_separate_gep_student_profiles.php'))->up();
+    (require database_path('migrations/2026_11_26_000001_create_gep_student_id_sequence.php'))->up();
     $this->user=Mockery::mock(User::class)->makePartial();$this->user->id=1;$this->user->shouldReceive('isSuperAdmin')->andReturn(true);
     $this->request=function(array $data=[],string $method='POST'){$r=Request::create('/gep/students/enrollment',$method,$data);app()->instance('request',$r);$r->setUserResolver(fn()=>$this->user);return $r;};
     $this->payload=['source'=>'existing','student_id'=>1,'term_assignment_id'=>1,'campus_id'=>1,'level_id'=>1,'class_type_id'=>1,'class_id'=>1,'group_id'=>1,'enrollment_status'=>'active','enrolled_on'=>'2026-11-24'];
@@ -78,7 +79,7 @@ it('creates a new student with optional guardian blank and no WIS enrollment',fu
     $data=[...$this->payload,'source'=>'new','student_id'=>null,'full_name_en'=>'NEW GEP STUDENT','gender'=>'F','date_of_birth'=>'2012-06-15'];
     $this->controller->save(($this->request)($data));
     $student=GepStudent::firstOrFail();
-    expect($student->profile['full_name_en'])->toBe('NEW GEP STUDENT')->and($student->student_id)->toBeNull()->and($student->student_identifier)->toBe('GEP-000001')->and(GepEnrollment::first()->guardian_name)->toBeNull()
+    expect($student->profile['full_name_en'])->toBe('NEW GEP STUDENT')->and($student->student_id)->toBeNull()->and($student->student_identifier)->toBe('26190001')->and(GepEnrollment::first()->guardian_name)->toBeNull()
         ->and(Student::count())->toBe(2)->and(DB::table('tb_student_enrollment')->count())->toBe(2)->and(DB::table('tb_student_number_sequence')->value('last_number'))->toBe(101);
 });
 
@@ -323,6 +324,166 @@ it('rejects duplicate GEP student IDs and unknown country and parent settings',f
         expect(fn()=>$this->controller->save(($this->request)([...$this->payload,'source'=>'new','student_id'=>null,'full_name_en'=>'ANOTHER GEP',...$invalid])))->toThrow(ValidationException::class);
     }
     expect(GepStudent::count())->toBe(1);
+});
+
+it('continues the six digit sequence across academic years after direct imports',function(){
+    DB::table('tb_gep_student')->insert(['student_identifier'=>'26193510','source'=>'new','profile'=>json_encode(['full_name_en'=>'IMPORTED'])]);
+    $allocator=app(\App\Services\GepStudentIdAllocator::class);
+    DB::transaction(function()use($allocator){expect($allocator->allocate('2027'))->toBe('27193511');});
+    DB::transaction(function()use($allocator){expect($allocator->allocate('2026'))->toBe('26193512');});
+    expect(GepStudent::first()->student_identifier)->toBe('26193510');
+    expect(fn()=>$allocator->allocate('2027'))->toThrow(LogicException::class);
+});
+
+it('advances the counter for imported models and never renumbers an existing GEP student',function(){
+    $member=GepStudent::create(['student_identifier'=>'25194000','source'=>'new','profile'=>['full_name_en'=>'IMPORTED']]);
+    expect(DB::table('tb_gep_student_id_sequence')->value('last_number'))->toBe(194000);
+    expect(fn()=>$member->update(['student_identifier'=>'26194001']))->toThrow(ValidationException::class);
+    $member->refresh();
+    DB::transaction(function(){expect(app(\App\Services\GepStudentIdAllocator::class)->allocate('2027'))->toBe('27194001');});
+    DB::table('tb_gep_student_id_sequence')->update(['last_number'=>194100]);
+    expect(app(\App\Services\GepStudentIdAllocator::class)->synchronize())->toBe(194100);
+});
+
+it('previews and imports GEP profiles enrollments and families separately without changing WIS',function(){
+    $transfer=app(\App\Services\GepDataTransfer::class);$wis=DB::table('tb_student')->get()->toJson();
+    $students=[['student_identifier'=>'26193510','full_name_en'=>'IMPORTED GEP','gender'=>'F','date_of_birth'=>'2010-01-01','home_phone'=>'012345678','nationality_en'=>'Cambodian']];
+    DB::beginTransaction();$transfer->import('students',$students,$this->user);DB::rollBack();
+    expect(GepStudent::count())->toBe(0)->and(DB::table('tb_gep_student_id_sequence')->value('last_number'))->toBe(190000);
+    DB::transaction(fn()=>$transfer->import('students',$students,$this->user));
+    expect(GepStudent::count())->toBe(1)->and(GepEnrollment::count())->toBe(0);
+    DB::transaction(fn()=>$transfer->import('students',[['student_identifier'=>'26193510','full_name_en'=>'IMPORTED GEP','home_phone'=>'']],$this->user));
+    expect(GepStudent::first()->profile['home_phone'])->toBe('+85512345678');
+    $row=['student_identifier'=>'26193510','academic_year'=>'2026','term'=>'Term 1','campus'=>'Campus One','level'=>'Level 1','class'=>'A','class_type'=>'Full-Time','group'=>'M','enrollment_status'=>'completed','enrolled_on'=>'2026-01-01'];
+    $row['campus']=DB::table('tb_school_info')->where('id',1)->value('campus_name_en');
+    DB::table('tb_gep_term_assignment')->where('id',2)->delete();
+    DB::transaction(fn()=>$transfer->import('enrollments',[$row],$this->user));
+    $family=['student_identifier'=>'26193510','academic_year'=>'2026','term'=>'Term 1','relationship_type'=>'mother','full_name_en'=>'MOTHER NAME','phone'=>'012345678','nationality'=>'Cambodia','occupation'=>'Teacher'];
+    DB::transaction(fn()=>$transfer->import('families',[$family],$this->user));
+    expect(GepEnrollment::first()->parent_information['mother']['phone'])->toBe('+85512345678')
+        ->and(GepEnrollment::first()->enrollment_status)->toBe('completed')
+        ->and(DB::table('tb_student')->get()->toJson())->toBe($wis);
+    foreach(['students','enrollments','families'] as $type){expect($transfer->samples($type))->toHaveCount(2);expect($transfer->export($type,$this->user))->toHaveCount(1);}
+    expect(app(\App\Services\GepStudentIdAllocator::class)->synchronize())->toBe(193510);
+});
+
+it('rejects duplicate upload records and rolls back the entire GEP import',function(){
+    $transfer=app(\App\Services\GepDataTransfer::class);
+    $rows=[['student_identifier'=>'26193510','full_name_en'=>'FIRST'],['student_identifier'=>'26193510','full_name_en'=>'SECOND']];
+    expect(fn()=>DB::transaction(fn()=>$transfer->import('students',$rows,$this->user)))->toThrow(ValidationException::class);
+    expect(GepStudent::count())->toBe(0)->and(DB::table('tb_gep_student_id_sequence')->value('last_number'))->toBe(190000);
+});
+
+it('transfers full location names in both languages without any internal ID columns',function(){
+    $transfer=app(\App\Services\GepDataTransfer::class);
+    foreach(['students','enrollments','families'] as $type)
+        expect(collect($transfer->columns($type))->contains(fn($field)=>str_ends_with($field,'_id')))->toBeFalse();
+    DB::table('tb_village')->where('id',1)->update(['village_name_en'=>'123','village_name_kh'=>'ភូមិមួយ']);
+    $row=['student_identifier'=>'26193510','full_name_en'=>'NAMED LOCATIONS','nationality_en'=>'Cambodian','birth_country_en'=>' cambodia ','birth_province_en'=>'Province One','birth_district_en'=>'District One','birth_commune_en'=>'Commune One','birth_village_en'=>'123','birth_village_kh'=>'ភូមិមួយ','address_house_no_en'=>'168B','address_house_no_kh'=>'១៦៨ប','address_street_en'=>'Group 1','current_address_en'=>'Original complete address'];
+    $result=DB::transaction(fn()=>$transfer->import('students',[$row],$this->user));
+    $profile=GepStudent::first()->profile;
+    expect($profile['nationality_country_id'])->toBe(1)->and($profile['birth_village_id'])->toBe(1)->and($result['unresolved_names'])->toBe(0);
+    $export=$transfer->export('students',$this->user)[0];
+    foreach($row as $field=>$value)expect($export[$field])->toBe($value);
+    expect(array_key_exists('birth_village_id',$export))->toBeFalse();
+    DB::transaction(fn()=>$transfer->import('students',[$export],$this->user));
+    expect(GepStudent::first()->profile['birth_village_id'])->toBe(1);
+});
+
+it('retains misspelled and ambiguous addresses without guessing a location or losing text',function(){
+    $transfer=app(\App\Services\GepDataTransfer::class);
+    DB::table('tb_commune')->insert(['id'=>2,'district_id'=>1,'commune_name_en'=>'Commune One']);
+    $row=['student_identifier'=>'26193510','full_name_en'=>'HISTORICAL ADDRESS','address_country_en'=>'Cambodia','address_province_en'=>'Province One','address_district_en'=>'District One','address_commune_en'=>'Commune One','address_village_en'=>'Old vilage spelling','birth_country_kh'=>'កម្ពុជា','birth_province_en'=>'Historical province spelling','birth_village_kh'=>'ភូមិចាស់','current_address_kh'=>'អាសយដ្ឋានដើម'];
+    $result=DB::transaction(fn()=>$transfer->import('students',[$row],$this->user));
+    $profile=GepStudent::first()->profile;
+    expect($profile['address_district_id'])->toBe(1)->and($profile['address_commune_id'])->toBeNull()->and($profile['address_village_id'])->toBeNull()->and($result['unresolved_names'])->toBeGreaterThan(0);
+    $export=$transfer->export('students',$this->user)[0];
+    foreach($row as $field=>$value)expect($export[$field])->toBe($value);
+    DB::transaction(fn()=>$transfer->import('students',[['student_identifier'=>$row['student_identifier'],'full_name_en'=>$row['full_name_en'],'address_village_en'=>'']],$this->user));
+    expect($transfer->export('students',$this->user)[0]['address_village_en'])->toBe('Old vilage spelling');
+});
+
+it('clears stale location links when an imported parent name changes and preserves the old child text',function(){
+    $transfer=app(\App\Services\GepDataTransfer::class);
+    $row=['student_identifier'=>'26193510','full_name_en'=>'CHANGED ADDRESS','address_country_en'=>'Cambodia','address_province_en'=>'Province One','address_district_en'=>'District One','address_commune_en'=>'Commune One','address_village_en'=>'Village One'];
+    DB::transaction(fn()=>$transfer->import('students',[$row],$this->user));
+    DB::transaction(fn()=>$transfer->import('students',[['student_identifier'=>$row['student_identifier'],'full_name_en'=>$row['full_name_en'],'address_country_en'=>'Thailand']],$this->user));
+    $profile=GepStudent::first()->profile;
+    expect($profile['address_country_id'])->toBe(2)->and($profile['address_province_id'])->toBeNull()->and($profile['address_village_id'])->toBeNull();
+    expect($transfer->export('students',$this->user)[0]['address_village_en'])->toBe('Village One');
+});
+
+it('retains imported family spellings and unmatched profile names when editing the enrollment',function(){
+    $this->controller->save(($this->request)([...$this->payload,'source'=>'new','student_id'=>null,'full_name_en'=>'IMPORTED FAMILY']));
+    $member=GepStudent::first();$transfer=app(\App\Services\GepDataTransfer::class);
+    DB::table('tb_gep_term_assignment')->where('id',2)->delete();
+    DB::transaction(fn()=>$transfer->import('students',[['student_identifier'=>$member->student_identifier,'full_name_en'=>'IMPORTED FAMILY','address_country_en'=>'Cambodia','address_province_en'=>'Old provinc spelling','address_village_en'=>'Historic vilage']],$this->user));
+    $row=['student_identifier'=>$member->student_identifier,'academic_year'=>'2026','term'=>'Term 1','relationship_type'=>'mother','full_name_en'=>'MOTHER NAME','nationality'=>'Historical nationality','occupation'=>'Historical occupaton'];
+    $result=DB::transaction(fn()=>$transfer->import('families',[$row],$this->user));
+    expect($result['unresolved_names'])->toBe(2);
+    $enrollment=GepEnrollment::first();
+    $this->controller->save(($this->request)([...$this->payload,'full_name_en'=>'IMPORTED FAMILY','mother_name_en'=>'MOTHER NAME','mother_occupation_id'=>null,'mother_nationality_country_id'=>null,'address_country_id'=>1,'address_province_id'=>null]),$enrollment);
+    $export=$transfer->export('families',$this->user)[0];
+    expect($export['occupation'])->toBe($row['occupation'])->and($export['nationality'])->toBe($row['nationality'])
+        ->and($transfer->export('students',$this->user)[0]['address_village_en'])->toBe('Historic vilage');
+    $before=$member->fresh()->profile;$after=\App\Support\GepTransferNames::clearChanged($before,array_replace($before,['address_province_id'=>1]));
+    expect(isset($after['transfer_names']['address_village_en']))->toBeFalse();
+});
+
+it('writes true Excel workbooks with literal ID phone and formula-like values',function(){
+    $path=tempnam(sys_get_temp_dir(),'gep-xlsx');
+    try{
+        \App\Support\GepTransferWorkbook::write($path,['student_identifier','name','phone'],[['student_identifier'=>'00190001','name'=>'=1+1','phone'=>'+85512345678']]);
+        $zip=new ZipArchive;expect($zip->open($path))->toBeTrue();
+        $xml=$zip->getFromName('xl/worksheets/sheet1.xml');$zip->close();
+        expect($xml)->toContain('00190001')->toContain('+85512345678')->toContain('=1+1')->not->toContain('<f>');
+        expect(simplexml_load_string($xml))->not->toBeFalse();
+    }finally{@unlink($path);}
+});
+
+it('requires a preview of the same CSV before applying a GEP upload',function(){
+    $controller=app(\App\Http\Controllers\GepDataTransferController::class);$transfer=app(\App\Services\GepDataTransfer::class);
+    $make=function(string $content,bool $apply=false){
+        $r=($this->request)(['apply'=>$apply?'1':'0']);
+        $r->files->set('file',\Illuminate\Http\UploadedFile::fake()->createWithContent('students.csv',$content));
+        $r->setLaravelSession(app('session')->driver());return $r;
+    };
+    $csv="student_identifier,full_name_en\n26193510,IMPORTED STUDENT\n";
+    expect(fn()=>$controller->upload($make($csv,true),'students',$transfer))->toThrow(ValidationException::class);
+    $controller->upload($make($csv),'students',$transfer);
+    expect(GepStudent::count())->toBe(0);
+    expect(fn()=>$controller->upload($make(str_replace('26193510','26193511',$csv),true),'students',$transfer))->toThrow(ValidationException::class);
+    $controller->upload($make($csv,true),'students',$transfer);
+    expect(GepStudent::count())->toBe(1)->and(GepEnrollment::count())->toBe(0);
+});
+
+it('provides two-row CSV templates and a usable GEP transfer page',function(){
+    $controller=app(\App\Http\Controllers\GepDataTransferController::class);$transfer=app(\App\Services\GepDataTransfer::class);
+    $request=($this->request)([],'GET');$request->setLaravelSession(app('session')->driver());
+    $view=$controller->index($request);expect($view->name())->toBe('gep.data-transfer');
+    foreach(['students','enrollments','families'] as $type){
+        $response=$controller->download($request,$type,'template',$transfer);
+        ob_start();$response->sendContent();$content=ob_get_clean();
+        $file=fopen('php://temp','w+');fwrite($file,$content);rewind($file);$rows=[];while(($row=fgetcsv($file,escape:''))!==false)$rows[]=$row;fclose($file);
+        expect($rows)->toHaveCount(3)->and($rows[1][0])->toBe('26190001')->and($rows[2][0])->toBe('26190002');
+    }
+});
+
+it('restricts GEP transfer exports and imports to permitted campuses',function(){
+    $this->controller->save(($this->request)($this->payload));
+    $row=GepEnrollment::first();$row->campus_id=2;$row->save();
+    $user=($this->campusUser)();$transfer=app(\App\Services\GepDataTransfer::class);
+    expect($transfer->export('students',$user))->toBe([])->and($transfer->export('enrollments',$user))->toBe([]);
+    expect(fn()=>DB::transaction(fn()=>$transfer->import('students',[['student_identifier'=>$row->gepStudent->student_identifier,'full_name_en'=>'REPLACE']],$user)))->toThrow(HttpException::class);
+    expect(GepStudent::first()->profile['full_name_en'])->toBe('EXISTING STUDENT');
+});
+
+it('keeps a generated GEP ID when the same student enrolls in the next academic year',function(){
+    $this->controller->save(($this->request)($this->payload));$member=GepStudent::first();
+    DB::table('tb_gep_academic_year')->insert(['id'=>2,'academic_year'=>'2027','status'=>true]);
+    DB::table('tb_gep_term_assignment')->insert(['id'=>3,'academic_year_id'=>2,'term_id'=>1,'sort_order'=>1,'lifecycle_status'=>'started']);
+    $this->controller->save(($this->request)([...$this->payload,'student_id'=>null,'gep_student_id'=>$member->id,'term_assignment_id'=>3]));
+    expect($member->fresh()->student_identifier)->toBe('26190001')->and(GepStudent::count())->toBe(1)->and(GepEnrollment::count())->toBe(2);
 });
 
 it('backfills legacy GEP profiles without changing WIS and normalizes gender for the form',function(){

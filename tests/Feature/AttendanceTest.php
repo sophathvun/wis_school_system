@@ -567,6 +567,44 @@ it('enforces separate daily create edit delete rights and retains deletion audit
     foreach(['show','save','delete'] as $action)expect(fn()=>$controller->$action(g12Request($user,array_replace($action==='delete'?$delete:($action==='save'?$input:$scope),['campus_id'=>2]))))->toThrow(HttpException::class);
 });
 
+it('filters attendance report options records totals and exports by the displayed study group', function () {
+    $admin=User::find(1);$controller=app(\App\Http\Controllers\AttendanceReportController::class);
+    DB::table('tb_session')->insert([['id'=>2,'session_short_name'=>' m '],['id'=>3,'session_short_name'=>'A']]);
+    DB::table('tb_group')->insert([['id'=>1,'group_name'=>'Ⅲ'],['id'=>2,'group_name'=>'A']]);
+    // The session takes precedence over the legacy group field.
+    DB::table('tb_student_enrollment')->where('id',1)->update(['group_id'=>2]);
+    foreach([2=>'AFTERNOON ONLY',3=>'LEGACY FULL DAY'] as $id=>$name){
+        DB::table('tb_student')->insert(['id'=>$id,'student_id'=>'GROUP'.$id,'full_name_en'=>$name]);
+        DB::table('tb_student_enrollment')->insert(['id'=>$id,'student_id'=>$id,'campus_id'=>1,'academic_year_id'=>1,'class_id'=>1,'session_id'=>$id===2?3:null,'group_id'=>$id===3?1:null,'enrollment_status'=>'active']);
+    }
+    // A student with attendance in two groups must only contribute marks from the selected group.
+    app(\App\Http\Controllers\DailyAttendanceController::class)->save(g12Request($admin,[
+        'academic_year_id'=>1,'campus_id'=>1,'class_id'=>1,'date'=>'2026-11-02','version'=>0,
+        'marks'=>[['student_id'=>1,'status'=>'EX','missed_sessions'=>1,'remarks'=>'Full day absence'],['student_id'=>2,'status'=>'P','missed_sessions'=>0],['student_id'=>3,'status'=>'P','missed_sessions'=>0]],
+    ]));
+    DB::table('tb_student_enrollment')->insert(['id'=>4,'student_id'=>1,'campus_id'=>1,'academic_year_id'=>1,'class_id'=>1,'session_id'=>2,'enrollment_status'=>'active']);
+    $mark=(array)DB::table('attendance_daily_marks')->where('student_id',1)->first();unset($mark['id']);
+    DB::table('attendance_daily_marks')->insert(array_replace($mark,['enrollment_id'=>4,'attendance_date'=>'2026-11-01','status'=>'UX','remarks'=>'Morning absence']));
+    $filters=['academic_year_id'=>1,'campus_id'=>1,'grade_class'=>'0:1'];
+    foreach(['detail','statistics'] as $report){
+        $options=$controller->options(g12Request($admin,$filters+['report'=>$report,'group'=>'III']))->getData(true);
+        expect(array_column($options['groups'],'id'))->toBe(['M','A','III'])
+            ->and(array_column($options['students'],'id'))->toBe([1,3]);
+        expect($controller->options(g12Request($admin,$filters+['report'=>$report,'group'=>'M']))->getData(true)['students'])->toHaveCount(1);
+    }
+    $statistics=$controller->statistics(g12Request($admin,$filters+['group'=>'M']))->getData(true);
+    expect($statistics['total'])->toBe(1)->and($statistics['data'][0]['group'])->toBe('M')
+        ->and($statistics['data'][0]['EX'])->toBe(0)->and($statistics['data'][0]['UX'])->toBe(1);
+    expect($controller->statistics(g12Request($admin,$filters+['group'=>'III']))->getData(true)['total'])->toBe(2);
+    $detail=$controller->details(g12Request($admin,$filters+['student_id'=>1,'group'=>'III']))->getData(true);
+    expect($detail['total'])->toBe(1)->and($detail['totals']['EX'])->toBe(1)->and($detail['totals']['UX'])->toBe(0);
+    expect($controller->details(g12Request($admin,$filters+['student_id'=>1,'group'=>'M']))->getData(true)['data'][0]['reason'])->toBe('Morning absence');
+    expect(fn()=>$controller->statistics(g12Request($admin,$filters+['group'=>'INVALID'])))->toThrow(ValidationException::class);
+    $this->mock(\App\Support\ScholarshipExport::class)->shouldReceive('reportLogo')->with(1)->andReturn('');
+    expect($controller->statisticsExport(g12Request($admin,$filters+['group'=>'III']),'print')->getContent())->toContain('LEGACY FULL DAY')->not->toContain('AFTERNOON ONLY');
+    expect($controller->export(g12Request($admin,$filters+['student_id'=>1,'group'=>'M']),'print')->getContent())->toContain('Morning absence')->not->toContain('Full day absence');
+});
+
 it('permits campus report readers to see all campuses without granting cross campus changes', function () {
     (require database_path('migrations/2026_11_04_000001_add_attendance_permissions.php'))->up();
     DB::table('tb_student')->insert(['id'=>2,'student_id'=>'OTHER002','full_name_en'=>'Other Campus Student']);

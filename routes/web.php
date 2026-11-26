@@ -326,6 +326,8 @@ Route::post('/gep/settings/assign-terms/{assignment}/start',[\App\Http\Controlle
 Route::post('/gep/settings/assign-terms/{assignment}/finish',[\App\Http\Controllers\GepTermAssignmentController::class,'finish'])->middleware('auth')->name('gep.assign-terms.finish');
 Route::delete('/gep/settings/assign-terms/{assignment}',[\App\Http\Controllers\GepTermAssignmentController::class,'delete'])->middleware('auth')->name('gep.assign-terms.delete');
 Route::get('/gep/students',[\App\Http\Controllers\GepStudentController::class,'index'])->middleware('auth')->name('gep.students.index');
+Route::get('/gep/students/import-export/{type}/{format}',[\App\Http\Controllers\GepDataTransferController::class,'download'])->middleware('auth')->name('gep.transfer.download');
+Route::post('/gep/students/import-export/{type}',[\App\Http\Controllers\GepDataTransferController::class,'upload'])->middleware('auth')->name('gep.transfer.upload');
 Route::prefix('gep/students/enrollment')->middleware('auth')->group(function(){
     Route::get('/profile',[\App\Http\Controllers\GepEnrollmentController::class,'profile'])->name('gep.enrollments.profile');
     Route::get('/locations',[\App\Http\Controllers\GepEnrollmentController::class,'locations'])->name('gep.enrollments.locations');

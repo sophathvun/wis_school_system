@@ -55,6 +55,7 @@ export async function initAttendanceStatistics(root) {
                 const options = await get('options', params()); if (current !== requestId) return;
                 fill('campus_id', options.campuses, 'campus_name_en', 'All campuses');
                 fill('grade_class', options.grades, 'label', 'All grades');
+                fill('group', options.groups, 'label', 'All groups');
                 fill('student_id', options.students, 'label', 'All students'); sync();
             }
             const query = params(); query.set('page', page); query.set('per_page', document.getElementById('attendance-statistics-per-page').value);
@@ -93,7 +94,7 @@ export async function initAttendanceStatistics(root) {
     toggle.addEventListener('click', () => expand(toggle.getAttribute('aria-expanded') !== 'true'));
     form.addEventListener('submit', event => event.preventDefault());
     form.addEventListener('change', event => {
-        const fields = ['academic_year_id', 'campus_id', 'grade_class', 'student_id'], index = fields.indexOf(event.target.name);
+        const fields = ['academic_year_id', 'campus_id', 'grade_class', 'group', 'student_id'], index = fields.indexOf(event.target.name);
         if (index < 0) return;
         fields.slice(index + 1).forEach(name => form.elements[name].value = ''); sync(); load(1, event.target.name !== 'student_id');
     });
