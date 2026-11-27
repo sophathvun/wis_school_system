@@ -14,6 +14,7 @@
 .gep-transfer-progress-file { margin: 1.25rem 0; padding: .7rem 1rem; border-radius: .75rem; background: rgba(70, 104, 218, .07); font-size: .8rem; overflow-wrap: anywhere; }
 .gep-transfer-progress-track { height: .65rem; overflow: hidden; border-radius: 1rem; background: rgba(70, 104, 218, .12); }
 .gep-transfer-progress-track span { display: block; width: 45%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #3776d6, #8065e8); animation: gep-transfer-working 1.7s ease-in-out infinite; }
+.gep-transfer-progress-track.is-determinate span { animation: none; transform: none; transition: width .2s ease; }
 .gep-transfer-progress-footer { display: flex; align-items: center; gap: .4rem; margin-top: .9rem; text-align: left; font-size: .73rem; color: var(--tblr-secondary-color, #66758d); }
 .gep-transfer-progress-footer>span:last-child { margin-left: auto; }
 .gep-transfer-progress-dot { width: .4rem; height: .4rem; border-radius: 50%; background: #6476dd; }

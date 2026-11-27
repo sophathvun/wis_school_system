@@ -161,7 +161,7 @@ it('paginates and summarizes the filtered GEP records and keeps completed histor
     $this->controller->save(($this->request)([...$this->payload,'student_id'=>2]));
     DB::table('tb_gep_enrollment')->where('id',1)->update(['enrollment_status'=>'completed']);
     $list=$this->controller->fetch(($this->request)(['enrollment_status'=>'completed','perPage'=>'all','page'=>99],'GET'))->getData(true);
-    expect($list['summary'])->toBe(['total'=>1,'active'=>0,'pending'=>0,'completed'=>1])->and($list['records']['current_page'])->toBe(1)->and($list['records']['data'])->toHaveCount(1);
+    expect($list['summary'])->toBe(['total'=>1,'male'=>1,'female'=>0,'active'=>0,'pending'=>0,'completed'=>1])->and($list['records']['current_page'])->toBe(1)->and($list['records']['data'])->toHaveCount(1);
     $filtered=$this->controller->fetch(($this->request)(['search'=>'GEP-000002'],'GET'))->getData(true);expect($filtered['records']['data'])->toHaveCount(1);
     $this->controller->fetch(($this->request)(['campus_id'=>2],'GET'))->getData(true);expect(GepEnrollment::count())->toBe(2);
 });
@@ -634,6 +634,26 @@ it('applies every saved CSV row without reuploading when the preview display is 
     $controller->upload($apply,'students',$transfer);
     expect(GepStudent::count())->toBe(201)->and(GepStudent::where('student_identifier','26190201')->exists())->toBeTrue()
         ->and(session('gep-transfer-preview-details'))->toBeNull();
+});
+
+it('streams row progress and confirms only completed preview and apply transactions',function(){
+    \Illuminate\Support\Facades\Storage::fake('local');
+    $controller=app(\App\Http\Controllers\GepDataTransferController::class);$transfer=app(\App\Services\GepDataTransfer::class);
+    $make=function(array $data){$r=($this->request)($data);$r->setLaravelSession(app('session')->driver());$r->headers->set('X-GEP-Progress','1');return $r;};
+    $stream=function($response){$content='';ob_start(function($chunk)use(&$content){$content.=$chunk;return '';});try{$response->sendContent();}finally{ob_end_flush();}return array_map(fn($line)=>json_decode($line,true,512,JSON_THROW_ON_ERROR),array_filter(explode("\n",trim($content))));};
+    $request=$make(['apply'=>'0']);$request->files->set('file',\Illuminate\Http\UploadedFile::fake()->createWithContent('students.csv',"student_identifier,full_name_en\n26190001,TEST ONE\n26190002,TEST TWO\n"));
+    $messages=$stream($controller->upload($request,'students',$transfer));
+    expect($messages[0])->toMatchArray(['event'=>'progress','processed'=>0,'total'=>2,'percent'=>0])
+        ->and($messages[2])->toMatchArray(['processed'=>2,'percent'=>100])->and(end($messages)['event'])->toBe('complete')
+        ->and(end($messages)['result']['applied'])->toBeFalse()->and(GepStudent::count())->toBe(0);
+    $preview=$controller->index($request)->getData()['preview'];
+    $apply=$make(['use_preview'=>'1','preview_token'=>$preview['preview_token']]);
+    $messages=$stream($controller->upload($apply,'students',$transfer));
+    expect(end($messages)['result']['applied'])->toBeTrue()->and(GepStudent::count())->toBe(2);
+    $invalid=$make(['apply'=>'0']);$invalid->files->set('file',\Illuminate\Http\UploadedFile::fake()->createWithContent('students.csv',"student_identifier,full_name_en\n26190003,VALID\n26190004,\n"));
+    $messages=$stream($controller->upload($invalid,'students',$transfer));
+    expect(end($messages)['event'])->toBe('error')->and(GepStudent::count())->toBe(2)
+        ->and(collect($messages)->where('event','complete'))->toHaveCount(0);
 });
 
 it('provides two-row CSV templates and a usable GEP transfer page',function(){

@@ -69,6 +69,8 @@ class GepEnrollmentController
             if(preg_match('/^GEP-0*(\d+)$/i',$search,$match))$q->orWhere('gep_student_id',(int)$match[1]);
         });
         $summary=['total'=>(clone $query)->count()];
+        foreach(['male'=>['M','Male'],'female'=>['F','Female']] as $key=>$genders)
+            $summary[$key]=(clone $query)->whereHas('gepStudent',fn($q)=>$q->whereIn('profile->gender',$genders))->count();
         foreach(['active','pending','completed'] as $status)$summary[$status]=(clone $query)->where('enrollment_status',$status)->distinct()->count('gep_student_id');
         $count=$summary['total'];$perPage=($filters['perPage']??'10')==='all'?max(1,$count):(int)($filters['perPage']??10);
         $page=min((int)($filters['page']??1),max(1,(int)ceil($count/$perPage)));

@@ -9,6 +9,7 @@ use Illuminate\Validation\ValidationException;
 
 class GepDataTransferController
 {
+    private $progress=null;
     private function authorize(Request $request): void { abort_unless(GepStudentPermissions::allows($request->user(),'import-export'),403); }
     public function index(Request $request)
     {
@@ -34,6 +35,7 @@ class GepDataTransferController
     public function upload(Request $request,string $type,GepDataTransfer $transfer)
     {
         $this->authorize($request);abort_unless(Access::allows($request->user(),'create'),403);
+        if($request->header('X-GEP-Progress')==='1')return $this->streamUpload($request,$type,$transfer);
         $columns=$this->type($transfer,$type);
         if($request->boolean('use_preview'))return $this->applySavedPreview($request,$type,$transfer);
         $request->validate(['file'=>'required|file|mimes:csv,txt|max:25600','apply'=>'nullable|boolean']);
@@ -47,7 +49,7 @@ class GepDataTransferController
         $rows=[];while(($values=fgetcsv($handle,escape:''))!==false){if(count(array_filter($values,fn($v)=>filled($v)))===0)continue;if(count($values)!==count($headers)){fclose($handle);throw ValidationException::withMessages(['file'=>'CSV row '.(count($rows)+2).' has the wrong number of columns.']);}$rows[]=array_map(fn($v)=>trim((string)$v),array_combine($headers,$values));}fclose($handle);
         if(!$rows)throw ValidationException::withMessages(['file'=>'The CSV contains no records.']);
         DB::beginTransaction();
-        try{$counts=$transfer->import($type,$rows,$request->user());if($request->boolean('apply'))DB::commit();else DB::rollBack();}
+        try{$counts=$transfer->import($type,$rows,$request->user(),$this->progress);if($request->boolean('apply'))DB::commit();else DB::rollBack();}
         catch(\Throwable $error){DB::rollBack();throw $error;}
         $result=['type'=>$type,'applied'=>$request->boolean('apply'),...$counts];
         $previous=$request->session()->get('gep-transfer-preview-details');
@@ -81,8 +83,36 @@ class GepDataTransferController
             || ($preview['source_sha256']??null)!==$request->session()->get('gep-transfer-preview.'.$type))
             throw ValidationException::withMessages(['file'=>'This preview is no longer available. Select the CSV and preview it again before applying.']);
         // Revalidate current settings and permissions; import every row, including those beyond the display limit.
-        $counts=DB::transaction(fn()=>$transfer->import($type,$preview['all_rows'],$request->user()));
+        $counts=DB::transaction(fn()=>$transfer->import($type,$preview['all_rows'],$request->user(),$this->progress));
         $request->session()->forget(['gep-transfer-preview.'.$type,'gep-transfer-preview-details']);$disk->delete($path);
         return redirect()->route('gep.students.section',['studentSection'=>'import-export'])->with('gep_transfer_result',['type'=>$type,'applied'=>true,...$counts]);
+    }
+    private function streamUpload(Request $request,string $type,GepDataTransfer $transfer)
+    {
+        $request->headers->remove('X-GEP-Progress');
+        return response()->stream(function()use($request,$type,$transfer){
+            // Finish transactions and report the outcome even if the browser disconnects.
+            ignore_user_abort(true);
+            $send=function(array $message){echo json_encode($message,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE)."\n";if(ob_get_level())@ob_flush();flush();};
+            $lastPercent=-1;
+            $this->progress=function(int $processed,int $total)use($send,&$lastPercent){
+                $percent=$total?(int)floor($processed*100/$total):0;
+                if($percent===$lastPercent&&$processed!==$total)return;
+                $lastPercent=$percent;$send(['event'=>'progress','processed'=>$processed,'total'=>$total,'percent'=>$percent]);
+            };
+            try{
+                $response=$this->upload($request,$type,$transfer);
+                $result=$request->session()->get('gep_transfer_result');
+                // Stream callbacks run after middleware has saved the session; persist the preview/result here.
+                $request->session()->save();
+                $send(['event'=>'complete','result'=>$result,'redirect'=>$response->getTargetUrl()]);
+            }catch(ValidationException $error){
+                $send(['event'=>'error','message'=>implode(' ',array_merge(...array_values($error->errors()))).' No rows from this upload were saved.']);
+            }catch(\Symfony\Component\HttpKernel\Exception\HttpException $error){
+                $send(['event'=>'error','message'=>'You do not have permission to import these records. No rows were saved.']);
+            }catch(\Throwable $error){
+                report($error);$send(['event'=>'error','message'=>'The request could not finish. Refresh the page and check the import result before trying again.']);
+            }finally{$this->progress=null;}
+        },200,['Content-Type'=>'application/x-ndjson','Cache-Control'=>'no-cache, no-store','X-Accel-Buffering'=>'no']);
     }
 }

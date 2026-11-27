@@ -1,4 +1,6 @@
 import '../css/pages/gep-data-transfer.css';
+import Swal from 'sweetalert2';
+import {readGepTransferProgress} from './helpers/gep-transfer-progress.js';
 
 for (const form of document.querySelectorAll('[data-gep-csv-import]')) {
     const input = form.querySelector('input[type="file"]');
@@ -86,10 +88,11 @@ if (document.querySelector('[data-gep-transfer-progress]')) {
         buttons.clear(); submitValue?.remove(); submitValue = null; activeForm = null;
     };
     window.addEventListener('pageshow', reset);
-    document.addEventListener('submit', event => {
+    document.addEventListener('submit', async event => {
         const form = event.target;
         if (!form.matches('[data-gep-transfer-progress]') || event.defaultPrevented) return;
         if (activeForm) { event.preventDefault(); return; }
+        event.preventDefault();
         activeForm = form;
         const applying = form.dataset.gepTransferProgress === 'apply';
         dialog.querySelector('h2').textContent = applying ? 'Applying your import' : 'Preparing your preview';
@@ -106,8 +109,27 @@ if (document.querySelector('[data-gep-transfer-progress]')) {
             buttons.set(button, button.disabled); button.disabled = true;
         });
         form.setAttribute('aria-busy', 'true');
+        const track = dialog.querySelector('[role="progressbar"]'), bar = track.firstElementChild;
+        track.removeAttribute('aria-valuenow');track.classList.remove('is-determinate');bar.style.width = '';
         dialog.showModal();
-        // The native POST keeps Laravel validation errors, redirects and CSRF handling intact.
-        // Processing is indeterminate until the server responds; no estimated percentage is shown.
+        try {
+            const response = await fetch(form.action, {method: 'POST', body: new FormData(form), credentials: 'same-origin', headers: {Accept: 'application/x-ndjson', 'X-GEP-Progress': '1'}});
+            const complete = await readGepTransferProgress(response, message => {
+                if (message.event !== 'progress') return;
+                track.classList.add('is-determinate');bar.style.width = `${message.percent}%`;
+                track.setAttribute('aria-valuenow', String(message.percent));track.setAttribute('aria-valuemin','0');track.setAttribute('aria-valuemax','100');
+                const text = `${message.percent}% · ${message.processed.toLocaleString()} of ${message.total.toLocaleString()} records ${applying ? 'processed' : 'checked'}`;
+                track.setAttribute('aria-valuetext',text);
+                dialog.querySelector('[role="status"]').textContent = text;
+                dialog.querySelector('h2').textContent = message.processed === message.total ? (applying ? 'Finalizing your import' : 'Finalizing your preview') : (applying ? 'Processing your import' : 'Checking your CSV');
+            });
+            reset();
+            const result = complete.result;
+            await Swal.fire({icon:'success',title:result.applied?'Import completed':'Preview ready',text:`${result.rows.toLocaleString()} records ${result.applied?'saved':'checked'}: ${result.created.toLocaleString()} new, ${result.updated.toLocaleString()} existing.${result.applied?'':' No records saved yet.'}`,confirmButtonText:result.applied?'Done':'Review preview',allowOutsideClick:false});
+            window.location.assign(complete.redirect);
+        } catch (error) {
+            reset();
+            await Swal.fire({icon:'error',title:'GEP import',text:error.message,confirmButtonText:'OK'});
+        }
     });
 }

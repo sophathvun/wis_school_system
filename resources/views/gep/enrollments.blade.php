@@ -16,7 +16,7 @@
     </div>
     <div class="row g-3 mb-3" aria-live="polite">
         @foreach(['total'=>['Total Enrollments','users','primary'],'active'=>['Active Students','user-check','green'],'pending'=>['Pending Students','clock','orange'],'completed'=>['Completed Students','certificate','azure']] as $key=>$card)
-            <div class="col-6 col-xl-3"><div class="card h-100"><div class="card-body py-3 d-flex align-items-center gap-3"><span class="avatar bg-{{ $card[2] }}-lt"><i class="ti ti-{{ $card[1] }} fs-2"></i></span><div><div class="text-secondary small">{{ $card[0] }}</div><strong class="fs-1" id="gep-total-{{ $key }}">0</strong></div></div></div></div>
+            <div class="col-6 col-xl-3"><div class="card h-100"><div class="card-body py-3 d-flex align-items-center gap-3"><span class="avatar bg-{{ $card[2] }}-lt"><i class="ti ti-{{ $card[1] }} fs-2"></i></span><div><div class="text-secondary small" id="gep-total-{{ $key }}-label">{{ $card[0] }}</div><strong class="fs-1" id="gep-total-{{ $key }}">0</strong>@if($key==='total')<div class="small text-secondary">M: <span id="gep-total-male">0</span><span class="mx-2">|</span>F: <span id="gep-total-female">0</span></div>@endif</div></div></div></div>
         @endforeach
     </div>
     <div class="card shadow-sm">

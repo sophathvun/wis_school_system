@@ -74,9 +74,10 @@ class GepDataTransfer
             abort_unless(Access::allows($user,'edit',(int)$campus),403,'You cannot update this GEP profile outside your permitted campuses.');
         abort_unless(Access::allows($user,'create'),403);
     }
-    public function import(string $type,array $rows,User $user): array
+    public function import(string $type,array $rows,User $user,?callable $progress=null): array
     {
         $counts=['created'=>0,'updated'=>0,'rows'=>count($rows),'unresolved_names'=>0];$keys=[];
+        if($progress)$progress(0,count($rows));
         foreach($rows as $index=>$row){
             try{
                 if($type==='families')$row=$this->familyKey($row);
@@ -134,6 +135,7 @@ class GepDataTransfer
                     if($type==='enrollments')DB::table('tb_gep_enrollment_history')->insert(['enrollment_id'=>$enrollment->id,'action'=>'imported','before_values'=>$before?json_encode($before,JSON_THROW_ON_ERROR):null,'after_values'=>json_encode($enrollment->toArray(),JSON_THROW_ON_ERROR),'changed_by'=>$user->id,'created_at'=>now(),'updated_at'=>now()]);
                 }
                 $counts[$new?'created':'updated']++;
+                if($progress)$progress($index+1,count($rows));
             }catch(\Symfony\Component\HttpKernel\Exception\HttpException $error){throw $error;}
             catch(\Throwable $error){throw ValidationException::withMessages(['file'=>'CSV row '.($index+2).': '.($error instanceof ValidationException?implode(' ',array_merge(...array_values($error->errors()))):$error->getMessage())]);}
         }
