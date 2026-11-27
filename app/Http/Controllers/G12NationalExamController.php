@@ -21,11 +21,14 @@ class G12NationalExamController {
     }
     private function query(Request $request,string $action){
         $data=$request->validate(['academic_year'=>'nullable|string|max:9','language_exam'=>'nullable|string|max:80','class_selected'=>'nullable|string|max:150','campus_id'=>'nullable|integer','center_id'=>'nullable|integer','record_id'=>'nullable|integer','grade'=>'nullable|string|max:80','result_status'=>'nullable|in:pending,passed,failed','certificate_status'=>'nullable|in:awaiting,available,collected,not_applicable,review','certificate_type'=>'nullable|in:soft,hard','search'=>'nullable|string|max:150']);
+        $data+= $request->validate(['room'=>'nullable|string|max:80','seat'=>'nullable|string|max:80']);
         $ids=in_array($action,['records','results','results-export','certificates'],true)?Access::reportCampuses($request->user(),$action):Access::campusIds($request->user(),$action);
         return G12ExamRecord::whereIn('campus_id',$ids)
             ->when($data['academic_year']??null,fn($q,$v)=>$q->where('academic_year',$v))->when($data['campus_id']??null,fn($q,$v)=>$q->where('campus_id',$v))
             ->when($data['center_id']??null,fn($q,$v)=>$q->where('center_id',$v))->when($data['record_id']??null,fn($q,$v)=>$q->whereKey($v))->when($data['grade']??null,fn($q,$v)=>$q->where('grade',$v))
             ->when($data['language_exam']??null,fn($q,$v)=>$q->where('data->language_exam',$v))
+            ->when($request->filled('room'),fn($q)=>$q->where('data->g12_exam_room',$data['room']))
+            ->when($request->filled('seat'),fn($q)=>$q->where('data->g12_exam_seat',$data['seat']))
             ->when($data['class_selected']??null,fn($q,$v)=>$q->where(fn($classes)=>$classes->where('data->class_sellected',$v)->orWhere('data->class_selected',$v)))
             ->when($data['result_status']??null,fn($q,$v)=>$q->where('result_status',$v))
             ->when($data['search']??null,fn($q,$v)=>$q->where(fn($s)=>$s->where('student_code','like','%'.$v.'%')->orWhere('name_en','like','%'.$v.'%')->orWhere('name_kh','like','%'.$v.'%')->orWhere('data->phone_number','like','%'.$v.'%')))
@@ -44,6 +47,10 @@ class G12NationalExamController {
             'exam_languages'=>$examLanguages,'selected_classes'=>$selectedClasses,
             'students'=>$students->orderBy('name_kh')->orderBy('name_en')->get(['id','name_kh','name_en','student_code','academic_year']),
             'fields'=>Fields::GROUPS,'document_fields'=>Fields::DOCUMENT_FIELDS];
+        if($tab==='certificates')$result['exam_seats']=$students->clone()->get(['academic_year','campus_id','center_id','grade','data'])->map(fn($record)=>[
+            'academic_year'=>$record->academic_year,'campus_id'=>$record->campus_id,'center_id'=>$record->center_id,'grade'=>$record->grade,
+            'room'=>(string)($record->data['g12_exam_room']??''),'seat'=>(string)($record->data['g12_exam_seat']??''),
+        ])->unique(fn($row)=>json_encode($row))->values();
         if($tab==='scoring')$result['ocr']=$this->resultOcr->status($request->user());
         return response()->json($result);
     }

@@ -10,6 +10,28 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
 require_once __DIR__.'/../Fixtures/G12NationalExam.php';
 beforeEach(fn()=>createG12NationalSchema());
 
+it('filters certificate tracking by exam room and seat while preserving leading zeros',function(){
+    $user=User::find(1);$service=app(G12NationalExams::class);
+    foreach([
+        ['student_id'=>'ROOM-A','g12_exam_room'=>'01','g12_exam_seat'=>'005'],
+        ['student_id'=>'ROOM-B','g12_exam_room'=>'01','g12_exam_seat'=>'010'],
+        ['student_id'=>'ROOM-C','g12_exam_room'=>'02','g12_exam_seat'=>'005'],
+        ['student_id'=>'ROOM-D','g12_exam_room'=>'0','g12_exam_seat'=>'0'],
+    ] as $values)$service->save($user,g12ExamData($values));
+    $controller=app(G12NationalExamController::class);
+    $metadata=$controller->meta(g12Request($user,['tab'=>'certificates']))->getData(true);
+    expect(collect($metadata['exam_seats'])->where('room','01')->pluck('seat')->all())->toBe(['005','010']);
+    $room=$controller->list(g12Request($user,['tab'=>'certificates','room'=>'01']))->getData(true);
+    expect($room['summary']['total'])->toBe(2);
+    $seat=$controller->list(g12Request($user,['tab'=>'certificates','room'=>'01','seat'=>'005']))->getData(true);
+    expect($seat['data'])->toHaveCount(1)->and($seat['summary']['total'])->toBe(1)
+        ->and($seat['data'][0]['student_code'])->toBe('ROOM-A');
+    $zero=$controller->list(g12Request($user,['tab'=>'certificates','room'=>'0','seat'=>'0']))->getData(true);
+    expect($zero['summary']['total'])->toBe(1);
+    $empty=$controller->list(g12Request($user,['tab'=>'certificates','room'=>'02','seat'=>'010']))->getData(true);
+    expect($empty['data'])->toBeEmpty()->and($empty['summary']['total'])->toBe(0);
+});
+
 it('summarizes certificate tracking candidates across pages using the current filters',function(){
     $user=User::find(1);$service=app(G12NationalExams::class);
     foreach(['A','F',''] as $index=>$grade)$service->save($user,g12ExamData(['student_id'=>'CERT-'.$index,'g12_letter_grade'=>$grade]));

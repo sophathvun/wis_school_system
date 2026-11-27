@@ -244,6 +244,9 @@
 .g12-certificate-table{width:100%;min-width:0;table-layout:fixed;font-size:clamp(.7rem,.72vw,.82rem)}
 .g12-certificate-table th,.g12-certificate-table td{padding-inline:clamp(.35rem,.6vw,.75rem);overflow-wrap:anywhere}
 .g12-certificate-table th:nth-child(1){width:3.5%}
+[data-g12-exams][data-tab="certificates"] .g12-certificate-table th:first-child{width:5rem}
+[data-g12-exams][data-tab="certificates"] .g12-tracking-number-cell{padding-right:1rem;white-space:nowrap;overflow-wrap:normal}
+[data-g12-exams][data-tab="certificates"] .g12-tracking-number-badge{white-space:nowrap;overflow-wrap:normal;word-break:normal}
 .g12-certificate-table th:nth-child(2){width:5%}
 .g12-certificate-table th:nth-child(3){width:11%}
 .g12-certificate-table th:nth-child(4){width:9%}

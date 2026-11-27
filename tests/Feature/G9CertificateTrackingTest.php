@@ -149,6 +149,23 @@ it('optimizes images creates private thumbnails supports JPG download and reject
     expect(fn()=>$this->tracking->save($this->admin,$candidate,g9TrackingInput(['version'=>1]),['receipt'=>UploadedFile::fake()->createWithContent('bad.svg','<svg xmlns="http://www.w3.org/2000/svg"></svg>')]))->toThrow(ValidationException::class);
 });
 
+it('filters seat choices by room and applies seat selection to tracking totals and student choices',function(){
+    $selected=g9TrackedCandidate('first',['room_number'=>'1','seat_number'=>'002']);
+    g9TrackedCandidate('second',['room_number'=>'1','seat_number'=>'10']);
+    g9TrackedCandidate('other-room',['room_number'=>'2','seat_number'=>'002']);
+    g9TrackedCandidate('other-campus',['room_number'=>'1','seat_number'=>'30'],['campus_id'=>2]);
+    $filters=['academic_year'=>1,'campus'=>1,'room'=>'1'];
+    $options=$this->controller->options(g12Request($this->admin,$filters))->getData(true);
+    expect($options['seat'])->toBe(['002','10']);
+    $filters['seat']='002';
+    $options=$this->controller->options(g12Request($this->admin,$filters))->getData(true);
+    expect(array_column($options['student'],'id'))->toBe([$selected->id]);
+    $data=$this->controller->data(g12Request($this->admin,$filters),$this->tracking)->getData(true);
+    expect($data['records']['total'])->toBe(1)->and($data['records']['data'][0]['id'])->toBe($selected->id)->and($data['summary']['total'])->toBe(1);
+    $filters['seat']='missing';
+    expect($this->controller->data(g12Request($this->admin,$filters),$this->tracking)->getData(true)['records']['total'])->toBe(0);
+});
+
 it('views and filters tracking across campuses but scopes documents and mutations to permitted campuses',function(){
     $local=g9TrackedCandidate('local');$private=g9TrackedCandidate('private',['exam_center'=>'Private Center'],['campus_id'=>2]);
     $this->tracking->save($this->admin,$private,g9TrackingInput(['number'=>'G926-PRIVATE']),['provisional'=>g9TrackingUpload()]);

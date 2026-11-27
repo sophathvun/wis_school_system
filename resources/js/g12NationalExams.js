@@ -83,8 +83,20 @@ if(root){
         options(filterForm.elements.campus_id,year?meta.campuses.filter(campus=>ids.has(String(campus.id))):meta.campuses,'campus_name_en');
         syncFilterFields();
     };
+    const syncCertificateLocations=(changed='')=>{
+        if(tab!=='certificates'||!meta||!filterForm)return;
+        const controls=filterForm.elements;
+        if(['academic_year','campus_id','grade','center_id'].includes(changed))controls.room.value=controls.seat.value='';
+        if(changed==='room')controls.seat.value='';
+        const rows=(meta.exam_seats??[]).filter(row=>['academic_year','campus_id','grade','center_id'].every(key=>!controls[key]?.value||String(row[key]??'')===controls[key].value));
+        const choices=(records,key)=>[...new Set(records.map(row=>String(row[key]??'')).filter(value=>value.trim()!==''))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})).map(value=>({id:value,label:value}));
+        options(controls.room,choices(rows,'room'),'label');
+        options(controls.seat,choices(rows.filter(row=>!controls.room.value||row.room===controls.room.value),'seat'),'label');
+        syncFilterFields();
+    };
     filterForm?.addEventListener('change',event=>{
         if(event.target.name==='academic_year')syncYearCampuses();
+        syncCertificateLocations(event.target.name);
     },true);
     const loadMeta=async()=>{
         meta=await api('/meta?tab='+tab);
@@ -97,6 +109,7 @@ if(root){
             photoUpload?.sync();
         }
         syncYearCampuses();
+        syncCertificateLocations();
         if(tab==='scoring')prepareScoringTools();
         refreshPickers(root);syncFilterFields();
     };
@@ -139,7 +152,7 @@ if(root){
         return `<td class="g12-certificate-cell" data-label="${label}"><div class="g12-certificate-group"><div class="g12-certificate-group-header">${badge(certificate?.status??'awaiting')}${manage}</div>${certificateDocument(source,'MoEYS Copy')}${certificateDocument(receipt,'Signed Receipt')}</div></td>`;
     };
     const trackingRows=res=>res.data.map((r,i)=>`<tr>
-        <td class="text-center" data-label="No."><span class="badge g12-tracking-number-badge">${res.from+i}</span></td>
+        <td class="text-center g12-tracking-number-cell" data-label="No."><span class="badge g12-tracking-number-badge">${res.from+i}</span></td>
         <td data-label="Photo">${r.photo_url?`<button type="button" class="g12-photo-trigger" data-g12-photo-view="${escape(r.photo_url)}" data-g12-photo-title="${escape(r.name_en||r.student_code||'Student Photo')}" aria-label="View photo of ${escape(r.name_en||r.student_code||'student')}"><img src="${escape(r.photo_url)}" class="g12-photo" loading="lazy" alt="Photo of ${escape(r.name_en||r.student_code||'student')}"></button>`:'&mdash;'}</td>
         <td data-label="Student"><strong class="school-profile-khmer">${escape(r.name_kh||'—')}</strong><div class="g12-student-name-en">${escape(r.name_en||'—')}</div><div class="text-secondary">${escape(r.student_code)}</div></td>
         <td class="g12-tracking-grade" data-label="Grade"><strong>${escape(r.academic_year)}</strong><div>${escape(r.campus)} / ${escape(r.grade)}</div></td>

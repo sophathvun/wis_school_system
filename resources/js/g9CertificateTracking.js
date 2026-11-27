@@ -11,7 +11,7 @@ if(root){
     const error=get('[data-certificate-error]'),success=get('[data-certificate-success]'),summary=get('[data-certificate-summary]');
     const search=get('#g9CertificateSearch'),perPage=get('#g9-certificate-per-page'),pagination=get('#g9-certificate-pagination');
     const modalElement=get('#g9CertificateModal'),form=get('[data-certificate-form]'),modalError=get('[data-certificate-modal-error]');
-    const save=get('[data-certificate-save]'),viewPhoto=setupG9PhotoViewer(),combos=new Map(),order=['academic_year','exam_center','campus','room','grade','student'];
+    const save=get('[data-certificate-save]'),viewPhoto=setupG9PhotoViewer(),combos=new Map(),order=['academic_year','exam_center','campus','room','seat','grade','student'];
     const fields=['status','number','printed_signed_date','received_date','recipient','reason'];
     const mobile=matchMedia('(max-width:767.98px)');
     let sequence=0,controller=null,timer=null,currentPage=1,opening=0,saving=false,editable=false;
@@ -89,7 +89,7 @@ if(root){
         summary.hidden=false;for(const key of ['total','passed','failed','absent','printed_signed','received','awaiting'])get(`[data-certificate-count="${key}"]`).textContent=data.summary[key].toLocaleString();
         const result=data.records;currentPage=result.current_page;
         rows.innerHTML=result.data.map((r,index)=>`<tr>
-            <td class="text-center" data-label="No.">${result.from+index}</td>
+            <td class="text-center g9-certificate-number-cell" data-label="No."><span class="badge bg-blue-lt g9-certificate-row-number">${result.from+index}</span></td>
             <td data-label="Photo">${r.photo_url?`<button type="button" class="g12-photo-trigger" data-certificate-photo="${r.id}" aria-label="View photo of ${escape(r.name_en)}"><img src="${escape(r.photo_url)}" class="g12-photo" loading="lazy" alt="Photo of ${escape(r.name_en)}"></button>`:'—'}</td>
             <td data-label="Student"><div><strong class="school-profile-khmer">${escape(r.name_kh||'—')}</strong><div class="g12-student-name-en">${escape(r.name_en)}</div><div class="text-secondary">${escape(r.student_code)}</div></div></td>
             <td class="g12-tracking-grade" data-label="Grade"><div><strong>${escape(r.year)}</strong><div>${escape(r.campus)} / ${escape(r.grade)}</div></div></td>

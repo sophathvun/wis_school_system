@@ -28,7 +28,7 @@ $filterFields=$tab==='records'
             ? ['academic_year'=>'Academic Year','campus_id'=>'Campus','class_selected'=>'Selected','language_exam'=>'Language Exam','center_id'=>'Exam Center','record_id'=>'Student Name']
             : ($tab==='results'
                 ? ['academic_year'=>'Academic Year','campus_id'=>'Campus','class_selected'=>'Selected','language_exam'=>'Language Exam','center_id'=>'Exam Center','result_status'=>'Result','record_id'=>'Student Name']
-                : ['academic_year'=>'Academic Year','campus_id'=>'Campus','grade'=>'Grade / Class','center_id'=>'Exam Center','result_status'=>'Result','certificate_type'=>'Certificate Type','certificate_status'=>'Certificate Status'])));
+                : ['academic_year'=>'Academic Year','campus_id'=>'Campus','grade'=>'Grade / Class','center_id'=>'Exam Center','room'=>'Room No.','seat'=>'Seat No.','result_status'=>'Result','certificate_type'=>'Certificate Type','certificate_status'=>'Certificate Status'])));
 @endphp
 @if($tab==='reports')
 @php($filterFields=['academic_year'=>'Academic Year','campus_id'=>'Campus','record_id'=>'Student Name'])

@@ -12,7 +12,7 @@ use Illuminate\Validation\Rule;
 
 class G9CertificateTrackingController
 {
-    public const FILTERS=['exam_center','campus','room','grade','student'];
+    public const FILTERS=['exam_center','campus','room','seat','grade','student'];
 
     private function campuses(Request $request): array
     {
@@ -32,7 +32,7 @@ class G9CertificateTrackingController
     {
         $input=$request->validate([
             'academic_year'=>'required|integer|exists:tb_academic_year,id','exam_center'=>'nullable|string|max:255','campus'=>'nullable|integer',
-            'room'=>'nullable|string|max:255','grade'=>'nullable|string|max:255','student'=>'nullable|integer',
+            'room'=>'nullable|string|max:255','seat'=>'nullable|string|max:255','grade'=>'nullable|string|max:255','student'=>'nullable|integer',
             'status'=>['nullable',Rule::in(['awaiting','printed_signed','received','not_issued','review'])],
             'search'=>'nullable|string|max:255','per_page'=>['nullable',Rule::in(['15','25','50','100'])],'page'=>'nullable|integer|min:1',
         ]);
@@ -46,7 +46,7 @@ class G9CertificateTrackingController
 
     private function filter($query,string $filter,mixed $value): void
     {
-        if($value!==null&&$value!=='')$query->where(['campus'=>'campus_id','student'=>'id','room'=>'data->room_number'][$filter]??'data->'.$filter,$value);
+        if($value!==null&&$value!=='')$query->where(['campus'=>'campus_id','student'=>'id','room'=>'data->room_number','seat'=>'data->seat_number'][$filter]??'data->'.$filter,$value);
     }
 
     public function options(Request $request)
@@ -55,7 +55,7 @@ class G9CertificateTrackingController
         foreach(self::FILTERS as $filter){
             if($filter==='campus')$choices[$filter]=(clone $query)->with('campus')->get(['campus_id'])->unique('campus_id')->map(fn($r)=>['id'=>$r->campus_id,'label'=>$r->campus?->campus_name_en??''])->sortBy('label',SORT_NATURAL)->values();
             elseif($filter==='student')$choices[$filter]=(clone $query)->orderBy('name_kh')->orderBy('name_en')->get(['id','student_code','name_kh','name_en'])->map(fn($r)=>['id'=>$r->id,'label'=>implode(' | ',array_filter([$r->student_code,$r->name_kh,$r->name_en]))]);
-            else $choices[$filter]=(clone $query)->select('data->'.($filter==='room'?'room_number':$filter).' as choice')->distinct()->pluck('choice')->filter(fn($v)=>$v!==null&&$v!=='')->sort(SORT_NATURAL)->values();
+            else $choices[$filter]=(clone $query)->select('data->'.(in_array($filter,['room','seat'],true)?$filter.'_number':$filter).' as choice')->distinct()->pluck('choice')->filter(fn($v)=>$v!==null&&$v!=='')->sort(SORT_NATURAL)->values();
             $this->filter($query,$filter,$request->input($filter));
         }
         return response()->json($choices)->header('Cache-Control','private, no-store');

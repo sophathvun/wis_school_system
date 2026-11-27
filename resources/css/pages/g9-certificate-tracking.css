@@ -1,7 +1,14 @@
 [data-g9-certificate-tracking] [hidden]{display:none!important}
+@media(min-width:1101px){
+    #g9CertificateFilters{grid-template-columns:repeat(5,minmax(0,1fr))}
+    #g9CertificateFilters .g9-result-search-field{grid-column:span 2}
+}
 [data-g9-certificate-tracking] .g12-certificate-table{font-size:.8rem}
 [data-g9-certificate-tracking] .g12-certificate-table th:nth-child(6),[data-g9-certificate-tracking] .g12-certificate-table th:nth-child(7){width:23%}
 [data-g9-certificate-tracking] .g12-certificate-table td{padding:1rem .7rem}
+[data-g9-certificate-tracking] .g12-certificate-table th:first-child{width:4.5rem}
+[data-g9-certificate-tracking] .g9-certificate-number-cell{white-space:nowrap;overflow-wrap:normal}
+[data-g9-certificate-tracking] .g9-certificate-row-number{display:inline-flex;align-items:center;justify-content:center;min-width:2.25rem;padding:.45rem .55rem;border-radius:.5rem;white-space:nowrap;overflow-wrap:normal;word-break:normal;font-variant-numeric:tabular-nums}
 [data-g9-certificate-tracking] .g12-certificate-table .g12-tracking-grade{font-size:.75rem}
 [data-g9-certificate-tracking] .g12-certificate-document-info small{font-size:.7rem}
 [data-g9-certificate-tracking] .g12-certificate-preview{width:100%;max-width:50px}
