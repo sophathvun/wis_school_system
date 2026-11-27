@@ -17,8 +17,9 @@ class ProgramWorkspaceController
         return redirect()->route($data['program']==='gep'?'gep.dashboard':'dashboard');
     }
 
-    public function gep()
+    public function gep(Request $request)
     {
-        return view('gep.dashboard');
+        abort_unless(isset(ProgramWorkspace::available($request->user())['gep']),403);
+        return view('gep.dashboard',app(\App\Services\GepDashboard::class)->data($request));
     }
 }

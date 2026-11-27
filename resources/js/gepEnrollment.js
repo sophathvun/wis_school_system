@@ -168,12 +168,12 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const result=await request(`/data?${new URLSearchParams({...filters,search:get('gep-enrollment-search').value.trim(),page:target,perPage:get('gep-enrollment-per-page').value})}`,'GET',undefined,loading.signal);
             rows=result.records.data; page=result.records.current_page; showError('gep-list-error',null);
-            for (const [key,value] of Object.entries(result.summary)) get(`gep-total-${key}`).textContent=Number(value).toLocaleString();
-            const completedTerm=options.assignments.find(a=>String(a.id)===String(filters.term_assignment_id))?.lifecycle_status==='finished';
-            get('gep-total-active-label').textContent=completedTerm?'Completed Students':'Active Students';
-            get('gep-total-completed-label').textContent=completedTerm?'Active Students':'Completed Students';
-            get('gep-total-active').textContent=Number(result.summary[completedTerm?'completed':'active']).toLocaleString();
-            get('gep-total-completed').textContent=Number(result.summary[completedTerm?'active':'completed']).toLocaleString();
+            for (const [key,value] of Object.entries(result.summary)) {
+                const counter=get(`gep-total-${key}`);if(counter)counter.textContent=Number(value).toLocaleString();
+            }
+            const termStatus=options.assignments.find(a=>String(a.id)===String(filters.term_assignment_id))?.lifecycle_status;
+            root.querySelector('[data-gep-summary-card="active"]').classList.toggle('d-none',termStatus==='finished');
+            root.querySelector('[data-gep-summary-card="completed"]').classList.toggle('d-none',termStatus==='started');
             get('gep-enrollment-rows').innerHTML=rows.length ? rows.map((row,index) => {
                 const student=row.gep_student.profile||{}, status=row.enrollment_status, style=({active:'green',pending:'orange',completed:'azure',withdrawn:'red',graduated:'purple'})[status];
                 return `<tr><td><span class="badge bg-primary-lt px-3 py-2 text-nowrap">${result.records.from+index}</span></td>

@@ -1,19 +1,18 @@
 @extends('layouts.app')
 @section('title','GEP Dashboard')
 @section('content')
-    <div class="card border-0 shadow-sm mb-3">
-        <div class="card-body p-4">
-            <div class="d-flex align-items-center gap-3">
-                <span class="avatar avatar-lg bg-primary-lt rounded-3"><i class="ti ti-books fs-1"></i></span>
-                <div><div class="text-secondary small text-uppercase fw-bold">General English Program</div><h1 class="h2 mb-1">GEP Dashboard</h1><div class="text-secondary">Welcome, {{ auth()->user()->name }}.</div></div>
-            </div>
+@vite(['resources/css/pages/gep-dashboard.css','resources/js/gepDashboard.js'])
+<div class="gep-dashboard">
+    <section class="gep-dash-hero">
+        <div><div class="gep-dash-eyebrow"><span></span> GENERAL ENGLISH PROGRAM</div><h1>Your GEP overview</h1><p>Welcome, {{ auth()->user()->name }}. A clear view of your students and their learning journey.</p>
+            @if($canView)<div class="gep-dash-context"><span><i class="ti ti-calendar"></i> {{ $yearLabel }}</span><span>{{ $term?->term?->term_name??'All terms' }}</span><span><i class="ti ti-building"></i> {{ $campusLabel }}</span></div>@endif
         </div>
-    </div>
-    <div class="card shadow-sm">
-        <div class="card-header"><h2 class="card-title">Getting started with GEP</h2></div>
-        <div class="card-body">
-            <p>Your GEP workspace is ready. GEP enrollment, terms, levels, attendance and reports are the next stage of setup.</p>
-            <p class="text-secondary mb-0">GEP statistics will appear after GEP enrollment is available. WIS student counts are displayed in the WIS workspace.</p>
-        </div>
-    </div>
+        <div class="gep-dash-hero-side"><span class="gep-dash-book"><i class="ti ti-language"></i></span><span>{{ now('Asia/Bangkok')->format('l, d M Y') }}</span></div>
+    </section>
+    @if(!$canView)
+        <section class="gep-dash-panel mt-3"><h2>Welcome to GEP</h2><p class="text-secondary mb-0">Enrollment insights are available to staff with GEP enrollment access. Contact your administrator to enable access for your campus.</p></section>
+    @else
+        @include('gep._dashboard-content')
+    @endif
+</div>
 @endsection

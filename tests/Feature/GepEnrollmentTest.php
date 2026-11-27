@@ -161,7 +161,7 @@ it('paginates and summarizes the filtered GEP records and keeps completed histor
     $this->controller->save(($this->request)([...$this->payload,'student_id'=>2]));
     DB::table('tb_gep_enrollment')->where('id',1)->update(['enrollment_status'=>'completed']);
     $list=$this->controller->fetch(($this->request)(['enrollment_status'=>'completed','perPage'=>'all','page'=>99],'GET'))->getData(true);
-    expect($list['summary'])->toBe(['total'=>1,'male'=>1,'female'=>0,'active'=>0,'pending'=>0,'completed'=>1,'new'=>1,'new-male'=>1,'new-female'=>0])->and($list['records']['current_page'])->toBe(1)->and($list['records']['data'])->toHaveCount(1);
+    expect($list['summary'])->toBe(['total'=>1,'male'=>1,'female'=>0,'active'=>0,'pending'=>0,'completed'=>1,'withdrawn'=>0,'new'=>1,'new-male'=>1,'new-female'=>0])->and($list['records']['current_page'])->toBe(1)->and($list['records']['data'])->toHaveCount(1);
     $filtered=$this->controller->fetch(($this->request)(['search'=>'GEP-000002'],'GET'))->getData(true);expect($filtered['records']['data'])->toHaveCount(1);
     $this->controller->fetch(($this->request)(['campus_id'=>2],'GET'))->getData(true);expect(GepEnrollment::count())->toBe(2);
 });
@@ -654,6 +654,46 @@ it('streams row progress and confirms only completed preview and apply transacti
     $messages=$stream($controller->upload($invalid,'students',$transfer));
     expect(end($messages)['event'])->toBe('error')->and(GepStudent::count())->toBe(2)
         ->and(collect($messages)->where('event','complete'))->toHaveCount(0);
+});
+
+it('builds GEP dashboard metrics without counting a returning student twice across terms',function(){
+    $this->controller->save(($this->request)($this->payload));
+    $first=GepEnrollment::first();$first->update(['enrollment_status'=>'completed']);
+    DB::table('tb_gep_term_assignment')->where('id',1)->update(['lifecycle_status'=>'finished']);
+    DB::table('tb_gep_term_assignment')->where('id',2)->update(['lifecycle_status'=>'started']);
+    $return=$first->replicate();$return->term_assignment_id=2;$return->enrollment_status='active';$return->student_type='old';$return->save();
+    $service=app(\App\Services\GepDashboard::class);
+    $data=$service->data(($this->request)(['academic_year_id'=>1,'term_assignment_id'=>''],'GET'));
+    expect($data['metrics'])->toMatchArray(['enrollments'=>2,'students'=>1,'male'=>1,'female'=>0,'active'=>1,'completed'=>1,'new'=>1])
+        ->and($data['trend']->pluck('total')->all())->toBe([1,1]);
+    $data=$service->data(($this->request)([],'GET'));
+    expect($data['termId'])->toBe(2)->and($data['metrics']['enrollments'])->toBe(1)->and($data['metrics']['new'])->toBe(0);
+    $completed=$service->data(($this->request)(['academic_year_id'=>1,'term_assignment_id'=>1],'GET'));
+    expect($completed['metrics']['completed'])->toBe(1)->and($completed['campusRows'][0]['completed'])->toBe(1);
+    $html=view('gep._dashboard-content',$completed)->render();
+    expect($html)->toContain('Completed students','Students by term','Gender overview','EXISTING STUDENT');
+});
+
+it('renders an empty GEP dashboard without inventing enrollment data and rejects mismatched terms',function(){
+    $service=app(\App\Services\GepDashboard::class);
+    $data=$service->data(($this->request)([],'GET'));
+    expect($data['metrics'])->toMatchArray(['students'=>0,'enrollments'=>0,'new'=>0,'active'=>0,'male'=>0,'female'=>0])
+        ->and($data['recent'])->toHaveCount(0);
+    expect(view('gep._dashboard-content',$data)->render())->toContain('No enrollment data for this selection.','No campus enrollments to display.');
+    DB::table('tb_gep_academic_year')->insert(['id'=>2,'academic_year'=>'2025']);
+    expect(fn()=>$service->data(($this->request)(['academic_year_id'=>2,'term_assignment_id'=>1],'GET')))->toThrow(HttpException::class);
+});
+
+it('scopes GEP dashboard charts and recent students to permitted campuses',function(){
+    $this->controller->save(($this->request)($this->payload));
+    $this->controller->save(($this->request)([...$this->payload,'student_id'=>2,'campus_id'=>2]));
+    ($this->campusUser)();$service=app(\App\Services\GepDashboard::class);
+    $data=$service->data(($this->request)([],'GET'));
+    expect($data['metrics']['students'])->toBe(1)->and($data['campusRows']->pluck('label')->all())->toBe(['BKK'])
+        ->and($data['recent']->pluck('campus_id')->all())->toBe([1]);
+    expect(fn()=>$service->data(($this->request)(['campus_id'=>2],'GET')))->toThrow(HttpException::class);
+    ($this->campusUser)(['gep-students.enrollment.view']);
+    expect($service->data(($this->request)([],'GET')))->toBe(['canView'=>false]);
 });
 
 it('provides two-row CSV templates and a usable GEP transfer page',function(){

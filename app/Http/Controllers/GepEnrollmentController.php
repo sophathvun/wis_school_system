@@ -71,7 +71,7 @@ class GepEnrollmentController
         $summary=['total'=>(clone $query)->count()];
         foreach(['male'=>['M','Male'],'female'=>['F','Female']] as $key=>$genders)
             $summary[$key]=(clone $query)->whereHas('gepStudent',fn($q)=>$q->whereIn('profile->gender',$genders))->count();
-        foreach(['active','pending','completed'] as $status)$summary[$status]=(clone $query)->where('enrollment_status',$status)->distinct()->count('gep_student_id');
+        foreach(['active','pending','completed','withdrawn'] as $status)$summary[$status]=(clone $query)->where('enrollment_status',$status)->distinct()->count('gep_student_id');
         $newStudents=(clone $query)->where('student_type','new');
         $summary['new']=(clone $newStudents)->distinct()->count('gep_student_id');
         foreach(['new-male'=>['M','Male'],'new-female'=>['F','Female']] as $key=>$genders)
