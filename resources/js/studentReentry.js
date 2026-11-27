@@ -308,7 +308,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const filterClasses = () => {
         const gradeId = field('reentry-grade').value;
         Array.from(field('reentry-class').options).forEach(option => {
-            option.hidden = Boolean(option.value && gradeId && option.dataset.gradeId !== gradeId);
+            option.hidden = Boolean(option.value && gradeId && option.dataset.gradeId && option.dataset.gradeId !== gradeId);
         });
         if (field('reentry-class').selectedOptions[0]?.hidden) field('reentry-class').value = '';
         searchable['reentry-class']?.sync();
@@ -328,6 +328,7 @@ document.addEventListener('DOMContentLoaded', () => {
         fill('reentry-grade', state.grades, 'grade', '');
         fill('reentry-class', state.classes, 'class_name', '');
         fill('reentry-group', state.groups, 'session_short_name', '');
+        filterClasses();
         Object.values(searchable).forEach(combo => {
             combo.sync();
             combo.render();
@@ -364,6 +365,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const openReentry = async (sourceId = '') => {
         field('reentryForm').reset();
         field('reentry-year').value = state.target_academic_year_id || '';
+        filterClasses();
         Object.values(searchable).forEach(combo => combo.sync());
         field('reentry-error').classList.add('d-none');
         clearValidation();
