@@ -656,7 +656,7 @@ it('streams row progress and confirms only completed preview and apply transacti
         ->and(collect($messages)->where('event','complete'))->toHaveCount(0);
 });
 
-it('builds GEP dashboard metrics without counting a returning student twice across terms',function(){
+it('adds every selected term to GEP dashboard cards and charts',function(){
     $this->controller->save(($this->request)($this->payload));
     $first=GepEnrollment::first();$first->update(['enrollment_status'=>'completed']);
     DB::table('tb_gep_term_assignment')->where('id',1)->update(['lifecycle_status'=>'finished']);
@@ -664,7 +664,10 @@ it('builds GEP dashboard metrics without counting a returning student twice acro
     $return=$first->replicate();$return->term_assignment_id=2;$return->enrollment_status='active';$return->student_type='old';$return->save();
     $service=app(\App\Services\GepDashboard::class);
     $data=$service->data(($this->request)(['academic_year_id'=>1,'term_assignment_id'=>''],'GET'));
-    expect($data['metrics'])->toMatchArray(['enrollments'=>2,'students'=>1,'male'=>1,'female'=>0,'active'=>1,'completed'=>1,'new'=>1])
+    expect($data['metrics'])->toMatchArray(['enrollments'=>2,'students'=>2,'male'=>2,'female'=>0,'active'=>1,'completed'=>1,'new'=>1])
+        ->and($data['metrics']['students'])->toBe($data['metrics']['active']+$data['metrics']['completed']+$data['metrics']['withdrawn'])
+        ->and($data['genderMetrics']['students'])->toBe(2)->and($data['genderMetrics']['male'])->toBe(2)
+        ->and($data['levelRows']->sum('total'))->toBe(2)->and($data['campusRows']->sum('total'))->toBe(2)
         ->and($data['trend']->pluck('total')->all())->toBe([1,1]);
     $data=$service->data(($this->request)([],'GET'));
     expect($data['termId'])->toBe(2)->and($data['metrics']['enrollments'])->toBe(1)->and($data['metrics']['new'])->toBe(0);
@@ -672,6 +675,18 @@ it('builds GEP dashboard metrics without counting a returning student twice acro
     expect($completed['metrics']['completed'])->toBe(1)->and($completed['campusRows'][0]['completed'])->toBe(1);
     $html=view('gep._dashboard-content',$completed)->render();
     expect($html)->toContain('Completed students','Students by term','Gender overview','EXISTING STUDENT');
+});
+
+it('excludes withdrawn enrollments from dashboard charts while preserving summary cards',function(){
+    $this->controller->save(($this->request)($this->payload));
+    $this->controller->save(($this->request)([...$this->payload,'student_id'=>2]));
+    GepEnrollment::where('gep_student_id',2)->update(['enrollment_status'=>'withdrawn']);
+    $data=app(\App\Services\GepDashboard::class)->data(($this->request)([],'GET'));
+    expect($data['metrics'])->toMatchArray(['students'=>2,'withdrawn'=>1,'male'=>1,'female'=>1])
+        ->and($data['genderMetrics'])->toBe(['students'=>1,'male'=>1,'female'=>0,'unknown_gender'=>0])
+        ->and($data['levelRows']->sum('total'))->toBe(1)->and($data['trend']->sum('total'))->toBe(1);
+    $html=view('gep._dashboard-content',$data)->render();
+    expect($html)->toContain('Male 1, female 0, unspecified 0','Excludes withdrawn enrollments.');
 });
 
 it('renders an empty GEP dashboard without inventing enrollment data and rejects mismatched terms',function(){

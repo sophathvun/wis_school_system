@@ -74,7 +74,8 @@
 #gep-enrollments .gep-parent-section{border:0;padding:0;margin:0 0 24px;min-width:0}
 #gep-enrollments .gep-parent-section:last-child{margin-bottom:0}
 #gep-enrollments .gep-parent-section legend{font-size:.9rem;font-weight:600;margin-bottom:12px;float:none;width:auto}
-#gep-enrollments .gep-list-photo{width:42px;height:56px;object-fit:cover;border-radius:7px;float:left;margin:0 12px 8px 0}
+#gep-enrollments .gep-list-photo{width:42px;height:56px;object-fit:cover;border-radius:7px;display:inline-block}
+#gep-enrollments .gep-list-photo-placeholder{width:42px;height:56px;display:inline-grid;place-items:center;border-radius:7px;background:var(--tblr-bg-surface-secondary,#f1f5f9);color:var(--tblr-secondary-color,#66758d);font-size:1.2rem}
 #gep-enrollments .gep-profile-subsection{margin:20px -20px 0;padding:20px;border-top:1px solid var(--tblr-border-color)}
 #gep-enrollments .gep-profile-subsection h4{font-size:.9rem;text-transform:uppercase;margin-bottom:22px}
 #gep-enrollments .gep-location-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px}

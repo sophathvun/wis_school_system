@@ -32,22 +32,36 @@ class GepDashboard
         $trendQuery=clone $base;
         if($termId)$base->where('term_assignment_id',$termId);
         $rows=$base->with(['gepStudent:id,student_identifier,profile','campus:id,campus_name_en','level','group','termAssignment.term'])->orderByDesc('enrolled_on')->orderByDesc('id')->get();
-        $people=$rows->unique('gep_student_id');$gender=fn($row)=>strtoupper($row->gepStudent->profile['gender']??'');
+        $people=$rows;$gender=fn($row)=>strtoupper($row->gepStudent->profile['gender']??'');
         $metrics=['enrollments'=>$rows->count(),'students'=>$people->count(),'male'=>$people->filter(fn($r)=>in_array($gender($r),['M','MALE'],true))->count(),'female'=>$people->filter(fn($r)=>in_array($gender($r),['F','FEMALE'],true))->count()];
-        foreach(['active','completed','withdrawn','pending','graduated'] as $status)$metrics[$status]=$rows->where('enrollment_status',$status)->unique('gep_student_id')->count();
-        $new=$rows->where('student_type','new')->unique('gep_student_id');
+        foreach(['active','completed','withdrawn','pending','graduated'] as $status)$metrics[$status]=$rows->where('enrollment_status',$status)->count();
+        // Sum enrollment records across the selected terms, matching the three status cards.
+        $metrics['students']=$metrics['active']+$metrics['completed']+$metrics['withdrawn'];
+        $metrics['male']=0;$metrics['female']=0;
+        foreach(['active','completed','withdrawn'] as $status){
+            $statusPeople=$rows->where('enrollment_status',$status);
+            $metrics['male']+=$statusPeople->filter(fn($r)=>in_array($gender($r),['M','MALE'],true))->count();
+            $metrics['female']+=$statusPeople->filter(fn($r)=>in_array($gender($r),['F','FEMALE'],true))->count();
+        }
+        $new=$rows->where('student_type','new');
         $metrics['new']=$new->count();$metrics['new_male']=$new->filter(fn($r)=>in_array($gender($r),['M','MALE'],true))->count();$metrics['new_female']=$new->filter(fn($r)=>in_array($gender($r),['F','FEMALE'],true))->count();
         $metrics['unknown_gender']=$metrics['students']-$metrics['male']-$metrics['female'];
-        $breakdown=fn($relation,$label)=>$rows->groupBy($relation.'_id')->map(fn($items)=>['label'=>$items->first()->$relation?->$label??'Unassigned','total'=>$items->unique('gep_student_id')->count(),'active'=>$items->where('enrollment_status','active')->unique('gep_student_id')->count(),'completed'=>$items->where('enrollment_status','completed')->unique('gep_student_id')->count(),'new'=>$items->where('student_type','new')->unique('gep_student_id')->count(),'withdrawn'=>$items->where('enrollment_status','withdrawn')->unique('gep_student_id')->count()])->sortByDesc('total')->values();
-        $trend=$trendQuery->select('term_assignment_id')->selectRaw('COUNT(*) as total')->selectRaw('COUNT(DISTINCT gep_student_id) as students')->groupBy('term_assignment_id')->get()->keyBy('term_assignment_id');
+        $chartRows=$rows->where('enrollment_status','!=','withdrawn');
+        $chartPeople=$chartRows;
+        $genderMetrics=['students'=>$chartPeople->count(),
+            'male'=>$chartPeople->filter(fn($r)=>in_array($gender($r),['M','MALE'],true))->count(),
+            'female'=>$chartPeople->filter(fn($r)=>in_array($gender($r),['F','FEMALE'],true))->count()];
+        $genderMetrics['unknown_gender']=$genderMetrics['students']-$genderMetrics['male']-$genderMetrics['female'];
+        $breakdown=fn($relation,$label)=>$rows->groupBy($relation.'_id')->map(fn($items)=>['label'=>$items->first()->$relation?->$label??'Unassigned','total'=>$items->count(),'active'=>$items->where('enrollment_status','active')->count(),'completed'=>$items->where('enrollment_status','completed')->count(),'new'=>$items->where('student_type','new')->count(),'withdrawn'=>$items->where('enrollment_status','withdrawn')->count()])->sortByDesc('total')->values();
+        $trend=$trendQuery->where('enrollment_status','!=','withdrawn')->select('term_assignment_id')->selectRaw('COUNT(*) as total')->selectRaw('COUNT(DISTINCT gep_student_id) as students')->groupBy('term_assignment_id')->get()->keyBy('term_assignment_id');
         $trend=$terms->sortBy(fn($a)=>sprintf('%s-%05d',$a->academicYear->academic_year,$a->sort_order))->map(fn($a)=>['label'=>($yearId?'':$a->academicYear->academic_year.' · ').$a->term->term_name,'total'=>(int)($trend[$a->id]->students??0),'selected'=>(int)$a->id===(int)$termId])->values();
-        return compact('canView','campuses','years','terms','yearId','termId','term','campusId','metrics','trend')+[
+        return compact('canView','campuses','years','terms','yearId','termId','term','campusId','metrics','genderMetrics','trend')+[
             'campusRows'=>$breakdown('campus','campus_name_en'),
-            'levelRows'=>$rows->groupBy('level_id')->sort(function($a,$b){
+            'levelRows'=>$chartRows->groupBy('level_id')->sort(function($a,$b){
                 $left=$a->first()->level;$right=$b->first()->level;
                 return ($left?->sort_order??PHP_INT_MAX)<=>($right?->sort_order??PHP_INT_MAX)
                     ?: strnatcasecmp($left?->level_name??'Unassigned',$right?->level_name??'Unassigned');
-            })->map(fn($items)=>['label'=>$items->first()->level?->level_name??'Unassigned','total'=>$items->unique('gep_student_id')->count()])->values(),
+            })->map(fn($items)=>['label'=>$items->first()->level?->level_name??'Unassigned','total'=>$items->count()])->values(),
             'recent'=>$rows->take(6),
             'yearLabel'=>$years->firstWhere('id',(int)$yearId)?->academic_year??'All academic years',
             'campusLabel'=>$campuses->firstWhere('id',(int)$campusId)?->campus_name_en??'All permitted campuses',

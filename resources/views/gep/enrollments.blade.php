@@ -24,7 +24,7 @@
             @if($permissions['create'])<button class="btn btn-light ms-auto" type="button" id="gep-enrollment-add"><i class="ti ti-user-plus me-2"></i>New Enrollment</button>@endif
         </div>
         <div id="gep-list-error" class="alert alert-danger m-3 d-none" role="alert"></div>
-        <div class="table-responsive gep-enrollment-table"><table class="table table-vcenter card-table mb-0"><thead><tr><th>No.</th><th>Student</th><th>Contact</th><th>Academic Year / Term</th><th>Study Information</th><th>Enrollment</th><th class="text-end">Actions</th></tr></thead><tbody id="gep-enrollment-rows"><tr><td colspan="7" class="text-center py-5">Loading enrollments…</td></tr></tbody></table></div>
+        <div class="table-responsive gep-enrollment-table"><table class="table table-vcenter card-table mb-0"><thead><tr><th>No.</th><th class="text-center">Photo</th><th>Student</th><th>Contact</th><th>Academic Year / Term</th><th>Study Information</th><th>Enrollment</th><th class="text-end">Actions</th></tr></thead><tbody id="gep-enrollment-rows"><tr><td colspan="8" class="text-center py-5">Loading enrollments…</td></tr></tbody></table></div>
         <div class="card-footer"><select id="gep-enrollment-per-page" class="d-none" aria-label="Records per page"><option>10</option><option>25</option><option>50</option><option>100</option><option>all</option></select><div id="gep-enrollment-pagination"></div></div>
     </div>
     <div class="modal modal-blur fade gep-compact-registration" id="gep-enrollment-modal" tabindex="-1" aria-labelledby="gep-enrollment-title" aria-hidden="true">
