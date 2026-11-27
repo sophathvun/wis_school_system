@@ -1,5 +1,5 @@
 @if(!empty($preview['preview_token']) && ($canImport??false))
-<form method="post" action="{{ route('gep.transfer.upload',$preview['result']['type']) }}" class="mt-3">
+<form method="post" action="{{ route('gep.transfer.upload',$preview['result']['type']) }}" class="mt-3" data-gep-transfer-progress="apply" data-gep-transfer-filename="{{ $preview['filename'] }}">
     @csrf
     <input type="hidden" name="use_preview" value="1">
     <input type="hidden" name="preview_token" value="{{ $preview['preview_token'] }}">

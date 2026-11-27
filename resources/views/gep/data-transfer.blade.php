@@ -21,7 +21,7 @@
                             <a class="btn btn-outline-secondary" href="{{ route('gep.transfer.download',[$type,'csv']) }}">Export CSV</a>
                         </div>
                         @if($canImport)
-                            <form method="post" action="{{ route('gep.transfer.upload',$type) }}" enctype="multipart/form-data" class="gep-transfer-upload skipping-documents-upload" data-gep-csv-import>
+                            <form method="post" action="{{ route('gep.transfer.upload',$type) }}" enctype="multipart/form-data" class="gep-transfer-upload skipping-documents-upload" data-gep-csv-import data-gep-transfer-progress="preview">
                                 @csrf
                                 <label class="form-label" for="gep-transfer-{{ $type }}">{{ $label }} CSV</label>
                                 <input class="form-control" type="file" name="file" id="gep-transfer-{{ $type }}" accept=".csv,.txt,text/csv" required>

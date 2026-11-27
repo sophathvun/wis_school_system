@@ -4,3 +4,18 @@
 .gep-transfer-upload .premium-document-dropzone { min-height: 210px; }
 .gep-transfer-upload .document-file-details { min-width: 0; flex: 1; }
 .gep-transfer-upload .document-file-name { overflow-wrap: anywhere; white-space: normal; }
+
+.gep-transfer-progress { width: min(30rem, calc(100vw - 2rem)); padding: 2rem; border: 1px solid var(--tblr-border-color, #e2e8f0); border-radius: 1.5rem; background: var(--tblr-bg-surface, #fff); color: var(--tblr-body-color, #182433); box-shadow: 0 2rem 6rem #152d5540; text-align: center; }
+.gep-transfer-progress::backdrop { background: #13274380; backdrop-filter: blur(5px); }
+.gep-transfer-progress-icon { display: grid; place-items: center; width: 4rem; height: 4rem; margin: 0 auto 1.25rem; border-radius: 1.25rem; background: linear-gradient(135deg, #eaf1ff, #f0eaff); color: #4966d9; font-size: 2rem; }
+.gep-transfer-progress-eyebrow { margin-bottom: .5rem; color: var(--tblr-secondary-color, #66758d); font-size: .72rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+.gep-transfer-progress h2 { margin: 0 0 .75rem; font-size: 1.35rem; font-weight: 700; }
+.gep-transfer-progress p { margin: 0; color: var(--tblr-secondary-color, #66758d); line-height: 1.65; }
+.gep-transfer-progress-file { margin: 1.25rem 0; padding: .7rem 1rem; border-radius: .75rem; background: rgba(70, 104, 218, .07); font-size: .8rem; overflow-wrap: anywhere; }
+.gep-transfer-progress-track { height: .65rem; overflow: hidden; border-radius: 1rem; background: rgba(70, 104, 218, .12); }
+.gep-transfer-progress-track span { display: block; width: 45%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #3776d6, #8065e8); animation: gep-transfer-working 1.7s ease-in-out infinite; }
+.gep-transfer-progress-footer { display: flex; align-items: center; gap: .4rem; margin-top: .9rem; text-align: left; font-size: .73rem; color: var(--tblr-secondary-color, #66758d); }
+.gep-transfer-progress-footer>span:last-child { margin-left: auto; }
+.gep-transfer-progress-dot { width: .4rem; height: .4rem; border-radius: 50%; background: #6476dd; }
+@keyframes gep-transfer-working { from { transform: translateX(-105%); } to { transform: translateX(330%); } }
+@media (prefers-reduced-motion: reduce) { .gep-transfer-progress-track span { animation: none; transform: translateX(60%); } }
