@@ -104,10 +104,14 @@ it('does not convert pending or rejected withdrawal requests into eligibility',f
 });
 
 it('allows a same-year return without overwriting the withdrawn enrollment',function(){
+    Schema::table('tb_student_enrollment',fn(Blueprint $t)=>$t->unique(['student_id','academic_year_id']));
+    (require database_path('migrations/2026_11_27_000001_allow_same_year_student_reentry.php'))->up();
     $source=($this->enroll)(1,4,'withdrawn');$source->update(['ended_on'=>'2026-10-01']);
     $this->postJson(route('student-reentry.save'),[...$this->payload,'source_enrollment_id'=>$source->id])->assertOk();
     expect($source->fresh()->enrollment_status)->toBe('withdrawn')
         ->and(StudentEnrollment::where('student_id',1)->where('academic_year_id',4)->count())->toBe(2);
+    $this->postJson(route('student-reentry.save'),[...$this->payload,'source_enrollment_id'=>$source->id])->assertUnprocessable();
+    expect(StudentEnrollment::where('student_id',1)->where('academic_year_id',4)->count())->toBe(2);
 });
 
 it('rejects a withdrawal history belonging to another source enrollment',function(){

@@ -6,6 +6,7 @@ import { isDuplicateStudentIdMessage, isDuplicateStudentIdResponse, readEnrollme
 import { createStudentPhotoEditor, studentPhotoJpeg } from "./helpers/studentPhotoEditor.js";
 import { createEnrollmentFamilyOptionsLoader } from "./helpers/enrollment-family-options.js";
 import { selectEnrollmentAcademicYear } from "./helpers/enrollment-academic-year.js";
+import { fetchEnrollmentFormOptions, fetchEnrollmentDocumentOptions } from './helpers/enrollment-form-options.js';
 import { setupEnrollmentSearch } from "./helpers/enrollment-search.js";
 import { bindDropdownSearch, dropdownOptionMatches } from "./helpers/dropdownSearch.js";
 import "../css/components/student-profile-birthplace.css";
@@ -3296,13 +3297,19 @@ const loadOptions = async () => {
         refreshPremiumFieldStates();
         return enrollmentOptionsCache;
     }
-    const [optionsResponse, documentOptionsResponse] = await Promise.all([
-        fetch("/student-enrollments/options"),
-        fetch("/student-documents/options"),
-    ]);
-    const options = await optionsResponse.json();
-    const documentOptions = await documentOptionsResponse.json();
+    const options = await fetchEnrollmentFormOptions();
+    const documentOptions = { types: [] };
     enrollmentOptionsCache = { options, documentOptions };
+    // Optional documents must not delay or prevent nationality/year options.
+    fetchEnrollmentDocumentOptions().then(data => {
+        enrollmentOptionsCache.documentOptions = data;
+        const select = field('enrollment-document-type');
+        if (!select) return;
+        const current = select.value;
+        select.innerHTML = '<option value="">Select Document Type</option>' + data.types.map(item =>
+            `<option value="${item.id}">${escapeHtml(item.name_kh || '')}${item.name_kh ? ' / ' : ''}${escapeHtml(item.name_en)}</option>`).join('');
+        select.value = current;
+    });
     if (Array.isArray(options.enrollmentFilterRows)) {
         enrollmentListOptionsCache = {
             allAcademicYears: options.allAcademicYears || options.academicYears || [],
@@ -3919,6 +3926,15 @@ const openCreate = async (forEdit = false) => {
                 ]),
             );
         });
+    });
+    dataLoad.then(results => {
+        const failed = results.filter(result => result.status === 'rejected');
+        if (!failed.length) return;
+        // Do not cache an incomplete setup: the next open must retry loading.
+        enrollmentOptionsCache = null;
+        const alert = form.querySelector('[data-alert]');
+        alert.textContent = failed.map(result => result.reason?.message || 'Unable to load enrollment form options. Please close and reopen the form.').join(' ');
+        alert.classList.remove('d-none');
     });
 
     if (forEdit) {
