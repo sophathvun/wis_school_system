@@ -72,6 +72,10 @@ class GepEnrollmentController
         foreach(['male'=>['M','Male'],'female'=>['F','Female']] as $key=>$genders)
             $summary[$key]=(clone $query)->whereHas('gepStudent',fn($q)=>$q->whereIn('profile->gender',$genders))->count();
         foreach(['active','pending','completed'] as $status)$summary[$status]=(clone $query)->where('enrollment_status',$status)->distinct()->count('gep_student_id');
+        $newStudents=(clone $query)->where('student_type','new');
+        $summary['new']=(clone $newStudents)->distinct()->count('gep_student_id');
+        foreach(['new-male'=>['M','Male'],'new-female'=>['F','Female']] as $key=>$genders)
+            $summary[$key]=(clone $newStudents)->whereHas('gepStudent',fn($q)=>$q->whereIn('profile->gender',$genders))->distinct()->count('gep_student_id');
         $count=$summary['total'];$perPage=($filters['perPage']??'10')==='all'?max(1,$count):(int)($filters['perPage']??10);
         $page=min((int)($filters['page']??1),max(1,(int)ceil($count/$perPage)));
         $result=$query->with(self::RELATIONS)->orderByDesc('enrolled_on')->orderByDesc('id')->paginate($perPage,['*'],'page',$page);

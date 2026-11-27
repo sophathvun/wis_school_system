@@ -161,7 +161,7 @@ it('paginates and summarizes the filtered GEP records and keeps completed histor
     $this->controller->save(($this->request)([...$this->payload,'student_id'=>2]));
     DB::table('tb_gep_enrollment')->where('id',1)->update(['enrollment_status'=>'completed']);
     $list=$this->controller->fetch(($this->request)(['enrollment_status'=>'completed','perPage'=>'all','page'=>99],'GET'))->getData(true);
-    expect($list['summary'])->toBe(['total'=>1,'male'=>1,'female'=>0,'active'=>0,'pending'=>0,'completed'=>1])->and($list['records']['current_page'])->toBe(1)->and($list['records']['data'])->toHaveCount(1);
+    expect($list['summary'])->toBe(['total'=>1,'male'=>1,'female'=>0,'active'=>0,'pending'=>0,'completed'=>1,'new'=>1,'new-male'=>1,'new-female'=>0])->and($list['records']['current_page'])->toBe(1)->and($list['records']['data'])->toHaveCount(1);
     $filtered=$this->controller->fetch(($this->request)(['search'=>'GEP-000002'],'GET'))->getData(true);expect($filtered['records']['data'])->toHaveCount(1);
     $this->controller->fetch(($this->request)(['campus_id'=>2],'GET'))->getData(true);expect(GepEnrollment::count())->toBe(2);
 });
