@@ -42,7 +42,12 @@ class GepDashboard
         $trend=$trendQuery->select('term_assignment_id')->selectRaw('COUNT(*) as total')->selectRaw('COUNT(DISTINCT gep_student_id) as students')->groupBy('term_assignment_id')->get()->keyBy('term_assignment_id');
         $trend=$terms->sortBy(fn($a)=>sprintf('%s-%05d',$a->academicYear->academic_year,$a->sort_order))->map(fn($a)=>['label'=>($yearId?'':$a->academicYear->academic_year.' · ').$a->term->term_name,'total'=>(int)($trend[$a->id]->students??0),'selected'=>(int)$a->id===(int)$termId])->values();
         return compact('canView','campuses','years','terms','yearId','termId','term','campusId','metrics','trend')+[
-            'campusRows'=>$breakdown('campus','campus_name_en'),'levelRows'=>$breakdown('level','level_name'),
+            'campusRows'=>$breakdown('campus','campus_name_en'),
+            'levelRows'=>$rows->groupBy('level_id')->sort(function($a,$b){
+                $left=$a->first()->level;$right=$b->first()->level;
+                return ($left?->sort_order??PHP_INT_MAX)<=>($right?->sort_order??PHP_INT_MAX)
+                    ?: strnatcasecmp($left?->level_name??'Unassigned',$right?->level_name??'Unassigned');
+            })->map(fn($items)=>['label'=>$items->first()->level?->level_name??'Unassigned','total'=>$items->unique('gep_student_id')->count()])->values(),
             'recent'=>$rows->take(6),
             'yearLabel'=>$years->firstWhere('id',(int)$yearId)?->academic_year??'All academic years',
             'campusLabel'=>$campuses->firstWhere('id',(int)$campusId)?->campus_name_en??'All permitted campuses',

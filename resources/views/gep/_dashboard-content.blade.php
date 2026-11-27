@@ -2,7 +2,6 @@
     <div class="scholarship-field"><label for="gep-dash-year">Academic Year</label><select id="gep-dash-year" name="academic_year_id" class="form-select" data-placeholder="All academic years"><option value="">All academic years</option>@foreach($years as $year)<option value="{{ $year->id }}" @selected((int)$yearId===$year->id)>{{ $year->academic_year }}</option>@endforeach</select></div>
     <div class="scholarship-field"><label for="gep-dash-term">Term</label><select id="gep-dash-term" name="term_assignment_id" class="form-select" data-placeholder="All terms"><option value="">All terms</option>@foreach($terms as $item)<option value="{{ $item->id }}" @selected((int)$termId===$item->id)>{{ $item->term->term_name }} · {{ ucfirst($item->lifecycle_status) }}</option>@endforeach</select></div>
     <div class="scholarship-field"><label for="gep-dash-campus">Campus</label><select id="gep-dash-campus" name="campus_id" class="form-select" data-placeholder="All permitted campuses"><option value="">All permitted campuses</option>@foreach($campuses as $campus)<option value="{{ $campus->id }}" @selected((int)$campusId===$campus->id)>{{ $campus->campus_name_en }}</option>@endforeach</select></div>
-    <button class="btn btn-primary" type="submit"><i class="ti ti-refresh me-2"></i>Update overview</button>
 </form>
 @php($mainStatus=$term?->lifecycle_status==='finished'?'completed':'active')
 <div class="gep-dash-metrics">
