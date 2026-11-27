@@ -4,18 +4,12 @@
 <div class="card shadow-sm">
     <div class="card-header gep-settings-header"><h1 class="card-title text-white mb-0"><i class="ti ti-file-import me-2"></i>GEP Import/Export Data</h1></div>
     <div class="card-body">
+        @if($errors->any())<div class="alert alert-danger" role="alert">{{ $errors->first() }} No rows from this upload were saved.</div>@endif
+        @include('gep._transfer-preview',['preview'=>$preview??null])
         <p>Import <strong>Student Information first</strong>, then Family and Enrollment in either order. Each sample CSV contains two fictional records. Replace the sample data and setting names before importing.</p>
         <p class="text-secondary">Keep Student IDs, Family Numbers and phone columns as Text in Excel. Dates use YYYY-MM-DD. Use full names, not database IDs: birthplace and address have separate English (_en) and Khmer (_kh) columns, including country, province/city, district/khan, commune and village. You may supply either or both languages. House numbers, streets and full addresses also have English and Khmer columns. Enrollment settings use their names; Group uses its code (M, A or E). Family rows use Family Number and relationship (mother, father or guardian). Give siblings the same Family Number in Student Information.</p>
         <p class="text-secondary">Original location spellings are preserved, including names that do not match the current location list. Only unique names within the supplied parent location are linked automatically. Unmatched or ambiguous names remain as imported text for review; the system does not guess a different address. Family nationality and occupation also accept names and retain unmatched text.</p>
         <div class="alert alert-info">Blank cells preserve saved values. Student Information imports create profiles without enrollments. Historical enrollment statuses are retained. Family information is linked by Family Number and shared by siblings, without an academic year or term. WIS profiles and families are unchanged.</div>
-        @if($errors->any())<div class="alert alert-danger" role="alert">{{ $errors->first() }} No rows from this upload were saved.</div>@endif
-        @if($result=session('gep_transfer_result'))
-            <div class="alert {{ $result['applied']?'alert-success':'alert-warning' }}" role="status">
-                <strong>{{ $result['applied']?'Import completed':'Preview completed — no records saved' }}</strong>: {{ $result['rows'] }} rows, {{ $result['created'] }} new, {{ $result['updated'] }} existing records.
-                @if($result['unresolved_names']??0)<div>{{ $result['unresolved_names'] }} names could not be linked uniquely. Their original text is retained in the profile/family and exports. Review the location or family fields after importing.</div>@endif
-                @unless($result['applied'])<div>Review these counts, select the same CSV again, and choose Apply to save.</div>@endunless
-            </div>
-        @endif
         <div class="row g-3">
             @foreach(['students'=>'Student Information','enrollments'=>'Enrollment','families'=>'Family'] as $type=>$label)
                 <div class="col-12"><section class="card">
@@ -42,9 +36,11 @@
                                 <div class="text-danger small mt-2" data-gep-csv-error id="gep-transfer-{{ $type }}-error" role="alert" hidden></div>
                                 <div class="d-flex flex-wrap gap-2 mt-3">
                                     <button class="btn btn-primary" type="submit" name="apply" value="0">Preview</button>
-                                    <button class="btn btn-success" type="submit" name="apply" value="1">Apply previewed file</button>
                                 </div>
                             </form>
+                            @if(($preview['result']['type']??null)===$type)
+                                @include('gep._transfer-apply')
+                            @endif
                         @endif
                     </div>
                 </section></div>

@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 use App\Services\GepDataTransfer;
 use App\Support\{GepStudentPermissions,GepEnrollmentPermissions as Access,GepTransferWorkbook};
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\{DB,Storage};
 use Illuminate\Validation\ValidationException;
 
 class GepDataTransferController
@@ -13,7 +13,9 @@ class GepDataTransferController
     public function index(Request $request)
     {
         $this->authorize($request);
-        return view('gep.data-transfer',['canImport'=>Access::allows($request->user(),'create')]);
+        $preview=null;$path=$request->session()->get('gep-transfer-preview-details');
+        if($path && Storage::disk('local')->exists($path))$preview=json_decode(Storage::disk('local')->get($path),true,512,JSON_THROW_ON_ERROR);
+        return view('gep.data-transfer',['canImport'=>Access::allows($request->user(),'create'),'preview'=>$preview]);
     }
     private function type(GepDataTransfer $transfer,string $type): array { $columns=$transfer->columns($type);abort_unless($columns,404);return $columns; }
     public function download(Request $request,string $type,string $format,GepDataTransfer $transfer)
@@ -33,6 +35,7 @@ class GepDataTransferController
     {
         $this->authorize($request);abort_unless(Access::allows($request->user(),'create'),403);
         $columns=$this->type($transfer,$type);
+        if($request->boolean('use_preview'))return $this->applySavedPreview($request,$type,$transfer);
         $request->validate(['file'=>'required|file|mimes:csv,txt|max:25600','apply'=>'nullable|boolean']);
         $file=$request->file('file');$hash=hash_file('sha256',$file->getRealPath());
         $sessionKey='gep-transfer-preview.'.$type;
@@ -46,7 +49,40 @@ class GepDataTransferController
         DB::beginTransaction();
         try{$counts=$transfer->import($type,$rows,$request->user());if($request->boolean('apply'))DB::commit();else DB::rollBack();}
         catch(\Throwable $error){DB::rollBack();throw $error;}
-        if($request->boolean('apply'))$request->session()->forget($sessionKey);else $request->session()->put($sessionKey,$hash);
-        return back()->with('gep_transfer_result',['type'=>$type,'applied'=>$request->boolean('apply'),...$counts]);
+        $result=['type'=>$type,'applied'=>$request->boolean('apply'),...$counts];
+        $previous=$request->session()->get('gep-transfer-preview-details');
+        if($request->boolean('apply')){
+            $request->session()->forget([$sessionKey,'gep-transfer-preview-details']);
+            if($previous)Storage::disk('local')->delete($previous);
+        }else{
+            $previewRows=array_slice($rows,0,200);$previewColumns=$headers;
+            if($type==='enrollments'){
+                $names=\App\Models\GepStudent::whereIn('student_identifier',array_column($previewRows,'student_identifier'))->get()->mapWithKeys(fn($student)=>[$student->student_identifier=>$student->profile['full_name_en']??$student->profile['full_name_kh']??'']);
+                array_splice($previewColumns,1,0,['student_name']);
+                $previewRows=array_map(fn($row)=>$row+['student_name'=>$names[$row['student_identifier']]??''],$previewRows);
+            }
+            $token=bin2hex(random_bytes(16));
+            $path='gep-transfer-previews/'.$request->user()->id.'/'.$token.'.json';
+            $saved=Storage::disk('local')->put($path,json_encode(['result'=>$result,'filename'=>$file->getClientOriginalName(),'columns'=>$previewColumns,'rows'=>$previewRows,'all_rows'=>$rows,'source_sha256'=>$hash,'preview_token'=>$token,'user_id'=>$request->user()->id],JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE));
+            if(!$saved)throw new \RuntimeException('Unable to save the import preview. Please try again.');
+            $request->session()->put($sessionKey,$hash);$request->session()->put('gep-transfer-preview-details',$path);
+            if($previous)Storage::disk('local')->delete($previous);
+        }
+        return redirect()->route('gep.students.section',['studentSection'=>'import-export'])->with('gep_transfer_result',$result);
+    }
+    private function applySavedPreview(Request $request,string $type,GepDataTransfer $transfer)
+    {
+        $request->validate(['preview_token'=>'required|string|size:32']);
+        $disk=Storage::disk('local');$path=$request->session()->get('gep-transfer-preview-details');
+        $preview=$path&&$disk->exists($path)?json_decode($disk->get($path),true,512,JSON_THROW_ON_ERROR):null;
+        if(!$preview || empty($preview['all_rows']) || ($preview['user_id']??null)!==$request->user()->id
+            || ($preview['result']['type']??null)!==$type
+            || !hash_equals($preview['preview_token']??'',$request->input('preview_token'))
+            || ($preview['source_sha256']??null)!==$request->session()->get('gep-transfer-preview.'.$type))
+            throw ValidationException::withMessages(['file'=>'This preview is no longer available. Select the CSV and preview it again before applying.']);
+        // Revalidate current settings and permissions; import every row, including those beyond the display limit.
+        $counts=DB::transaction(fn()=>$transfer->import($type,$preview['all_rows'],$request->user()));
+        $request->session()->forget(['gep-transfer-preview.'.$type,'gep-transfer-preview-details']);$disk->delete($path);
+        return redirect()->route('gep.students.section',['studentSection'=>'import-export'])->with('gep_transfer_result',['type'=>$type,'applied'=>true,...$counts]);
     }
 }

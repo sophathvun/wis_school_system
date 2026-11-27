@@ -60,9 +60,9 @@ class GepDataTransfer
     private function familyRows(GepStudent $member): array
     {
         $rows=[];
-        foreach($member->familyInformation() as $relationship=>$parent)if(filled($parent['name_en']??null)){
+        foreach($member->familyInformation() as $relationship=>$parent)if(collect($parent)->contains(fn($value)=>filled($value))){
             $occupation=$parent['occupation_id']??null;$nationality=$parent['nationality_country_id']??null;
-            $rows[]=['family_number'=>$member->profile['family_number']??'','relationship_type'=>$relationship,'full_name_en'=>$parent['name_en'],'full_name_kh'=>$parent['name_kh']??'','phone'=>$parent['phone']??'',
+            $rows[]=['family_number'=>$member->profile['family_number']??'','relationship_type'=>$relationship,'full_name_en'=>$parent['name_en']??'','full_name_kh'=>$parent['name_kh']??'','phone'=>$parent['phone']??'',
                 'occupation'=>filled($parent['occupation']??null)?$parent['occupation']:($occupation?DB::table('tb_occupation')->where('id',$occupation)->value('occupation_name_en'):''),
                 'nationality'=>filled($parent['nationality']??null)?$parent['nationality']:($nationality?DB::table('tb_country')->where('id',$nationality)->value('country_name_en'):''),'workplace'=>$parent['workplace']??''];
         }
@@ -80,8 +80,9 @@ class GepDataTransfer
         foreach($rows as $index=>$row){
             try{
                 if($type==='families')$row=$this->familyKey($row);
-                $required=match($type){'students'=>['student_identifier','full_name_en'],'enrollments'=>array_diff(self::ENROLLMENT,['notes','student_type']),'families'=>['family_number','relationship_type','full_name_en']};
+                $required=match($type){'students'=>['student_identifier','full_name_en'],'enrollments'=>array_diff(self::ENROLLMENT,['notes','student_type']),'families'=>['family_number','relationship_type']};
                 foreach($required as $field)if(blank($row[$field]??null))throw new \RuntimeException("{$field} is required.");
+                if($type==='families'&&!collect(array_intersect_key($row,array_flip(['full_name_en','full_name_kh','phone','occupation','nationality','workplace'])))->contains(fn($value)=>filled($value)))throw new \RuntimeException('Provide at least one family detail; other fields may remain blank.');
                 $key=implode('|',array_map(fn($f)=>$row[$f]??'',match($type){'students'=>['student_identifier'],'enrollments'=>['student_identifier','academic_year','term'],'families'=>['family_number','relationship_type']}));
                 if(isset($keys[$key]))throw new \RuntimeException('Duplicate record in this CSV.');$keys[$key]=true;
                 if($type==='students'){
@@ -116,8 +117,8 @@ class GepDataTransfer
                         $enrollment->fill($values);$enrollment->updated_by=$user->id;$enrollment->save();
                     }else{
                         $this->authorizeMember($user,$member);
-                        Validator::make($row,['relationship_type'=>'required|in:mother,father,guardian','full_name_en'=>'required|string|max:150','phone'=>'nullable|string|max:50','occupation'=>'nullable|string|max:150','nationality'=>'nullable|string|max:150','workplace'=>'nullable|string|max:150'])->validate();
-                        $parents=$member->familyInformation(true);$relationship=$row['relationship_type'];$new=empty($parents[$relationship]['name_en']);
+                        Validator::make($row,['relationship_type'=>'required|in:mother,father,guardian','full_name_en'=>'nullable|string|max:150','full_name_kh'=>'nullable|string|max:150','phone'=>'nullable|string|max:50','occupation'=>'nullable|string|max:150','nationality'=>'nullable|string|max:150','workplace'=>'nullable|string|max:150'])->validate();
+                        $parents=$member->familyInformation(true);$relationship=$row['relationship_type'];$new=empty($parents[$relationship]);
                         $values=[];foreach(['full_name_en'=>'name_en','full_name_kh'=>'name_kh','phone'=>'phone','occupation'=>'occupation','nationality'=>'nationality','workplace'=>'workplace'] as $column=>$field)if(filled($row[$column]??null))$values[$field]=$field==='phone'?Profile::phone($row[$column]):$row[$column];
                         if(filled($row['nationality']??null)){
                             $values['nationality_country_id']=Names::country(['any'=>$row['nationality']]);

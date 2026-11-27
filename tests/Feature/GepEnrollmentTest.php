@@ -527,6 +527,20 @@ it('clears stale location links when an imported parent name changes and preserv
     expect($transfer->export('students',$this->user)[0]['address_village_en'])->toBe('Village One');
 });
 
+it('imports and exports partial parents with blank English names without losing details',function(){
+    $transfer=app(\App\Services\GepDataTransfer::class);
+    DB::transaction(fn()=>$transfer->import('students',[['student_identifier'=>'26190001','full_name_en'=>'STUDENT']],$this->user));
+    $rows=[['family_number'=>'GEP-F26190001','relationship_type'=>'mother','full_name_kh'=>'ម្តាយ','phone'=>'012345678'],
+        ['family_number'=>'GEP-F26190001','relationship_type'=>'father','nationality'=>'Cambodian']];
+    DB::transaction(fn()=>$transfer->import('families',$rows,$this->user));
+    $export=$transfer->export('families',$this->user);
+    expect($export)->toHaveCount(2)->and($export[0]['full_name_en'])->toBe('')->and($export[0]['full_name_kh'])->toBe('ម្តាយ')
+        ->and($export[0]['phone'])->toBe('+85512345678')->and($export[1]['nationality'])->toBe('Cambodian');
+    $update=DB::transaction(fn()=>$transfer->import('families',[['family_number'=>'GEP-F26190001','relationship_type'=>'mother','full_name_en'=>'','phone'=>'','workplace'=>'Test workplace']],$this->user));
+    expect($update['updated'])->toBe(1)->and(GepStudent::first()->familyInformation()['mother']['phone'])->toBe('+85512345678');
+    expect(fn()=>DB::transaction(fn()=>$transfer->import('families',[['family_number'=>'GEP-F26190001','relationship_type'=>'guardian','full_name_en'=>'']],$this->user)))->toThrow(ValidationException::class);
+});
+
 it('retains imported family spellings and unmatched profile names when editing the enrollment',function(){
     $this->controller->save(($this->request)([...$this->payload,'source'=>'new','student_id'=>null,'full_name_en'=>'IMPORTED FAMILY']));
     $member=GepStudent::first();$transfer=app(\App\Services\GepDataTransfer::class);
@@ -556,6 +570,7 @@ it('writes true Excel workbooks with literal ID phone and formula-like values',f
 });
 
 it('requires a preview of the same CSV before applying a GEP upload',function(){
+    \Illuminate\Support\Facades\Storage::fake('local');
     $controller=app(\App\Http\Controllers\GepDataTransferController::class);$transfer=app(\App\Services\GepDataTransfer::class);
     $make=function(string $content,bool $apply=false){
         $r=($this->request)(['apply'=>$apply?'1':'0']);
@@ -566,9 +581,59 @@ it('requires a preview of the same CSV before applying a GEP upload',function(){
     expect(fn()=>$controller->upload($make($csv,true),'students',$transfer))->toThrow(ValidationException::class);
     $controller->upload($make($csv),'students',$transfer);
     expect(GepStudent::count())->toBe(0);
+    $path=session('gep-transfer-preview-details');
+    expect(\Illuminate\Support\Facades\Storage::disk('local')->exists($path))->toBeTrue();
+    session()->forget('gep_transfer_result');
+    $preview=$controller->index($make($csv))->getData()['preview'];
+    expect($preview['result']['applied'])->toBeFalse()
+        ->and($preview['rows'][0]['full_name_en'])->toBe('IMPORTED STUDENT');
+    $html=view('gep._transfer-preview',['preview'=>$preview])->render();
+    expect($html)->toContain('IMPORTED STUDENT','26193510','All 1 rows passed validation.','Apply previewed file');
+    expect($controller->index($make($csv))->getData()['preview']['rows'])->toBe($preview['rows']);
     expect(fn()=>$controller->upload($make(str_replace('26193510','26193511',$csv),true),'students',$transfer))->toThrow(ValidationException::class);
     $controller->upload($make($csv,true),'students',$transfer);
     expect(GepStudent::count())->toBe(1)->and(GepEnrollment::count())->toBe(0);
+    expect(session('gep-transfer-preview-details'))->toBeNull()
+        ->and(\Illuminate\Support\Facades\Storage::disk('local')->exists($path))->toBeFalse();
+});
+
+it('shows enrollment preview rows with student names without saving enrollments',function(){
+    \Illuminate\Support\Facades\Storage::fake('local');
+    DB::table('tb_gep_term_assignment')->where('id',2)->delete();
+    $student=GepStudent::create(['source'=>'new','student_identifier'=>'26190001','profile'=>['full_name_en'=>'<TEST STUDENT>']]);
+    $csv="student_identifier,academic_year,term,campus,level,class,class_type,group,student_type,enrollment_status,enrolled_on,notes\n26190001,2026,Term 1,BKK,Level 1,A,Full-Time,M,new,active,2026-11-24,Review note\n";
+    $request=($this->request)(['apply'=>'0']);$request->setLaravelSession(app('session')->driver());
+    $request->files->set('file',\Illuminate\Http\UploadedFile::fake()->createWithContent('enrollments.csv',$csv));
+    $controller=app(\App\Http\Controllers\GepDataTransferController::class);
+    $response=$controller->upload($request,'enrollments',app(\App\Services\GepDataTransfer::class));
+    expect($response->getTargetUrl())->toBe(route('gep.students.section',['studentSection'=>'import-export']));
+    $preview=$controller->index($request)->getData()['preview'];
+    expect($preview['rows'][0]['student_name'])->toBe('<TEST STUDENT>')
+        ->and($preview['result']['created'])->toBe(1)
+        ->and(GepEnrollment::count())->toBe(0)->and(DB::table('tb_gep_enrollment_history')->count())->toBe(0);
+    $html=view('gep._transfer-preview',['preview'=>$preview])->render();
+    expect($html)->toContain('Student ID','Student Name','&lt;TEST STUDENT&gt;','Level 1','2026-11-24','Review note')->not->toContain('<TEST STUDENT>');
+    $apply=function(string $token){$r=($this->request)(['use_preview'=>'1','preview_token'=>$token]);$r->setLaravelSession(app('session')->driver());return $r;};
+    expect(fn()=>$controller->upload($apply(str_repeat('0',32)),'enrollments',app(\App\Services\GepDataTransfer::class)))->toThrow(ValidationException::class);
+    expect(fn()=>$controller->upload($apply($preview['preview_token']),'families',app(\App\Services\GepDataTransfer::class)))->toThrow(ValidationException::class);
+    expect(GepEnrollment::count())->toBe(0);
+    $controller->upload($apply($preview['preview_token']),'enrollments',app(\App\Services\GepDataTransfer::class));
+    expect(GepEnrollment::count())->toBe(1)->and(GepEnrollment::first()->gep_student_id)->toBe($student->id);
+    expect(fn()=>$controller->upload($apply($preview['preview_token']),'enrollments',app(\App\Services\GepDataTransfer::class)))->toThrow(ValidationException::class);
+});
+
+it('applies every saved CSV row without reuploading when the preview display is limited',function(){
+    \Illuminate\Support\Facades\Storage::fake('local');
+    $csv="student_identifier,full_name_en\n";foreach(range(1,201) as $i)$csv.=(26190000+$i).",STUDENT {$i}\n";
+    $request=($this->request)(['apply'=>'0']);$request->setLaravelSession(app('session')->driver());
+    $request->files->set('file',\Illuminate\Http\UploadedFile::fake()->createWithContent('students.csv',$csv));
+    $controller=app(\App\Http\Controllers\GepDataTransferController::class);$transfer=app(\App\Services\GepDataTransfer::class);
+    $controller->upload($request,'students',$transfer);$preview=$controller->index($request)->getData()['preview'];
+    expect($preview['rows'])->toHaveCount(200)->and($preview['all_rows'])->toHaveCount(201)->and(GepStudent::count())->toBe(0);
+    $apply=($this->request)(['use_preview'=>'1','preview_token'=>$preview['preview_token']]);$apply->setLaravelSession(app('session')->driver());
+    $controller->upload($apply,'students',$transfer);
+    expect(GepStudent::count())->toBe(201)->and(GepStudent::where('student_identifier','26190201')->exists())->toBeTrue()
+        ->and(session('gep-transfer-preview-details'))->toBeNull();
 });
 
 it('provides two-row CSV templates and a usable GEP transfer page',function(){
