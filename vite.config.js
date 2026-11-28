@@ -22,6 +22,7 @@ export default defineConfig({
                 "resources/js/gepTerms.js",
                 "resources/js/gepClasses.js",
                 "resources/js/gepDashboard.js",
+                "resources/js/gepPromotion.js",
                 "resources/js/gepClassTypes.js",
                 "resources/js/gepGroups.js",
                 "resources/js/gepLevels.js",

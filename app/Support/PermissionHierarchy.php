@@ -52,7 +52,7 @@ class PermissionHierarchy
             ],
             'gep-students'=>[
                 'label'=>'GEP Students','permission'=>'gep-students.view','modules'=>array_map(fn($key)=>'gep-students.'.$key,array_keys(GepStudentPermissions::SECTIONS)),'actions'=>[],
-                'description'=>'Access GEP student modules. GEP workspace access is also required.',
+                'description'=>'Access GEP student modules. GEP workspace access is also required. GEP Stu. Promotion requires View and Promote permissions plus enrollment View access for the same campus. Campus staff can promote only students within their permitted campus; promotion does not transfer students to another campus.',
             ],
             ...collect(GepAcademicPermissions::MENUS)->mapWithKeys(fn($menu,$key)=>['gep-'.$key=>[
                 'label'=>$menu['label'],'permission'=>'gep-'.$key.'.view','modules'=>[],'actions'=>[],

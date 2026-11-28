@@ -46,7 +46,8 @@ if (root) {
         const labels = { pending: 'Ready', imported: 'Imported', review: 'Needs review', duplicate: 'Duplicate' };
         for (const row of data.rows.data) {
             const tr = document.createElement('tr');
-            for (const value of [row.csv_row, row.source.student_id, row.source.academic_year, row.source.attendance_date, row.source.attendance, labels[row.outcome], row.reason]) cell(tr, value);
+            const periodDetail=row.auto_periods?`Calculated from: ${row.periods.map(period=>`${period.name} (${period.starts_at}–${period.ends_at})`).join(', ')}`:'';
+            for (const value of [row.csv_row, row.source.student_id, row.source.academic_year, row.source.attendance_date, row.source.attendance, row.missed_sessions??'—', labels[row.outcome], [row.reason,periodDetail].filter(Boolean).join(' · ')]) cell(tr, value);
             tbody.append(tr);
         }
         find('[data-review-download]').href = data.review_url;

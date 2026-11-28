@@ -90,9 +90,15 @@ class AttendanceTransfer
         if(!$e->class_id)throw new \InvalidArgumentException('The enrollment has no class.');
         $missed=$row['missed_sessions']??'';
         if($missed!==''&&(!ctype_digit($missed)||(int)$missed>99))throw new \InvalidArgumentException('Missed sessions must be a whole number from 0 to 99.');
+        $periods=[];$automatic=$missed==='' && in_array($status,['EX','UX'],true);
+        if($automatic){
+            if(blank($row['time_period']??null))throw new \InvalidArgumentException('Enter time_period to calculate missed sessions, or enter missed_sessions explicitly.');
+            $periods=app(AttendanceImportPeriods::class)->resolve($e,$row['time_period'],$cache);
+            $missed=count($periods);
+        }
         $reason=trim(($row['reason']??'').(filled($row['time_period']??null)?' | Time: '.$row['time_period']:''),' |');
         if(mb_strlen($reason)>500)throw new \InvalidArgumentException('Reason and time together exceed 500 characters.');
-        return ['academic_year_id'=>$yearId,'student_id'=>$e->student_id,'enrollment_id'=>$e->id,'campus_id'=>$e->campus_id,'grade_id'=>(int)($e->grade_id??0),'class_id'=>$e->class_id,'attendance_date'=>$date,'status'=>$status,'missed_sessions'=>$status==='P'?0:(int)$missed,'remarks'=>$reason?:null];
+        return ['academic_year_id'=>$yearId,'student_id'=>$e->student_id,'enrollment_id'=>$e->id,'campus_id'=>$e->campus_id,'grade_id'=>(int)($e->grade_id??0),'class_id'=>$e->class_id,'attendance_date'=>$date,'status'=>$status,'missed_sessions'=>$status==='P'?0:(int)$missed,'remarks'=>$reason?:null,'absent_periods'=>$periods,'auto_periods'=>$automatic,'source_time_period'=>$row['time_period']??''];
     }
 
     private function date(string $value): string
@@ -110,7 +116,8 @@ class AttendanceTransfer
 
     private function same($mark, array $row): bool
     {
-        return (int)$mark->enrollment_id===(int)$row['enrollment_id']&&$mark->status===$row['status']&&(int)$mark->missed_sessions===$row['missed_sessions']&&trim((string)$mark->remarks)===trim((string)$row['remarks']);
+        return (int)$mark->enrollment_id===(int)$row['enrollment_id']&&$mark->status===$row['status']&&(int)$mark->missed_sessions===$row['missed_sessions']&&trim((string)$mark->remarks)===trim((string)$row['remarks'])
+            && (empty($row['absent_periods']) || json_decode($mark->absent_periods??'[]',true)===$row['absent_periods']);
     }
 
     private function scheduledLeave(array $row): bool
@@ -138,6 +145,14 @@ class AttendanceTransfer
                 $valid=$enrollment&&(int)$enrollment->student_id===(int)$row['student_id']&&(int)$enrollment->academic_year_id===(int)$row['academic_year_id']&&(int)$enrollment->campus_id===$campus&&(int)$enrollment->class_id===(int)$row['class_id']&&(int)($enrollment->grade_id??0)===$row['grade_id']&&!in_array($enrollment->enrollment_status,['pending','cancelled','promotion_cancelled'])&&(!$enrollment->enrolled_on||substr($enrollment->enrolled_on,0,10)<=$row['attendance_date'])&&(!$enrollment->ended_on||substr($enrollment->ended_on,0,10)>=$row['attendance_date']);
                 $existing=$this->existing($row);
                 $leave=$this->scheduledLeave($row);
+                if($valid && !empty($row['auto_periods'])){
+                    try{
+                        $periodCache=[];$periods=app(AttendanceImportPeriods::class)->resolve($enrollment,$row['source_time_period'],$periodCache);
+                        if($periods!==$row['absent_periods'])throw new \InvalidArgumentException('Configured periods changed.');
+                    }catch(\InvalidArgumentException $e){
+                        DB::table('attendance_import_rows')->where('id',$record->id)->update(['outcome'=>'review','reason'=>'Period settings or study group changed after preview. Preview the file again.']);continue;
+                    }
+                }
                 if(!$valid||$existing||$leave){
                     $duplicate=$valid&&$existing&&$this->same($existing,$row);
                     DB::table('attendance_import_rows')->where('id',$record->id)->update(['outcome'=>$duplicate?'duplicate':'review','reason'=>$duplicate?'Already recorded; unchanged.':(!$valid?'Enrollment changed after preview. Preview a corrected file.':($leave?'Approved leave is scheduled for this date. Review the leave record first.':'Existing attendance differs. It was not overwritten.'))]);
@@ -146,7 +161,7 @@ class AttendanceTransfer
                 $scope=array_intersect_key($row,array_flip(['academic_year_id','campus_id','grade_id','class_id','attendance_date']));
                 $register=DB::table('attendance_daily_registers')->where($scope)->lockForUpdate()->first();
                 $registerId=$register?->id??DB::table('attendance_daily_registers')->insertGetId($scope+['version'=>0,'updated_by'=>$user->id,'created_at'=>now(),'updated_at'=>now()]);
-                $markId=DB::table('attendance_daily_marks')->insertGetId(array_intersect_key($row,array_flip(['academic_year_id','student_id','enrollment_id','attendance_date','status','missed_sessions','remarks']))+['register_id'=>$registerId,'absent_periods'=>'[]','created_by'=>$user->id,'created_at'=>now(),'updated_at'=>now()]);
+                $markId=DB::table('attendance_daily_marks')->insertGetId(array_intersect_key($row,array_flip(['academic_year_id','student_id','enrollment_id','attendance_date','status','missed_sessions','remarks']))+['register_id'=>$registerId,'absent_periods'=>json_encode($row['absent_periods']??[]),'created_by'=>$user->id,'created_at'=>now(),'updated_at'=>now()]);
                 DB::table('attendance_daily_registers')->where('id',$registerId)->update(['version'=>DB::raw('version + 1'),'updated_by'=>$user->id,'updated_at'=>now()]);
                 DB::table('attendance_daily_events')->insert(['register_id'=>$registerId,'user_id'=>$user->id,'details'=>json_encode(['action'=>'historical_import','batch_id'=>$id,'csv_row'=>$record->csv_row,'exception_only'=>true,'after'=>$row]),'created_at'=>now(),'updated_at'=>now()]);
                 DB::table('attendance_import_rows')->where('id',$record->id)->update(['outcome'=>'imported','mark_id'=>$markId]);

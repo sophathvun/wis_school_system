@@ -56,7 +56,12 @@ class AttendanceTransferController
         $query=DB::table('attendance_import_rows')->where('batch_id',$batch);
         $counts=(clone $query)->select('outcome')->selectRaw('COUNT(*) as total')->groupBy('outcome')->pluck('total','outcome');
         $rows=(clone $query)->orderBy('csv_row')->paginate(25);
-        $rows->getCollection()->transform(function($row){$row->source=json_decode($row->source,true);unset($row->normalized);return $row;});
+        $rows->getCollection()->transform(function($row){
+            $row->source=json_decode($row->source,true);$normalized=json_decode($row->normalized??'null',true);
+            $row->missed_sessions=$normalized['missed_sessions']??null;
+            $row->periods=$normalized['absent_periods']??[];$row->auto_periods=$normalized['auto_periods']??false;
+            unset($row->normalized);return $row;
+        });
         return response()->json(['batch'=>$record,'counts'=>$counts,'total'=>$counts->sum(),'rows'=>$rows,'review_url'=>route('attendance.transfer.review',$batch)]);
     }
 

@@ -64,6 +64,166 @@ beforeEach(function(){
     };
 });
 
+it('promotes into a pending term while preserving identity family source status and WIS data',function(){
+    $this->controller->save(($this->request)($this->payload));
+    $row=GepEnrollment::firstOrFail();$profile=$row->gepStudent->toArray();$wis=DB::table('tb_student_enrollment')->get()->toJson();
+    $data=[...$this->payload,'source_term'=>1,'enrollments'=>[$row->id],'term_assignment_id'=>2];
+    app(App\Http\Controllers\GepPromotionController::class)->store(($this->request)($data));
+    $new=GepEnrollment::orderByDesc('id')->first();
+    expect($new->enrollment_status)->toBe('pending')->and($new->student_type)->toBe('old')->and($new->gep_student_id)->toBe($row->gep_student_id)
+        ->and($row->fresh()->enrollment_status)->toBe('active')->and($row->gepStudent->fresh()->toArray())->toBe($profile)
+        ->and(DB::table('tb_student_enrollment')->get()->toJson())->toBe($wis)
+        ->and(DB::table('tb_gep_enrollment_history')->where('action','promoted')->count())->toBe(1);
+});
+
+it('promotes into a started term and completes the source without duplicating students',function(){
+    $this->controller->save(($this->request)($this->payload));$row=GepEnrollment::firstOrFail();
+    DB::table('tb_gep_term_assignment')->where('id',2)->update(['lifecycle_status'=>'started']);
+    $data=[...$this->payload,'source_term'=>1,'enrollments'=>[$row->id],'term_assignment_id'=>2];
+    $controller=app(App\Http\Controllers\GepPromotionController::class);$controller->store(($this->request)($data));
+    expect($row->fresh()->enrollment_status)->toBe('completed')->and(GepEnrollment::orderByDesc('id')->value('enrollment_status'))->toBe('active')->and(GepStudent::count())->toBe(1);
+    expect(fn()=>$controller->store(($this->request)($data)))->toThrow(ValidationException::class);
+    expect(GepEnrollment::count())->toBe(2);
+});
+
+it('rejects invalid promotion destinations and ineligible source statuses',function(){
+    $this->controller->save(($this->request)($this->payload));$row=GepEnrollment::firstOrFail();
+    $controller=app(App\Http\Controllers\GepPromotionController::class);
+    $data=[...$this->payload,'source_term'=>1,'enrollments'=>[$row->id]];
+    expect(fn()=>$controller->store(($this->request)($data)))->toThrow(ValidationException::class);
+    $data['term_assignment_id']=2;$row->enrollment_status='withdrawn';$row->save();
+    expect(fn()=>$controller->store(($this->request)($data)))->toThrow(ValidationException::class);
+    $row->enrollment_status='completed';$row->save();DB::table('tb_gep_level')->where('id',1)->update(['status'=>0]);
+    expect(fn()=>$controller->store(($this->request)($data)))->toThrow(ValidationException::class);
+    expect(GepEnrollment::count())->toBe(1);
+});
+
+it('rolls back the entire promotion when a later student is already enrolled',function(){
+    $this->controller->save(($this->request)($this->payload));
+    $this->controller->save(($this->request)([...$this->payload,'student_id'=>2]));
+    $rows=GepEnrollment::orderBy('id')->get();
+    $this->controller->save(($this->request)([...$this->payload,'student_id'=>2,'term_assignment_id'=>2,'enrollment_status'=>'pending']));
+    $history=DB::table('tb_gep_enrollment_history')->count();
+    expect(fn()=>app(App\Http\Controllers\GepPromotionController::class)->store(($this->request)([...$this->payload,'source_term'=>1,'term_assignment_id'=>2,'enrollments'=>$rows->pluck('id')->all()])))->toThrow(ValidationException::class);
+    expect(GepEnrollment::count())->toBe(3)->and(DB::table('tb_gep_enrollment_history')->count())->toBe($history);
+});
+
+it('restricts promotion to permitted source and destination campuses',function(){
+    $this->controller->save(($this->request)([...$this->payload,'student_id'=>2,'campus_id'=>2]));$row=GepEnrollment::firstOrFail();
+    ($this->campusUser)();$data=[...$this->payload,'source_term'=>1,'term_assignment_id'=>2,'enrollments'=>[$row->id]];
+    expect(fn()=>app(App\Http\Controllers\GepPromotionController::class)->store(($this->request)($data)))->toThrow(HttpException::class);
+    $data['campus_id']=2;
+    expect(fn()=>app(App\Http\Controllers\GepPromotionController::class)->store(($this->request)($data)))->toThrow(HttpException::class);
+    expect(GepEnrollment::count())->toBe(1);
+});
+
+it('requires a dedicated campus promotion grant even when enrollment create and edit are allowed',function(){
+    $this->controller->save(($this->request)($this->payload));$row=GepEnrollment::firstOrFail();
+    ($this->campusUser)(['gep-students.promotion.promote']);
+    $request=($this->request)([...$this->payload,'source_term'=>1,'term_assignment_id'=>2,'enrollments'=>[$row->id]]);
+    $controller=app(App\Http\Controllers\GepPromotionController::class);
+    expect($controller->index(($this->request)(['source_term'=>1],'GET'))->getData()['canPromote'])->toBeFalse();
+    expect(fn()=>$controller->store($request))->toThrow(HttpException::class);
+    expect(GepEnrollment::count())->toBe(1);
+});
+
+it('allows campus staff with promotion permission to promote without general enrollment edit or create grants',function(){
+    $this->controller->save(($this->request)($this->payload));$row=GepEnrollment::firstOrFail();
+    ($this->campusUser)(['gep-students.enrollment.create','gep-students.enrollment.edit']);
+    app(App\Http\Controllers\GepPromotionController::class)->store(($this->request)([...$this->payload,'source_term'=>1,'term_assignment_id'=>2,'enrollments'=>[$row->id]]));
+    expect(GepEnrollment::count())->toBe(2)->and(GepEnrollment::orderByDesc('id')->value('campus_id'))->toBe(1);
+});
+
+it('does not allow promotion to change a student campus even for staff with access to both campuses',function(){
+    $this->controller->save(($this->request)($this->payload));$row=GepEnrollment::firstOrFail();
+    expect(fn()=>app(App\Http\Controllers\GepPromotionController::class)->store(($this->request)([...$this->payload,'campus_id'=>2,'source_term'=>1,'term_assignment_id'=>2,'enrollments'=>[$row->id]])))->toThrow(ValidationException::class);
+    expect(GepEnrollment::count())->toBe(1);
+});
+
+it('registers promotion permissions idempotently and grants no campus role automatically',function(){
+    $migration=require database_path('migrations/2026_11_27_000002_add_gep_promotion_permission.php');$migration->up();$migration->up();
+    $permission=DB::table('access_permissions')->where('code','gep-students.promotion.promote')->first();
+    expect($permission->module)->toBe('gep-students.promotion')->and($permission->action)->toBe('promote');
+    expect(DB::table('access_role_permissions')->where('permission_id',$permission->id)->pluck('role_id')->all())->toBe([1]);
+    $tree=App\Support\PermissionHierarchy::tree(App\Models\Permission::all());
+    expect(json_encode($tree))->toContain('gep-students.promotion.promote');
+});
+
+it('loads only eligible promotion candidates and requires an explicit source term',function(){
+    $this->controller->save(($this->request)($this->payload));
+    $controller=app(App\Http\Controllers\GepPromotionController::class);
+    expect($controller->index(($this->request)([],'GET'))->getData()['records']->total())->toBe(0);
+    expect($controller->index(($this->request)(['source_term'=>1],'GET'))->getData()['records']->total())->toBe(1);
+    $viewData=$controller->index(($this->request)(['source_term'=>1],'GET'))->getData();
+    $html=view('gep._promotion-content',$viewData)->with('errors',new Illuminate\Support\ViewErrorBag)->render();
+    expect($html)->toContain('Destination enrollment','EXISTING STUDENT','Review promotion');
+    GepEnrollment::first()->update(['enrollment_status'=>'withdrawn']);
+    expect($controller->index(($this->request)(['source_term'=>1],'GET'))->getData()['records']->total())->toBe(0);
+});
+
+it('lists promotion source years newest first and terms in descending order within each year',function(){
+    DB::table('tb_gep_academic_year')->insert([['id'=>2,'academic_year'=>'2027'],['id'=>3,'academic_year'=>'2025']]);
+    DB::table('tb_gep_term_assignment')->insert([
+        ['id'=>3,'academic_year_id'=>2,'term_id'=>1,'sort_order'=>1,'lifecycle_status'=>'pending'],
+        ['id'=>4,'academic_year_id'=>3,'term_id'=>1,'sort_order'=>4,'lifecycle_status'=>'finished'],
+        ['id'=>5,'academic_year_id'=>2,'term_id'=>1,'sort_order'=>4,'lifecycle_status'=>'pending'],
+    ]);
+    $data=app(App\Http\Controllers\GepPromotionController::class)->index(($this->request)([],'GET'))->getData();
+    expect($data['terms']->pluck('id')->all())->toBe([5,3,2,1,4]);
+});
+
+it('returns live promotion search results and rows scoped to the term filters and campus permissions',function(){
+    $this->controller->save(($this->request)($this->payload));
+    $this->controller->save(($this->request)([...$this->payload,'student_id'=>2,'campus_id'=>2]));
+    $controller=app(App\Http\Controllers\GepPromotionController::class);
+    $query=function(array $params)use($controller){$request=($this->request)($params,'GET');$request->headers->set('Accept','application/json');return $controller->index($request)->getData(true);};
+    $data=$query(['source_term'=>1,'search'=>'EXISTING']);
+    expect($data['total'])->toBe(1)->and($data['students'][0]['name'])->toBe('EXISTING STUDENT')->and($data['rows'])->toContain('EXISTING STUDENT')->and(count($data['students']))->toBe(1);
+    $id=$data['students'][0]['id'];
+    expect($query(['source_term'=>1,'search'=>$id])['total'])->toBe(1);
+    expect($query(['source_term'=>2,'search'=>'EXISTING'])['total'])->toBe(0);
+    expect($query(['source_term'=>1,'search'=>'NOT A STUDENT'])['students'])->toBe([]);
+    ($this->campusUser)();
+    expect($query(['source_term'=>1,'search'=>'OTHER CAMPUS'])['total'])->toBe(0);
+    $view=$controller->index(($this->request)(['source_term'=>1],'GET'))->getData();
+    $html=view('gep._promotion-content',$view)->with('errors',new Illuminate\Support\ViewErrorBag)->render();
+    expect($html)->toContain('promotionSearchResults','role="combobox"')->not->toContain('>Find students</button>');
+});
+
+it('cascades promotion source options by term campus level class and group using eligible enrollments',function(){
+    foreach([2,3] as $id){
+        DB::table('tb_gep_class')->insert(['id'=>$id,'class_name'=>'Class '.$id]);
+        DB::table('tb_gep_level')->insert(['id'=>$id,'level_name'=>'Level '.$id]);
+        DB::table('tb_gep_group')->insert(['id'=>$id,'session_name'=>'Group '.$id,'group_code'=>'G'.$id]);
+    }
+    foreach([
+        ['campus_id'=>1,'class_id'=>1,'level_id'=>1,'group_id'=>1],
+        ['campus_id'=>1,'class_id'=>1,'level_id'=>2,'group_id'=>2],
+        ['campus_id'=>1,'class_id'=>2,'level_id'=>2,'group_id'=>1],
+        ['campus_id'=>2,'class_id'=>2,'level_id'=>1,'group_id'=>2],
+        ['term_assignment_id'=>2,'class_id'=>3,'level_id'=>3,'group_id'=>3,'enrollment_status'=>'pending'],
+    ] as $i=>$values)$this->controller->save(($this->request)([...$this->payload,'source'=>'new','student_id'=>null,'full_name_en'=>'FILTER STUDENT '.$i,...$values]));
+    $controller=app(App\Http\Controllers\GepPromotionController::class);
+    $data=$controller->index(($this->request)(['source_term'=>1,'campus_id'=>1,'class_id'=>1,'level_id'=>2],'GET'))->getData();
+    expect($data['sourceOptions']['campus_id']->pluck('id')->all())->toBe([1,2])
+        ->and($data['sourceOptions']['class_id']->pluck('id')->all())->toBe([1,2])
+        ->and($data['sourceOptions']['level_id']->pluck('id')->all())->toBe([1,2])
+        ->and($data['sourceOptions']['group_id']->pluck('id')->all())->toBe([2])
+        ->and($data['records']->total())->toBe(1);
+    $data=$controller->index(($this->request)(['source_term'=>1,'campus_id'=>2],'GET'))->getData();
+    expect($data['sourceOptions']['class_id']->pluck('id')->all())->toBe([2])
+        ->and($data['sourceOptions']['level_id']->pluck('id')->all())->toBe([1]);
+    $data=$controller->index(($this->request)(['source_term'=>1,'campus_id'=>1,'class_id'=>2,'level_id'=>1,'group_id'=>2],'GET'))->getData();
+    expect($data['filters']['level_id'])->toBe(1)->and(isset($data['filters']['class_id']))->toBeFalse()->and(isset($data['filters']['group_id']))->toBeFalse()
+        ->and($data['sourceOptions']['class_id']->pluck('id')->all())->toBe([1])
+        ->and($data['sourceOptions']['group_id']->pluck('id')->all())->toBe([1])->and($data['records']->total())->toBe(1);
+    ($this->campusUser)();
+    $data=$controller->index(($this->request)(['source_term'=>1],'GET'))->getData();
+    expect($data['sourceOptions']['campus_id']->pluck('id')->all())->toBe([1])->and($data['records']->total())->toBe(3);
+    $data=$controller->index(($this->request)([],'GET'))->getData();
+    foreach($data['sourceOptions'] as $options)expect($options->count())->toBe(0);
+});
+
 it('enrolls an existing student with a GEP identity and leaves every WIS field and enrollment unchanged',function(){
     expect($this->user->isSuperAdmin())->toBeTrue();
     expect(GepEnrollmentPermissions::allows($this->user,'create'))->toBeTrue();

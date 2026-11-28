@@ -21,6 +21,7 @@ class GepStudentPermissions
     {
         $rows=[['code'=>'gep-students.view','module'=>'gep-students','action'=>'view','name'=>'View GEP Students']];
         foreach(self::SECTIONS as $key=>$item)$rows[]=['code'=>'gep-students.'.$key.'.view','module'=>'gep-students.'.$key,'action'=>'view','name'=>'View '.$item['label']];
+        $rows[]=['code'=>'gep-students.promotion.promote','module'=>'gep-students.promotion','action'=>'promote','name'=>'Promote GEP students within permitted campuses'];
         return $rows;
     }
     public static function registerMissing():void

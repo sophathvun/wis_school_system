@@ -28,6 +28,73 @@ function attendancePreview($test,array $rows,array $headers=AttendanceTransfer::
 }
 function attendanceSource(string $date='2025-10-13',string $status='E',string $code='00123'): array {return [$code,'2025-2026',$date,$status,'8:40-9:30 AM','Sick','BCH','1'];}
 
+function attendancePeriodSetup(): void {
+    Schema::table('tb_student_enrollment',function(Blueprint $t){$t->integer('session_id')->nullable();$t->integer('group_id')->nullable();});
+    Schema::create('tb_session',function(Blueprint $t){$t->id();$t->string('session_short_name');$t->softDeletes();});
+    Schema::create('tb_group',function(Blueprint $t){$t->id();$t->string('group_name');$t->softDeletes();});
+    Schema::create('tb_grade',function(Blueprint $t){$t->id();$t->string('grade');$t->string('grade_short_name');$t->softDeletes();});
+    Schema::create('schedule_periods',function(Blueprint $t){$t->id();$t->string('name');$t->string('session');$t->string('starts_at');$t->string('ends_at');$t->boolean('active')->default(true);$t->json('applicable_groups');$t->json('full_day_grades')->nullable();$t->softDeletes();});
+    DB::table('tb_session')->insert([['id'=>1,'session_short_name'=>'M'],['id'=>2,'session_short_name'=>'A'],['id'=>3,'session_short_name'=>'III']]);
+    DB::table('tb_grade')->insert(['id'=>12,'grade'=>'12','grade_short_name'=>'12']);
+    DB::table('tb_student_enrollment')->where('id',1)->update(['session_id'=>1]);
+    foreach([['08:00','08:50','M'],['09:00','09:50','M'],['13:00','13:50','A']] as $i=>[$start,$end,$group])
+        DB::table('schedule_periods')->insert(['id'=>$i+1,'name'=>'Period '.($i+1),'session'=>$group==='M'?'morning':'afternoon','starts_at'=>$start,'ends_at'=>$end,'applicable_groups'=>json_encode([$group,'III']),'full_day_grades'=>json_encode(['12'])]);
+}
+
+it('infers one or multiple missed sessions from complete periods and preserves snapshots without campus input',function(){
+    attendancePeriodSetup();$one=attendanceSource();$one[4]='08:00-08:50 a';$one[6]='';$one[7]='';
+    $two=$one;$two[2]='2025-10-14';$two[3]='U';$two[4]='8:00 AM – 9:50 AM';
+    $id=attendancePreview($this,[$one,$two]);
+    expect(DB::table('attendance_import_rows')->where('batch_id',$id)->where('outcome','pending')->count())->toBe(2);
+    $preview=app(AttendanceTransferController::class)->inspect(g12Request($this->admin),$id)->getData(true);
+    expect($preview['rows']['data'][1]['missed_sessions'])->toBe(2)->and($preview['rows']['data'][1]['auto_periods'])->toBeTrue();
+    $this->service->confirm($this->admin,$id);
+    expect(DB::table('attendance_daily_marks')->orderBy('attendance_date')->pluck('missed_sessions')->all())->toBe([1,2]);
+    $snapshots=json_decode(DB::table('attendance_daily_marks')->where('attendance_date','2025-10-14')->value('absent_periods'),true);
+    expect(array_column($snapshots,'id'))->toBe([1,2])->and($snapshots[0]['starts_at'])->toBe('08:00');
+    $again=attendancePreview($this,[$one]);expect(DB::table('attendance_import_rows')->where('batch_id',$again)->value('outcome'))->toBe('duplicate');
+});
+
+it('supports abbreviated PM and 24 hour ranges without converting tardiness into a missed session',function(){
+    attendancePeriodSetup();DB::table('tb_student_enrollment')->where('id',1)->update(['session_id'=>2]);
+    $rows=[];foreach(['01:00-01:50 p','13:00-13:50','1:00 p.m.-1:50 p.m.'] as $i=>$time){$row=attendanceSource('2025-10-'.(13+$i));$row[4]=$time;$row[7]='';$rows[]=$row;}
+    $late=attendanceSource('2025-10-16','T');$late[7]='';$rows[]=$late;
+    $present=$late;$present[2]='2025-10-17';$present[3]='P';$rows[]=$present;
+    $id=attendancePreview($this,$rows);$this->service->confirm($this->admin,$id);
+    expect(DB::table('attendance_daily_marks')->orderBy('attendance_date')->pluck('missed_sessions')->all())->toBe([1,1,1,0,0]);
+    expect(DB::table('attendance_daily_marks')->where('status','T')->value('absent_periods'))->toBe('[]');
+});
+
+it('reviews unmatched partial invalid or ambiguous times while honoring explicit session counts',function(){
+    attendancePeriodSetup();$rows=[];
+    foreach(['08:10-08:50 AM','07:00-07:50 AM','8:00','25:00-26:00','09:50-08:00 AM',''] as $i=>$time){$row=attendanceSource('2025-10-'.(13+$i));$row[4]=$time;$row[7]='';$rows[]=$row;}
+    $manual=attendanceSource('2025-10-20');$manual[4]='old custom time';$manual[7]='3';$rows[]=$manual;
+    $id=attendancePreview($this,$rows);$this->service->confirm($this->admin,$id);
+    expect(DB::table('attendance_import_rows')->where('batch_id',$id)->where('outcome','review')->count())->toBe(6)
+        ->and(DB::table('attendance_daily_marks')->count())->toBe(1)->and(DB::table('attendance_daily_marks')->value('missed_sessions'))->toBe(3);
+    DB::table('schedule_periods')->insert(['name'=>'Ambiguous duplicate','session'=>'morning','starts_at'=>'08:00','ends_at'=>'08:50','applicable_groups'=>'["M"]']);
+    $row=attendanceSource('2025-10-21');$row[4]='08:00-08:50 AM';$row[7]='';
+    $id=attendancePreview($this,[$row]);expect(DB::table('attendance_import_rows')->where('batch_id',$id)->value('reason'))->toContain('overlapping');
+});
+
+it('matches only applicable study groups and full day grades and rejects changed settings after preview',function(){
+    attendancePeriodSetup();$row=attendanceSource();$row[4]='08:00-08:50 AM';$row[7]='';
+    DB::table('tb_student_enrollment')->where('id',1)->update(['session_id'=>2]);
+    $id=attendancePreview($this,[$row]);expect(DB::table('attendance_import_rows')->where('batch_id',$id)->value('outcome'))->toBe('review');
+    DB::table('tb_student_enrollment')->where('id',1)->update(['session_id'=>3]);
+    DB::table('schedule_periods')->where('id',1)->update(['full_day_grades'=>'["6"]']);
+    $id=attendancePreview($this,[$row]);expect(DB::table('attendance_import_rows')->where('batch_id',$id)->value('outcome'))->toBe('review');
+    DB::table('tb_student_enrollment')->where('id',1)->update(['session_id'=>1]);
+    $changedGroup=attendancePreview($this,[$row]);
+    DB::table('tb_student_enrollment')->where('id',1)->update(['session_id'=>2]);
+    $this->service->confirm($this->admin,$changedGroup);
+    expect(DB::table('attendance_import_rows')->where('batch_id',$changedGroup)->value('reason'))->toContain('changed after preview');
+    DB::table('tb_student_enrollment')->where('id',1)->update(['session_id'=>1]);
+    $id=attendancePreview($this,[$row]);DB::table('schedule_periods')->where('id',1)->update(['active'=>false]);
+    $this->service->confirm($this->admin,$id);
+    expect(DB::table('attendance_import_rows')->where('batch_id',$id)->value('reason'))->toContain('changed after preview')->and(DB::table('attendance_daily_marks')->count())->toBe(0);
+});
+
 it('previews old Access headings without changing attendance then imports E U and T for historical enrollment',function(){
     $headers=['Student ID','AcademicYear','AbsDate','Attandance','AbsTime','Reason','campus','missed_sessions'];
     $id=attendancePreview($this,[attendanceSource('10/13/2025'),attendanceSource('14-Oct-2025','U'),attendanceSource('2025-10-15','T')],$headers);

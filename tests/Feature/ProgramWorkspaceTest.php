@@ -473,9 +473,14 @@ it('opens authorized GEP student submenus and renders their breadcrumbs',functio
     foreach(['gep-students.view','gep-students.'.$section.'.view'] as $code)DB::table('access_role_permissions')->insert(['role_id'=>1,'permission_id'=>DB::table('access_permissions')->where('code',$code)->value('id')]);
     $this->actingAs($user);$request=($this->workspaceRequest)('/gep/students/'.$section,$user,'gep');
     $route=app('router')->getRoutes()->match($request);$request->setRouteResolver(fn()=>$route);
-    $view=(new \App\Http\Controllers\GepStudentController)->index($request,$section);
-    expect($view->name())->toBe($section==='import-export'?'gep.data-transfer':'gep.students');
-    if($section!=='import-export')expect($view->getData()['current']['label'])->toBe(\App\Support\GepStudentPermissions::SECTIONS[$section]['label']);
+    if($section==='promotion'){
+        // Promotion now reads enrollment data and also requires enrollment view access.
+        expect(fn()=>(new \App\Http\Controllers\GepStudentController)->index($request,$section))->toThrow(HttpException::class);
+    }else{
+        $view=(new \App\Http\Controllers\GepStudentController)->index($request,$section);
+        expect($view->name())->toBe($section==='import-export'?'gep.data-transfer':'gep.students');
+        if($section!=='import-export')expect($view->getData()['current']['label'])->toBe(\App\Support\GepStudentPermissions::SECTIONS[$section]['label']);
+    }
     expect(view('layouts.partials.navbar')->render())->toContain('GEP Students',route('gep.students.section',['studentSection'=>$section]));
 })->with(array_values(array_diff(array_keys(\App\Support\GepStudentPermissions::SECTIONS),['enrollment'])));
 
@@ -517,8 +522,8 @@ it('shares School Information routes with GEP without changing the selected work
 it('registers the GEP student menu permissions without granting campus roles automatically',function(){
     (require database_path('migrations/2026_11_20_000007_add_gep_student_menu_permissions.php'))->up();
     $ids=DB::table('access_permissions')->where('module','like','gep-students%')->pluck('id');
-    expect($ids)->toHaveCount(10)->and(DB::table('access_role_permissions')->where('role_id',1)->whereIn('permission_id',$ids)->count())->toBe(0)
-        ->and(DB::table('access_role_permissions')->where('role_id',2)->whereIn('permission_id',$ids)->count())->toBe(10);
+    expect($ids)->toHaveCount(count(\App\Support\GepStudentPermissions::catalog()))->and(DB::table('access_role_permissions')->where('role_id',1)->whereIn('permission_id',$ids)->count())->toBe(0)
+        ->and(DB::table('access_role_permissions')->where('role_id',2)->whereIn('permission_id',$ids)->count())->toBe(count(\App\Support\GepStudentPermissions::catalog()));
 });
 
 it('opens each authorized GEP report with its own breadcrumb and sidebar item',function($section){
