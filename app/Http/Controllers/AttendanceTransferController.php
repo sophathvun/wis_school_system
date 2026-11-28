@@ -104,7 +104,7 @@ class AttendanceTransferController
             ->when($data['attendance']??null,fn($q,$v)=>$q->where('m.status',$v))
             ->orderBy('m.attendance_date')->orderBy('m.id')->select(['s.student_id','y.academic_year','m.attendance_date','m.status','m.remarks','c.campus_name_en','m.missed_sessions','m.absent_periods']);
         return $this->csv('daily-attendance-'.now('Asia/Bangkok')->format('Ymd-His').'.csv',array_merge(AttendanceTransfer::COLUMNS,['recorded_periods']), (function()use($query){
-            foreach($query->cursor() as $row)yield [$row->student_id,$row->academic_year,$row->attendance_date,$row->status,'',$row->remarks,$row->campus_name_en,$row->missed_sessions,$row->absent_periods];
+            foreach($query->cursor() as $row)foreach(\App\Support\AttendancePeriodRecords::expand($row) as $entry)yield [$entry->student_id,$entry->academic_year,$entry->attendance_date,$entry->status,'',$entry->remarks,$entry->campus_name_en,$entry->missed_sessions,$entry->absent_periods];
         })());
     }
 

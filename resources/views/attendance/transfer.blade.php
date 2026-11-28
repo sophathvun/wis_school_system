@@ -17,8 +17,8 @@
                 <div class="d-flex align-items-center gap-2 mt-2" data-selected-file hidden><span class="flex-fill text-break" data-file-name></span><button type="button" class="btn btn-sm btn-outline-secondary" data-clear-file aria-label="Remove selected file">Remove</button></div>
                 <button class="btn btn-primary w-100 mt-3" type="submit"><i class="ti ti-eye me-2"></i>Upload &amp; preview</button>
             </form>
-            <p class="form-hint mt-3 mb-0">Use one row per student per date. Leave campus blank to match the enrollment. For E / U / T, leave missed_sessions blank to calculate it from time_period (for example 08:00-08:50 AM). Complete configured periods must match the student’s study group and grade; unmatched or ambiguous times need review. Tardy remains T while its matched periods count toward missed sessions. An explicit missed_sessions value, including 0, takes priority.</p>
-            <p class="form-hint mt-2 mb-0">Use YYYY-MM-DD dates; old M/D/YYYY and DD-Mon-YYYY dates are also supported. Keep Student IDs as text to preserve leading zeros. Different records on the same date require review.</p>
+            <p class="form-hint mt-3 mb-0">Use one row per student, date and period/status. Different non-overlapping periods on the same date may contain T, E or U. Leave campus blank to match the enrollment. For E / U / T, leave missed_sessions blank to calculate it from time_period (for example 08:00-08:50 AM). Complete configured periods must match the student’s study group and grade; unmatched or ambiguous times need review. Tardy remains T while its matched periods count toward missed sessions. Repeated T records in different periods are allowed and counted separately in attendance reports. An explicit missed_sessions value, including 0, takes priority.</p>
+            <p class="form-hint mt-2 mb-0">Use YYYY-MM-DD dates; old M/D/YYYY and DD-Mon-YYYY dates are also supported. Keep Student IDs as text to preserve leading zeros. Different records for the same period, or records without uniquely matched periods, require review.</p>
         </div></section></div>
         @endif
         @if($canExport)

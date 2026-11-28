@@ -108,6 +108,7 @@ class DailyAttendanceController
             foreach($input['marks'] as $mark){
                 $previous=$existing->firstWhere('student_id',$mark['student_id']);
                 if(($input['only_blank']??false)&&$previous)continue;
+                if($previous && \App\Support\AttendancePeriodRecords::mixed($previous))throw ValidationException::withMessages(['marks'=>'This day contains separate imported period records. Use period records to correct it; a single daily status cannot replace them.']);
                 abort_unless(AttendancePermissions::allows($request->user(),$previous?'edit':'create',(int)$scope['campus_id']),403);
                 $snapshots=json_decode($previous?->absent_periods??'[]',true)?:[];
                 if(array_key_exists('absent_period_ids',$mark)){

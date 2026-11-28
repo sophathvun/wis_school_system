@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\User;
 use App\Support\AttendancePermissions;
+use App\Support\AttendancePeriodRecords as PeriodRecords;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -42,18 +43,24 @@ class AttendanceTransfer
                         foreach($source as $value)if(!mb_check_encoding($value,'UTF-8'))throw new \InvalidArgumentException('Save the file as CSV UTF-8.');
                         $normalized=$this->normalize($source,$years,$campuses,$allowed,$cache);
                         $key=$normalized['academic_year_id'].':'.$normalized['student_id'].':'.$normalized['attendance_date'];
-                        if(isset($seen[$key])){
-                            if($seen[$key]['normalized']===$normalized){$outcome='duplicate';$reason='Identical duplicate in this file; not imported twice.';}
-                            else {
-                                $outcome='review';$reason='Multiple different records for the same student and date. Review and combine into one daily record.';
-                                foreach($rows as &$previous)if($previous['csv_row']===$seen[$key]['line']){$previous['outcome']='review';$previous['reason']=$reason;}unset($previous);
-                                DB::table('attendance_import_rows')->where('batch_id',$id)->where('csv_row',$seen[$key]['line'])->update(['outcome'=>'review','reason'=>$reason]);
+                        foreach($seen[$key]??[] as $previous){
+                            if($previous['normalized']===$normalized){$outcome='duplicate';$reason='Identical duplicate in this file; not imported twice.';break;}
+                            try{PeriodRecords::merge($previous['normalized'],$normalized);}
+                            catch(\InvalidArgumentException $e){
+                                $outcome='review';$reason='Multiple different records for the same student and date overlap or have unknown periods. '.$e->getMessage();
+                                foreach($rows as &$pending)if($pending['csv_row']===$previous['line']){$pending['outcome']='review';$pending['reason']=$reason;}unset($pending);
+                                DB::table('attendance_import_rows')->where('batch_id',$id)->where('csv_row',$previous['line'])->update(['outcome'=>'review','reason'=>$reason]);
                             }
-                        } else {
-                            $seen[$key]=['line'=>$line,'normalized'=>$normalized];
+                        }
+                        if($outcome!=='duplicate')$seen[$key][]=['line'=>$line,'normalized'=>$normalized];
+                        if($outcome==='pending'){
                             $mark=$this->existing($normalized);
-                            if($mark){$outcome=$this->same($mark,$normalized)?'duplicate':'review';$reason=$outcome==='duplicate'?'Already recorded; unchanged.':'Existing attendance differs. It will not be overwritten.';}
-                            elseif($this->scheduledLeave($normalized)){$outcome='review';$reason='Approved leave is scheduled for this date. Review the leave record first.';}
+                            if($mark && $this->same($mark,$normalized)){$outcome='duplicate';$reason='Already recorded; unchanged.';}
+                            elseif($mark && empty($mark->leave_id)){
+                                try{$merged=PeriodRecords::merge($this->periodRecord($mark),$normalized);if($merged['duplicate']){$outcome='duplicate';$reason='Already recorded; unchanged.';}}
+                                catch(\InvalidArgumentException $e){$outcome='review';$reason='Existing attendance differs. It will not be overwritten.';}
+                            }elseif($mark){$outcome='review';$reason='Approved leave attendance is already recorded. Review the leave record first.';}
+                            if($outcome==='pending' && $this->scheduledLeave($normalized)){$outcome='review';$reason='Approved leave is scheduled for this date. Review the leave record first.';}
                         }
                     } catch(\InvalidArgumentException $e){$outcome='review';$reason=$e->getMessage();}
                     $rows[]=['batch_id'=>$id,'csv_row'=>$line,'source'=>json_encode($source,JSON_INVALID_UTF8_SUBSTITUTE),'normalized'=>$normalized?json_encode($normalized):null,'outcome'=>$outcome,'reason'=>$reason];
@@ -96,6 +103,11 @@ class AttendanceTransfer
             $periods=app(AttendanceImportPeriods::class)->resolve($e,$row['time_period'],$cache);
             $missed=count($periods);
         }
+        elseif($missed!=='' && (int)$missed>0 && in_array($status,['EX','UX','T'],true) && filled($row['time_period']??null)){
+            // Explicit counts remain authoritative; attach periods only when they agree exactly.
+            try{$matched=app(AttendanceImportPeriods::class)->resolve($e,$row['time_period'],$cache);if(count($matched)===(int)$missed)$periods=$matched;}
+            catch(\InvalidArgumentException $ignored){}
+        }
         $reason=trim(($row['reason']??'').(filled($row['time_period']??null)?' | Time: '.$row['time_period']:''),' |');
         if(mb_strlen($reason)>500)throw new \InvalidArgumentException('Reason and time together exceed 500 characters.');
         return ['academic_year_id'=>$yearId,'student_id'=>$e->student_id,'enrollment_id'=>$e->id,'campus_id'=>$e->campus_id,'grade_id'=>(int)($e->grade_id??0),'class_id'=>$e->class_id,'attendance_date'=>$date,'status'=>$status,'missed_sessions'=>$status==='P'?0:(int)$missed,'remarks'=>$reason?:null,'absent_periods'=>$periods,'auto_periods'=>$automatic,'source_time_period'=>$row['time_period']??''];
@@ -116,8 +128,19 @@ class AttendanceTransfer
 
     private function same($mark, array $row): bool
     {
+        if(PeriodRecords::mixed($mark))return false;
         return (int)$mark->enrollment_id===(int)$row['enrollment_id']&&$mark->status===$row['status']&&(int)$mark->missed_sessions===$row['missed_sessions']&&trim((string)$mark->remarks)===trim((string)$row['remarks'])
             && (empty($row['absent_periods']) || AttendanceImportPeriods::sameSnapshots(json_decode($mark->absent_periods??'[]',true)?:[],$row['absent_periods']));
+    }
+
+    private function periodRecord(object $mark): array
+    {
+        $periods=PeriodRecords::periods($mark);
+        if(!$periods && $mark->missed_sessions>0 && preg_match('/\| Time: (.+)$/u',(string)$mark->remarks,$match)){
+            try{$cache=[];$e=DB::table('tb_student_enrollment')->where('id',$mark->enrollment_id)->first();if($e)$periods=app(AttendanceImportPeriods::class)->resolve($e,$match[1],$cache);}
+            catch(\InvalidArgumentException $ignored){}
+        }
+        return ['enrollment_id'=>$mark->enrollment_id,'status'=>$mark->status,'missed_sessions'=>(int)$mark->missed_sessions,'remarks'=>$mark->remarks,'absent_periods'=>$periods];
     }
 
     private function scheduledLeave(array $row): bool
@@ -153,17 +176,25 @@ class AttendanceTransfer
                         DB::table('attendance_import_rows')->where('id',$record->id)->update(['outcome'=>'review','reason'=>'Period settings or study group changed after preview. Preview the file again.']);continue;
                     }
                 }
-                if(!$valid||$existing||$leave){
-                    $duplicate=$valid&&$existing&&$this->same($existing,$row);
+                $merged=null;
+                if($valid && $existing && empty($existing->leave_id) && !$leave && !$this->same($existing,$row)){
+                    try{$merged=PeriodRecords::merge($this->periodRecord($existing),$row);}
+                    catch(\InvalidArgumentException $ignored){}
+                }
+                if(!$valid||($existing && (!$merged || $merged['duplicate']))||$leave){
+                    $duplicate=$valid&&$existing&&($this->same($existing,$row)||($merged['duplicate']??false));
                     DB::table('attendance_import_rows')->where('id',$record->id)->update(['outcome'=>$duplicate?'duplicate':'review','reason'=>$duplicate?'Already recorded; unchanged.':(!$valid?'Enrollment changed after preview. Preview a corrected file.':($leave?'Approved leave is scheduled for this date. Review the leave record first.':'Existing attendance differs. It was not overwritten.'))]);
                     continue;
                 }
                 $scope=array_intersect_key($row,array_flip(['academic_year_id','campus_id','grade_id','class_id','attendance_date']));
                 $register=DB::table('attendance_daily_registers')->where($scope)->lockForUpdate()->first();
                 $registerId=$register?->id??DB::table('attendance_daily_registers')->insertGetId($scope+['version'=>0,'updated_by'=>$user->id,'created_at'=>now(),'updated_at'=>now()]);
-                $markId=DB::table('attendance_daily_marks')->insertGetId(array_intersect_key($row,array_flip(['academic_year_id','student_id','enrollment_id','attendance_date','status','missed_sessions','remarks']))+['register_id'=>$registerId,'absent_periods'=>json_encode($row['absent_periods']??[]),'created_by'=>$user->id,'created_at'=>now(),'updated_at'=>now()]);
+                if($merged){
+                    $markId=$existing->id;
+                    DB::table('attendance_daily_marks')->where('id',$markId)->update(['status'=>$merged['status'],'missed_sessions'=>$merged['missed_sessions'],'absent_periods'=>json_encode($merged['absent_periods']),'remarks'=>$merged['remarks'],'updated_at'=>now()]);
+                }else $markId=DB::table('attendance_daily_marks')->insertGetId(array_intersect_key($row,array_flip(['academic_year_id','student_id','enrollment_id','attendance_date','status','missed_sessions','remarks']))+['register_id'=>$registerId,'absent_periods'=>json_encode($row['absent_periods']??[]),'created_by'=>$user->id,'created_at'=>now(),'updated_at'=>now()]);
                 DB::table('attendance_daily_registers')->where('id',$registerId)->update(['version'=>DB::raw('version + 1'),'updated_by'=>$user->id,'updated_at'=>now()]);
-                DB::table('attendance_daily_events')->insert(['register_id'=>$registerId,'user_id'=>$user->id,'details'=>json_encode(['action'=>'historical_import','batch_id'=>$id,'csv_row'=>$record->csv_row,'exception_only'=>true,'after'=>$row]),'created_at'=>now(),'updated_at'=>now()]);
+                DB::table('attendance_daily_events')->insert(['register_id'=>$registerId,'user_id'=>$user->id,'details'=>json_encode(['action'=>$merged?'historical_period_append':'historical_import','batch_id'=>$id,'csv_row'=>$record->csv_row,'exception_only'=>true,'before'=>$merged?(array)$existing:null,'after'=>$merged?array_replace($row,collect($merged)->except('duplicate')->all()):$row]),'created_at'=>now(),'updated_at'=>now()]);
                 DB::table('attendance_import_rows')->where('id',$record->id)->update(['outcome'=>'imported','mark_id'=>$markId]);
             }
             DB::table('attendance_import_batches')->where('id',$id)->update(['status'=>DB::table('attendance_import_rows')->where('batch_id',$id)->where('outcome','pending')->exists()?'importing':'completed','updated_at'=>now()]);

@@ -80,6 +80,35 @@ beforeEach(function(){
     $this->controller=app(AttendanceController::class);
 });
 
+it('reports all statuses of a mixed attendance day and prevents a daily status from replacing its periods',function(){
+    $admin=User::find(1);$daily=app(\App\Http\Controllers\DailyAttendanceController::class);
+    $payload=['academic_year_id'=>1,'campus_id'=>1,'class_id'=>1,'date'=>'2026-11-02','version'=>0,
+        'marks'=>[['student_id'=>1,'status'=>'EX','missed_sessions'=>2,'remarks'=>'Imported periods']]];
+    $daily->save(g12Request($admin,$payload));
+    $periods=[
+        ['id'=>2,'name'=>'Period 1','session'=>'morning','starts_at'=>'08:00','ends_at'=>'08:50','attendance_status'=>'T','attendance_remarks'=>'Late first period'],
+        ['id'=>3,'name'=>'Period 2','session'=>'morning','starts_at'=>'09:00','ends_at'=>'09:50','attendance_status'=>'EX','attendance_remarks'=>'Sick second period'],
+    ];
+    DB::table('attendance_daily_marks')->update(['absent_periods'=>json_encode($periods)]);
+    $report=app(\App\Http\Controllers\AttendanceReportController::class);$filters=['academic_year_id'=>1,'campus_id'=>1,'student_id'=>1];
+    $data=$report->details(g12Request($admin,$filters))->getData(true);
+    expect($data['total'])->toBe(2)->and($data['totals'])->toBe(['P'=>0,'EX'=>1,'UX'=>0,'T'=>1])
+        ->and(array_column($data['data'],'reason'))->toBe(['Late first period','Sick second period']);
+    $statistics=$report->statistics(g12Request($admin,$filters))->getData(true)['data'][0];
+    expect($statistics['EX'])->toBe(1)->and($statistics['T'])->toBe(1)->and($statistics['total_absent'])->toBe(1);
+    $filtered=$report->details(g12Request($admin,$filters+['search'=>'Late']))->getData(true);
+    expect($filtered['total'])->toBe(1)->and($filtered['data'][0]['status'])->toBe('T');
+    $payload['version']=1;$payload['marks'][0]['status']='P';
+    expect(fn()=>$daily->save(g12Request($admin,$payload)))->toThrow(ValidationException::class);
+    expect(DB::table('attendance_daily_marks')->value('absent_periods'))->toBe(json_encode($periods));
+    $periods[]=['id'=>4,'name'=>'Period 3','session'=>'morning','starts_at'=>'10:00','ends_at'=>'10:50','attendance_status'=>'T','attendance_remarks'=>'Late again'];
+    DB::table('attendance_daily_marks')->update(['absent_periods'=>json_encode($periods),'missed_sessions'=>3]);
+    $data=$report->details(g12Request($admin,$filters))->getData(true);
+    expect($data['total'])->toBe(3)->and($data['totals']['T'])->toBe(2)->and($data['totals']['EX'])->toBe(1);
+    $statistics=$report->statistics(g12Request($admin,$filters))->getData(true)['data'][0];
+    expect($statistics['T'])->toBe(2)->and($statistics['EX'])->toBe(1);
+});
+
 function teachingScheduleInput(array $changes=[]): array {
     return array_replace(['campus_id'=>1,'academic_year_id'=>1,'class_id'=>1,'teacher_id'=>2,'subject'=>'Biology','weekday'=>1,'period_id'=>4,
         'starts_at'=>'10:00','ends_at'=>'11:00','effective_from'=>'2026-11-01','effective_until'=>'2027-06-30','version'=>0],$changes);

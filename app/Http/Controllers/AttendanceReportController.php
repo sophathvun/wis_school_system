@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\{AcademicYear, SchoolInfo, StudentEnrollment};
 use App\Support\AttendanceStudyGroup;
+use App\Support\AttendancePeriodRecords;
 use App\Support\AttendancePermissions;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -115,13 +116,13 @@ class AttendanceReportController
         $query = DB::table('attendance_daily_marks')->whereIn('enrollment_id', $enrollments->select('id'))
             ->when($input['date_from'] ?? null, fn ($q, $date) => $q->where('attendance_date', '>=', $date))
             ->when($input['date_to'] ?? null, fn ($q, $date) => $q->where('attendance_date', '<=', $date));
-        $counts = (clone $query)->select('status')->selectRaw('COUNT(*) as total')->groupBy('status')->pluck('total', 'status');
+        $expanded=$query->orderByDesc('attendance_date')->orderBy('id')->get()->flatMap(fn($mark)=>AttendancePeriodRecords::expand($mark));
+        $counts=$expanded->countBy('status');
         $totals = collect(['P', 'EX', 'UX', 'T'])->mapWithKeys(fn ($status) => [$status => (int) ($counts[$status] ?? 0)])->all();
-        $query->whereIn('status', ['EX', 'UX', 'T'])
-            ->when($input['search'] ?? null, fn ($q, $term) => $q->where(fn ($q) => $q->where('remarks', 'like', '%'.$term.'%')->orWhere('status', 'like', '%'.$term.'%')))
-            ->orderByDesc('attendance_date')->orderBy('id');
-        $size = ($input['per_page'] ?? '15') === 'all' ? max(1, (clone $query)->count()) : (int) ($input['per_page'] ?? 15);
-        $result = $query->paginate($size, ['*'], 'page', max(1, $request->integer('page', 1)));
+        $expanded=$expanded->whereIn('status',['EX','UX','T'])->filter(fn($mark)=>empty($input['search']) || mb_stripos(($mark->remarks??'').' '.$mark->status,$input['search'])!==false)->values();
+        $size=($input['per_page']??'15')==='all'?max(1,$expanded->count()):(int)($input['per_page']??15);
+        $page=max(1,$request->integer('page',1));
+        $result=new \Illuminate\Pagination\LengthAwarePaginator($expanded->forPage($page,$size)->values(),$expanded->count(),$size,$page,['path'=>$request->url(),'query'=>$request->query()]);
         $records = StudentEnrollment::with(['student', 'grade', 'schoolClass', 'academicYear', 'campus', 'session', 'schoolGroup'])
             ->whereIn('id', $result->getCollection()->pluck('enrollment_id'))->get()->keyBy('id');
         $result->setCollection($result->getCollection()->map(function ($mark) use ($records) {
@@ -164,10 +165,10 @@ class AttendanceReportController
             ->whereIn('student_id', $result->getCollection()->pluck('student_id'))
             ->when($input['date_from'] ?? null, fn ($q, $date) => $q->where('attendance_date', '>=', $date))
             ->when($input['date_to'] ?? null, fn ($q, $date) => $q->where('attendance_date', '<=', $date))
-            ->whereIn('status', ['EX', 'UX', 'T'])->select('student_id', 'status')->selectRaw('COUNT(*) as total')
-            ->groupBy('student_id', 'status')->get()->groupBy('student_id');
+            ->whereIn('status', ['EX', 'UX', 'T'])->get()->flatMap(fn($mark)=>AttendancePeriodRecords::expand($mark))->groupBy('student_id')
+            ->map(fn($marks)=>$marks->countBy('status'));
         $result->setCollection($result->getCollection()->map(function ($enrollment) use ($counts) {
-            $totals = ($counts->get($enrollment->student_id) ?? collect())->pluck('total', 'status');
+            $totals = $counts->get($enrollment->student_id) ?? collect();
             $ex = (int) ($totals['EX'] ?? 0); $ux = (int) ($totals['UX'] ?? 0);
             return [
                 'student_id' => $enrollment->student_id, 'student_code' => $enrollment->student?->student_id,

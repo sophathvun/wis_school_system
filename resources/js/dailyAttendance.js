@@ -47,6 +47,7 @@ export function initDailyAttendance(root,meta){
     function counts(){
         get('[data-daily-students]').querySelectorAll('[data-daily-student]').forEach(row=>{
             const status=row.querySelector('[data-daily-status]');
+            if(row.dataset.periodRecords)status.disabled=true;
             status.dataset.attStatus=status.value;
             const exception=['EX','UX','T'].includes(status.value);
             row.querySelectorAll('[data-daily-exception]').forEach(field=>field.hidden=!exception);
@@ -73,7 +74,12 @@ export function initDailyAttendance(root,meta){
             row.querySelector('[data-daily-missed-note]').textContent=`Missed periods: ${missed.value||0}`;
         });
         const result={P:0,EX:0,UX:0,T:0,unmarked:0};
-        get('[data-daily-students]').querySelectorAll('[data-daily-status]').forEach(input=>{if(!input.closest('[data-daily-student]').hidden)result[input.value||'unmarked']++;});
+        get('[data-daily-students]').querySelectorAll('[data-daily-status]').forEach(input=>{
+            const row=input.closest('[data-daily-student]');if(row.hidden)return;
+            const saved=students.find(student=>student.id===Number(row.dataset.dailyStudent))?.mark?.absent_periods||[];
+            const values=row.dataset.periodRecords?[...new Set(saved.map(period=>period.attendance_status))]:[input.value||'unmarked'];
+            values.forEach(value=>{if(value in result)result[value]++;});
+        });
         get('[data-daily-counts]').innerHTML=Object.entries(result).map(([key,value])=>`<span class="badge ${key==='P'?'bg-green-lt':key==='UX'?'bg-red-lt':'bg-blue-lt'}">${key==='unmarked'?'Unmarked':`${{EX:'E',UX:'U'}[key]||key} · ${statuses[key]}`}: ${value}</span>`).join('');
     }
     function syncClasses(){

@@ -108,7 +108,7 @@ if (root) {
     }
     find('[data-confirm-import]').addEventListener('click', async () => {
         if (busy || !batch) return;
-        const confirmed = window.Swal ? (await window.Swal.fire({ title: 'Import valid attendance rows?', text: 'Existing marks will stay unchanged. Review rows and duplicates will be skipped.', icon: 'question', showCancelButton: true, confirmButtonText: 'Import valid rows' })).isConfirmed : window.confirm('Import valid rows? Existing marks remain unchanged.');
+        const confirmed = window.Swal ? (await window.Swal.fire({ title: 'Import valid attendance rows?', text: 'Existing periods are preserved. New non-overlapping periods may be added to the same day. Review rows and duplicates are skipped.', icon: 'question', showCancelButton: true, confirmButtonText: 'Import valid rows' })).isConfirmed : window.confirm('Import valid rows? Existing periods are preserved; new non-overlapping periods may be added.');
         if (!confirmed) return;
         error.hidden = true; setBusy(true);
         try {
