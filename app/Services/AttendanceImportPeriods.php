@@ -8,6 +8,19 @@ use Illuminate\Support\Facades\DB;
 
 class AttendanceImportPeriods
 {
+    public static function sameSnapshots(array $left,array $right): bool
+    {
+        // MySQL JSON storage reorders object keys. Compare fields, not PHP insertion order.
+        $canonical=static function(array $periods): array {
+            return array_map(static fn(array $period)=>[
+                'id'=>(int)($period['id']??0),'name'=>(string)($period['name']??''),
+                'session'=>(string)($period['session']??''),'starts_at'=>(string)($period['starts_at']??''),
+                'ends_at'=>(string)($period['ends_at']??''),
+            ],$periods);
+        };
+        return $canonical($left)===$canonical($right);
+    }
+
     /** Match complete configured periods only; never guess a partial or overlapping session. */
     public function resolve(object $enrollment,string $time,array &$cache): array
     {

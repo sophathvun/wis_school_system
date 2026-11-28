@@ -25,6 +25,8 @@ class AttendanceStudyGroup
         if($group!=='III')return true;
         $grade=strtoupper(trim((string)($enrollment->grade?->grade_short_name ?: $enrollment->grade?->grade)));
         $grade=preg_replace('/^GRADE\s*/','',$grade);
+        // WIS short grade labels include a trailing class separator, e.g. K1- and N-.
+        $grade=rtrim($grade," -\t");
         if($grade==='NURSERY')$grade='N';
         return in_array($grade,json_decode($period->full_day_grades??'[]',true)?:[],true);
     }

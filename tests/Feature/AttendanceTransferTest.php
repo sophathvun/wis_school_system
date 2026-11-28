@@ -65,6 +65,35 @@ it('supports abbreviated PM and 24 hour ranges without converting tardiness into
     expect(DB::table('attendance_daily_marks')->where('status','T')->value('absent_periods'))->toBe('[]');
 });
 
+it('confirms and recognizes duplicates when MySQL JSON reorders snapshot keys',function(){
+    attendancePeriodSetup();$row=attendanceSource();$row[4]='08:00-08:50 AM';$row[7]='';
+    $id=attendancePreview($this,[$row]);$record=DB::table('attendance_import_rows')->where('batch_id',$id)->first();
+    $normalized=json_decode($record->normalized,true);
+    foreach($normalized['absent_periods'] as &$snapshot)ksort($snapshot);unset($snapshot);
+    DB::table('attendance_import_rows')->where('id',$record->id)->update(['normalized'=>json_encode($normalized)]);
+    $this->service->confirm($this->admin,$id);
+    expect(DB::table('attendance_import_rows')->where('id',$record->id)->value('outcome'))->toBe('imported');
+    DB::table('attendance_daily_marks')->update(['absent_periods'=>json_encode($normalized['absent_periods'])]);
+    $repeat=attendancePreview($this,[$row]);
+    expect(DB::table('attendance_import_rows')->where('batch_id',$repeat)->value('outcome'))->toBe('duplicate')
+        ->and(DB::table('attendance_daily_marks')->count())->toBe(1);
+    $changed=$normalized['absent_periods'];$changed[0]['ends_at']='08:49';
+    expect(App\Services\AttendanceImportPeriods::sameSnapshots($changed,$normalized['absent_periods']))->toBeFalse();
+});
+
+it('recognizes full day nursery kindergarten and primary short grade separators',function(){
+    attendancePeriodSetup();DB::table('tb_student_enrollment')->where('id',1)->update(['session_id'=>3]);
+    DB::table('schedule_periods')->where('id',1)->update(['full_day_grades'=>'["N","K1","K2","6"]']);
+    foreach(['N-','K1-','K2-','6-'] as $i=>$grade){
+        DB::table('tb_grade')->where('id',12)->update(['grade_short_name'=>$grade]);
+        $row=attendanceSource('2025-10-'.(13+$i));$row[4]='08:00-08:50 AM';$row[7]='';
+        $id=attendancePreview($this,[$row]);
+        expect(DB::table('attendance_import_rows')->where('batch_id',$id)->value('outcome'))->toBe('pending');
+        $this->service->confirm($this->admin,$id);
+    }
+    expect(DB::table('attendance_daily_marks')->count())->toBe(4);
+});
+
 it('reviews unmatched partial invalid or ambiguous times while honoring explicit session counts',function(){
     attendancePeriodSetup();$rows=[];
     foreach(['08:10-08:50 AM','07:00-07:50 AM','8:00','25:00-26:00','09:50-08:00 AM',''] as $i=>$time){$row=attendanceSource('2025-10-'.(13+$i));$row[4]=$time;$row[7]='';$rows[]=$row;}

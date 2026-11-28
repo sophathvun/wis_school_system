@@ -117,7 +117,7 @@ class AttendanceTransfer
     private function same($mark, array $row): bool
     {
         return (int)$mark->enrollment_id===(int)$row['enrollment_id']&&$mark->status===$row['status']&&(int)$mark->missed_sessions===$row['missed_sessions']&&trim((string)$mark->remarks)===trim((string)$row['remarks'])
-            && (empty($row['absent_periods']) || json_decode($mark->absent_periods??'[]',true)===$row['absent_periods']);
+            && (empty($row['absent_periods']) || AttendanceImportPeriods::sameSnapshots(json_decode($mark->absent_periods??'[]',true)?:[],$row['absent_periods']));
     }
 
     private function scheduledLeave(array $row): bool
@@ -148,7 +148,7 @@ class AttendanceTransfer
                 if($valid && !empty($row['auto_periods'])){
                     try{
                         $periodCache=[];$periods=app(AttendanceImportPeriods::class)->resolve($enrollment,$row['source_time_period'],$periodCache);
-                        if($periods!==$row['absent_periods'])throw new \InvalidArgumentException('Configured periods changed.');
+                        if(!AttendanceImportPeriods::sameSnapshots($periods,$row['absent_periods']))throw new \InvalidArgumentException('Configured periods changed.');
                     }catch(\InvalidArgumentException $e){
                         DB::table('attendance_import_rows')->where('id',$record->id)->update(['outcome'=>'review','reason'=>'Period settings or study group changed after preview. Preview the file again.']);continue;
                     }
