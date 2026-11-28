@@ -90,7 +90,7 @@ class AttendanceTransfer
         if(!$e->class_id)throw new \InvalidArgumentException('The enrollment has no class.');
         $missed=$row['missed_sessions']??'';
         if($missed!==''&&(!ctype_digit($missed)||(int)$missed>99))throw new \InvalidArgumentException('Missed sessions must be a whole number from 0 to 99.');
-        $periods=[];$automatic=$missed==='' && in_array($status,['EX','UX'],true);
+        $periods=[];$automatic=$missed==='' && in_array($status,['EX','UX','T'],true);
         if($automatic){
             if(blank($row['time_period']??null))throw new \InvalidArgumentException('Enter time_period to calculate missed sessions, or enter missed_sessions explicitly.');
             $periods=app(AttendanceImportPeriods::class)->resolve($e,$row['time_period'],$cache);

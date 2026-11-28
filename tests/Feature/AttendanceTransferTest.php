@@ -55,14 +55,43 @@ it('infers one or multiple missed sessions from complete periods and preserves s
     $again=attendancePreview($this,[$one]);expect(DB::table('attendance_import_rows')->where('batch_id',$again)->value('outcome'))->toBe('duplicate');
 });
 
-it('supports abbreviated PM and 24 hour ranges without converting tardiness into a missed session',function(){
+it('supports abbreviated PM and 24 hour ranges for absence and tardiness while present stays zero',function(){
     attendancePeriodSetup();DB::table('tb_student_enrollment')->where('id',1)->update(['session_id'=>2]);
     $rows=[];foreach(['01:00-01:50 p','13:00-13:50','1:00 p.m.-1:50 p.m.'] as $i=>$time){$row=attendanceSource('2025-10-'.(13+$i));$row[4]=$time;$row[7]='';$rows[]=$row;}
-    $late=attendanceSource('2025-10-16','T');$late[7]='';$rows[]=$late;
+    $late=attendanceSource('2025-10-16','T');$late[4]='01:00-01:50 pm';$late[7]='';$rows[]=$late;
     $present=$late;$present[2]='2025-10-17';$present[3]='P';$rows[]=$present;
     $id=attendancePreview($this,$rows);$this->service->confirm($this->admin,$id);
-    expect(DB::table('attendance_daily_marks')->orderBy('attendance_date')->pluck('missed_sessions')->all())->toBe([1,1,1,0,0]);
-    expect(DB::table('attendance_daily_marks')->where('status','T')->value('absent_periods'))->toBe('[]');
+    expect(DB::table('attendance_daily_marks')->orderBy('attendance_date')->pluck('missed_sessions')->all())->toBe([1,1,1,1,0]);
+    expect(json_decode(DB::table('attendance_daily_marks')->where('status','T')->value('absent_periods'),true)[0]['id'])->toBe(3);
+});
+
+it('calculates multiple tardy sessions preserves T and skips identical reimports',function(){
+    attendancePeriodSetup();$row=attendanceSource('2025-10-13','T');$row[4]='08:00-09:50 AM';$row[7]='';
+    $id=attendancePreview($this,[$row]);
+    $data=app(AttendanceTransferController::class)->inspect(g12Request($this->admin),$id)->getData(true);
+    expect($data['rows']['data'][0]['missed_sessions'])->toBe(2)->and($data['rows']['data'][0]['auto_periods'])->toBeTrue();
+    $this->service->confirm($this->admin,$id);
+    $mark=DB::table('attendance_daily_marks')->first();
+    expect($mark->status)->toBe('T')->and($mark->missed_sessions)->toBe(2)
+        ->and(array_column(json_decode($mark->absent_periods,true),'id'))->toBe([1,2]);
+    $again=attendancePreview($this,[$row]);
+    expect(DB::table('attendance_import_rows')->where('batch_id',$again)->value('outcome'))->toBe('duplicate');
+    // Earlier tardy imports are never silently rewritten when the calculation policy changes.
+    DB::table('attendance_daily_marks')->where('id',$mark->id)->update(['missed_sessions'=>0,'absent_periods'=>'[]']);
+    $conflict=attendancePreview($this,[$row]);$this->service->confirm($this->admin,$conflict);
+    expect(DB::table('attendance_import_rows')->where('batch_id',$conflict)->value('outcome'))->toBe('review')
+        ->and(DB::table('attendance_daily_marks')->value('missed_sessions'))->toBe(0);
+});
+
+it('reviews unmatched or missing tardy periods and honors explicit zero and manual counts',function(){
+    attendancePeriodSetup();$rows=[];
+    foreach([['08:10-08:50 AM',''],['',''],['old custom period','0'],['08:00-08:50 AM','3']] as $i=>[$time,$missed]){
+        $row=attendanceSource('2025-10-'.(13+$i),'T');$row[4]=$time;$row[7]=$missed;$rows[]=$row;
+    }
+    $id=attendancePreview($this,$rows);$this->service->confirm($this->admin,$id);
+    expect(DB::table('attendance_import_rows')->where('batch_id',$id)->where('outcome','review')->count())->toBe(2)
+        ->and(DB::table('attendance_daily_marks')->orderBy('attendance_date')->pluck('missed_sessions')->all())->toBe([0,3])
+        ->and(DB::table('attendance_daily_marks')->pluck('status')->all())->toBe(['T','T']);
 });
 
 it('confirms and recognizes duplicates when MySQL JSON reorders snapshot keys',function(){
